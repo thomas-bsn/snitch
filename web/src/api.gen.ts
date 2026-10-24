@@ -79,6 +79,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
+    /** @description Après installation uniquement (409 setup_required sinon). Crée toujours un utilisateur ordinaire, sans session : 201 pending si approbation requise (valeur initiale), active sinon. Le nom est unique sans distinction de casse (409 username_unavailable). Limites Unicode du schéma Credentials ; propriétés supplémentaires, dont code et role, interdites (400). */
     post: operations["register"];
     delete?: never;
     options?: never;
@@ -191,6 +192,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
+    /** @description Administrateurs uniquement. Liste persistée des inscriptions non approuvées, ordonnée par identifiant ; tableau vide si aucune demande. */
     get: operations["pendingUsers"];
     put?: never;
     post?: never;
@@ -209,6 +211,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
+    /** @description Administrateurs uniquement, session, origine et CSRF requis. Approuve un compte en attente sans changer son rôle ; 400 invalid_id si identifiant invalide, 404 not_pending si absent ou déjà approuvé. */
     post: operations["approveUser"];
     delete?: never;
     options?: never;
@@ -262,6 +265,7 @@ export interface components {
     SettingsInput: {
       client_id: string;
       client_secret?: string;
+      /** @description Booléen obligatoire et non nul. Politique commune aux nouvelles inscriptions locales et Discord, sans approbation rétroactive des comptes déjà en attente. */
       registration_approval: boolean;
     };
     Redirect: {

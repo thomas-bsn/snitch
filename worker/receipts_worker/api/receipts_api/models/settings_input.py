@@ -24,7 +24,8 @@ class SettingsInput:
     """ 
         Attributes:
             client_id (str):
-            registration_approval (bool):
+            registration_approval (bool): Booléen obligatoire et non nul. Politique commune aux nouvelles inscriptions
+                locales et Discord, sans approbation rétroactive des comptes déjà en attente.
             client_secret (str | Unset):
      """
 
