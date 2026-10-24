@@ -6,6 +6,7 @@ La phase 2 est implémentée sur `integration/phase-2`. La validation utilisateu
 
 - File durable PostgreSQL avec planification idempotente par clip/étape/version, priorité, états et interface administrateur pour créer, filtrer et consulter les tâches.
 - Worker Python autonome qui se connecte uniquement par HTTPS sortant. Les jetons dédiés sont montrés une seule fois, stockés hachés, révocables et limités aux routes worker.
+- Les workers annoncent les étapes qu’ils savent exécuter ; le worker factice ne réclame que `fixture.*`, et les étapes futures restent en attente. L’administration distingue workers en ligne (heartbeat récent), absents et révoqués.
 - Acquisition atomique, capacité limitée, leases renouvelés, jeton par lease, récupération après expiration et rejet des opérations d’un ancien lease même si le même worker reprend le job.
 - Résultats transactionnels/idempotents, rejet des versions d’entrée obsolètes et invalidation ciblée d’étape.
 - Retry exponentiel borné, état dead, historique d’exécution, relance administrateur, annulation, pause/reprise des acquisitions et parallélisme global borné par les capacités worker.
@@ -19,6 +20,7 @@ Le fournisseur livré est factice : il vérifie le parcours worker et retourne d
 - `RECEIPTS_E2E=1 bash scripts/test.sh` : Go avec race detector, PostgreSQL/pgvector via Testcontainers et onze suites Playwright réussis.
 - `go vet ./...`, format Go, lint/build web, tests Python du worker, `scripts/check_generated.py` et `scripts/check_compose.py` réussis.
 - Build smoke local de l’image worker et `pip check` réussis ; tests HTTPS utilisent un certificat de test approuvé et vérifient le rejet d’un certificat non approuvé.
+- Revue finale standards/spec effectuée ; aucun écart documenté restant. Le fournisseur factice n’accède pas aux médias et les étapes non prises en charge ne sont pas louées.
 
 ## Restant et écarts
 
