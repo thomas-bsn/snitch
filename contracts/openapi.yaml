@@ -987,6 +987,7 @@
           "visibility": {"type": "string", "enum": ["private", "shared"]},
           "enabled": {"type": "boolean"},
           "health": {"type": "string", "enum": ["ready", "unavailable", "warning"]},
+          "health_message": {"type": "string"},
           "last_scan_at": {"type": "string", "format": "date-time", "nullable": true}
         }
       },
@@ -1012,6 +1013,7 @@
           "name": {"type": "string"},
           "relative_path": {"type": "string"},
           "status": {"type": "string", "enum": ["waiting_stability", "ready", "unreadable", "missing"]},
+          "clip_id": {"type": "integer", "format": "int64", "nullable": true},
           "error_code": {"type": "string"},
           "size_bytes": {"type": "integer", "format": "int64", "minimum": 0},
           "modified_at": {"type": "string", "format": "date-time"},

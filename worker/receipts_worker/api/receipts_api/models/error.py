@@ -20,7 +20,7 @@ T = TypeVar("T", bound="Error")
 
 @_attrs_define
 class Error:
-    """ 
+    """
         Attributes:
             error (str):
      """

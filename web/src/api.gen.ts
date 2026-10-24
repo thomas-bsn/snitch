@@ -355,6 +355,7 @@ export interface components {
       enabled: boolean;
       /** @enum {string} */
       health: "ready" | "unavailable" | "warning";
+      health_message?: string;
       /** Format: date-time */
       last_scan_at?: string | null;
     };
@@ -370,6 +371,8 @@ export interface components {
       relative_path: string;
       /** @enum {string} */
       status: "waiting_stability" | "ready" | "unreadable" | "missing";
+      /** Format: int64 */
+      clip_id?: number | null;
       error_code?: string;
       /** Format: int64 */
       size_bytes: number;

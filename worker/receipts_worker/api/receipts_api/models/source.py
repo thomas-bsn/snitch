@@ -33,6 +33,7 @@ class Source:
             visibility (SourceVisibility):
             enabled (bool):
             health (SourceHealth):
+            health_message (str | Unset):
             last_scan_at (datetime.datetime | None | Unset):
      """
 
@@ -42,6 +43,7 @@ class Source:
     visibility: SourceVisibility
     enabled: bool
     health: SourceHealth
+    health_message: str | Unset = UNSET
     last_scan_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -62,6 +64,8 @@ class Source:
 
         health = self.health.value
 
+        health_message = self.health_message
+
         last_scan_at: None | str | Unset
         if isinstance(self.last_scan_at, Unset):
             last_scan_at = UNSET
@@ -81,6 +85,8 @@ class Source:
             "enabled": enabled,
             "health": health,
         })
+        if health_message is not UNSET:
+            field_dict["health_message"] = health_message
         if last_scan_at is not UNSET:
             field_dict["last_scan_at"] = last_scan_at
 
@@ -109,6 +115,8 @@ class Source:
 
 
 
+        health_message = d.pop("health_message", UNSET)
+
         def _parse_last_scan_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -136,6 +144,7 @@ class Source:
             visibility=visibility,
             enabled=enabled,
             health=health,
+            health_message=health_message,
             last_scan_at=last_scan_at,
         )
 

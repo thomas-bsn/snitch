@@ -20,7 +20,7 @@ T = TypeVar("T", bound="Bootstrap")
 
 @_attrs_define
 class Bootstrap:
-    """ 
+    """
         Attributes:
             username (str):
             password (str):
@@ -71,4 +71,3 @@ class Bootstrap:
         )
 
         return bootstrap
-

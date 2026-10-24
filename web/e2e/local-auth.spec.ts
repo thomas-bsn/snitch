@@ -20,7 +20,7 @@ test("installer sans Discord, refuser un code invalide et retrouver sa session",
     page.getByText("Discord est facultatif.", { exact: false }),
   ).toBeVisible();
   await expect(
-    page.getByText("Dossiers : phase 1", { exact: true }),
+    page.getByRole("heading", { name: "Sources dossier" }),
   ).toBeVisible();
   await expect(
     page.getByText("Worker : phase 2", { exact: true }),

@@ -24,9 +24,9 @@ def _get_kwargs(
 
 
 
-    
 
-    
+
+
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -70,7 +70,7 @@ def sync_detailed(
     origin: str,
 
 ) -> Response[Error | Redirect]:
-    """ 
+    """
     Args:
         origin (str):
 
@@ -100,7 +100,7 @@ def sync(
     origin: str,
 
 ) -> Error | Redirect | None:
-    """ 
+    """
     Args:
         origin (str):
 
@@ -125,7 +125,7 @@ async def asyncio_detailed(
     origin: str,
 
 ) -> Response[Error | Redirect]:
-    """ 
+    """
     Args:
         origin (str):
 
@@ -155,7 +155,7 @@ async def asyncio(
     origin: str,
 
 ) -> Error | Redirect | None:
-    """ 
+    """
     Args:
         origin (str):
 

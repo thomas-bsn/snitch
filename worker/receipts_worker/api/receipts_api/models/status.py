@@ -20,7 +20,7 @@ T = TypeVar("T", bound="Status")
 
 @_attrs_define
 class Status:
-    """ 
+    """
         Attributes:
             status (str):
      """

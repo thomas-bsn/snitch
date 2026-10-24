@@ -21,7 +21,7 @@ T = TypeVar("T", bound="SettingsInput")
 
 @_attrs_define
 class SettingsInput:
-    """ 
+    """
         Attributes:
             client_id (str): Required application identifier. Empty disables Discord and removes the stored secret.
                 Whitespace-only values are rejected; saving does not verify credentials with Discord.
@@ -76,4 +76,3 @@ class SettingsInput:
         )
 
         return settings_input
-
