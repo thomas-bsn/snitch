@@ -49,9 +49,9 @@ type credentials struct {
 	Password string `json:"password"`
 }
 type DiscordSettings struct {
-	ClientID             *string `json:"client_id"`
-	ClientSecret         string  `json:"client_secret,omitempty"`
-	RegistrationApproval *bool   `json:"registration_approval"`
+	ClientID             *string         `json:"client_id"`
+	ClientSecret         json.RawMessage `json:"client_secret,omitempty"`
+	RegistrationApproval *bool           `json:"registration_approval"`
 }
 
 func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
@@ -162,15 +162,14 @@ func fmtError(err error) string {
 func (s *Server) cookie(w http.ResponseWriter, name, value string, age int) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", HttpOnly: true, Secure: s.Config.Secure, SameSite: http.SameSiteLaxMode, MaxAge: age})
 }
-func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, id int64) bool {
+func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, id int64) error {
 	token, csrf := auth.Token(), auth.Token()
 	_, err := s.Pool.Exec(r.Context(), `INSERT INTO sessions(token_hash,user_id,csrf,expires_at) VALUES($1,$2,$3,now()+interval '7 days')`, auth.Hash(token), id, csrf)
 	if err != nil {
-		s.internal(w, err)
-		return false
+		return err
 	}
 	s.cookie(w, "receipts_session", token, 7*86400)
-	return true
+	return nil
 }
 func (s *Server) findSession(r *http.Request) (session, error) {
 	var ss session
@@ -308,7 +307,9 @@ func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	if s.issueSession(w, r, id) {
+	if err := s.issueSession(w, r, id); err != nil {
+		s.internal(w, err)
+	} else {
 		reply(w, 201, map[string]string{"status": "created"})
 	}
 }
@@ -338,7 +339,9 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		fail(w, 401, "invalid_credentials_or_pending")
 		return
 	}
-	if s.issueSession(w, r, id) {
+	if err := s.issueSession(w, r, id); err != nil {
+		s.internal(w, err)
+	} else {
 		reply(w, 200, map[string]string{"status": "ok"})
 	}
 }
@@ -449,11 +452,20 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &c) {
 		return
 	}
-	if c.RegistrationApproval == nil || c.ClientID == nil || utf8.RuneCountInString(*c.ClientID) > 128 || utf8.RuneCountInString(c.ClientSecret) > 2048 {
+	secret := ""
+	if c.ClientSecret != nil {
+		var value *string
+		if err := json.Unmarshal(c.ClientSecret, &value); err != nil || value == nil {
+			fail(w, 400, "invalid_request")
+			return
+		}
+		secret = *value
+	}
+	if c.RegistrationApproval == nil || c.ClientID == nil || utf8.RuneCountInString(*c.ClientID) > 128 || utf8.RuneCountInString(secret) > 2048 {
 		fail(w, 400, "invalid_request")
 		return
 	}
-	if (*c.ClientID != "" && strings.TrimSpace(*c.ClientID) == "") || (c.ClientSecret != "" && strings.TrimSpace(c.ClientSecret) == "") {
+	if (*c.ClientID != "" && strings.TrimSpace(*c.ClientID) == "") || (secret != "" && strings.TrimSpace(secret) == "") {
 		fail(w, 400, "discord_credentials_invalid")
 		return
 	}
@@ -468,39 +480,28 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	if *c.ClientID != "" && c.ClientSecret == "" {
-		var encrypted []byte
-		err := tx.QueryRow(r.Context(), `SELECT value FROM settings WHERE key='discord_client_secret'`).Scan(&encrypted)
-		secret := ""
-		if err == nil {
-			secret, err = auth.Open(s.Config.MasterKey, "discord_client_secret", encrypted)
-		} else if errors.Is(err, pgx.ErrNoRows) {
-			err = nil
-		}
+	store := s.Store.WithTx(tx)
+	if *c.ClientID != "" && secret == "" {
+		storedSecret, err := store.Get(r.Context(), "discord_client_secret")
 		if err != nil {
 			s.internal(w, err)
 			return
 		}
-		if secret == "" {
+		if storedSecret == "" {
 			fail(w, 400, "discord_secret_required")
 			return
 		}
 	}
 	values := map[string]string{"discord_client_id": *c.ClientID}
-	if c.ClientSecret != "" {
-		values["discord_client_secret"] = c.ClientSecret
+	if secret != "" {
+		values["discord_client_secret"] = secret
 	}
 	if *c.ClientID == "" {
 		values["discord_client_secret"] = ""
 	}
 	for name, value := range values {
-		encrypted, e := auth.Seal(s.Config.MasterKey, name, value)
-		if e != nil {
-			s.internal(w, e)
-			return
-		}
-		if _, e = tx.Exec(r.Context(), `INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`, name, encrypted); e != nil {
-			s.internal(w, e)
+		if err := store.Set(r.Context(), name, value); err != nil {
+			s.internal(w, err)
 			return
 		}
 	}
@@ -590,12 +591,12 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := s.Store.Get(r.Context(), "discord_client_id")
 	if err != nil {
-		s.internal(w, err)
+		s.oauthInternal(w, r, err)
 		return
 	}
 	secret, err := s.Store.Get(r.Context(), "discord_client_secret")
 	if err != nil {
-		s.internal(w, err)
+		s.oauthInternal(w, r, err)
 		return
 	}
 	form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {id}, "client_secret": {secret}, "redirect_uri": {s.Config.PublicURL + "/api/auth/discord/callback"}}
@@ -653,13 +654,13 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	} else {
 		tx, e := s.Pool.Begin(r.Context())
 		if e != nil {
-			s.internal(w, e)
+			s.oauthInternal(w, r, e)
 			return
 		}
 		defer tx.Rollback(r.Context())
 		var approval bool
 		if e = tx.QueryRow(r.Context(), `SELECT registration_approval FROM installation WHERE id=1 FOR SHARE`).Scan(&approval); e != nil {
-			s.internal(w, e)
+			s.oauthInternal(w, r, e)
 			return
 		}
 		var uid int64
@@ -673,18 +674,19 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 			e = tx.QueryRow(r.Context(), `INSERT INTO users(username,role,approved,discord_id) VALUES($1,'user',$2,$3) ON CONFLICT (discord_id) DO UPDATE SET discord_id=EXCLUDED.discord_id RETURNING id,approved`, "discord_"+auth.Token(), !approval, identity.ID).Scan(&uid, &approved)
 		}
 		if e != nil {
-			s.internal(w, e)
+			s.oauthInternal(w, r, e)
 			return
 		}
 		if e = tx.Commit(r.Context()); e != nil {
-			s.internal(w, e)
+			s.oauthInternal(w, r, e)
 			return
 		}
 		if !approved {
 			http.Redirect(w, r, "/?notice=pending", http.StatusSeeOther)
 			return
 		}
-		if !s.issueSession(w, r, uid) {
+		if err := s.issueSession(w, r, uid); err != nil {
+			s.oauthInternal(w, r, err)
 			return
 		}
 	}
@@ -698,4 +700,9 @@ func (s *Server) oauthFailure(w http.ResponseWriter, r *http.Request, status int
 		return
 	}
 	fail(w, status, code)
+}
+
+func (s *Server) oauthInternal(w http.ResponseWriter, r *http.Request, err error) {
+	s.Log.Error("database operation failed", "kind", fmtError(err))
+	s.oauthFailure(w, r, 503, "unavailable")
 }

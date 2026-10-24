@@ -129,6 +129,7 @@ func testDiscordSettings(t *testing.T, pool *pgxpool.Pool) {
 		if value, err := auth.Open(s.Config.MasterKey, "discord_client_secret", ciphertext); err != nil || value != "fixture-discord-secret" {
 			t.Fatal("stored secret cannot be recovered with external master key", err)
 		}
+		call(t, "PUT", "/api/admin/settings", `{"client_id":"updated-app","client_secret":null,"registration_approval":false}`, session.CSRF, 400)
 		for _, secretField := range []string{"", `,"client_secret":""`} {
 			call(t, "PUT", "/api/admin/settings", `{"client_id":"updated-app","registration_approval":true`+secretField+`}`, session.CSRF, 200)
 			if value, err := s.Store.Get(context.Background(), "discord_client_secret"); err != nil || value != "fixture-discord-secret" {
@@ -148,6 +149,25 @@ func testDiscordSettings(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatal("disabled configuration advertised")
 		}
 		call(t, "PUT", "/api/admin/settings", `{"client_id":"updated-app","registration_approval":true}`, session.CSRF, 400)
+	})
+	t.Run("a failed policy update rolls encrypted settings back atomically", func(t *testing.T) {
+		call(t, "PUT", "/api/admin/settings", `{"client_id":"fixture-app","client_secret":"fixture-discord-secret","registration_approval":true}`, session.CSRF, 200)
+		if _, err := pool.Exec(context.Background(), `ALTER TABLE installation ADD CONSTRAINT fixture_policy_failure CHECK (registration_approval) NOT VALID`); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if _, err := pool.Exec(context.Background(), `ALTER TABLE installation DROP CONSTRAINT fixture_policy_failure`); err != nil {
+				t.Error(err)
+			}
+		}()
+		call(t, "PUT", "/api/admin/settings", `{"client_id":"updated-app","client_secret":"replacement-secret","registration_approval":false}`, session.CSRF, 503)
+		body := call(t, "GET", "/api/admin/settings", "", "", 200)
+		if !bytes.Contains(body, []byte(`"client_id":"fixture-app"`)) || !bytes.Contains(body, []byte(`"registration_approval":true`)) {
+			t.Fatalf("failed update changed settings: %s", body)
+		}
+		if value, err := s.Store.Get(context.Background(), "discord_client_secret"); err != nil || value != "fixture-discord-secret" {
+			t.Fatal("failed update replaced secret", err)
+		}
 	})
 	t.Run("failed authenticated decryption is refused by the settings API", func(t *testing.T) {
 		for _, damage := range []string{"tamper", "wrong key"} {

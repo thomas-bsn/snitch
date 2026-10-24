@@ -10,10 +10,17 @@ Le ticket #7 ajoute le contrat de distribution Forgeyard à quatre services, les
 
 Le mot de passe de la fixture contient `:@/?#%+` et un espace. Il fonctionne pour le job goose/pgx et le pool app : une URL sans composante mot de passe laisse pgx utiliser `PGPASSWORD`. Sources vérifiées : pgx v5.10.0 `pgconn/config.go` lit les variables d’environnement puis superpose uniquement les champs présents de l’URL ; `stdlib/sql.go` appelle ParseConfig ; goose v3.28.0 `db.go` utilise ce pilote via sql.Open. L’ancienne interpolation directe dans l’URL échouait au smoke ; la correction passe sans imposer de restriction artificielle au mot de passe.
 
+## Corrections de revue
+
+La revue finale a relevé un retour JSON brut lors d’une panne interne du callback OAuth en navigation HTML. Les erreurs de lecture/déchiffrement des réglages, de transaction et de création de session reviennent désormais vers une notice française de la SPA ; les clients API conservent JSON/503 et les logs restent expurgés. Des fixtures couvrent le déchiffrement impossible après consommation du state et le refus d’écriture d’une session.
+
+Le magasin de réglages est réutilisé dans la transaction du contrôleur : chiffrement et UPSERT ont un propriétaire unique, sans connexion supplémentaire ni changement des verrous et de l’atomicité de la politique d’inscription. Un échec de mise à jour de politique vérifie le rollback des réglages. `client_secret:null` est refusé conformément au contrat ; omission et chaîne vide conservent le secret existant.
+
 ## Vérifications
 
 - Format Go, go vet, format frontend et build TypeScript/Vite ; génération Go/TypeScript/Python/sqlc identique octet pour octet.
 - Tests Go avec race detector et vrai PostgreSQL/pgvector Testcontainers, contrat HTTP, concurrence, sécurité, migrations, binaire et arrêt ; cinq suites navigateur avec vraie API et Discord simulé.
+- Validation statique du workflow avec actionlint v1.7.7 ; aucune exécution distante.
 - 23 fixtures négatives Forgeyard : options interdites, montage hôte/anonyme, volume externe, exposition supplémentaire, job en boucle, dépendances et santé invalides.
 - Builds locaux app et worker arm64 et cross-compilation du binaire Go Linux/amd64 ; `pip check`, commande du squelette worker et présence des textes de licences vérifiés dans les images (24 fichiers app, 26 worker).
 - Smoke Compose isolé : installation vierge réelle par HTTP, nom configurable, SPA, absence de modèle, disponibilité après arrêt d’embed, persistance après redémarrage, sortie 0 sur SIGTERM ; projet séparé où une commande de migration volontairement invalide bloque l’API et ne redémarre pas. Les projets et leurs volumes sont supprimés après test. Les logs de bootstrap et secrets ne sont pas conservés dans les résultats.
@@ -29,13 +36,13 @@ Les valeurs Docker stats sont le working set de conteneur selon Docker (traiteme
 | Service | Mémoire idle min–max (MiB) | `image ls` | `image inspect .Size` (octets) |
 | --- | ---: | ---: | ---: |
 | app arm64 `snitch-smoke:local` | 34,82–34,85 | 30,5 MB | 8 635 471 |
-| PostgreSQL/pgvector arm64 | 29,27–31,83 | 660 MB | 159 402 643 |
+| PostgreSQL/pgvector arm64 | 31,00–33,64 | 660 MB | 159 402 643 |
 | Ollama arm64 sans modèle | 11,06–11,06 | 7,08 GB | 2 818 184 304 |
 | worker squelette arm64, non démarré sur NAS | non mesurée | 229 MB | 49 298 190 |
 
-Total des services idle observés : environ 75,15–77,74 MiB ; ce chiffre n’inclut ni VM/daemon, ni processus de build, ni pic Argon2. Le rejeu de migration terminé réussit avec un pic cgroup v2 `memory.peak` de 3 801 088 octets (~3,63 MiB), mesuré dans un conteneur temporaire, pas via stats après sa sortie. Le pic de migration initiale n’a pas été capturé. Volumes : PostgreSQL 47 944 KiB, Ollama 28 KiB sans fichier modèle. Le worker n’est qu’un contrat sans modèles/CUDA.
+Total des services idle observés : environ 76,85–79,98 MiB ; ce chiffre n’inclut ni VM/daemon, ni processus de build, ni pic Argon2. Le rejeu de migration terminé réussit avec un pic cgroup v2 `memory.peak` de 4 108 288 octets (~3,92 MiB), mesuré dans un conteneur temporaire, pas via stats après sa sortie. Le pic de migration initiale n’a pas été capturé. Volumes : PostgreSQL 47 944 KiB, Ollama 28 KiB sans fichier modèle. Le worker n’est qu’un contrat sans modèles/CUDA.
 
-[Relevés expurgés et protocole](measurements/phase-0-arm64.json). App construit : `sha256:65e38712f77d0561ee0e65eccd414c5df67b3181ffbd02092d213061b491383e` ; worker : `sha256:ad5de75a157cca431ffb107af62b3ce667daad90e6a096b35a04bc1c4ab884c7`. Ce sont des images locales, sans référence GHCR publiée.
+[Relevés expurgés et protocole](measurements/phase-0-arm64.json). App construit : `sha256:750a3833d88098a4994a538d85279fced46aac000bc19f800366f083039505db` ; worker : `sha256:ad5de75a157cca431ffb107af62b3ce667daad90e6a096b35a04bc1c4ab884c7`. Ce sont des images locales, sans référence GHCR publiée.
 
 Les références amont exactes sont dans [upstream-images.json](../deploy/upstream-images.json). Les tailles `docker image ls` et `docker image inspect .Size` sont rapportées séparément : avec le stockage containerd, elles diffèrent et ne représentent pas le même agrégat. Les couches partagées empêchent de sommer ces chiffres comme espace unique ; ni transfert réseau registry ni espace alloué au disque VM n’ont été mesurés. Les volumes sont mesurés séparément par `du -sk` dans leur service.
 
