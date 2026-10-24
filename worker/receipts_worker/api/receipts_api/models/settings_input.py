@@ -23,9 +23,11 @@ T = TypeVar("T", bound="SettingsInput")
 class SettingsInput:
     """ 
         Attributes:
-            client_id (str):
+            client_id (str): Required application identifier. Empty disables Discord and removes the stored secret.
+                Whitespace-only values are rejected; saving does not verify credentials with Discord.
             registration_approval (bool):
-            client_secret (str | Unset):
+            client_secret (str | Unset): Write-only application secret. Omit or send an empty string to retain the current
+                secret. Enabling Discord requires a new or existing nonempty secret; whitespace-only values are rejected.
      """
 
     client_id: str

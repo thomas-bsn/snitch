@@ -23,7 +23,7 @@ class Settings:
     """ 
         Attributes:
             client_id (str):
-            secret_configured (bool):
+            secret_configured (bool): Whether a nonempty secret is stored. The secret itself is never returned.
             registration_approval (bool):
      """
 

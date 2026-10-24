@@ -250,17 +250,21 @@ export interface components {
     Setup: {
       initialized: boolean;
       display_name: string;
+      /** @description True only when both the Discord application identifier and its authenticated encrypted secret are available. */
       discord_enabled: boolean;
       phase: number;
       deferred_steps: string[];
     };
     Settings: {
       client_id: string;
+      /** @description Whether a nonempty secret is stored. The secret itself is never returned. */
       secret_configured: boolean;
       registration_approval: boolean;
     };
     SettingsInput: {
+      /** @description Required application identifier. Empty disables Discord and removes the stored secret. Whitespace-only values are rejected; saving does not verify credentials with Discord. */
       client_id: string;
+      /** @description Write-only application secret. Omit or send an empty string to retain the current secret. Enabling Discord requires a new or existing nonempty secret; whitespace-only values are rejected. */
       client_secret?: string;
       registration_approval: boolean;
     };
