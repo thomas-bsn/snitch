@@ -146,6 +146,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)
 	})
+	t.Run("job retry and cancellation", func(t *testing.T) {
+		reset(t)
+		testJobRetryOperations(t, pool)
+	})
+	t.Run("job pause and concurrency controls", func(t *testing.T) {
+		reset(t)
+		testJobControls(t, pool)
+	})
 	t.Run("worker authentication and registration", func(t *testing.T) {
 		reset(t)
 		testWorkerRegistration(t, pool)
@@ -462,7 +470,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "workers.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -480,6 +488,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("RECEIPTS_E2E_WORKERS") == "1" {
 			suites = []string{"workers.spec.ts"}
+		}
+		if os.Getenv("RECEIPTS_E2E_CONTROLS") == "1" {
+			suites = []string{"queue-controls.spec.ts"}
 		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {

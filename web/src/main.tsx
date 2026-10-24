@@ -15,6 +15,7 @@ type SourceWithFiles = Source & { files: SourceFile[] };
 type Upload = components["schemas"]["Upload"];
 type Clip = components["schemas"]["Clip"];
 type Job = components["schemas"]["Job"];
+type JobEvent = components["schemas"]["JobEvent"];
 type JobControls = components["schemas"]["JobControls"];
 type Worker = components["schemas"]["Worker"];
 const messages: Record<string, string> = {
@@ -45,6 +46,8 @@ const messages: Record<string, string> = {
     "L’identifiant et le secret Discord ne peuvent pas contenir uniquement des espaces.",
   forbidden: "Accès réservé aux administrateurs.",
   csrf_rejected: "Session expirée. Rechargez la page.",
+  job_not_dead: "Seules les tâches mortes peuvent être relancées.",
+  job_not_cancellable: "Cette tâche ne peut plus être annulée.",
 };
 function checked<T>(result: { data?: T; error?: { error: string } }): T {
   if (result.error)
@@ -70,6 +73,7 @@ function App() {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobHistory, setJobHistory] = useState<Record<number, JobEvent[]>>({});
   const [jobControls, setJobControls] = useState<JobControls>({
     paused: false,
     max_concurrency: 1,
@@ -80,7 +84,15 @@ function App() {
   const [jobPage, setJobPage] = useState(1);
   const [jobTotal, setJobTotal] = useState(0);
   const [jobFilters, setJobFilters] = useState({
-    status: "" as "" | "pending" | "leased" | "done" | "failed",
+    status: "" as
+      | ""
+      | "pending"
+      | "leased"
+      | "done"
+      | "failed"
+      | "retry_wait"
+      | "cancelled"
+      | "dead",
     clip_id: "",
     step: "",
   });
@@ -207,6 +219,7 @@ function App() {
           step: String(data.get("step")),
           input_version: String(data.get("input_version")),
           priority: Number(data.get("priority")),
+          max_attempts: Number(data.get("max_attempts")),
         },
       });
       checked(result);
@@ -217,6 +230,38 @@ function App() {
           ? "Tâche planifiée."
           : "Cette étape et cette version sont déjà dans la file.",
       );
+    });
+  }
+  async function loadJobHistory(job: Job) {
+    await run(async () => {
+      const result = checked(
+        await api.GET("/api/admin/jobs/{id}/history", {
+          params: { path: { id: job.id } },
+        }),
+      );
+      setJobHistory({ ...jobHistory, [job.id]: result.items });
+    });
+  }
+  async function relaunchJob(job: Job) {
+    await run(async () => {
+      checked(
+        await api.POST("/api/admin/jobs/{id}/retry", {
+          params: { path: { id: job.id }, header: csrf },
+        }),
+      );
+      await refreshJobs(jobPage);
+      setNotice(`Tâche ${job.id} relancée.`);
+    });
+  }
+  async function cancelJob(job: Job) {
+    await run(async () => {
+      checkedNoContent(
+        await api.DELETE("/api/admin/jobs/{id}", {
+          params: { path: { id: job.id }, header: csrf },
+        }),
+      );
+      await refreshJobs(jobPage);
+      setNotice(`Tâche ${job.id} annulée.`);
     });
   }
   async function registerWorker(event: React.FormEvent<HTMLFormElement>) {
@@ -1142,6 +1187,17 @@ function App() {
                     defaultValue="0"
                   />
                 </label>
+                <label>
+                  Nombre maximal de tentatives
+                  <input
+                    name="max_attempts"
+                    type="number"
+                    min="1"
+                    max="20"
+                    defaultValue="3"
+                    required
+                  />
+                </label>
                 <button disabled={busy}>Planifier l’étape</button>
               </form>
               <form onSubmit={filterJobs}>
@@ -1161,6 +1217,9 @@ function App() {
                     <option value="leased">Louée</option>
                     <option value="done">Terminée</option>
                     <option value="failed">Échouée</option>
+                    <option value="retry_wait">Nouvel essai différé</option>
+                    <option value="dead">Épuisée</option>
+                    <option value="cancelled">Annulée</option>
                   </select>
                 </label>
                 <label>
@@ -1199,13 +1258,61 @@ function App() {
                       <strong>{job.step}</strong>
                       <p>
                         Tâche {job.id} · clip {job.clip_id} · {job.status} ·
-                        priorité {job.priority} · tentatives {job.attempts}/
-                        {job.max_attempts}
+                        priorité {job.priority} · cycle {job.cycle} · tentatives{" "}
+                        {job.attempts}/{job.max_attempts}
                       </p>
                       <p className="hint">
                         Version {job.input_version} · créée{" "}
                         {new Date(job.created_at).toLocaleString("fr-FR")}
+                        {job.status === "retry_wait" &&
+                          ` · prochain essai ${new Date(job.next_attempt_at).toLocaleString("fr-FR")}`}
+                        {job.last_error && ` · erreur ${job.last_error}`}
                       </p>
+                      <div className="toolbar">
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() => loadJobHistory(job)}
+                        >
+                          Historique
+                        </button>
+                        {job.status === "dead" && (
+                          <button
+                            disabled={busy}
+                            onClick={() => relaunchJob(job)}
+                          >
+                            Relancer
+                          </button>
+                        )}
+                        {["pending", "retry_wait", "leased"].includes(
+                          job.status,
+                        ) && (
+                          <button
+                            className="secondary"
+                            disabled={busy}
+                            onClick={() => cancelJob(job)}
+                          >
+                            Annuler
+                          </button>
+                        )}
+                      </div>
+                      {jobHistory[job.id] && (
+                        <ul aria-label={`Historique de la tâche ${job.id}`}>
+                          {jobHistory[job.id].map((event) => (
+                            <li key={event.id}>
+                              {event.event} · cycle {event.cycle}
+                              {event.attempt
+                                ? ` · tentative ${event.attempt}`
+                                : ""}
+                              {event.error_code ? ` · ${event.error_code}` : ""}{" "}
+                              ·{" "}
+                              {new Date(event.created_at).toLocaleString(
+                                "fr-FR",
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                       {job.result && (
                         <pre aria-label={`Résultat de la tâche ${job.id}`}>
                           {JSON.stringify(job.result, null, 2)}

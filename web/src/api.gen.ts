@@ -302,19 +302,52 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/admin/job-controls": {
+  "/api/admin/jobs/{id}/history": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs uniquement. */
-    get: operations["getJobControls"];
-    /** @description Administrateurs uniquement. La concurrence globale est bornée à 1–4. */
-    put: operations["updateJobControls"];
+    /** @description Administrateurs uniquement. Les messages et chemins fournis par le worker sont expurgés. */
+    get: operations["getJobHistory"];
+    put?: never;
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/jobs/{id}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. L’historique d’essais est conservé. */
+    post: operations["relaunchJob"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/jobs/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Une tâche annulée garde son historique et ne peut plus accepter de résultat worker. */
+    delete: operations["cancelJob"];
     options?: never;
     head?: never;
     patch?: never;
@@ -586,6 +619,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/job-controls": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. */
+    get: operations["getJobControls"];
+    /** @description Administrateurs uniquement. La concurrence globale est bornée à 1–4. */
+    put: operations["updateJobControls"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -693,7 +744,14 @@ export interface components {
       step: string;
       input_version: string;
       /** @enum {string} */
-      status: "pending" | "leased" | "done" | "failed";
+      status:
+        | "pending"
+        | "leased"
+        | "done"
+        | "failed"
+        | "retry_wait"
+        | "cancelled"
+        | "dead";
       priority: number;
       attempts: number;
       max_attempts: number;
@@ -710,6 +768,7 @@ export interface components {
       result?: {
         [key: string]: unknown;
       } | null;
+      cycle: number;
     };
     JobInput: {
       /** Format: int64 */
@@ -718,6 +777,8 @@ export interface components {
       input_version: string;
       /** @default 0 */
       priority: number;
+      /** @default 3 */
+      max_attempts: number;
     };
     JobPage: {
       items: components["schemas"]["Job"][];
@@ -726,15 +787,29 @@ export interface components {
       /** Format: int64 */
       total: number;
     };
-    JobControls: {
-      paused: boolean;
-      max_concurrency: number;
+    JobEvent: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      event:
+        | "attempt_started"
+        | "retry_scheduled"
+        | "marked_dead"
+        | "admin_relaunched"
+        | "cancelled"
+        | "completed"
+        | "lease_expired";
+      cycle: number;
+      attempt: number | null;
+      /** @enum {string} */
+      actor: "admin" | "worker" | "system";
+      actor_id: string;
+      error_code: string;
       /** Format: date-time */
-      updated_at: string;
+      created_at: string;
     };
-    JobControlsInput: {
-      paused: boolean;
-      max_concurrency: number;
+    JobHistory: {
+      items: components["schemas"]["JobEvent"][];
     };
     Worker: {
       id: string;
@@ -883,6 +958,16 @@ export interface components {
       page: number;
       page_size: number;
       total: number;
+    };
+    JobControls: {
+      paused: boolean;
+      max_concurrency: number;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    JobControlsInput: {
+      paused: boolean;
+      max_concurrency: number;
     };
   };
   responses: never;
@@ -1611,7 +1696,14 @@ export interface operations {
   listJobs: {
     parameters: {
       query?: {
-        status?: "pending" | "leased" | "done" | "failed";
+        status?:
+          | "pending"
+          | "leased"
+          | "done"
+          | "failed"
+          | "retry_wait"
+          | "cancelled"
+          | "dead";
         clip_id?: number;
         step?: string;
         page?: number;
@@ -1688,25 +1780,27 @@ export interface operations {
       };
     };
   };
-  getJobControls: {
+  getJobHistory: {
     parameters: {
       query?: never;
       header?: never;
-      path?: never;
+      path: {
+        id: number;
+      };
       cookie?: never;
     };
     requestBody?: never;
     responses: {
-      /** @description État global de pause et plafond de concurrence */
+      /** @description Historique expurgé des tentatives et actions */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["JobControls"];
+          "application/json": components["schemas"]["JobHistory"];
         };
       };
-      /** @description Error (401 session required, 403 admin required, 503 unavailable) */
+      /** @description Tâche introuvable ou accès refusé */
       default: {
         headers: {
           [name: string]: unknown;
@@ -1717,32 +1811,62 @@ export interface operations {
       };
     };
   };
-  updateJobControls: {
+  relaunchJob: {
     parameters: {
       query?: never;
       header: {
         Origin: string;
         "X-CSRF-Token": string;
       };
-      path?: never;
+      path: {
+        id: number;
+      };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["JobControlsInput"];
-      };
-    };
+    requestBody?: never;
     responses: {
-      /** @description Contrôles de file enregistrés */
+      /** @description Tâche dead remise en attente avec nouvel essai */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["JobControls"];
+          "application/json": components["schemas"]["Job"];
         };
       };
-      /** @description Error (400 invalid controls, 401 session required, 403 admin/origin/CSRF required, 503 unavailable) */
+      /** @description Tâche introuvable ou non relançable */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelJob: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Tâche annulée */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Tâche introuvable ou non annulable */
       default: {
         headers: {
           [name: string]: unknown;
@@ -2396,6 +2520,71 @@ export interface operations {
         content?: never;
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getJobControls: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État global de pause et plafond de concurrence */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobControls"];
+        };
+      };
+      /** @description Error (401 session required, 403 admin required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateJobControls: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["JobControlsInput"];
+      };
+    };
+    responses: {
+      /** @description Contrôles de file enregistrés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobControls"];
+        };
+      };
+      /** @description Error (400 invalid controls, 401 session required, 403 admin/origin/CSRF required, 503 unavailable) */
       default: {
         headers: {
           [name: string]: unknown;

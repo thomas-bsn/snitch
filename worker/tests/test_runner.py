@@ -207,6 +207,7 @@ class FakeProviderTests(unittest.TestCase):
             "priority": 0,
             "attempts": 1,
             "max_attempts": 3,
+            "cycle": 1,
             "lease_owner": "wk_synthetic",
             "lease_expires_at": "2026-10-24T10:00:00Z",
             "next_attempt_at": "2026-10-24T10:00:00Z",

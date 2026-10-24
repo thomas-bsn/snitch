@@ -52,11 +52,12 @@ func (s *Server) scheduleJob(w http.ResponseWriter, r *http.Request) {
 		Step         string `json:"step"`
 		InputVersion string `json:"input_version"`
 		Priority     int    `json:"priority"`
+		MaxAttempts  int    `json:"max_attempts"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	job, created, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: input.ClipID, Step: input.Step, InputVersion: input.InputVersion, Priority: input.Priority})
+	job, created, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: input.ClipID, Step: input.Step, InputVersion: input.InputVersion, Priority: input.Priority, MaxAttempts: input.MaxAttempts})
 	switch {
 	case errors.Is(err, jobs.ErrInvalidInput):
 		fail(w, http.StatusBadRequest, "invalid_job")

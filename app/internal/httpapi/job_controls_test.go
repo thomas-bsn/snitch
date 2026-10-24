@@ -109,7 +109,7 @@ func testJobControls(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	for i := 1; i <= 4; i++ {
-		call(adminClient, http.MethodPost, "/api/admin/jobs", map[string]any{"clip_id": clipID, "step": "fixture.control", "input_version": string(rune('0' + i)), "priority": 5 - i}, "", "", http.StatusCreated)
+		call(adminClient, http.MethodPost, "/api/admin/jobs", map[string]any{"clip_id": clipID, "step": "fixture.control" + string(rune('a'+i-1)), "input_version": string(rune('0' + i)), "priority": 5 - i}, "", "", http.StatusCreated)
 	}
 	var workerTokens []string
 	for _, name := range []string{"control-worker-a", "control-worker-b"} {
