@@ -892,7 +892,7 @@ function App() {
                 <button disabled={busy}>Rechercher</button>
               </form>
               {searchResults.length > 0 && <><p role="status">{searchTotal} résultat{searchTotal > 1 ? "s" : ""} · page {searchPage}</p><ol className="search-results">{searchResults.map((item, index) => <li key={`${item.clip_id}-${item.timestamp}-${index}`}>
-                <strong>{item.clip_name}</strong> · {new Date(item.recorded_at).toLocaleDateString("fr-FR")} · {item.visibility === "shared" ? "Partagé" : "Privé"} · {item.match_type === "exact" ? "Correspondance exacte" : "Plein texte"}
+                <strong>{item.clip_name}</strong> · {new Date(item.recorded_at).toLocaleDateString("fr-FR")} · {item.visibility === "shared" ? "Partagé" : "Privé"} · {item.match_type === "exact" ? "Correspondance exacte" : item.match_type === "approximate" ? "Correspondance approximative" : "Plein texte"}
                 <p>{highlighted(item.context, item.matched_text)}</p>
                 <button className="secondary" disabled={item.status !== "ready"} onClick={() => setSearchPlayback(item)}>Ouvrir à {formatTimecode(item.timestamp)}</button>
               </li>)}</ol><div className="toolbar"><button className="secondary" disabled={busy || searchPage <= 1} onClick={() => run(() => runSearch(searchPage - 1))}>Précédente</button><span>Page {searchPage} · {searchTotal} résultats</span><button className="secondary" disabled={busy || searchPage * 10 >= searchTotal} onClick={() => run(() => runSearch(searchPage + 1))}>Suivante</button></div></>}

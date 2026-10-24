@@ -2913,7 +2913,7 @@
     "/api/search": {
       "get": {
         "operationId": "searchTranscripts",
-        "description": "Recherche exacte ou plein texte insensible à la casse et aux accents français. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué.",
+        "description": "Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué.",
         "parameters": [
           {
             "in": "query",
@@ -4552,7 +4552,8 @@
             "type": "string",
             "enum": [
               "exact",
-              "full_text"
+              "full_text",
+              "approximate"
             ]
           },
           "context": {

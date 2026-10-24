@@ -284,10 +284,11 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	var search struct {
 		Total int `json:"total"`
 		Items []struct {
-			MatchType string  `json:"match_type"`
-			ClipID    int64   `json:"clip_id"`
-			Timestamp float64 `json:"timestamp"`
-			Context   string  `json:"context"`
+			MatchType   string  `json:"match_type"`
+			ClipID      int64   `json:"clip_id"`
+			Timestamp   float64 `json:"timestamp"`
+			Context     string  `json:"context"`
+			MatchedText string  `json:"matched_text"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=JOUE&mode=exact&page=1&page_size=10", nil, "", http.StatusOK), &search); err != nil {
@@ -295,6 +296,32 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if search.Total != 1 || len(search.Items) != 1 || search.Items[0].ClipID != completed.ClipID || search.Items[0].Timestamp != 1.55 || search.Items[0].MatchType != "exact" || !strings.Contains(search.Items[0].Context, "joué") {
 		t.Fatalf("accent/case tolerant exact search returned unexpected results: %+v", search)
+	}
+	// Approximate matching is a secondary tier. It recovers a nearby French
+	// transcription typo while retaining the word-level timestamp and scope.
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=jouee&mode=full_text&page=1&page_size=10", nil, "", http.StatusOK), &search); err != nil {
+		t.Fatal(err)
+	}
+	if search.Total != 1 || len(search.Items) != 1 || search.Items[0].ClipID != completed.ClipID || search.Items[0].Timestamp != 1.55 || search.Items[0].MatchType != "approximate" || search.Items[0].MatchedText != "joué" || !strings.Contains(search.Items[0].Context, "joué") {
+		t.Fatalf("approximate French search returned unexpected result or lost its excerpt/timecode: %+v", search)
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=zzzqqq&mode=full_text&page=1&page_size=10", nil, "", http.StatusOK), &search); err != nil {
+		t.Fatal(err)
+	}
+	if search.Total != 0 || len(search.Items) != 0 {
+		t.Fatalf("unrelated query produced approximate matches: %+v", search)
+	}
+	// Keep all three result tiers in the same SQL response and assert their
+	// precedence independently of clip dates and identifiers.
+	_, err = pool.Exec(context.Background(), `UPDATE jobs SET result=$1::jsonb WHERE clip_id=$2 AND status='done' AND step LIKE 'transcription.audio.%'`, `{"segments":[{"start":1,"text":"Jouee !","words":[{"word":"Jouee","start":1}]},{"start":2,"text":"On dit jouee ici","words":[{"word":"ici","start":2}]},{"start":3,"text":"Joues !","words":[{"word":"Joues","start":3}]}]}`, completed.ClipID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=jouee&mode=full_text&page=1&page_size=10", nil, "", http.StatusOK), &search); err != nil {
+		t.Fatal(err)
+	}
+	if search.Total != 3 || len(search.Items) != 3 || search.Items[0].MatchType != "exact" || search.Items[1].MatchType != "full_text" || search.Items[2].MatchType != "approximate" || search.Items[0].Timestamp != 1 || search.Items[1].Timestamp != 2 || search.Items[2].Timestamp != 3 {
+		t.Fatalf("search results did not rank exact, full-text, then approximate matches: %+v", search)
 	}
 	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/vocabulary", map[string]any{"term": "Final Fantasy XIV", "variants": []string{"FFXIV", "Final Fantasy 14"}, "preferred_spelling": "FFXIV", "active": true}, session.CSRF, http.StatusCreated), &term); err != nil {
 		t.Fatal(err)
