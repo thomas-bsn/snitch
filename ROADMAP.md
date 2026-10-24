@@ -5,8 +5,8 @@ Receipts indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a di
 ## État actuel
 
 - Phase 0 : implémentée et vérifiée localement ; [bilan et mesures](docs/phase-0-report.md) disponibles. Les issues #1 à #7 sont fermées. La CI distante, publication et validation NAS ne sont pas exécutées.
-- Phase 1 : [spec publiée dans l'issue GitHub #8](https://github.com/thomas-bsn/snitch/issues/8) et disponible dans [docs/specs/phase-1.md](docs/specs/phase-1.md) ; coutures de test validées. L'implémentation attend la validation utilisateur de cette spec.
-- Phases 1 à 7 : non implémentées.
+- Phase 1 : implémentée et vérifiée localement ; [bilan](docs/phase-1-report.md) disponible. La validation utilisateur de fin de phase est attendue.
+- Phases 2 à 7 : non implémentées.
 - Aucun média réel traité, aucun déploiement effectué, aucun code ni image publié. Le dépôt public et le suivi des issues existent sur GitHub.
 
 ## Règles de progression
