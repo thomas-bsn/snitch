@@ -26,6 +26,13 @@ type Clip struct {
 	ContentSha256       []byte             `json:"content_sha256"`
 }
 
+type ClipAudioTrackOverride struct {
+	ClipID           int64              `json:"clip_id"`
+	AudioStreamIndex int32              `json:"audio_stream_index"`
+	Version          int64              `json:"version"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ClipSource struct {
 	ID             int64              `json:"id"`
 	Name           string             `json:"name"`
@@ -107,6 +114,13 @@ type Session struct {
 type Setting struct {
 	Key   string `json:"key"`
 	Value []byte `json:"value"`
+}
+
+type SourceAudioTrackRule struct {
+	SourceID  int64              `json:"source_id"`
+	Rule      []byte             `json:"rule"`
+	Version   int64              `json:"version"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type SourceFile struct {

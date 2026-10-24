@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,13 +24,17 @@ import (
 
 func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	sourceRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(sourceRoot, "source-clip.mp4"), []byte("synthetic-source-multipiste-video"), 0o400); err != nil {
+		t.Fatal(err)
+	}
 	code, err := setup.Issue(context.Background(), pool)
 	if err != nil {
 		t.Fatal(err)
 	}
 	api := New(pool, config.Config{
 		MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts",
-		ProbePath: syntheticProbeFixture(t), UploadRoot: t.TempDir(), UploadMaxBytes: 1024,
+		ProbePath: syntheticProbeFixture(t), ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024,
 		UploadChunkBytes: 1024, UploadSessionTTL: time.Hour,
 	}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	if err := api.Start(context.Background()); err != nil {
@@ -112,16 +118,39 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	var clip struct {
 		Tracks []struct {
-			Index int    `json:"index"`
-			Type  string `json:"type"`
-			Title string `json:"title"`
+			Index         int    `json:"index"`
+			Type          string `json:"type"`
+			Title         string `json:"title"`
+			Language      string `json:"language"`
+			Channels      int    `json:"channels"`
+			ChannelLayout string `json:"channel_layout"`
 		} `json:"tracks"`
 	}
 	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(completed.ClipID), nil, "", http.StatusOK), &clip); err != nil {
 		t.Fatal(err)
 	}
-	if len(clip.Tracks) != 3 || clip.Tracks[2].Index != 2 || clip.Tracks[2].Type != "audio" || clip.Tracks[2].Title != "Voix" {
+	if len(clip.Tracks) != 3 || clip.Tracks[2].Index != 2 || clip.Tracks[2].Type != "audio" || clip.Tracks[2].Title != "Voix" || clip.Tracks[2].Language != "fra" || clip.Tracks[2].Channels != 2 || clip.Tracks[2].ChannelLayout != "stereo" {
 		t.Fatalf("clip track indexes and metadata are not selectable: %+v", clip.Tracks)
+	}
+	var selection struct {
+		AudioTrackSelection struct {
+			Status           string `json:"status"`
+			AudioStreamIndex *int   `json:"audio_stream_index"`
+		} `json:"audio_track_selection"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(completed.ClipID), nil, "", http.StatusOK), &selection); err != nil {
+		t.Fatal(err)
+	}
+	if selection.AudioTrackSelection.Status != "selection_required" {
+		t.Fatalf("ambiguous multitrack clip must require selection: %+v", selection.AudioTrackSelection)
+	}
+	call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(completed.ClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusConflict)
+	call(admin, http.MethodPut, "/api/admin/clips/"+strconv64(completed.ClipID)+"/audio-track", map[string]int{"audio_stream_index": 2}, session.CSRF, http.StatusOK)
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(completed.ClipID), nil, "", http.StatusOK), &selection); err != nil {
+		t.Fatal(err)
+	}
+	if selection.AudioTrackSelection.Status != "selected" || selection.AudioTrackSelection.AudioStreamIndex == nil || *selection.AudioTrackSelection.AudioStreamIndex != 2 {
+		t.Fatalf("clip override was not exposed: %+v", selection.AudioTrackSelection)
 	}
 	var scheduled struct {
 		Job struct {
@@ -130,7 +159,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 			InputVersion string `json:"input_version"`
 		} `json:"job"`
 	}
-	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(completed.ClipID)+"/transcription", map[string]int{"audio_stream_index": 2}, session.CSRF, http.StatusCreated), &scheduled); err != nil {
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(completed.ClipID)+"/transcription", map[string]int{"audio_stream_index": 2}, session.CSRF, http.StatusOK), &scheduled); err != nil {
 		t.Fatal(err)
 	}
 	if scheduled.Job.ID < 1 || scheduled.Job.Step != "transcription.audio.2" || scheduled.Job.InputVersion == "" {
@@ -238,5 +267,84 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if detail.Transcription.Segments == nil || len(detail.Transcription.Segments) != 0 {
 		t.Fatalf("empty transcript was not persisted as success: %+v", detail.Transcription)
+	}
+	var createdSource struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/sources", map[string]string{"name": "synthetic-multitrack-source", "path": sourceRoot}, session.CSRF, http.StatusCreated), &createdSource); err != nil {
+		t.Fatal(err)
+	}
+	var sourceClipID int64
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		var files struct {
+			Items []struct {
+				ClipID *int64 `json:"clip_id"`
+				Status string `json:"status"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/sources/"+strconv64(createdSource.ID)+"/files", nil, "", http.StatusOK), &files); err != nil {
+			t.Fatal(err)
+		}
+		for _, file := range files.Items {
+			if file.Status == "ready" && file.ClipID != nil {
+				sourceClipID = *file.ClipID
+			}
+		}
+		if sourceClipID > 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if sourceClipID == 0 {
+		t.Fatal("synthetic source clip was not discovered")
+	}
+	title := "Voix"
+	var ruleResult struct {
+		Version int64 `json:"version"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": title}, session.CSRF, http.StatusOK), &ruleResult); err != nil {
+		t.Fatal(err)
+	}
+	var sourceSelection struct {
+		AudioTrackSelection struct {
+			Status           string `json:"status"`
+			AudioStreamIndex *int   `json:"audio_stream_index"`
+			SelectionSource  string `json:"selection_source"`
+			RuleVersion      int64  `json:"rule_version"`
+		} `json:"audio_track_selection"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(sourceClipID), nil, "", http.StatusOK), &sourceSelection); err != nil {
+		t.Fatal(err)
+	}
+	if ruleResult.Version != 1 || sourceSelection.AudioTrackSelection.Status != "selected" || sourceSelection.AudioTrackSelection.AudioStreamIndex == nil || *sourceSelection.AudioTrackSelection.AudioStreamIndex != 2 || sourceSelection.AudioTrackSelection.SelectionSource != "source_rule" || sourceSelection.AudioTrackSelection.RuleVersion != 1 {
+		t.Fatalf("source rule did not resolve the synthetic track: %+v, version %d", sourceSelection.AudioTrackSelection, ruleResult.Version)
+	}
+	var sourceTask struct {
+		Job struct {
+			Step         string `json:"step"`
+			InputVersion string `json:"input_version"`
+		} `json:"job"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(sourceClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusOK), &sourceTask); err != nil {
+		t.Fatal(err)
+	}
+	if sourceTask.Job.Step != "transcription.audio.2" || sourceTask.Job.InputVersion != "transcription-v2-audio-2-rule-1" {
+		t.Fatalf("source policy version not included in targeted task: %+v", sourceTask.Job)
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": "Micro"}, session.CSRF, http.StatusOK), &ruleResult); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(sourceClipID), nil, "", http.StatusOK), &sourceSelection); err != nil {
+		t.Fatal(err)
+	}
+	if sourceSelection.AudioTrackSelection.AudioStreamIndex == nil || *sourceSelection.AudioTrackSelection.AudioStreamIndex != 1 || sourceSelection.AudioTrackSelection.RuleVersion != 2 {
+		t.Fatalf("updated source rule did not resolve its new track/version: %+v", sourceSelection.AudioTrackSelection)
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(sourceClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusOK), &sourceTask); err != nil {
+		t.Fatal(err)
+	}
+	if sourceTask.Job.Step != "transcription.audio.1" || sourceTask.Job.InputVersion != "transcription-v2-audio-1-rule-2" {
+		t.Fatalf("updated source rule did not create a targeted transcription version: %+v", sourceTask.Job)
 	}
 }

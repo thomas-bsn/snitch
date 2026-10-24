@@ -30,6 +30,8 @@ class MediaTrack:
             language (str | Unset):
             width (int | Unset):
             height (int | Unset):
+            channels (int | Unset):
+            channel_layout (str | Unset):
      """
 
     index: int
@@ -39,6 +41,8 @@ class MediaTrack:
     language: str | Unset = UNSET
     width: int | Unset = UNSET
     height: int | Unset = UNSET
+    channels: int | Unset = UNSET
+    channel_layout: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -60,6 +64,10 @@ class MediaTrack:
 
         height = self.height
 
+        channels = self.channels
+
+        channel_layout = self.channel_layout
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -76,6 +84,10 @@ class MediaTrack:
             field_dict["width"] = width
         if height is not UNSET:
             field_dict["height"] = height
+        if channels is not UNSET:
+            field_dict["channels"] = channels
+        if channel_layout is not UNSET:
+            field_dict["channel_layout"] = channel_layout
 
         return field_dict
 
@@ -98,6 +110,10 @@ class MediaTrack:
 
         height = d.pop("height", UNSET)
 
+        channels = d.pop("channels", UNSET)
+
+        channel_layout = d.pop("channel_layout", UNSET)
+
         media_track = cls(
             index=index,
             type_=type_,
@@ -106,6 +122,8 @@ class MediaTrack:
             language=language,
             width=width,
             height=height,
+            channels=channels,
+            channel_layout=channel_layout,
         )
 
 

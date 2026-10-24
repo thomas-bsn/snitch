@@ -65,13 +65,15 @@ type Source struct {
 }
 
 type Track struct {
-	Index    int    `json:"index"`
-	Type     string `json:"type"`
-	Codec    string `json:"codec"`
-	Title    string `json:"title,omitempty"`
-	Language string `json:"language,omitempty"`
-	Width    int    `json:"width,omitempty"`
-	Height   int    `json:"height,omitempty"`
+	Index         int    `json:"index"`
+	Type          string `json:"type"`
+	Codec         string `json:"codec"`
+	Title         string `json:"title,omitempty"`
+	Language      string `json:"language,omitempty"`
+	Width         int    `json:"width,omitempty"`
+	Height        int    `json:"height,omitempty"`
+	Channels      int    `json:"channels,omitempty"`
+	ChannelLayout string `json:"channel_layout,omitempty"`
 }
 
 type File struct {
@@ -99,12 +101,14 @@ type probeResult struct {
 		Tags       map[string]string `json:"tags"`
 	} `json:"format"`
 	Streams []struct {
-		Index  int               `json:"index"`
-		Type   string            `json:"codec_type"`
-		Codec  string            `json:"codec_name"`
-		Width  int               `json:"width"`
-		Height int               `json:"height"`
-		Tags   map[string]string `json:"tags"`
+		Index         int               `json:"index"`
+		Type          string            `json:"codec_type"`
+		Codec         string            `json:"codec_name"`
+		Width         int               `json:"width"`
+		Height        int               `json:"height"`
+		Channels      int               `json:"channels"`
+		ChannelLayout string            `json:"channel_layout"`
+		Tags          map[string]string `json:"tags"`
 	} `json:"streams"`
 }
 
@@ -704,7 +708,7 @@ func (s *Service) probe(ctx context.Context, path string, modified time.Time) (M
 	defer cancel()
 	cmd := exec.CommandContext(probeCtx, s.config.ProbePath,
 		"-v", "error", "-protocol_whitelist", "file,pipe",
-		"-show_entries", "format=duration,format_name:format_tags=creation_time:stream=index,codec_type,codec_name,width,height:stream_tags=title,language",
+		"-show_entries", "format=duration,format_name:format_tags=creation_time:stream=index,codec_type,codec_name,width,height,channels,channel_layout:stream_tags=title,language",
 		"-of", "json", path,
 	)
 	output := &cappedBuffer{max: 1 << 20}
@@ -728,7 +732,7 @@ func (s *Service) probe(ctx context.Context, path string, modified time.Time) (M
 		metadata.Duration = &duration
 	}
 	for _, stream := range result.Streams {
-		track := Track{Index: stream.Index, Type: stream.Type, Codec: stream.Codec, Title: tag(stream.Tags, "title"), Language: tag(stream.Tags, "language"), Width: stream.Width, Height: stream.Height}
+		track := Track{Index: stream.Index, Type: stream.Type, Codec: stream.Codec, Title: tag(stream.Tags, "title"), Language: tag(stream.Tags, "language"), Width: stream.Width, Height: stream.Height, Channels: stream.Channels, ChannelLayout: stream.ChannelLayout}
 		metadata.Tracks = append(metadata.Tracks, track)
 		switch stream.Type {
 		case "video":
