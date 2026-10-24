@@ -130,6 +130,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testFolderSources(t, pool)
 	})
+	t.Run("source reconciliation", func(t *testing.T) {
+		reset(t)
+		testSourceReconciliation(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
 		clipRoot := t.TempDir()
@@ -209,6 +213,24 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/setup", map[string]string{"code": "wrong", "username": "administrator", "password": "synthetic-password"}, "", 409)
 		call(client, "POST", "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, "", 201)
 		call(client, "POST", "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, "", 409)
+		noRoots := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Test Receipts"}, logger)
+		noRootsTS := httptest.NewServer(noRoots.Handler())
+		defer noRootsTS.Close()
+		noRootsResponse, e := client.Get(noRootsTS.URL + "/api/admin/sources")
+		if e != nil {
+			t.Fatal(e)
+		}
+		var noRootsBody struct {
+			AllowedRoots []string `json:"allowed_roots"`
+		}
+		if noRootsResponse.StatusCode != http.StatusOK || json.NewDecoder(noRootsResponse.Body).Decode(&noRootsBody) != nil {
+			noRootsResponse.Body.Close()
+			t.Fatalf("unconfigured source roots response: status %d", noRootsResponse.StatusCode)
+		}
+		noRootsResponse.Body.Close()
+		if noRootsBody.AllowedRoots == nil || len(noRootsBody.AllowedRoots) != 0 {
+			t.Fatalf("unconfigured source roots must be an empty array, got %#v", noRootsBody.AllowedRoots)
+		}
 		var me struct {
 			CSRF string `json:"csrf_token"`
 		}

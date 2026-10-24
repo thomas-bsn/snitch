@@ -20,7 +20,7 @@ T = TypeVar("T", bound="Settings")
 
 @_attrs_define
 class Settings:
-    """ 
+    """
         Attributes:
             client_id (str):
             secret_configured (bool): Whether a nonempty secret is stored. The secret itself is never returned.

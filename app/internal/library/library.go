@@ -3,6 +3,7 @@ package library
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,14 +53,15 @@ type Service struct {
 }
 
 type Source struct {
-	ID         int64      `json:"id"`
-	Name       string     `json:"name"`
-	Path       string     `json:"path"`
-	OwnerID    int64      `json:"-"`
-	Visibility string     `json:"visibility"`
-	Enabled    bool       `json:"enabled"`
-	Health     string     `json:"health"`
-	LastScan   *time.Time `json:"last_scan_at"`
+	ID            int64      `json:"id"`
+	Name          string     `json:"name"`
+	Path          string     `json:"path"`
+	OwnerID       int64      `json:"-"`
+	Visibility    string     `json:"visibility"`
+	Enabled       bool       `json:"enabled"`
+	Health        string     `json:"health"`
+	HealthMessage string     `json:"health_message,omitempty"`
+	LastScan      *time.Time `json:"last_scan_at"`
 }
 
 type Track struct {
@@ -75,6 +77,7 @@ type File struct {
 	Name                string     `json:"name"`
 	RelativePath        string     `json:"relative_path"`
 	Status              string     `json:"status"`
+	ClipID              *int64     `json:"clip_id,omitempty"`
 	ErrorCode           string     `json:"error_code,omitempty"`
 	SizeBytes           int64      `json:"size_bytes"`
 	ModifiedAt          time.Time  `json:"modified_at"`
@@ -130,7 +133,7 @@ func New(pool *pgxpool.Pool, config Config, logger interface{ Warn(string, ...an
 }
 
 func (s *Service) AllowedRoots() []string {
-	return append([]string(nil), s.config.Roots...)
+	return append([]string{}, s.config.Roots...)
 }
 
 func (s *Service) CreateSource(ctx context.Context, ownerID int64, name, path string) (Source, error) {
@@ -143,7 +146,7 @@ func (s *Service) CreateSource(ctx context.Context, ownerID int64, name, path st
 		return Source{}, err
 	}
 	var source Source
-	err = s.pool.QueryRow(ctx, `INSERT INTO clip_sources(name,root_path,owner_id) VALUES($1,$2,$3) RETURNING id,name,root_path,owner_id,visibility,enabled,health,last_scan_at`, name, absolute, ownerID).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.LastScan)
+	err = s.pool.QueryRow(ctx, `INSERT INTO clip_sources(name,root_path,owner_id) VALUES($1,$2,$3) RETURNING id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at`, name, absolute, ownerID).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan)
 	if err != nil {
 		if strings.Contains(err.Error(), "clip_sources_root_path_key") || strings.Contains(err.Error(), "clip_sources_name_key") {
 			return Source{}, ErrSourceExists
@@ -192,7 +195,7 @@ func within(root, candidate string) bool {
 }
 
 func (s *Service) ListSources(ctx context.Context) ([]Source, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,last_scan_at FROM clip_sources ORDER BY id`)
+	rows, err := s.pool.Query(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at FROM clip_sources ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +203,7 @@ func (s *Service) ListSources(ctx context.Context) ([]Source, error) {
 	sources := make([]Source, 0)
 	for rows.Next() {
 		var source Source
-		if err = rows.Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.LastScan); err != nil {
+		if err = rows.Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan); err != nil {
 			return nil, err
 		}
 		sources = append(sources, source)
@@ -210,7 +213,7 @@ func (s *Service) ListSources(ctx context.Context) ([]Source, error) {
 
 func (s *Service) GetSource(ctx context.Context, id int64) (Source, error) {
 	var source Source
-	err := s.pool.QueryRow(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,last_scan_at FROM clip_sources WHERE id=$1`, id).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.LastScan)
+	err := s.pool.QueryRow(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at FROM clip_sources WHERE id=$1`, id).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Source{}, ErrNotFound
 	}
@@ -250,7 +253,7 @@ func (s *Service) DisableSource(ctx context.Context, id int64) error {
 }
 
 func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error) {
-	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,COALESCE(sf.error_code,''),sf.size_bytes,sf.modified_at,c.discovered_at,c.recorded_at,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
+	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.size_bytes,sf.modified_at,c.discovered_at,c.recorded_at,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +263,7 @@ func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error)
 		var file File
 		var duration *float64
 		var tracks []byte
-		if err = rows.Scan(&file.RelativePath, &file.Status, &file.ErrorCode, &file.SizeBytes, &file.ModifiedAt, &file.DiscoveredAt, &file.RecordedAt, &file.RecordedAtEstimated, &duration, &file.FormatName, &file.VideoCodec, &file.AudioCodec, &tracks); err != nil {
+		if err = rows.Scan(&file.RelativePath, &file.Status, &file.ClipID, &file.ErrorCode, &file.SizeBytes, &file.ModifiedAt, &file.DiscoveredAt, &file.RecordedAt, &file.RecordedAtEstimated, &duration, &file.FormatName, &file.VideoCodec, &file.AudioCodec, &tracks); err != nil {
 			return nil, err
 		}
 		file.Name = filepath.Base(filepath.FromSlash(file.RelativePath))
@@ -497,7 +500,7 @@ func (s *Service) ScanSource(ctx context.Context, sourceID int64) error {
 	}
 	info, err := os.Stat(source.Path)
 	if err != nil || !info.IsDir() {
-		_, _ = s.pool.Exec(ctx, `UPDATE clip_sources SET health='unavailable' WHERE id=$1`, sourceID)
+		_, _ = s.pool.Exec(ctx, `UPDATE clip_sources SET health='unavailable',health_message='La source est inaccessible ; les états précédents sont conservés.' WHERE id=$1`, sourceID)
 		return ErrUnavailable
 	}
 	var generation int64
@@ -506,9 +509,11 @@ func (s *Service) ScanSource(ctx context.Context, sourceID int64) error {
 	}
 	pending := false
 	var unreadable bool
+	var incomplete bool
 	err = filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
-			return walkErr
+			incomplete = true
+			return nil
 		}
 		if path == source.Path {
 			return nil
@@ -528,7 +533,8 @@ func (s *Service) ScanSource(ctx context.Context, sourceID int64) error {
 		}
 		stat, statErr := os.Stat(path)
 		if statErr != nil {
-			return statErr
+			incomplete = true
+			return nil
 		}
 		if stat.Mode()&os.ModeSymlink != 0 || !stat.Mode().IsRegular() {
 			return nil
@@ -542,19 +548,37 @@ func (s *Service) ScanSource(ctx context.Context, sourceID int64) error {
 		return nil
 	})
 	if err != nil {
-		_, _ = s.pool.Exec(ctx, `UPDATE clip_sources SET health='warning' WHERE id=$1`, sourceID)
+		_, _ = s.pool.Exec(ctx, `UPDATE clip_sources SET health='warning',health_message='La réconciliation est incomplète ; aucun chemin n’est marqué comme disparu.' WHERE id=$1`, sourceID)
+		return err
+	}
+	if incomplete {
+		_, _ = s.pool.Exec(ctx, `UPDATE clip_sources SET health='warning',health_message='La réconciliation est partielle ; les états précédents sont conservés.' WHERE id=$1`, sourceID)
+		return nil
+	}
+	var totalFiles, missingFiles, unreadableFiles int
+	err = s.pool.QueryRow(ctx, `SELECT count(*),count(*) FILTER (WHERE status='missing' OR last_seen_generation<$2),count(*) FILTER (WHERE status='unreadable' AND last_seen_generation >= $2) FROM source_files WHERE source_id=$1`, sourceID, generation).Scan(&totalFiles, &missingFiles, &unreadableFiles)
+	if err != nil {
+		_, _ = s.pool.Exec(ctx, `UPDATE clip_sources SET health='warning',health_message='La réconciliation est incomplète ; aucun chemin n’est marqué comme disparu.' WHERE id=$1`, sourceID)
 		return err
 	}
 	_, err = s.pool.Exec(ctx, `UPDATE source_files SET status='missing',error_code=NULL WHERE source_id=$1 AND last_seen_generation<$2 AND status<>'missing'`, sourceID, generation)
 	if err != nil {
-		_, _ = s.pool.Exec(ctx, `UPDATE clip_sources SET health='warning' WHERE id=$1`, sourceID)
+		_, _ = s.pool.Exec(ctx, `UPDATE clip_sources SET health='warning',health_message='La réconciliation est incomplète ; aucun chemin n’est marqué comme disparu.' WHERE id=$1`, sourceID)
 		return err
 	}
 	health := "ready"
-	if unreadable {
+	healthMessage := ""
+	if totalFiles > 0 && float64(missingFiles)/float64(totalFiles) >= 0.2 {
 		health = "warning"
+		healthMessage = fmt.Sprintf("%d fichiers introuvables sur %d lors de la réconciliation.", missingFiles, totalFiles)
 	}
-	if _, err = s.pool.Exec(ctx, `UPDATE clip_sources SET health=$2,last_scan_at=now() WHERE id=$1`, sourceID, health); err != nil {
+	if unreadableFiles > 0 || unreadable {
+		health = "warning"
+		if healthMessage == "" {
+			healthMessage = fmt.Sprintf("%d fichier(s) illisible(s) lors de la réconciliation.", unreadableFiles)
+		}
+	}
+	if _, err = s.pool.Exec(ctx, `UPDATE clip_sources SET health=$2,health_message=$3,last_scan_at=now() WHERE id=$1`, sourceID, health, healthMessage); err != nil {
 		return err
 	}
 	if pending {
@@ -609,6 +633,16 @@ func (s *Service) observe(ctx context.Context, source Source, relativePath, abso
 		_, err = s.pool.Exec(ctx, `UPDATE source_files SET status='waiting_stability',stable_since=now(),last_seen_generation=$3 WHERE source_id=$1 AND relative_path=$2`, source.ID, relativePath, generation)
 		return true, false, err
 	}
+	contentHash, err := hashFile(ctx, absolutePath)
+	if err != nil {
+		_, updateErr := s.pool.Exec(ctx, `UPDATE source_files SET status='unreadable',error_code='video_unreadable',last_seen_generation=$3 WHERE source_id=$1 AND relative_path=$2`, source.ID, relativePath, generation)
+		return false, true, updateErr
+	}
+	latest, statErr = os.Stat(absolutePath)
+	if statErr != nil || latest.Size() != stat.Size() || !latest.ModTime().UTC().Truncate(time.Microsecond).Equal(modified) {
+		_, err = s.pool.Exec(ctx, `UPDATE source_files SET status='waiting_stability',stable_since=now(),last_seen_generation=$3 WHERE source_id=$1 AND relative_path=$2`, source.ID, relativePath, generation)
+		return true, false, err
+	}
 	tracks, err := json.Marshal(metadata.Tracks)
 	if err != nil {
 		return false, false, err
@@ -619,7 +653,7 @@ func (s *Service) observe(ctx context.Context, source Source, relativePath, abso
 	}
 	defer tx.Rollback(ctx)
 	var newClipID int64
-	err = tx.QueryRow(ctx, `INSERT INTO clips(owner_id,visibility,original_name,size_bytes,modified_at,recorded_at,recorded_at_estimated,duration_seconds,format_name,video_codec,audio_codec,tracks) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`, sourceOwnerID(source), source.Visibility, filepath.Base(absolutePath), stat.Size(), modified, metadata.RecordedAt, metadata.RecordedAtEstimated, metadata.Duration, metadata.FormatName, metadata.VideoCodec, metadata.AudioCodec, tracks).Scan(&newClipID)
+	err = tx.QueryRow(ctx, `INSERT INTO clips(owner_id,visibility,original_name,size_bytes,modified_at,recorded_at,recorded_at_estimated,duration_seconds,format_name,video_codec,audio_codec,tracks,content_sha256) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(content_sha256) DO UPDATE SET content_sha256=EXCLUDED.content_sha256 RETURNING id`, sourceOwnerID(source), source.Visibility, filepath.Base(absolutePath), stat.Size(), modified, metadata.RecordedAt, metadata.RecordedAtEstimated, metadata.Duration, metadata.FormatName, metadata.VideoCodec, metadata.AudioCodec, tracks, contentHash[:]).Scan(&newClipID)
 	if err != nil {
 		return false, false, err
 	}
@@ -691,6 +725,34 @@ func (s *Service) probe(ctx context.Context, path string, modified time.Time) (M
 		return Metadata{}, errNoVideo
 	}
 	return metadata, nil
+}
+
+func hashFile(ctx context.Context, path string) ([sha256.Size]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	defer file.Close()
+	hash := sha256.New()
+	buffer := make([]byte, 1024*1024)
+	for {
+		if err := ctx.Err(); err != nil {
+			return [sha256.Size]byte{}, err
+		}
+		count, readErr := file.Read(buffer)
+		if count > 0 {
+			_, _ = hash.Write(buffer[:count])
+		}
+		if errors.Is(readErr, io.EOF) {
+			break
+		}
+		if readErr != nil {
+			return [sha256.Size]byte{}, readErr
+		}
+	}
+	var sum [sha256.Size]byte
+	copy(sum[:], hash.Sum(nil))
+	return sum, nil
 }
 
 var (

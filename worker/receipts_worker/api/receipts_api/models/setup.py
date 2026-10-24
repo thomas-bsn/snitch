@@ -21,7 +21,7 @@ T = TypeVar("T", bound="Setup")
 
 @_attrs_define
 class Setup:
-    """ 
+    """
         Attributes:
             initialized (bool):
             display_name (str):

@@ -23,7 +23,7 @@ T = TypeVar("T", bound="Session")
 
 @_attrs_define
 class Session:
-    """ 
+    """
         Attributes:
             user (User):
             csrf_token (str):

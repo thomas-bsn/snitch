@@ -20,7 +20,7 @@ T = TypeVar("T", bound="Credentials")
 
 @_attrs_define
 class Credentials:
-    """ 
+    """
         Attributes:
             username (str):
             password (str):
@@ -63,4 +63,3 @@ class Credentials:
         )
 
         return credentials
-

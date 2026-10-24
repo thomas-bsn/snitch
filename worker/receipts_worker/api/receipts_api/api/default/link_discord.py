@@ -27,9 +27,9 @@ def _get_kwargs(
 
 
 
-    
 
-    
+
+
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -74,7 +74,7 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | Redirect]:
-    """ 
+    """
     Args:
         origin (str):
         x_csrf_token (str):
@@ -107,7 +107,7 @@ def sync(
     x_csrf_token: str,
 
 ) -> Error | Redirect | None:
-    """ 
+    """
     Args:
         origin (str):
         x_csrf_token (str):
@@ -135,7 +135,7 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | Redirect]:
-    """ 
+    """
     Args:
         origin (str):
         x_csrf_token (str):
@@ -168,7 +168,7 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> Error | Redirect | None:
-    """ 
+    """
     Args:
         origin (str):
         x_csrf_token (str):

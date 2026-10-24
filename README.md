@@ -1,6 +1,6 @@
 # Snitch / Receipts
 
-Receipts (nom d’affichage configurable) est un socle open source MIT pour une future bibliothèque de clips de jeu. La phase 0 fournit installation, comptes locaux, approbation et Discord facultatif. Ingestion, recherche et worker GPU attendent les phases suivantes. Aucun média ni modèle n’est nécessaire.
+Receipts (nom d’affichage configurable) est un socle open source MIT pour une future bibliothèque de clips de jeu. La phase 0 fournit installation, comptes locaux, approbation et Discord facultatif. La phase 1 ajoute l’enregistrement des dossiers autorisés et leur réconciliation ; recherche avancée et worker GPU restent à venir. Aucun modèle n’est nécessaire.
 
 ## Essayer localement
 
@@ -30,6 +30,8 @@ Continuer sans Discord, ou ouvrir « Accès et Discord » pour saisir les identi
 - [Déploiement Forgeyard, variables et migrations](docs/deployment.md)
 - [Développement, tests et CI](docs/development.md) · [Contribution](CONTRIBUTING.md)
 - [Sauvegarde et restauration](docs/backups.md) · [Licences des distributions](deploy/NOTICES.md)
-- [Bilan et mesures de phase 0](docs/phase-0-report.md) · [Roadmap](ROADMAP.md) · [Spec](docs/specs/phase-0.md) · [Glossaire](GLOSSARY.md)
+- [Bilan et mesures de phase 0](docs/phase-0-report.md) · [Roadmap](ROADMAP.md) · [Spec de phase 1](docs/specs/phase-1.md) · [Glossaire](GLOSSARY.md)
 
-Aucune publication d’image, aucun déploiement NAS, aucun scan de bibliothèque réelle n’a été réalisé. La [spec de phase 1](docs/specs/phase-1.md) est publiée dans [l’issue #8](https://github.com/thomas-bsn/snitch/issues/8) ; son implémentation attend la validation utilisateur. Le benchmark réel de phase 7 demande une autorisation séparée.
+Les administrateurs peuvent ajouter des dossiers sous les racines configurées. Le scan garde l’historique des emplacements disparus et évite de déclarer des fichiers manquants si un dossier est inaccessible ou si le parcours est incomplet. Une empreinte SHA-256 permet de relier le même contenu à plusieurs emplacements ; remplacer le contenu d’un chemin crée une nouvelle identité de clip. Une disparition d’au moins 20 % des fichiers suivis produit un avertissement de santé. Voir la [décision de réconciliation](docs/adr/0010-identite-et-reconciliation-des-clips.md).
+
+Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. La [spec de phase 1](docs/specs/phase-1.md) est publiée dans [l’issue #8](https://github.com/thomas-bsn/snitch/issues/8) ; d’autres tickets de phase restent à implémenter. Le benchmark réel de phase 7 demande une autorisation séparée.

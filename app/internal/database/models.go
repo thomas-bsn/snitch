@@ -23,6 +23,7 @@ type Clip struct {
 	VideoCodec          string             `json:"video_codec"`
 	AudioCodec          string             `json:"audio_codec"`
 	Tracks              []byte             `json:"tracks"`
+	ContentSha256       []byte             `json:"content_sha256"`
 }
 
 type ClipSource struct {
@@ -36,6 +37,7 @@ type ClipSource struct {
 	LastScanAt     pgtype.Timestamptz `json:"last_scan_at"`
 	ScanGeneration int64              `json:"scan_generation"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	HealthMessage  string             `json:"health_message"`
 }
 
 type Installation struct {

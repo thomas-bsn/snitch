@@ -20,7 +20,7 @@ T = TypeVar("T", bound="Redirect")
 
 @_attrs_define
 class Redirect:
-    """ 
+    """
         Attributes:
             url (str):
      """

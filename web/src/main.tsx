@@ -570,6 +570,11 @@ function App() {
                         </span>
                       </div>
                       <p className="hint">{source.path}</p>
+                      {source.health_message && (
+                        <p role="status" className="alert">
+                          {source.health_message}
+                        </p>
+                      )}
                       <p className="hint">
                         Dernière réconciliation :{" "}
                         {source.last_scan_at
