@@ -1,5 +1,10 @@
 """ Contains all the data models used in inputs/outputs """
 
+from .audio_track_override import AudioTrackOverride
+from .audio_track_rule import AudioTrackRule
+from .audio_track_rule_result import AudioTrackRuleResult
+from .audio_track_selection import AudioTrackSelection
+from .audio_track_selection_status import AudioTrackSelectionStatus
 from .bootstrap import Bootstrap
 from .clip import Clip
 from .clip_page import ClipPage
@@ -64,6 +69,11 @@ from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 
 __all__ = (
+    "AudioTrackOverride",
+    "AudioTrackRule",
+    "AudioTrackRuleResult",
+    "AudioTrackSelection",
+    "AudioTrackSelectionStatus",
     "Bootstrap",
     "Clip",
     "ClipPage",

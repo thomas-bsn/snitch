@@ -654,6 +654,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/sources/{id}/audio-track-rule": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["putSourceAudioTrackRule"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/audio-track": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["putClipAudioTrackOverride"];
+    post?: never;
+    delete: operations["deleteClipAudioTrackOverride"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -943,6 +975,8 @@ export interface components {
       language?: string;
       width?: number;
       height?: number;
+      channels?: number;
+      channel_layout?: string;
     };
     Redirect: {
       /** Format: uri */
@@ -973,6 +1007,7 @@ export interface components {
       sources?: string[];
       uploaders: string[];
       transcription?: components["schemas"]["Transcription"];
+      audio_track_selection?: components["schemas"]["AudioTrackSelection"];
     };
     ClipPage: {
       items: components["schemas"]["Clip"][];
@@ -991,7 +1026,7 @@ export interface components {
       max_concurrency: number;
     };
     TranscriptionInput: {
-      audio_stream_index: number;
+      audio_stream_index?: number;
     };
     ScheduledTranscription: {
       job: components["schemas"]["Job"];
@@ -1014,6 +1049,29 @@ export interface components {
       language?: string;
       audio_stream_index: number;
       segments: components["schemas"]["TranscriptSegment"][];
+    };
+    AudioTrackRule: {
+      title?: string;
+      language?: string;
+      channel_layout?: string;
+      channels?: number;
+      fallback_audio_stream_index?: number;
+    };
+    AudioTrackRuleResult: {
+      rule: components["schemas"]["AudioTrackRule"];
+      /** Format: int64 */
+      version: number;
+    };
+    AudioTrackOverride: {
+      audio_stream_index: number;
+    };
+    AudioTrackSelection: {
+      /** @enum {string} */
+      status: "selected" | "selection_required";
+      audio_stream_index?: number;
+      selection_source?: string;
+      /** Format: int64 */
+      rule_version?: number;
     };
   };
   responses: never;
@@ -2678,6 +2736,116 @@ export interface operations {
         };
       };
       /** @description Clip non prêt ou piste audio inconnue */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putSourceAudioTrackRule: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AudioTrackRule"];
+      };
+    };
+    responses: {
+      /** @description Règle enregistrée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioTrackRuleResult"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putClipAudioTrackOverride: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AudioTrackOverride"];
+      };
+    };
+    responses: {
+      /** @description Dérogation enregistrée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioTrackOverride"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteClipAudioTrackOverride: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Dérogation retirée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

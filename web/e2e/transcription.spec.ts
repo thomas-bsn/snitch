@@ -23,6 +23,12 @@ test("admin choisit une piste globale, planifie puis ouvre la vidéo au timestam
     "a été vérifiée et ajoutée",
   );
   await page.getByText("Détails et lecture", { exact: true }).click();
+  await expect(
+    page.getByText(
+      "Plusieurs pistes audio sont possibles. Sélectionnez celle à transcrire.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByLabel("Piste audio")).toHaveValue("");
   await page.getByLabel("Piste audio").selectOption("2");
   await page.getByRole("button", { name: "Transcrire" }).click();
   await expect(page.getByRole("status")).toContainText(

@@ -1,11 +1,10 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -86,62 +85,43 @@ func (s *Server) scheduleTranscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		AudioStreamIndex int `json:"audio_stream_index"`
+		AudioStreamIndex *int `json:"audio_stream_index"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.AudioStreamIndex < 0 {
-		fail(w, http.StatusBadRequest, "invalid_audio_stream")
+	if input.AudioStreamIndex != nil && *input.AudioStreamIndex < 0 {
+		fail(w, 400, "invalid_audio_stream")
 		return
 	}
-	var ready bool
-	var rawTracks []byte
-	err = s.Pool.QueryRow(r.Context(), `SELECT c.tracks, (EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready')) FROM clips c WHERE c.id=$1`, clipID).Scan(&rawTracks, &ready)
-	if errors.Is(err, pgx.ErrNoRows) {
-		fail(w, http.StatusNotFound, "clip_not_found")
-		return
-	}
+	job, created, err := s.scheduleResolvedTranscription(r.Context(), clipID, input.AudioStreamIndex, true)
 	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if !ready {
-		fail(w, http.StatusConflict, "clip_not_ready")
-		return
-	}
-	var tracks []struct {
-		Index int    `json:"index"`
-		Type  string `json:"type"`
-	}
-	if err := json.Unmarshal(rawTracks, &tracks); err != nil {
-		s.internal(w, err)
-		return
-	}
-	found := false
-	for _, track := range tracks {
-		if track.Index == input.AudioStreamIndex && track.Type == "audio" {
-			found = true
-			break
+		if err.Error() == "audio selection required" {
+			fail(w, http.StatusConflict, "audio_track_selection_required")
+			return
 		}
-	}
-	if !found {
-		fail(w, http.StatusBadRequest, "audio_stream_not_found")
+		if err.Error() == "audio stream not found" {
+			fail(w, 400, "audio_stream_not_found")
+			return
+		}
+		if err.Error() == "clip not ready" {
+			fail(w, http.StatusConflict, "clip_not_ready")
+			return
+		}
+		if errors.Is(err, pgx.ErrNoRows) {
+			fail(w, 404, "clip_not_found")
+			return
+		}
+		if strings.Contains(err.Error(), "audio stream") {
+			fail(w, 400, "audio_stream_not_found")
+			return
+		}
+		s.internal(w, err)
 		return
 	}
-	version := fmt.Sprintf("transcription-v1-audio-%d", input.AudioStreamIndex)
-	job, created, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: clipID, Step: fmt.Sprintf("transcription.audio.%d", input.AudioStreamIndex), InputVersion: version, MaxAttempts: 3})
-	if errors.Is(err, jobs.ErrClipNotFound) {
-		fail(w, http.StatusNotFound, "clip_not_found")
-	} else if errors.Is(err, jobs.ErrInvalidInput) {
-		fail(w, http.StatusBadRequest, "invalid_transcription")
-	} else if err != nil {
-		s.internal(w, err)
-	} else {
-		status := http.StatusOK
-		if created {
-			status = http.StatusCreated
-		}
-		reply(w, status, map[string]any{"job": job})
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
 	}
+	reply(w, status, map[string]any{"status": "scheduled", "job": job})
 }

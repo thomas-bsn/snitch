@@ -282,6 +282,12 @@ func TestFoundation(t *testing.T) {
 		if e = pool.QueryRow(ctx, `INSERT INTO clips(owner_id,original_name,size_bytes,modified_at,recorded_at) VALUES($1,'contract-synthetic.mp4',1,now(),now()) RETURNING id`, adminID).Scan(&contractClipID); e != nil {
 			t.Fatal(e)
 		}
+		_, e = pool.Exec(ctx, `UPDATE clips SET tracks=$2::jsonb WHERE id=$1`, contractClipID, `[{"index":1,"type":"audio","codec":"aac","title":"Game","language":"fra","channels":2,"channel_layout":"stereo"},{"index":2,"type":"audio","codec":"aac","title":"Voice","language":"fra","channels":2,"channel_layout":"stereo"}]`)
+		if e != nil {
+			t.Fatal(e)
+		}
+		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", map[string]int{"audio_stream_index": 2}, me.CSRF, 200)
+		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", nil, me.CSRF, 200)
 		contractJobBody := call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.synthetic", "input_version": "contract-v1"}, me.CSRF, 201)
 		var contractJob struct {
 			ID int64 `json:"id"`
@@ -356,6 +362,7 @@ func TestFoundation(t *testing.T) {
 		if e = json.Unmarshal(sourceResponse, &createdSource); e != nil || createdSource.ID == 0 {
 			t.Fatalf("source response: %v %s", e, sourceResponse)
 		}
+		call(client, "PUT", "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": "Voice"}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
 		call(client, "GET", sourcePath+"/files", nil, "", 200)
 		call(client, "POST", sourcePath+"/scan", map[string]any{}, me.CSRF, 202)

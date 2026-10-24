@@ -2493,6 +2493,189 @@
         },
         "description": "Administrateurs uniquement. La piste audio utilise son index global FFmpeg."
       }
+    },
+    "/api/admin/sources/{id}/audio-track-rule": {
+      "put": {
+        "operationId": "putSourceAudioTrackRule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioTrackRule"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Règle enregistrée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioTrackRuleResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/clips/{id}/audio-track": {
+      "put": {
+        "operationId": "putClipAudioTrackOverride",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioTrackOverride"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dérogation enregistrée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioTrackOverride"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteClipAudioTrackOverride",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dérogation retirée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3504,6 +3687,12 @@
           },
           "height": {
             "type": "integer"
+          },
+          "channels": {
+            "type": "integer"
+          },
+          "channel_layout": {
+            "type": "string"
           }
         }
       },
@@ -3610,6 +3799,9 @@
           },
           "transcription": {
             "$ref": "#/components/schemas/Transcription"
+          },
+          "audio_track_selection": {
+            "$ref": "#/components/schemas/AudioTrackSelection"
           }
         }
       },
@@ -3682,9 +3874,7 @@
       },
       "TranscriptionInput": {
         "type": "object",
-        "required": [
-          "audio_stream_index"
-        ],
+        "required": [],
         "properties": {
           "audio_stream_index": {
             "type": "integer",
@@ -3782,6 +3972,82 @@
             "items": {
               "$ref": "#/components/schemas/TranscriptSegment"
             }
+          }
+        }
+      },
+      "AudioTrackRule": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "channel_layout": {
+            "type": "string"
+          },
+          "channels": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "fallback_audio_stream_index": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AudioTrackRuleResult": {
+        "type": "object",
+        "required": [
+          "rule",
+          "version"
+        ],
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/AudioTrackRule"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AudioTrackOverride": {
+        "type": "object",
+        "required": [
+          "audio_stream_index"
+        ],
+        "properties": {
+          "audio_stream_index": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AudioTrackSelection": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "selected",
+              "selection_required"
+            ]
+          },
+          "audio_stream_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selection_source": {
+            "type": "string"
+          },
+          "rule_version": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       }

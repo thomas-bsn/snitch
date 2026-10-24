@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 
 
 
@@ -22,10 +23,10 @@ T = TypeVar("T", bound="TranscriptionInput")
 class TranscriptionInput:
     """
         Attributes:
-            audio_stream_index (int):
+            audio_stream_index (int | Unset):
      """
 
-    audio_stream_index: int
+    audio_stream_index: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -39,8 +40,9 @@ class TranscriptionInput:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
-            "audio_stream_index": audio_stream_index,
         })
+        if audio_stream_index is not UNSET:
+            field_dict["audio_stream_index"] = audio_stream_index
 
         return field_dict
 
@@ -49,7 +51,7 @@ class TranscriptionInput:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        audio_stream_index = d.pop("audio_stream_index")
+        audio_stream_index = d.pop("audio_stream_index", UNSET)
 
         transcription_input = cls(
             audio_stream_index=audio_stream_index,

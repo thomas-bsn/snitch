@@ -14,6 +14,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
+  from ..models.audio_track_selection import AudioTrackSelection
   from ..models.media_track import MediaTrack
   from ..models.transcription import Transcription
 
@@ -47,6 +48,7 @@ class Clip:
             status (str | Unset):
             sources (list[str] | Unset):
             transcription (Transcription | Unset):
+            audio_track_selection (AudioTrackSelection | Unset):
      """
 
     id: int
@@ -67,6 +69,7 @@ class Clip:
     status: str | Unset = UNSET
     sources: list[str] | Unset = UNSET
     transcription: Transcription | Unset = UNSET
+    audio_track_selection: AudioTrackSelection | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -74,6 +77,7 @@ class Clip:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         id = self.id
@@ -129,6 +133,10 @@ class Clip:
         if not isinstance(self.transcription, Unset):
             transcription = self.transcription.to_dict()
 
+        audio_track_selection: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.audio_track_selection, Unset):
+            audio_track_selection = self.audio_track_selection.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -156,6 +164,8 @@ class Clip:
             field_dict["sources"] = sources
         if transcription is not UNSET:
             field_dict["transcription"] = transcription
+        if audio_track_selection is not UNSET:
+            field_dict["audio_track_selection"] = audio_track_selection
 
         return field_dict
 
@@ -163,6 +173,7 @@ class Clip:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         d = dict(src_dict)
@@ -237,6 +248,16 @@ class Clip:
 
 
 
+        _audio_track_selection = d.pop("audio_track_selection", UNSET)
+        audio_track_selection: AudioTrackSelection | Unset
+        if isinstance(_audio_track_selection,  Unset):
+            audio_track_selection = UNSET
+        else:
+            audio_track_selection = AudioTrackSelection.from_dict(_audio_track_selection)
+
+
+
+
         clip = cls(
             id=id,
             owner_id=owner_id,
@@ -256,6 +277,7 @@ class Clip:
             status=status,
             sources=sources,
             transcription=transcription,
+            audio_track_selection=audio_track_selection,
         )
 
 

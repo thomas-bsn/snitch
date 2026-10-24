@@ -928,24 +928,26 @@ function App() {
                           aria-label={`Lecture ${clip.original_name}`}
                         />
                       )}
+                      {clipDetails[clip.id]?.audio_track_selection?.status === "selection_required" && selectedAudioTracks[clip.id] === undefined && <p role="status" className="hint">Plusieurs pistes audio sont possibles. Sélectionnez celle à transcrire.</p>}
                       {clip.status === "ready" && session.user.role === "admin" && clip.tracks.some((track) => track.type === "audio") && (
                         <div className="transcription-controls">
                           <label>
                             Piste audio
                             <select
-                              value={selectedAudioTracks[clip.id] ?? clip.tracks.find((track) => track.type === "audio")?.index ?? ""}
+                              value={selectedAudioTracks[clip.id] ?? clipDetails[clip.id]?.audio_track_selection?.audio_stream_index ?? ""}
                               onChange={(event) => setSelectedAudioTracks({ ...selectedAudioTracks, [clip.id]: Number(event.target.value) })}
                             >
+                              <option value="" disabled>Sélectionner une piste</option>
                               {clip.tracks.filter((track) => track.type === "audio").map((track) => (
-                                <option key={track.index} value={track.index}>Piste {track.index} · {track.title || track.language || track.codec}</option>
+                                <option key={track.index} value={track.index}>Piste {track.index} · {track.title || "sans titre"} · {track.language || "langue inconnue"} · {track.channel_layout || `${track.channels ?? "?"} canaux`}</option>
                               ))}
                             </select>
                           </label>
                           <button className="secondary" onClick={() => run(async () => {
-                            const response = checked(await api.POST("/api/admin/clips/{id}/transcription", {
-                              params: { path: { id: clip.id }, header: csrf },
-                              body: { audio_stream_index: selectedAudioTracks[clip.id] ?? clip.tracks.find((track) => track.type === "audio")!.index },
-                            }));
+                            const index = selectedAudioTracks[clip.id] ?? clipDetails[clip.id]?.audio_track_selection?.audio_stream_index;
+                            if (index === undefined) throw new Error("Sélectionnez explicitement une piste audio.");
+                            checked(await api.PUT("/api/admin/clips/{id}/audio-track", { params: { path: { id: clip.id }, header: csrf }, body: { audio_stream_index: index } }));
+                            const response = checked(await api.POST("/api/admin/clips/{id}/transcription", { params: { path: { id: clip.id }, header: csrf }, body: {} }));
                             setNotice(`Transcription planifiée (tâche ${response.job.id}).`);
                             await refreshJobs(1);
                           })}>Transcrire</button>
@@ -1507,6 +1509,17 @@ function App() {
                           Désactiver
                         </button>
                       )}
+                      <details className="source-track-rule">
+                        <summary>Règle de piste audio pour cette source</summary>
+                        <form onSubmit={(event) => { event.preventDefault(); const form=new FormData(event.currentTarget); void run(async()=>{ const fallback=String(form.get("fallback_audio_stream_index")||"").trim(); const channels=String(form.get("channels")||"").trim(); const body={title:String(form.get("title")||"").trim()||undefined,language:String(form.get("language")||"").trim()||undefined,channel_layout:String(form.get("channel_layout")||"").trim()||undefined,channels:channels?Number(channels):undefined,fallback_audio_stream_index:fallback?Number(fallback):undefined}; checked(await api.PUT("/api/admin/sources/{id}/audio-track-rule",{params:{path:{id:source.id},header:csrf},body})); setNotice("Règle de piste enregistrée; les clips résolus sont replanifiés."); }); }}>
+                          <label>Titre de piste exact<input name="title" placeholder="ex. Voix" /></label>
+                          <label>Langue exacte<input name="language" placeholder="ex. fra" /></label>
+                          <label>Disposition<input name="channel_layout" placeholder="ex. stereo" /></label>
+                          <label>Nombre de canaux exact<input name="channels" type="number" min="1" /></label>
+                          <label>Piste audio de repli (index global)<input name="fallback_audio_stream_index" type="number" min="0" /></label>
+                          <button className="secondary" disabled={busy}>Enregistrer la règle</button>
+                        </form>
+                      </details>
                       <ul>
                         {source.files.map((file) => (
                           <li className="source-file" key={file.relative_path}>
