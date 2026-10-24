@@ -32,4 +32,4 @@ Continuer sans Discord, ou ouvrir « Accès et Discord » pour saisir les identi
 - [Sauvegarde et restauration](docs/backups.md) · [Licences des distributions](deploy/NOTICES.md)
 - [Bilan et mesures de phase 0](docs/phase-0-report.md) · [Roadmap](ROADMAP.md) · [Spec](docs/specs/phase-0.md) · [Glossaire](GLOSSARY.md)
 
-Aucune publication d’image, aucun déploiement NAS, aucun scan de bibliothèque réelle n’a été réalisé. Le passage en phase 1 attend la validation utilisateur ; le benchmark réel de phase 7 demande une autorisation séparée.
+Aucune publication d’image, aucun déploiement NAS, aucun scan de bibliothèque réelle n’a été réalisé. La [spec de phase 1](docs/specs/phase-1.md) est publiée dans [l’issue #8](https://github.com/thomas-bsn/snitch/issues/8) ; son implémentation attend la validation utilisateur. Le benchmark réel de phase 7 demande une autorisation séparée.

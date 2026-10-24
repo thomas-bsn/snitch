@@ -4,9 +4,9 @@ Receipts indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a di
 
 ## État actuel
 
-- Phase 0 : spec publiée dans [l’issue GitHub #1](https://github.com/thomas-bsn/snitch/issues/1) ; implémentée et vérifiée localement ; [bilan et mesures](docs/phase-0-report.md) disponibles, validation utilisateur de fin de phase attendue.
-- Les tickets #2 à #7 couvrent le périmètre de phase 0 ; la CI distante et la publication restent non exécutées. La phase 1 attend une validation distincte.
-- Phases 1 à 7 : planifiées, non implémentées.
+- Phase 0 : implémentée et vérifiée localement ; [bilan et mesures](docs/phase-0-report.md) disponibles. Les issues #1 à #7 sont fermées. La CI distante, publication et validation NAS ne sont pas exécutées.
+- Phase 1 : [spec publiée dans l'issue GitHub #8](https://github.com/thomas-bsn/snitch/issues/8) et disponible dans [docs/specs/phase-1.md](docs/specs/phase-1.md) ; coutures de test validées. L'implémentation attend la validation utilisateur de cette spec.
+- Phases 1 à 7 : non implémentées.
 - Aucun média réel traité, aucun déploiement effectué, aucun code ni image publié. Le dépôt public et le suivi des issues existent sur GitHub.
 
 ## Règles de progression
