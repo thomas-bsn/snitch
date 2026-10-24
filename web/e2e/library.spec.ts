@@ -39,7 +39,7 @@ test("un membre filtre la bibliothèque et lit une plage d’un clip partagé ou
   });
   expect(range).toEqual({ status: 206, range: "bytes 2-6/31", bytes: 5 });
 
-  await page.getByRole("combobox").first().selectOption("private");
+  await page.locator("#uploads form select").selectOption("private");
   await page.getByLabel("Fichier vidéo").setInputFiles({
     name: "synthetic-private.mp4",
     mimeType: "video/mp4",
@@ -49,8 +49,18 @@ test("un membre filtre la bibliothèque et lit une plage d’un clip partagé ou
   await expect(
     page.getByText("synthetic-private.mp4", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("combobox").nth(1).selectOption("shared");
-  await page.getByRole("button", { name: "Filtrer", exact: true }).click();
+  await page.locator("#library > form select").first().selectOption("shared");
+  const filteredClipsResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/clips" &&
+      url.searchParams.get("visibility") === "shared"
+    );
+  });
+  await page
+    .locator("#library > form")
+    .evaluate((form) => (form as HTMLFormElement).requestSubmit());
+  expect((await filteredClipsResponse).status()).toBe(200);
   await expect(
     page.getByText("synthetic-private.mp4", { exact: true }),
   ).toHaveCount(0);

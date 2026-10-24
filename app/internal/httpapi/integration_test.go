@@ -85,7 +85,7 @@ func TestFoundation(t *testing.T) {
 	})
 	reset := func(t *testing.T) {
 		t.Helper()
-		_, e := pool.Exec(ctx, `TRUNCATE sessions,oauth_states,settings,users RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true`)
+		_, e := pool.Exec(ctx, `TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true`)
 		if e != nil {
 			t.Fatal(e)
 		}

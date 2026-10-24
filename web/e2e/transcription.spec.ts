@@ -14,6 +14,7 @@ test("admin choisit une piste globale, planifie puis ouvre la vidéo au timestam
   await page.getByRole("button", { name: "Créer l’administrateur" }).click();
 
   const vocabulary = page.locator("#vocabulary");
+  await vocabulary.scrollIntoViewIfNeeded();
   await vocabulary.getByLabel("Terme").fill("Final Fantasy XIV");
   await vocabulary
     .getByLabel("Variantes, séparées par des virgules")

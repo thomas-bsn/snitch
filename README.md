@@ -32,8 +32,8 @@ Le worker autonome (absent de Compose) traite les fixtures et les tâches de tra
 - [Déploiement Forgeyard, variables et migrations](docs/deployment.md)
 - [Développement, tests et CI](docs/development.md) · [Contribution](CONTRIBUTING.md)
 - [Sauvegarde et restauration](docs/backups.md) · [Licences des distributions](deploy/NOTICES.md)
-- [Bilans de phases 0](docs/phase-0-report.md), [1](docs/phase-1-report.md) et [2](docs/phase-2-report.md) · [Roadmap](ROADMAP.md) · [Specs de phases 1](docs/specs/phase-1.md), [2](docs/specs/phase-2.md) et [3](docs/specs/phase-3.md) · [Glossaire](GLOSSARY.md)
+- [Bilans de phases 0](docs/phase-0-report.md), [1](docs/phase-1-report.md), [2](docs/phase-2-report.md) et [3](docs/phase-3-report.md) · [Roadmap](ROADMAP.md) · [Specs de phases 1](docs/specs/phase-1.md), [2](docs/specs/phase-2.md) et [3](docs/specs/phase-3.md) · [Glossaire](GLOSSARY.md)
 
 Les administrateurs peuvent ajouter des dossiers sous les racines configurées. Le scan garde l’historique des emplacements disparus et évite de déclarer des fichiers manquants si un dossier est inaccessible ou si le parcours est incomplet. Une empreinte SHA-256 permet de relier le même contenu à plusieurs emplacements ; remplacer le contenu d’un chemin crée une nouvelle identité de clip. Une disparition d’au moins 20 % des fichiers suivis produit un avertissement de santé. Voir la [décision de réconciliation](docs/adr/0010-identite-et-reconciliation-des-clips.md).
 
-Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. Les phases 0 à 2 sont validées ; la phase 3 est en cours. Le benchmark réel de phase 7 demande une autorisation séparée.
+Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. Les phases 0 à 2 sont validées ; l’implémentation principale de la phase 3 est présente, avec des écarts VAD et de versionnement documentés dans son [bilan](docs/phase-3-report.md). Le benchmark réel de phase 7 demande une autorisation séparée.

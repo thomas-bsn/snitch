@@ -63,7 +63,9 @@ test("installation, connexion, approbation et refus anonymes", async ({
     "Compte créé. Vous pouvez vous connecter.",
   );
   await page.getByRole("button", { name: "Se connecter", exact: true }).click();
-  await expect(page.getByText("Connecté :")).toContainText("automatic-player");
+  await expect(page.locator(".sidebar-user strong")).toHaveText(
+    "automatic-player",
+  );
   await expect(
     page.getByRole("heading", { name: "Accès et Discord" }),
   ).toHaveCount(0);
@@ -81,7 +83,7 @@ test("installation, connexion, approbation et refus anonymes", async ({
     .getByLabel("Mot de passe", { exact: true })
     .fill("synthetic-password-456");
   await page.getByRole("button", { name: "Se connecter", exact: true }).click();
-  await expect(page.getByText("Connecté :")).toContainText("player");
+  await expect(page.locator(".sidebar-user strong")).toHaveText("player");
   await expect(
     page.getByRole("heading", { name: "Accès et Discord" }),
   ).toHaveCount(0);

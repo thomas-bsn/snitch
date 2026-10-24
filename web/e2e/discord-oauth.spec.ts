@@ -57,7 +57,7 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
   await visitor
     .getByRole("link", { name: "Autoriser 123456", exact: true })
     .click();
-  await expect(visitor.getByText("Connecté :", { exact: false })).toContainText(
+  await expect(visitor.locator(".sidebar-user strong")).toHaveText(
     "discord_123456",
   );
   // A matching provider username never signs into the existing administrator.
@@ -69,14 +69,14 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
     .getByRole("link", { name: "Autoriser 123456", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText("déjà liée");
-  await expect(page.getByText("Connecté :", { exact: false })).toContainText(
+  await expect(page.locator(".sidebar-user strong")).toHaveText(
     "administrator",
   );
   await page.getByRole("button", { name: "Lier Discord", exact: true }).click();
   await page
     .getByRole("link", { name: "Autoriser 654321", exact: true })
     .click();
-  await expect(page.getByText("Connecté :", { exact: false })).toContainText(
+  await expect(page.locator(".sidebar-user strong")).toHaveText(
     "administrator",
   );
   await page
@@ -86,7 +86,7 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
   await page
     .getByRole("link", { name: "Autoriser 654321", exact: true })
     .click();
-  await expect(page.getByText("Connecté :", { exact: false })).toContainText(
+  await expect(page.locator(".sidebar-user strong")).toHaveText(
     "administrator",
   );
   await visitor.goto(origin + "/?notice=unavailable");

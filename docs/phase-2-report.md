@@ -1,6 +1,6 @@
 # Bilan de phase 2
 
-La phase 2 est implémentée sur `integration/phase-2`. La validation utilisateur de fin de phase est attendue avant la phase 3. Aucun modèle n’a été téléchargé ou chargé, aucune vraie bibliothèque n’a été traitée et aucun worker n’a été déployé sur le PC GPU ou Forgeyard.
+La phase 2 est implémentée sur `integration/phase-2` et sa validation utilisateur a été reçue avant le démarrage de la phase 3. Aucun modèle n’a été téléchargé ou chargé, aucune vraie bibliothèque n’a été traitée et aucun worker n’a été déployé sur le PC GPU ou Forgeyard.
 
 ## Réalisé
 
@@ -29,4 +29,4 @@ Le fournisseur livré est factice : il vérifie le parcours worker et retourne d
 - Aucun déploiement sur PC/NAS, aucune CI distante, publication d’image ni scan de la vraie bibliothèque n’a été effectué. Les montages de dossiers Forgeyard et sauvegardes des médias gardent les limites décrites au bilan de phase 1.
 - Le batch réel et son benchmark représentatif restent soumis à l’autorisation de phase 7 ; tous les tests de phase 2 utilisent seulement fixtures et données synthétiques.
 
-La prochaine étape est la validation utilisateur de fin de phase 2. Aucune phase 3 ne commence avant cette validation.
+La prochaine étape était la conception puis l’implémentation de la phase 3 ; ses résultats et écarts sont décrits dans [le bilan de phase 3](phase-3-report.md).

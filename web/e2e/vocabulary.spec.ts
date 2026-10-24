@@ -14,6 +14,7 @@ test("admin gère les termes, variantes et graphies préférées", async ({
   await page.getByRole("button", { name: "Créer l’administrateur" }).click();
 
   const vocabulary = page.locator("#vocabulary");
+  await vocabulary.scrollIntoViewIfNeeded();
   await expect(
     vocabulary.getByRole("heading", { name: "Vocabulaire de transcription" }),
   ).toBeVisible();

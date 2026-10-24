@@ -15,7 +15,9 @@ test("installer sans Discord, refuser un code invalide et retrouver sa session",
     .getByLabel("Code d’installation")
     .fill(process.env.RECEIPTS_TEST_CODE!);
   await page.getByRole("button", { name: "Créer l’administrateur" }).click();
-  await expect(page.getByText("Connecté :")).toContainText("administrator");
+  await expect(page.locator(".sidebar-user strong")).toHaveText(
+    "administrator",
+  );
   await expect(
     page.getByText("Discord est facultatif.", { exact: false }),
   ).toBeVisible();
@@ -29,7 +31,9 @@ test("installer sans Discord, refuser un code invalide et retrouver sa session",
     page.getByText("Embeddings : phase 4", { exact: true }),
   ).toBeVisible();
   await page.reload();
-  await expect(page.getByText("Connecté :")).toContainText("administrator");
+  await expect(page.locator(".sidebar-user strong")).toHaveText(
+    "administrator",
+  );
   await page.getByRole("button", { name: "Se déconnecter" }).click();
   await expect(
     page.getByRole("heading", { name: "Retrouver votre espace" }),
@@ -46,6 +50,8 @@ test("installer sans Discord, refuser un code invalide et retrouver sa session",
     .getByLabel("Mot de passe", { exact: true })
     .fill("synthetic-password-123");
   await page.getByRole("button", { name: "Se connecter", exact: true }).click();
-  await expect(page.getByText("Connecté :")).toContainText("administrator");
+  await expect(page.locator(".sidebar-user strong")).toHaveText(
+    "administrator",
+  );
   expect((await page.request.get("/api/auth/me")).status()).toBe(200);
 });

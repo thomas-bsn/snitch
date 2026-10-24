@@ -6,8 +6,9 @@ Receipts indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a di
 
 - Phase 0 : implémentée et vérifiée localement ; [bilan et mesures](docs/phase-0-report.md) disponibles. Les issues #1 à #7 sont fermées. La CI distante, publication et validation NAS ne sont pas exécutées.
 - Phase 1 : implémentée et vérifiée localement ; [bilan](docs/phase-1-report.md) disponible. Validation utilisateur de fin de phase reçue.
-- Phase 2 : implémentée et vérifiée localement ; [bilan](docs/phase-2-report.md) disponible. La validation utilisateur de fin de phase est attendue.
-- Phases 3 à 7 : non implémentées.
+- Phase 2 : implémentée, vérifiée et validée ; [bilan](docs/phase-2-report.md) disponible.
+- Phase 3 : fonctions principales implémentées localement ; la revue finale a relevé des exigences VAD et de versionnement de configuration encore manquantes. Voir le [bilan de phase 3](docs/phase-3-report.md).
+- Phases 4 à 7 : non implémentées.
 - Aucun média réel traité, aucun déploiement effectué, aucun code ni image publié. Le dépôt public et le suivi des issues existent sur GitHub.
 
 ## Règles de progression
