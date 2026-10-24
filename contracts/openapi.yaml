@@ -3028,6 +3028,242 @@
           }
         }
       }
+    },
+    "/api/admin/transcriptions/batch-preview": {
+      "get": {
+        "operationId": "previewTranscriptionBatch",
+        "parameters": [
+          {
+            "name": "visibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "eligible",
+                    "already_processed",
+                    "already_queued",
+                    "unavailable",
+                    "selection_required"
+                  ],
+                  "properties": {
+                    "eligible": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "already_processed": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "already_queued": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "unavailable": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "selection_required": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/transcriptions/batch-schedule": {
+      "post": {
+        "operationId": "scheduleTranscriptionBatch",
+        "parameters": [
+          {
+            "name": "visibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "confirm"
+                ],
+                "properties": {
+                  "confirm": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "preview",
+                    "scheduled"
+                  ],
+                  "properties": {
+                    "preview": {
+                      "type": "object",
+                      "properties": {
+                        "eligible": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "already_processed": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "already_queued": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "unavailable": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "selection_required": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    "scheduled": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

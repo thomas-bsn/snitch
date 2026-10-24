@@ -27,8 +27,12 @@ from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
 from .media_track import MediaTrack
+from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .redirect import Redirect
 from .scan_source_body import ScanSourceBody
+from .schedule_transcription_batch_body import ScheduleTranscriptionBatchBody
+from .schedule_transcription_batch_response_200 import ScheduleTranscriptionBatchResponse200
+from .schedule_transcription_batch_response_200_preview import ScheduleTranscriptionBatchResponse200Preview
 from .scheduled_transcription import ScheduledTranscription
 from .search_page import SearchPage
 from .search_result import SearchResult
@@ -107,9 +111,13 @@ __all__ = (
     "ListClipsVisibility",
     "ListJobsStatus",
     "MediaTrack",
+    "PreviewTranscriptionBatchResponse200",
     "Redirect",
     "ScanSourceBody",
     "ScheduledTranscription",
+    "ScheduleTranscriptionBatchBody",
+    "ScheduleTranscriptionBatchResponse200",
+    "ScheduleTranscriptionBatchResponse200Preview",
     "SearchPage",
     "SearchResult",
     "SearchResultMatchType",

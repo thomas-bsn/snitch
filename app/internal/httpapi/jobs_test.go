@@ -84,6 +84,23 @@ func testJobQueue(t *testing.T, pool *pgxpool.Pool) {
 	if err := pool.QueryRow(ctx, `INSERT INTO clips(owner_id,original_name,size_bytes,modified_at,recorded_at) VALUES($1,'synthetic-job-fixture.mp4',12,now(),now()) RETURNING id`, ownerID).Scan(&clipID); err != nil {
 		t.Fatal(err)
 	}
+	call(http.DefaultClient, http.MethodGet, "/api/admin/transcriptions/batch-preview", nil, "", http.StatusUnauthorized)
+	call(http.DefaultClient, http.MethodPost, "/api/admin/transcriptions/batch-schedule", mustJSON(t, map[string]bool{"confirm": true}), "", http.StatusUnauthorized)
+	_, previewBody := call(admin, http.MethodGet, "/api/admin/transcriptions/batch-preview", nil, "", http.StatusOK)
+	var preview struct {
+		Eligible          int `json:"eligible"`
+		AlreadyProcessed  int `json:"already_processed"`
+		AlreadyQueued     int `json:"already_queued"`
+		Unavailable       int `json:"unavailable"`
+		SelectionRequired int `json:"selection_required"`
+	}
+	if err := json.Unmarshal(previewBody, &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.Unavailable != 1 || preview.Eligible != 0 {
+		t.Fatalf("preview should identify the synthetic clip without readable media: %+v", preview)
+	}
+	call(admin, http.MethodPost, "/api/admin/transcriptions/batch-schedule", []byte(`{"confirm":false}`), current.CSRF, http.StatusBadRequest)
 	call(http.DefaultClient, http.MethodGet, "/api/admin/jobs", nil, "", http.StatusUnauthorized)
 	input := map[string]any{"clip_id": clipID, "step": "fixture.inspect", "input_version": "fixture-v1", "priority": 5}
 	_, body = call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, input), current.CSRF, http.StatusCreated)

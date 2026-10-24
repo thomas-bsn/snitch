@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -152,6 +153,35 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if completed.ClipID < 1 {
 		t.Fatal("upload did not create a clip")
 	}
+	ambiguousContent := []byte("second-synthetic-multipiste-video")
+	var ambiguousUpload struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/uploads", map[string]any{"filename": "synthetic-ambiguous.mp4", "size_bytes": len(ambiguousContent), "visibility": "shared"}, session.CSRF, http.StatusCreated), &ambiguousUpload); err != nil {
+		t.Fatal(err)
+	}
+	ambiguousChunk, err := http.NewRequest(http.MethodPut, ts.URL+"/api/uploads/"+ambiguousUpload.ID+"/chunks", bytes.NewReader(ambiguousContent))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ambiguousChunk.Header.Set("Origin", ts.URL)
+	ambiguousChunk.Header.Set("Content-Type", "application/octet-stream")
+	ambiguousChunk.Header.Set("Content-Range", fmt.Sprintf("bytes 0-%d/%d", len(ambiguousContent)-1, len(ambiguousContent)))
+	ambiguousChunk.Header.Set("X-CSRF-Token", session.CSRF)
+	ambiguousResponse, err := admin.Do(ambiguousChunk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ambiguousResponse.Body.Close()
+	if ambiguousResponse.StatusCode != http.StatusOK {
+		t.Fatalf("ambiguous upload chunk: got %d want 200", ambiguousResponse.StatusCode)
+	}
+	var ambiguousCompleted struct {
+		ClipID int64 `json:"clip_id"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/uploads/"+ambiguousUpload.ID+"/complete", map[string]any{}, session.CSRF, http.StatusCreated), &ambiguousCompleted); err != nil {
+		t.Fatal(err)
+	}
 	var clip struct {
 		Tracks []struct {
 			Index         int    `json:"index"`
@@ -187,6 +217,109 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if selection.AudioTrackSelection.Status != "selected" || selection.AudioTrackSelection.AudioStreamIndex == nil || *selection.AudioTrackSelection.AudioStreamIndex != 2 {
 		t.Fatalf("clip override was not exposed: %+v", selection.AudioTrackSelection)
+	}
+	var batch struct {
+		Eligible          int `json:"eligible"`
+		AlreadyQueued     int `json:"already_queued"`
+		Unavailable       int `json:"unavailable"`
+		SelectionRequired int `json:"selection_required"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/transcriptions/batch-preview", nil, "", http.StatusOK), &batch); err != nil {
+		t.Fatal(err)
+	}
+	if batch.AlreadyQueued < 1 {
+		t.Fatalf("preview did not count the resolved clip's existing task: %+v", batch)
+	}
+	call(admin, http.MethodPost, "/api/admin/transcriptions/batch-schedule", map[string]bool{"confirm": false}, session.CSRF, http.StatusBadRequest)
+	var batchResult struct {
+		Scheduled int `json:"scheduled"`
+		Preview   struct {
+			AlreadyQueued     int `json:"already_queued"`
+			SelectionRequired int `json:"selection_required"`
+		} `json:"preview"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/transcriptions/batch-schedule", map[string]bool{"confirm": true}, session.CSRF, http.StatusOK), &batchResult); err != nil {
+		t.Fatal(err)
+	}
+	if batchResult.Scheduled != 0 || batchResult.Preview.AlreadyQueued < 1 || batchResult.Preview.SelectionRequired < 1 {
+		t.Fatalf("confirmed batch duplicated an active task: %+v", batchResult)
+	}
+	var queuedPage struct {
+		Items []struct {
+			ID int64 `json:"id"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/jobs?clip_id="+strconv64(completed.ClipID)+"&step=transcription.audio.2&status=pending", nil, "", http.StatusOK), &queuedPage); err != nil {
+		t.Fatal(err)
+	}
+	if len(queuedPage.Items) != 1 {
+		t.Fatalf("expected one queued synthetic task before race test, got %+v", queuedPage)
+	}
+	call(admin, http.MethodDelete, "/api/admin/jobs/"+strconv64(queuedPage.Items[0].ID), nil, session.CSRF, http.StatusNoContent)
+	var group sync.WaitGroup
+	results := make(chan []byte, 2)
+	for range 2 {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			results <- call(admin, http.MethodPost, "/api/admin/transcriptions/batch-schedule", map[string]bool{"confirm": true}, session.CSRF, http.StatusOK)
+		}()
+	}
+	group.Wait()
+	close(results)
+	createdInRace := 0
+	for body := range results {
+		var result struct {
+			Scheduled int `json:"scheduled"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil {
+			t.Fatal(err)
+		}
+		createdInRace += result.Scheduled
+	}
+	if createdInRace > 1 {
+		t.Fatalf("concurrent batch requests created duplicate work: %d tasks", createdInRace)
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/jobs?clip_id="+strconv64(completed.ClipID)+"&step=transcription.audio.2&status=pending", nil, "", http.StatusOK), &queuedPage); err != nil {
+		t.Fatal(err)
+	}
+	if len(queuedPage.Items) != 1 {
+		t.Fatalf("concurrent batches must leave one active task: %+v", queuedPage)
+	}
+	var libraryPage struct {
+		Items []struct {
+			ID     int64  `json:"id"`
+			Status string `json:"status"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips?page_size=100", nil, "", http.StatusOK), &libraryPage); err != nil {
+		t.Fatal(err)
+	}
+	for _, clip := range libraryPage.Items {
+		if clip.Status != "ready" {
+			continue
+		}
+		var detail struct {
+			AudioTrackSelection struct {
+				Status string `json:"status"`
+			} `json:"audio_track_selection"`
+		}
+		if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(clip.ID), nil, "", http.StatusOK), &detail); err != nil {
+			t.Fatal(err)
+		}
+		if detail.AudioTrackSelection.Status != "selection_required" {
+			continue
+		}
+		var page struct {
+			Total int `json:"total"`
+		}
+		path := "/api/admin/jobs?clip_id=" + strconv64(clip.ID) + "&step=transcription.audio.2"
+		if err := json.Unmarshal(call(admin, http.MethodGet, path, nil, "", http.StatusOK), &page); err != nil {
+			t.Fatal(err)
+		}
+		if page.Total != 0 {
+			t.Fatalf("batch queued an ambiguous clip %d: %d task(s)", clip.ID, page.Total)
+		}
 	}
 	var scheduled struct {
 		Job struct {
