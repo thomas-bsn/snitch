@@ -85,7 +85,7 @@ func TestFoundation(t *testing.T) {
 	})
 	reset := func(t *testing.T) {
 		t.Helper()
-		_, e := pool.Exec(ctx, `TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true`)
+		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true`)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -273,7 +273,7 @@ func TestFoundation(t *testing.T) {
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
 		call(client, "GET", "/api/admin/job-controls", nil, "", 200)
 		call(client, "PUT", "/api/admin/job-controls", map[string]any{"paused": false, "max_concurrency": 2}, me.CSRF, 200)
-		call(client, "GET", "/api/admin/embeddings", nil, "", 503)
+		call(client, "GET", "/api/admin/embeddings", nil, "", 200)
 		call(client, "POST", "/api/admin/embeddings/backfill", map[string]any{}, me.CSRF, 202)
 		call(client, "POST", "/api/admin/embeddings/rebuild", map[string]string{"model": "fixture-only"}, me.CSRF, 503)
 		call(client, "GET", "/api/clips", nil, "", 200)
