@@ -8,7 +8,8 @@ Snitch indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a dit 
 - Phase 1 : implémentée et vérifiée localement ; [bilan](docs/phase-1-report.md) disponible. Validation utilisateur de fin de phase reçue.
 - Phase 2 : implémentée, vérifiée et validée ; [bilan](docs/phase-2-report.md) disponible.
 - Phase 3 : implémentée, vérifiée et prête à clôturer ; VAD et profils de pipeline versionnés inclus. Voir le [bilan](docs/phase-3-report.md).
-- Phases 4 à 7 : non implémentées.
+- Phase 4 : spécifiée, non implémentée ; [spec](docs/specs/phase-4.md), issue parente [#26](https://github.com/thomas-bsn/snitch/issues/26) et tickets #27–#29 ouverts.
+- Phases 5 à 7 : non implémentées.
 - Aucun média réel traité, aucun déploiement effectué, aucun code ni image publié. Le dépôt public et le suivi des issues existent sur GitHub.
 
 ## Règles de progression
@@ -27,7 +28,7 @@ Aucun scan ni traitement de la vraie bibliothèque avant validation du benchmark
 | **1 — Ingestion et bibliothèque** | Sources dossier et upload reprenable, détection de fichiers stables, métadonnées, dédoublonnage SHA-256, provenance, bibliothèque et streaming Range authentifié. | Fichier incomplet ou illisible, doublon, renommage, disparition et permissions ; originaux toujours conservés. |
 | **2 — File de tâches et worker** | Jobs PostgreSQL, leases et heartbeat, reprises et retries, worker Python via HTTPS, jeton dédié limité et révocable, pause/reprise et parallélisme. | Crash et reprise sans doublon, lease expiré, dead/relance, résultats transactionnels, worker sans accès direct à PostgreSQL. |
 | **3 — Transcription et recherche textuelle** | Préparation audio adaptée aux pistes, transcription française avec jargon et timestamps par mot, recherche exacte, FTS et floue, ouverture au timestamp. | Qualité sur fixtures, sélection des pistes, comptages SQL exacts et couverture des clips non traités. |
-| **4 — Recherche sémantique** | Embeddings CPU NAS, pgvector, recherche hybride RRF, filtres, changement de modèle avec reconstruction ciblée et bascule d'index. | Pertinence sur fixtures, lexical maintenu si embeddings indisponibles, cohérence modèle/version et absence de retraitement vidéo. |
+| **4 — Recherche sémantique** | Embeddings CPU NAS, pgvector, recherche hybride RRF, filtres date/source/état, changement de modèle avec reconstruction ciblée et bascule d'index. | Pertinence sur fixtures, lexical maintenu si embeddings indisponibles, cohérence modèle/version et absence de retraitement vidéo. |
 | **5 — Voix** | Locuteurs locaux, personnes, empreintes et échantillons validés, groupes d'inconnues, validation humaine, historique et confidentialité. | Concurrence des validations, propagation sans PC ni vidéo, ambiguïtés, suppression des données vocales ; activation automatique réservée à l'admin après mesures. |
 | **6 — Corrections** | Édition des transcriptions et attributions, historique et réindexation ciblée. | Une correction ne réindexe que les segments concernés ; auteur et changements sont traçables. |
 | **7 — Benchmark et durcissement** | Échantillon représentatif de 200–500 clips après accord, mesures PC/NAS, qualité transcription/voix/recherche, reprise, sécurité et restauration. | Rapport go/no-go validé avant batch réel complet, extrapolation à 1 To avec hypothèses explicites. |
@@ -67,7 +68,7 @@ Livrée : préparation WAV 16 kHz mono, règles de piste, profil de pipeline ave
 
 ### Phase 4
 
-Même modèle/version d'embeddings pour indexation et requêtes, endpoint compatible embeddings OpenAI. Les modèles restent configurables et non définitifs avant benchmark. Index halfvec HNSW, fusion RRF et filtres par locuteur, date, source et état. L'ancien index reste utilisable pendant la reconstruction. Recherche disponible PC éteint ; en panne embeddings, recherche lexicale maintenue.
+Même modèle/version d'embeddings pour indexation et requêtes, endpoint compatible embeddings OpenAI. Les modèles restent configurables et non définitifs avant benchmark. Index halfvec HNSW, fusion RRF et filtres par date, source et état. Le filtre par locuteur attend les données vocales de phase 5. L'ancien index reste utilisable pendant la reconstruction. Recherche disponible PC éteint ; en panne embeddings, recherche lexicale maintenue. Voir la [spec de phase 4](docs/specs/phase-4.md) et ses [tickets #27–#29](https://github.com/thomas-bsn/snitch/issues/26).
 
 ### Phase 5
 
