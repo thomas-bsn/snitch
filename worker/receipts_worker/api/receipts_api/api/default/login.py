@@ -76,7 +76,13 @@ def sync_detailed(
     origin: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Connexion locale, nom de 3–64 caractères Unicode et mot de passe de 12–256. Entrée hors contrat :
+    400 ; code de setup et propriétés supplémentaires interdits. Refus identique 401
+    invalid_credentials_or_pending pour compte absent, mot de passe incorrect ou approbation manquante.
+    Session opaque de sept jours, cookie HttpOnly, SameSite=Lax et Secure en production. Limite par
+    adresse distante : rafale de dix, puis une demande toutes les six secondes ; 429 avec Retry-After:
+    6.
+
     Args:
         origin (str):
         body (Credentials):
@@ -109,7 +115,13 @@ def sync(
     origin: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Connexion locale, nom de 3–64 caractères Unicode et mot de passe de 12–256. Entrée hors contrat :
+    400 ; code de setup et propriétés supplémentaires interdits. Refus identique 401
+    invalid_credentials_or_pending pour compte absent, mot de passe incorrect ou approbation manquante.
+    Session opaque de sept jours, cookie HttpOnly, SameSite=Lax et Secure en production. Limite par
+    adresse distante : rafale de dix, puis une demande toutes les six secondes ; 429 avec Retry-After:
+    6.
+
     Args:
         origin (str):
         body (Credentials):
@@ -137,7 +149,13 @@ async def asyncio_detailed(
     origin: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Connexion locale, nom de 3–64 caractères Unicode et mot de passe de 12–256. Entrée hors contrat :
+    400 ; code de setup et propriétés supplémentaires interdits. Refus identique 401
+    invalid_credentials_or_pending pour compte absent, mot de passe incorrect ou approbation manquante.
+    Session opaque de sept jours, cookie HttpOnly, SameSite=Lax et Secure en production. Limite par
+    adresse distante : rafale de dix, puis une demande toutes les six secondes ; 429 avec Retry-After:
+    6.
+
     Args:
         origin (str):
         body (Credentials):
@@ -170,7 +188,13 @@ async def asyncio(
     origin: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Connexion locale, nom de 3–64 caractères Unicode et mot de passe de 12–256. Entrée hors contrat :
+    400 ; code de setup et propriétés supplémentaires interdits. Refus identique 401
+    invalid_credentials_or_pending pour compte absent, mot de passe incorrect ou approbation manquante.
+    Session opaque de sept jours, cookie HttpOnly, SameSite=Lax et Secure en production. Limite par
+    adresse distante : rafale de dix, puis une demande toutes les six secondes ; 429 avec Retry-After:
+    6.
+
     Args:
         origin (str):
         body (Credentials):

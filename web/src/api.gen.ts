@@ -45,6 +45,7 @@ export interface paths {
     };
     get: operations["getSetup"];
     put?: never;
+    /** @description Crée le premier administrateur avec nom personnel (3–64 caractères Unicode), mot de passe (12–256) et code temporaire des logs. Code valide 15 minutes, usage unique ; erreur 409 setup_closed_or_invalid_code si incorrect, expiré, rejoué ou installation terminée. Entrée absente/invalide : 400. Une seule demande concurrente réussit. Ouvre une session de sept jours. */
     post: operations["completeSetup"];
     delete?: never;
     options?: never;
@@ -61,6 +62,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
+    /** @description Connexion locale, nom de 3–64 caractères Unicode et mot de passe de 12–256. Entrée hors contrat : 400 ; code de setup et propriétés supplémentaires interdits. Refus identique 401 invalid_credentials_or_pending pour compte absent, mot de passe incorrect ou approbation manquante. Session opaque de sept jours, cookie HttpOnly, SameSite=Lax et Secure en production. Limite par adresse distante : rafale de dix, puis une demande toutes les six secondes ; 429 avec Retry-After: 6. */
     post: operations["login"];
     delete?: never;
     options?: never;
@@ -91,6 +93,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
+    /** @description Retourne le compte approuvé et son jeton CSRF si la session est active. Une session absente, expirée ou révoquée renvoie 401 unauthorized. */
     get: operations["getSession"];
     put?: never;
     post?: never;
@@ -109,6 +112,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
+    /** @description Révoque la session courante en base et efface le cookie. Exige session active, même origine et X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur CSRF : 403 csrf_rejected. */
     post: operations["logout"];
     delete?: never;
     options?: never;

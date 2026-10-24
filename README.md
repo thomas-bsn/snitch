@@ -1,6 +1,6 @@
 # Receipts
 
-Socle Go et interface française embarquée pour retrouver, dans les prochaines phases, les paroles et les voix de clips de jeu. La phase 0 est en cours de vérification : le ticket #2 couvre le démarrage d'une instance vierge. Les parcours de comptes, d'administration et Discord du brouillon seront validés dans les tickets suivants. Aucune bibliothèque ni aucun traitement de média n'est disponible.
+Socle Go et interface française embarquée pour retrouver, dans les prochaines phases, les paroles et les voix de clips de jeu. La phase 0 est en cours de vérification : les tickets #2 et #3 couvrent le démarrage vierge, le premier administrateur et les sessions locales. Les inscriptions, leur approbation et Discord seront validés dans les tickets suivants. Aucune bibliothèque ni aucun traitement de média n'est disponible.
 
 ## Démarrer le socle en développement
 
@@ -29,9 +29,21 @@ export DISPLAY_NAME=Receipts
 ./bin/receipts serve
 ```
 
-Ouvrir <http://localhost:8080>. L'écran annonce une nouvelle installation et les étapes reportées. Le code d'installation temporaire est la seule exception aux logs expurgés ; il expire après 15 minutes. Sa validation et les comptes relèvent du ticket #3. Aucun compte par défaut n'est créé. Arrêter avec Ctrl+C ou SIGTERM. Les données du conteneur de développement sont jetables ; ne jamais utiliser cet exemple pour des données réelles.
+Ouvrir <http://localhost:8080>. L'écran annonce une nouvelle installation et les étapes reportées. Le code d'installation temporaire est la seule exception aux logs expurgés ; il expire après 15 minutes. Saisir ce code, un nom de 3 à 64 caractères et un mot de passe personnel de 12 à 256 caractères dans le wizard, puis créer le premier administrateur. Discord est facultatif : aucun fournisseur externe n’est nécessaire. Aucun compte par défaut n'est créé. Arrêter avec Ctrl+C ou SIGTERM. Les données du conteneur de développement sont jetables ; ne jamais utiliser cet exemple pour des données réelles.
 
 `migrate` n'exige que `DATABASE_URL`. La commande est rejouable et ne réapplique pas les migrations réussies ; un échec rend un code de sortie non nul. `serve` ne lance aucune migration et refuse une base vierge non préparée. Dans le déploiement orchestré, le job de migration devra réussir avant le démarrage de l'API (ticket #7).
+
+## Installation et sessions locales
+
+Le code d’installation apparaît dans le log JSON `one-time installation code` (champ `expires_in_minutes: 15`) au démarrage de `serve`. Il est utilisable une fois pendant 15 minutes ; ni la page ni l’API publique ne le renvoient. Aucun administrateur ni mot de passe par défaut n’est précréé. Une seule création réussit même si deux demandes arrivent ensemble. Après réussite, l’installation reste fermée après redémarrage ; utiliser ensuite « Se connecter » avec les identifiants personnels et « Se déconnecter » pour révoquer la session courante.
+
+Si le navigateur ou le serveur s’interrompt **avant** la création, retrouver le code dans les logs du premier démarrage : un redémarrage conserve tout code encore valide et ne le réaffiche pas. Si ce code a été perdu ou a expiré, attendre son expiration puis redémarrer `serve` : un nouveau code est émis tant que l’installation n’est pas terminée. Le précédent est alors refusé. Une interruption **après** création ne rouvre jamais le wizard ; se reconnecter avec le compte créé. Aucun changement SQL manuel n’est nécessaire.
+
+Les mots de passe utilisent Argon2id version 19 : mémoire 32 MiB, trois itérations, parallélisme 1, sel aléatoire de 16 octets et résultat de 32 octets. Les limites de saisie comptent les caractères Unicode côté serveur. Les jetons opaques de session contiennent 32 octets aléatoires ; seul leur SHA-256 est persisté. Une session expire après sept jours fixes, sans prolongation automatique. Déconnexion et expiration rendent le jeton inutilisable, y compris s’il est renvoyé directement à l’API.
+
+Le cookie `receipts_session` utilise `Path=/`, `HttpOnly`, `SameSite=Lax` et une durée maximale de 604800 secondes. `Secure` est activé par défaut ; conserver HTTPS et `COOKIE_SECURE=true` en production. Chaque mutation doit transmettre `Origin` égal à `PUBLIC_URL`. Les mutations authentifiées exigent aussi `X-CSRF-Token`, obtenu avec `GET /api/auth/me`. Les fonctions privées exigent une session approuvée et les routes `/api/admin/…` le rôle administrateur ; masquer un écran n’est jamais la protection d’accès.
+
+L’installation, la connexion et l’inscription partagent une limite par adresse réseau distante : rafale de dix demandes, puis une demande toutes les six secondes ; `429` annonce `Retry-After: 6`. Deux traitements de mots de passe au plus s’exécutent simultanément par processus ; un excès renvoie `429 busy`. Les en-têtes de proxy transmis par le client sont ignorés : derrière un proxy, les clients partageant son adresse partagent actuellement cette limite. Les refus de connexion sont identiques pour compte inexistant, mot de passe incorrect et compte en attente. Les secrets saisis ne sont ni journalisés ni renvoyés.
 
 ## Configuration et santé
 
@@ -64,9 +76,9 @@ RECEIPTS_E2E=1 bash scripts/test.sh
 npm --prefix web run lint
 ```
 
-Les tests utilisent uniquement une base Testcontainers jetable avec pgvector et des données synthétiques. Le scénario de l'exécutable vérifie migrations séparées/rejouées, SPA embarquée, port configurable, santé pendant une panne PostgreSQL, logs et arrêt. Les tests API couvrent aussi l'échec d'une migration invalide. `RECEIPTS_E2E=1` lance les scénarios navigateur sur la vraie API ; `RECEIPTS_E2E_FOUNDATION=1` permet de limiter le navigateur au socle du ticket #2. Installer Chromium une fois avec `cd web && npx playwright install chromium`. Le script détecte le contexte Docker actif ; les surcharges Testcontainers peuvent être fournies par l'environnement.
+Les tests utilisent uniquement une base Testcontainers jetable avec pgvector et des données synthétiques. Le scénario de l'exécutable vérifie migrations séparées/rejouées, SPA embarquée, port configurable, santé pendant une panne PostgreSQL, logs et arrêt. Les tests API couvrent aussi l'échec d'une migration invalide. `RECEIPTS_E2E=1` lance les scénarios navigateur sur la vraie API, dont installation sans Discord, code invalide, rechargement, connexion et déconnexion ; `RECEIPTS_E2E_FOUNDATION=1` permet de limiter le navigateur au socle du ticket #2. Installer Chromium une fois avec `cd web && npx playwright install chromium`. Le script détecte le contexte Docker actif ; les surcharges Testcontainers peuvent être fournies par l'environnement.
 
-Le contrat source est [contracts/openapi.yaml](contracts/openapi.yaml). Les opérations de comptes et Discord présentes dans le brouillon restent à vérifier dans leurs tickets. Pour régénérer les types Go, TypeScript, Python et les requêtes sqlc :
+Le contrat source est [contracts/openapi.yaml](contracts/openapi.yaml). Les opérations d’installation et de session locale sont vérifiées avec leurs entrées, réponses et refus. Les opérations d’inscription et Discord présentes dans le brouillon restent à vérifier dans leurs tickets. Pour régénérer les types Go, TypeScript, Python et les requêtes sqlc :
 
 ```sh
 python3 -m venv .venv
@@ -77,4 +89,4 @@ python3 scripts/check_generated.py
 
 Les versions des générateurs sont épinglées. Le dernier contrôle compare tous les octets générés avant et après régénération et échoue si les artefacts divergent. Le worker reste un squelette de contrat, sans traitement GPU.
 
-La [roadmap](ROADMAP.md), la [spec de phase 0](docs/specs/phase-0.md), le [glossaire](GLOSSARY.md) et les [ADR](docs/adr/) décrivent le périmètre. Les tests du brouillon qui dépassent le ticket #2 ne constituent pas la validation des tickets suivants. Le déploiement, la CI et le bilan complet de phase restent à finaliser avant validation du passage à la phase 1.
+La [roadmap](ROADMAP.md), la [spec de phase 0](docs/specs/phase-0.md), le [glossaire](GLOSSARY.md) et les [ADR](docs/adr/) décrivent le périmètre. Les tests du brouillon qui dépassent les tickets #2 et #3 ne constituent pas la validation des tickets suivants. Le déploiement, la CI et le bilan complet de phase restent à finaliser avant validation du passage à la phase 1.

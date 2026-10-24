@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -45,7 +47,6 @@ type sessionKey struct{}
 type credentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-	Code     string `json:"code,omitempty"`
 }
 type DiscordSettings struct {
 	ClientID             string `json:"client_id"`
@@ -124,7 +125,8 @@ func fail(w http.ResponseWriter, status int, code string) {
 	reply(w, status, map[string]string{"error": code})
 }
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
-	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
 		fail(w, 415, "json_required")
 		return false
 	}
@@ -141,7 +143,11 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 func valid(c credentials) bool {
-	return len(c.Username) >= 3 && len(c.Username) <= 64 && strings.TrimSpace(c.Username) == c.Username && !strings.ContainsAny(c.Username, "\n\r\t") && len(c.Password) >= 12 && len(c.Password) <= 256
+	return validLengths(c) && strings.TrimSpace(c.Username) == c.Username && !strings.ContainsAny(c.Username, "\n\r\t")
+}
+func validLengths(c credentials) bool {
+	u, p := utf8.RuneCountInString(c.Username), utf8.RuneCountInString(c.Password)
+	return u >= 3 && u <= 64 && p >= 12 && p <= 256
 }
 func (s *Server) internal(w http.ResponseWriter, err error) {
 	s.Log.Error("database operation failed", "kind", fmtError(err))
@@ -272,15 +278,18 @@ func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
 	reply(w, 200, map[string]any{"initialized": initialized, "display_name": s.Config.DisplayName, "discord_enabled": id != "", "phase": 0, "deferred_steps": []string{"Dossiers : phase 1", "Worker : phase 2", "Embeddings : phase 4", "Hugging Face : phase 5"}})
 }
 func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request) {
-	var c credentials
+	var c struct {
+		credentials
+		Code *string `json:"code"`
+	}
 	if !decode(w, r, &c) {
 		return
 	}
-	if !valid(c) {
+	if c.Code == nil || !valid(c.credentials) {
 		fail(w, 400, "invalid_credentials_format")
 		return
 	}
-	id, err := setup.Complete(r.Context(), s.Pool, c.Code, c.Username, c.Password)
+	id, err := setup.Complete(r.Context(), s.Pool, *c.Code, c.Username, c.Password)
 	if errors.Is(err, setup.ErrClosed) {
 		fail(w, 409, "setup_closed_or_invalid_code")
 		return
@@ -298,7 +307,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &c) {
 		return
 	}
-	if len(c.Password) > 256 || len(c.Username) > 64 {
+	if !validLengths(c) {
 		fail(w, 400, "invalid_request")
 		return
 	}

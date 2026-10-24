@@ -76,7 +76,11 @@ def sync_detailed(
     origin: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Crée le premier administrateur avec nom personnel (3–64 caractères Unicode), mot de passe (12–256)
+    et code temporaire des logs. Code valide 15 minutes, usage unique ; erreur 409
+    setup_closed_or_invalid_code si incorrect, expiré, rejoué ou installation terminée. Entrée
+    absente/invalide : 400. Une seule demande concurrente réussit. Ouvre une session de sept jours.
+
     Args:
         origin (str):
         body (Bootstrap):
@@ -109,7 +113,11 @@ def sync(
     origin: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Crée le premier administrateur avec nom personnel (3–64 caractères Unicode), mot de passe (12–256)
+    et code temporaire des logs. Code valide 15 minutes, usage unique ; erreur 409
+    setup_closed_or_invalid_code si incorrect, expiré, rejoué ou installation terminée. Entrée
+    absente/invalide : 400. Une seule demande concurrente réussit. Ouvre une session de sept jours.
+
     Args:
         origin (str):
         body (Bootstrap):
@@ -137,7 +145,11 @@ async def asyncio_detailed(
     origin: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Crée le premier administrateur avec nom personnel (3–64 caractères Unicode), mot de passe (12–256)
+    et code temporaire des logs. Code valide 15 minutes, usage unique ; erreur 409
+    setup_closed_or_invalid_code si incorrect, expiré, rejoué ou installation terminée. Entrée
+    absente/invalide : 400. Une seule demande concurrente réussit. Ouvre une session de sept jours.
+
     Args:
         origin (str):
         body (Bootstrap):
@@ -170,7 +182,11 @@ async def asyncio(
     origin: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Crée le premier administrateur avec nom personnel (3–64 caractères Unicode), mot de passe (12–256)
+    et code temporaire des logs. Code valide 15 minutes, usage unique ; erreur 409
+    setup_closed_or_invalid_code si incorrect, expiré, rejoué ou installation terminée. Entrée
+    absente/invalide : 400. Une seule demande concurrente réussit. Ouvre une session de sept jours.
+
     Args:
         origin (str):
         body (Bootstrap):
