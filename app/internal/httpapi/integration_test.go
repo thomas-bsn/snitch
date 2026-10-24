@@ -119,6 +119,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testRegistration(t, pool)
 	})
+	t.Run("Discord settings", func(t *testing.T) {
+		reset(t)
+		testDiscordSettings(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
 		code, e := setup.Issue(ctx, pool)
@@ -328,7 +332,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}

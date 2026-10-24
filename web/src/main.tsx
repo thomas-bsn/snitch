@@ -19,6 +19,10 @@ const messages: Record<string, string> = {
     "Nom de 3 à 64 caractères et mot de passe de 12 à 256 caractères requis.",
   rate_limited: "Trop de tentatives. Patientez quelques secondes.",
   busy: "Le serveur est occupé. Réessayez dans quelques secondes.",
+  discord_secret_required:
+    "Saisissez le secret de votre application Discord pour activer la connexion.",
+  discord_credentials_invalid:
+    "L’identifiant et le secret Discord ne peuvent pas contenir uniquement des espaces.",
   forbidden: "Accès réservé aux administrateurs.",
   csrf_rejected: "Session expirée. Rechargez la page.",
 };
@@ -149,6 +153,21 @@ function App() {
     });
     form.querySelector<HTMLInputElement>('input[name="client_secret"]')!.value =
       "";
+  }
+  async function disableDiscord() {
+    await run(async () => {
+      checked(
+        await api.PUT("/api/admin/settings", {
+          params: { header: csrf },
+          body: {
+            client_id: "",
+            registration_approval: settings!.registration_approval,
+          },
+        }),
+      );
+      await refresh();
+      setNotice("Discord désactivé. Les comptes locaux restent disponibles.");
+    });
   }
   return (
     <main>
@@ -311,9 +330,35 @@ function App() {
                 Discord est facultatif. Laissez l’identifiant vide pour le
                 désactiver.
               </p>
+              <p>
+                {settings.client_id && settings.secret_configured
+                  ? "Configuration Discord enregistrée. Vérifiez aussi l’URL de retour dans Discord."
+                  : settings.client_id
+                    ? "Configuration Discord incomplète : ajoutez le secret pour l’activer."
+                    : "Discord désactivé : les comptes locaux restent disponibles."}
+              </p>
+              <p>
+                Créez votre application dans le{" "}
+                <a
+                  href="https://discord.com/developers/applications"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Discord Developer Portal
+                </a>
+                , puis copiez son Client ID et son Client Secret depuis les
+                réglages OAuth2. Ajoutez exactement cette URL aux redirections
+                autorisées.
+              </p>
               <p className="hint">
                 URL de retour à renseigner dans Discord : {location.origin}
                 /api/auth/discord/callback
+              </p>
+              <p className="hint">
+                Enregistrer ces réglages ne contacte pas Discord. Une connexion
+                ou une liaison ouvre Discord, puis le serveur échange avec ce
+                service pour lire l’identité publique (portée identify
+                uniquement).
               </p>
               <form
                 onSubmit={save}
@@ -341,6 +386,11 @@ function App() {
                     }
                   />
                 </label>
+                <p className="hint">
+                  {settings.secret_configured
+                    ? "Secret configuré. Laissez le champ vide pour le conserver."
+                    : "Aucun secret configuré. Il est nécessaire pour activer Discord."}
+                </p>
                 <label className="checkbox">
                   <input
                     type="checkbox"
@@ -350,6 +400,11 @@ function App() {
                   Approbation administrateur requise pour les nouveaux comptes
                 </label>
                 <button disabled={busy}>Enregistrer les réglages</button>
+                <button type="button" disabled={busy} onClick={disableDiscord}>
+                  {settings.client_id
+                    ? "Désactiver Discord"
+                    : "Continuer sans Discord"}
+                </button>
               </form>
             </section>
           )}

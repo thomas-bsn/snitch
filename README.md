@@ -1,6 +1,6 @@
 # Receipts
 
-Socle Go et interface française embarquée pour retrouver, dans les prochaines phases, les paroles et les voix de clips de jeu. La phase 0 est en cours de vérification : les tickets #2 à #4 couvrent le démarrage vierge, le premier administrateur, les sessions locales et les inscriptions avec approbation. Discord sera validé dans les tickets suivants. Aucune bibliothèque ni aucun traitement de média n'est disponible.
+Socle Go et interface française embarquée pour retrouver, dans les prochaines phases, les paroles et les voix de clips de jeu. La phase 0 est en cours de vérification : les tickets #2 à #4 couvrent le démarrage vierge, le premier administrateur, les sessions locales et les inscriptions avec approbation. La configuration facultative de Discord et ses secrets sont couverts par le ticket #5 ; les échanges de connexion Discord seront validés au ticket #6. Aucune bibliothèque ni aucun traitement de média n'est disponible.
 
 ## Démarrer le socle en développement
 
@@ -53,6 +53,19 @@ Dans « Accès et Discord », l’administrateur peut décocher l’approbation 
 
 Les noms sont uniques sans distinction de casse. Les inscriptions utilisent les mêmes limites Unicode que l’installation ; un nom indisponible renvoie `409 username_unavailable`. Avant installation, l’inscription renvoie `409 setup_required` et ne crée jamais d’administrateur. Les routes de liste, d’approbation et de réglages sont réservées aux administrateurs ; leurs mutations exigent origine et CSRF. Une approbation répétée ou un identifiant inexistant renvoie `404 not_pending`.
 
+## Discord facultatif et sauvegarde des secrets
+
+Après la création de l’administrateur, « Accès et Discord » permet de continuer sans Discord et de conserver une installation entièrement locale. Seuls les administrateurs peuvent consulter et modifier ces réglages. Pour préparer la connexion :
+
+1. Créer votre propre application dans le [Discord Developer Portal](https://discord.com/developers/applications). Aucun identifiant du propriétaire de ce dépôt n’est nécessaire.
+2. Dans les réglages OAuth2 de cette application, récupérer le **Client ID** et le **Client Secret**, puis ajouter l’URL de retour affichée par Receipts aux redirections autorisées : `PUBLIC_URL/api/auth/discord/callback`, avec l’origine publique exacte de votre installation.
+3. Enregistrer ces deux valeurs dans Receipts. Le premier enregistrement exige un secret ; un identifiant seul ou des champs constitués uniquement d’espaces sont refusés. Le statut configuré confirme la présence des deux valeurs, sans vérifier leur validité auprès de Discord.
+4. Pour une modification ultérieure, laisser le secret vide conserve sa valeur. Un nouveau secret le remplace. « Désactiver Discord » (ou enregistrer un identifiant vide) efface les deux valeurs ; les comptes locaux restent disponibles. Réactiver demandera de saisir à nouveau le secret.
+
+Ces étapes suivent la [documentation OAuth2 officielle de Discord](https://docs.discord.com/developers/topics/oauth2). Enregistrer les réglages ne déclenche aucun appel fournisseur. La connexion ou la liaison ouvre ensuite Discord dans le navigateur ; le serveur échange le code avec Discord puis lit l’identité publique via la seule portée `identify`, sans accès aux messages ni à l’adresse e-mail. Ces échanges et leur validation sont le périmètre du ticket #6.
+
+Le secret n’est jamais renvoyé au navigateur après saisie, ni écrit dans les logs. L’interface n’en indique que la présence. Les valeurs sont chiffrées en PostgreSQL par AES-256-GCM avec nonce aléatoire et nom du réglage authentifié ; toute altération ou mauvaise clé empêche leur lecture. Conserver `MASTER_KEY` entre redémarrages et la sauvegarder **séparément** de PostgreSQL dans un emplacement sûr. Une restauration utilisable demande la base **et la même clé** ; une nouvelle clé ne déchiffre pas les anciens secrets. Le test complet de restauration reste prévu en phase 7.
+
 ## Configuration et santé
 
 | Variable | Usage |
@@ -84,9 +97,9 @@ RECEIPTS_E2E=1 bash scripts/test.sh
 npm --prefix web run lint
 ```
 
-Les tests utilisent uniquement une base Testcontainers jetable avec pgvector et des données synthétiques. Le scénario de l'exécutable vérifie migrations séparées/rejouées, SPA embarquée, port configurable, santé pendant une panne PostgreSQL, logs et arrêt. Les tests API couvrent aussi l'échec d'une migration invalide. `RECEIPTS_E2E=1` lance les scénarios navigateur sur la vraie API, dont installation sans Discord, code invalide, rechargement, connexion et déconnexion ; `RECEIPTS_E2E_FOUNDATION=1` permet de limiter le navigateur au socle du ticket #2. Installer Chromium une fois avec `cd web && npx playwright install chromium`. Le script détecte le contexte Docker actif ; les surcharges Testcontainers peuvent être fournies par l'environnement.
+Les tests utilisent uniquement une base Testcontainers jetable avec pgvector et des données synthétiques. Le scénario de l'exécutable vérifie migrations séparées/rejouées, SPA embarquée, port configurable, santé pendant une panne PostgreSQL, logs et arrêt. Les tests API couvrent aussi l'échec d'une migration invalide. `RECEIPTS_E2E=1` lance les scénarios navigateur sur la vraie API, dont installation sans Discord, code invalide, rechargement, connexion/déconnexion et configuration/conservation/désactivation du secret Discord ; `RECEIPTS_E2E_FOUNDATION=1` permet de limiter le navigateur au socle du ticket #2. Installer Chromium une fois avec `cd web && npx playwright install chromium`. Le script détecte le contexte Docker actif ; les surcharges Testcontainers peuvent être fournies par l'environnement.
 
-Le contrat source est [contracts/openapi.yaml](contracts/openapi.yaml). Les opérations d’installation et de session locale sont vérifiées avec leurs entrées, réponses et refus. Les inscriptions, approbations et politiques sont vérifiées par HTTP réel et par le scénario navigateur `registration.spec.ts` (attente, refus de connexion, réglage sans effet rétroactif, approbation et rôle utilisateur). Les opérations Discord présentes dans le brouillon restent à vérifier dans leurs tickets. Pour régénérer les types Go, TypeScript, Python et les requêtes sqlc :
+Le contrat source est [contracts/openapi.yaml](contracts/openapi.yaml). Les opérations d’installation et de session locale sont vérifiées avec leurs entrées, réponses et refus. Les inscriptions, approbations et politiques sont vérifiées par HTTP réel et par le scénario navigateur `registration.spec.ts` (attente, refus de connexion, réglage sans effet rétroactif, approbation et rôle utilisateur). Les réglages Discord sont vérifiés avec conservation/remplacement du secret, stockage chiffré, refus d’altération et permissions. Les échanges Discord présents dans le brouillon restent à vérifier au ticket #6. Pour régénérer les types Go, TypeScript, Python et les requêtes sqlc :
 
 ```sh
 python3 -m venv .venv

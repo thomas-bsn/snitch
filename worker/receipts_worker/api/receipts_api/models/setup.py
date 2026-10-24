@@ -25,7 +25,8 @@ class Setup:
         Attributes:
             initialized (bool):
             display_name (str):
-            discord_enabled (bool):
+            discord_enabled (bool): True only when both the Discord application identifier and its authenticated encrypted
+                secret are available.
             phase (int):
             deferred_steps (list[str]):
      """

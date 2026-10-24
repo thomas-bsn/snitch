@@ -49,9 +49,9 @@ type credentials struct {
 	Password string `json:"password"`
 }
 type DiscordSettings struct {
-	ClientID             string `json:"client_id"`
-	ClientSecret         string `json:"client_secret,omitempty"`
-	RegistrationApproval *bool  `json:"registration_approval"`
+	ClientID             *string `json:"client_id"`
+	ClientSecret         string  `json:"client_secret,omitempty"`
+	RegistrationApproval *bool   `json:"registration_approval"`
 }
 
 func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
@@ -275,7 +275,12 @@ func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, 200, map[string]any{"initialized": initialized, "display_name": s.Config.DisplayName, "discord_enabled": id != "", "phase": 0, "deferred_steps": []string{"Dossiers : phase 1", "Worker : phase 2", "Embeddings : phase 4", "Hugging Face : phase 5"}})
+	secret, err := s.Store.Get(r.Context(), "discord_client_secret")
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, 200, map[string]any{"initialized": initialized, "display_name": s.Config.DisplayName, "discord_enabled": id != "" && secret != "", "phase": 0, "deferred_steps": []string{"Dossiers : phase 1", "Worker : phase 2", "Embeddings : phase 4", "Hugging Face : phase 5"}})
 }
 func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request) {
 	var c struct {
@@ -439,8 +444,12 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &c) {
 		return
 	}
-	if c.RegistrationApproval == nil || len(c.ClientID) > 128 || len(c.ClientSecret) > 2048 {
+	if c.RegistrationApproval == nil || c.ClientID == nil || utf8.RuneCountInString(*c.ClientID) > 128 || utf8.RuneCountInString(c.ClientSecret) > 2048 {
 		fail(w, 400, "invalid_request")
+		return
+	}
+	if (*c.ClientID != "" && strings.TrimSpace(*c.ClientID) == "") || (c.ClientSecret != "" && strings.TrimSpace(c.ClientSecret) == "") {
+		fail(w, 400, "discord_credentials_invalid")
 		return
 	}
 	tx, err := s.Pool.Begin(r.Context())
@@ -449,11 +458,34 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
-	values := map[string]string{"discord_client_id": c.ClientID}
+	// Serialize settings changes before deciding whether the stored secret can be retained.
+	if _, err = tx.Exec(r.Context(), `SELECT id FROM installation WHERE id=1 FOR UPDATE`); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if *c.ClientID != "" && c.ClientSecret == "" {
+		var encrypted []byte
+		err := tx.QueryRow(r.Context(), `SELECT value FROM settings WHERE key='discord_client_secret'`).Scan(&encrypted)
+		secret := ""
+		if err == nil {
+			secret, err = auth.Open(s.Config.MasterKey, "discord_client_secret", encrypted)
+		} else if errors.Is(err, pgx.ErrNoRows) {
+			err = nil
+		}
+		if err != nil {
+			s.internal(w, err)
+			return
+		}
+		if secret == "" {
+			fail(w, 400, "discord_secret_required")
+			return
+		}
+	}
+	values := map[string]string{"discord_client_id": *c.ClientID}
 	if c.ClientSecret != "" {
 		values["discord_client_secret"] = c.ClientSecret
 	}
-	if c.ClientID == "" {
+	if *c.ClientID == "" {
 		values["discord_client_secret"] = ""
 	}
 	for name, value := range values {
