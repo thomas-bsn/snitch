@@ -1,6 +1,6 @@
 # Receipts
 
-Socle Go et interface française embarquée pour retrouver, dans les prochaines phases, les paroles et les voix de clips de jeu. La phase 0 est en cours de vérification : les tickets #2 à #4 couvrent le démarrage vierge, le premier administrateur, les sessions locales et les inscriptions avec approbation. La configuration facultative de Discord et ses secrets sont couverts par le ticket #5 ; les échanges de connexion Discord seront validés au ticket #6. Aucune bibliothèque ni aucun traitement de média n'est disponible.
+Socle Go et interface française embarquée pour retrouver, dans les prochaines phases, les paroles et les voix de clips de jeu. La phase 0 est en cours de vérification : les tickets #2 à #4 couvrent le démarrage vierge, le premier administrateur, les sessions locales et les inscriptions avec approbation. La configuration facultative de Discord et ses secrets sont couverts par le ticket #5 ; les connexions et liaisons Discord simulées sont vérifiées au ticket #6. Aucune bibliothèque ni aucun traitement de média n'est disponible.
 
 ## Démarrer le socle en développement
 
@@ -31,7 +31,7 @@ export DISPLAY_NAME=Receipts
 
 Ouvrir <http://localhost:8080>. L'écran annonce une nouvelle installation et les étapes reportées. Le code d'installation temporaire est la seule exception aux logs expurgés ; il expire après 15 minutes. Saisir ce code, un nom de 3 à 64 caractères et un mot de passe personnel de 12 à 256 caractères dans le wizard, puis créer le premier administrateur. Discord est facultatif : aucun fournisseur externe n’est nécessaire. Aucun compte par défaut n'est créé. Arrêter avec Ctrl+C ou SIGTERM. Les données du conteneur de développement sont jetables ; ne jamais utiliser cet exemple pour des données réelles.
 
-`migrate` n'exige que `DATABASE_URL`. La commande est rejouable et ne réapplique pas les migrations réussies ; un échec rend un code de sortie non nul. `serve` ne lance aucune migration et refuse une base vierge non préparée. Dans le déploiement orchestré, le job de migration devra réussir avant le démarrage de l'API (ticket #7).
+`migrate` n'exige que `DATABASE_URL`. La commande est rejouable et ne réapplique pas les migrations réussies ; un échec rend un code de sortie non nul. `serve` ne lance aucune migration et refuse une base vierge ou dont les versions de migration ne correspondent pas aux migrations embarquées. Dans le déploiement orchestré, le job de migration devra réussir avant le démarrage de l'API (ticket #7).
 
 ## Installation et sessions locales
 
@@ -62,9 +62,19 @@ Après la création de l’administrateur, « Accès et Discord » permet de con
 3. Enregistrer ces deux valeurs dans Receipts. Le premier enregistrement exige un secret ; un identifiant seul ou des champs constitués uniquement d’espaces sont refusés. Le statut configuré confirme la présence des deux valeurs, sans vérifier leur validité auprès de Discord.
 4. Pour une modification ultérieure, laisser le secret vide conserve sa valeur. Un nouveau secret le remplace. « Désactiver Discord » (ou enregistrer un identifiant vide) efface les deux valeurs ; les comptes locaux restent disponibles. Réactiver demandera de saisir à nouveau le secret.
 
-Ces étapes suivent la [documentation OAuth2 officielle de Discord](https://docs.discord.com/developers/topics/oauth2). Enregistrer les réglages ne déclenche aucun appel fournisseur. La connexion ou la liaison ouvre ensuite Discord dans le navigateur ; le serveur échange le code avec Discord puis lit l’identité publique via la seule portée `identify`, sans accès aux messages ni à l’adresse e-mail. Ces échanges et leur validation sont le périmètre du ticket #6.
+Ces étapes suivent la [documentation OAuth2 officielle de Discord](https://docs.discord.com/developers/topics/oauth2). Enregistrer les réglages ne déclenche aucun appel fournisseur. La connexion ou la liaison ouvre ensuite Discord dans le navigateur ; le serveur échange le code avec Discord puis lit l’identité publique via la seule portée `identify`, sans accès aux messages ni à l’adresse e-mail. Aucun jeton fournisseur n’est renvoyé au frontend ni conservé en base.
 
 Le secret n’est jamais renvoyé au navigateur après saisie, ni écrit dans les logs. L’interface n’en indique que la présence. Les valeurs sont chiffrées en PostgreSQL par AES-256-GCM avec nonce aléatoire et nom du réglage authentifié ; toute altération ou mauvaise clé empêche leur lecture. Conserver `MASTER_KEY` entre redémarrages et la sauvegarder **séparément** de PostgreSQL dans un emplacement sûr. Une restauration utilisable demande la base **et la même clé** ; une nouvelle clé ne déchiffre pas les anciens secrets. Le test complet de restauration reste prévu en phase 7.
+
+## Connexion et liaison Discord
+
+« Continuer avec Discord » annonce la redirection externe. Une nouvelle identité suit la politique d’inscription courante : par défaut, retour avec un message d’attente sans session autorisée ; après approbation, la même identité retrouve le même compte. Un pseudo fournisseur identique à un compte local n’associe jamais les deux comptes. Une collision avec le nom technique `discord_<identité>` crée un nom distinct.
+
+Depuis un compte connecté, « Lier Discord » associe explicitement l’identité à ce compte. Le retour exige exactement la session qui a commencé la liaison : déconnexion, expiration ou nouvelle connexion imposent de recommencer. Une identité ne peut appartenir qu’à un compte ; une liaison concurrente ou un remplacement d’identité est refusé sans écraser l’association existante. Une liaison réussie conserve la session courante.
+
+Le state et le témoin navigateur contiennent chacun 32 octets aléatoires et sont hachés en base ; ils expirent après dix minutes. Le state est consommé atomiquement une seule fois avant l’échange fournisseur. Un autre navigateur, un retour expiré ou rejoué est refusé. Le refus de consentement et les erreurs fournisseur ramènent le navigateur vers un message français permettant de réessayer ou de se connecter localement. Les clients API reçoivent des erreurs JSON (`400 invalid_oauth_state`, `403 link_session_required`, `409 discord_already_linked`, `502 discord_unavailable`) ; le refus de consentement retourne `303 /?notice=discord_denied`. Les appels Discord ont leur propre limite de dix demandes puis une toutes les six secondes ; ils n’occupent pas les deux traitements de mots de passe locaux. Chaque échange sortant est borné par un délai de dix secondes.
+
+La migration `00002_oauth_session.sql` invalide les anciens parcours OAuth en cours pour imposer la liaison à la session d’origine. Exécuter `migrate` avant de relancer la nouvelle API ; recommencer toute redirection engagée avant la mise à jour.
 
 ## Configuration et santé
 
@@ -97,9 +107,9 @@ RECEIPTS_E2E=1 bash scripts/test.sh
 npm --prefix web run lint
 ```
 
-Les tests utilisent uniquement une base Testcontainers jetable avec pgvector et des données synthétiques. Le scénario de l'exécutable vérifie migrations séparées/rejouées, SPA embarquée, port configurable, santé pendant une panne PostgreSQL, logs et arrêt. Les tests API couvrent aussi l'échec d'une migration invalide. `RECEIPTS_E2E=1` lance les scénarios navigateur sur la vraie API, dont installation sans Discord, code invalide, rechargement, connexion/déconnexion et configuration/conservation/désactivation du secret Discord ; `RECEIPTS_E2E_FOUNDATION=1` permet de limiter le navigateur au socle du ticket #2. Installer Chromium une fois avec `cd web && npx playwright install chromium`. Le script détecte le contexte Docker actif ; les surcharges Testcontainers peuvent être fournies par l'environnement.
+Les tests utilisent uniquement une base Testcontainers jetable avec pgvector et des données synthétiques. Le scénario de l'exécutable vérifie migrations séparées/rejouées, SPA embarquée, port configurable, santé pendant une panne PostgreSQL, logs et arrêt. Les tests API couvrent aussi l'échec d'une migration invalide. `RECEIPTS_E2E=1` lance les scénarios navigateur sur la vraie API, dont installation sans Discord, code invalide, rechargement, connexion/déconnexion et configuration/conservation/désactivation du secret Discord et connexion/liaison avec fournisseur simulé ; `RECEIPTS_E2E_FOUNDATION=1` permet de limiter le navigateur au socle du ticket #2. Installer Chromium une fois avec `cd web && npx playwright install chromium`. Le script détecte le contexte Docker actif ; les surcharges Testcontainers peuvent être fournies par l'environnement.
 
-Le contrat source est [contracts/openapi.yaml](contracts/openapi.yaml). Les opérations d’installation et de session locale sont vérifiées avec leurs entrées, réponses et refus. Les inscriptions, approbations et politiques sont vérifiées par HTTP réel et par le scénario navigateur `registration.spec.ts` (attente, refus de connexion, réglage sans effet rétroactif, approbation et rôle utilisateur). Les réglages Discord sont vérifiés avec conservation/remplacement du secret, stockage chiffré, refus d’altération et permissions. Les échanges Discord présents dans le brouillon restent à vérifier au ticket #6. Pour régénérer les types Go, TypeScript, Python et les requêtes sqlc :
+Le contrat source est [contracts/openapi.yaml](contracts/openapi.yaml). Les opérations d’installation et de session locale sont vérifiées avec leurs entrées, réponses et refus. Les inscriptions, approbations et politiques sont vérifiées par HTTP réel et par le scénario navigateur `registration.spec.ts` (attente, refus de connexion, réglage sans effet rétroactif, approbation et rôle utilisateur). Les réglages Discord sont vérifiés avec conservation/remplacement du secret, stockage chiffré, refus d’altération et permissions. Le scénario `discord-oauth.spec.ts` vérifie refus de consentement, inscription en attente puis approbation, reconnexion, absence de fusion sur pseudo, liaison et conflit ; l’API vérifie aussi states, expiration, rejeu, remplacement/révocation de session, erreurs fournisseur, politique sans approbation et concurrence de liaison, sans compte Discord réel. Pour régénérer les types Go, TypeScript, Python et les requêtes sqlc :
 
 ```sh
 python3 -m venv .venv
@@ -110,4 +120,4 @@ python3 scripts/check_generated.py
 
 Les versions des générateurs sont épinglées. Le dernier contrôle compare tous les octets générés avant et après régénération et échoue si les artefacts divergent. Le worker reste un squelette de contrat, sans traitement GPU.
 
-La [roadmap](ROADMAP.md), la [spec de phase 0](docs/specs/phase-0.md), le [glossaire](GLOSSARY.md) et les [ADR](docs/adr/) décrivent le périmètre. Les tests du brouillon qui dépassent les tickets #2 à #4 ne constituent pas la validation des tickets suivants. Le déploiement, la CI et le bilan complet de phase restent à finaliser avant validation du passage à la phase 1.
+La [roadmap](ROADMAP.md), la [spec de phase 0](docs/specs/phase-0.md), le [glossaire](GLOSSARY.md) et les [ADR](docs/adr/) décrivent le périmètre. Les tickets #2 à #6 sont couverts par leurs tests dédiés. Le déploiement, la CI et le bilan complet de phase restent à finaliser avant validation du passage à la phase 1.

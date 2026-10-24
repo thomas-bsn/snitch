@@ -16,9 +16,13 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"testing/fstest"
 	"time"
 
+	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/database"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"receipts/migrations"
 )
 
 // The executable is exercised without Node or a dev server, against a dedicated database.
@@ -56,6 +60,37 @@ func TestExecutableLifecycle(t *testing.T) {
 		}
 		if bytes.Contains(out, []byte("synthetic-private-password")) {
 			t.Fatal("database password leaked")
+		}
+	})
+
+	t.Run("serve rejects older migrated schema without upgrading it", func(t *testing.T) {
+		db, err := goose.OpenDBWithDriver("pgx", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		first, err := migrations.Files.ReadFile("00001_foundation.sql")
+		if err != nil {
+			t.Fatal(err)
+		}
+		old, err := goose.NewProvider(database.DialectPostgres, db, fstest.MapFS{"00001_foundation.sql": &fstest.MapFile{Data: first}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = old.Up(ctx); err != nil {
+			t.Fatal(err)
+		}
+		deadline, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(deadline, binary, "serve")
+		cmd.Env = command("serve").Env
+		out, err := cmd.CombinedOutput()
+		if err == nil || !bytes.Contains(out, []byte("migrations missing")) {
+			t.Fatal("serve did not clearly reject an outdated schema")
+		}
+		version, err := old.GetDBVersion(ctx)
+		if err != nil || version != 1 {
+			t.Fatalf("serve modified schema: %d %v", version, err)
 		}
 	})
 	for i := 0; i < 2; i++ {

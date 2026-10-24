@@ -10,6 +10,16 @@ type Session = components["schemas"]["Session"];
 type Settings = components["schemas"]["Settings"];
 type User = components["schemas"]["User"];
 const messages: Record<string, string> = {
+  discord_denied:
+    "Connexion Discord annulée. Vous pouvez vous connecter avec votre compte local.",
+  discord_unavailable:
+    "Discord est indisponible. Réessayez ou utilisez votre compte local.",
+  invalid_oauth_state:
+    "Le retour Discord est invalide ou expiré. Recommencez la connexion.",
+  link_session_required:
+    "La session à l’origine de la liaison a expiré ou changé. Recommencez depuis votre compte.",
+  discord_already_linked:
+    "Cette identité Discord est déjà liée. L’association existante est conservée.",
   invalid_credentials_or_pending:
     "Identifiants incorrects ou inscription en attente d’approbation.",
   setup_closed_or_invalid_code:
@@ -41,9 +51,12 @@ function App() {
   const [pending, setPending] = useState<User[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(
-    new URLSearchParams(location.search).get("notice") === "pending"
-      ? "Inscription Discord en attente d’approbation."
-      : "",
+    (() => {
+      const notice = new URLSearchParams(location.search).get("notice") ?? "";
+      return notice === "pending"
+        ? "Inscription Discord en attente d’approbation."
+        : (messages[notice] ?? "");
+    })(),
   );
   const [register, setRegister] = useState(false);
   const [busy, setBusy] = useState(false);

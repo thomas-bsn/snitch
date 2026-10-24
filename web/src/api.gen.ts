@@ -160,6 +160,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
+    /** @description Consumes a single-use state bound to the browser (10 minutes). A link must return in the initiating, still-valid session. Supply either code or error, never both. Provider tokens stay on the server and are discarded after reading identity. Browser HTML requests return to the SPA with a notice on failure. */
     get: operations["discordCallback"];
     put?: never;
     post?: never;
@@ -611,21 +612,80 @@ export interface operations {
     parameters: {
       query: {
         state: string;
-        code: string;
+        code?: string;
+        /** @description Provider refusal. State is consumed; code and error are mutually exclusive. */
+        error?: string;
       };
-      header?: never;
+      header?: {
+        /** @description text/html returns a 303 SPA error notice; otherwise errors are JSON. */
+        Accept?: string;
+      };
       path?: never;
       cookie?: never;
     };
     requestBody?: never;
     responses: {
-      /** @description Continue to SPA; pending notice or signed in */
+      /** @description Return to SPA: signed in, pending approval, consent refused, or a browser-readable error notice. HTML browser requests receive an error notice redirect; API requests receive JSON errors. */
       303: {
         headers: {
           Location?: string;
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description invalid_oauth_state: missing, invalid, expired, replayed state or wrong browser */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description link_session_required: initiating session expired, revoked or replaced */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description discord_already_linked: identity already owned or account already linked to another identity */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description rate_limited: Discord request limit, independent of local password processing */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description discord_unavailable: provider refusal other than access_denied, invalid response, timeout or unavailable provider */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description unavailable: application persistence unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
       };
       /** @description Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable) */
       default: {
