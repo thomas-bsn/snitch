@@ -164,7 +164,7 @@ func testFolderSources(t *testing.T, pool *pgxpool.Pool) {
 		byName[item.Name] = item
 	}
 	clip := byName["synthetic-clip.mp4"]
-	if clip.Name != "synthetic-clip.mp4" || clip.Status != "ready" || clip.SizeBytes != int64(len("synthetic-video-fixture")) || clip.Duration != 4.25 || clip.VideoCodec != "h264" || clip.RecordedAt != "2025-01-02T03:04:05Z" || clip.DateEstimated || len(clip.Tracks) != 2 || clip.Tracks[1].Language != "fra" {
+	if clip.Name != "synthetic-clip.mp4" || clip.Status != "ready" || clip.SizeBytes != int64(len("synthetic-video-fixture")) || clip.Duration != 4.25 || clip.VideoCodec != "h264" || clip.RecordedAt != "2025-01-02T03:04:05Z" || clip.DateEstimated || len(clip.Tracks) != 3 || clip.Tracks[1].Language != "fra" {
 		t.Fatalf("unexpected clip metadata: %+v", clip)
 	}
 	if byName["broken.mp4"].Status != "unreadable" || byName["broken.mp4"].ErrorCode != "video_unreadable" || byName["no-video.mp4"].Status != "unreadable" || byName["no-video.mp4"].ErrorCode != "video_stream_missing" {
@@ -516,7 +516,7 @@ func syntheticProbeFixture(t *testing.T) string {
 }
 
 func syntheticProbeScript() string {
-	const metadata = `{"format":{"duration":"4.25","tags":{"creation_time":"2025-01-02T03:04:05Z"}},"streams":[{"codec_type":"video","codec_name":"h264","width":640,"height":360,"tags":{"title":"Game"}},{"codec_type":"audio","codec_name":"aac","tags":{"language":"fra","title":"Micro"}}]}`
+	const metadata = `{"format":{"duration":"4.25","tags":{"creation_time":"2025-01-02T03:04:05Z"}},"streams":[{"index":0,"codec_type":"video","codec_name":"h264","width":640,"height":360,"tags":{"title":"Game"}},{"index":1,"codec_type":"audio","codec_name":"aac","tags":{"language":"fra","title":"Micro"}},{"index":2,"codec_type":"audio","codec_name":"aac","tags":{"language":"fra","title":"Voix"}}]}`
 	const noVideo = `{"format":{"duration":"2"},"streams":[{"codec_type":"audio","codec_name":"aac"}]}`
 	probeScript := "#!/bin/sh\nfor input do :; done\ncase \"$input\" in *broken.mp4) exit 1;; *no-video.mp4) printf '%s\\n' '" + noVideo + "';; *) printf '%s\\n' '" + metadata + "';; esac\n"
 	return probeScript

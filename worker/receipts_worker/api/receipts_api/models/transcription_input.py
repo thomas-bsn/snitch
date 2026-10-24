@@ -14,14 +14,18 @@ from ..types import UNSET, Unset
 
 
 
-T = TypeVar("T", bound="ClipTracksItem")
+T = TypeVar("T", bound="TranscriptionInput")
 
 
 
 @_attrs_define
-class ClipTracksItem:
+class TranscriptionInput:
+    """
+        Attributes:
+            audio_stream_index (int):
+     """
 
-
+    audio_stream_index: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -29,9 +33,14 @@ class ClipTracksItem:
 
 
     def to_dict(self) -> dict[str, Any]:
+        audio_stream_index = self.audio_stream_index
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
+        field_dict.update({
+            "audio_stream_index": audio_stream_index,
+        })
 
         return field_dict
 
@@ -40,12 +49,15 @@ class ClipTracksItem:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        clip_tracks_item = cls(
+        audio_stream_index = d.pop("audio_stream_index")
+
+        transcription_input = cls(
+            audio_stream_index=audio_stream_index,
         )
 
 
-        clip_tracks_item.additional_properties = d
-        return clip_tracks_item
+        transcription_input.additional_properties = d
+        return transcription_input
 
     @property
     def additional_keys(self) -> list[str]:

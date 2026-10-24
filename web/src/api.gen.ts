@@ -637,6 +637,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/transcription": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. La piste audio utilise son index global FFmpeg. */
+    post: operations["scheduleTranscription"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -919,6 +936,7 @@ export interface components {
       tracks: components["schemas"]["MediaTrack"][];
     };
     MediaTrack: {
+      index: number;
       type: string;
       codec: string;
       title?: string;
@@ -950,10 +968,11 @@ export interface components {
       format_name: string;
       video_codec: string;
       audio_codec: string;
-      tracks: Record<string, never>[];
+      tracks: components["schemas"]["MediaTrack"][];
       status?: string;
       sources?: string[];
       uploaders: string[];
+      transcription?: components["schemas"]["Transcription"];
     };
     ClipPage: {
       items: components["schemas"]["Clip"][];
@@ -970,6 +989,31 @@ export interface components {
     JobControlsInput: {
       paused: boolean;
       max_concurrency: number;
+    };
+    TranscriptionInput: {
+      audio_stream_index: number;
+    };
+    ScheduledTranscription: {
+      job: components["schemas"]["Job"];
+    };
+    TranscriptWord: {
+      word: string;
+      start: number;
+      end: number;
+    };
+    TranscriptSegment: {
+      start: number;
+      end: number;
+      text: string;
+      words: components["schemas"]["TranscriptWord"][];
+    };
+    Transcription: {
+      provider: string;
+      model: string;
+      version?: string;
+      language?: string;
+      audio_stream_index: number;
+      segments: components["schemas"]["TranscriptSegment"][];
     };
   };
   responses: never;
@@ -2587,6 +2631,53 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid controls, 401 session required, 403 admin/origin/CSRF required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scheduleTranscription: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TranscriptionInput"];
+      };
+    };
+    responses: {
+      /** @description Tâche active déjà planifiée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description Transcription planifiée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description Clip non prêt ou piste audio inconnue */
       default: {
         headers: {
           [name: string]: unknown;

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -160,7 +161,23 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	reply(w, 200, v)
+	var transcript json.RawMessage
+	err := s.Pool.QueryRow(r.Context(), `SELECT result FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%' AND status='done' ORDER BY updated_at DESC,id DESC LIMIT 1`, v.ID).Scan(&transcript)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		s.internal(w, err)
+		return
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		transcript = nil
+	}
+	response := map[string]any{"id": v.ID, "owner_id": v.OwnerID, "owner": v.Owner, "visibility": v.Visibility, "original_name": v.OriginalName, "size_bytes": v.SizeBytes, "discovered_at": v.DiscoveredAt, "recorded_at": v.RecordedAt, "recorded_at_estimated": v.RecordedAtEstimated, "duration_seconds": v.DurationSeconds, "format_name": v.FormatName, "video_codec": v.VideoCodec, "audio_codec": v.AudioCodec, "tracks": v.Tracks, "status": v.Status, "sources": v.Sources, "uploaders": v.Uploaders}
+	if transcript != nil {
+		var value any
+		if json.Unmarshal(transcript, &value) == nil {
+			response["transcription"] = value
+		}
+	}
+	reply(w, 200, response)
 }
 
 func (s *Server) serveClipMedia(w http.ResponseWriter, r *http.Request) {

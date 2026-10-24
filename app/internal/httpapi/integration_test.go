@@ -142,6 +142,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipLibrary(t, pool)
 	})
+	t.Run("transcription pipeline", func(t *testing.T) {
+		reset(t)
+		testTranscriptionPipeline(t, pool)
+	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)
@@ -437,8 +441,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/auth/me", nil, "", 200)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/uploads") || path == "/api/clips/{id}/media" {
-					continue // Upload and binary range bodies are exercised by their dedicated HTTP suites.
+				if strings.HasPrefix(path, "/api/uploads") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" {
+					continue // Upload bodies, media ranges and transcription scheduling have dedicated suites.
 				}
 				if !seen[method+" "+path] {
 					t.Errorf("untested contract operation %s %s", method, path)
@@ -485,7 +489,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -507,6 +511,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("RECEIPTS_E2E_CONTROLS") == "1" {
 			suites = []string{"queue-controls.spec.ts"}
 		}
+		if os.Getenv("RECEIPTS_E2E_TRANSCRIPTION") == "1" {
+			suites = []string{"transcription.spec.ts"}
+		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
 				reset(t)
@@ -527,7 +534,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -535,7 +542,7 @@ func TestFoundation(t *testing.T) {
 					config.UploadSessionTTL = time.Hour
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
