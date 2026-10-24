@@ -4,13 +4,19 @@ import (
 	"context"
 	"errors"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"receipts/internal/auth"
+	"receipts/internal/database"
 )
 
 type Store struct {
-	Pool *pgxpool.Pool
+	Pool database.DBTX
 	Key  []byte
+}
+
+// WithTx uses the caller's transaction; the caller retains commit/rollback ownership.
+func (s Store) WithTx(tx pgx.Tx) Store {
+	s.Pool = tx
+	return s
 }
 
 func (s Store) Set(ctx context.Context, name, value string) error {

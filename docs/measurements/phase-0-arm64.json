@@ -19,7 +19,7 @@
         "CPUPerc": "0.00%"
       },
       {
-        "MemUsage": "29.27MiB / 512MiB",
+        "MemUsage": "31MiB / 512MiB",
         "CPUPerc": "0.05%"
       },
       {
@@ -33,7 +33,7 @@
         "CPUPerc": "0.00%"
       },
       {
-        "MemUsage": "29.27MiB / 512MiB",
+        "MemUsage": "31MiB / 512MiB",
         "CPUPerc": "0.11%"
       },
       {
@@ -47,7 +47,7 @@
         "CPUPerc": "0.00%"
       },
       {
-        "MemUsage": "29.27MiB / 512MiB",
+        "MemUsage": "31MiB / 512MiB",
         "CPUPerc": "0.06%"
       },
       {
@@ -61,7 +61,7 @@
         "CPUPerc": "0.00%"
       },
       {
-        "MemUsage": "29.27MiB / 512MiB",
+        "MemUsage": "31MiB / 512MiB",
         "CPUPerc": "0.06%"
       },
       {
@@ -75,7 +75,7 @@
         "CPUPerc": "1.74%"
       },
       {
-        "MemUsage": "31.83MiB / 512MiB",
+        "MemUsage": "33.64MiB / 512MiB",
         "CPUPerc": "0.13%"
       },
       {
@@ -89,17 +89,17 @@
     "postgres",
     "embed"
   ],
-  "migration_replay_peak_bytes": 3801088,
+  "migration_replay_peak_bytes": 4108288,
   "images": [
     {
       "RepoTags": [
         "snitch-smoke:local"
       ],
-      "RepoDigests": [
-        "snitch-smoke@sha256:65e38712f77d0561ee0e65eccd414c5df67b3181ffbd02092d213061b491383e"
+        "RepoDigests": [
+        "snitch-smoke@sha256:750a3833d88098a4994a538d85279fced46aac000bc19f800366f083039505db"
       ],
       "Architecture": "arm64",
-      "Size": 8635471
+      "Size": 8635880
     },
     {
       "RepoTags": [

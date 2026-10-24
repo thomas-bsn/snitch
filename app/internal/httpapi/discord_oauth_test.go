@@ -26,7 +26,8 @@ import (
 )
 
 func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
-	s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	var logs bytes.Buffer
+	s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(&logs, nil)))
 	ts := httptest.NewUnstartedServer(s.Handler())
 	s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
@@ -141,6 +142,34 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 		}
 		return "/api/auth/discord/callback?code=fixture-code&state=" + u.Query().Get("state")
 	}
+	t.Run("callback decryption failures return browsers to the SPA and API errors stay JSON", func(t *testing.T) {
+		for _, accept := range []string{"text/html", "application/json"} {
+			visitor := client()
+			path := start(visitor, false)
+			if _, err := pool.Exec(context.Background(), `UPDATE settings SET value='\\x00'::bytea WHERE key='discord_client_secret'`); err != nil {
+				t.Fatal(err)
+			}
+			req, _ := http.NewRequest("GET", ts.URL+path, nil)
+			req.Header.Set("Accept", accept)
+			resp, err := visitor.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if accept == "text/html" {
+				if resp.StatusCode != 303 || resp.Header.Get("Location") != "/?notice=unavailable" {
+					t.Fatalf("browser callback: %d %s %s", resp.StatusCode, resp.Header.Get("Location"), body)
+				}
+			} else if resp.StatusCode != 503 || string(bytes.TrimSpace(body)) != `{"error":"unavailable"}` {
+				t.Fatalf("API callback: %d %s", resp.StatusCode, body)
+			}
+			call(visitor, "GET", path, "", "", 400)
+			if err := s.Store.Set(context.Background(), "discord_client_secret", "fixture-secret"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
 	// Returning in another valid session for the same account must not inherit a link.
 	path := start(admin, true)
 	call(admin, "POST", "/api/auth/logout", "", csrf(admin), 200)
@@ -281,6 +310,29 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	if !bytes.Contains(body, []byte(`"username":"discord_999999"`)) {
 		t.Fatal(string(body))
 	}
+	t.Run("session persistence failures return browser navigation to a friendly notice", func(t *testing.T) {
+		visitor := client()
+		path := start(visitor, false)
+		if _, err := pool.Exec(context.Background(), `ALTER TABLE sessions ADD CONSTRAINT fixture_session_failure CHECK (false) NOT VALID`); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if _, err := pool.Exec(context.Background(), `ALTER TABLE sessions DROP CONSTRAINT fixture_session_failure`); err != nil {
+				t.Error(err)
+			}
+		}()
+		req, _ := http.NewRequest("GET", ts.URL+path, nil)
+		req.Header.Set("Accept", "text/html")
+		resp, err := visitor.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 303 || resp.Header.Get("Location") != "/?notice=unavailable" {
+			t.Fatalf("session failure: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+		}
+		call(visitor, "GET", "/api/auth/me", "", "", 401)
+	})
 	// Concurrent explicit linking has exactly one winner, whose account remains the owner.
 	identity.Store("777777")
 	locals := []*http.Client{client(), client()}
@@ -351,5 +403,9 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	unavailable := client()
 	call(unavailable, "GET", start(unavailable, false), "", "", 502)
 	call(admin, "POST", "/api/auth/login", `{"username":"administrator","password":"synthetic-password"}`, "", 200)
-
+	for _, sensitive := range []string{"fixture-secret", "fixture-token", "fixture-code"} {
+		if strings.Contains(logs.String(), sensitive) {
+			t.Fatal("OAuth credentials appeared in logs")
+		}
+	}
 }

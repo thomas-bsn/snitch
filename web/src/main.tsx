@@ -10,6 +10,8 @@ type Session = components["schemas"]["Session"];
 type Settings = components["schemas"]["Settings"];
 type User = components["schemas"]["User"];
 const messages: Record<string, string> = {
+  unavailable:
+    "Le service est temporairement indisponible. Réessayez dans un instant.",
   discord_denied:
     "Connexion Discord annulée. Vous pouvez vous connecter avec votre compte local.",
   discord_unavailable:

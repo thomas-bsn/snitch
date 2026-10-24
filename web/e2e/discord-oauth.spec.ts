@@ -89,5 +89,9 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
   await expect(page.getByText("Connecté :", { exact: false })).toContainText(
     "administrator",
   );
+  await visitor.goto(origin + "/?notice=unavailable");
+  await expect(visitor.getByRole("status")).toContainText(
+    "Le service est temporairement indisponible",
+  );
   await visitorContext.close();
 });
