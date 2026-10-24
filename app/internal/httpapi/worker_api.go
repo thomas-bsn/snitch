@@ -119,6 +119,7 @@ func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 	worker.ReportedConcurrency = input.Capacity
 	now := time.Now().UTC()
 	worker.LastSeenAt = &now
+	worker.Connected = true
 	reply(w, http.StatusOK, worker)
 }
 

@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import os
 import signal
 import ssl
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import httpx
 from receipts_api.api.default.claim_worker_job import sync as claim_job
@@ -27,12 +25,13 @@ from receipts_api.models.worker_result_input import WorkerResultInput
 from receipts_api.models.worker_result_input_result import WorkerResultInputResult
 
 
-def fake_provider(media: bytes, step: str) -> dict[str, Any]:
-    """Return deterministic synthetic output without interpreting media."""
+def fake_provider(step: str) -> dict[str, Any]:
+    """Return fixture metadata only; phase 2 must not inspect task media."""
+    if not step.startswith("fixture."):
+        raise ValueError("fake provider only supports fixture steps")
     return {
         "provider": "fixture",
         "step": step,
-        "media_sha256": hashlib.sha256(media).hexdigest(),
     }
 
 
@@ -100,7 +99,7 @@ def run_once(
     )
     heartbeater.start()
     try:
-        task_input = _require_response(
+        _require_response(
             get_job_input(
                 client=client,
                 id=job.id,
@@ -108,19 +107,7 @@ def run_once(
             ),
             "task input",
         )
-        parsed = task_input.to_dict()
-        media_url = parsed["media_url"]
-        url = urljoin(client._base_url.rstrip("/") + "/", media_url)
-        if (
-            urlparse(url).scheme != "https"
-            or urlparse(url).netloc != urlparse(client._base_url).netloc
-        ):
-            raise ValueError("task media URL must use the configured HTTPS API origin")
-        media_response = client.get_httpx_client().get(
-            url, headers={"X-Worker-Lease-Token": lease_token}
-        )
-        media_response.raise_for_status()
-        result = fake_provider(media_response.content, job.step)
+        result = fake_provider(job.step)
         heartbeat_stop.set()
         heartbeater.join()
         if heartbeat_errors:

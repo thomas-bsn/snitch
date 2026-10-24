@@ -1097,8 +1097,12 @@ function App() {
                     <li key={worker.id}>
                       <strong>{worker.name}</strong>
                       <p>
-                        {worker.revoked_at ? "Révoqué" : "Actif"} · capacité
-                        annoncée {worker.reported_concurrency}/
+                        {worker.revoked_at
+                          ? "Révoqué"
+                          : worker.connected
+                            ? "En ligne"
+                            : "Absent"}{" "}
+                        · capacité annoncée {worker.reported_concurrency}/
                         {worker.max_concurrency} · dernière activité{" "}
                         {worker.last_seen_at
                           ? new Date(worker.last_seen_at).toLocaleString(

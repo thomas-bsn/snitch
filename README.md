@@ -25,7 +25,7 @@ Continuer sans Discord, ou ouvrir « Accès et Discord » pour saisir les identi
 
 `docker compose stop` arrête les services ; `docker compose up -d` retrouve les volumes et l’installation. `docker compose down` conserve les données ; ajouter `-v` les détruit. L’override local expose uniquement l’interface sur loopback et PostgreSQL sur loopback 55432 ; `COOKIE_SECURE=false` est réservé à cet essai HTTP. Aucun dossier hôte n’est monté.
 
-Le worker de phase 2 est une image autonome, absente de Compose : l’administrateur crée un worker dans l’interface et copie son jeton une seule fois. Construisez l’image avec `docker build -f deploy/docker/worker.Dockerfile -t snitch-worker .`, puis lancez-la en renseignant `RECEIPTS_API_URL` (URL HTTPS de Receipts), `RECEIPTS_WORKER_TOKEN` et éventuellement `RECEIPTS_WORKER_CAPACITY` (1–4, défaut 1). `RECEIPTS_WORKER_CA_BUNDLE` peut pointer vers une autorité de certification approuvée. La validation TLS reste activée. Pour l’instant le fournisseur est factice : il ne transcrit ni n’analyse la vidéo.
+Le worker de phase 2 est une image autonome, absente de Compose : l’administrateur crée un worker dans l’interface et copie son jeton une seule fois. Construisez l’image avec `docker build -f deploy/docker/worker.Dockerfile -t snitch-worker .`, puis lancez-la en renseignant `RECEIPTS_API_URL` (URL HTTPS de Receipts), `RECEIPTS_WORKER_TOKEN` et éventuellement `RECEIPTS_WORKER_CAPACITY` (1–4, défaut 1). `RECEIPTS_WORKER_CA_BUNDLE` peut pointer vers une autorité de certification approuvée. La validation TLS reste activée. Pour l’instant le fournisseur factice accepte uniquement les étapes `fixture.*`, retourne des métadonnées déterministes et ne télécharge ni ne lit le média.
 
 ## Exploiter ou contribuer
 
