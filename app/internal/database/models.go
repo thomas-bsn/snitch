@@ -48,6 +48,23 @@ type Installation struct {
 	RegistrationApproval bool               `json:"registration_approval"`
 }
 
+type Job struct {
+	ID             int64              `json:"id"`
+	ClipID         int64              `json:"clip_id"`
+	Step           string             `json:"step"`
+	InputVersion   string             `json:"input_version"`
+	Status         string             `json:"status"`
+	Priority       int32              `json:"priority"`
+	Attempts       int32              `json:"attempts"`
+	MaxAttempts    int32              `json:"max_attempts"`
+	LeaseOwner     pgtype.Text        `json:"lease_owner"`
+	LeaseExpiresAt pgtype.Timestamptz `json:"lease_expires_at"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	LastError      string             `json:"last_error"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type OauthState struct {
 	StateHash   []byte             `json:"state_hash"`
 	BrowserHash []byte             `json:"browser_hash"`

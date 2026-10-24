@@ -983,6 +983,117 @@
         }
       }
     },
+    "/api/admin/jobs": {
+      "get": {
+        "operationId": "listJobs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "leased", "done", "failed"]
+            }
+          },
+          {
+            "in": "query",
+            "name": "clip_id",
+            "required": false,
+            "schema": {"type": "integer", "format": "int64", "minimum": 1}
+          },
+          {
+            "in": "query",
+            "name": "step",
+            "required": false,
+            "schema": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"}
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {"type": "integer", "minimum": 1, "default": 1}
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 24}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de tâches administrable",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/JobPage"}
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Aucun chemin local n'est exposé."
+      },
+      "post": {
+        "operationId": "scheduleJob",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/JobInput"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tâche planifiée",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Job"}
+              }
+            }
+          },
+          "200": {
+            "description": "Tâche active déjà planifiée pour cette étape et version",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Job"}
+              }
+            }
+          },
+          "default": {
+            "description": "Error (400 invalid task, 404 clip not found)",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. La planification répétée d'une tâche active est idempotente."
+      }
+    },
     "/api/admin/sources": {
       "get": {
         "operationId": "listSources",
@@ -1866,6 +1977,62 @@
             "minLength": 1,
             "maxLength": 4096
           }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "required": [
+          "id",
+          "clip_id",
+          "step",
+          "input_version",
+          "status",
+          "priority",
+          "attempts",
+          "max_attempts",
+          "lease_owner",
+          "lease_expires_at",
+          "next_attempt_at",
+          "last_error",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "clip_id": {"type": "integer", "format": "int64"},
+          "step": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"},
+          "input_version": {"type": "string"},
+          "status": {"type": "string", "enum": ["pending", "leased", "done", "failed"]},
+          "priority": {"type": "integer", "minimum": -100, "maximum": 100},
+          "attempts": {"type": "integer", "minimum": 0},
+          "max_attempts": {"type": "integer", "minimum": 1},
+          "lease_owner": {"type": "string", "nullable": true},
+          "lease_expires_at": {"type": "string", "format": "date-time", "nullable": true},
+          "next_attempt_at": {"type": "string", "format": "date-time"},
+          "last_error": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "JobInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["clip_id", "step", "input_version"],
+        "properties": {
+          "clip_id": {"type": "integer", "format": "int64", "minimum": 1},
+          "step": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"},
+          "input_version": {"type": "string", "minLength": 1, "maxLength": 128},
+          "priority": {"type": "integer", "minimum": -100, "maximum": 100, "default": 0}
+        }
+      },
+      "JobPage": {
+        "type": "object",
+        "required": ["items", "page", "page_size", "total"],
+        "properties": {
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/Job"}},
+          "page": {"type": "integer"},
+          "page_size": {"type": "integer"},
+          "total": {"type": "integer", "format": "int64"}
         }
       },
       "Source": {

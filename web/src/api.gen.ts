@@ -284,6 +284,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/jobs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Aucun chemin local n'est exposé. */
+    get: operations["listJobs"];
+    put?: never;
+    /** @description Administrateurs uniquement. La planification répétée d'une tâche active est idempotente. */
+    post: operations["scheduleJob"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/sources": {
     parameters: {
       query?: never;
@@ -499,6 +517,44 @@ export interface components {
     SourceInput: {
       name: string;
       path: string;
+    };
+    Job: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      clip_id: number;
+      step: string;
+      input_version: string;
+      /** @enum {string} */
+      status: "pending" | "leased" | "done" | "failed";
+      priority: number;
+      attempts: number;
+      max_attempts: number;
+      lease_owner: string | null;
+      /** Format: date-time */
+      lease_expires_at: string | null;
+      /** Format: date-time */
+      next_attempt_at: string;
+      last_error: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    JobInput: {
+      /** Format: int64 */
+      clip_id: number;
+      step: string;
+      input_version: string;
+      /** @default 0 */
+      priority: number;
+    };
+    JobPage: {
+      items: components["schemas"]["Job"][];
+      page: number;
+      page_size: number;
+      /** Format: int64 */
+      total: number;
     };
     Source: {
       /** Format: int64 */
@@ -1303,6 +1359,86 @@ export interface operations {
         content?: never;
       };
       /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listJobs: {
+    parameters: {
+      query?: {
+        status?: "pending" | "leased" | "done" | "failed";
+        clip_id?: number;
+        step?: string;
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Page de tâches administrable */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobPage"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scheduleJob: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["JobInput"];
+      };
+    };
+    responses: {
+      /** @description Tâche active déjà planifiée pour cette étape et version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Job"];
+        };
+      };
+      /** @description Tâche planifiée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Job"];
+        };
+      };
+      /** @description Error (400 invalid task, 404 clip not found) */
       default: {
         headers: {
           [name: string]: unknown;
