@@ -1,6 +1,6 @@
 # Bilan de phase 1
 
-La phase 1 est implémentée sur la branche locale `integration/phase-1`. La validation utilisateur de fin de phase est attendue avant d’entamer la phase 2. Aucun média réel, NAS, batch de production ou déploiement n’a été utilisé.
+La phase 1 est implémentée sur la branche locale `integration/phase-1` et sa validation utilisateur de fin de phase a été reçue le 24 octobre 2026. Aucun média réel, NAS, batch de production ou déploiement n’a été utilisé.
 
 ## Réalisé
 
@@ -24,4 +24,4 @@ La phase 1 est implémentée sur la branche locale `integration/phase-1`. La val
 - L’image app embarque ffprobe depuis le paquet Alpine `ffmpeg` GPL/LGPL. Les textes de licence et sources sont documentés ; avant toute publication d’image, archiver les sources correspondantes exactes et les informations de build, comme décrit dans ADR 0009.
 - La CI distante, publication d’images, déploiement NAS, montage de vrais dossiers, benchmark réel, traitement du batch 1 To, worker et étapes IA ne sont pas exécutés ou implémentés. Aucun scan de vraie bibliothèque n’a été lancé.
 
-La prochaine étape est la validation utilisateur de la phase 1. Aucune phase 2 ne commence avant cette validation.
+La phase 2 est spécifiée dans l’issue #13 et découpée dans les issues #14–#18. Son implémentation n’a pas commencé.
