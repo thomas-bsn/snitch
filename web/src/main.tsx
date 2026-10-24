@@ -15,6 +15,7 @@ type SourceWithFiles = Source & { files: SourceFile[] };
 type Upload = components["schemas"]["Upload"];
 type Clip = components["schemas"]["Clip"];
 type Job = components["schemas"]["Job"];
+type Worker = components["schemas"]["Worker"];
 const messages: Record<string, string> = {
   unavailable:
     "Le service est temporairement indisponible. Réessayez dans un instant.",
@@ -52,6 +53,12 @@ function checked<T>(result: { data?: T; error?: { error: string } }): T {
   if (!result.data) throw new Error("Réponse du serveur absente.");
   return result.data;
 }
+function checkedNoContent(result: { error?: { error: string } }): void {
+  if (result.error)
+    throw new Error(
+      messages[result.error.error] ?? "La demande a échoué. Réessayez.",
+    );
+}
 function App() {
   const [setup, setSetup] = useState<Setup>();
   const [session, setSession] = useState<Session>();
@@ -62,6 +69,8 @@ function App() {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [newWorkerToken, setNewWorkerToken] = useState("");
   const [jobPage, setJobPage] = useState(1);
   const [jobTotal, setJobTotal] = useState(0);
   const [jobFilters, setJobFilters] = useState({
@@ -111,11 +120,14 @@ function App() {
       setSettings(checked(await api.GET("/api/admin/settings")));
       setPending(checked(await api.GET("/api/admin/users")));
       await refreshJobs(1);
+      setWorkers(checked(await api.GET("/api/admin/workers")).items);
       await refreshSources();
     } else {
       setSources([]);
       setAllowedRoots([]);
       setJobs([]);
+      setWorkers([]);
+      setNewWorkerToken("");
     }
   }
   async function refreshClips(page: number) {
@@ -177,6 +189,40 @@ function App() {
           ? "Tâche planifiée."
           : "Cette étape et cette version sont déjà dans la file.",
       );
+    });
+  }
+  async function registerWorker(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    await run(async () => {
+      const result = checked(
+        await api.POST("/api/admin/workers", {
+          params: { header: csrf },
+          body: {
+            name: String(data.get("worker_name")),
+            max_concurrency: Number(data.get("worker_capacity")),
+          },
+        }),
+      );
+      setNewWorkerToken(result.token);
+      form.reset();
+      setWorkers(checked(await api.GET("/api/admin/workers")).items);
+      setNotice(
+        "Worker créé. Copiez son jeton maintenant : il ne sera plus affiché.",
+      );
+    });
+  }
+  async function revokeWorker(worker: Worker) {
+    await run(async () => {
+      checkedNoContent(
+        await api.DELETE("/api/admin/workers/{id}", {
+          params: { path: { id: worker.id }, header: csrf },
+        }),
+      );
+      setNewWorkerToken("");
+      setWorkers(checked(await api.GET("/api/admin/workers")).items);
+      setNotice(`Jeton du worker ${worker.name} révoqué.`);
     });
   }
   async function filterJobs(event: React.FormEvent<HTMLFormElement>) {
@@ -890,6 +936,73 @@ function App() {
           )}
           {session.user.role === "admin" && (
             <section className="card">
+              <h2>Workers</h2>
+              <p className="hint">
+                Le jeton apparaît une seule fois après création. Configurez-le
+                sur le PC worker avec une URL HTTPS.
+              </p>
+              <form onSubmit={registerWorker}>
+                <label>
+                  Nom du worker
+                  <input
+                    name="worker_name"
+                    minLength={1}
+                    maxLength={64}
+                    required
+                  />
+                </label>
+                <label>
+                  Concurrence maximale
+                  <input
+                    name="worker_capacity"
+                    type="number"
+                    min="1"
+                    max="4"
+                    defaultValue="1"
+                    required
+                  />
+                </label>
+                <button disabled={busy}>Créer un worker</button>
+              </form>
+              {newWorkerToken && (
+                <p role="status">
+                  Jeton à copier maintenant: <code>{newWorkerToken}</code>
+                </p>
+              )}
+              {workers.length === 0 ? (
+                <p>Aucun worker enregistré.</p>
+              ) : (
+                <ul aria-label="Workers">
+                  {workers.map((worker) => (
+                    <li key={worker.id}>
+                      <strong>{worker.name}</strong>
+                      <p>
+                        {worker.revoked_at ? "Révoqué" : "Actif"} · capacité
+                        annoncée {worker.reported_concurrency}/
+                        {worker.max_concurrency} · dernière activité{" "}
+                        {worker.last_seen_at
+                          ? new Date(worker.last_seen_at).toLocaleString(
+                              "fr-FR",
+                            )
+                          : "jamais"}
+                      </p>
+                      {!worker.revoked_at && (
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() => revokeWorker(worker)}
+                        >
+                          Révoquer le jeton
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+          {session.user.role === "admin" && (
+            <section className="card">
               <h2>Inscriptions en attente ({pending.length})</h2>
               {pending.length === 0 ? (
                 <p>Aucune demande en attente.</p>
@@ -1018,6 +1131,11 @@ function App() {
                         Version {job.input_version} · créée{" "}
                         {new Date(job.created_at).toLocaleString("fr-FR")}
                       </p>
+                      {job.result && (
+                        <pre aria-label={`Résultat de la tâche ${job.id}`}>
+                          {JSON.stringify(job.result, null, 2)}
+                        </pre>
+                      )}
                     </li>
                   ))}
                 </ul>

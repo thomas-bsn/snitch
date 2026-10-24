@@ -30,6 +30,7 @@ import (
 	"receipts/internal/settings"
 	"receipts/internal/setup"
 	"receipts/internal/uploads"
+	"receipts/internal/workers"
 	"receipts/ui"
 )
 
@@ -42,6 +43,7 @@ type Server struct {
 	Library       *library.Service
 	Jobs          *jobs.Service
 	Uploads       *uploads.Service
+	Workers       *workers.Service
 	rates         sync.Map
 	passwordSlots chan struct{}
 	dummyPassword string
@@ -62,7 +64,7 @@ type DiscordSettings struct {
 }
 
 func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
-	return &Server{Pool: p, Config: c, Log: logger, Client: &http.Client{Timeout: 10 * time.Second}, Store: settings.Store{Pool: p, Key: c.MasterKey}, Library: library.New(p, library.Config{Roots: c.ClipRoots, ProbePath: c.ProbePath, Stability: c.StabilityWindow, ReconcileEvery: c.ReconcileInterval, Exclude: c.ClipExcludePatterns}, logger), Jobs: jobs.New(p), Uploads: uploads.New(p, uploads.Config{Root: c.UploadRoot, ProbePath: c.ProbePath, MaxBytes: c.UploadMaxBytes, ChunkSize: c.UploadChunkBytes, TTL: c.UploadSessionTTL}), passwordSlots: make(chan struct{}, 2), dummyPassword: auth.Password(auth.Token())}
+	return &Server{Pool: p, Config: c, Log: logger, Client: &http.Client{Timeout: 10 * time.Second}, Store: settings.Store{Pool: p, Key: c.MasterKey}, Library: library.New(p, library.Config{Roots: c.ClipRoots, ProbePath: c.ProbePath, Stability: c.StabilityWindow, ReconcileEvery: c.ReconcileInterval, Exclude: c.ClipExcludePatterns}, logger), Jobs: jobs.New(p), Uploads: uploads.New(p, uploads.Config{Root: c.UploadRoot, ProbePath: c.ProbePath, MaxBytes: c.UploadMaxBytes, ChunkSize: c.UploadChunkBytes, TTL: c.UploadSessionTTL}), Workers: workers.New(p), passwordSlots: make(chan struct{}, 2), dummyPassword: auth.Password(auth.Token())}
 }
 
 func (s *Server) Start(ctx context.Context) error {
@@ -95,6 +97,16 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/users/{id}/approve", s.protected(true, http.HandlerFunc(s.approve)))
 	mux.Handle("GET /api/admin/jobs", s.protected(true, http.HandlerFunc(s.listJobs)))
 	mux.Handle("POST /api/admin/jobs", s.protected(true, http.HandlerFunc(s.scheduleJob)))
+	mux.Handle("GET /api/admin/workers", s.protected(true, http.HandlerFunc(s.listWorkers)))
+	mux.Handle("POST /api/admin/workers", s.protected(true, http.HandlerFunc(s.registerWorker)))
+	mux.Handle("DELETE /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.revokeWorker)))
+	mux.Handle("POST /api/worker/pulse", s.workerOnly(http.HandlerFunc(s.workerPulse)))
+	mux.Handle("POST /api/worker/jobs/claim", s.workerOnly(http.HandlerFunc(s.claimWorkerJob)))
+	mux.Handle("GET /api/worker/jobs/{id}/input", s.workerOnly(http.HandlerFunc(s.workerJobInput)))
+	mux.Handle("GET /api/worker/jobs/{id}/media", s.workerOnly(http.HandlerFunc(s.workerJobMedia)))
+	mux.Handle("POST /api/worker/jobs/{id}/heartbeat", s.workerOnly(http.HandlerFunc(s.workerJobHeartbeat)))
+	mux.Handle("POST /api/worker/jobs/{id}/complete", s.workerOnly(http.HandlerFunc(s.completeWorkerJob)))
+	mux.Handle("POST /api/worker/jobs/{id}/fail", s.workerOnly(http.HandlerFunc(s.failWorkerJob)))
 	mux.Handle("GET /api/admin/sources", s.protected(true, http.HandlerFunc(s.listSources)))
 	mux.Handle("POST /api/admin/sources", s.protected(true, http.HandlerFunc(s.createSource)))
 	mux.Handle("DELETE /api/admin/sources/{id}", s.protected(true, http.HandlerFunc(s.disableSource)))
@@ -139,7 +151,7 @@ func (s *Server) Handler() http.Handler {
 				fail(w, 500, "internal_error")
 			}
 		}()
-		if r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS" {
+		if r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS" && !strings.HasPrefix(r.URL.Path, "/api/worker/") {
 			// Browser mutations require the configured origin, including pre-authentication.
 			if r.Header.Get("Origin") != s.Config.PublicURL {
 				fail(w, 403, "origin_rejected")

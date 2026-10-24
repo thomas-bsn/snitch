@@ -63,6 +63,7 @@ type Job struct {
 	LastError      string             `json:"last_error"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Result         []byte             `json:"result"`
 }
 
 type OauthState struct {
@@ -128,4 +129,15 @@ type User struct {
 	Approved     bool               `json:"approved"`
 	DiscordID    pgtype.Text        `json:"discord_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type Worker struct {
+	ID                  string             `json:"id"`
+	Name                string             `json:"name"`
+	TokenHash           []byte             `json:"token_hash"`
+	MaxConcurrency      int32              `json:"max_concurrency"`
+	ReportedConcurrency int32              `json:"reported_concurrency"`
+	LastSeenAt          pgtype.Timestamptz `json:"last_seen_at"`
+	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }

@@ -146,6 +146,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)
 	})
+	t.Run("worker authentication and registration", func(t *testing.T) {
+		reset(t)
+		testWorkerRegistration(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
 		clipRoot := t.TempDir()
@@ -176,6 +180,7 @@ func TestFoundation(t *testing.T) {
 			t.Fatal(e)
 		}
 		seen := map[string]bool{}
+		workerToken := ""
 		call := func(c *http.Client, method, path string, body any, csrf string, want int) []byte {
 			t.Helper()
 			s.rates.Clear()
@@ -190,6 +195,9 @@ func TestFoundation(t *testing.T) {
 			req.Header.Set("Origin", ts.URL)
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-CSRF-Token", csrf)
+			if workerToken != "" {
+				req.Header.Set("Authorization", "Bearer "+workerToken)
+			}
 			resp, e := c.Do(req)
 			if e != nil {
 				t.Fatal(e)
@@ -256,8 +264,52 @@ func TestFoundation(t *testing.T) {
 		if e = pool.QueryRow(ctx, `INSERT INTO clips(owner_id,original_name,size_bytes,modified_at,recorded_at) VALUES($1,'contract-synthetic.mp4',1,now(),now()) RETURNING id`, adminID).Scan(&contractClipID); e != nil {
 			t.Fatal(e)
 		}
-		call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.synthetic", "input_version": "contract-v1"}, me.CSRF, 201)
+		contractJobBody := call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.synthetic", "input_version": "contract-v1"}, me.CSRF, 201)
+		var contractJob struct {
+			ID int64 `json:"id"`
+		}
+		if e = json.Unmarshal(contractJobBody, &contractJob); e != nil || contractJob.ID < 1 {
+			t.Fatalf("contract worker job: %s %v", contractJobBody, e)
+		}
 		call(client, "GET", "/api/admin/jobs?status=pending", nil, "", 200)
+		workerBody := call(client, "POST", "/api/admin/workers", map[string]any{"name": "contract-worker", "max_concurrency": 1}, me.CSRF, 201)
+		var contractWorker struct {
+			ID    string `json:"id"`
+			Token string `json:"token"`
+		}
+		if e = json.Unmarshal(workerBody, &contractWorker); e != nil || contractWorker.Token == "" {
+			t.Fatalf("contract worker registration: %s %v", workerBody, e)
+		}
+		call(client, "GET", "/api/admin/workers", nil, "", 200)
+		workerToken = contractWorker.Token
+		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1}, "", 200)
+		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
+		var claimedContractJob struct {
+			Job struct {
+				ID int64 `json:"id"`
+			} `json:"job"`
+		}
+		if e = json.Unmarshal(claimedBody, &claimedContractJob); e != nil || claimedContractJob.Job.ID != contractJob.ID {
+			t.Fatalf("contract worker claim: %s %v", claimedBody, e)
+		}
+		workerJobPath := "/api/worker/jobs/" + strconv64(contractJob.ID)
+		call(client, "GET", workerJobPath+"/input", nil, "", 200)
+		call(client, "GET", workerJobPath+"/media", nil, "", 404)
+		call(client, "POST", workerJobPath+"/heartbeat", map[string]any{}, "", 200)
+		call(client, "POST", workerJobPath+"/complete", map[string]any{"input_version": "contract-v1", "result": map[string]any{"fixture": true}}, "", 200)
+		call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.failure", "input_version": "failure-v1"}, me.CSRF, 201)
+		failedClaim := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
+		var failedJob struct {
+			Job struct {
+				ID int64 `json:"id"`
+			} `json:"job"`
+		}
+		if e = json.Unmarshal(failedClaim, &failedJob); e != nil || failedJob.Job.ID < 1 {
+			t.Fatalf("second worker claim: %s %v", failedClaim, e)
+		}
+		call(client, "POST", "/api/worker/jobs/"+strconv64(failedJob.Job.ID)+"/fail", map[string]any{"error": "provider_unavailable"}, "", 200)
+		workerToken = ""
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
 		call(client, "POST", "/api/auth/logout", nil, "wrong", 403)
 		call(client, "PUT", "/api/admin/settings", map[string]any{"client_id": "test-id", "client_secret": "secret-test-only", "registration_approval": true}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/sources", nil, "", 200)
@@ -402,7 +454,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "workers.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -417,6 +469,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("RECEIPTS_E2E_JOBS") == "1" {
 			suites = []string{"jobs.spec.ts"}
+		}
+		if os.Getenv("RECEIPTS_E2E_WORKERS") == "1" {
+			suites = []string{"workers.spec.ts"}
 		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {

@@ -4,6 +4,13 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = ["receipts-api"]
 
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [{ include = "receipts_worker" }]
+
 [tool.uv.sources]
 receipts-api = { path = "receipts_worker/api", editable = true }
 

@@ -7,9 +7,11 @@ from .clip_tracks_item import ClipTracksItem
 from .clip_visibility import ClipVisibility
 from .credentials import Credentials
 from .error import Error
+from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
 from .job import Job
 from .job_input import JobInput
 from .job_page import JobPage
+from .job_result_type_0 import JobResultType0
 from .job_status import JobStatus
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
@@ -39,6 +41,17 @@ from .upload_status import UploadStatus
 from .upload_visibility import UploadVisibility
 from .user import User
 from .user_role import UserRole
+from .worker import Worker
+from .worker_claim import WorkerClaim
+from .worker_failure_input import WorkerFailureInput
+from .worker_job_input import WorkerJobInput
+from .worker_job_input_tracks_item import WorkerJobInputTracksItem
+from .worker_page import WorkerPage
+from .worker_pulse_input import WorkerPulseInput
+from .worker_registration import WorkerRegistration
+from .worker_registration_input import WorkerRegistrationInput
+from .worker_result_input import WorkerResultInput
+from .worker_result_input_result import WorkerResultInputResult
 
 __all__ = (
     "Bootstrap",
@@ -48,9 +61,11 @@ __all__ = (
     "ClipVisibility",
     "Credentials",
     "Error",
+    "HeartbeatWorkerJobResponse200",
     "Job",
     "JobInput",
     "JobPage",
+    "JobResultType0",
     "JobStatus",
     "ListClipsStatus",
     "ListClipsVisibility",
@@ -80,4 +95,15 @@ __all__ = (
     "UploadVisibility",
     "User",
     "UserRole",
+    "Worker",
+    "WorkerClaim",
+    "WorkerFailureInput",
+    "WorkerJobInput",
+    "WorkerJobInputTracksItem",
+    "WorkerPage",
+    "WorkerPulseInput",
+    "WorkerRegistration",
+    "WorkerRegistrationInput",
+    "WorkerResultInput",
+    "WorkerResultInputResult",
 )

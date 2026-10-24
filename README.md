@@ -25,6 +25,8 @@ Continuer sans Discord, ou ouvrir « Accès et Discord » pour saisir les identi
 
 `docker compose stop` arrête les services ; `docker compose up -d` retrouve les volumes et l’installation. `docker compose down` conserve les données ; ajouter `-v` les détruit. L’override local expose uniquement l’interface sur loopback et PostgreSQL sur loopback 55432 ; `COOKIE_SECURE=false` est réservé à cet essai HTTP. Aucun dossier hôte n’est monté.
 
+Le worker de phase 2 est une image autonome, absente de Compose : l’administrateur crée un worker dans l’interface et copie son jeton une seule fois. Construisez l’image avec `docker build -f deploy/docker/worker.Dockerfile -t snitch-worker .`, puis lancez-la en renseignant `RECEIPTS_API_URL` (URL HTTPS de Receipts), `RECEIPTS_WORKER_TOKEN` et éventuellement `RECEIPTS_WORKER_CAPACITY` (1–4, défaut 1). `RECEIPTS_WORKER_CA_BUNDLE` peut pointer vers une autorité de certification approuvée. La validation TLS reste activée. Pour l’instant le fournisseur est factice : il ne transcrit ni n’analyse la vidéo.
+
 ## Exploiter ou contribuer
 
 - [Déploiement Forgeyard, variables et migrations](docs/deployment.md)
@@ -34,4 +36,4 @@ Continuer sans Discord, ou ouvrir « Accès et Discord » pour saisir les identi
 
 Les administrateurs peuvent ajouter des dossiers sous les racines configurées. Le scan garde l’historique des emplacements disparus et évite de déclarer des fichiers manquants si un dossier est inaccessible ou si le parcours est incomplet. Une empreinte SHA-256 permet de relier le même contenu à plusieurs emplacements ; remplacer le contenu d’un chemin crée une nouvelle identité de clip. Une disparition d’au moins 20 % des fichiers suivis produit un avertissement de santé. Voir la [décision de réconciliation](docs/adr/0010-identite-et-reconciliation-des-clips.md).
 
-Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. La phase 1 est validée ; la phase 2 est spécifiée et découpée en tickets, sans implémentation commencée. Le benchmark réel de phase 7 demande une autorisation séparée.
+Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. La phase 1 est validée ; la phase 2 est en cours d’implémentation, avec le contrôle worker HTTPS et le fournisseur factice en place. Le benchmark réel de phase 7 demande une autorisation séparée.

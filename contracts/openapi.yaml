@@ -1094,6 +1094,144 @@
         "description": "Administrateurs uniquement. La planification répétée d'une tâche active est idempotente."
       }
     },
+    "/api/admin/workers": {
+      "get": {
+        "operationId": "listWorkers",
+        "responses": {
+          "200": {
+            "description": "Workers enregistrés, sans leurs secrets",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/WorkerPage"}
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+          }
+        },
+        "description": "Administrateurs uniquement. Les jetons ne sont jamais renvoyés après leur création."
+      },
+      "post": {
+        "operationId": "registerWorker",
+        "parameters": [
+          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
+          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerRegistrationInput"}}}
+        },
+        "responses": {
+          "201": {
+            "description": "Worker créé ; le jeton brut est retourné une seule fois",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerRegistration"}}}
+          },
+          "default": {
+            "description": "Erreur de validation ou serveur indisponible",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+          }
+        },
+        "description": "Administrateurs uniquement."
+      }
+    },
+    "/api/admin/workers/{id}": {
+      "delete": {
+        "operationId": "revokeWorker",
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "string"}},
+          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
+          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "204": {"description": "Jeton révoqué"},
+          "default": {"description": "Worker introuvable ou serveur indisponible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "Administrateurs uniquement. L’historique du worker est conservé."
+      }
+    },
+    "/api/worker/pulse": {
+      "post": {
+        "operationId": "workerPulse",
+        "security": [{"workerBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerPulseInput"}}}},
+        "responses": {
+          "200": {"description": "Worker authentifié et activité mise à jour", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Worker"}}}},
+          "default": {"description": "Jeton invalide ou serveur indisponible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/worker/jobs/claim": {
+      "post": {
+        "operationId": "claimWorkerJob",
+        "security": [{"workerBearer": []}],
+        "responses": {
+          "200": {"description": "Tâche attribuée ou file vide", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerClaim"}}}},
+          "default": {"description": "Jeton invalide ou serveur indisponible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/worker/jobs/{id}/input": {
+      "get": {
+        "operationId": "getWorkerJobInput",
+        "security": [{"workerBearer": []}],
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {
+          "200": {"description": "Métadonnées et média du job attribué", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerJobInput"}}}},
+          "default": {"description": "Jeton invalide, tâche non détenue ou serveur indisponible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "L’accès est limité aux tâches détenues par le worker. Aucun chemin système n’est exposé."
+      }
+    },
+    "/api/worker/jobs/{id}/media": {
+      "get": {
+        "operationId": "getWorkerJobMedia",
+        "security": [{"workerBearer": []}],
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {
+          "200": {"description": "Original du clip assigné", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
+          "206": {"description": "Plage de l’original du clip assigné", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
+          "default": {"description": "Jeton invalide, tâche non détenue ou média introuvable", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "L’accès média exige un lease détenu par le worker. Les réponses n’exposent aucun chemin système."
+      }
+    },
+    "/api/worker/jobs/{id}/heartbeat": {
+      "post": {
+        "operationId": "heartbeatWorkerJob",
+        "security": [{"workerBearer": []}],
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {
+          "200": {"description": "Lease renouvelé", "content": {"application/json": {"schema": {"type": "object", "required": ["renewed"], "properties": {"renewed": {"type": "boolean"}}}}}},
+          "default": {"description": "Jeton invalide, lease perdu ou serveur indisponible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/worker/jobs/{id}/complete": {
+      "post": {
+        "operationId": "completeWorkerJob",
+        "security": [{"workerBearer": []}],
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerResultInput"}}}},
+        "responses": {
+          "200": {"description": "Résultat enregistré", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Job"}}}},
+          "default": {"description": "Résultat invalide, lease perdu ou serveur indisponible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/worker/jobs/{id}/fail": {
+      "post": {
+        "operationId": "failWorkerJob",
+        "security": [{"workerBearer": []}],
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerFailureInput"}}}},
+        "responses": {
+          "200": {"description": "Échec enregistré", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Job"}}}},
+          "default": {"description": "Erreur invalide, lease perdu ou serveur indisponible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
     "/api/admin/sources": {
       "get": {
         "operationId": "listSources",
@@ -1653,6 +1791,10 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "receipts_session"
+      },
+      "workerBearer": {
+        "type": "http",
+        "scheme": "bearer"
       }
     },
     "schemas": {
@@ -2011,7 +2153,8 @@
           "next_attempt_at": {"type": "string", "format": "date-time"},
           "last_error": {"type": "string"},
           "created_at": {"type": "string", "format": "date-time"},
-          "updated_at": {"type": "string", "format": "date-time"}
+          "updated_at": {"type": "string", "format": "date-time"},
+          "result": {"type": "object", "additionalProperties": true, "nullable": true}
         }
       },
       "JobInput": {
@@ -2034,6 +2177,87 @@
           "page_size": {"type": "integer"},
           "total": {"type": "integer", "format": "int64"}
         }
+      },
+      "Worker": {
+        "type": "object",
+        "required": ["id", "name", "max_concurrency", "reported_concurrency", "last_seen_at", "created_at", "revoked_at"],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "max_concurrency": {"type": "integer", "minimum": 1, "maximum": 4},
+          "reported_concurrency": {"type": "integer", "minimum": 0, "maximum": 4},
+          "last_seen_at": {"type": "string", "format": "date-time", "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"},
+          "revoked_at": {"type": "string", "format": "date-time", "nullable": true}
+        }
+      },
+      "WorkerRegistrationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "max_concurrency"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 64},
+          "max_concurrency": {"type": "integer", "minimum": 1, "maximum": 4}
+        }
+      },
+      "WorkerRegistration": {
+        "type": "object",
+        "required": ["id", "name", "max_concurrency", "reported_concurrency", "last_seen_at", "created_at", "revoked_at", "token"],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "max_concurrency": {"type": "integer", "minimum": 1, "maximum": 4},
+          "reported_concurrency": {"type": "integer", "minimum": 0, "maximum": 4},
+          "last_seen_at": {"type": "string", "format": "date-time", "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"},
+          "revoked_at": {"type": "string", "format": "date-time", "nullable": true},
+          "token": {"type": "string", "minLength": 32}
+        }
+      },
+      "WorkerPage": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Worker"}}}
+      },
+      "WorkerPulseInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["capacity"],
+        "properties": {"capacity": {"type": "integer", "minimum": 1, "maximum": 4}}
+      },
+      "WorkerClaim": {
+        "type": "object",
+        "required": ["job"],
+        "properties": {"job": {"allOf": [{"$ref": "#/components/schemas/Job"}], "nullable": true}}
+      },
+      "WorkerJobInput": {
+        "type": "object",
+        "required": ["job", "original_name", "size_bytes", "video_codec", "audio_codec", "tracks", "media_url"],
+        "properties": {
+          "job": {"$ref": "#/components/schemas/Job"},
+          "original_name": {"type": "string"},
+          "size_bytes": {"type": "integer", "format": "int64"},
+          "duration_seconds": {"type": "number", "nullable": true},
+          "video_codec": {"type": "string"},
+          "audio_codec": {"type": "string"},
+          "tracks": {"type": "array", "items": {"type": "object"}},
+          "media_url": {"type": "string"}
+        }
+      },
+      "WorkerResultInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["input_version", "result"],
+        "properties": {
+          "input_version": {"type": "string", "minLength": 1, "maxLength": 128},
+          "result": {"type": "object", "additionalProperties": true}
+        }
+      },
+      "WorkerFailureInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["error"],
+        "properties": {"error": {"type": "string", "minLength": 1, "maxLength": 256}}
       },
       "Source": {
         "type": "object",
