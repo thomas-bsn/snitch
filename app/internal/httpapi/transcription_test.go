@@ -481,9 +481,11 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	var indexed int
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM transcript_embeddings WHERE clip_id=$1`, completed.ClipID).Scan(&indexed); err != nil || indexed != 1 {
+		indexErr := api.indexNext(context.Background())
 		var taskState, taskError string
-		diagnosticErr := pool.QueryRow(context.Background(), `SELECT COALESCE(t.state,'missing'),COALESCE(t.error,'') FROM jobs j LEFT JOIN embedding_tasks t ON t.transcription_job_id=j.id WHERE j.id=$1`, assignment.Job.ID).Scan(&taskState, &taskError)
-		t.Fatalf("completed transcript was not indexed: count=%d err=%v task_state=%q task_error=%q diagnostic_err=%v", indexed, err, taskState, taskError, diagnosticErr)
+		var taskProfile, activeProfile int64
+		diagnosticErr := pool.QueryRow(context.Background(), `SELECT COALESCE(t.state,'missing'),COALESCE(t.error,''),COALESCE(t.profile_id,0),COALESCE(s.active_profile_id,0) FROM jobs j LEFT JOIN embedding_tasks t ON t.transcription_job_id=j.id CROSS JOIN embedding_index_state s WHERE j.id=$1 AND s.id=1`, assignment.Job.ID).Scan(&taskState, &taskError, &taskProfile, &activeProfile)
+		t.Fatalf("completed transcript was not indexed: count=%d err=%v index_err=%v task_state=%q task_error=%q task_profile=%d active_profile=%d diagnostic_err=%v", indexed, err, indexErr, taskState, taskError, taskProfile, activeProfile, diagnosticErr)
 	}
 	call(admin, http.MethodPost, "/api/admin/embeddings/rebuild", map[string]string{"model": "fixture-embedding-v2"}, session.CSRF, http.StatusAccepted)
 	select {

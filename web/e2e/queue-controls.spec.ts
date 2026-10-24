@@ -11,7 +11,14 @@ test("un administrateur suspend la file et règle sa concurrence globale", async
   await page
     .getByLabel("Mot de passe", { exact: true })
     .fill("synthetic-password-123");
+  const controlsLoaded = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/admin/job-controls") &&
+      response.request().method() === "GET" &&
+      response.ok(),
+  );
   await page.getByRole("button", { name: "Créer l’administrateur" }).click();
+  await controlsLoaded;
 
   const controls = page.getByRole("region", { name: "Contrôle de la file" });
 
