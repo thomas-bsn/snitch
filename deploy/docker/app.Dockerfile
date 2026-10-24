@@ -27,7 +27,10 @@ COPY --from=web /notices /usr/share/licenses/receipts/third-party
 COPY deploy/licenses/ffmpeg/ /usr/share/licenses/receipts/third-party/ffmpeg/
 COPY --from=go /receipts /receipts
 COPY LICENSE /usr/share/licenses/receipts/LICENSE
-RUN ffprobe -version >/dev/null 2>&1
+RUN ffmpeg -hide_banner -loglevel error -f lavfi -i 'testsrc2=size=64x64:rate=1:duration=1' -an -c:v mpeg4 -pix_fmt yuv420p /tmp/synthetic-video.mp4 \
+ && ffmpeg -hide_banner -loglevel error -f lavfi -i 'anullsrc=r=8000:cl=mono' -t 1 -vn -c:a aac /tmp/synthetic-no-video.mp4 \
+ && /receipts probe-smoke /tmp/synthetic-video.mp4 /tmp/synthetic-no-video.mp4 \
+ && rm /tmp/synthetic-video.mp4 /tmp/synthetic-no-video.mp4
 USER receipts
 EXPOSE 8080
 ENTRYPOINT ["/receipts"]

@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"time"
 
+	"receipts/internal/library"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -31,8 +33,20 @@ func main() {
 }
 func run() error {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	if len(os.Args) == 4 && os.Args[1] == "probe-smoke" {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		valid, err := library.ProbeFile(ctx, "ffprobe", os.Args[2])
+		if err != nil || valid.VideoCodec == "" {
+			return fmt.Errorf("synthetic video probe failed")
+		}
+		if _, err = library.ProbeFile(ctx, "ffprobe", os.Args[3]); err == nil {
+			return fmt.Errorf("no-video fixture was accepted")
+		}
+		return nil
+	}
 	if len(os.Args) != 2 {
-		return fmt.Errorf("usage: receipts serve|migrate|healthcheck")
+		return fmt.Errorf("usage: receipts serve|migrate|healthcheck|probe-smoke <video> <no-video>")
 	}
 	if os.Args[1] == "healthcheck" {
 		client := http.Client{Timeout: 3 * time.Second}

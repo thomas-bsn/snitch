@@ -13,6 +13,7 @@ type Source = components["schemas"]["Source"];
 type SourceFile = components["schemas"]["SourceFile"];
 type SourceWithFiles = Source & { files: SourceFile[] };
 type Upload = components["schemas"]["Upload"];
+type Clip = components["schemas"]["Clip"];
 const messages: Record<string, string> = {
   unavailable:
     "Le service est temporairement indisponible. Réessayez dans un instant.",
@@ -58,6 +59,20 @@ function App() {
   const [sources, setSources] = useState<SourceWithFiles[]>([]);
   const [allowedRoots, setAllowedRoots] = useState<string[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
+  const [clips, setClips] = useState<Clip[]>([]);
+  const [clipPage, setClipPage] = useState(1);
+  const [clipTotal, setClipTotal] = useState(0);
+  const [uploadVisibility, setUploadVisibility] = useState<
+    "shared" | "private"
+  >("shared");
+  const [clipFilters, setClipFilters] = useState({
+    visibility: "",
+    status: "",
+    owner_id: "",
+    source_id: "",
+    from: "",
+    to: "",
+  });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(
     (() => {
@@ -79,7 +94,10 @@ function App() {
     document.title = state.display_name;
     const me = await api.GET("/api/auth/me");
     setSession(me.data);
-    if (me.data) await refreshUploads();
+    if (me.data) {
+      await refreshUploads();
+      await refreshClips(1);
+    }
     if (me.data?.user.role === "admin") {
       setSettings(checked(await api.GET("/api/admin/settings")));
       setPending(checked(await api.GET("/api/admin/users")));
@@ -88,6 +106,19 @@ function App() {
       setSources([]);
       setAllowedRoots([]);
     }
+  }
+  async function refreshClips(page: number) {
+    const query = new URLSearchParams({ page: String(page), page_size: "12" });
+    for (const [key, value] of Object.entries(clipFilters))
+      if (value) query.set(key, value);
+    const response = await fetch(`/api/clips?${query}`, {
+      credentials: "same-origin",
+    });
+    if (!response.ok) throw new Error("Impossible de charger la bibliothèque.");
+    const result = await response.json();
+    setClips(result.items);
+    setClipPage(result.page);
+    setClipTotal(result.total);
   }
   async function refreshUploads() {
     const result = await api.GET("/api/uploads", { params: { header: csrf } });
@@ -106,7 +137,7 @@ function App() {
           body: {
             filename: file.name,
             size_bytes: file.size,
-            visibility: "shared",
+            visibility: uploadVisibility,
           },
         }),
       );
@@ -139,6 +170,7 @@ function App() {
       );
       form.reset();
       await refreshUploads();
+      await refreshClips(1);
       setNotice(
         `« ${file.name} » a été vérifiée et ajoutée à la bibliothèque.`,
       );
@@ -182,6 +214,7 @@ function App() {
           }),
         );
         await refreshUploads();
+        await refreshClips(1);
       });
     };
     input.click();
@@ -194,6 +227,7 @@ function App() {
         }),
       );
       await refreshUploads();
+      await refreshClips(1);
     });
   }
   async function refreshSources() {
@@ -500,6 +534,22 @@ function App() {
             </p>
             <form onSubmit={addUpload}>
               <label>
+                Visibilité
+                <select
+                  value={uploadVisibility}
+                  onChange={(event) =>
+                    setUploadVisibility(
+                      event.target.value as "private" | "shared",
+                    )
+                  }
+                >
+                  <option value="shared">Partagée avec les membres</option>
+                  <option value="private">
+                    Privée (vous et les administrateurs)
+                  </option>
+                </select>
+              </label>
+              <label>
                 Fichier vidéo
                 <input
                   type="file"
@@ -539,6 +589,145 @@ function App() {
                 ))}
               </ul>
             )}
+          </section>
+          <section className="card" aria-label="Bibliothèque">
+            <h2>Bibliothèque ({clipTotal})</h2>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                run(() => refreshClips(1));
+              }}
+            >
+              <label>
+                Visibilité
+                <select
+                  value={clipFilters.visibility}
+                  onChange={(e) =>
+                    setClipFilters({
+                      ...clipFilters,
+                      visibility: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Toutes</option>
+                  <option value="shared">Partagées</option>
+                  <option value="private">Privées</option>
+                </select>
+              </label>
+              <label>
+                État
+                <select
+                  value={clipFilters.status}
+                  onChange={(e) =>
+                    setClipFilters({ ...clipFilters, status: e.target.value })
+                  }
+                >
+                  <option value="">Tous</option>
+                  <option value="ready">Prêtes</option>
+                  <option value="waiting_stability">En attente</option>
+                  <option value="unreadable">Illisibles</option>
+                  <option value="missing">Original introuvable</option>
+                </select>
+              </label>
+              <label>
+                Propriétaire (ID)
+                <input
+                  type="number"
+                  min="1"
+                  value={clipFilters.owner_id}
+                  onChange={(e) =>
+                    setClipFilters({ ...clipFilters, owner_id: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Source (ID)
+                <input
+                  type="number"
+                  min="1"
+                  value={clipFilters.source_id}
+                  onChange={(e) =>
+                    setClipFilters({
+                      ...clipFilters,
+                      source_id: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Du
+                <input
+                  type="date"
+                  value={clipFilters.from}
+                  onChange={(e) =>
+                    setClipFilters({ ...clipFilters, from: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Au
+                <input
+                  type="date"
+                  value={clipFilters.to}
+                  onChange={(e) =>
+                    setClipFilters({ ...clipFilters, to: e.target.value })
+                  }
+                />
+              </label>
+              <button disabled={busy}>Filtrer</button>
+            </form>
+            {clips.length === 0 ? (
+              <p>Aucun clip visible pour ces filtres.</p>
+            ) : (
+              <ul>
+                {clips.map((clip) => (
+                  <li className="source" key={clip.id}>
+                    <strong>{clip.original_name}</strong> · {clip.status} ·{" "}
+                    {clip.visibility} · {clip.owner}
+                    <p className="hint">
+                      {new Date(clip.recorded_at).toLocaleDateString("fr-FR")} ·{" "}
+                      {clip.duration_seconds?.toFixed(2) ?? "Durée inconnue"} s
+                      · {clip.video_codec || "codec inconnu"}
+                    </p>
+                    <details>
+                      <summary>Détails et lecture</summary>
+                      <p>
+                        {clip.format_name} · audio{" "}
+                        {clip.audio_codec || "absent"} · {clip.size_bytes}{" "}
+                        octets · sources {clip.sources?.join(", ") || "upload"}
+                      </p>
+                      {clip.status === "ready" && (
+                        <video
+                          controls
+                          preload="metadata"
+                          src={`/api/clips/${clip.id}/media`}
+                          aria-label={`Lecture ${clip.original_name}`}
+                        />
+                      )}
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="toolbar">
+              <button
+                className="secondary"
+                disabled={busy || clipPage <= 1}
+                onClick={() => run(() => refreshClips(clipPage - 1))}
+              >
+                Précédente
+              </button>
+              <span>
+                Page {clipPage} · {clipTotal} clips
+              </span>
+              <button
+                className="secondary"
+                disabled={busy || clipPage * 12 >= clipTotal}
+                onClick={() => run(() => refreshClips(clipPage + 1))}
+              >
+                Suivante
+              </button>
+            </div>
           </section>
           {setup.discord_enabled && (
             <section className="card">
@@ -788,7 +977,15 @@ function App() {
           </ol>
         </section>
       )}
-      <footer>Phase 0 · Installation et accès · Aucun média traité</footer>
+      <footer>
+        Phase 1 · Ingestion et bibliothèque
+        {session && (
+          <>
+            {" "}
+            · <span>Worker : phase 2</span> · <span>Embeddings : phase 4</span>
+          </>
+        )}
+      </footer>
     </main>
   );
 }

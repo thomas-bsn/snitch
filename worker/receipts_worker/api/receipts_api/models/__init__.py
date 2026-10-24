@@ -1,8 +1,14 @@
 """ Contains all the data models used in inputs/outputs """
 
 from .bootstrap import Bootstrap
+from .clip import Clip
+from .clip_page import ClipPage
+from .clip_tracks_item import ClipTracksItem
+from .clip_visibility import ClipVisibility
 from .credentials import Credentials
 from .error import Error
+from .list_clips_status import ListClipsStatus
+from .list_clips_visibility import ListClipsVisibility
 from .media_track import MediaTrack
 from .redirect import Redirect
 from .scan_source_body import ScanSourceBody
@@ -31,8 +37,14 @@ from .user_role import UserRole
 
 __all__ = (
     "Bootstrap",
+    "Clip",
+    "ClipPage",
+    "ClipTracksItem",
+    "ClipVisibility",
     "Credentials",
     "Error",
+    "ListClipsStatus",
+    "ListClipsVisibility",
     "MediaTrack",
     "Redirect",
     "ScanSourceBody",
