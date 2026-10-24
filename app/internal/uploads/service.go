@@ -643,3 +643,7 @@ func jsonTracks(tracks []library.Track) ([]byte, error) {
 	}
 	return json.Marshal(tracks)
 }
+
+// MediaRoot returns the configured root containing completed media. Callers must
+// resolve storage keys from the database rather than accept client paths.
+func (s *Service) MediaRoot() string { return s.config.Root }

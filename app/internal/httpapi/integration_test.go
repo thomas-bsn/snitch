@@ -138,6 +138,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testResumableUploads(t, pool)
 	})
+	t.Run("clip library", func(t *testing.T) {
+		reset(t)
+		testClipLibrary(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
 		clipRoot := t.TempDir()
@@ -239,6 +243,8 @@ func TestFoundation(t *testing.T) {
 			CSRF string `json:"csrf_token"`
 		}
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
+		call(client, "GET", "/api/clips", nil, "", 200)
+		call(client, "GET", "/api/clips/999999", nil, "", 404)
 		call(client, "POST", "/api/auth/logout", nil, "wrong", 403)
 		call(client, "PUT", "/api/admin/settings", map[string]any{"client_id": "test-id", "client_secret": "secret-test-only", "registration_approval": true}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/sources", nil, "", 200)
@@ -335,8 +341,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/auth/me", nil, "", 200)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/uploads") {
-					continue // Exercised in the dedicated resumable upload HTTP suite.
+				if strings.HasPrefix(path, "/api/uploads") || path == "/api/clips/{id}/media" {
+					continue // Upload and binary range bodies are exercised by their dedicated HTTP suites.
 				}
 				if !seen[method+" "+path] {
 					t.Errorf("untested contract operation %s %s", method, path)
@@ -383,7 +389,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -392,6 +398,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("RECEIPTS_E2E_UPLOADS") == "1" {
 			suites = []string{"uploads.spec.ts"}
+		}
+		if os.Getenv("RECEIPTS_E2E_LIBRARY") == "1" {
+			suites = []string{"library.spec.ts"}
 		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
@@ -408,11 +417,12 @@ func TestFoundation(t *testing.T) {
 						t.Fatal(e)
 					}
 					config.ClipRoots = []string{sourceRoot}
+					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "library.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -420,7 +430,7 @@ func TestFoundation(t *testing.T) {
 					config.UploadSessionTTL = time.Hour
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}

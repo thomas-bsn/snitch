@@ -711,37 +711,356 @@
       }
     },
     "/api/uploads": {
-      "get": {"operationId": "listUploads", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Uploads actifs du membre", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UploadList"}}}}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}},
-      "post": {"operationId": "createUpload", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UploadInput"}}}}, "responses": {"201": {"description": "Upload créé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Upload"}}}}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+      "get": {
+        "operationId": "listUploads",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Uploads actifs du membre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createUpload",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Upload créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Upload"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "/api/uploads/{id}/chunks": {
-      "put": {"operationId": "putUploadChunk", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}, {"in": "header", "name": "Content-Range", "required": true, "schema": {"type": "string", "pattern": "^bytes [0-9]+-[0-9]+/[0-9]+$"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}, "responses": {"200": {"description": "Offset accepté", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UploadOffset"}}}}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+      "put": {
+        "operationId": "putUploadChunk",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Content-Range",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^bytes [0-9]+-[0-9]+/[0-9]+$"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Offset accepté",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadOffset"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "/api/uploads/{id}/complete": {
-      "post": {"operationId": "completeUpload", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"201": {"description": "Upload terminé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Upload"}}}}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+      "post": {
+        "operationId": "completeUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Upload terminé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Upload"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "/api/uploads/{id}": {
-      "delete": {"operationId": "cancelUpload", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"204": {"description": "Upload annulé"}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+      "delete": {
+        "operationId": "cancelUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Upload annulé"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "/api/admin/sources": {
       "get": {
         "operationId": "listSources",
         "responses": {
-          "200": {"description": "Sources configurées et racines autorisées", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SourceList"}}}},
-          "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "Sources configurées et racines autorisées",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         },
         "description": "Administrateurs uniquement. Les chemins sont réservés à l'administration et ne sont jamais retournés aux membres."
       },
       "post": {
         "operationId": "createSource",
         "parameters": [
-          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
-          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SourceInput"}}}},
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceInput"
+              }
+            }
+          }
+        },
         "responses": {
-          "201": {"description": "Source créée et première réconciliation planifiée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Source"}}}},
-          "default": {"description": "Error (400 path outside configured roots, 409 duplicate, 422 inaccessible path, 503 roots unconfigured)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "201": {
+            "description": "Source créée et première réconciliation planifiée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Source"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (400 path outside configured roots, 409 duplicate, 422 inaccessible path, 503 roots unconfigured)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         },
         "description": "Administrateurs uniquement. Le chemin doit être un dossier existant sous une racine CLIPS_ROOTS, sans sortie par lien symbolique."
       }
@@ -750,13 +1069,54 @@
       "delete": {
         "operationId": "disableSource",
         "parameters": [
-          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
-          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
-          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
-          "200": {"description": "Source désactivée, historique conservé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Status"}}}},
-          "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "Source désactivée, historique conservé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         },
         "description": "Désactive la surveillance sans supprimer source, clips ou provenances."
       }
@@ -764,10 +1124,39 @@
     "/api/admin/sources/{id}/files": {
       "get": {
         "operationId": "sourceFiles",
-        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
         "responses": {
-          "200": {"description": "Fichiers découverts dans cette source", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SourceFiles"}}}},
-          "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "Fichiers découverts dans cette source",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceFiles"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -775,15 +1164,375 @@
       "post": {
         "operationId": "scanSource",
         "parameters": [
-          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
-          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
-          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false}}}},
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
-          "202": {"description": "Réconciliation planifiée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Status"}}}},
-          "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "202": {
+            "description": "Réconciliation planifiée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
+      }
+    },
+    "/api/clips": {
+      "get": {
+        "operationId": "listClips",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "visibility",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "shared",
+                "private"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "waiting_stability",
+                "unreadable",
+                "missing"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner_id",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_id",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de clips visibles et états connus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Session requise. Les clips privés hors propriétaire/admin sont exclus avant filtres et pagination."
+      }
+    },
+    "/api/clips/{id}": {
+      "get": {
+        "operationId": "getClip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Détails d’un clip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Clip"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clips/{id}/media": {
+      "get": {
+        "operationId": "getClipMedia",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Range",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Media complet",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/quicktime": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/ogg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-msvideo": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-ms-wmv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Plage média",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/quicktime": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/ogg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-msvideo": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-ms-wmv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "416": {
+            "description": "Plage non satisfaisable",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Clip ou original introuvable"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Session requise et règles de visibilité identiques au détail. Le chemin disque n’est jamais exposé."
       }
     }
   },
@@ -981,79 +1730,331 @@
           }
         }
       },
-      "UploadInput": {"type": "object", "additionalProperties": false, "required": ["filename", "size_bytes"], "properties": {"filename": {"type": "string", "minLength": 1, "maxLength": 1024}, "size_bytes": {"type": "integer", "format": "int64", "minimum": 1}, "visibility": {"type": "string", "enum": ["private", "shared"], "default": "shared"}}},
-      "Upload": {"type": "object", "required": ["id", "original_name", "size_bytes", "offset_bytes", "chunk_size_bytes", "visibility", "status", "expires_at"], "properties": {"id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}, "original_name": {"type": "string"}, "size_bytes": {"type": "integer", "format": "int64"}, "offset_bytes": {"type": "integer", "format": "int64"}, "chunk_size_bytes": {"type": "integer", "format": "int64"}, "visibility": {"type": "string", "enum": ["private", "shared"]}, "status": {"type": "string", "enum": ["uploading", "processing", "complete", "failed", "cancelled", "expired"]}, "clip_id": {"type": "integer", "format": "int64"}, "expires_at": {"type": "string", "format": "date-time"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
-      "UploadList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Upload"}}}},
-      "UploadOffset": {"type": "object", "required": ["offset_bytes"], "properties": {"offset_bytes": {"type": "integer", "format": "int64"}}},
+      "UploadInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "filename",
+          "size_bytes"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ],
+            "default": "shared"
+          }
+        }
+      },
+      "Upload": {
+        "type": "object",
+        "required": [
+          "id",
+          "original_name",
+          "size_bytes",
+          "offset_bytes",
+          "chunk_size_bytes",
+          "visibility",
+          "status",
+          "expires_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "original_name": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "offset_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "chunk_size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "uploading",
+              "processing",
+              "complete",
+              "failed",
+              "cancelled",
+              "expired"
+            ]
+          },
+          "clip_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "UploadList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Upload"
+            }
+          }
+        }
+      },
+      "UploadOffset": {
+        "type": "object",
+        "required": [
+          "offset_bytes"
+        ],
+        "properties": {
+          "offset_bytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "SourceInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "path"],
+        "required": [
+          "name",
+          "path"
+        ],
         "properties": {
-          "name": {"type": "string", "minLength": 1, "maxLength": 80},
-          "path": {"type": "string", "minLength": 1, "maxLength": 4096}
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
         }
       },
       "Source": {
         "type": "object",
-        "required": ["id", "name", "path", "visibility", "enabled", "health"],
+        "required": [
+          "id",
+          "name",
+          "path",
+          "visibility",
+          "enabled",
+          "health"
+        ],
         "properties": {
-          "id": {"type": "integer", "format": "int64"},
-          "name": {"type": "string"},
-          "path": {"type": "string", "description": "Visible uniquement aux administrateurs."},
-          "visibility": {"type": "string", "enum": ["private", "shared"]},
-          "enabled": {"type": "boolean"},
-          "health": {"type": "string", "enum": ["ready", "unavailable", "warning"]},
-          "health_message": {"type": "string"},
-          "last_scan_at": {"type": "string", "format": "date-time", "nullable": true}
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Visible uniquement aux administrateurs."
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "health": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "unavailable",
+              "warning"
+            ]
+          },
+          "health_message": {
+            "type": "string"
+          },
+          "last_scan_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
         }
       },
       "SourceList": {
         "type": "object",
-        "required": ["allowed_roots", "items"],
+        "required": [
+          "allowed_roots",
+          "items"
+        ],
         "properties": {
-          "allowed_roots": {"type": "array", "items": {"type": "string"}},
-          "items": {"type": "array", "items": {"$ref": "#/components/schemas/Source"}}
+          "allowed_roots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          }
         }
       },
       "SourceFiles": {
         "type": "object",
-        "required": ["items"],
+        "required": [
+          "items"
+        ],
         "properties": {
-          "items": {"type": "array", "items": {"$ref": "#/components/schemas/SourceFile"}}
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceFile"
+            }
+          }
         }
       },
       "SourceFile": {
         "type": "object",
-        "required": ["name", "relative_path", "status", "size_bytes", "modified_at", "recorded_at_estimated", "tracks"],
+        "required": [
+          "name",
+          "relative_path",
+          "status",
+          "size_bytes",
+          "modified_at",
+          "recorded_at_estimated",
+          "tracks"
+        ],
         "properties": {
-          "name": {"type": "string"},
-          "relative_path": {"type": "string"},
-          "status": {"type": "string", "enum": ["waiting_stability", "ready", "unreadable", "missing"]},
-          "clip_id": {"type": "integer", "format": "int64", "nullable": true},
-          "error_code": {"type": "string"},
-          "size_bytes": {"type": "integer", "format": "int64", "minimum": 0},
-          "modified_at": {"type": "string", "format": "date-time"},
-          "discovered_at": {"type": "string", "format": "date-time"},
-          "recorded_at": {"type": "string", "format": "date-time"},
-          "recorded_at_estimated": {"type": "boolean"},
-          "duration_seconds": {"type": "number", "format": "double", "minimum": 0},
-          "format_name": {"type": "string"},
-          "video_codec": {"type": "string"},
-          "audio_codec": {"type": "string"},
-          "tracks": {"type": "array", "items": {"$ref": "#/components/schemas/MediaTrack"}}
+          "name": {
+            "type": "string"
+          },
+          "relative_path": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "waiting_stability",
+              "ready",
+              "unreadable",
+              "missing"
+            ]
+          },
+          "clip_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "modified_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "discovered_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recorded_at_estimated": {
+            "type": "boolean"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0
+          },
+          "format_name": {
+            "type": "string"
+          },
+          "video_codec": {
+            "type": "string"
+          },
+          "audio_codec": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaTrack"
+            }
+          }
         }
       },
       "MediaTrack": {
         "type": "object",
-        "required": ["type", "codec"],
+        "required": [
+          "type",
+          "codec"
+        ],
         "properties": {
-          "type": {"type": "string"},
-          "codec": {"type": "string"},
-          "title": {"type": "string"},
-          "language": {"type": "string"},
-          "width": {"type": "integer"},
-          "height": {"type": "integer"}
+          "type": {
+            "type": "string"
+          },
+          "codec": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          }
         }
       },
       "Redirect": {
@@ -1065,6 +2066,116 @@
           "url": {
             "type": "string",
             "format": "uri"
+          }
+        }
+      },
+      "Clip": {
+        "type": "object",
+        "required": [
+          "id",
+          "owner_id",
+          "owner",
+          "visibility",
+          "original_name",
+          "size_bytes",
+          "discovered_at",
+          "recorded_at",
+          "recorded_at_estimated",
+          "format_name",
+          "video_codec",
+          "audio_codec",
+          "tracks"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "owner_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "original_name": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "discovered_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recorded_at_estimated": {
+            "type": "boolean"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "nullable": true
+          },
+          "format_name": {
+            "type": "string"
+          },
+          "video_codec": {
+            "type": "string"
+          },
+          "audio_codec": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ClipPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Clip"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
           }
         }
       }
