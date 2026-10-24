@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: ${POSTGRES_IMAGE:-ghcr.io/thomas-bsn/receipts-postgres:phase0}
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to a published pinned image}
     environment:
       POSTGRES_USER: receipts
       POSTGRES_DB: receipts
@@ -17,19 +17,21 @@ services:
       memory: 512
       backup: {type: postgres}
   migrate:
-    image: ${RECEIPTS_IMAGE:-ghcr.io/thomas-bsn/receipts:phase0}
+    image: ${RECEIPTS_IMAGE:?Set RECEIPTS_IMAGE to a built or published immutable image}
     command: [migrate]
     environment:
-      DATABASE_URL: postgres://receipts:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/receipts?sslmode=disable
+      DATABASE_URL: postgres://receipts@postgres:5432/receipts?sslmode=disable
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     depends_on:
       postgres: {condition: service_healthy}
     restart: "no"
     x-forgeyard: {memory: 256}
   app:
-    image: ${RECEIPTS_IMAGE:-ghcr.io/thomas-bsn/receipts:phase0}
+    image: ${RECEIPTS_IMAGE:?Set RECEIPTS_IMAGE to a built or published immutable image}
     command: [serve]
     environment:
-      DATABASE_URL: postgres://receipts:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/receipts?sslmode=disable
+      DATABASE_URL: postgres://receipts@postgres:5432/receipts?sslmode=disable
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       MASTER_KEY: ${MASTER_KEY:?Set MASTER_KEY}
       PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
@@ -51,7 +53,7 @@ services:
       memory: 384
       expose: {port: 8080}
   embed:
-    image: ${EMBED_IMAGE:-ghcr.io/thomas-bsn/receipts-embed:phase0}
+    image: ${EMBED_IMAGE:?Set EMBED_IMAGE to a published pinned image}
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
       OLLAMA_MAX_LOADED_MODELS: "1"

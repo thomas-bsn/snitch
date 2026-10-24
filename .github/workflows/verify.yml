@@ -1,0 +1,88 @@
+name: Verify and distribute
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.27.3'
+          cache-dependency-path: app/go.sum
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.15'
+      - run: |
+          python -m venv .venv
+          .venv/bin/pip install -r contracts/generators/requirements.lock
+          npm --prefix web ci --ignore-scripts --no-audit --no-fund
+          cd web && npx playwright install --with-deps chromium
+      - run: |
+          test -z "$(gofmt -l app)"
+          (cd app && go vet ./...)
+          npm --prefix web run lint
+          npm --prefix web run build
+          .venv/bin/python scripts/check_generated.py
+          .venv/bin/python scripts/check_compose.py
+          RECEIPTS_E2E=1 bash scripts/test.sh
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - run: |
+          docker build -f deploy/docker/app.Dockerfile -t snitch-smoke:local .
+          docker build -f deploy/docker/worker.Dockerfile -t snitch-worker:local .
+          docker run --rm snitch-worker:local python -m pip check
+          docker run --rm snitch-worker:local
+          python scripts/smoke_compose.py snitch-smoke:local
+  publish:
+    # A reviewed version tag triggers publication only after every check and both builds.
+    needs: verify
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Portable repository image namespace
+        run: echo "IMAGE_ROOT=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: deploy/docker/app.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_ROOT }}:${{ github.ref_name }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: deploy/docker/worker.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_ROOT }}-worker:${{ github.ref_name }}
+      - name: Preserve unchanged upstream layers and notices
+        run: |
+          postgres=$(python3 -c 'import json; print(json.load(open("deploy/upstream-images.json"))["postgres"])')
+          embed=$(python3 -c 'import json; print(json.load(open("deploy/upstream-images.json"))["embed"])')
+          docker buildx imagetools create --tag "$IMAGE_ROOT-postgres:$GITHUB_REF_NAME" "$postgres"
+          docker buildx imagetools create --tag "$IMAGE_ROOT-embed:$GITHUB_REF_NAME" "$embed"
+          cp deploy/upstream-images.json upstream-provenance.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: upstream-provenance-${{ github.ref_name }}
+          path: upstream-provenance.json

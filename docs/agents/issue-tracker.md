@@ -1,7 +1,7 @@
 # Issue tracker
 
 Issues et specs : https://github.com/thomas-bsn/snitch.
-Utiliser gh avec --repo thomas-bsn/snitch explicitement, car le dossier local n'a pas encore de remote Git.
+Utiliser gh avec --repo thomas-bsn/snitch explicitement, même si le remote origin est configuré, afin de désigner le dépôt sans ambiguïté.
 
 Publier une spec signifie créer une issue GitHub.
 Pour les textes multilignes, utiliser --body-file.

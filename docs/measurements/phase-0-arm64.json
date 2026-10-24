@@ -1,0 +1,136 @@
+{
+  "environment": {
+    "date": "2026-10-24",
+    "host": "macOS 26.4.1 arm64",
+    "docker": "29.5.2",
+    "VM": "Colima Ubuntu 24.04.4 aarch64",
+    "vm_memory_bytes": 2053644288
+  },
+  "protocol": {
+    "warmup_seconds": 10,
+    "samples": 5,
+    "between_samples_seconds": 2,
+    "model_loaded": false
+  },
+  "idle_samples": [
+    [
+      {
+        "MemUsage": "34.82MiB / 384MiB",
+        "CPUPerc": "0.00%"
+      },
+      {
+        "MemUsage": "29.27MiB / 512MiB",
+        "CPUPerc": "0.05%"
+      },
+      {
+        "MemUsage": "11.06MiB / 1.5GiB",
+        "CPUPerc": "0.00%"
+      }
+    ],
+    [
+      {
+        "MemUsage": "34.85MiB / 384MiB",
+        "CPUPerc": "0.00%"
+      },
+      {
+        "MemUsage": "29.27MiB / 512MiB",
+        "CPUPerc": "0.11%"
+      },
+      {
+        "MemUsage": "11.06MiB / 1.5GiB",
+        "CPUPerc": "0.00%"
+      }
+    ],
+    [
+      {
+        "MemUsage": "34.85MiB / 384MiB",
+        "CPUPerc": "0.00%"
+      },
+      {
+        "MemUsage": "29.27MiB / 512MiB",
+        "CPUPerc": "0.06%"
+      },
+      {
+        "MemUsage": "11.06MiB / 1.5GiB",
+        "CPUPerc": "0.00%"
+      }
+    ],
+    [
+      {
+        "MemUsage": "34.85MiB / 384MiB",
+        "CPUPerc": "0.00%"
+      },
+      {
+        "MemUsage": "29.27MiB / 512MiB",
+        "CPUPerc": "0.06%"
+      },
+      {
+        "MemUsage": "11.06MiB / 1.5GiB",
+        "CPUPerc": "0.00%"
+      }
+    ],
+    [
+      {
+        "MemUsage": "34.85MiB / 384MiB",
+        "CPUPerc": "1.74%"
+      },
+      {
+        "MemUsage": "31.83MiB / 512MiB",
+        "CPUPerc": "0.13%"
+      },
+      {
+        "MemUsage": "11.06MiB / 1.5GiB",
+        "CPUPerc": "0.00%"
+      }
+    ]
+  ],
+  "sample_order": [
+    "app",
+    "postgres",
+    "embed"
+  ],
+  "migration_replay_peak_bytes": 3801088,
+  "images": [
+    {
+      "RepoTags": [
+        "snitch-smoke:local"
+      ],
+      "RepoDigests": [
+        "snitch-smoke@sha256:65e38712f77d0561ee0e65eccd414c5df67b3181ffbd02092d213061b491383e"
+      ],
+      "Architecture": "arm64",
+      "Size": 8635471
+    },
+    {
+      "RepoTags": [
+        "pgvector/pgvector@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11"
+      ],
+      "RepoDigests": [
+        "pgvector/pgvector@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11"
+      ],
+      "Architecture": "arm64",
+      "Size": 159402643
+    },
+    {
+      "RepoTags": [
+        "ollama/ollama@sha256:4c5b27871a3239a717048f9b93057680a51b60c8119a7016aebb57f938e25e35"
+      ],
+      "RepoDigests": [
+        "ollama/ollama@sha256:4c5b27871a3239a717048f9b93057680a51b60c8119a7016aebb57f938e25e35"
+      ],
+      "Architecture": "arm64",
+      "Size": 2818184304
+    }
+  ],
+  "volume_du_kib": {
+    "postgres": 47944,
+    "embed": 28
+  },
+  "image_ls_size": {
+    "app": "30.5MB",
+    "worker": "229MB",
+    "postgres": "660MB",
+    "embed": "7.08GB"
+  },
+  "worker_inspect_size_bytes": 49298190
+}
