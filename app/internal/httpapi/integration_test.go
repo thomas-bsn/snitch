@@ -273,6 +273,9 @@ func TestFoundation(t *testing.T) {
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
 		call(client, "GET", "/api/admin/job-controls", nil, "", 200)
 		call(client, "PUT", "/api/admin/job-controls", map[string]any{"paused": false, "max_concurrency": 2}, me.CSRF, 200)
+		call(client, "GET", "/api/admin/embeddings", nil, "", 200)
+		call(client, "POST", "/api/admin/embeddings/backfill", map[string]any{}, me.CSRF, 202)
+		call(client, "POST", "/api/admin/embeddings/rebuild", map[string]string{"model": "fixture-only"}, me.CSRF, 503)
 		call(client, "GET", "/api/clips", nil, "", 200)
 		call(client, "GET", "/api/clips/999999", nil, "", 404)
 		var adminID, contractClipID int64
