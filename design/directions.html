@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Receipts — directions de design</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+    :root { color-scheme: dark; font-family: 'DM Sans', sans-serif; background:#101310; color:#e8ece5; }
+    * { box-sizing:border-box }
+    body { margin:0; min-height:100vh; background:radial-gradient(ellipse at 50% -25%,#2d3929 0,transparent 55%),#101310; }
+    button { font:inherit; cursor:pointer }
+    .top { max-width:1440px; margin:auto; padding:46px 32px 30px; display:flex; align-items:end; justify-content:space-between; gap:24px }
+    .eyebrow { font:11px 'DM Mono',monospace; letter-spacing:.14em; color:#a8c886; text-transform:uppercase; margin:0 0 12px }
+    h1 { font:700 clamp(30px,4vw,46px) Manrope,sans-serif; letter-spacing:-.055em; margin:0 }
+    .lede { color:#a7ada3; margin:11px 0 0; font-size:14px }
+    .switcher { display:flex; padding:4px; gap:3px; background:#1b201b; border:1px solid #30372f; border-radius:12px }
+    .switcher button { border:0; padding:10px 14px; color:#9aa296; background:transparent; border-radius:8px; font-size:12px; font-weight:700 }
+    .switcher button.active { color:#151912; background:#c2e58d }
+    main { max-width:1440px; margin:auto; padding:0 32px 60px }
+    .direction { display:none; animation:in .22s ease-out }
+    .direction.active { display:block }
+    @keyframes in { from { opacity:.4; transform:translateY(5px) } to {opacity:1;transform:none} }
+    .direction-head { display:flex; align-items:center; gap:14px; padding:0 2px 16px }
+    .direction-head h2 { font:700 15px Manrope,sans-serif; margin:0 }
+    .direction-head p { color:#8f988c; font-size:12px; margin:0 }
+    .tag { font:10px 'DM Mono',monospace; border:1px solid #3f4a3a; color:#b4ce94; padding:5px 8px; border-radius:999px }
+    .frame { min-height:680px; border:1px solid #343b32; border-radius:18px; overflow:hidden; box-shadow:0 24px 90px #0007 }
+    .shell { min-height:680px; display:grid; grid-template-columns:220px 1fr; background:#151915 }
+    .sidebar { border-right:1px solid #2c332b; padding:25px 15px; background:#121612 }
+    .brand { display:flex; align-items:center; gap:10px; margin:0 0 38px 8px; font:800 17px Manrope,sans-serif; letter-spacing:-.04em }
+    .logo { width:27px;height:27px;border-radius:8px;display:grid;place-items:center;background:#c4e48e;color:#172014;font-weight:900;font-size:14px }
+    .nav-label { color:#71796e; font:10px 'DM Mono',monospace; letter-spacing:.12em; padding:0 10px; margin:22px 0 8px; text-transform:uppercase }
+    .nav { display:flex; align-items:center; gap:11px; padding:10px; border-radius:8px; color:#9ba398; font-size:12px; margin:2px 0 }
+    .nav.active { color:#e1ebd4; background:#283024 }
+    .nav .ico { width:15px;text-align:center;color:#a9c783 }
+    .user { margin-top:34px; border-top:1px solid #2b322a; padding:18px 7px 0; display:flex; align-items:center; gap:10px; color:#d8ddd4;font-size:11px }
+    .avatar { width:29px;height:29px;border-radius:50%;background:#473f32;display:grid;place-items:center;color:#edcf9b;font-weight:700 }
+    .content { padding:31px 34px 36px; min-width:0 }
+    .bar { display:flex;justify-content:space-between;align-items:center;margin-bottom:28px }
+    .crumb { color:#818a7e;font:11px 'DM Mono',monospace }
+    .bar-right { display:flex;gap:10px;align-items:center;color:#8d9689;font-size:11px }
+    .status { display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #344033;border-radius:999px;color:#bac6b1 }
+    .dot { width:7px;height:7px;border-radius:50%;background:#a9d56e;box-shadow:0 0 10px #9dc75a66 }
+    .page-title { display:flex;justify-content:space-between;align-items:end;margin-bottom:23px }
+    .page-title h3 { margin:0;font:700 27px Manrope,sans-serif;letter-spacing:-.045em }
+    .page-title p { margin:7px 0 0;color:#8d968b;font-size:12px }
+    .primary { border:0;border-radius:8px;background:#c4e58f;padding:10px 14px;color:#1a2413;font-size:11px;font-weight:800 }
+    .filters { display:flex;gap:8px;align-items:center;padding-bottom:19px;border-bottom:1px solid #2b3229; margin-bottom:21px; flex-wrap:wrap }
+    .filter { border:1px solid #343c32;border-radius:7px;padding:8px 11px;color:#aab1a5;background:#1a201a;font-size:10px }
+    .search { margin-left:auto; width:220px; color:#7f887c }
+    .count { margin-left:4px;color:#788174;font:10px 'DM Mono',monospace }
+    .grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px }
+    .clip { border:1px solid #30382e;border-radius:11px;background:#1a201a;overflow:hidden;transition:.2s }
+    .clip:hover { transform:translateY(-2px);border-color:#60734d }
+    .thumb { height:145px;position:relative;overflow:hidden;background:#242d23 }
+    .scene { position:absolute;inset:0;background:linear-gradient(145deg,#35412b,#9a7349 42%,#303a29 43%,#19221d); }
+    .scene:before { content:"";position:absolute;width:50%;height:70%;right:7%;bottom:-10%;background:linear-gradient(110deg,#544435,#bd8752);clip-path:polygon(20% 0,80% 0,100% 100%,0 100%);filter:drop-shadow(-10px 0 14px #1118) }
+    .scene:after { content:"";position:absolute;left:0;right:0;bottom:0;height:48%;background:linear-gradient(0deg,#111c,#1110) }
+    .clip:nth-child(2) .scene { background:linear-gradient(150deg,#213b48,#86a5a1 45%,#495d3a 46%,#18221c) }
+    .clip:nth-child(3) .scene { background:linear-gradient(145deg,#49334b,#a28589 43%,#445f53 44%,#18211c) }
+    .clip:nth-child(4) .scene { background:linear-gradient(140deg,#4b4231,#c09d67 44%,#304435 45%,#1a221c) }
+    .play { position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:34px;height:34px;border:1px solid #fff8;border-radius:50%;display:grid;place-items:center;color:white;background:#1118;font-size:12px;padding-left:2px }
+    .duration { position:absolute;bottom:9px;right:9px;border-radius:4px;background:#0d110cbb;padding:3px 6px;font:10px 'DM Mono',monospace;color:#eee }
+    .clip-body { padding:13px 14px 14px }
+    .clip-title { margin:0 0 8px;color:#e2e7de;font-size:12px;font-weight:700 }
+    .meta { display:flex;justify-content:space-between;color:#879084;font:10px 'DM Mono',monospace }
+    .chip { color:#b7d892;background:#293525;padding:3px 6px;border-radius:4px;font-size:9px }
+    .bottom { display:flex;justify-content:space-between;align-items:center;color:#788174;font-size:10px;margin-top:20px }
+    .pages { display:flex;gap:5px }.pages span { padding:6px 9px;border:1px solid #323a30;border-radius:6px }.pages span:first-child{background:#303b2c;color:#d2e8b4}
+    .theme-switch { display:flex;gap:3px;padding:3px;border:1px solid #343c32;border-radius:8px;background:#1a201a }
+    .theme-switch button { border:0;border-radius:5px;background:transparent;color:#9aa296;padding:6px 9px;font-size:10px;font-weight:700 }
+    .theme-switch button.active { color:#182014;background:#c4e58f }
+    /* Alternate light theme for the Studio direction */
+    #studio[data-theme="light"] .shell { background:#f0f1eb;color:#272d26 }
+    #studio[data-theme="light"] .sidebar { background:#e5e8df;border-color:#d1d7ca }
+    #studio[data-theme="light"] .brand { color:#273027 }
+    #studio[data-theme="light"] .logo { background:#344d39;color:#e5efda }
+    #studio[data-theme="light"] .nav { color:#687164 }
+    #studio[data-theme="light"] .nav.active { color:#2e3c2c;background:#d1dac9 }
+    #studio[data-theme="light"] .nav .ico { color:#607a4d }
+    #studio[data-theme="light"] .nav-label { color:#92998c }
+    #studio[data-theme="light"] .user { border-color:#cdd3c8;color:#454e42 }
+    #studio[data-theme="light"] .avatar { background:#d5c4a7;color:#473d2d }
+    #studio[data-theme="light"] .content { background:#f5f6f1 }
+    #studio[data-theme="light"] .crumb { color:#80887b }
+    #studio[data-theme="light"] .status { color:#53604d;border-color:#d3dacd }
+    #studio[data-theme="light"] .page-title h3 { color:#242b24 }
+    #studio[data-theme="light"] .page-title p { color:#788174 }
+    #studio[data-theme="light"] .filters { border-color:#d8ddd3 }
+    #studio[data-theme="light"] .filter { background:#fff;border-color:#d7ddd2;color:#596254 }
+    #studio[data-theme="light"] .search { color:#788174 }
+    #studio[data-theme="light"] .count { color:#879082 }
+    #studio[data-theme="light"] .clip { background:#fff;border-color:#dce1d8;box-shadow:0 4px 12px #3341220a }
+    #studio[data-theme="light"] .clip-title { color:#293128 }
+    #studio[data-theme="light"] .meta { color:#7b8376 }
+    #studio[data-theme="light"] .chip { background:#edf3e6;color:#526b40 }
+    #studio[data-theme="light"] .bottom { color:#7c8478 }
+    #studio[data-theme="light"] .pages span { border-color:#d5dbd1 }
+    #studio[data-theme="light"] .pages span:first-child { background:#e5eddb;color:#435a34 }
+    /* Editorial direction */
+    .editorial { background:#e8e5da;color:#272b25;min-height:680px;display:grid;grid-template-columns:190px 1fr;font-family:'DM Sans',sans-serif }
+    .editorial .sidebar { background:#deddd1;border-color:#cac9bc;color:#30352e }
+    .editorial .brand { color:#242a23 }.editorial .logo { background:#2e4937;color:#d4e2c2;border-radius:50% }
+    .editorial .nav { color:#666c60 }.editorial .nav.active { color:#27332a;background:#cdd3c3 }
+    .editorial .nav .ico { color:#53684b }.editorial .nav-label{color:#8a8d7f}
+    .editorial .user { border-color:#c9cabc;color:#41473e }.editorial .avatar{background:#c5b69b;color:#383429}
+    .editorial .content { padding:37px 42px;background:#eeeae0 }
+    .editorial .crumb { color:#848779 }.editorial .status{border-color:#cccebf;color:#59604f}.editorial .dot{box-shadow:none}
+    .editorial .page-title h3 { font:600 31px Georgia,serif;letter-spacing:-.04em;color:#292e27 }
+    .editorial .page-title p { color:#72776b }.editorial .primary{background:#354b38;color:#f2f1e8;border-radius:4px}
+    .editorial .filters { border-color:#d2d0c3 }.editorial .filter{background:transparent;border-color:#c9cabc;color:#5b6157;border-radius:3px}
+    .editorial .search{color:#85897d}.editorial .clip{background:#f3f0e7;border-color:#d6d3c7;border-radius:4px}
+    .editorial .thumb{height:153px}.editorial .clip-body{padding:14px 15px 16px}.editorial .clip-title{font:600 14px Georgia,serif;color:#2e332b}
+    .editorial .meta{color:#777c70}.editorial .chip{color:#476044;background:#dce2d3;border-radius:2px}.editorial .bottom{color:#7f8378}.editorial .pages span{border-color:#cccdbf;border-radius:3px}.editorial .pages span:first-child{background:#d9dfd0;color:#344532}
+    /* Ops direction */
+    .ops { display:grid;grid-template-columns:220px 1fr;min-height:680px;background:#101615 }
+    .ops .sidebar { background:#111817;border-color:#25312d }
+    .ops .content { padding:29px 32px;background:linear-gradient(120deg,#131b18,#111615) }
+    .ops .page-title h3 { font:700 25px Manrope,sans-serif }.ops .page-title p{color:#9aa39a}
+    .stats { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 18px }
+    .stat { border:1px solid #2d3932;background:#18211d;padding:13px 14px;border-radius:8px }
+    .stat label { display:block;color:#8c988e;font:10px 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em }
+    .stat strong { display:block;margin-top:8px;color:#e5eadf;font:700 23px Manrope,sans-serif;letter-spacing:-.04em }
+    .stat small { color:#a9cf7c;font-size:9px }
+    .ops-main { display:grid;grid-template-columns:1.7fr .9fr;gap:13px }
+    .panel { border:1px solid #2d3932;background:#171f1b;border-radius:8px;padding:16px }
+    .panel-head { display:flex;justify-content:space-between;align-items:center;margin-bottom:13px }
+    .panel-head h4 { margin:0;font:700 12px Manrope,sans-serif;color:#dce4da }
+    .panel-head span { color:#859187;font:10px 'DM Mono',monospace }
+    .recent-row { display:grid;grid-template-columns:58px 1fr auto;align-items:center;gap:11px;padding:10px 0;border-top:1px solid #27322d }
+    .mini { height:37px;border-radius:4px;background:linear-gradient(140deg,#566442,#a0794f 50%,#303b2b 51%);position:relative }
+    .recent-row strong { display:block;font-size:10px;color:#dce4db }.recent-row small{display:block;margin-top:4px;color:#8a968b;font-size:9px}
+    .state { color:#b4d78d;font:9px 'DM Mono',monospace }.state.muted{color:#97a19a}
+    .activity { display:grid;gap:15px }.event { display:grid;grid-template-columns:19px 1fr;gap:9px;color:#b6c0b6;font-size:10px;line-height:1.4 }.event i{width:8px;height:8px;border:2px solid #a5cf72;border-radius:50%;margin:3px auto}.event small{display:block;color:#758178;font:9px 'DM Mono',monospace;margin-top:4px}
+    .queue { margin-top:13px }.queue-line{display:flex;justify-content:space-between;color:#929d92;font-size:10px;margin:10px 0 6px}.track{height:5px;border-radius:5px;background:#2a362f;overflow:hidden}.track i{display:block;height:100%;width:35%;background:#b6dc82;border-radius:5px}
+    @media(max-width:900px){.top{align-items:start;flex-direction:column}.shell,.ops{grid-template-columns:170px 1fr}.grid{grid-template-columns:repeat(2,1fr)}.editorial{grid-template-columns:160px 1fr}.ops-main{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:620px){.top,main{padding-left:16px;padding-right:16px}.switcher{width:100%}.switcher button{flex:1;padding:9px 4px;font-size:10px}.frame,.shell,.ops,.editorial{min-height:600px}.shell,.ops,.editorial{grid-template-columns:1fr}.sidebar{display:none}.content,.editorial .content,.ops .content{padding:22px 17px}.grid{grid-template-columns:1fr 1fr;gap:9px}.thumb,.editorial .thumb{height:100px}.clip-title{font-size:10px}.clip-body{padding:10px}.search{width:100%;margin-left:0}.filters{gap:6px}.filter{padding:7px}.page-title h3{font-size:22px}.stats{gap:7px}.stat{padding:10px}.stat strong{font-size:19px}.direction-head{align-items:start;flex-direction:column;gap:6px}}
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div><p class="eyebrow">Receipts · exploration visuelle</p><h1>Trois façons de parcourir tes clips.</h1><p class="lede">Même produit, trois priorités d’interface. Clique pour comparer les directions.</p></div>
+    <nav class="switcher" aria-label="Directions de design">
+      <button class="active" data-target="studio">01 · Studio</button><button data-target="editorial">02 · Éditorial</button><button data-target="ops">03 · Activité</button>
+    </nav>
+  </header>
+  <main>
+    <section class="direction active" id="studio">
+      <div class="direction-head"><span class="tag">A · IMMERSIF</span><h2>Studio vidéo</h2><p>Les clips prennent le premier plan ; navigation légère autour.</p><nav class="theme-switch" aria-label="Thème de la maquette Studio"><button class="active" data-theme-target="dark">Sombre</button><button data-theme-target="light">Clair</button></nav></div>
+      <div class="frame"><div class="shell">
+        <aside class="sidebar"><div class="brand"><span class="logo">R</span> receipts</div><div class="nav active"><span class="ico">▦</span> Bibliothèque</div><div class="nav"><span class="ico">⇧</span> Imports <span style="margin-left:auto;color:#a9c783">2</span></div><div class="nav"><span class="ico">⌕</span> Recherche</div><div class="nav-label">Espace admin</div><div class="nav"><span class="ico">◷</span> File de tâches</div><div class="nav"><span class="ico">⌁</span> Sources</div><div class="nav"><span class="ico">⚙</span> Réglages</div><div class="user"><span class="avatar">T</span><span>thomas<br><small style="color:#7c867a">Administrateur</small></span><span style="margin-left:auto">⌄</span></div></aside>
+        <div class="content"><div class="bar"><span class="crumb">ESPACE / MÉDIATHÈQUE</span><div class="bar-right"><span class="status"><i class="dot"></i> Bibliothèque à jour</span><span>◉</span></div></div><div class="page-title"><div><h3>Bibliothèque</h3><p>12 clips partagés · derniers ajouts en premier</p></div><button class="primary">＋ Importer des clips</button></div><div class="filters"><button class="filter">Toutes les dates⌄</button><button class="filter">Toutes les sources⌄</button><button class="filter">Visibilité⌄</button><button class="filter">État⌄</button><button class="filter search">⌕　Rechercher un clip</button><span class="count">12 RÉSULTATS</span></div><div class="grid">
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:18</span></div><div class="clip-body"><p class="clip-title">Dernier cercle — victoire clutch</p><div class="meta"><span>Hier · Capture locale</span><span class="chip">Partagé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:32</span></div><div class="clip-body"><p class="clip-title">On passe par le pont ?</p><div class="meta"><span>12 oct. · Upload</span><span class="chip">Partagé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:14</span></div><div class="clip-body"><p class="clip-title">Le call le plus risqué</p><div class="meta"><span>10 oct. · Capture locale</span><span class="chip">Privé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:26</span></div><div class="clip-body"><p class="clip-title">Ça passe, ça passe…</p><div class="meta"><span>8 oct. · Upload</span><span class="chip">Partagé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:09</span></div><div class="clip-body"><p class="clip-title">Une seconde trop tard</p><div class="meta"><span>6 oct. · Capture locale</span><span class="chip">Partagé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:41</span></div><div class="clip-body"><p class="clip-title">Le meilleur moment de la soirée</p><div class="meta"><span>3 oct. · Upload</span><span class="chip">Partagé</span></div></div></article>
+        </div><div class="bottom"><span>Affichage 1–6 sur 12</span><div class="pages"><span>1</span><span>2</span><span>→</span></div></div></div>
+      </div></div>
+    </section>
+    <section class="direction" id="editorial">
+      <div class="direction-head"><span class="tag">B · CALME</span><h2>Bibliothèque éditoriale</h2><p>Un ton plus chaleureux, proche d’une collection personnelle organisée.</p></div>
+      <div class="frame"><div class="editorial">
+        <aside class="sidebar"><div class="brand"><span class="logo">R</span> receipts</div><div class="nav active"><span class="ico">▦</span> Ma bibliothèque</div><div class="nav"><span class="ico">⇧</span> Imports</div><div class="nav"><span class="ico">⌕</span> Recherche</div><div class="nav-label">Administration</div><div class="nav"><span class="ico">◷</span> Traitements</div><div class="nav"><span class="ico">⌁</span> Sources</div><div class="nav"><span class="ico">⚙</span> Paramètres</div><div class="user"><span class="avatar">T</span><span>thomas<br><small>Administrateur</small></span></div></aside>
+        <div class="content"><div class="bar"><span class="crumb">COLLECTION PERSONNELLE　/　TOUS LES CLIPS</span><div class="bar-right"><span class="status"><i class="dot"></i> Tout est synchronisé</span></div></div><div class="page-title"><div><p class="eyebrow" style="color:#687b5b;margin-bottom:8px">OCTOBRE 2026 · 12 SOUVENIRS</p><h3>Les dernières parties</h3><p>Les moments que tu as gardés, au même endroit.</p></div><button class="primary">Ajouter des clips　＋</button></div><div class="filters"><button class="filter">Date : récente</button><button class="filter">Toutes les sources</button><button class="filter">Partagés et privés</button><button class="filter search">⌕　Filtrer la collection</button></div><div class="grid">
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:18</span></div><div class="clip-body"><p class="clip-title">Dernier cercle — victoire clutch</p><div class="meta"><span>Hier · Capture locale</span><span class="chip">Partagé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:32</span></div><div class="clip-body"><p class="clip-title">On passe par le pont ?</p><div class="meta"><span>12 oct. · Upload</span><span class="chip">Partagé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:14</span></div><div class="clip-body"><p class="clip-title">Le call le plus risqué</p><div class="meta"><span>10 oct. · Capture locale</span><span class="chip">Privé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:26</span></div><div class="clip-body"><p class="clip-title">Ça passe, ça passe…</p><div class="meta"><span>8 oct. · Upload</span><span class="chip">Partagé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:09</span></div><div class="clip-body"><p class="clip-title">Une seconde trop tard</p><div class="meta"><span>6 oct. · Capture locale</span><span class="chip">Partagé</span></div></div></article>
+          <article class="clip"><div class="thumb"><div class="scene"></div><span class="play">▶</span><span class="duration">00:41</span></div><div class="clip-body"><p class="clip-title">Le meilleur moment de la soirée</p><div class="meta"><span>3 oct. · Upload</span><span class="chip">Partagé</span></div></div></article>
+        </div><div class="bottom"><span>12 éléments dans cette collection</span><div class="pages"><span>1</span><span>2</span><span>→</span></div></div></div>
+      </div></div>
+    </section>
+    <section class="direction" id="ops">
+      <div class="direction-head"><span class="tag">C · PILOTAGE</span><h2>Activité et bibliothèque</h2><p>La page d’accueil montre les imports, les tâches et l’état du worker.</p></div>
+      <div class="frame"><div class="ops">
+        <aside class="sidebar"><div class="brand"><span class="logo">R</span> receipts</div><div class="nav active"><span class="ico">⌂</span> Vue d’ensemble</div><div class="nav"><span class="ico">▦</span> Bibliothèque</div><div class="nav"><span class="ico">⇧</span> Imports <span style="margin-left:auto;color:#a9c783">2</span></div><div class="nav-label">Administration</div><div class="nav"><span class="ico">◷</span> File de tâches</div><div class="nav"><span class="ico">⌁</span> Sources</div><div class="nav"><span class="ico">⚙</span> Réglages</div><div class="user"><span class="avatar">T</span><span>thomas<br><small style="color:#7c867a">Administrateur</small></span></div></aside>
+        <div class="content"><div class="bar"><span class="crumb">ESPACE / VUE D’ENSEMBLE</span><div class="bar-right"><span class="status"><i class="dot"></i> Système opérationnel</span><span>◉</span></div></div><div class="page-title"><div><h3>Bonjour, thomas</h3><p>Voici ce qui se passe dans ta bibliothèque.</p></div><button class="primary">＋ Importer des clips</button></div><div class="stats"><div class="stat"><label>Clips disponibles</label><strong>128</strong><small>↗ 8 ajoutés cette semaine</small></div><div class="stat"><label>Imports en cours</label><strong>2</strong><small>1 reprend après interruption</small></div><div class="stat"><label>Tâches en attente</label><strong>14</strong><small>File en pause</small></div><div class="stat"><label>Worker</label><strong style="font-size:17px;margin:12px 0 4px">● En ligne</strong><small>GPU · dernière activité il y a 8 s</small></div></div><div class="ops-main"><div class="panel"><div class="panel-head"><h4>Ajouts récents</h4><span>VOIR LA BIBLIOTHÈQUE →</span></div>
+          <div class="recent-row"><div class="mini"></div><div><strong>Dernier cercle — victoire clutch</strong><small>Hier · Capture locale · 00:18</small></div><span class="state">Disponible</span></div>
+          <div class="recent-row"><div class="mini" style="background:linear-gradient(140deg,#284354,#9db9ab 50%,#3f553b 51%)"></div><div><strong>On passe par le pont ?</strong><small>12 oct. · Upload · 00:32</small></div><span class="state">Disponible</span></div>
+          <div class="recent-row"><div class="mini" style="background:linear-gradient(140deg,#483447,#af8f98 50%,#3e594c 51%)"></div><div><strong>Le call le plus risqué</strong><small>10 oct. · Capture locale · 00:14</small></div><span class="state muted">En attente</span></div>
+          <div class="queue"><div class="panel-head"><h4>File de tâches</h4><span>GÉRER →</span></div><div class="queue-line"><span>Transcription</span><span>Étape à venir · 14 en attente</span></div><div class="track"><i style="width:14%"></i></div></div>
+        </div><div class="panel"><div class="panel-head"><h4>Activité récente</h4><span>AUJOURD’HUI</span></div><div class="activity"><div class="event"><i></i><div><b>Worker reconnecté</b><small>Il y a 8 secondes</small></div></div><div class="event"><i></i><div><b>Import terminé</b><small>clip-session-04.mp4 · 2,1 Go</small></div></div><div class="event"><i></i><div><b>3 clips découverts</b><small>Source « Captures » · 09:42</small></div></div><div class="event"><i></i><div><b>Nouvelle tâche planifiée</b><small>Préparation audio · en attente</small></div></div></div><button class="filter" style="width:100%;margin-top:20px">Voir toute l’activité</button></div></div></div>
+      </div></div>
+    </section>
+  </main>
+  <script>
+    const buttons = [...document.querySelectorAll('.switcher button')];
+    const sections = [...document.querySelectorAll('.direction')];
+    for (const button of buttons) button.addEventListener('click', () => {
+      for (const item of buttons) item.classList.toggle('active', item === button);
+      for (const section of sections) section.classList.toggle('active', section.id === button.dataset.target);
+    });
+    const studio = document.querySelector('#studio');
+    const themeButtons = [...document.querySelectorAll('[data-theme-target]')];
+    for (const button of themeButtons) button.addEventListener('click', () => {
+      const theme = button.dataset.themeTarget;
+      studio.dataset.theme = theme;
+      for (const item of themeButtons) item.classList.toggle('active', item === button);
+    });
+  </script>
+</body>
+</html>

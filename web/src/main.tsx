@@ -120,6 +120,14 @@ function App() {
   );
   const [register, setRegister] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    const saved = localStorage.getItem("receipts-theme");
+    return saved === "light" ? "light" : "dark";
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("receipts-theme", theme);
+  }, [theme]);
   const csrf = {
     "X-CSRF-Token": session?.csrf_token ?? "",
     Origin: location.origin,
@@ -575,7 +583,7 @@ function App() {
     });
   }
   return (
-    <main>
+    <main className={session ? "authenticated" : ""}>
       <header>
         <span className="brand-mark">R</span>
         <div>
@@ -680,30 +688,45 @@ function App() {
         </section>
       ) : (
         <>
+          <div className="app-shell">
+            <aside className="sidebar" aria-label="Navigation principale">
+              <a className="sidebar-brand" href="#library" aria-label="Receipts, bibliothèque">
+                <span className="brand-mark">R</span>
+                <span>{setup.display_name}</span>
+              </a>
+              <p className="nav-label">Espace</p>
+              <a className="nav-link active" href="#library"><span aria-hidden="true">▦</span> Bibliothèque</a>
+              <a className="nav-link" href="#uploads"><span aria-hidden="true">⇧</span> Imports{uploads.length > 0 && <span className="nav-count">{uploads.length}</span>}</a>
+              {session.user.role === "admin" && <>
+                <p className="nav-label">Administration</p>
+                <a className="nav-link" href="#job-queue"><span aria-hidden="true">◷</span> File de tâches</a>
+                <a className="nav-link" href="#workers"><span aria-hidden="true">⌁</span> Workers</a>
+                <a className="nav-link" href="#sources"><span aria-hidden="true">▤</span> Sources</a>
+                <a className="nav-link" href="#settings"><span aria-hidden="true">⚙</span> Réglages</a>
+              </>}
+              <div className="sidebar-user">
+                <span className="user-avatar">{session.user.username.slice(0, 1).toUpperCase()}</span>
+                <span className="user-copy"><strong>{session.user.username}</strong><small>{session.user.role === "admin" ? "Administrateur" : "Membre"}</small></span>
+              </div>
+            </aside>
+            <div className="workspace">
           <div className="toolbar">
             <p>
-              Connecté : <strong>{session.user.username}</strong> ·{" "}
-              {session.user.role === "admin" ? "Administrateur" : "Utilisateur"}
+              <span className="breadcrumb">ESPACE / MÉDIATHÈQUE</span>
             </p>
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={() =>
-                run(async () => {
-                  checked(
-                    await api.POST("/api/auth/logout", {
-                      params: { header: csrf },
-                    }),
-                  );
-                  setSession(undefined);
-                  await refresh();
-                })
-              }
-            >
-              Se déconnecter
-            </button>
+            <div className="toolbar-actions">
+              <div className="theme-toggle" role="group" aria-label="Thème">
+                <button className={theme === "dark" ? "selected" : ""} aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}>Sombre</button>
+                <button className={theme === "light" ? "selected" : ""} aria-pressed={theme === "light"} onClick={() => setTheme("light")}>Clair</button>
+              </div>
+              <button className="secondary logout-button" disabled={busy} onClick={() => run(async () => {
+                checked(await api.POST("/api/auth/logout", { params: { header: csrf } }));
+                setSession(undefined);
+                await refresh();
+              })}>Se déconnecter</button>
+            </div>
           </div>
-          <section className="card">
+          <section className="card" id="uploads">
             <p className="eyebrow">IMPORTER UNE VIDÉO</p>
             <h2>Ajouter à la bibliothèque</h2>
             <p>
@@ -768,8 +791,8 @@ function App() {
               </ul>
             )}
           </section>
-          <section className="card" aria-label="Bibliothèque">
-            <h2>Bibliothèque ({clipTotal})</h2>
+          <section className="card library-card" aria-label="Bibliothèque" id="library">
+            <div className="library-heading"><div><p className="eyebrow">VOTRE COLLECTION</p><h2>Bibliothèque</h2><p>{clipTotal} clips · derniers ajouts en premier</p></div><a className="primary-link" href="#uploads">＋ Importer des clips</a></div>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -807,8 +830,8 @@ function App() {
                   <option value="missing">Original introuvable</option>
                 </select>
               </label>
-              <label>
-                Propriétaire (ID)
+                <label className="advanced-filter">
+                  Propriétaire (ID)
                 <input
                   type="number"
                   min="1"
@@ -818,7 +841,7 @@ function App() {
                   }
                 />
               </label>
-              <label>
+                <label className="advanced-filter">
                 Source (ID)
                 <input
                   type="number"
@@ -832,7 +855,7 @@ function App() {
                   }
                 />
               </label>
-              <label>
+                <label className="advanced-filter">
                 Du
                 <input
                   type="date"
@@ -842,7 +865,7 @@ function App() {
                   }
                 />
               </label>
-              <label>
+                <label className="advanced-filter">
                 Au
                 <input
                   type="date"
@@ -852,23 +875,21 @@ function App() {
                   }
                 />
               </label>
-              <button disabled={busy}>Filtrer</button>
+              <button className="filter-submit" disabled={busy}>Appliquer les filtres</button>
             </form>
             {clips.length === 0 ? (
               <p>Aucun clip visible pour ces filtres.</p>
             ) : (
-              <ul>
+              <ul className="clip-grid">
                 {clips.map((clip) => (
-                  <li className="source" key={clip.id}>
-                    <strong>{clip.original_name}</strong> · {clip.status} ·{" "}
-                    {clip.visibility} · {clip.owner}
-                    <p className="hint">
-                      {new Date(clip.recorded_at).toLocaleDateString("fr-FR")} ·{" "}
-                      {clip.duration_seconds?.toFixed(2) ?? "Durée inconnue"} s
-                      · {clip.video_codec || "codec inconnu"}
-                    </p>
-                    <details>
-                      <summary>Détails et lecture</summary>
+                  <li className="clip-card" key={clip.id}>
+                    <div className={`clip-art clip-art-${clip.id % 5}`} aria-hidden="true"><span className="clip-art-label">{clip.status === "ready" ? "APERÇU VIDÉO" : clip.status === "missing" ? "ORIGINAL ABSENT" : clip.status === "unreadable" ? "ILLISIBLE" : "EN ATTENTE"}</span>{clip.status === "ready" && <span className="clip-play">▶</span>}<span className="clip-duration">{clip.duration_seconds ? `${Math.floor(clip.duration_seconds / 60)}:${String(Math.floor(clip.duration_seconds % 60)).padStart(2, "0")}` : "—:—"}</span></div>
+                    <div className="clip-card-body">
+                      <strong className="clip-name" title={clip.original_name}>{clip.original_name}</strong>
+                      <p className="clip-meta">{new Date(clip.recorded_at).toLocaleDateString("fr-FR")} · {clip.owner}</p>
+                      <div className="clip-card-footer"><span className={`clip-state state-${clip.status}`}>{clip.status === "ready" ? "Disponible" : clip.status === "missing" ? "Introuvable" : clip.status === "unreadable" ? "Illisible" : "En attente"}</span><span className="visibility-chip">{clip.visibility === "shared" ? "Partagé" : "Privé"}</span></div>
+                      <details>
+                        <summary>Détails et lecture</summary>
                       <p>
                         {clip.format_name} · audio{" "}
                         {clip.audio_codec || "absent"} · {clip.size_bytes}{" "}
@@ -885,7 +906,8 @@ function App() {
                           aria-label={`Lecture ${clip.original_name}`}
                         />
                       )}
-                    </details>
+                      </details>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -911,7 +933,7 @@ function App() {
             </div>
           </section>
           {setup.discord_enabled && (
-            <section className="card">
+            <section className="card" id="settings">
               <h2>Lier votre identité Discord</h2>
               <p>
                 Cette action associe votre compte actuel à votre identité
@@ -1008,7 +1030,7 @@ function App() {
             </section>
           )}
           {session.user.role === "admin" && (
-            <section className="card" aria-label="Contrôle de la file">
+            <section className="card" aria-label="Contrôle de la file" id="queue-controls">
               <h2>Contrôle de la file</h2>
               <p aria-live="polite">
                 {jobControls.paused
@@ -1055,7 +1077,7 @@ function App() {
             </section>
           )}
           {session.user.role === "admin" && (
-            <section className="card">
+            <section className="card" id="workers">
               <h2>Workers</h2>
               <p className="hint">
                 Le jeton apparaît une seule fois après création. Configurez-le
@@ -1126,7 +1148,7 @@ function App() {
             </section>
           )}
           {session.user.role === "admin" && (
-            <section className="card">
+            <section className="card" id="members">
               <h2>Inscriptions en attente ({pending.length})</h2>
               {pending.length === 0 ? (
                 <p>Aucune demande en attente.</p>
@@ -1157,7 +1179,7 @@ function App() {
             </section>
           )}
           {session.user.role === "admin" && (
-            <section className="card">
+            <section className="card" id="job-queue">
               <h2>File de tâches ({jobTotal})</h2>
               <p className="hint">
                 Les tâches restent en attente jusqu’à ce qu’un worker prenne en
@@ -1346,7 +1368,7 @@ function App() {
             </section>
           )}
           {session.user.role === "admin" && (
-            <section className="card">
+            <section className="card" id="sources">
               <h2>Sources dossier</h2>
               {allowedRoots.length === 0 ? (
                 <p className="hint">
@@ -1452,6 +1474,8 @@ function App() {
               )}
             </section>
           )}
+            </div>
+          </div>
         </>
       )}
       {setup && !session && (
