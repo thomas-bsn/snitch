@@ -344,7 +344,7 @@ func (s *Server) embeddingStatus(w http.ResponseWriter, r *http.Request) {
 	out.Configured = s.Config.EmbeddingsURL != ""
 	out.Provider = "openai-compatible"
 	out.State = "unconfigured"
-	err := s.Pool.QueryRow(r.Context(), `SELECT COALESCE(p.dimensions,0),COALESCE(p.state,'unconfigured'),count(*) FILTER(WHERE t.state IN ('pending','leased')),count(*) FILTER(WHERE t.state='done'),count(*) FILTER(WHERE t.state='failed'),COALESCE((SELECT error FROM embedding_tasks et WHERE et.profile_id=p.id AND et.state='failed' ORDER BY et.updated_at DESC LIMIT 1),p.error,'') FROM embedding_index_state s LEFT JOIN embedding_profiles p ON p.id=s.active_profile_id LEFT JOIN embedding_tasks t ON t.profile_id=p.id WHERE s.id=1 GROUP BY p.dimensions,p.state,p.error`).Scan(&out.Dimensions, &out.State, &out.Pending, &out.Done, &out.Failed, &out.Error)
+	err := s.Pool.QueryRow(r.Context(), `SELECT COALESCE(p.dimensions,0),COALESCE(p.state,'unconfigured'),count(*) FILTER(WHERE t.state IN ('pending','leased')),count(*) FILTER(WHERE t.state='done'),count(*) FILTER(WHERE t.state='failed'),COALESCE((SELECT error FROM embedding_tasks et WHERE et.profile_id=p.id AND et.state='failed' ORDER BY et.updated_at DESC LIMIT 1),p.error,'') FROM embedding_index_state s LEFT JOIN embedding_profiles p ON p.id=s.active_profile_id LEFT JOIN embedding_tasks t ON t.profile_id=p.id WHERE s.id=1 GROUP BY p.id,p.dimensions,p.state,p.error`).Scan(&out.Dimensions, &out.State, &out.Pending, &out.Done, &out.Failed, &out.Error)
 	if err != nil && err != pgx.ErrNoRows {
 		s.internal(w, err)
 		return
@@ -353,7 +353,7 @@ func (s *Server) embeddingStatus(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	if err = s.Pool.QueryRow(r.Context(), `SELECT p.model,p.state,count(t.id),count(*) FILTER(WHERE t.state='done'),count(*) FILTER(WHERE t.state IN ('pending','leased')),count(*) FILTER(WHERE t.state='failed'),COALESCE((SELECT error FROM embedding_tasks et WHERE et.profile_id=p.id AND et.state='failed' ORDER BY et.updated_at DESC LIMIT 1),p.error,'') FROM embedding_index_state st JOIN embedding_profiles p ON p.id=st.candidate_profile_id LEFT JOIN embedding_tasks t ON t.profile_id=p.id WHERE st.id=1 GROUP BY p.model,p.state,p.error`).Scan(&out.CandidateModel, &out.CandidateState, &out.CandidateTotal, &out.CandidateDone, &out.CandidatePending, &out.CandidateFailed, &out.CandidateError); err != nil && err != pgx.ErrNoRows {
+	if err = s.Pool.QueryRow(r.Context(), `SELECT p.model,p.state,count(t.id),count(*) FILTER(WHERE t.state='done'),count(*) FILTER(WHERE t.state IN ('pending','leased')),count(*) FILTER(WHERE t.state='failed'),COALESCE((SELECT error FROM embedding_tasks et WHERE et.profile_id=p.id AND et.state='failed' ORDER BY et.updated_at DESC LIMIT 1),p.error,'') FROM embedding_index_state st JOIN embedding_profiles p ON p.id=st.candidate_profile_id LEFT JOIN embedding_tasks t ON t.profile_id=p.id WHERE st.id=1 GROUP BY p.id,p.model,p.state,p.error`).Scan(&out.CandidateModel, &out.CandidateState, &out.CandidateTotal, &out.CandidateDone, &out.CandidatePending, &out.CandidateFailed, &out.CandidateError); err != nil && err != pgx.ErrNoRows {
 		s.internal(w, err)
 		return
 	}
