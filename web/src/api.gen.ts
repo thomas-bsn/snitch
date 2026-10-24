@@ -302,6 +302,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/job-controls": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. */
+    get: operations["getJobControls"];
+    /** @description Administrateurs uniquement. La concurrence globale est bornée à 1–4. */
+    put: operations["updateJobControls"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/workers": {
     parameters: {
       query?: never;
@@ -707,6 +725,16 @@ export interface components {
       page_size: number;
       /** Format: int64 */
       total: number;
+    };
+    JobControls: {
+      paused: boolean;
+      max_concurrency: number;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    JobControlsInput: {
+      paused: boolean;
+      max_concurrency: number;
     };
     Worker: {
       id: string;
@@ -1650,6 +1678,71 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid task, 404 clip not found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getJobControls: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État global de pause et plafond de concurrence */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobControls"];
+        };
+      };
+      /** @description Error (401 session required, 403 admin required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateJobControls: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["JobControlsInput"];
+      };
+    };
+    responses: {
+      /** @description Contrôles de file enregistrés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobControls"];
+        };
+      };
+      /** @description Error (400 invalid controls, 401 session required, 403 admin/origin/CSRF required, 503 unavailable) */
       default: {
         headers: {
           [name: string]: unknown;

@@ -15,6 +15,62 @@ from receipts_worker import runner
 
 
 class FakeProviderTests(unittest.TestCase):
+    def test_run_once_does_not_claim_after_stop_during_pulse(self):
+        stop = threading.Event()
+
+        def pulse_then_stop(**_kwargs):
+            stop.set()
+            return object()
+
+        with (
+            patch.object(runner, "pulse", side_effect=pulse_then_stop),
+            patch.object(runner, "claim_job") as claim,
+        ):
+            self.assertFalse(runner.run_once(object(), stop=stop))
+
+        claim.assert_not_called()
+
+    def test_worker_pool_stops_claiming_and_drains_active_jobs(self):
+        capacity = 3
+        stop = threading.Event()
+        release_jobs = threading.Event()
+        started = threading.Event()
+        lock = threading.Lock()
+        active = 0
+        peak_active = 0
+        calls = 0
+
+        def run_job(*_args, **_kwargs):
+            nonlocal active, peak_active, calls
+            with lock:
+                calls += 1
+                active += 1
+                peak_active = max(peak_active, active)
+                if active == capacity:
+                    started.set()
+            release_jobs.wait(2)
+            with lock:
+                active -= 1
+            return True
+
+        with patch.object(runner, "run_once", side_effect=run_job):
+            thread = threading.Thread(
+                target=runner.run_until_stopped,
+                args=(object(), capacity, stop),
+                kwargs={"poll_interval": 0.01},
+            )
+            thread.start()
+            self.assertTrue(started.wait(2), "worker pool did not fill its capacity")
+            stop.set()
+            thread.join(0.05)
+            self.assertTrue(thread.is_alive(), "shutdown did not wait for active jobs")
+            release_jobs.set()
+            thread.join(2)
+
+        self.assertFalse(thread.is_alive(), "worker pool did not drain on shutdown")
+        self.assertEqual(peak_active, capacity)
+        self.assertEqual(calls, capacity, "worker claimed more jobs after shutdown")
+
     def test_returns_deterministic_fixture_metadata_only(self):
         media = b"synthetic-video-fixture"
 

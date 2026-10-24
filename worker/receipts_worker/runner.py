@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import os
+import signal
 import ssl
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -64,7 +66,10 @@ def _heartbeat_loop(
 
 
 def run_once(
-    client: AuthenticatedClient, capacity: int = 1, heartbeat_interval: float = 45.0
+    client: AuthenticatedClient,
+    capacity: int = 1,
+    heartbeat_interval: float = 45.0,
+    stop: threading.Event | None = None,
 ) -> bool:
     """Process at most one leased task. Return False when the queue is empty."""
     if heartbeat_interval <= 0:
@@ -72,6 +77,8 @@ def run_once(
     _require_response(
         pulse(client=client, body=WorkerPulseInput(capacity=capacity)), "pulse"
     )
+    if stop is not None and stop.is_set():
+        return False
     claim = _require_response(claim_job(client=client), "claim")
     if claim is None or claim.job is None:
         return False
@@ -151,6 +158,55 @@ def run_once(
     return True
 
 
+def _worker_loop(
+    client: AuthenticatedClient,
+    capacity: int,
+    stop: threading.Event,
+    poll_interval: float,
+    heartbeat_interval: float,
+) -> None:
+    while not stop.is_set():
+        try:
+            completed = run_once(client, capacity, heartbeat_interval, stop)
+        except (httpx.HTTPError, RuntimeError):
+            # Network outages are retried on the next poll. Do not log exception
+            # details because HTTP client errors can include sensitive URLs.
+            completed = False
+        if not completed:
+            stop.wait(poll_interval)
+
+
+def run_until_stopped(
+    client: AuthenticatedClient,
+    capacity: int,
+    stop: threading.Event,
+    poll_interval: float = 5.0,
+    heartbeat_interval: float = 45.0,
+) -> None:
+    """Run a bounded pool; stop claiming on shutdown and drain active tasks."""
+    if capacity < 1 or capacity > 4:
+        raise ValueError("worker capacity must be an integer from 1 to 4")
+    if poll_interval <= 0 or heartbeat_interval <= 0:
+        raise ValueError("worker intervals must be positive")
+
+    with ThreadPoolExecutor(max_workers=capacity) as executor:
+        workers = [
+            executor.submit(
+                _worker_loop,
+                client,
+                capacity,
+                stop,
+                poll_interval,
+                heartbeat_interval,
+            )
+            for _ in range(capacity)
+        ]
+        while not stop.wait(0.1):
+            pass
+        for worker in workers:
+            worker.result()
+
+
 def main() -> None:
     api_url = os.environ.get("RECEIPTS_API_URL", "").strip()
     token = os.environ.get("RECEIPTS_WORKER_TOKEN", "").strip()
@@ -179,9 +235,14 @@ def main() -> None:
         verify_ssl=tls_context,
         timeout=httpx.Timeout(30.0),
     ) as client:
-        while True:
-            if not run_once(client, capacity):
-                time.sleep(5)
+        stop = threading.Event()
+
+        def request_stop(_signum: int, _frame: object) -> None:
+            stop.set()
+
+        signal.signal(signal.SIGTERM, request_stop)
+        signal.signal(signal.SIGINT, request_stop)
+        run_until_stopped(client, capacity, stop)
 
 
 if __name__ == "__main__":

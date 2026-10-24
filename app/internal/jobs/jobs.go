@@ -184,6 +184,16 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		return nil, fmt.Errorf("begin job claim: %w", err)
 	}
 	defer tx.Rollback(ctx)
+	// Serialize claims against control updates. An administrator's pause takes
+	// effect atomically: when the update returns, no claim can still cross it.
+	var paused bool
+	var globalCapacity int
+	if err = tx.QueryRow(ctx, `SELECT paused,max_concurrency FROM job_control WHERE id=true FOR UPDATE`).Scan(&paused, &globalCapacity); err != nil {
+		return nil, fmt.Errorf("read global job controls for claim: %w", err)
+	}
+	if paused {
+		return nil, tx.Commit(ctx)
+	}
 	if _, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='lease_expired',updated_at=now() WHERE status='leased' AND lease_expires_at<=now()`); err != nil {
 		return nil, fmt.Errorf("recover expired job leases: %w", err)
 	}
@@ -200,7 +210,11 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if err = tx.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE status='leased' AND lease_owner=$1 AND lease_expires_at>now()`, workerID).Scan(&active); err != nil {
 		return nil, fmt.Errorf("count active worker leases: %w", err)
 	}
-	if capacity < 1 || active >= capacity {
+	var globalActive int
+	if err = tx.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE status='leased' AND lease_expires_at>now()`).Scan(&globalActive); err != nil {
+		return nil, fmt.Errorf("count active global leases: %w", err)
+	}
+	if capacity < 1 || active >= capacity || globalActive >= globalCapacity {
 		return nil, tx.Commit(ctx)
 	}
 	job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result FROM jobs WHERE status='pending' AND next_attempt_at<=now() ORDER BY priority DESC,created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`))
