@@ -130,6 +130,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/uploads/{id}/complete", s.protected(false, http.HandlerFunc(s.completeUpload)))
 	mux.Handle("DELETE /api/uploads/{id}", s.protected(false, http.HandlerFunc(s.cancelUpload)))
 	mux.Handle("GET /api/clips", s.protected(false, http.HandlerFunc(s.listClips)))
+	mux.Handle("GET /api/search", s.protected(false, http.HandlerFunc(s.search)))
 	mux.Handle("GET /api/clips/{id}", s.protected(false, http.HandlerFunc(s.getClip)))
 	mux.Handle("POST /api/admin/clips/{id}/transcription", s.protected(true, http.HandlerFunc(s.scheduleTranscription)))
 	mux.Handle("GET /api/clips/{id}/media", s.protected(false, http.HandlerFunc(s.serveClipMedia)))

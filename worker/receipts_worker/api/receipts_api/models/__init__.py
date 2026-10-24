@@ -30,6 +30,14 @@ from .media_track import MediaTrack
 from .redirect import Redirect
 from .scan_source_body import ScanSourceBody
 from .scheduled_transcription import ScheduledTranscription
+from .search_page import SearchPage
+from .search_result import SearchResult
+from .search_result_match_type import SearchResultMatchType
+from .search_result_status import SearchResultStatus
+from .search_result_visibility import SearchResultVisibility
+from .search_transcripts_mode import SearchTranscriptsMode
+from .search_transcripts_status import SearchTranscriptsStatus
+from .search_transcripts_visibility import SearchTranscriptsVisibility
 from .session import Session
 from .settings import Settings
 from .settings_input import SettingsInput
@@ -102,6 +110,14 @@ __all__ = (
     "Redirect",
     "ScanSourceBody",
     "ScheduledTranscription",
+    "SearchPage",
+    "SearchResult",
+    "SearchResultMatchType",
+    "SearchResultStatus",
+    "SearchResultVisibility",
+    "SearchTranscriptsMode",
+    "SearchTranscriptsStatus",
+    "SearchTranscriptsVisibility",
     "Session",
     "Settings",
     "SettingsInput",

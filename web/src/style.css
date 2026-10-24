@@ -180,4 +180,17 @@ pre { max-width: 100%; overflow: auto; padding: 12px; border-radius: 7px; backgr
 .vocabulary-list li > div:first-child { display: grid; gap: 4px; min-width: 0; }
 .vocabulary-list li span,.vocabulary-list li small { color: var(--muted); overflow-wrap: anywhere; }
 .vocabulary-list .actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.transcript-search { margin: 0 0 22px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); }
+.transcript-search h3 { margin: 0 0 12px; }
+.transcript-search form { display: grid; grid-template-columns: minmax(200px,2fr) repeat(4,minmax(105px,1fr)); align-items: end; gap: 9px; }
+.transcript-search form label { font-size: 10px; }
+.transcript-search form button { min-height: 38px; }
+.search-results { display: grid; gap: 10px; margin: 12px 0; padding-left: 24px; }
+.search-results li { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.search-results p { margin: 7px 0; line-height: 1.6; }
+.search-results mark { border-radius: 3px; background: var(--accent); color: var(--accent-ink); }
+.search-playback { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.search-playback h4 { margin: 0; }
+.search-playback video { width: min(100%,720px); max-height: 420px; border-radius: 8px; background: #000; }
+@media (max-width: 900px) { .transcript-search form { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 680px) { .vocabulary-list li { align-items: flex-start; flex-direction: column; }.vocabulary-list .actions { flex-wrap: wrap; } }
