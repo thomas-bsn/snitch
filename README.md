@@ -1,123 +1,35 @@
-# Receipts
+# Snitch / Receipts
 
-Socle Go et interface française embarquée pour retrouver, dans les prochaines phases, les paroles et les voix de clips de jeu. La phase 0 est en cours de vérification : les tickets #2 à #4 couvrent le démarrage vierge, le premier administrateur, les sessions locales et les inscriptions avec approbation. La configuration facultative de Discord et ses secrets sont couverts par le ticket #5 ; les connexions et liaisons Discord simulées sont vérifiées au ticket #6. Aucune bibliothèque ni aucun traitement de média n'est disponible.
+Receipts (nom d’affichage configurable) est un socle open source MIT pour une future bibliothèque de clips de jeu. La phase 0 fournit installation, comptes locaux, approbation et Discord facultatif. Ingestion, recherche et worker GPU attendent les phases suivantes. Aucun média ni modèle n’est nécessaire.
 
-## Démarrer le socle en développement
+## Essayer localement
 
-Prérequis : Go 1.27.3, Node 24 avec npm (compilation uniquement), Docker pour PostgreSQL/pgvector et les tests. Le binaire de production ne lance aucun processus Node. Exécuter les commandes depuis la racine du dépôt.
-
-```sh
-npm --prefix web ci
-npm --prefix web run build
-mkdir -p bin
-(cd app && go build -o ../bin/receipts ./cmd/receipts)
-
-docker run --name receipts-dev-db --detach \
-  --env POSTGRES_USER=receipts --env POSTGRES_DB=receipts \
-  --env POSTGRES_PASSWORD=synthetic-development-only \
-  --publish 127.0.0.1:5432:5432 \
-  pgvector/pgvector:0.8.7-pg18-bookworm@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11
-# Attendre que cette commande réussisse avant de migrer :
-docker exec receipts-dev-db pg_isready -U receipts -d receipts
-
-export DATABASE_URL=postgres://receipts:synthetic-development-only@localhost:5432/receipts?sslmode=disable
-export MASTER_KEY="$(openssl rand -base64 32)"
-export PUBLIC_URL=http://localhost:8080
-export COOKIE_SECURE=false
-export DISPLAY_NAME=Receipts
-./bin/receipts migrate
-./bin/receipts serve
-```
-
-Ouvrir <http://localhost:8080>. L'écran annonce une nouvelle installation et les étapes reportées. Le code d'installation temporaire est la seule exception aux logs expurgés ; il expire après 15 minutes. Saisir ce code, un nom de 3 à 64 caractères et un mot de passe personnel de 12 à 256 caractères dans le wizard, puis créer le premier administrateur. Discord est facultatif : aucun fournisseur externe n’est nécessaire. Aucun compte par défaut n'est créé. Arrêter avec Ctrl+C ou SIGTERM. Les données du conteneur de développement sont jetables ; ne jamais utiliser cet exemple pour des données réelles.
-
-`migrate` n'exige que `DATABASE_URL`. La commande est rejouable et ne réapplique pas les migrations réussies ; un échec rend un code de sortie non nul. `serve` ne lance aucune migration et refuse une base vierge ou dont les versions de migration ne correspondent pas aux migrations embarquées. Dans le déploiement orchestré, le job de migration devra réussir avant le démarrage de l'API (ticket #7).
-
-## Installation et sessions locales
-
-Le code d’installation apparaît dans le log JSON `one-time installation code` (champ `expires_in_minutes: 15`) au démarrage de `serve`. Il est utilisable une fois pendant 15 minutes ; ni la page ni l’API publique ne le renvoient. Aucun administrateur ni mot de passe par défaut n’est précréé. Une seule création réussit même si deux demandes arrivent ensemble. Après réussite, l’installation reste fermée après redémarrage ; utiliser ensuite « Se connecter » avec les identifiants personnels et « Se déconnecter » pour révoquer la session courante.
-
-Si le navigateur ou le serveur s’interrompt **avant** la création, retrouver le code dans les logs du premier démarrage : un redémarrage conserve tout code encore valide et ne le réaffiche pas. Si ce code a été perdu ou a expiré, attendre son expiration puis redémarrer `serve` : un nouveau code est émis tant que l’installation n’est pas terminée. Le précédent est alors refusé. Une interruption **après** création ne rouvre jamais le wizard ; se reconnecter avec le compte créé. Aucun changement SQL manuel n’est nécessaire.
-
-Les mots de passe utilisent Argon2id version 19 : mémoire 32 MiB, trois itérations, parallélisme 1, sel aléatoire de 16 octets et résultat de 32 octets. Les limites de saisie comptent les caractères Unicode côté serveur. Les jetons opaques de session contiennent 32 octets aléatoires ; seul leur SHA-256 est persisté. Une session expire après sept jours fixes, sans prolongation automatique. Déconnexion et expiration rendent le jeton inutilisable, y compris s’il est renvoyé directement à l’API.
-
-Le cookie `receipts_session` utilise `Path=/`, `HttpOnly`, `SameSite=Lax` et une durée maximale de 604800 secondes. `Secure` est activé par défaut ; conserver HTTPS et `COOKIE_SECURE=true` en production. Chaque mutation doit transmettre `Origin` égal à `PUBLIC_URL`. Les mutations authentifiées exigent aussi `X-CSRF-Token`, obtenu avec `GET /api/auth/me`. Les fonctions privées exigent une session approuvée et les routes `/api/admin/…` le rôle administrateur ; masquer un écran n’est jamais la protection d’accès.
-
-L’installation, la connexion et l’inscription partagent une limite par adresse réseau distante : rafale de dix demandes, puis une demande toutes les six secondes ; `429` annonce `Retry-After: 6`. Deux traitements de mots de passe au plus s’exécutent simultanément par processus ; un excès renvoie `429 busy`. Les en-têtes de proxy transmis par le client sont ignorés : derrière un proxy, les clients partageant son adresse partagent actuellement cette limite. Les refus de connexion sont identiques pour compte inexistant, mot de passe incorrect et compte en attente. Les secrets saisis ne sont ni journalisés ni renvoyés.
-
-## Inscriptions et approbation
-
-Après installation, « Créer un compte » permet de demander un accès local. L’approbation est requise par défaut : l’écran confirme la mise en attente et aucune session n’est ouverte. Le demandeur ne peut ni se connecter ni accéder aux fonctions privées tant qu’un administrateur n’a pas cliqué sur « Approuver » dans la liste des inscriptions en attente. Cette liste et son compteur proviennent de la base. Le nouveau compte garde le rôle utilisateur.
-
-Dans « Accès et Discord », l’administrateur peut décocher l’approbation requise puis enregistrer les réglages. Ce choix s’applique aux **nouveaux** comptes locaux et Discord ; les demandes déjà en attente restent à approuver explicitement. Un compte créé sans approbation peut se connecter aussitôt avec ses identifiants. Réactiver ce réglage soumet les prochaines inscriptions à approbation sans modifier les comptes existants. Le réglage API `registration_approval` est un booléen obligatoire : une valeur absente ou nulle est refusée sans modifier la politique.
-
-Les noms sont uniques sans distinction de casse. Les inscriptions utilisent les mêmes limites Unicode que l’installation ; un nom indisponible renvoie `409 username_unavailable`. Avant installation, l’inscription renvoie `409 setup_required` et ne crée jamais d’administrateur. Les routes de liste, d’approbation et de réglages sont réservées aux administrateurs ; leurs mutations exigent origine et CSRF. Une approbation répétée ou un identifiant inexistant renvoie `404 not_pending`.
-
-## Discord facultatif et sauvegarde des secrets
-
-Après la création de l’administrateur, « Accès et Discord » permet de continuer sans Discord et de conserver une installation entièrement locale. Seuls les administrateurs peuvent consulter et modifier ces réglages. Pour préparer la connexion :
-
-1. Créer votre propre application dans le [Discord Developer Portal](https://discord.com/developers/applications). Aucun identifiant du propriétaire de ce dépôt n’est nécessaire.
-2. Dans les réglages OAuth2 de cette application, récupérer le **Client ID** et le **Client Secret**, puis ajouter l’URL de retour affichée par Receipts aux redirections autorisées : `PUBLIC_URL/api/auth/discord/callback`, avec l’origine publique exacte de votre installation.
-3. Enregistrer ces deux valeurs dans Receipts. Le premier enregistrement exige un secret ; un identifiant seul ou des champs constitués uniquement d’espaces sont refusés. Le statut configuré confirme la présence des deux valeurs, sans vérifier leur validité auprès de Discord.
-4. Pour une modification ultérieure, laisser le secret vide conserve sa valeur. Un nouveau secret le remplace. « Désactiver Discord » (ou enregistrer un identifiant vide) efface les deux valeurs ; les comptes locaux restent disponibles. Réactiver demandera de saisir à nouveau le secret.
-
-Ces étapes suivent la [documentation OAuth2 officielle de Discord](https://docs.discord.com/developers/topics/oauth2). Enregistrer les réglages ne déclenche aucun appel fournisseur. La connexion ou la liaison ouvre ensuite Discord dans le navigateur ; le serveur échange le code avec Discord puis lit l’identité publique via la seule portée `identify`, sans accès aux messages ni à l’adresse e-mail. Aucun jeton fournisseur n’est renvoyé au frontend ni conservé en base.
-
-Le secret n’est jamais renvoyé au navigateur après saisie, ni écrit dans les logs. L’interface n’en indique que la présence. Les valeurs sont chiffrées en PostgreSQL par AES-256-GCM avec nonce aléatoire et nom du réglage authentifié ; toute altération ou mauvaise clé empêche leur lecture. Conserver `MASTER_KEY` entre redémarrages et la sauvegarder **séparément** de PostgreSQL dans un emplacement sûr. Une restauration utilisable demande la base **et la même clé** ; une nouvelle clé ne déchiffre pas les anciens secrets. Le test complet de restauration reste prévu en phase 7.
-
-## Connexion et liaison Discord
-
-« Continuer avec Discord » annonce la redirection externe. Une nouvelle identité suit la politique d’inscription courante : par défaut, retour avec un message d’attente sans session autorisée ; après approbation, la même identité retrouve le même compte. Un pseudo fournisseur identique à un compte local n’associe jamais les deux comptes. Une collision avec le nom technique `discord_<identité>` crée un nom distinct.
-
-Depuis un compte connecté, « Lier Discord » associe explicitement l’identité à ce compte. Le retour exige exactement la session qui a commencé la liaison : déconnexion, expiration ou nouvelle connexion imposent de recommencer. Une identité ne peut appartenir qu’à un compte ; une liaison concurrente ou un remplacement d’identité est refusé sans écraser l’association existante. Une liaison réussie conserve la session courante.
-
-Le state et le témoin navigateur contiennent chacun 32 octets aléatoires et sont hachés en base ; ils expirent après dix minutes. Le state est consommé atomiquement une seule fois avant l’échange fournisseur. Un autre navigateur, un retour expiré ou rejoué est refusé. Le refus de consentement et les erreurs fournisseur ramènent le navigateur vers un message français permettant de réessayer ou de se connecter localement. Les clients API reçoivent des erreurs JSON (`400 invalid_oauth_state`, `403 link_session_required`, `409 discord_already_linked`, `502 discord_unavailable`) ; le refus de consentement retourne `303 /?notice=discord_denied`. Les appels Discord ont leur propre limite de dix demandes puis une toutes les six secondes ; ils n’occupent pas les deux traitements de mots de passe locaux. Chaque échange sortant est borné par un délai de dix secondes.
-
-La migration `00002_oauth_session.sql` invalide les anciens parcours OAuth en cours pour imposer la liaison à la session d’origine. Exécuter `migrate` avant de relancer la nouvelle API ; recommencer toute redirection engagée avant la mise à jour.
-
-## Configuration et santé
-
-| Variable | Usage |
-| --- | --- |
-| `DATABASE_URL` | URL PostgreSQL requise ; conserver les identifiants hors du dépôt. |
-| `MASTER_KEY` | 32 octets aléatoires en base64, requis pour `serve` ; sauvegarder séparément de la base et conserver la même clé entre redémarrages. |
-| `PUBLIC_URL` | Origine HTTP(S) publique sans chemin ni identifiants ; `http://localhost:8080` par défaut. |
-| `COOKIE_SECURE` | `true` par défaut, exige HTTPS ; `false` uniquement pour le développement HTTP. |
-| `LISTEN_ADDR` | Adresse et port d'écoute, `:8080` par défaut. `healthcheck` utilise la même variable. |
-| `DISPLAY_NAME` | Nom affiché dans le navigateur, `Receipts` par défaut. |
-| `EMBEDDINGS_URL` | URL HTTP(S) facultative du point d'accès compatible embeddings ; pas d'identifiants ni query string. |
-| `EMBEDDINGS_MODEL` | Modèle déjà disponible chez le fournisseur ; aucun téléchargement implicite. Vide : pas d'appel au fournisseur. |
-
-L'exemple [.env.example](.env.example) prépare les variables du futur déploiement Compose ; ses références d'images sont des exemples, pas une publication annoncée. Pour ce démarrage local, les embeddings sont facultatifs et peuvent rester absents. Aucun chemin vers la bibliothèque de l'hôte n'est nécessaire.
-
-- `GET /api/health/live` : processus vivant, HTTP 200, `{"status":"ok"}`.
-- `GET /api/health/ready` : schéma accessible, HTTP 200 ; `degraded` si embeddings absents ou injoignables, `ok` si leur sonde réussit. Une base inaccessible donne HTTP 503 avec `database_unavailable`.
-- `GET /api/setup` : état d'installation, nom d'affichage et phases reportées ; aucun secret d'installation.
-- `./bin/receipts healthcheck` : sortie 0 si l'API est prête, y compris en mode dégradé.
-
-Les logs de l'application sont du JSON avec erreurs génériques, sans URL PostgreSQL, clé maître ni corps de requête. Le pool est limité à six connexions. SIGTERM laisse jusqu'à dix secondes aux requêtes en cours avant la fermeture du pool.
-
-## Vérifier et contribuer
+Prérequis : Docker avec Compose v2, Git ; environ 8 Go d’images amont en cache. Les images GHCR ne sont pas encore publiées : construire depuis les sources. Node et Go tournent dans les stages de build, jamais dans le conteneur final.
 
 ```sh
-npm --prefix web run build
-bash scripts/test.sh
-RECEIPTS_E2E=1 bash scripts/test.sh
-npm --prefix web run lint
+git clone https://github.com/thomas-bsn/snitch.git
+cd snitch
+cp .env.example .env
+# Dans .env, choisir POSTGRES_PASSWORD, puis MASTER_KEY avec :
+openssl rand -base64 32
+# Conserver cette clé séparément et ne jamais committer .env.
+docker compose build app migrate
+docker compose up -d
+# Lire localement le code temporaire dans les logs (ne pas les partager) :
+docker compose logs app
 ```
 
-Les tests utilisent uniquement une base Testcontainers jetable avec pgvector et des données synthétiques. Le scénario de l'exécutable vérifie migrations séparées/rejouées, SPA embarquée, port configurable, santé pendant une panne PostgreSQL, logs et arrêt. Les tests API couvrent aussi l'échec d'une migration invalide. `RECEIPTS_E2E=1` lance les scénarios navigateur sur la vraie API, dont installation sans Discord, code invalide, rechargement, connexion/déconnexion et configuration/conservation/désactivation du secret Discord et connexion/liaison avec fournisseur simulé ; `RECEIPTS_E2E_FOUNDATION=1` permet de limiter le navigateur au socle du ticket #2. Installer Chromium une fois avec `cd web && npx playwright install chromium`. Le script détecte le contexte Docker actif ; les surcharges Testcontainers peuvent être fournies par l'environnement.
+Ouvrir <http://localhost:8080>, saisir le code d’installation, choisir votre nom et un mot de passe personnel (12–256 caractères), puis créer le premier administrateur. Le code dure 15 minutes et ne sert qu’une fois. Si le code perdu a expiré, redémarrer l’application pour en obtenir un nouveau ; un redémarrage conserve un code encore valide sans le réafficher. Une installation terminée ne se rouvre pas.
 
-Le contrat source est [contracts/openapi.yaml](contracts/openapi.yaml). Les opérations d’installation et de session locale sont vérifiées avec leurs entrées, réponses et refus. Les inscriptions, approbations et politiques sont vérifiées par HTTP réel et par le scénario navigateur `registration.spec.ts` (attente, refus de connexion, réglage sans effet rétroactif, approbation et rôle utilisateur). Les réglages Discord sont vérifiés avec conservation/remplacement du secret, stockage chiffré, refus d’altération et permissions. Le scénario `discord-oauth.spec.ts` vérifie refus de consentement, inscription en attente puis approbation, reconnexion, absence de fusion sur pseudo, liaison et conflit ; l’API vérifie aussi states, expiration, rejeu, remplacement/révocation de session, erreurs fournisseur, politique sans approbation et concurrence de liaison, sans compte Discord réel. Pour régénérer les types Go, TypeScript, Python et les requêtes sqlc :
+Continuer sans Discord, ou ouvrir « Accès et Discord » pour saisir les identifiants de **votre** application Discord et enregistrer l’URL de retour affichée. Les inscriptions demandent une approbation par défaut. [Guide des comptes, sessions et Discord](docs/access.md).
 
-```sh
-python3 -m venv .venv
-.venv/bin/pip install -r contracts/generators/requirements.lock
-bash scripts/generate.sh
-python3 scripts/check_generated.py
-```
+`docker compose stop` arrête les services ; `docker compose up -d` retrouve les volumes et l’installation. `docker compose down` conserve les données ; ajouter `-v` les détruit. L’override local expose uniquement l’interface sur loopback et PostgreSQL sur loopback 55432 ; `COOKIE_SECURE=false` est réservé à cet essai HTTP. Aucun dossier hôte n’est monté.
 
-Les versions des générateurs sont épinglées. Le dernier contrôle compare tous les octets générés avant et après régénération et échoue si les artefacts divergent. Le worker reste un squelette de contrat, sans traitement GPU.
+## Exploiter ou contribuer
 
-La [roadmap](ROADMAP.md), la [spec de phase 0](docs/specs/phase-0.md), le [glossaire](GLOSSARY.md) et les [ADR](docs/adr/) décrivent le périmètre. Les tickets #2 à #6 sont couverts par leurs tests dédiés. Le déploiement, la CI et le bilan complet de phase restent à finaliser avant validation du passage à la phase 1.
+- [Déploiement Forgeyard, variables et migrations](docs/deployment.md)
+- [Développement, tests et CI](docs/development.md) · [Contribution](CONTRIBUTING.md)
+- [Sauvegarde et restauration](docs/backups.md) · [Licences des distributions](deploy/NOTICES.md)
+- [Bilan et mesures de phase 0](docs/phase-0-report.md) · [Roadmap](ROADMAP.md) · [Spec](docs/specs/phase-0.md) · [Glossaire](GLOSSARY.md)
+
+Aucune publication d’image, aucun déploiement NAS, aucun scan de bibliothèque réelle n’a été réalisé. Le passage en phase 1 attend la validation utilisateur ; le benchmark réel de phase 7 demande une autorisation séparée.

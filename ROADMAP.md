@@ -4,8 +4,8 @@ Receipts indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a di
 
 ## État actuel
 
-- Phase 0 : spec publiée dans [l’issue GitHub #1](https://github.com/thomas-bsn/snitch/issues/1) ; reprise de l’implémentation autorisée ; vérifications et bilan en cours.
-- Le brouillon créé prématurément est repris dans le périmètre de la spec de phase 0. La phase attend encore ses vérifications et son bilan.
+- Phase 0 : spec publiée dans [l’issue GitHub #1](https://github.com/thomas-bsn/snitch/issues/1) ; implémentée et vérifiée localement ; [bilan et mesures](docs/phase-0-report.md) disponibles, validation utilisateur de fin de phase attendue.
+- Les tickets #2 à #7 couvrent le périmètre de phase 0 ; la CI distante et la publication restent non exécutées. La phase 1 attend une validation distincte.
 - Phases 1 à 7 : planifiées, non implémentées.
 - Aucun média réel traité, aucun déploiement effectué, aucun code ni image publié. Le dépôt public et le suivi des issues existent sur GitHub.
 

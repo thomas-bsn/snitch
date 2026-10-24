@@ -1,0 +1,10 @@
+# Distribution notices
+
+The repository's own code is MIT (LICENSE); this does not relicense dependencies or base images.
+App images contain `/usr/share/licenses/receipts/third-party/go` (actual runtime modules from `go list -deps`, Go toolchain LICENSE/PATENTS) and `web` (production npm lock closure). Original LICENSE, NOTICE, COPYRIGHT and PATENTS texts are copied; builds fail if a dependency has no license text. React, react-dom, scheduler, openapi-fetch and openapi-typescript-helpers are included.
+
+Worker images retain Python/Debian base notices and installed wheel metadata and copy full distribution license files into `/usr/share/licenses/receipts/python`. `runtime.lock` pins the complete Python 3.12 non-extra closure; `build.lock` pins poetry-core 2.2.1 (verified PyPI release, Python >=3.9). Installation uses no build isolation or dependency re-resolution and runs `pip check`. certifi is MPL-2.0, httpx/httpcore/idna BSD-3-Clause, typing_extensions PSF-2.0; other runtime packages MIT. Build backend/pip/base distribution notices remain included too.
+
+PostgreSQL/pgvector and Ollama are copied from the exact manifest references in `upstream-images.json` using `imagetools create`, preserving all filesystem layers and their original notices. The release records these source references as an artifact. PostgreSQL/pgvector use the PostgreSQL license; Ollama MIT also bundles other components. Inspect upstream image notices for the complete distribution. Do not present entire containers as exclusively MIT.
+
+Pinned source digests, npm lock, go.sum and explicit Python locks make dependency resolution reproducible. Generated clients are checked byte for byte. Image bytes/build timestamps and external registry availability are not promised reproducible; CI and publication target amd64 (NAS N100 / GPU PC); local validation also built arm64. No image is published by a local build.
