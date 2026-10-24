@@ -128,9 +128,11 @@ def sync_detailed(
     to: datetime.date | Unset = UNSET,
 
 ) -> Response[Error | SearchPage]:
-    """  Recherche exacte ou plein texte insensible à la casse et aux accents français. Les clips privés hors
-    propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
-    worker n’est effectué.
+    """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
+    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les
+    résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et
+    administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est
+    effectué.
 
     Args:
         q (str):
@@ -185,9 +187,11 @@ def sync(
     to: datetime.date | Unset = UNSET,
 
 ) -> Error | SearchPage | None:
-    """  Recherche exacte ou plein texte insensible à la casse et aux accents français. Les clips privés hors
-    propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
-    worker n’est effectué.
+    """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
+    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les
+    résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et
+    administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est
+    effectué.
 
     Args:
         q (str):
@@ -237,9 +241,11 @@ async def asyncio_detailed(
     to: datetime.date | Unset = UNSET,
 
 ) -> Response[Error | SearchPage]:
-    """  Recherche exacte ou plein texte insensible à la casse et aux accents français. Les clips privés hors
-    propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
-    worker n’est effectué.
+    """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
+    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les
+    résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et
+    administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est
+    effectué.
 
     Args:
         q (str):
@@ -294,9 +300,11 @@ async def asyncio(
     to: datetime.date | Unset = UNSET,
 
 ) -> Error | SearchPage | None:
-    """  Recherche exacte ou plein texte insensible à la casse et aux accents français. Les clips privés hors
-    propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
-    worker n’est effectué.
+    """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
+    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les
+    résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et
+    administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est
+    effectué.
 
     Args:
         q (str):

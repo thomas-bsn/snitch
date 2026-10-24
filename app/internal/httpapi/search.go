@@ -90,8 +90,13 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	// without requiring a database extension or changing the worker result format.
 	queryNorm := normalizeSearch(q)
 	match := "wn=$1"
+	fuzzy := "FALSE"
 	if mode == "full_text" {
-		match = "sn LIKE '%' || $1 || '%'"
+		match = "(wn=$1 OR sn LIKE '%' || $1 || '%')"
+		// pg_trgm is only used for sufficiently long single transcript words;
+		// short/common queries would otherwise produce noisy matches.
+		fuzzy = "(char_length($1)>=4 AND char_length(wn)>=4 AND similarity(wn,$1)>=$9)"
+		match = "(" + match + " OR " + fuzzy + ")"
 	}
 	baseQuery := `WITH transcript AS (
  SELECT DISTINCT ON (j.clip_id) j.clip_id,j.result FROM jobs j WHERE j.status='done' AND j.step LIKE 'transcription.audio.%' ORDER BY j.clip_id,j.updated_at DESC,j.id DESC
@@ -100,7 +105,7 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END status,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb) sources,
 	 seg->>'text' context, COALESCE((seg->>'start')::double precision,0) segment_start, word->>'word' matched_text, COALESCE((word->>'start')::double precision,(seg->>'start')::double precision,0) timestamp,
- CASE WHEN word IS NOT NULL AND ` + fmtNorm("word->>'word'") + `=$1 THEN 'exact' ELSE 'full_text' END match_type,
+	 CASE WHEN word IS NOT NULL AND ` + fmtNorm("word->>'word'") + `=$1 THEN 'exact' WHEN ` + fmtNorm("seg->>'text'") + ` LIKE '%' || $1 || '%' THEN 'full_text' ELSE 'approximate' END match_type,
  ` + fmtNorm("seg->>'text'") + ` sn, ` + fmtNorm("word->>'word'") + ` wn
  FROM transcript t JOIN clips c ON c.id=t.clip_id CROSS JOIN LATERAL jsonb_array_elements(COALESCE(t.result->'segments','[]'::jsonb)) seg
  LEFT JOIN LATERAL jsonb_array_elements(COALESCE(seg->'words','[]'::jsonb)) word ON true
@@ -110,20 +115,20 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
  AND ($8='' OR CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END=$8)
 )
 	`
-	countQuery := `WITH transcript AS (SELECT DISTINCT ON (j.clip_id) j.clip_id,j.result FROM jobs j WHERE j.status='done' AND j.step LIKE 'transcription.audio.%' ORDER BY j.clip_id,j.updated_at DESC,j.id DESC), parts AS (SELECT c.id clip_id,seg->>'text' context,COALESCE((seg->>'start')::double precision,0) segment_start,word->>'word' matched_text,` + fmtNorm("seg->>'text'") + ` sn,` + fmtNorm("word->>'word'") + ` wn FROM transcript t JOIN clips c ON c.id=t.clip_id CROSS JOIN LATERAL jsonb_array_elements(COALESCE(t.result->'segments','[]'::jsonb)) seg LEFT JOIN LATERAL jsonb_array_elements(COALESCE(seg->'words','[]'::jsonb)) word ON true WHERE (c.visibility='shared' OR c.owner_id=$2 OR $3) AND ($4='' OR c.visibility=$4) AND ($5=0 OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.source_id=$5)) AND ($6='' OR c.recorded_at::date >= $6::date) AND ($7='' OR c.recorded_at::date <= $7::date) AND ($8='' OR CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END=$8)) SELECT count(*) FROM parts WHERE ` + match
-	resultQuery := "SELECT clip_id,clip_name,visibility,recorded_at,status,sources,context,matched_text,timestamp,match_type FROM parts WHERE " + match
+	countQuery := `WITH transcript AS (SELECT DISTINCT ON (j.clip_id) j.clip_id,j.result FROM jobs j WHERE j.status='done' AND j.step LIKE 'transcription.audio.%' ORDER BY j.clip_id,j.updated_at DESC,j.id DESC), parts AS (SELECT c.id clip_id,seg->>'text' context,COALESCE((seg->>'start')::double precision,0) segment_start,word->>'word' matched_text,` + fmtNorm("seg->>'text'") + ` sn,` + fmtNorm("word->>'word'") + ` wn FROM transcript t JOIN clips c ON c.id=t.clip_id CROSS JOIN LATERAL jsonb_array_elements(COALESCE(t.result->'segments','[]'::jsonb)) seg LEFT JOIN LATERAL jsonb_array_elements(COALESCE(seg->'words','[]'::jsonb)) word ON true WHERE (c.visibility='shared' OR c.owner_id=$2 OR $3) AND ($4='' OR c.visibility=$4) AND ($5=0 OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.source_id=$5)) AND ($6='' OR c.recorded_at::date >= $6::date) AND ($7='' OR c.recorded_at::date <= $7::date) AND ($8='' OR CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END=$8)) SELECT count(*) FROM parts WHERE ` + match + ` AND $9::double precision>=0`
+	resultQuery := "SELECT clip_id,clip_name,visibility,recorded_at,status,sources,context,matched_text,timestamp,match_type FROM parts WHERE (" + match + ") AND $9::double precision>=0"
 	if mode == "full_text" {
-		resultQuery = "SELECT clip_id,clip_name,visibility,recorded_at,status,sources,context,matched_text,timestamp,match_type FROM (SELECT DISTINCT ON (clip_id,context,segment_start) clip_id,clip_name,visibility,recorded_at,status,sources,context,matched_text,timestamp,match_type,segment_start,wn FROM parts WHERE " + match + " ORDER BY clip_id,context,segment_start,(wn LIKE '%' || $1 || '%') DESC,timestamp) matches"
+		resultQuery = "SELECT clip_id,clip_name,visibility,recorded_at,status,sources,context,matched_text,timestamp,match_type FROM (SELECT DISTINCT ON (clip_id,context,segment_start) clip_id,clip_name,visibility,recorded_at,status,sources,context,matched_text,timestamp,match_type,segment_start,wn FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,context,segment_start,CASE match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,similarity(wn,$1) DESC,timestamp) matches"
 		countQuery = strings.Replace(countQuery, "SELECT count(*) FROM parts WHERE "+match, "SELECT count(DISTINCT (clip_id,context,segment_start)) FROM parts WHERE "+match, 1)
 	}
-	query := baseQuery + resultQuery + " ORDER BY recorded_at DESC,clip_id DESC,timestamp LIMIT $9 OFFSET $10"
+	query := baseQuery + resultQuery + " ORDER BY CASE match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,recorded_at DESC,clip_id DESC,timestamp LIMIT $10 OFFSET $11"
 	args := []any{queryNorm, ss.User.ID, admin, visibility, sourceID, from, to, status}
 	var total int
-	if err = s.Pool.QueryRow(r.Context(), countQuery, args...).Scan(&total); err != nil {
+	if err = s.Pool.QueryRow(r.Context(), countQuery, append(args, 0.30)...).Scan(&total); err != nil {
 		s.internal(w, err)
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), query, append(args, size, (page-1)*size)...)
+	rows, err := s.Pool.Query(r.Context(), query, append(args, 0.30, size, (page-1)*size)...)
 	if err != nil {
 		s.internal(w, err)
 		return

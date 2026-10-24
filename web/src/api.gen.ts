@@ -729,7 +729,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Recherche exacte ou plein texte insensible à la casse et aux accents français. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué. */
+    /** @description Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué. */
     get: operations["searchTranscripts"];
     put?: never;
     post?: never;
@@ -1190,7 +1190,7 @@ export interface components {
       status: "ready" | "waiting_stability" | "unreadable" | "missing";
       sources: string[];
       /** @enum {string} */
-      match_type: "exact" | "full_text";
+      match_type: "exact" | "full_text" | "approximate";
       context: string;
       matched_text: string;
       /** Format: double */
