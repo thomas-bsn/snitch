@@ -67,9 +67,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/auth/register", s.limited(http.HandlerFunc(s.register)))
 	mux.Handle("GET /api/auth/me", s.protected(false, http.HandlerFunc(s.me)))
 	mux.Handle("POST /api/auth/logout", s.protected(false, http.HandlerFunc(s.logout)))
-	mux.Handle("POST /api/auth/discord/start", s.limited(http.HandlerFunc(s.discordStart)))
+	mux.Handle("POST /api/auth/discord/start", s.rateLimited("discord", http.HandlerFunc(s.discordStart)))
 	mux.Handle("POST /api/auth/discord/link", s.protected(false, http.HandlerFunc(s.discordStart)))
-	mux.Handle("GET /api/auth/discord/callback", s.limited(http.HandlerFunc(s.discordCallback)))
+	mux.Handle("GET /api/auth/discord/callback", s.rateLimited("discord", http.HandlerFunc(s.discordCallback)))
 	mux.Handle("GET /api/admin/settings", s.protected(true, http.HandlerFunc(s.getSettings)))
 	mux.Handle("PUT /api/admin/settings", s.protected(true, http.HandlerFunc(s.putSettings)))
 	mux.Handle("GET /api/admin/users", s.protected(true, http.HandlerFunc(s.pending)))
@@ -209,7 +209,7 @@ type rateEntry struct {
 	seen    time.Time
 }
 
-func (s *Server) limited(next http.Handler) http.Handler {
+func (s *Server) rateLimited(bucket string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Forwarded headers are deliberately ignored until a trusted proxy policy exists.
 		host, _, _ := net.SplitHostPort(r.RemoteAddr)
@@ -220,15 +220,20 @@ func (s *Server) limited(next http.Handler) http.Handler {
 			}
 			return true
 		})
-		entry, _ := s.rates.LoadOrStore(host, rateEntry{rate.NewLimiter(rate.Every(6*time.Second), 10), now})
+		entry, _ := s.rates.LoadOrStore(bucket+host, rateEntry{rate.NewLimiter(rate.Every(6*time.Second), 10), now})
 		e := entry.(rateEntry)
 		e.seen = now
-		s.rates.Store(host, e)
+		s.rates.Store(bucket+host, e)
 		if !e.limiter.Allow() {
 			w.Header().Set("Retry-After", "6")
 			fail(w, 429, "rate_limited")
 			return
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+func (s *Server) limited(next http.Handler) http.Handler {
+	return s.rateLimited("password", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
 		case s.passwordSlots <- struct{}{}:
 			defer func() { <-s.passwordSlots }()
@@ -236,7 +241,7 @@ func (s *Server) limited(next http.Handler) http.Handler {
 		default:
 			fail(w, 429, "busy")
 		}
-	})
+	}))
 }
 func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
@@ -534,12 +539,15 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var userID *int64
+	var sessionHash []byte
 	if r.URL.Path == "/api/auth/discord/link" {
 		ss := r.Context().Value(sessionKey{}).(session)
 		userID = &ss.User.ID
+		c, _ := r.Cookie("receipts_session")
+		sessionHash = auth.Hash(c.Value)
 	}
 	state, browser := auth.Token(), auth.Token()
-	_, err = s.Pool.Exec(r.Context(), `INSERT INTO oauth_states(state_hash,browser_hash,user_id,expires_at) VALUES($1,$2,$3,now()+interval '10 minutes')`, auth.Hash(state), auth.Hash(browser), userID)
+	_, err = s.Pool.Exec(r.Context(), `INSERT INTO oauth_states(state_hash,browser_hash,user_id,session_hash,expires_at) VALUES($1,$2,$3,$4,now()+interval '10 minutes')`, auth.Hash(state), auth.Hash(browser), userID, sessionHash)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -550,24 +558,35 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	state, code := r.URL.Query().Get("state"), r.URL.Query().Get("code")
+	providerError := r.URL.Query().Get("error")
 	browser, err := r.Cookie("receipts_oauth")
-	if err != nil || state == "" || code == "" {
-		fail(w, 400, "invalid_oauth_state")
+	if err != nil || state == "" || (code == "" && providerError == "") || (code != "" && providerError != "") {
+		s.oauthFailure(w, r, 400, "invalid_oauth_state")
 		return
 	}
 	var userID *int64
-	err = s.Pool.QueryRow(r.Context(), `DELETE FROM oauth_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING user_id`, auth.Hash(state), auth.Hash(browser.Value)).Scan(&userID)
+	var sessionHash []byte
+	err = s.Pool.QueryRow(r.Context(), `DELETE FROM oauth_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING user_id,session_hash`, auth.Hash(state), auth.Hash(browser.Value)).Scan(&userID, &sessionHash)
 	if err != nil {
-		fail(w, 400, "invalid_oauth_state")
+		s.oauthFailure(w, r, 400, "invalid_oauth_state")
 		return
 	}
 	s.cookie(w, "receipts_oauth", "", -1)
 	if userID != nil {
 		ss, e := s.findSession(r)
-		if e != nil || ss.User.ID != *userID {
-			fail(w, 403, "link_session_required")
+		c, _ := r.Cookie("receipts_session")
+		if e != nil || ss.User.ID != *userID || c == nil || subtle.ConstantTimeCompare(sessionHash, auth.Hash(c.Value)) != 1 {
+			s.oauthFailure(w, r, 403, "link_session_required")
 			return
 		}
+	}
+	if providerError != "" {
+		if providerError == "access_denied" {
+			http.Redirect(w, r, "/?notice=discord_denied", http.StatusSeeOther)
+		} else {
+			s.oauthFailure(w, r, 502, "discord_unavailable")
+		}
+		return
 	}
 	id, err := s.Store.Get(r.Context(), "discord_client_id")
 	if err != nil {
@@ -582,13 +601,13 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {id}, "client_secret": {secret}, "redirect_uri": {s.Config.PublicURL + "/api/auth/discord/callback"}}
 	req, err := http.NewRequestWithContext(r.Context(), "POST", s.Config.DiscordTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		fail(w, 502, "discord_unavailable")
+		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := s.Client.Do(req)
 	if err != nil {
-		fail(w, 502, "discord_unavailable")
+		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	defer resp.Body.Close()
@@ -596,18 +615,18 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		AccessToken string `json:"access_token"`
 	}
 	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 16384)).Decode(&token) != nil || token.AccessToken == "" {
-		fail(w, 502, "discord_unavailable")
+		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	req, err = http.NewRequestWithContext(r.Context(), "GET", s.Config.DiscordUserURL, nil)
 	if err != nil {
-		fail(w, 502, "discord_unavailable")
+		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	resp, err = s.Client.Do(req)
 	if err != nil {
-		fail(w, 502, "discord_unavailable")
+		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	defer resp.Body.Close()
@@ -615,14 +634,20 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		ID string `json:"id"`
 	}
 	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 16384)).Decode(&identity) != nil || identity.ID == "" || len(identity.ID) > 64 {
-		fail(w, 502, "discord_unavailable")
+		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	if userID != nil {
 		// Unique identity constraint rejects linking an identity already owned by another account.
-		tag, e := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=$1 WHERE id=$2 AND (discord_id IS NULL OR discord_id=$1)`, identity.ID, *userID)
+		tag, e := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=$1 WHERE id=$2 AND (discord_id IS NULL OR discord_id=$1) AND EXISTS (SELECT 1 FROM sessions WHERE token_hash=$3 AND user_id=$2 AND expires_at>now())`, identity.ID, *userID, sessionHash)
+		if e == nil && tag.RowsAffected() == 0 {
+			if _, err := s.findSession(r); err != nil {
+				s.oauthFailure(w, r, 403, "link_session_required")
+				return
+			}
+		}
 		if e != nil || tag.RowsAffected() != 1 {
-			fail(w, 409, "discord_already_linked")
+			s.oauthFailure(w, r, 409, "discord_already_linked")
 			return
 		}
 	} else {
@@ -643,6 +668,10 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(e, pgx.ErrNoRows) {
 			e = tx.QueryRow(r.Context(), `SELECT id,approved FROM users WHERE discord_id=$1`, identity.ID).Scan(&uid, &approved)
 		}
+		if errors.Is(e, pgx.ErrNoRows) {
+			// A local username collision is never an identity match. Allocate a distinct name.
+			e = tx.QueryRow(r.Context(), `INSERT INTO users(username,role,approved,discord_id) VALUES($1,'user',$2,$3) ON CONFLICT (discord_id) DO UPDATE SET discord_id=EXCLUDED.discord_id RETURNING id,approved`, "discord_"+auth.Token(), !approval, identity.ID).Scan(&uid, &approved)
+		}
 		if e != nil {
 			s.internal(w, e)
 			return
@@ -660,4 +689,13 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// Browser callbacks return to the application, while API callers retain structured status errors.
+func (s *Server) oauthFailure(w http.ResponseWriter, r *http.Request, status int, code string) {
+	if strings.Contains(r.Header.Get("Accept"), "text/html") {
+		http.Redirect(w, r, "/?notice="+url.QueryEscape(code), http.StatusSeeOther)
+		return
+	}
+	fail(w, status, code)
 }

@@ -72,7 +72,7 @@ func TestFoundation(t *testing.T) {
 	}
 	t.Log("database:", pgVersion, "vector:", vectorVersion)
 	t.Run("failed migration is rejected", func(t *testing.T) {
-		bad := fstest.MapFS{"00002_bad.sql": &fstest.MapFile{Data: []byte("-- +goose Up\nTHIS IS NOT SQL;\n-- +goose Down\nSELECT 1;")}}
+		bad := fstest.MapFS{"99999_bad.sql": &fstest.MapFile{Data: []byte("-- +goose Up\nTHIS IS NOT SQL;\n-- +goose Down\nSELECT 1;")}}
 		p, e := goose.NewProvider(database.DialectPostgres, db, bad)
 		if e != nil {
 			t.Fatal(e)
@@ -119,6 +119,7 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testRegistration(t, pool)
 	})
+	t.Run("Discord OAuth", func(t *testing.T) { reset(t); testDiscordOAuth(t, pool) })
 	t.Run("Discord settings", func(t *testing.T) {
 		reset(t)
 		testDiscordSettings(t, pool)
@@ -332,7 +333,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -344,6 +345,9 @@ func TestFoundation(t *testing.T) {
 					t.Fatal(e)
 				}
 				s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+				if suite == "discord-oauth.spec.ts" {
+					browserDiscord(t, s)
+				}
 				ts := httptest.NewUnstartedServer(s.Handler())
 				s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 				ts.Start()

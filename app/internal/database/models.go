@@ -21,6 +21,7 @@ type OauthState struct {
 	BrowserHash []byte             `json:"browser_hash"`
 	UserID      pgtype.Int8        `json:"user_id"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	SessionHash []byte             `json:"session_hash"`
 }
 
 type Session struct {

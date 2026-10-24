@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -95,6 +97,9 @@ func run() error {
 	defer p.Close()
 	probe, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	if err := checkSchema(probe, p); err != nil {
+		return fmt.Errorf("database unavailable or migrations missing: run receipts migrate before serve")
+	}
 	code, err := setup.Issue(probe, p)
 	if err != nil {
 		return fmt.Errorf("database unavailable or migrations missing")
@@ -133,6 +138,58 @@ func run() error {
 		defer cancel()
 		if err = server.Shutdown(shutdown); err != nil {
 			return fmt.Errorf("graceful shutdown timed out")
+		}
+	}
+	return nil
+}
+
+// Check every bundled version without creating goose tables or applying migrations.
+func checkSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	files, err := migrations.Files.ReadDir(".")
+	if err != nil {
+		return err
+	}
+	expected := map[int64]bool{}
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), ".sql") {
+			continue
+		}
+		prefix, _, _ := strings.Cut(file.Name(), "_")
+		version, err := strconv.ParseInt(prefix, 10, 64)
+		if err != nil {
+			return err
+		}
+		expected[version] = true
+	}
+	rows, err := pool.Query(ctx, `SELECT version_id,is_applied FROM goose_db_version ORDER BY id`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	applied := map[int64]bool{}
+	for rows.Next() {
+		var version int64
+		var active bool
+		if err := rows.Scan(&version, &active); err != nil {
+			return err
+		}
+		if version != 0 {
+			if active {
+				applied[version] = true
+			} else {
+				delete(applied, version)
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(applied) != len(expected) {
+		return fmt.Errorf("schema version mismatch")
+	}
+	for version := range expected {
+		if !applied[version] {
+			return fmt.Errorf("schema version mismatch")
 		}
 	}
 	return nil

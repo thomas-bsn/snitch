@@ -419,7 +419,7 @@
         "operationId": "discordCallback",
         "responses": {
           "303": {
-            "description": "Continue to SPA; pending notice or signed in",
+            "description": "Return to SPA: signed in, pending approval, consent refused, or a browser-readable error notice. HTML browser requests receive an error notice redirect; API requests receive JSON errors.",
             "headers": {
               "Location": {
                 "schema": {
@@ -430,6 +430,66 @@
           },
           "default": {
             "description": "Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_oauth_state: missing, invalid, expired, replayed state or wrong browser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "link_session_required: initiating session expired, revoked or replaced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "discord_already_linked: identity already owned or account already linked to another identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited: Discord request limit, independent of local password processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "discord_unavailable: provider refusal other than access_denied, invalid response, timeout or unavailable provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "unavailable: application persistence unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -451,13 +511,32 @@
           {
             "in": "query",
             "name": "code",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Provider refusal. State is consumed; code and error are mutually exclusive."
+          },
+          {
+            "in": "header",
+            "name": "Accept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "text/html returns a 303 SPA error notice; otherwise errors are JSON."
           }
         ],
-        "security": []
+        "security": [],
+        "description": "Consumes a single-use state bound to the browser (10 minutes). A link must return in the initiating, still-valid session. Supply either code or error, never both. Provider tokens stay on the server and are discarded after reading identity. Browser HTML requests return to the SPA with a notice on failure."
       }
     },
     "/api/admin/settings": {
