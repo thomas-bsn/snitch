@@ -74,7 +74,10 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Révoque la session courante en base et efface le cookie. Exige session active, même origine et
+    X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur
+    CSRF : 403 csrf_rejected.
+
     Args:
         origin (str):
         x_csrf_token (str):
@@ -107,7 +110,10 @@ def sync(
     x_csrf_token: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Révoque la session courante en base et efface le cookie. Exige session active, même origine et
+    X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur
+    CSRF : 403 csrf_rejected.
+
     Args:
         origin (str):
         x_csrf_token (str):
@@ -135,7 +141,10 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Révoque la session courante en base et efface le cookie. Exige session active, même origine et
+    X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur
+    CSRF : 403 csrf_rejected.
+
     Args:
         origin (str):
         x_csrf_token (str):
@@ -168,7 +177,10 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Révoque la session courante en base et efface le cookie. Exige session active, même origine et
+    X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur
+    CSRF : 403 csrf_rejected.
+
     Args:
         origin (str):
         x_csrf_token (str):

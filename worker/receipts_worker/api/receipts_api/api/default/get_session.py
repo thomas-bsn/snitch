@@ -63,7 +63,9 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
 
 ) -> Response[Error | Session]:
-    """ 
+    """  Retourne le compte approuvé et son jeton CSRF si la session est active. Une session absente, expirée
+    ou révoquée renvoie 401 unauthorized.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -88,7 +90,9 @@ def sync(
     client: AuthenticatedClient | Client,
 
 ) -> Error | Session | None:
-    """ 
+    """  Retourne le compte approuvé et son jeton CSRF si la session est active. Une session absente, expirée
+    ou révoquée renvoie 401 unauthorized.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -108,7 +112,9 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 
 ) -> Response[Error | Session]:
-    """ 
+    """  Retourne le compte approuvé et son jeton CSRF si la session est active. Une session absente, expirée
+    ou révoquée renvoie 401 unauthorized.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -133,7 +139,9 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 
 ) -> Error | Session | None:
-    """ 
+    """  Retourne le compte approuvé et son jeton CSRF si la session est active. Une session absente, expirée
+    ou révoquée renvoie 401 unauthorized.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.

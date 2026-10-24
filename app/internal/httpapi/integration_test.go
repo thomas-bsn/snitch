@@ -16,7 +16,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"testing/fstest"
 
@@ -112,50 +111,9 @@ func TestFoundation(t *testing.T) {
 			ts.Close()
 		}
 	})
-	t.Run("first admin concurrent and expired code", func(t *testing.T) {
+	t.Run("local authentication security", func(t *testing.T) {
 		reset(t)
-		code, e := setup.Issue(ctx, pool)
-		if e != nil {
-			t.Fatal(e)
-		}
-		_, e = pool.Exec(ctx, `UPDATE installation SET bootstrap_expires=now()-interval '1 second'`)
-		if e != nil {
-			t.Fatal(e)
-		}
-		if _, e = setup.Complete(ctx, pool, code, "administrator", "synthetic-password"); e != setup.ErrClosed {
-			t.Fatal("expired accepted", e)
-		}
-		code, e = setup.Issue(ctx, pool)
-		if e != nil {
-			t.Fatal(e)
-		}
-		var wg sync.WaitGroup
-		results := make(chan error, 2)
-		for i := 0; i < 2; i++ {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				_, e := setup.Complete(ctx, pool, code, fmt.Sprintf("admin%d", i), "synthetic-password")
-				results <- e
-			}(i)
-		}
-		wg.Wait()
-		close(results)
-		successes := 0
-		for e := range results {
-			if e == nil {
-				successes++
-			} else if e != setup.ErrClosed {
-				t.Fatal(e)
-			}
-		}
-		if successes != 1 {
-			t.Fatal("expected one admin", successes)
-		}
-		var count int
-		if e = pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE role='admin'`).Scan(&count); e != nil || count != 1 {
-			t.Fatal("admin count", count, e)
-		}
+		testLocalAuthentication(t, pool)
 	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
@@ -213,7 +171,11 @@ func TestFoundation(t *testing.T) {
 			if e != nil {
 				t.Fatal(e)
 			}
-			input := &openapi3filter.RequestValidationInput{Request: req, PathParams: params, Route: route}
+			req.Body = io.NopCloser(bytes.NewReader(data))
+			input := &openapi3filter.RequestValidationInput{Request: req, PathParams: params, Route: route, Options: &openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc}}
+			if e = openapi3filter.ValidateRequest(ctx, input); e != nil {
+				t.Fatalf("request contract %s %s: %v", method, path, e)
+			}
 			out := &openapi3filter.ResponseValidationInput{RequestValidationInput: input, Status: resp.StatusCode, Header: resp.Header, Body: io.NopCloser(bytes.NewReader(b))}
 			if e = openapi3filter.ValidateResponse(ctx, out); e != nil {
 				t.Fatalf("contract %s %s: %v", method, path, e)
@@ -362,7 +324,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "access.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "access.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
