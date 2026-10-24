@@ -9,6 +9,9 @@ type Setup = components["schemas"]["Setup"];
 type Session = components["schemas"]["Session"];
 type Settings = components["schemas"]["Settings"];
 type User = components["schemas"]["User"];
+type Source = components["schemas"]["Source"];
+type SourceFile = components["schemas"]["SourceFile"];
+type SourceWithFiles = Source & { files: SourceFile[] };
 const messages: Record<string, string> = {
   unavailable:
     "Le service est temporairement indisponible. Réessayez dans un instant.",
@@ -51,6 +54,8 @@ function App() {
   const [session, setSession] = useState<Session>();
   const [settings, setSettings] = useState<Settings>();
   const [pending, setPending] = useState<User[]>([]);
+  const [sources, setSources] = useState<SourceWithFiles[]>([]);
+  const [allowedRoots, setAllowedRoots] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(
     (() => {
@@ -75,7 +80,26 @@ function App() {
     if (me.data?.user.role === "admin") {
       setSettings(checked(await api.GET("/api/admin/settings")));
       setPending(checked(await api.GET("/api/admin/users")));
+      await refreshSources();
+    } else {
+      setSources([]);
+      setAllowedRoots([]);
     }
+  }
+  async function refreshSources() {
+    const result = checked(await api.GET("/api/admin/sources"));
+    setAllowedRoots(result.allowed_roots);
+    const withFiles = await Promise.all(
+      result.items.map(async (source) => {
+        const files = checked(
+          await api.GET("/api/admin/sources/{id}/files", {
+            params: { path: { id: source.id } },
+          }),
+        );
+        return { ...source, files: files.items };
+      }),
+    );
+    setSources(withFiles);
   }
   useEffect(() => {
     refresh().catch((e: Error) => setError(e.message));
@@ -182,6 +206,50 @@ function App() {
       );
       await refresh();
       setNotice("Discord désactivé. Les comptes locaux restent disponibles.");
+    });
+  }
+  async function addSource(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    await run(async () => {
+      checked(
+        await api.POST("/api/admin/sources", {
+          params: { header: csrf },
+          body: {
+            name: String(data.get("source_name")),
+            path: String(data.get("source_path")),
+          },
+        }),
+      );
+      form.reset();
+      await refreshSources();
+      setNotice("Source ajoutée. Ses clips apparaîtront après vérification.");
+    });
+  }
+  async function scanSource(source: Source) {
+    await run(async () => {
+      checked(
+        await api.POST("/api/admin/sources/{id}/scan", {
+          params: { path: { id: source.id }, header: csrf },
+          body: {},
+        }),
+      );
+      await refreshSources();
+      setNotice(`Réconciliation planifiée pour « ${source.name} ».`);
+    });
+  }
+  async function disableSource(source: Source) {
+    await run(async () => {
+      checked(
+        await api.DELETE("/api/admin/sources/{id}", {
+          params: { path: { id: source.id }, header: csrf },
+        }),
+      );
+      await refreshSources();
+      setNotice(
+        `Source « ${source.name} » désactivée ; son historique est conservé.`,
+      );
     });
   }
   return (
@@ -448,6 +516,108 @@ function App() {
                       >
                         Approuver {user.username}
                       </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+          {session.user.role === "admin" && (
+            <section className="card">
+              <h2>Sources dossier</h2>
+              {allowedRoots.length === 0 ? (
+                <p className="hint">
+                  Aucun dossier n’est monté pour Receipts. Configurez
+                  CLIPS_ROOTS et un accès hôte en lecture seule dans votre
+                  environnement.
+                </p>
+              ) : (
+                <>
+                  <p>
+                    Dossiers autorisés : {allowedRoots.join(", ")}. Les
+                    originaux restent en lecture seule.
+                  </p>
+                  <form onSubmit={addSource}>
+                    <label>
+                      Nom de la source
+                      <input name="source_name" required maxLength={80} />
+                    </label>
+                    <label>
+                      Chemin du dossier autorisé
+                      <input name="source_path" required maxLength={4096} />
+                    </label>
+                    <button disabled={busy}>Ajouter le dossier</button>
+                  </form>
+                </>
+              )}
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => run(refreshSources)}
+              >
+                Actualiser les sources
+              </button>
+              {sources.length === 0 ? (
+                <p>Aucune source dossier configurée.</p>
+              ) : (
+                <ul>
+                  {sources.map((source) => (
+                    <li className="source" key={source.id}>
+                      <div className="toolbar">
+                        <strong>{source.name}</strong>
+                        <span>
+                          {source.enabled ? source.health : "désactivée"}
+                        </span>
+                      </div>
+                      <p className="hint">{source.path}</p>
+                      <p className="hint">
+                        Dernière réconciliation :{" "}
+                        {source.last_scan_at
+                          ? new Date(source.last_scan_at).toLocaleString(
+                              "fr-FR",
+                            )
+                          : "aucune"}
+                      </p>
+                      <button
+                        className="secondary"
+                        disabled={busy || !source.enabled}
+                        onClick={() => scanSource(source)}
+                      >
+                        Réconcilier
+                      </button>
+                      {source.enabled && (
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() => disableSource(source)}
+                        >
+                          Désactiver
+                        </button>
+                      )}
+                      <ul>
+                        {source.files.map((file) => (
+                          <li className="source-file" key={file.relative_path}>
+                            <strong>{file.relative_path}</strong> ·{" "}
+                            {file.status}
+                            {file.error_code && (
+                              <span> · {file.error_code}</span>
+                            )}
+                            {file.status === "ready" && (
+                              <p className="hint">
+                                {file.duration_seconds?.toFixed(2) ??
+                                  "Durée inconnue"}{" "}
+                                s
+                                {file.video_codec
+                                  ? ` · ${file.video_codec}`
+                                  : ""}
+                                {file.recorded_at
+                                  ? ` · ${file.recorded_at}${file.recorded_at_estimated ? " (estimée)" : ""}`
+                                  : ""}
+                              </p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                     </li>
                   ))}
                 </ul>

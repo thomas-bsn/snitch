@@ -6,20 +6,42 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
 	DatabaseURL, PublicURL, Address, DisplayName, EmbeddingsURL, EmbeddingsModel string
+	ClipRoots                                                                    []string
+	ProbePath                                                                    string
+	StabilityWindow                                                              time.Duration
+	ReconcileInterval                                                            time.Duration
+	ClipExcludePatterns                                                          []string
 	MasterKey                                                                    []byte
 	Secure                                                                       bool
 	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL                         string
 }
 
 func Load() (Config, error) {
-	c := Config{DatabaseURL: os.Getenv("DATABASE_URL"), PublicURL: env("PUBLIC_URL", "http://localhost:8080"), Address: env("LISTEN_ADDR", ":8080"), DisplayName: env("DISPLAY_NAME", "Receipts"), EmbeddingsURL: os.Getenv("EMBEDDINGS_URL"), EmbeddingsModel: os.Getenv("EMBEDDINGS_MODEL"), DiscordAuthorizeURL: "https://discord.com/oauth2/authorize", DiscordTokenURL: "https://discord.com/api/oauth2/token", DiscordUserURL: "https://discord.com/api/users/@me"}
+	c := Config{
+		DatabaseURL: os.Getenv("DATABASE_URL"), PublicURL: env("PUBLIC_URL", "http://localhost:8080"),
+		Address: env("LISTEN_ADDR", ":8080"), DisplayName: env("DISPLAY_NAME", "Receipts"),
+		EmbeddingsURL: os.Getenv("EMBEDDINGS_URL"), EmbeddingsModel: os.Getenv("EMBEDDINGS_MODEL"),
+		ClipRoots: splitRoots(os.Getenv("CLIPS_ROOTS")), ProbePath: env("FFPROBE_PATH", "ffprobe"),
+		ClipExcludePatterns: splitPatterns(env("CLIP_EXCLUDE_PATTERNS", ".*,*.tmp,*.part,*.partial,*.crdownload,*.download")),
+		DiscordAuthorizeURL: "https://discord.com/oauth2/authorize", DiscordTokenURL: "https://discord.com/api/oauth2/token", DiscordUserURL: "https://discord.com/api/users/@me",
+	}
 	var err error
+	c.StabilityWindow, err = time.ParseDuration(env("CLIP_STABILITY_WINDOW", "3s"))
+	if err != nil || c.StabilityWindow < 0 || c.StabilityWindow > 24*time.Hour {
+		return c, errors.New("CLIP_STABILITY_WINDOW must be between 0 and 24 hours")
+	}
+	c.ReconcileInterval, err = time.ParseDuration(env("SOURCE_RECONCILE_INTERVAL", "5m"))
+	if err != nil || c.ReconcileInterval < time.Second || c.ReconcileInterval > 24*time.Hour {
+		return c, errors.New("SOURCE_RECONCILE_INTERVAL must be between 1 second and 24 hours")
+	}
 	c.MasterKey, err = base64.StdEncoding.DecodeString(os.Getenv("MASTER_KEY"))
 	if err != nil || len(c.MasterKey) != 32 {
 		return c, errors.New("MASTER_KEY must encode 32 bytes in base64")
@@ -56,6 +78,32 @@ func Load() (Config, error) {
 	}
 	return c, nil
 }
+
+func splitRoots(value string) []string {
+	var roots []string
+	for _, root := range filepath.SplitList(value) {
+		if strings.TrimSpace(root) == "" {
+			continue
+		}
+		absolute, err := filepath.Abs(filepath.Clean(root))
+		if err == nil {
+			roots = append(roots, absolute)
+		}
+	}
+	return roots
+}
+
+func splitPatterns(value string) []string {
+	var patterns []string
+	for _, pattern := range strings.Split(value, ",") {
+		pattern = strings.TrimSpace(pattern)
+		if pattern != "" {
+			patterns = append(patterns, pattern)
+		}
+	}
+	return patterns
+}
+
 func env(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v

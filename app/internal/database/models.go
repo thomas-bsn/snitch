@@ -8,6 +8,36 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Clip struct {
+	ID                  int64              `json:"id"`
+	OwnerID             int64              `json:"owner_id"`
+	Visibility          string             `json:"visibility"`
+	OriginalName        string             `json:"original_name"`
+	SizeBytes           int64              `json:"size_bytes"`
+	ModifiedAt          pgtype.Timestamptz `json:"modified_at"`
+	DiscoveredAt        pgtype.Timestamptz `json:"discovered_at"`
+	RecordedAt          pgtype.Timestamptz `json:"recorded_at"`
+	RecordedAtEstimated bool               `json:"recorded_at_estimated"`
+	DurationSeconds     pgtype.Float8      `json:"duration_seconds"`
+	FormatName          string             `json:"format_name"`
+	VideoCodec          string             `json:"video_codec"`
+	AudioCodec          string             `json:"audio_codec"`
+	Tracks              []byte             `json:"tracks"`
+}
+
+type ClipSource struct {
+	ID             int64              `json:"id"`
+	Name           string             `json:"name"`
+	RootPath       string             `json:"root_path"`
+	OwnerID        int64              `json:"owner_id"`
+	Visibility     string             `json:"visibility"`
+	Enabled        bool               `json:"enabled"`
+	Health         string             `json:"health"`
+	LastScanAt     pgtype.Timestamptz `json:"last_scan_at"`
+	ScanGeneration int64              `json:"scan_generation"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type Installation struct {
 	ID                   int32              `json:"id"`
 	Initialized          bool               `json:"initialized"`
@@ -34,6 +64,18 @@ type Session struct {
 type Setting struct {
 	Key   string `json:"key"`
 	Value []byte `json:"value"`
+}
+
+type SourceFile struct {
+	SourceID           int64              `json:"source_id"`
+	RelativePath       string             `json:"relative_path"`
+	ClipID             pgtype.Int8        `json:"clip_id"`
+	SizeBytes          int64              `json:"size_bytes"`
+	ModifiedAt         pgtype.Timestamptz `json:"modified_at"`
+	StableSince        pgtype.Timestamptz `json:"stable_since"`
+	LastSeenGeneration int64              `json:"last_seen_generation"`
+	Status             string             `json:"status"`
+	ErrorCode          pgtype.Text        `json:"error_code"`
 }
 
 type User struct {

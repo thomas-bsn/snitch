@@ -20,12 +20,14 @@ ARG TARGETARCH
 RUN GOMAXPROCS=2 CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -p 2 -trimpath -ldflags="-s -w" -o /receipts ./cmd/receipts
 
 FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
-RUN adduser -D -u 10001 receipts
+RUN apk add --no-cache ffmpeg=8.1.2-r0 && adduser -D -u 10001 receipts
 COPY --from=go /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=go /notices /usr/share/licenses/receipts/third-party
 COPY --from=web /notices /usr/share/licenses/receipts/third-party
+COPY deploy/licenses/ffmpeg/ /usr/share/licenses/receipts/third-party/ffmpeg/
 COPY --from=go /receipts /receipts
 COPY LICENSE /usr/share/licenses/receipts/LICENSE
+RUN ffprobe -version >/dev/null 2>&1
 USER receipts
 EXPOSE 8080
 ENTRYPOINT ["/receipts"]
