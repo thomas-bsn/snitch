@@ -13,6 +13,14 @@ test("admin choisit une piste globale, planifie puis ouvre la vidéo au timestam
     .fill("synthetic-password-123");
   await page.getByRole("button", { name: "Créer l’administrateur" }).click();
 
+  const vocabulary = page.locator("#vocabulary");
+  await vocabulary.getByLabel("Terme").fill("Final Fantasy XIV");
+  await vocabulary
+    .getByLabel("Variantes, séparées par des virgules")
+    .fill("FFXIV, Final Fantasy 14");
+  await vocabulary.getByLabel("Graphie préférée").fill("FFXIV");
+  await vocabulary.getByRole("button", { name: "Ajouter le terme" }).click();
+
   await page.getByLabel("Fichier vidéo").setInputFiles({
     name: "synthetic-multitrack.mp4",
     mimeType: "video/mp4",
@@ -66,6 +74,12 @@ test("admin choisit une piste globale, planifie puis ouvre la vidéo au timestam
     const assignment = await workerCall("/api/worker/jobs/claim").then(
       (response) => response.json(),
     );
+    const input = await fetch(`/api/worker/jobs/${assignment.job.id}/input`, {
+      headers: {
+        Authorization: `Bearer ${worker.token}`,
+        "X-Worker-Lease-Token": assignment.lease_token,
+      },
+    }).then((response) => response.json());
     const completion = await workerCall(
       `/api/worker/jobs/${assignment.job.id}/complete`,
       {
@@ -91,9 +105,23 @@ test("admin choisit une piste globale, planifie puis ouvre la vidéo au timestam
       },
       assignment.lease_token,
     );
-    return { step: assignment.job.step, status: completion.status };
+    return {
+      step: assignment.job.step,
+      status: completion.status,
+      vocabulary: input.vocabulary,
+    };
   });
-  expect(result).toEqual({ step: "transcription.audio.2", status: 200 });
+  expect(result).toMatchObject({
+    step: "transcription.audio.2",
+    status: 200,
+    vocabulary: [
+      {
+        term: "Final Fantasy XIV",
+        variants: ["FFXIV", "Final Fantasy 14"],
+        preferred_spelling: "FFXIV",
+      },
+    ],
+  });
 
   await page
     .getByRole("button", { name: "Actualiser la transcription" })

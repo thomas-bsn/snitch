@@ -168,8 +168,9 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 	}
 	var transcript json.RawMessage
 	if selection.AudioStreamIndex != nil {
-		version := fmt.Sprintf("transcription-v2-audio-%d-rule-%d", *selection.AudioStreamIndex, selection.RuleVersion)
-		err := s.Pool.QueryRow(r.Context(), `SELECT result FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND status='done' ORDER BY updated_at DESC,id DESC LIMIT 1`, v.ID, fmt.Sprintf("transcription.audio.%d", *selection.AudioStreamIndex), version).Scan(&transcript)
+		// Keep the last successful transcript visible while a newer input version
+		// is queued or running. A completed replacement naturally becomes newest.
+		err := s.Pool.QueryRow(r.Context(), `SELECT result FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%' AND status='done' ORDER BY updated_at DESC,id DESC LIMIT 1`, v.ID).Scan(&transcript)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			s.internal(w, err)
 			return

@@ -352,6 +352,16 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", failedPath, nil, me.CSRF, 204)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
 		call(client, "POST", "/api/auth/logout", nil, "wrong", 403)
+		call(client, "GET", "/api/admin/vocabulary", nil, "", 200)
+		vocabularyBody := call(client, "POST", "/api/admin/vocabulary", map[string]any{"term": "Synthetic term", "variants": []string{"synthetic variant"}, "preferred_spelling": "Synthetic term", "active": true}, me.CSRF, 201)
+		var vocabularyTerm struct {
+			ID int64 `json:"id"`
+		}
+		if e = json.Unmarshal(vocabularyBody, &vocabularyTerm); e != nil || vocabularyTerm.ID < 1 {
+			t.Fatalf("vocabulary response: %s %v", vocabularyBody, e)
+		}
+		call(client, "PUT", "/api/admin/vocabulary/"+strconv64(vocabularyTerm.ID), map[string]any{"term": "Synthetic term", "variants": []string{"synthetic variant"}, "preferred_spelling": "Synthetic variant", "active": false}, me.CSRF, 200)
+		call(client, "DELETE", "/api/admin/vocabulary/"+strconv64(vocabularyTerm.ID), nil, me.CSRF, 204)
 		call(client, "PUT", "/api/admin/settings", map[string]any{"client_id": "test-id", "client_secret": "secret-test-only", "registration_approval": true}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/sources", nil, "", 200)
 		sourceBody := map[string]string{"name": "contract-fixture", "path": clipRoot}
@@ -389,6 +399,7 @@ func TestFoundation(t *testing.T) {
 		user := &http.Client{Jar: userJar, CheckRedirect: client.CheckRedirect}
 		call(user, "POST", "/api/auth/login", map[string]string{"username": "player", "password": "synthetic-password"}, "", 200)
 		call(user, "GET", "/api/admin/settings", nil, "", 403)
+		call(user, "GET", "/api/admin/vocabulary", nil, "", 403)
 		call(user, "GET", "/api/admin/users", nil, "", 403)
 		call(client, "POST", "/api/admin/users/99999/approve", nil, me.CSRF, 404)
 		call(client, "POST", "/api/auth/logout", nil, me.CSRF, 200)
@@ -496,7 +507,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "vocabulary.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -520,6 +531,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("RECEIPTS_E2E_TRANSCRIPTION") == "1" {
 			suites = []string{"transcription.spec.ts"}
+		}
+		if os.Getenv("RECEIPTS_E2E_VOCABULARY") == "1" {
+			suites = []string{"vocabulary.spec.ts"}
 		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {

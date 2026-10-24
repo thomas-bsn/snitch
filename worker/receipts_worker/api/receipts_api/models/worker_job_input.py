@@ -14,6 +14,7 @@ from typing import cast
 if TYPE_CHECKING:
   from ..models.job import Job
   from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem
+  from ..models.worker_vocabulary_term import WorkerVocabularyTerm
 
 
 
@@ -34,6 +35,7 @@ class WorkerJobInput:
             audio_codec (str):
             tracks (list[WorkerJobInputTracksItem]):
             media_url (str):
+            vocabulary (list[WorkerVocabularyTerm]):
             duration_seconds (float | None | Unset):
      """
 
@@ -44,6 +46,7 @@ class WorkerJobInput:
     audio_codec: str
     tracks: list[WorkerJobInputTracksItem]
     media_url: str
+    vocabulary: list[WorkerVocabularyTerm]
     duration_seconds: float | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -54,6 +57,7 @@ class WorkerJobInput:
     def to_dict(self) -> dict[str, Any]:
         from ..models.job import Job # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
+        from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         job = self.job.to_dict()
 
         original_name = self.original_name
@@ -73,6 +77,13 @@ class WorkerJobInput:
 
         media_url = self.media_url
 
+        vocabulary = []
+        for vocabulary_item_data in self.vocabulary:
+            vocabulary_item = vocabulary_item_data.to_dict()
+            vocabulary.append(vocabulary_item)
+
+
+
         duration_seconds: float | None | Unset
         if isinstance(self.duration_seconds, Unset):
             duration_seconds = UNSET
@@ -90,6 +101,7 @@ class WorkerJobInput:
             "audio_codec": audio_codec,
             "tracks": tracks,
             "media_url": media_url,
+            "vocabulary": vocabulary,
         })
         if duration_seconds is not UNSET:
             field_dict["duration_seconds"] = duration_seconds
@@ -102,6 +114,7 @@ class WorkerJobInput:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.job import Job # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
+        from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         d = dict(src_dict)
         job = Job.from_dict(d.pop("job"))
 
@@ -128,6 +141,16 @@ class WorkerJobInput:
 
         media_url = d.pop("media_url")
 
+        vocabulary = []
+        _vocabulary = d.pop("vocabulary")
+        for vocabulary_item_data in (_vocabulary):
+            vocabulary_item = WorkerVocabularyTerm.from_dict(vocabulary_item_data)
+
+
+
+            vocabulary.append(vocabulary_item)
+
+
         def _parse_duration_seconds(data: object) -> float | None | Unset:
             if data is None:
                 return data
@@ -146,6 +169,7 @@ class WorkerJobInput:
             audio_codec=audio_codec,
             tracks=tracks,
             media_url=media_url,
+            vocabulary=vocabulary,
             duration_seconds=duration_seconds,
         )
 
