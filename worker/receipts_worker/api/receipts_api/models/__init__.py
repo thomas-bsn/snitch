@@ -19,6 +19,13 @@ from .source_input import SourceInput
 from .source_list import SourceList
 from .source_visibility import SourceVisibility
 from .status import Status
+from .upload import Upload
+from .upload_input import UploadInput
+from .upload_input_visibility import UploadInputVisibility
+from .upload_list import UploadList
+from .upload_offset import UploadOffset
+from .upload_status import UploadStatus
+from .upload_visibility import UploadVisibility
 from .user import User
 from .user_role import UserRole
 
@@ -42,6 +49,13 @@ __all__ = (
     "SourceList",
     "SourceVisibility",
     "Status",
+    "Upload",
+    "UploadInput",
+    "UploadInputVisibility",
+    "UploadList",
+    "UploadOffset",
+    "UploadStatus",
+    "UploadVisibility",
     "User",
     "UserRole",
 )

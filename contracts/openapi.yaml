@@ -710,6 +710,19 @@
         "description": "Administrateurs uniquement, session, origine et CSRF requis. Approuve un compte en attente sans changer son rôle ; 400 invalid_id si identifiant invalide, 404 not_pending si absent ou déjà approuvé."
       }
     },
+    "/api/uploads": {
+      "get": {"operationId": "listUploads", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Uploads actifs du membre", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UploadList"}}}}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}},
+      "post": {"operationId": "createUpload", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UploadInput"}}}}, "responses": {"201": {"description": "Upload créé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Upload"}}}}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
+    "/api/uploads/{id}/chunks": {
+      "put": {"operationId": "putUploadChunk", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}, {"in": "header", "name": "Content-Range", "required": true, "schema": {"type": "string", "pattern": "^bytes [0-9]+-[0-9]+/[0-9]+$"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}, "responses": {"200": {"description": "Offset accepté", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UploadOffset"}}}}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
+    "/api/uploads/{id}/complete": {
+      "post": {"operationId": "completeUpload", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"201": {"description": "Upload terminé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Upload"}}}}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
+    "/api/uploads/{id}": {
+      "delete": {"operationId": "cancelUpload", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"204": {"description": "Upload annulé"}, "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
     "/api/admin/sources": {
       "get": {
         "operationId": "listSources",
@@ -968,6 +981,10 @@
           }
         }
       },
+      "UploadInput": {"type": "object", "additionalProperties": false, "required": ["filename", "size_bytes"], "properties": {"filename": {"type": "string", "minLength": 1, "maxLength": 1024}, "size_bytes": {"type": "integer", "format": "int64", "minimum": 1}, "visibility": {"type": "string", "enum": ["private", "shared"], "default": "shared"}}},
+      "Upload": {"type": "object", "required": ["id", "original_name", "size_bytes", "offset_bytes", "chunk_size_bytes", "visibility", "status", "expires_at"], "properties": {"id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}, "original_name": {"type": "string"}, "size_bytes": {"type": "integer", "format": "int64"}, "offset_bytes": {"type": "integer", "format": "int64"}, "chunk_size_bytes": {"type": "integer", "format": "int64"}, "visibility": {"type": "string", "enum": ["private", "shared"]}, "status": {"type": "string", "enum": ["uploading", "processing", "complete", "failed", "cancelled", "expired"]}, "clip_id": {"type": "integer", "format": "int64"}, "expires_at": {"type": "string", "format": "date-time"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+      "UploadList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Upload"}}}},
+      "UploadOffset": {"type": "object", "required": ["offset_bytes"], "properties": {"offset_bytes": {"type": "integer", "format": "int64"}}},
       "SourceInput": {
         "type": "object",
         "additionalProperties": false,

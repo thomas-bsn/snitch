@@ -1,6 +1,6 @@
 # Déploiement
 
-Phase 0 uniquement. Ni média, ni montage hôte, ni GPU, ni modèle téléchargé. Le worker est un squelette séparé et ne rejoint pas le Compose NAS. Le nom `DISPLAY_NAME` est libre ; toutes les images sont configurables. Ne pas utiliser de tag GHCR inexistant : les sources actuelles doivent être construites localement jusqu’à une publication validée.
+Les médias importés sont stockés dans le volume nommé `media`, séparé de PostgreSQL et accessible uniquement à l’application (UID 10001). Les variables `MAX_UPLOAD_BYTES` (20 GiB), `UPLOAD_CHUNK_BYTES` (4 MiB) et `UPLOAD_SESSION_TTL` (168 h) règlent les limites et la durée de reprise. Le nom d’origine est conservé comme métadonnée ; le chemin est toujours généré côté serveur. Le volume `media` contient les fichiers importés et doit être sauvegardé séparément de la base.
 
 ## Forgeyard
 
@@ -10,9 +10,9 @@ Importer **compose.yaml seul**, jamais compose.override.yaml. Fournir dans les v
 - `POSTGRES_PASSWORD` : mot de passe aléatoire ; les caractères réservés d’URL sont admis, car l’application et la migration passent le mot de passe par `PGPASSWORD`, hors URL.
 - `MASTER_KEY` : 32 octets aléatoires encodés base64 ; conserver la même clé entre redémarrages et la sauvegarder séparément.
 - `PUBLIC_URL=https://<projet>.<domaine>`, `COOKIE_SECURE=true`, `DISPLAY_NAME` facultatif.
-- Laisser `CLIPS_ROOTS` et `EMBEDDINGS_MODEL` vides. `EMBEDDINGS_URL` vise par défaut le service privé embed ; aucun modèle n’est préchargé.
+- `CLIPS_ROOTS` peut rester vide. `EMBEDDINGS_URL` vise par défaut le service privé embed ; aucun modèle n’est préchargé.
 
-Seule app est exposée sur son port HTTP interne 8080. PostgreSQL, migration et embeddings restent privés. Les volumes nommés `database` (PostgreSQL 18 : `/var/lib/postgresql`) et `embeddings` persistent. Forgeyard n’accepte pas les bind mounts nécessaires aux futurs clips : ne pas inventer de montage NAS. Les métadonnées mémoire sont des plafonds proposés : PG 512, app 384, embed 1536, migration transitoire 256 MiB ; les mesures NAS restent à faire.
+Seule app est exposée sur son port HTTP interne 8080. PostgreSQL, migration et embeddings restent privés. Les volumes nommés `database` (PostgreSQL 18 : `/var/lib/postgresql`), `embeddings` et `media` persistent. Les clips provenant de dossiers reste un accès distinct, en lecture seule, via `CLIPS_ROOTS`. Les métadonnées mémoire sont des plafonds proposés : PG 512, app 384, embed 1536, migration transitoire 256 MiB.
 
 PostgreSQL sain précède migrate, puis app attend sa réussite. Un job échoué bloque l’API, sans boucle de redémarrage. Lire ses logs localement, corriger, puis **Redéployer** le projet : cette action recrée tous les services et relance les jobs. Une modification du compose ou des variables ne redéploie que les services dont la configuration change ; une modification sans effet sur migrate ne garantit pas son rejeu. Les migrations sont rejouables ; app ne migre jamais implicitement et refuse un schéma incompatible.
 

@@ -47,7 +47,7 @@ func TestExecutableLifecycle(t *testing.T) {
 	}
 	address := listener.Addr().String()
 	listener.Close()
-	env := []string{"DATABASE_URL=" + dsn, "MASTER_KEY=" + base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)), "PUBLIC_URL=http://" + address, "COOKIE_SECURE=false", "LISTEN_ADDR=" + address, "DISPLAY_NAME=Fixture Receipts"}
+	env := []string{"DATABASE_URL=" + dsn, "MASTER_KEY=" + base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)), "PUBLIC_URL=http://" + address, "COOKIE_SECURE=false", "LISTEN_ADDR=" + address, "DISPLAY_NAME=Fixture Receipts", "UPLOAD_ROOT=" + t.TempDir()}
 	command := func(arg string) *exec.Cmd {
 		cmd := exec.Command(binary, arg)
 		cmd.Env = append(os.Environ(), env...)

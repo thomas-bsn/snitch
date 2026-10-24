@@ -19,6 +19,9 @@ type Config struct {
 	StabilityWindow                                                              time.Duration
 	ReconcileInterval                                                            time.Duration
 	ClipExcludePatterns                                                          []string
+	UploadRoot                                                                   string
+	UploadMaxBytes, UploadChunkBytes                                             int64
+	UploadSessionTTL                                                             time.Duration
 	MasterKey                                                                    []byte
 	Secure                                                                       bool
 	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL                         string
@@ -31,6 +34,7 @@ func Load() (Config, error) {
 		EmbeddingsURL: os.Getenv("EMBEDDINGS_URL"), EmbeddingsModel: os.Getenv("EMBEDDINGS_MODEL"),
 		ClipRoots: splitRoots(os.Getenv("CLIPS_ROOTS")), ProbePath: env("FFPROBE_PATH", "ffprobe"),
 		ClipExcludePatterns: splitPatterns(env("CLIP_EXCLUDE_PATTERNS", ".*,*.tmp,*.part,*.partial,*.crdownload,*.download")),
+		UploadRoot:          env("UPLOAD_ROOT", "/data/media"),
 		DiscordAuthorizeURL: "https://discord.com/oauth2/authorize", DiscordTokenURL: "https://discord.com/api/oauth2/token", DiscordUserURL: "https://discord.com/api/users/@me",
 	}
 	var err error
@@ -41,6 +45,22 @@ func Load() (Config, error) {
 	c.ReconcileInterval, err = time.ParseDuration(env("SOURCE_RECONCILE_INTERVAL", "5m"))
 	if err != nil || c.ReconcileInterval < time.Second || c.ReconcileInterval > 24*time.Hour {
 		return c, errors.New("SOURCE_RECONCILE_INTERVAL must be between 1 second and 24 hours")
+	}
+	c.UploadRoot, err = filepath.Abs(filepath.Clean(c.UploadRoot))
+	if err != nil || c.UploadRoot == "." {
+		return c, errors.New("UPLOAD_ROOT must be a valid path")
+	}
+	c.UploadMaxBytes, err = int64Env("MAX_UPLOAD_BYTES", 20<<30)
+	if err != nil || c.UploadMaxBytes < 1 || c.UploadMaxBytes > 1<<50 {
+		return c, errors.New("MAX_UPLOAD_BYTES must be between 1 byte and 1 PiB")
+	}
+	c.UploadChunkBytes, err = int64Env("UPLOAD_CHUNK_BYTES", 4<<20)
+	if err != nil || c.UploadChunkBytes < 16<<10 || c.UploadChunkBytes > 16<<20 {
+		return c, errors.New("UPLOAD_CHUNK_BYTES must be between 16 KiB and 16 MiB")
+	}
+	c.UploadSessionTTL, err = time.ParseDuration(env("UPLOAD_SESSION_TTL", "168h"))
+	if err != nil || c.UploadSessionTTL < time.Hour || c.UploadSessionTTL > 30*24*time.Hour {
+		return c, errors.New("UPLOAD_SESSION_TTL must be between 1 hour and 30 days")
 	}
 	c.MasterKey, err = base64.StdEncoding.DecodeString(os.Getenv("MASTER_KEY"))
 	if err != nil || len(c.MasterKey) != 32 {
@@ -102,6 +122,18 @@ func splitPatterns(value string) []string {
 		}
 	}
 	return patterns
+}
+
+func int64Env(key string, fallback int64) (int64, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return parsed, nil
 }
 
 func env(key, fallback string) string {

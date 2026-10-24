@@ -9,6 +9,7 @@ def check(d):
     assert set(d) <= {'services','volumes','name','version'} | {k for k in d if k.startswith('x-')}
     services, volumes = d['services'], d['volumes']
     assert set(services) == {'postgres','migrate','app','embed'}
+    assert set(volumes) == {'database','embeddings','media'}
     assert all(re.fullmatch('[a-z0-9-]{1,32}', n) for n in services)
     assert all(v is None or v == {} for v in volumes.values())
     exposed = []
@@ -52,6 +53,7 @@ def check(d):
     assert services['migrate']['restart']=='no'
     assert services['app']['depends_on']=={'postgres':{'condition':'service_healthy'},'migrate':{'condition':'service_completed_successfully'}}
     assert services['postgres']['x-forgeyard']['backup']=={'type':'postgres'}
+    assert 'media:/data/media' in services['app'].get('volumes', [])
 
 if __name__=='__main__':
     raw = YAML(typ='safe').load((root/'compose.yaml').read_text())

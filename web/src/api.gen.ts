@@ -220,6 +220,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/uploads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["listUploads"];
+    put?: never;
+    post: operations["createUpload"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/uploads/{id}/chunks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["putUploadChunk"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/uploads/{id}/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["completeUpload"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/uploads/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations["cancelUpload"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/sources": {
     parameters: {
       query?: never;
@@ -339,6 +403,48 @@ export interface components {
       client_secret?: string;
       /** @description Booléen obligatoire et non nul. Politique commune aux nouvelles inscriptions locales et Discord, sans approbation rétroactive des comptes déjà en attente. */
       registration_approval: boolean;
+    };
+    UploadInput: {
+      filename: string;
+      /** Format: int64 */
+      size_bytes: number;
+      /**
+       * @default shared
+       * @enum {string}
+       */
+      visibility: "private" | "shared";
+    };
+    Upload: {
+      id: string;
+      original_name: string;
+      /** Format: int64 */
+      size_bytes: number;
+      /** Format: int64 */
+      offset_bytes: number;
+      /** Format: int64 */
+      chunk_size_bytes: number;
+      /** @enum {string} */
+      visibility: "private" | "shared";
+      /** @enum {string} */
+      status:
+        | "uploading"
+        | "processing"
+        | "complete"
+        | "failed"
+        | "cancelled"
+        | "expired";
+      /** Format: int64 */
+      clip_id?: number;
+      /** Format: date-time */
+      expires_at: string;
+      sha256?: string;
+    };
+    UploadList: {
+      items: components["schemas"]["Upload"][];
+    };
+    UploadOffset: {
+      /** Format: int64 */
+      offset_bytes: number;
     };
     SourceInput: {
       name: string;
@@ -943,6 +1049,179 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listUploads: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Uploads actifs du membre */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadList"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createUpload: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UploadInput"];
+      };
+    };
+    responses: {
+      /** @description Upload créé */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Upload"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putUploadChunk: {
+    parameters: {
+      query?: never;
+      header: {
+        "Content-Range": string;
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/octet-stream": string;
+      };
+    };
+    responses: {
+      /** @description Offset accepté */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadOffset"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  completeUpload: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Upload terminé */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Upload"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelUpload: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Upload annulé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Error */
       default: {
         headers: {
           [name: string]: unknown;

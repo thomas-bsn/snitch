@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -27,6 +28,7 @@ import (
 	"receipts/internal/library"
 	"receipts/internal/settings"
 	"receipts/internal/setup"
+	"receipts/internal/uploads"
 	"receipts/ui"
 )
 
@@ -37,6 +39,7 @@ type Server struct {
 	Client        *http.Client
 	Store         settings.Store
 	Library       *library.Service
+	Uploads       *uploads.Service
 	rates         sync.Map
 	passwordSlots chan struct{}
 	dummyPassword string
@@ -57,11 +60,20 @@ type DiscordSettings struct {
 }
 
 func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
-	return &Server{Pool: p, Config: c, Log: logger, Client: &http.Client{Timeout: 10 * time.Second}, Store: settings.Store{Pool: p, Key: c.MasterKey}, Library: library.New(p, library.Config{Roots: c.ClipRoots, ProbePath: c.ProbePath, Stability: c.StabilityWindow, ReconcileEvery: c.ReconcileInterval, Exclude: c.ClipExcludePatterns}, logger), passwordSlots: make(chan struct{}, 2), dummyPassword: auth.Password(auth.Token())}
+	return &Server{Pool: p, Config: c, Log: logger, Client: &http.Client{Timeout: 10 * time.Second}, Store: settings.Store{Pool: p, Key: c.MasterKey}, Library: library.New(p, library.Config{Roots: c.ClipRoots, ProbePath: c.ProbePath, Stability: c.StabilityWindow, ReconcileEvery: c.ReconcileInterval, Exclude: c.ClipExcludePatterns}, logger), Uploads: uploads.New(p, uploads.Config{Root: c.UploadRoot, ProbePath: c.ProbePath, MaxBytes: c.UploadMaxBytes, ChunkSize: c.UploadChunkBytes, TTL: c.UploadSessionTTL}), passwordSlots: make(chan struct{}, 2), dummyPassword: auth.Password(auth.Token())}
 }
 
-func (s *Server) Start(ctx context.Context) error { return s.Library.Start(ctx) }
-func (s *Server) Close()                          { s.Library.Close() }
+func (s *Server) Start(ctx context.Context) error {
+	if err := s.Uploads.Start(ctx); err != nil {
+		return fmt.Errorf("start uploads: %w", err)
+	}
+	if err := s.Library.Start(ctx); err != nil {
+		s.Uploads.Close()
+		return fmt.Errorf("start library: %w", err)
+	}
+	return nil
+}
+func (s *Server) Close() { s.Library.Close(); s.Uploads.Close() }
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health/live", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]string{"status": "ok"}) })
@@ -84,6 +96,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/admin/sources/{id}", s.protected(true, http.HandlerFunc(s.disableSource)))
 	mux.Handle("GET /api/admin/sources/{id}/files", s.protected(true, http.HandlerFunc(s.sourceFiles)))
 	mux.Handle("POST /api/admin/sources/{id}/scan", s.protected(true, http.HandlerFunc(s.scanSource)))
+	mux.Handle("GET /api/uploads", s.protected(false, http.HandlerFunc(s.listUploads)))
+	mux.Handle("POST /api/uploads", s.protected(false, http.HandlerFunc(s.createUpload)))
+	mux.Handle("PUT /api/uploads/{id}/chunks", s.protected(false, http.HandlerFunc(s.uploadChunk)))
+	mux.Handle("POST /api/uploads/{id}/complete", s.protected(false, http.HandlerFunc(s.completeUpload)))
+	mux.Handle("DELETE /api/uploads/{id}", s.protected(false, http.HandlerFunc(s.cancelUpload)))
 	embedded, _ := fs.Sub(ui.Files, "dist")
 	files := http.FileServer(http.FS(embedded))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +139,14 @@ func (s *Server) Handler() http.Handler {
 				return
 			}
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, 16*1024)
+		limit := int64(16 * 1024)
+		if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api/uploads/") && strings.HasSuffix(r.URL.Path, "/chunks") {
+			limit = s.Config.UploadChunkBytes
+			if limit <= 0 {
+				limit = 4 << 20
+			}
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		mux.ServeHTTP(w, r)
 	})
 }
