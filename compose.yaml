@@ -20,7 +20,7 @@ services:
     image: ${SNITCH_IMAGE:?Set SNITCH_IMAGE to a built or published immutable image}
     command: [migrate]
     environment:
-      DATABASE_URL: postgres://snitch@postgres:5432/snitch?sslmode=disable
+      DATABASE_URL: postgres://receipts@postgres:5432/receipts?sslmode=disable
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     depends_on:
       postgres: {condition: service_healthy}
@@ -30,7 +30,7 @@ services:
     image: ${SNITCH_IMAGE:?Set SNITCH_IMAGE to a built or published immutable image}
     command: [serve]
     environment:
-      DATABASE_URL: postgres://snitch@postgres:5432/snitch?sslmode=disable
+      DATABASE_URL: postgres://receipts@postgres:5432/receipts?sslmode=disable
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       MASTER_KEY: ${MASTER_KEY:?Set MASTER_KEY}
       PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL}

@@ -20,7 +20,18 @@ type JobControls = components["schemas"]["JobControls"];
 type Worker = components["schemas"]["Worker"];
 type VocabularyTerm = components["schemas"]["VocabularyTerm"];
 type TranscriptionPipeline = components["schemas"]["TranscriptionPipeline"];
-type SearchResult = { clip_id: number; clip_name: string; visibility: string; recorded_at: string; status: string; sources: string[]; match_type: string; context: string; matched_text: string; timestamp: number };
+type SearchResult = {
+  clip_id: number;
+  clip_name: string;
+  visibility: string;
+  recorded_at: string;
+  status: string;
+  sources: string[];
+  match_type: string;
+  context: string;
+  matched_text: string;
+  timestamp: number;
+};
 const messages: Record<string, string> = {
   unavailable:
     "Le service est temporairement indisponible. Réessayez dans un instant.",
@@ -76,9 +87,17 @@ function checkedNoContent(result: { error?: { error: string } }): void {
     );
 }
 function highlighted(context: string, match: string): React.ReactNode {
-  const start = context.toLocaleLowerCase("fr").indexOf(match.toLocaleLowerCase("fr"));
+  const start = context
+    .toLocaleLowerCase("fr")
+    .indexOf(match.toLocaleLowerCase("fr"));
   if (start < 0 || !match) return context;
-  return <>{context.slice(0, start)}<mark>{context.slice(start, start + match.length)}</mark>{context.slice(start + match.length)}</>;
+  return (
+    <>
+      {context.slice(0, start)}
+      <mark>{context.slice(start, start + match.length)}</mark>
+      {context.slice(start + match.length)}
+    </>
+  );
 }
 function App() {
   const [setup, setSetup] = useState<Setup>();
@@ -95,9 +114,17 @@ function App() {
   const [searchPage, setSearchPage] = useState(1);
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchFilters, setSearchFilters] = useState({ from: "", to: "", source_id: "", visibility: "", status: "" });
+  const [searchFilters, setSearchFilters] = useState({
+    from: "",
+    to: "",
+    source_id: "",
+    visibility: "",
+    status: "",
+  });
   const [searchPlayback, setSearchPlayback] = useState<SearchResult>();
-  const [selectedAudioTracks, setSelectedAudioTracks] = useState<Record<number, number>>({});
+  const [selectedAudioTracks, setSelectedAudioTracks] = useState<
+    Record<number, number>
+  >({});
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobHistory, setJobHistory] = useState<Record<number, JobEvent[]>>({});
   const [jobControls, setJobControls] = useState<JobControls>({
@@ -140,7 +167,13 @@ function App() {
     from: "",
     to: "",
   });
-  const [batchPreview, setBatchPreview] = useState<{ eligible: number; already_processed: number; already_queued: number; unavailable: number; selection_required: number }>();
+  const [batchPreview, setBatchPreview] = useState<{
+    eligible: number;
+    already_processed: number;
+    already_queued: number;
+    unavailable: number;
+    selection_required: number;
+  }>();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(
     (() => {
@@ -153,7 +186,9 @@ function App() {
   const [register, setRegister] = useState(false);
   const [busy, setBusy] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">(() => {
-    const saved = (localStorage.getItem("snitch-theme") ?? localStorage.getItem("receipts-theme"));
+    const saved =
+      localStorage.getItem("snitch-theme") ??
+      localStorage.getItem("receipts-theme");
     return saved === "light" ? "light" : "dark";
   });
   useEffect(() => {
@@ -208,16 +243,33 @@ function App() {
   }
   async function previewBatch() {
     const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(clipFilters)) if (value) query.set(key, value);
-    const response = await fetch(`/api/admin/transcriptions/batch-preview?${query}`, { credentials: "same-origin" });
+    for (const [key, value] of Object.entries(clipFilters))
+      if (value) query.set(key, value);
+    const response = await fetch(
+      `/api/admin/transcriptions/batch-preview?${query}`,
+      { credentials: "same-origin" },
+    );
     if (!response.ok) throw new Error("Impossible de prévisualiser ce lot.");
     setBatchPreview(await response.json());
   }
   async function scheduleBatch() {
-    if (!batchPreview?.eligible || !window.confirm(`Planifier ${batchPreview.eligible} transcription(s) ?`)) return;
+    if (
+      !batchPreview?.eligible ||
+      !window.confirm(`Planifier ${batchPreview.eligible} transcription(s) ?`)
+    )
+      return;
     const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(clipFilters)) if (value) query.set(key, value);
-    const response = await fetch(`/api/admin/transcriptions/batch-schedule?${query}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", ...csrf }, body: JSON.stringify({ confirm: true }) });
+    for (const [key, value] of Object.entries(clipFilters))
+      if (value) query.set(key, value);
+    const response = await fetch(
+      `/api/admin/transcriptions/batch-schedule?${query}`,
+      {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", ...csrf },
+        body: JSON.stringify({ confirm: true }),
+      },
+    );
     if (!response.ok) throw new Error("Impossible de planifier ce lot.");
     const result = await response.json();
     setNotice(`${result.scheduled} tâche(s) ajoutée(s) à la file.`);
@@ -225,10 +277,19 @@ function App() {
     await refreshJobs(1);
   }
   async function runSearch(page = 1) {
-    const query = new URLSearchParams({ q: searchQuery, mode: searchMode, page: String(page), page_size: "10" });
-    for (const [key, value] of Object.entries(searchFilters)) if (value) query.set(key, value);
-    const response = await fetch(`/api/search?${query}`, { credentials: "same-origin" });
-    if (!response.ok) throw new Error("Impossible de rechercher dans les transcriptions.");
+    const query = new URLSearchParams({
+      q: searchQuery,
+      mode: searchMode,
+      page: String(page),
+      page_size: "10",
+    });
+    for (const [key, value] of Object.entries(searchFilters))
+      if (value) query.set(key, value);
+    const response = await fetch(`/api/search?${query}`, {
+      credentials: "same-origin",
+    });
+    if (!response.ok)
+      throw new Error("Impossible de rechercher dans les transcriptions.");
     const result = await response.json();
     setSearchResults(result.items);
     setSearchTotal(result.total);
@@ -253,19 +314,30 @@ function App() {
       model: String(form.get("model") || "default").trim(),
       language: String(form.get("language") || "fr").trim(),
       preparation: "wav-16khz-mono-v1",
-      vad: mode === "energy" ? {
-        mode: "energy", version: "energy-v1",
-        threshold: Number(form.get("threshold") || 0.02),
-        min_speech_ms: Number(form.get("min_speech_ms") || 100),
-        min_silence_ms: Number(form.get("min_silence_ms") || 300),
-        padding_ms: Number(form.get("padding_ms") || 100),
-      } : { mode: "off", version: "vad-off-v1" },
+      vad:
+        mode === "energy"
+          ? {
+              mode: "energy",
+              version: "energy-v1",
+              threshold: Number(form.get("threshold") || 0.02),
+              min_speech_ms: Number(form.get("min_speech_ms") || 100),
+              min_silence_ms: Number(form.get("min_silence_ms") || 300),
+              padding_ms: Number(form.get("padding_ms") || 100),
+            }
+          : { mode: "off", version: "vad-off-v1" },
     };
     await run(async () => {
-      const saved = checked(await api.PUT("/api/admin/transcription-pipeline", { params: { header: csrf }, body }));
+      const saved = checked(
+        await api.PUT("/api/admin/transcription-pipeline", {
+          params: { header: csrf },
+          body,
+        }),
+      );
       setPipeline(saved.config);
       setPipelineVersion(saved.version);
-      setNotice("Configuration enregistrée. Les prochaines transcriptions utiliseront cette version.");
+      setNotice(
+        "Configuration enregistrée. Les prochaines transcriptions utiliseront cette version.",
+      );
     });
   }
   async function saveVocabularyTerm(event: React.FormEvent<HTMLFormElement>) {
@@ -274,39 +346,70 @@ function App() {
     const form = new FormData(formElement);
     const body = {
       term: String(form.get("term") ?? ""),
-      variants: String(form.get("variants") ?? "").split(",").map((value) => value.trim()).filter(Boolean),
+      variants: String(form.get("variants") ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
       preferred_spelling: String(form.get("preferred_spelling") ?? ""),
       active: form.get("active") === "on",
     };
     setBusy(true);
     try {
       const result = editingTerm
-        ? await api.PUT("/api/admin/vocabulary/{id}", { params: { path: { id: editingTerm.id }, header: csrf }, body })
-        : await api.POST("/api/admin/vocabulary", { params: { header: csrf }, body });
+        ? await api.PUT("/api/admin/vocabulary/{id}", {
+            params: { path: { id: editingTerm.id }, header: csrf },
+            body,
+          })
+        : await api.POST("/api/admin/vocabulary", {
+            params: { header: csrf },
+            body,
+          });
       checked(result);
       setEditingTerm(undefined);
       formElement.reset();
       await refreshVocabulary();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Impossible d’enregistrer le terme.");
-    } finally { setBusy(false); }
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Impossible d’enregistrer le terme.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
   async function removeVocabularyTerm(id: number) {
     setBusy(true);
     try {
-      checkedNoContent(await api.DELETE("/api/admin/vocabulary/{id}", { params: { path: { id }, header: csrf } }));
+      checkedNoContent(
+        await api.DELETE("/api/admin/vocabulary/{id}", {
+          params: { path: { id }, header: csrf },
+        }),
+      );
       if (editingTerm?.id === id) setEditingTerm(undefined);
       await refreshVocabulary();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Impossible de supprimer le terme.");
-    } finally { setBusy(false); }
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Impossible de supprimer le terme.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
   async function loadClipDetail(id: number) {
     try {
-      const detail = checked(await api.GET("/api/clips/{id}", { params: { path: { id } } }));
+      const detail = checked(
+        await api.GET("/api/clips/{id}", { params: { path: { id } } }),
+      );
       setClipDetails((current) => ({ ...current, [id]: detail }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Impossible de charger le clip.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Impossible de charger le clip.",
+      );
     }
   }
   async function refreshUploads() {
@@ -828,916 +931,1623 @@ function App() {
         <>
           <div className="app-shell">
             <aside className="sidebar" aria-label="Navigation principale">
-              <a className="sidebar-brand" href="#library" aria-label="Snitch, bibliothèque">
+              <a
+                className="sidebar-brand"
+                href="#library"
+                aria-label="Snitch, bibliothèque"
+              >
                 <span className="brand-mark">R</span>
                 <span>{setup.display_name}</span>
               </a>
               <p className="nav-label">Espace</p>
-              <a className="nav-link active" href="#library"><span aria-hidden="true">▦</span> Bibliothèque</a>
-              <a className="nav-link" href="#uploads"><span aria-hidden="true">⇧</span> Imports{uploads.length > 0 && <span className="nav-count">{uploads.length}</span>}</a>
-              {session.user.role === "admin" && <>
-                <p className="nav-label">Administration</p>
-                <a className="nav-link" href="#job-queue"><span aria-hidden="true">◷</span> File de tâches</a>
-                <a className="nav-link" href="#workers"><span aria-hidden="true">⌁</span> Workers</a>
-                <a className="nav-link" href="#sources"><span aria-hidden="true">▤</span> Sources</a>
-                <a className="nav-link" href="#settings"><span aria-hidden="true">⚙</span> Réglages</a>
-              </>}
+              <a className="nav-link active" href="#library">
+                <span aria-hidden="true">▦</span> Bibliothèque
+              </a>
+              <a className="nav-link" href="#uploads">
+                <span aria-hidden="true">⇧</span> Imports
+                {uploads.length > 0 && (
+                  <span className="nav-count">{uploads.length}</span>
+                )}
+              </a>
+              {session.user.role === "admin" && (
+                <>
+                  <p className="nav-label">Administration</p>
+                  <a className="nav-link" href="#job-queue">
+                    <span aria-hidden="true">◷</span> File de tâches
+                  </a>
+                  <a className="nav-link" href="#workers">
+                    <span aria-hidden="true">⌁</span> Workers
+                  </a>
+                  <a className="nav-link" href="#sources">
+                    <span aria-hidden="true">▤</span> Sources
+                  </a>
+                  <a className="nav-link" href="#settings">
+                    <span aria-hidden="true">⚙</span> Réglages
+                  </a>
+                </>
+              )}
               <div className="sidebar-user">
-                <span className="user-avatar">{session.user.username.slice(0, 1).toUpperCase()}</span>
-                <span className="user-copy"><strong>{session.user.username}</strong><small>{session.user.role === "admin" ? "Administrateur" : "Membre"}</small></span>
+                <span className="user-avatar">
+                  {session.user.username.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="user-copy">
+                  <strong>{session.user.username}</strong>
+                  <small>
+                    {session.user.role === "admin"
+                      ? "Administrateur"
+                      : "Membre"}
+                  </small>
+                </span>
               </div>
             </aside>
             <div className="workspace">
-          <div className="toolbar">
-            <p>
-              <span className="breadcrumb">ESPACE / MÉDIATHÈQUE</span>
-            </p>
-            <div className="toolbar-actions">
-              <div className="theme-toggle" role="group" aria-label="Thème">
-                <button className={theme === "dark" ? "selected" : ""} aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}>Sombre</button>
-                <button className={theme === "light" ? "selected" : ""} aria-pressed={theme === "light"} onClick={() => setTheme("light")}>Clair</button>
-              </div>
-              <button className="secondary logout-button" disabled={busy} onClick={() => run(async () => {
-                checked(await api.POST("/api/auth/logout", { params: { header: csrf } }));
-                setSession(undefined);
-                await refresh();
-              })}>Se déconnecter</button>
-            </div>
-          </div>
-          <section className="card" id="uploads">
-            <p className="eyebrow">IMPORTER UNE VIDÉO</p>
-            <h2>Ajouter à la bibliothèque</h2>
-            <p>
-              Les envois sont découpés pour reprendre après une coupure. Ils
-              apparaissent dans la bibliothèque après validation.
-            </p>
-            <form onSubmit={addUpload}>
-              <label>
-                Visibilité
-                <select
-                  value={uploadVisibility}
-                  onChange={(event) =>
-                    setUploadVisibility(
-                      event.target.value as "private" | "shared",
-                    )
-                  }
-                >
-                  <option value="shared">Partagée avec les membres</option>
-                  <option value="private">
-                    Privée (vous et les administrateurs)
-                  </option>
-                </select>
-              </label>
-              <label>
-                Fichier vidéo
-                <input
-                  type="file"
-                  accept="video/*,.mkv,.mp4,.mov,.webm"
-                  required
-                />
-              </label>
-              <button disabled={busy}>Envoyer la vidéo</button>
-            </form>
-            <h3>Envois à reprendre ({uploads.length})</h3>
-            {uploads.length === 0 ? (
-              <p>Aucun envoi en attente.</p>
-            ) : (
-              <ul>
-                {uploads.map((upload) => (
-                  <li className="source" key={upload.id}>
-                    <strong>{upload.original_name}</strong> ·{" "}
-                    {upload.offset_bytes} / {upload.size_bytes} octets ·{" "}
-                    {upload.status}
-                    <div className="toolbar">
-                      <button
-                        className="secondary"
-                        disabled={busy || upload.status !== "uploading"}
-                        onClick={() => resumeUpload(upload)}
-                      >
-                        Reprendre
-                      </button>
-                      <button
-                        className="secondary"
-                        disabled={busy || upload.status !== "uploading"}
-                        onClick={() => cancelUpload(upload)}
-                      >
-                        Annuler
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <section className="card library-card" aria-label="Bibliothèque" id="library">
-            <div className="library-heading"><div><p className="eyebrow">VOTRE COLLECTION</p><h2>Bibliothèque</h2><p>{clipTotal} clips · derniers ajouts en premier</p></div><a className="primary-link" href="#uploads">＋ Importer des clips</a></div>
-            <section className="transcript-search" aria-label="Recherche dans les paroles">
-              <h3>Rechercher dans les paroles</h3>
-              <form onSubmit={(event) => { event.preventDefault(); run(() => runSearch(1)); }}>
-                <label>Paroles<input aria-label="Rechercher dans les paroles" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Ex. bonjour tout le monde" required /></label>
-                <label>Type de recherche<select aria-label="Type de recherche" value={searchMode} onChange={(event) => setSearchMode(event.target.value)}><option value="full_text">Plein texte</option><option value="exact">Mot exact</option></select></label>
-                <label>Du<input aria-label="Date de début de recherche" type="date" value={searchFilters.from} onChange={(e) => setSearchFilters({ ...searchFilters, from: e.target.value })} /></label>
-                <label>Au<input aria-label="Date de fin de recherche" type="date" value={searchFilters.to} onChange={(e) => setSearchFilters({ ...searchFilters, to: e.target.value })} /></label>
-                <label>Source (ID)<input aria-label="Source de recherche" type="number" min="1" value={searchFilters.source_id} onChange={(e) => setSearchFilters({ ...searchFilters, source_id: e.target.value })} /></label>
-                <label>Visibilité<select aria-label="Visibilité de recherche" value={searchFilters.visibility} onChange={(e) => setSearchFilters({ ...searchFilters, visibility: e.target.value })}><option value="">Toutes</option><option value="shared">Partagées</option><option value="private">Privées</option></select></label>
-                <label>État du clip<select aria-label="État du clip recherché" value={searchFilters.status} onChange={(e) => setSearchFilters({ ...searchFilters, status: e.target.value })}><option value="">Tous</option><option value="ready">Prêtes</option><option value="waiting_stability">En attente</option><option value="unreadable">Illisibles</option><option value="missing">Original introuvable</option></select></label>
-                <button disabled={busy}>Rechercher</button>
-              </form>
-              {searchResults.length > 0 && <><p role="status">{searchTotal} résultat{searchTotal > 1 ? "s" : ""} · page {searchPage}</p><ol className="search-results">{searchResults.map((item, index) => <li key={`${item.clip_id}-${item.timestamp}-${index}`}>
-                <strong>{item.clip_name}</strong> · {new Date(item.recorded_at).toLocaleDateString("fr-FR")} · {item.visibility === "shared" ? "Partagé" : "Privé"} · {item.match_type === "exact" ? "Correspondance exacte" : item.match_type === "approximate" ? "Correspondance approximative" : "Plein texte"}
-                <p>{highlighted(item.context, item.matched_text)}</p>
-                <button className="secondary" disabled={item.status !== "ready"} onClick={() => setSearchPlayback(item)}>Ouvrir à {formatTimecode(item.timestamp)}</button>
-              </li>)}</ol><div className="toolbar"><button className="secondary" disabled={busy || searchPage <= 1} onClick={() => run(() => runSearch(searchPage - 1))}>Précédente</button><span>Page {searchPage} · {searchTotal} résultats</span><button className="secondary" disabled={busy || searchPage * 10 >= searchTotal} onClick={() => run(() => runSearch(searchPage + 1))}>Suivante</button></div></>}
-              {searchQuery && searchResults.length === 0 && <p role="status">Aucun résultat · {searchTotal} résultat trouvé</p>}
-              {searchPlayback && <section aria-label="Lecture du résultat" className="search-playback"><h4>{searchPlayback.clip_name} · {formatTimecode(searchPlayback.timestamp)}</h4><video controls autoPlay preload="metadata" src={`/api/clips/${searchPlayback.clip_id}/media`} aria-label={`Lecture ${searchPlayback.clip_name}`} onLoadedMetadata={(event) => { event.currentTarget.currentTime = searchPlayback.timestamp; void event.currentTarget.play().catch(() => undefined); }} /><button className="secondary" onClick={() => setSearchPlayback(undefined)}>Fermer la lecture</button></section>}
-            </section>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                run(() => refreshClips(1));
-              }}
-            >
-              <label>
-                Visibilité
-                <select
-                  value={clipFilters.visibility}
-                  onChange={(e) =>
-                    setClipFilters({
-                      ...clipFilters,
-                      visibility: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Toutes</option>
-                  <option value="shared">Partagées</option>
-                  <option value="private">Privées</option>
-                </select>
-              </label>
-              <label>
-                État
-                <select
-                  value={clipFilters.status}
-                  onChange={(e) =>
-                    setClipFilters({ ...clipFilters, status: e.target.value })
-                  }
-                >
-                  <option value="">Tous</option>
-                  <option value="ready">Prêtes</option>
-                  <option value="waiting_stability">En attente</option>
-                  <option value="unreadable">Illisibles</option>
-                  <option value="missing">Original introuvable</option>
-                </select>
-              </label>
-                <label className="advanced-filter">
-                  Propriétaire (ID)
-                <input
-                  type="number"
-                  min="1"
-                  value={clipFilters.owner_id}
-                  onChange={(e) =>
-                    setClipFilters({ ...clipFilters, owner_id: e.target.value })
-                  }
-                />
-              </label>
-                <label className="advanced-filter">
-                Source (ID)
-                <input
-                  type="number"
-                  min="1"
-                  value={clipFilters.source_id}
-                  onChange={(e) =>
-                    setClipFilters({
-                      ...clipFilters,
-                      source_id: e.target.value,
-                    })
-                  }
-                />
-              </label>
-                <label className="advanced-filter">
-                Du
-                <input
-                  type="date"
-                  value={clipFilters.from}
-                  onChange={(e) =>
-                    setClipFilters({ ...clipFilters, from: e.target.value })
-                  }
-                />
-              </label>
-                <label className="advanced-filter">
-                Au
-                <input
-                  type="date"
-                  value={clipFilters.to}
-                  onChange={(e) =>
-                    setClipFilters({ ...clipFilters, to: e.target.value })
-                  }
-                />
-              </label>
-              <button className="filter-submit" disabled={busy}>Appliquer les filtres</button>
-            </form>
-            {session.user.role === "admin" && <section className="card" aria-label="Planification par lot">
-              <h3>Planifier les transcriptions visibles</h3>
-              <p className="hint">Prévisualisez les clips selon les filtres ci-dessus. Rien n’est ajouté à la file avant votre confirmation.</p>
-              <button className="secondary" disabled={busy} onClick={() => void run(previewBatch)}>Prévisualiser le lot</button>
-              {batchPreview && <div role="status" className="batch-counts">
-                <p>{batchPreview.eligible} éligible(s) · {batchPreview.already_processed} déjà traité(s) · {batchPreview.already_queued} déjà en file</p>
-                <p>{batchPreview.unavailable} original(aux) indisponible(s) · {batchPreview.selection_required} piste(s) à sélectionner</p>
-                <button disabled={busy || batchPreview.eligible === 0} onClick={() => void run(scheduleBatch)}>Confirmer et planifier {batchPreview.eligible}</button>
-              </div>}
-            </section>}
-            {clips.length === 0 ? (
-              <p>Aucun clip visible pour ces filtres.</p>
-            ) : (
-              <ul className="clip-grid">
-                {clips.map((clip) => (
-                  <li className="clip-card" key={clip.id}>
-                    <div className={`clip-art clip-art-${clip.id % 5}`} aria-hidden="true"><span className="clip-art-label">{clip.status === "ready" ? "APERÇU VIDÉO" : clip.status === "missing" ? "ORIGINAL ABSENT" : clip.status === "unreadable" ? "ILLISIBLE" : "EN ATTENTE"}</span>{clip.status === "ready" && <span className="clip-play">▶</span>}<span className="clip-duration">{clip.duration_seconds ? `${Math.floor(clip.duration_seconds / 60)}:${String(Math.floor(clip.duration_seconds % 60)).padStart(2, "0")}` : "—:—"}</span></div>
-                    <div className="clip-card-body">
-                      <strong className="clip-name" title={clip.original_name}>{clip.original_name}</strong>
-                      <p className="clip-meta">{new Date(clip.recorded_at).toLocaleDateString("fr-FR")} · {clip.owner}</p>
-                      <div className="clip-card-footer"><span className={`clip-state state-${clip.status}`}>{clip.status === "ready" ? "Disponible" : clip.status === "missing" ? "Introuvable" : clip.status === "unreadable" ? "Illisible" : "En attente"}</span><span className="visibility-chip">{clip.visibility === "shared" ? "Partagé" : "Privé"}</span></div>
-                      <details onToggle={(event) => {
-                        if (event.currentTarget.open && !clipDetails[clip.id]) void loadClipDetail(clip.id);
-                      }}>
-                        <summary>Détails et lecture</summary>
-                      <p>
-                        {clip.format_name} · audio{" "}
-                        {clip.audio_codec || "absent"} · {clip.size_bytes}{" "}
-                        octets · sources {clip.sources?.join(", ") || "upload"}
-                      </p>
-                      {clip.uploaders.length > 0 && (
-                        <p>Importé par {clip.uploaders.join(", ")}</p>
-                      )}
-                      {clip.status === "ready" && (
-                        <video
-                          id={`clip-player-${clip.id}`}
-                          controls
-                          preload="metadata"
-                          src={`/api/clips/${clip.id}/media`}
-                          aria-label={`Lecture ${clip.original_name}`}
-                        />
-                      )}
-                      {clipDetails[clip.id]?.audio_track_selection?.status === "selection_required" && selectedAudioTracks[clip.id] === undefined && <p role="status" className="hint">Plusieurs pistes audio sont possibles. Sélectionnez celle à transcrire.</p>}
-                      {clip.status === "ready" && session.user.role === "admin" && clip.tracks.some((track) => track.type === "audio") && (
-                        <div className="transcription-controls">
-                          <label>
-                            Piste audio
-                            <select
-                              value={selectedAudioTracks[clip.id] ?? clipDetails[clip.id]?.audio_track_selection?.audio_stream_index ?? ""}
-                              onChange={(event) => setSelectedAudioTracks({ ...selectedAudioTracks, [clip.id]: Number(event.target.value) })}
-                            >
-                              <option value="" disabled>Sélectionner une piste</option>
-                              {clip.tracks.filter((track) => track.type === "audio").map((track) => (
-                                <option key={track.index} value={track.index}>Piste {track.index} · {track.title || "sans titre"} · {track.language || "langue inconnue"} · {track.channel_layout || `${track.channels ?? "?"} canaux`}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <button className="secondary" onClick={() => run(async () => {
-                            const index = selectedAudioTracks[clip.id] ?? clipDetails[clip.id]?.audio_track_selection?.audio_stream_index;
-                            if (index === undefined) throw new Error("Sélectionnez explicitement une piste audio.");
-                            checked(await api.PUT("/api/admin/clips/{id}/audio-track", { params: { path: { id: clip.id }, header: csrf }, body: { audio_stream_index: index } }));
-                            const response = checked(await api.POST("/api/admin/clips/{id}/transcription", { params: { path: { id: clip.id }, header: csrf }, body: {} }));
-                            setNotice(`Transcription planifiée (tâche ${response.job.id}).`);
-                            await refreshJobs(1);
-                          })}>Transcrire</button>
-                        </div>
-                      )}
-                      {clipDetails[clip.id]?.transcription && (() => {
-                        const transcript = clipDetails[clip.id]!.transcription!;
-                        return (
-                          <section className="clip-transcript" aria-label="Transcription horodatée">
-                            <h3>Transcription · {transcript.provider} / {transcript.model}</h3>
-                            {transcript.segments.length === 0 ? <p>Aucune parole détectée.</p> : transcript.segments.map((segment, segmentIndex) => (
-                              <p key={`${segment.start}-${segmentIndex}`}>
-                                <button className="transcript-time" onClick={() => {
-                                  const player = document.getElementById(`clip-player-${clip.id}`) as HTMLVideoElement | null;
-                                  if (player) { player.currentTime = segment.start; void player.play(); }
-                                }}>{formatTimecode(segment.start)}</button>{" "}
-                                {segment.words.map((word, wordIndex) => <span key={`${word.start}-${wordIndex}`}>{word.word}{" "}</span>)}
-                              </p>
-                            ))}
-                          </section>
+              <div className="toolbar">
+                <p>
+                  <span className="breadcrumb">ESPACE / MÉDIATHÈQUE</span>
+                </p>
+                <div className="toolbar-actions">
+                  <div className="theme-toggle" role="group" aria-label="Thème">
+                    <button
+                      className={theme === "dark" ? "selected" : ""}
+                      aria-pressed={theme === "dark"}
+                      onClick={() => setTheme("dark")}
+                    >
+                      Sombre
+                    </button>
+                    <button
+                      className={theme === "light" ? "selected" : ""}
+                      aria-pressed={theme === "light"}
+                      onClick={() => setTheme("light")}
+                    >
+                      Clair
+                    </button>
+                  </div>
+                  <button
+                    className="secondary logout-button"
+                    disabled={busy}
+                    onClick={() =>
+                      run(async () => {
+                        checked(
+                          await api.POST("/api/auth/logout", {
+                            params: { header: csrf },
+                          }),
                         );
-                      })()}
-                      {clipDetails[clip.id] && <button className="secondary" onClick={() => void loadClipDetail(clip.id)}>Actualiser la transcription</button>}
-                      </details>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="toolbar">
-              <button
-                className="secondary"
-                disabled={busy || clipPage <= 1}
-                onClick={() => run(() => refreshClips(clipPage - 1))}
-              >
-                Précédente
-              </button>
-              <span>
-                Page {clipPage} · {clipTotal} clips
-              </span>
-              <button
-                className="secondary"
-                disabled={busy || clipPage * 12 >= clipTotal}
-                onClick={() => run(() => refreshClips(clipPage + 1))}
-              >
-                Suivante
-              </button>
-            </div>
-          </section>
-          {setup.discord_enabled && (
-            <section className="card" id="settings">
-              <h2>Lier votre identité Discord</h2>
-              <p>
-                Cette action associe votre compte actuel à votre identité
-                Discord, sans fusion par pseudo. Elle ouvre Discord.
-              </p>
-              <button disabled={busy} onClick={() => discord(true)}>
-                Lier Discord
-              </button>
-            </section>
-          )}
-          {session.user.role === "admin" && settings && (
-            <section className="card">
-              <h2>Accès et Discord</h2>
-              <p>
-                Discord est facultatif. Laissez l’identifiant vide pour le
-                désactiver.
-              </p>
-              <p>
-                {settings.client_id && settings.secret_configured
-                  ? "Configuration Discord enregistrée. Vérifiez aussi l’URL de retour dans Discord."
-                  : settings.client_id
-                    ? "Configuration Discord incomplète : ajoutez le secret pour l’activer."
-                    : "Discord désactivé : les comptes locaux restent disponibles."}
-              </p>
-              <p>
-                Créez votre application dans le{" "}
-                <a
-                  href="https://discord.com/developers/applications"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Discord Developer Portal
-                </a>
-                , puis copiez son Client ID et son Client Secret depuis les
-                réglages OAuth2. Ajoutez exactement cette URL aux redirections
-                autorisées.
-              </p>
-              <p className="hint">
-                URL de retour à renseigner dans Discord : {location.origin}
-                /api/auth/discord/callback
-              </p>
-              <p className="hint">
-                Enregistrer ces réglages ne contacte pas Discord. Une connexion
-                ou une liaison ouvre Discord, puis le serveur échange avec ce
-                service pour lire l’identité publique (portée identify
-                uniquement).
-              </p>
-              <form
-                onSubmit={save}
-                key={`${settings.client_id}-${settings.registration_approval}`}
-              >
-                <label>
-                  Identifiant de l’application Discord
-                  <input
-                    name="client_id"
-                    defaultValue={settings.client_id}
-                    maxLength={128}
-                  />
-                </label>
-                <label>
-                  Secret Discord
-                  <input
-                    name="client_secret"
-                    type="password"
-                    autoComplete="new-password"
-                    maxLength={2048}
-                    placeholder={
-                      settings.secret_configured
-                        ? "Configuré — laisser vide pour conserver"
-                        : "Non configuré"
-                    }
-                  />
-                </label>
-                <p className="hint">
-                  {settings.secret_configured
-                    ? "Secret configuré. Laissez le champ vide pour le conserver."
-                    : "Aucun secret configuré. Il est nécessaire pour activer Discord."}
-                </p>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    name="approval"
-                    defaultChecked={settings.registration_approval}
-                  />
-                  Approbation administrateur requise pour les nouveaux comptes
-                </label>
-                <button disabled={busy}>Enregistrer les réglages</button>
-                <button type="button" disabled={busy} onClick={disableDiscord}>
-                  {settings.client_id
-                    ? "Désactiver Discord"
-                    : "Continuer sans Discord"}
-                </button>
-              </form>
-            </section>
-          )}
-          {session.user.role === "admin" && (
-            <section className="card" id="transcription-pipeline">
-              <h2>Pipeline de transcription</h2>
-              {pipeline && <>
-                <p className="hint">Version active : {pipelineVersion}. Une modification ne change pas les résultats déjà calculés.</p>
-                <form onSubmit={savePipeline}>
-                  <label>Profil de modèle (doit correspondre à TRANSCRIPTION_MODEL sur le worker)<input name="model" required maxLength={100} defaultValue={pipeline.model} /></label>
-                  <label>Langue<input name="language" required maxLength={32} defaultValue={pipeline.language} /></label>
-                  <label>Détection d’activité vocale<select name="vad_mode" defaultValue={pipeline.vad.mode}><option value="off">Désactivée</option><option value="energy">VAD énergie</option></select></label>
-                  <label>Seuil d’énergie (0 à 1)<input name="threshold" type="number" min="0.001" max="0.999" step="0.001" defaultValue={pipeline.vad.threshold ?? 0.02} /></label>
-                  <label>Durée minimale de parole (ms)<input name="min_speech_ms" type="number" min="1" max="5000" defaultValue={pipeline.vad.min_speech_ms ?? 100} /></label>
-                  <label>Silence minimum entre zones (ms)<input name="min_silence_ms" type="number" min="1" max="10000" defaultValue={pipeline.vad.min_silence_ms ?? 300} /></label>
-                  <label>Marge autour des zones (ms)<input name="padding_ms" type="number" min="0" max="2000" defaultValue={pipeline.vad.padding_ms ?? 100} /></label>
-                  <button disabled={busy}>Enregistrer et versionner</button>
-                </form>
-              </>}
-            </section>
-          )}
-          {session.user.role === "admin" && (
-            <section className="card" id="vocabulary">
-              <h2>Vocabulaire de transcription</h2>
-              <p className="hint">Version active : {vocabularyVersion}. Ces termes sont envoyés au fournisseur à la prochaine transcription planifiée.</p>
-              <form onSubmit={saveVocabularyTerm} key={editingTerm?.id ?? "new-vocabulary-term"}>
-                <label>Terme<input name="term" required maxLength={160} defaultValue={editingTerm?.term ?? ""} /></label>
-                <label>Variantes, séparées par des virgules<input name="variants" maxLength={4000} defaultValue={editingTerm?.variants.join(", ") ?? ""} /></label>
-                <label>Graphie préférée<input name="preferred_spelling" required maxLength={160} defaultValue={editingTerm?.preferred_spelling ?? ""} /></label>
-                <label className="checkbox"><input name="active" type="checkbox" defaultChecked={editingTerm?.active ?? true} />Actif pour les prochaines transcriptions</label>
-                <button disabled={busy}>{editingTerm ? "Enregistrer le terme" : "Ajouter le terme"}</button>
-                {editingTerm && <button type="button" className="secondary" onClick={() => setEditingTerm(undefined)}>Annuler</button>}
-              </form>
-              <ul className="vocabulary-list">
-                {vocabulary.map((term) => <li key={term.id}>
-                  <div><strong>{term.preferred_spelling}</strong><span>{term.term}{term.variants.length ? ` · ${term.variants.join(" · ")}` : ""}</span><small>{term.active ? "Actif" : "Inactif"}</small></div>
-                  <div className="actions"><button type="button" className="secondary" onClick={() => setEditingTerm(term)}>Modifier</button><button type="button" className="secondary" disabled={busy} onClick={() => void removeVocabularyTerm(term.id)}>Supprimer</button></div>
-                </li>)}
-              </ul>
-              {vocabulary.length === 0 && <p>Aucun terme enregistré.</p>}
-            </section>
-          )}
-          {session.user.role === "admin" && (
-            <section className="card" aria-label="Contrôle de la file" id="queue-controls">
-              <h2>Contrôle de la file</h2>
-              <p aria-live="polite">
-                {jobControls.paused
-                  ? "Acquisitions en pause"
-                  : "Acquisitions actives"}
-              </p>
-              <form onSubmit={saveJobControls}>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={jobControls.paused}
-                    onChange={(event) =>
-                      setJobControls({
-                        ...jobControls,
-                        paused: event.target.checked,
-                      })
-                    }
-                  />
-                  Suspendre les nouvelles acquisitions
-                </label>
-                <label>
-                  Parallélisme global
-                  <input
-                    type="number"
-                    min="1"
-                    max="4"
-                    required
-                    value={jobControls.max_concurrency}
-                    onChange={(event) =>
-                      setJobControls({
-                        ...jobControls,
-                        max_concurrency: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-                <p className="hint">
-                  La limite globale s’applique en plus de la capacité de chaque
-                  worker. Les tâches déjà actives peuvent se terminer pendant
-                  une pause.
-                </p>
-                <button disabled={busy}>Enregistrer les contrôles</button>
-              </form>
-            </section>
-          )}
-          {session.user.role === "admin" && (
-            <section className="card" id="workers">
-              <h2>Workers</h2>
-              <p className="hint">
-                Le jeton apparaît une seule fois après création. Configurez-le
-                sur le PC worker avec une URL HTTPS.
-              </p>
-              <form onSubmit={registerWorker}>
-                <label>
-                  Nom du worker
-                  <input
-                    name="worker_name"
-                    minLength={1}
-                    maxLength={64}
-                    required
-                  />
-                </label>
-                <label>
-                  Concurrence maximale
-                  <input
-                    name="worker_capacity"
-                    type="number"
-                    min="1"
-                    max="4"
-                    defaultValue="1"
-                    required
-                  />
-                </label>
-                <button disabled={busy}>Créer un worker</button>
-              </form>
-              {newWorkerToken && (
-                <p role="status">
-                  Jeton à copier maintenant: <code>{newWorkerToken}</code>
-                </p>
-              )}
-              {workers.length === 0 ? (
-                <p>Aucun worker enregistré.</p>
-              ) : (
-                <ul aria-label="Workers">
-                  {workers.map((worker) => (
-                    <li key={worker.id}>
-                      <strong>{worker.name}</strong>
-                      <p>
-                        {worker.revoked_at
-                          ? "Révoqué"
-                          : worker.connected
-                            ? "En ligne"
-                            : "Absent"}{" "}
-                        · capacité annoncée {worker.reported_concurrency}/
-                        {worker.max_concurrency} · dernière activité{" "}
-                        {worker.last_seen_at
-                          ? new Date(worker.last_seen_at).toLocaleString(
-                              "fr-FR",
-                            )
-                          : "jamais"}
-                      </p>
-                      {!worker.revoked_at && (
-                        <button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() => revokeWorker(worker)}
-                        >
-                          Révoquer le jeton
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-          {session.user.role === "admin" && (
-            <section className="card" id="members">
-              <h2>Inscriptions en attente ({pending.length})</h2>
-              {pending.length === 0 ? (
-                <p>Aucune demande en attente.</p>
-              ) : (
-                <ul>
-                  {pending.map((user) => (
-                    <li className="pending" key={user.id}>
-                      <span>{user.username}</span>
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          run(async () => {
-                            checked(
-                              await api.POST("/api/admin/users/{id}/approve", {
-                                params: { path: { id: user.id }, header: csrf },
-                              }),
-                            );
-                            await refresh();
-                          })
-                        }
-                      >
-                        Approuver {user.username}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-          {session.user.role === "admin" && (
-            <section className="card" id="job-queue">
-              <h2>File de tâches ({jobTotal})</h2>
-              <p className="hint">
-                Les tâches restent en attente jusqu’à ce qu’un worker prenne en
-                charge leur étape.
-              </p>
-              <form onSubmit={scheduleJob}>
-                <label>
-                  ID du clip
-                  <input name="clip_id" type="number" min="1" required />
-                </label>
-                <label>
-                  Étape
-                  <input
-                    name="step"
-                    required
-                    maxLength={64}
-                    pattern="[a-z][a-z0-9_.-]{0,63}"
-                  />
-                </label>
-                <label>
-                  Version d’entrée
-                  <input name="input_version" required maxLength={128} />
-                </label>
-                <label>
-                  Priorité
-                  <input
-                    name="priority"
-                    type="number"
-                    min="-100"
-                    max="100"
-                    defaultValue="0"
-                  />
-                </label>
-                <label>
-                  Nombre maximal de tentatives
-                  <input
-                    name="max_attempts"
-                    type="number"
-                    min="1"
-                    max="20"
-                    defaultValue="3"
-                    required
-                  />
-                </label>
-                <button disabled={busy}>Planifier l’étape</button>
-              </form>
-              <form onSubmit={filterJobs}>
-                <label>
-                  État de la tâche
-                  <select
-                    value={jobFilters.status}
-                    onChange={(event) =>
-                      setJobFilters({
-                        ...jobFilters,
-                        status: event.target.value as typeof jobFilters.status,
+                        setSession(undefined);
+                        await refresh();
                       })
                     }
                   >
-                    <option value="">Tous les états</option>
-                    <option value="pending">En attente</option>
-                    <option value="leased">Louée</option>
-                    <option value="done">Terminée</option>
-                    <option value="failed">Échouée</option>
-                    <option value="retry_wait">Nouvel essai différé</option>
-                    <option value="dead">Épuisée</option>
-                    <option value="cancelled">Annulée</option>
-                  </select>
-                </label>
-                <label>
-                  ID du clip à filtrer
-                  <input
-                    type="number"
-                    min="1"
-                    value={jobFilters.clip_id}
-                    onChange={(event) =>
-                      setJobFilters({
-                        ...jobFilters,
-                        clip_id: event.target.value,
-                      })
-                    }
-                  />
-                </label>
-                <label>
-                  Étape à filtrer
-                  <input
-                    value={jobFilters.step}
-                    onChange={(event) =>
-                      setJobFilters({ ...jobFilters, step: event.target.value })
-                    }
-                  />
-                </label>
-                <button className="secondary" disabled={busy}>
-                  Filtrer les tâches
-                </button>
-              </form>
-              {jobs.length === 0 ? (
-                <p>Aucune tâche ne correspond aux filtres.</p>
-              ) : (
-                <ul aria-label="Tâches">
-                  {jobs.map((job) => (
-                    <li key={job.id}>
-                      <strong>{job.step}</strong>
-                      <p>
-                        Tâche {job.id} · clip {job.clip_id} · {job.status} ·
-                        priorité {job.priority} · cycle {job.cycle} · tentatives{" "}
-                        {job.attempts}/{job.max_attempts}
-                      </p>
-                      <p className="hint">
-                        Version {job.input_version} · créée{" "}
-                        {new Date(job.created_at).toLocaleString("fr-FR")}
-                        {job.status === "retry_wait" &&
-                          ` · prochain essai ${new Date(job.next_attempt_at).toLocaleString("fr-FR")}`}
-                        {job.last_error && ` · erreur ${job.last_error}`}
-                      </p>
-                      <div className="toolbar">
-                        <button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() => loadJobHistory(job)}
-                        >
-                          Historique
-                        </button>
-                        {job.status === "dead" && (
-                          <button
-                            disabled={busy}
-                            onClick={() => relaunchJob(job)}
-                          >
-                            Relancer
-                          </button>
-                        )}
-                        {["pending", "retry_wait", "leased"].includes(
-                          job.status,
-                        ) && (
+                    Se déconnecter
+                  </button>
+                </div>
+              </div>
+              <section className="card" id="uploads">
+                <p className="eyebrow">IMPORTER UNE VIDÉO</p>
+                <h2>Ajouter à la bibliothèque</h2>
+                <p>
+                  Les envois sont découpés pour reprendre après une coupure. Ils
+                  apparaissent dans la bibliothèque après validation.
+                </p>
+                <form onSubmit={addUpload}>
+                  <label>
+                    Visibilité
+                    <select
+                      value={uploadVisibility}
+                      onChange={(event) =>
+                        setUploadVisibility(
+                          event.target.value as "private" | "shared",
+                        )
+                      }
+                    >
+                      <option value="shared">Partagée avec les membres</option>
+                      <option value="private">
+                        Privée (vous et les administrateurs)
+                      </option>
+                    </select>
+                  </label>
+                  <label>
+                    Fichier vidéo
+                    <input
+                      type="file"
+                      accept="video/*,.mkv,.mp4,.mov,.webm"
+                      required
+                    />
+                  </label>
+                  <button disabled={busy}>Envoyer la vidéo</button>
+                </form>
+                <h3>Envois à reprendre ({uploads.length})</h3>
+                {uploads.length === 0 ? (
+                  <p>Aucun envoi en attente.</p>
+                ) : (
+                  <ul>
+                    {uploads.map((upload) => (
+                      <li className="source" key={upload.id}>
+                        <strong>{upload.original_name}</strong> ·{" "}
+                        {upload.offset_bytes} / {upload.size_bytes} octets ·{" "}
+                        {upload.status}
+                        <div className="toolbar">
                           <button
                             className="secondary"
-                            disabled={busy}
-                            onClick={() => cancelJob(job)}
+                            disabled={busy || upload.status !== "uploading"}
+                            onClick={() => resumeUpload(upload)}
+                          >
+                            Reprendre
+                          </button>
+                          <button
+                            className="secondary"
+                            disabled={busy || upload.status !== "uploading"}
+                            onClick={() => cancelUpload(upload)}
                           >
                             Annuler
                           </button>
-                        )}
-                      </div>
-                      {jobHistory[job.id] && (
-                        <ul aria-label={`Historique de la tâche ${job.id}`}>
-                          {jobHistory[job.id].map((event) => (
-                            <li key={event.id}>
-                              {event.event} · cycle {event.cycle}
-                              {event.attempt
-                                ? ` · tentative ${event.attempt}`
-                                : ""}
-                              {event.error_code ? ` · ${event.error_code}` : ""}{" "}
-                              ·{" "}
-                              {new Date(event.created_at).toLocaleString(
-                                "fr-FR",
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {job.result && (
-                        <pre aria-label={`Résultat de la tâche ${job.id}`}>
-                          {JSON.stringify(job.result, null, 2)}
-                        </pre>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="toolbar">
-                <button
-                  className="secondary"
-                  disabled={busy || jobPage <= 1}
-                  onClick={() => run(() => refreshJobs(jobPage - 1))}
-                >
-                  Tâches précédentes
-                </button>
-                <span>Page {jobPage}</span>
-                <button
-                  className="secondary"
-                  disabled={busy || jobPage * 10 >= jobTotal}
-                  onClick={() => run(() => refreshJobs(jobPage + 1))}
-                >
-                  Tâches suivantes
-                </button>
-              </div>
-            </section>
-          )}
-          {session.user.role === "admin" && (
-            <section className="card" id="sources">
-              <h2>Sources dossier</h2>
-              {allowedRoots.length === 0 ? (
-                <p className="hint">
-                  Aucun dossier n’est monté pour Snitch. Configurez
-                  CLIPS_ROOTS et un accès hôte en lecture seule dans votre
-                  environnement.
-                </p>
-              ) : (
-                <>
-                  <p>
-                    Dossiers autorisés : {allowedRoots.join(", ")}. Les
-                    originaux restent en lecture seule.
-                  </p>
-                  <form onSubmit={addSource}>
-                    <label>
-                      Nom de la source
-                      <input name="source_name" required maxLength={80} />
-                    </label>
-                    <label>
-                      Chemin du dossier autorisé
-                      <input name="source_path" required maxLength={4096} />
-                    </label>
-                    <button disabled={busy}>Ajouter le dossier</button>
-                  </form>
-                </>
-              )}
-              <button
-                className="secondary"
-                disabled={busy}
-                onClick={() => run(refreshSources)}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section
+                className="card library-card"
+                aria-label="Bibliothèque"
+                id="library"
               >
-                Actualiser les sources
-              </button>
-              {sources.length === 0 ? (
-                <p>Aucune source dossier configurée.</p>
-              ) : (
-                <ul>
-                  {sources.map((source) => (
-                    <li className="source" key={source.id}>
-                      <div className="toolbar">
-                        <strong>{source.name}</strong>
-                        <span>
-                          {source.enabled ? source.health : "désactivée"}
-                        </span>
-                      </div>
-                      <p className="hint">{source.path}</p>
-                      {source.health_message && (
-                        <p role="status" className="alert">
-                          {source.health_message}
-                        </p>
-                      )}
-                      <p className="hint">
-                        Dernière réconciliation :{" "}
-                        {source.last_scan_at
-                          ? new Date(source.last_scan_at).toLocaleString(
-                              "fr-FR",
-                            )
-                          : "aucune"}
-                      </p>
-                      <button
-                        className="secondary"
-                        disabled={busy || !source.enabled}
-                        onClick={() => scanSource(source)}
+                <div className="library-heading">
+                  <div>
+                    <p className="eyebrow">VOTRE COLLECTION</p>
+                    <h2>Bibliothèque</h2>
+                    <p>{clipTotal} clips · derniers ajouts en premier</p>
+                  </div>
+                  <a className="primary-link" href="#uploads">
+                    ＋ Importer des clips
+                  </a>
+                </div>
+                <section
+                  className="transcript-search"
+                  aria-label="Recherche dans les paroles"
+                >
+                  <h3>Rechercher dans les paroles</h3>
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      run(() => runSearch(1));
+                    }}
+                  >
+                    <label>
+                      Paroles
+                      <input
+                        aria-label="Rechercher dans les paroles"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder="Ex. bonjour tout le monde"
+                        required
+                      />
+                    </label>
+                    <label>
+                      Type de recherche
+                      <select
+                        aria-label="Type de recherche"
+                        value={searchMode}
+                        onChange={(event) => setSearchMode(event.target.value)}
                       >
-                        Réconcilier
-                      </button>
-                      {source.enabled && (
-                        <button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() => disableSource(source)}
-                        >
-                          Désactiver
-                        </button>
-                      )}
-                      <details className="source-track-rule">
-                        <summary>Règle de piste audio pour cette source</summary>
-                        <form onSubmit={(event) => { event.preventDefault(); const form=new FormData(event.currentTarget); void run(async()=>{ const fallback=String(form.get("fallback_audio_stream_index")||"").trim(); const channels=String(form.get("channels")||"").trim(); const body={title:String(form.get("title")||"").trim()||undefined,language:String(form.get("language")||"").trim()||undefined,channel_layout:String(form.get("channel_layout")||"").trim()||undefined,channels:channels?Number(channels):undefined,fallback_audio_stream_index:fallback?Number(fallback):undefined}; checked(await api.PUT("/api/admin/sources/{id}/audio-track-rule",{params:{path:{id:source.id},header:csrf},body})); setNotice("Règle de piste enregistrée; les clips résolus sont replanifiés."); }); }}>
-                          <label>Titre de piste exact<input name="title" placeholder="ex. Voix" /></label>
-                          <label>Langue exacte<input name="language" placeholder="ex. fra" /></label>
-                          <label>Disposition<input name="channel_layout" placeholder="ex. stereo" /></label>
-                          <label>Nombre de canaux exact<input name="channels" type="number" min="1" /></label>
-                          <label>Piste audio de repli (index global)<input name="fallback_audio_stream_index" type="number" min="0" /></label>
-                          <button className="secondary" disabled={busy}>Enregistrer la règle</button>
-                        </form>
-                      </details>
-                      <ul>
-                        {source.files.map((file) => (
-                          <li className="source-file" key={file.relative_path}>
-                            <strong>{file.relative_path}</strong> ·{" "}
-                            {file.status}
-                            {file.error_code && (
-                              <span> · {file.error_code}</span>
-                            )}
-                            {file.status === "ready" && (
-                              <p className="hint">
-                                {file.duration_seconds?.toFixed(2) ??
-                                  "Durée inconnue"}{" "}
-                                s
-                                {file.video_codec
-                                  ? ` · ${file.video_codec}`
-                                  : ""}
-                                {file.recorded_at
-                                  ? ` · ${file.recorded_at}${file.recorded_at_estimated ? " (estimée)" : ""}`
-                                  : ""}
-                              </p>
-                            )}
+                        <option value="full_text">Plein texte</option>
+                        <option value="exact">Mot exact</option>
+                      </select>
+                    </label>
+                    <label>
+                      Du
+                      <input
+                        aria-label="Date de début de recherche"
+                        type="date"
+                        value={searchFilters.from}
+                        onChange={(e) =>
+                          setSearchFilters({
+                            ...searchFilters,
+                            from: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Au
+                      <input
+                        aria-label="Date de fin de recherche"
+                        type="date"
+                        value={searchFilters.to}
+                        onChange={(e) =>
+                          setSearchFilters({
+                            ...searchFilters,
+                            to: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Source (ID)
+                      <input
+                        aria-label="Source de recherche"
+                        type="number"
+                        min="1"
+                        value={searchFilters.source_id}
+                        onChange={(e) =>
+                          setSearchFilters({
+                            ...searchFilters,
+                            source_id: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Visibilité
+                      <select
+                        aria-label="Visibilité de recherche"
+                        value={searchFilters.visibility}
+                        onChange={(e) =>
+                          setSearchFilters({
+                            ...searchFilters,
+                            visibility: e.target.value,
+                          })
+                        }
+                      >
+                        <option value="">Toutes</option>
+                        <option value="shared">Partagées</option>
+                        <option value="private">Privées</option>
+                      </select>
+                    </label>
+                    <label>
+                      État du clip
+                      <select
+                        aria-label="État du clip recherché"
+                        value={searchFilters.status}
+                        onChange={(e) =>
+                          setSearchFilters({
+                            ...searchFilters,
+                            status: e.target.value,
+                          })
+                        }
+                      >
+                        <option value="">Tous</option>
+                        <option value="ready">Prêtes</option>
+                        <option value="waiting_stability">En attente</option>
+                        <option value="unreadable">Illisibles</option>
+                        <option value="missing">Original introuvable</option>
+                      </select>
+                    </label>
+                    <button disabled={busy}>Rechercher</button>
+                  </form>
+                  {searchResults.length > 0 && (
+                    <>
+                      <p role="status">
+                        {searchTotal} résultat{searchTotal > 1 ? "s" : ""} ·
+                        page {searchPage}
+                      </p>
+                      <ol className="search-results">
+                        {searchResults.map((item, index) => (
+                          <li
+                            key={`${item.clip_id}-${item.timestamp}-${index}`}
+                          >
+                            <strong>{item.clip_name}</strong> ·{" "}
+                            {new Date(item.recorded_at).toLocaleDateString(
+                              "fr-FR",
+                            )}{" "}
+                            ·{" "}
+                            {item.visibility === "shared" ? "Partagé" : "Privé"}{" "}
+                            ·{" "}
+                            {item.match_type === "exact"
+                              ? "Correspondance exacte"
+                              : item.match_type === "approximate"
+                                ? "Correspondance approximative"
+                                : "Plein texte"}
+                            <p>
+                              {highlighted(item.context, item.matched_text)}
+                            </p>
+                            <button
+                              className="secondary"
+                              disabled={item.status !== "ready"}
+                              onClick={() => setSearchPlayback(item)}
+                            >
+                              Ouvrir à {formatTimecode(item.timestamp)}
+                            </button>
                           </li>
                         ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
+                      </ol>
+                      <div className="toolbar">
+                        <button
+                          className="secondary"
+                          disabled={busy || searchPage <= 1}
+                          onClick={() => run(() => runSearch(searchPage - 1))}
+                        >
+                          Précédente
+                        </button>
+                        <span>
+                          Page {searchPage} · {searchTotal} résultats
+                        </span>
+                        <button
+                          className="secondary"
+                          disabled={busy || searchPage * 10 >= searchTotal}
+                          onClick={() => run(() => runSearch(searchPage + 1))}
+                        >
+                          Suivante
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {searchQuery && searchResults.length === 0 && (
+                    <p role="status">
+                      Aucun résultat · {searchTotal} résultat trouvé
+                    </p>
+                  )}
+                  {searchPlayback && (
+                    <section
+                      aria-label="Lecture du résultat"
+                      className="search-playback"
+                    >
+                      <h4>
+                        {searchPlayback.clip_name} ·{" "}
+                        {formatTimecode(searchPlayback.timestamp)}
+                      </h4>
+                      <video
+                        controls
+                        autoPlay
+                        preload="metadata"
+                        src={`/api/clips/${searchPlayback.clip_id}/media`}
+                        aria-label={`Lecture ${searchPlayback.clip_name}`}
+                        onLoadedMetadata={(event) => {
+                          event.currentTarget.currentTime =
+                            searchPlayback.timestamp;
+                          void event.currentTarget
+                            .play()
+                            .catch(() => undefined);
+                        }}
+                      />
+                      <button
+                        className="secondary"
+                        onClick={() => setSearchPlayback(undefined)}
+                      >
+                        Fermer la lecture
+                      </button>
+                    </section>
+                  )}
+                </section>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    run(() => refreshClips(1));
+                  }}
+                >
+                  <label>
+                    Visibilité
+                    <select
+                      value={clipFilters.visibility}
+                      onChange={(e) =>
+                        setClipFilters({
+                          ...clipFilters,
+                          visibility: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Toutes</option>
+                      <option value="shared">Partagées</option>
+                      <option value="private">Privées</option>
+                    </select>
+                  </label>
+                  <label>
+                    État
+                    <select
+                      value={clipFilters.status}
+                      onChange={(e) =>
+                        setClipFilters({
+                          ...clipFilters,
+                          status: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Tous</option>
+                      <option value="ready">Prêtes</option>
+                      <option value="waiting_stability">En attente</option>
+                      <option value="unreadable">Illisibles</option>
+                      <option value="missing">Original introuvable</option>
+                    </select>
+                  </label>
+                  <label className="advanced-filter">
+                    Propriétaire (ID)
+                    <input
+                      type="number"
+                      min="1"
+                      value={clipFilters.owner_id}
+                      onChange={(e) =>
+                        setClipFilters({
+                          ...clipFilters,
+                          owner_id: e.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="advanced-filter">
+                    Source (ID)
+                    <input
+                      type="number"
+                      min="1"
+                      value={clipFilters.source_id}
+                      onChange={(e) =>
+                        setClipFilters({
+                          ...clipFilters,
+                          source_id: e.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="advanced-filter">
+                    Du
+                    <input
+                      type="date"
+                      value={clipFilters.from}
+                      onChange={(e) =>
+                        setClipFilters({ ...clipFilters, from: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="advanced-filter">
+                    Au
+                    <input
+                      type="date"
+                      value={clipFilters.to}
+                      onChange={(e) =>
+                        setClipFilters({ ...clipFilters, to: e.target.value })
+                      }
+                    />
+                  </label>
+                  <button className="filter-submit" disabled={busy}>
+                    Appliquer les filtres
+                  </button>
+                </form>
+                {session.user.role === "admin" && (
+                  <section className="card" aria-label="Planification par lot">
+                    <h3>Planifier les transcriptions visibles</h3>
+                    <p className="hint">
+                      Prévisualisez les clips selon les filtres ci-dessus. Rien
+                      n’est ajouté à la file avant votre confirmation.
+                    </p>
+                    <button
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => void run(previewBatch)}
+                    >
+                      Prévisualiser le lot
+                    </button>
+                    {batchPreview && (
+                      <div role="status" className="batch-counts">
+                        <p>
+                          {batchPreview.eligible} éligible(s) ·{" "}
+                          {batchPreview.already_processed} déjà traité(s) ·{" "}
+                          {batchPreview.already_queued} déjà en file
+                        </p>
+                        <p>
+                          {batchPreview.unavailable} original(aux)
+                          indisponible(s) · {batchPreview.selection_required}{" "}
+                          piste(s) à sélectionner
+                        </p>
+                        <button
+                          disabled={busy || batchPreview.eligible === 0}
+                          onClick={() => void run(scheduleBatch)}
+                        >
+                          Confirmer et planifier {batchPreview.eligible}
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                )}
+                {clips.length === 0 ? (
+                  <p>Aucun clip visible pour ces filtres.</p>
+                ) : (
+                  <ul className="clip-grid">
+                    {clips.map((clip) => (
+                      <li className="clip-card" key={clip.id}>
+                        <div
+                          className={`clip-art clip-art-${clip.id % 5}`}
+                          aria-hidden="true"
+                        >
+                          <span className="clip-art-label">
+                            {clip.status === "ready"
+                              ? "APERÇU VIDÉO"
+                              : clip.status === "missing"
+                                ? "ORIGINAL ABSENT"
+                                : clip.status === "unreadable"
+                                  ? "ILLISIBLE"
+                                  : "EN ATTENTE"}
+                          </span>
+                          {clip.status === "ready" && (
+                            <span className="clip-play">▶</span>
+                          )}
+                          <span className="clip-duration">
+                            {clip.duration_seconds
+                              ? `${Math.floor(clip.duration_seconds / 60)}:${String(Math.floor(clip.duration_seconds % 60)).padStart(2, "0")}`
+                              : "—:—"}
+                          </span>
+                        </div>
+                        <div className="clip-card-body">
+                          <strong
+                            className="clip-name"
+                            title={clip.original_name}
+                          >
+                            {clip.original_name}
+                          </strong>
+                          <p className="clip-meta">
+                            {new Date(clip.recorded_at).toLocaleDateString(
+                              "fr-FR",
+                            )}{" "}
+                            · {clip.owner}
+                          </p>
+                          <div className="clip-card-footer">
+                            <span className={`clip-state state-${clip.status}`}>
+                              {clip.status === "ready"
+                                ? "Disponible"
+                                : clip.status === "missing"
+                                  ? "Introuvable"
+                                  : clip.status === "unreadable"
+                                    ? "Illisible"
+                                    : "En attente"}
+                            </span>
+                            <span className="visibility-chip">
+                              {clip.visibility === "shared"
+                                ? "Partagé"
+                                : "Privé"}
+                            </span>
+                          </div>
+                          <details
+                            onToggle={(event) => {
+                              if (
+                                event.currentTarget.open &&
+                                !clipDetails[clip.id]
+                              )
+                                void loadClipDetail(clip.id);
+                            }}
+                          >
+                            <summary>Détails et lecture</summary>
+                            <p>
+                              {clip.format_name} · audio{" "}
+                              {clip.audio_codec || "absent"} · {clip.size_bytes}{" "}
+                              octets · sources{" "}
+                              {clip.sources?.join(", ") || "upload"}
+                            </p>
+                            {clip.uploaders.length > 0 && (
+                              <p>Importé par {clip.uploaders.join(", ")}</p>
+                            )}
+                            {clip.status === "ready" && (
+                              <video
+                                id={`clip-player-${clip.id}`}
+                                controls
+                                preload="metadata"
+                                src={`/api/clips/${clip.id}/media`}
+                                aria-label={`Lecture ${clip.original_name}`}
+                              />
+                            )}
+                            {clipDetails[clip.id]?.audio_track_selection
+                              ?.status === "selection_required" &&
+                              selectedAudioTracks[clip.id] === undefined && (
+                                <p role="status" className="hint">
+                                  Plusieurs pistes audio sont possibles.
+                                  Sélectionnez celle à transcrire.
+                                </p>
+                              )}
+                            {clip.status === "ready" &&
+                              session.user.role === "admin" &&
+                              clip.tracks.some(
+                                (track) => track.type === "audio",
+                              ) && (
+                                <div className="transcription-controls">
+                                  <label>
+                                    Piste audio
+                                    <select
+                                      value={
+                                        selectedAudioTracks[clip.id] ??
+                                        clipDetails[clip.id]
+                                          ?.audio_track_selection
+                                          ?.audio_stream_index ??
+                                        ""
+                                      }
+                                      onChange={(event) =>
+                                        setSelectedAudioTracks({
+                                          ...selectedAudioTracks,
+                                          [clip.id]: Number(event.target.value),
+                                        })
+                                      }
+                                    >
+                                      <option value="" disabled>
+                                        Sélectionner une piste
+                                      </option>
+                                      {clip.tracks
+                                        .filter(
+                                          (track) => track.type === "audio",
+                                        )
+                                        .map((track) => (
+                                          <option
+                                            key={track.index}
+                                            value={track.index}
+                                          >
+                                            Piste {track.index} ·{" "}
+                                            {track.title || "sans titre"} ·{" "}
+                                            {track.language ||
+                                              "langue inconnue"}{" "}
+                                            ·{" "}
+                                            {track.channel_layout ||
+                                              `${track.channels ?? "?"} canaux`}
+                                          </option>
+                                        ))}
+                                    </select>
+                                  </label>
+                                  <button
+                                    className="secondary"
+                                    onClick={() =>
+                                      run(async () => {
+                                        const index =
+                                          selectedAudioTracks[clip.id] ??
+                                          clipDetails[clip.id]
+                                            ?.audio_track_selection
+                                            ?.audio_stream_index;
+                                        if (index === undefined)
+                                          throw new Error(
+                                            "Sélectionnez explicitement une piste audio.",
+                                          );
+                                        checked(
+                                          await api.PUT(
+                                            "/api/admin/clips/{id}/audio-track",
+                                            {
+                                              params: {
+                                                path: { id: clip.id },
+                                                header: csrf,
+                                              },
+                                              body: {
+                                                audio_stream_index: index,
+                                              },
+                                            },
+                                          ),
+                                        );
+                                        const response = checked(
+                                          await api.POST(
+                                            "/api/admin/clips/{id}/transcription",
+                                            {
+                                              params: {
+                                                path: { id: clip.id },
+                                                header: csrf,
+                                              },
+                                              body: {},
+                                            },
+                                          ),
+                                        );
+                                        setNotice(
+                                          `Transcription planifiée (tâche ${response.job.id}).`,
+                                        );
+                                        await refreshJobs(1);
+                                      })
+                                    }
+                                  >
+                                    Transcrire
+                                  </button>
+                                </div>
+                              )}
+                            {clipDetails[clip.id]?.transcription &&
+                              (() => {
+                                const transcript =
+                                  clipDetails[clip.id]!.transcription!;
+                                return (
+                                  <section
+                                    className="clip-transcript"
+                                    aria-label="Transcription horodatée"
+                                  >
+                                    <h3>
+                                      Transcription · {transcript.provider} /{" "}
+                                      {transcript.model}
+                                    </h3>
+                                    {transcript.segments.length === 0 ? (
+                                      <p>Aucune parole détectée.</p>
+                                    ) : (
+                                      transcript.segments.map(
+                                        (segment, segmentIndex) => (
+                                          <p
+                                            key={`${segment.start}-${segmentIndex}`}
+                                          >
+                                            <button
+                                              className="transcript-time"
+                                              onClick={() => {
+                                                const player =
+                                                  document.getElementById(
+                                                    `clip-player-${clip.id}`,
+                                                  ) as HTMLVideoElement | null;
+                                                if (player) {
+                                                  player.currentTime =
+                                                    segment.start;
+                                                  void player.play();
+                                                }
+                                              }}
+                                            >
+                                              {formatTimecode(segment.start)}
+                                            </button>{" "}
+                                            {segment.words.map(
+                                              (word, wordIndex) => (
+                                                <span
+                                                  key={`${word.start}-${wordIndex}`}
+                                                >
+                                                  {word.word}{" "}
+                                                </span>
+                                              ),
+                                            )}
+                                          </p>
+                                        ),
+                                      )
+                                    )}
+                                  </section>
+                                );
+                              })()}
+                            {clipDetails[clip.id] && (
+                              <button
+                                className="secondary"
+                                onClick={() => void loadClipDetail(clip.id)}
+                              >
+                                Actualiser la transcription
+                              </button>
+                            )}
+                          </details>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="toolbar">
+                  <button
+                    className="secondary"
+                    disabled={busy || clipPage <= 1}
+                    onClick={() => run(() => refreshClips(clipPage - 1))}
+                  >
+                    Précédente
+                  </button>
+                  <span>
+                    Page {clipPage} · {clipTotal} clips
+                  </span>
+                  <button
+                    className="secondary"
+                    disabled={busy || clipPage * 12 >= clipTotal}
+                    onClick={() => run(() => refreshClips(clipPage + 1))}
+                  >
+                    Suivante
+                  </button>
+                </div>
+              </section>
+              {setup.discord_enabled && (
+                <section className="card" id="settings">
+                  <h2>Lier votre identité Discord</h2>
+                  <p>
+                    Cette action associe votre compte actuel à votre identité
+                    Discord, sans fusion par pseudo. Elle ouvre Discord.
+                  </p>
+                  <button disabled={busy} onClick={() => discord(true)}>
+                    Lier Discord
+                  </button>
+                </section>
               )}
-            </section>
-          )}
+              {session.user.role === "admin" && settings && (
+                <section className="card">
+                  <h2>Accès et Discord</h2>
+                  <p>
+                    Discord est facultatif. Laissez l’identifiant vide pour le
+                    désactiver.
+                  </p>
+                  <p>
+                    {settings.client_id && settings.secret_configured
+                      ? "Configuration Discord enregistrée. Vérifiez aussi l’URL de retour dans Discord."
+                      : settings.client_id
+                        ? "Configuration Discord incomplète : ajoutez le secret pour l’activer."
+                        : "Discord désactivé : les comptes locaux restent disponibles."}
+                  </p>
+                  <p>
+                    Créez votre application dans le{" "}
+                    <a
+                      href="https://discord.com/developers/applications"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Discord Developer Portal
+                    </a>
+                    , puis copiez son Client ID et son Client Secret depuis les
+                    réglages OAuth2. Ajoutez exactement cette URL aux
+                    redirections autorisées.
+                  </p>
+                  <p className="hint">
+                    URL de retour à renseigner dans Discord : {location.origin}
+                    /api/auth/discord/callback
+                  </p>
+                  <p className="hint">
+                    Enregistrer ces réglages ne contacte pas Discord. Une
+                    connexion ou une liaison ouvre Discord, puis le serveur
+                    échange avec ce service pour lire l’identité publique
+                    (portée identify uniquement).
+                  </p>
+                  <form
+                    onSubmit={save}
+                    key={`${settings.client_id}-${settings.registration_approval}`}
+                  >
+                    <label>
+                      Identifiant de l’application Discord
+                      <input
+                        name="client_id"
+                        defaultValue={settings.client_id}
+                        maxLength={128}
+                      />
+                    </label>
+                    <label>
+                      Secret Discord
+                      <input
+                        name="client_secret"
+                        type="password"
+                        autoComplete="new-password"
+                        maxLength={2048}
+                        placeholder={
+                          settings.secret_configured
+                            ? "Configuré — laisser vide pour conserver"
+                            : "Non configuré"
+                        }
+                      />
+                    </label>
+                    <p className="hint">
+                      {settings.secret_configured
+                        ? "Secret configuré. Laissez le champ vide pour le conserver."
+                        : "Aucun secret configuré. Il est nécessaire pour activer Discord."}
+                    </p>
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        name="approval"
+                        defaultChecked={settings.registration_approval}
+                      />
+                      Approbation administrateur requise pour les nouveaux
+                      comptes
+                    </label>
+                    <button disabled={busy}>Enregistrer les réglages</button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={disableDiscord}
+                    >
+                      {settings.client_id
+                        ? "Désactiver Discord"
+                        : "Continuer sans Discord"}
+                    </button>
+                  </form>
+                </section>
+              )}
+              {session.user.role === "admin" && (
+                <section className="card" id="transcription-pipeline">
+                  <h2>Pipeline de transcription</h2>
+                  {pipeline && (
+                    <>
+                      <p className="hint">
+                        Version active : {pipelineVersion}. Une modification ne
+                        change pas les résultats déjà calculés.
+                      </p>
+                      <form onSubmit={savePipeline}>
+                        <label>
+                          Profil de modèle (doit correspondre à
+                          TRANSCRIPTION_MODEL sur le worker)
+                          <input
+                            name="model"
+                            required
+                            maxLength={100}
+                            defaultValue={pipeline.model}
+                          />
+                        </label>
+                        <label>
+                          Langue
+                          <input
+                            name="language"
+                            required
+                            maxLength={32}
+                            defaultValue={pipeline.language}
+                          />
+                        </label>
+                        <label>
+                          Détection d’activité vocale
+                          <select
+                            name="vad_mode"
+                            defaultValue={pipeline.vad.mode}
+                          >
+                            <option value="off">Désactivée</option>
+                            <option value="energy">VAD énergie</option>
+                          </select>
+                        </label>
+                        <label>
+                          Seuil d’énergie (0 à 1)
+                          <input
+                            name="threshold"
+                            type="number"
+                            min="0.001"
+                            max="0.999"
+                            step="0.001"
+                            defaultValue={pipeline.vad.threshold ?? 0.02}
+                          />
+                        </label>
+                        <label>
+                          Durée minimale de parole (ms)
+                          <input
+                            name="min_speech_ms"
+                            type="number"
+                            min="1"
+                            max="5000"
+                            defaultValue={pipeline.vad.min_speech_ms ?? 100}
+                          />
+                        </label>
+                        <label>
+                          Silence minimum entre zones (ms)
+                          <input
+                            name="min_silence_ms"
+                            type="number"
+                            min="1"
+                            max="10000"
+                            defaultValue={pipeline.vad.min_silence_ms ?? 300}
+                          />
+                        </label>
+                        <label>
+                          Marge autour des zones (ms)
+                          <input
+                            name="padding_ms"
+                            type="number"
+                            min="0"
+                            max="2000"
+                            defaultValue={pipeline.vad.padding_ms ?? 100}
+                          />
+                        </label>
+                        <button disabled={busy}>
+                          Enregistrer et versionner
+                        </button>
+                      </form>
+                    </>
+                  )}
+                </section>
+              )}
+              {session.user.role === "admin" && (
+                <section className="card" id="vocabulary">
+                  <h2>Vocabulaire de transcription</h2>
+                  <p className="hint">
+                    Version active : {vocabularyVersion}. Ces termes sont
+                    envoyés au fournisseur à la prochaine transcription
+                    planifiée.
+                  </p>
+                  <form
+                    onSubmit={saveVocabularyTerm}
+                    key={editingTerm?.id ?? "new-vocabulary-term"}
+                  >
+                    <label>
+                      Terme
+                      <input
+                        name="term"
+                        required
+                        maxLength={160}
+                        defaultValue={editingTerm?.term ?? ""}
+                      />
+                    </label>
+                    <label>
+                      Variantes, séparées par des virgules
+                      <input
+                        name="variants"
+                        maxLength={4000}
+                        defaultValue={editingTerm?.variants.join(", ") ?? ""}
+                      />
+                    </label>
+                    <label>
+                      Graphie préférée
+                      <input
+                        name="preferred_spelling"
+                        required
+                        maxLength={160}
+                        defaultValue={editingTerm?.preferred_spelling ?? ""}
+                      />
+                    </label>
+                    <label className="checkbox">
+                      <input
+                        name="active"
+                        type="checkbox"
+                        defaultChecked={editingTerm?.active ?? true}
+                      />
+                      Actif pour les prochaines transcriptions
+                    </label>
+                    <button disabled={busy}>
+                      {editingTerm
+                        ? "Enregistrer le terme"
+                        : "Ajouter le terme"}
+                    </button>
+                    {editingTerm && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setEditingTerm(undefined)}
+                      >
+                        Annuler
+                      </button>
+                    )}
+                  </form>
+                  <ul className="vocabulary-list">
+                    {vocabulary.map((term) => (
+                      <li key={term.id}>
+                        <div>
+                          <strong>{term.preferred_spelling}</strong>
+                          <span>
+                            {term.term}
+                            {term.variants.length
+                              ? ` · ${term.variants.join(" · ")}`
+                              : ""}
+                          </span>
+                          <small>{term.active ? "Actif" : "Inactif"}</small>
+                        </div>
+                        <div className="actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => setEditingTerm(term)}
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary"
+                            disabled={busy}
+                            onClick={() => void removeVocabularyTerm(term.id)}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {vocabulary.length === 0 && <p>Aucun terme enregistré.</p>}
+                </section>
+              )}
+              {session.user.role === "admin" && (
+                <section
+                  className="card"
+                  aria-label="Contrôle de la file"
+                  id="queue-controls"
+                >
+                  <h2>Contrôle de la file</h2>
+                  <p aria-live="polite">
+                    {jobControls.paused
+                      ? "Acquisitions en pause"
+                      : "Acquisitions actives"}
+                  </p>
+                  <form onSubmit={saveJobControls}>
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={jobControls.paused}
+                        onChange={(event) =>
+                          setJobControls({
+                            ...jobControls,
+                            paused: event.target.checked,
+                          })
+                        }
+                      />
+                      Suspendre les nouvelles acquisitions
+                    </label>
+                    <label>
+                      Parallélisme global
+                      <input
+                        type="number"
+                        min="1"
+                        max="4"
+                        required
+                        value={jobControls.max_concurrency}
+                        onChange={(event) =>
+                          setJobControls({
+                            ...jobControls,
+                            max_concurrency: Number(event.target.value),
+                          })
+                        }
+                      />
+                    </label>
+                    <p className="hint">
+                      La limite globale s’applique en plus de la capacité de
+                      chaque worker. Les tâches déjà actives peuvent se terminer
+                      pendant une pause.
+                    </p>
+                    <button disabled={busy}>Enregistrer les contrôles</button>
+                  </form>
+                </section>
+              )}
+              {session.user.role === "admin" && (
+                <section className="card" id="workers">
+                  <h2>Workers</h2>
+                  <p className="hint">
+                    Le jeton apparaît une seule fois après création.
+                    Configurez-le sur le PC worker avec une URL HTTPS.
+                  </p>
+                  <form onSubmit={registerWorker}>
+                    <label>
+                      Nom du worker
+                      <input
+                        name="worker_name"
+                        minLength={1}
+                        maxLength={64}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Concurrence maximale
+                      <input
+                        name="worker_capacity"
+                        type="number"
+                        min="1"
+                        max="4"
+                        defaultValue="1"
+                        required
+                      />
+                    </label>
+                    <button disabled={busy}>Créer un worker</button>
+                  </form>
+                  {newWorkerToken && (
+                    <p role="status">
+                      Jeton à copier maintenant: <code>{newWorkerToken}</code>
+                    </p>
+                  )}
+                  {workers.length === 0 ? (
+                    <p>Aucun worker enregistré.</p>
+                  ) : (
+                    <ul aria-label="Workers">
+                      {workers.map((worker) => (
+                        <li key={worker.id}>
+                          <strong>{worker.name}</strong>
+                          <p>
+                            {worker.revoked_at
+                              ? "Révoqué"
+                              : worker.connected
+                                ? "En ligne"
+                                : "Absent"}{" "}
+                            · capacité annoncée {worker.reported_concurrency}/
+                            {worker.max_concurrency} · dernière activité{" "}
+                            {worker.last_seen_at
+                              ? new Date(worker.last_seen_at).toLocaleString(
+                                  "fr-FR",
+                                )
+                              : "jamais"}
+                          </p>
+                          {!worker.revoked_at && (
+                            <button
+                              className="secondary"
+                              disabled={busy}
+                              onClick={() => revokeWorker(worker)}
+                            >
+                              Révoquer le jeton
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+              {session.user.role === "admin" && (
+                <section className="card" id="members">
+                  <h2>Inscriptions en attente ({pending.length})</h2>
+                  {pending.length === 0 ? (
+                    <p>Aucune demande en attente.</p>
+                  ) : (
+                    <ul>
+                      {pending.map((user) => (
+                        <li className="pending" key={user.id}>
+                          <span>{user.username}</span>
+                          <button
+                            disabled={busy}
+                            onClick={() =>
+                              run(async () => {
+                                checked(
+                                  await api.POST(
+                                    "/api/admin/users/{id}/approve",
+                                    {
+                                      params: {
+                                        path: { id: user.id },
+                                        header: csrf,
+                                      },
+                                    },
+                                  ),
+                                );
+                                await refresh();
+                              })
+                            }
+                          >
+                            Approuver {user.username}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+              {session.user.role === "admin" && (
+                <section className="card" id="job-queue">
+                  <h2>File de tâches ({jobTotal})</h2>
+                  <p className="hint">
+                    Les tâches restent en attente jusqu’à ce qu’un worker prenne
+                    en charge leur étape.
+                  </p>
+                  <form onSubmit={scheduleJob}>
+                    <label>
+                      ID du clip
+                      <input name="clip_id" type="number" min="1" required />
+                    </label>
+                    <label>
+                      Étape
+                      <input
+                        name="step"
+                        required
+                        maxLength={64}
+                        pattern="[a-z][a-z0-9_.-]{0,63}"
+                      />
+                    </label>
+                    <label>
+                      Version d’entrée
+                      <input name="input_version" required maxLength={128} />
+                    </label>
+                    <label>
+                      Priorité
+                      <input
+                        name="priority"
+                        type="number"
+                        min="-100"
+                        max="100"
+                        defaultValue="0"
+                      />
+                    </label>
+                    <label>
+                      Nombre maximal de tentatives
+                      <input
+                        name="max_attempts"
+                        type="number"
+                        min="1"
+                        max="20"
+                        defaultValue="3"
+                        required
+                      />
+                    </label>
+                    <button disabled={busy}>Planifier l’étape</button>
+                  </form>
+                  <form onSubmit={filterJobs}>
+                    <label>
+                      État de la tâche
+                      <select
+                        value={jobFilters.status}
+                        onChange={(event) =>
+                          setJobFilters({
+                            ...jobFilters,
+                            status: event.target
+                              .value as typeof jobFilters.status,
+                          })
+                        }
+                      >
+                        <option value="">Tous les états</option>
+                        <option value="pending">En attente</option>
+                        <option value="leased">Louée</option>
+                        <option value="done">Terminée</option>
+                        <option value="failed">Échouée</option>
+                        <option value="retry_wait">Nouvel essai différé</option>
+                        <option value="dead">Épuisée</option>
+                        <option value="cancelled">Annulée</option>
+                      </select>
+                    </label>
+                    <label>
+                      ID du clip à filtrer
+                      <input
+                        type="number"
+                        min="1"
+                        value={jobFilters.clip_id}
+                        onChange={(event) =>
+                          setJobFilters({
+                            ...jobFilters,
+                            clip_id: event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Étape à filtrer
+                      <input
+                        value={jobFilters.step}
+                        onChange={(event) =>
+                          setJobFilters({
+                            ...jobFilters,
+                            step: event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <button className="secondary" disabled={busy}>
+                      Filtrer les tâches
+                    </button>
+                  </form>
+                  {jobs.length === 0 ? (
+                    <p>Aucune tâche ne correspond aux filtres.</p>
+                  ) : (
+                    <ul aria-label="Tâches">
+                      {jobs.map((job) => (
+                        <li key={job.id}>
+                          <strong>{job.step}</strong>
+                          <p>
+                            Tâche {job.id} · clip {job.clip_id} · {job.status} ·
+                            priorité {job.priority} · cycle {job.cycle} ·
+                            tentatives {job.attempts}/{job.max_attempts}
+                          </p>
+                          <p className="hint">
+                            Version {job.input_version} · créée{" "}
+                            {new Date(job.created_at).toLocaleString("fr-FR")}
+                            {job.status === "retry_wait" &&
+                              ` · prochain essai ${new Date(job.next_attempt_at).toLocaleString("fr-FR")}`}
+                            {job.last_error && ` · erreur ${job.last_error}`}
+                          </p>
+                          <div className="toolbar">
+                            <button
+                              className="secondary"
+                              disabled={busy}
+                              onClick={() => loadJobHistory(job)}
+                            >
+                              Historique
+                            </button>
+                            {job.status === "dead" && (
+                              <button
+                                disabled={busy}
+                                onClick={() => relaunchJob(job)}
+                              >
+                                Relancer
+                              </button>
+                            )}
+                            {["pending", "retry_wait", "leased"].includes(
+                              job.status,
+                            ) && (
+                              <button
+                                className="secondary"
+                                disabled={busy}
+                                onClick={() => cancelJob(job)}
+                              >
+                                Annuler
+                              </button>
+                            )}
+                          </div>
+                          {jobHistory[job.id] && (
+                            <ul aria-label={`Historique de la tâche ${job.id}`}>
+                              {jobHistory[job.id].map((event) => (
+                                <li key={event.id}>
+                                  {event.event} · cycle {event.cycle}
+                                  {event.attempt
+                                    ? ` · tentative ${event.attempt}`
+                                    : ""}
+                                  {event.error_code
+                                    ? ` · ${event.error_code}`
+                                    : ""}{" "}
+                                  ·{" "}
+                                  {new Date(event.created_at).toLocaleString(
+                                    "fr-FR",
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {job.result && (
+                            <pre aria-label={`Résultat de la tâche ${job.id}`}>
+                              {JSON.stringify(job.result, null, 2)}
+                            </pre>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="toolbar">
+                    <button
+                      className="secondary"
+                      disabled={busy || jobPage <= 1}
+                      onClick={() => run(() => refreshJobs(jobPage - 1))}
+                    >
+                      Tâches précédentes
+                    </button>
+                    <span>Page {jobPage}</span>
+                    <button
+                      className="secondary"
+                      disabled={busy || jobPage * 10 >= jobTotal}
+                      onClick={() => run(() => refreshJobs(jobPage + 1))}
+                    >
+                      Tâches suivantes
+                    </button>
+                  </div>
+                </section>
+              )}
+              {session.user.role === "admin" && (
+                <section className="card" id="sources">
+                  <h2>Sources dossier</h2>
+                  {allowedRoots.length === 0 ? (
+                    <p className="hint">
+                      Aucun dossier n’est monté pour Snitch. Configurez
+                      CLIPS_ROOTS et un accès hôte en lecture seule dans votre
+                      environnement.
+                    </p>
+                  ) : (
+                    <>
+                      <p>
+                        Dossiers autorisés : {allowedRoots.join(", ")}. Les
+                        originaux restent en lecture seule.
+                      </p>
+                      <form onSubmit={addSource}>
+                        <label>
+                          Nom de la source
+                          <input name="source_name" required maxLength={80} />
+                        </label>
+                        <label>
+                          Chemin du dossier autorisé
+                          <input name="source_path" required maxLength={4096} />
+                        </label>
+                        <button disabled={busy}>Ajouter le dossier</button>
+                      </form>
+                    </>
+                  )}
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => run(refreshSources)}
+                  >
+                    Actualiser les sources
+                  </button>
+                  {sources.length === 0 ? (
+                    <p>Aucune source dossier configurée.</p>
+                  ) : (
+                    <ul>
+                      {sources.map((source) => (
+                        <li className="source" key={source.id}>
+                          <div className="toolbar">
+                            <strong>{source.name}</strong>
+                            <span>
+                              {source.enabled ? source.health : "désactivée"}
+                            </span>
+                          </div>
+                          <p className="hint">{source.path}</p>
+                          {source.health_message && (
+                            <p role="status" className="alert">
+                              {source.health_message}
+                            </p>
+                          )}
+                          <p className="hint">
+                            Dernière réconciliation :{" "}
+                            {source.last_scan_at
+                              ? new Date(source.last_scan_at).toLocaleString(
+                                  "fr-FR",
+                                )
+                              : "aucune"}
+                          </p>
+                          <button
+                            className="secondary"
+                            disabled={busy || !source.enabled}
+                            onClick={() => scanSource(source)}
+                          >
+                            Réconcilier
+                          </button>
+                          {source.enabled && (
+                            <button
+                              className="secondary"
+                              disabled={busy}
+                              onClick={() => disableSource(source)}
+                            >
+                              Désactiver
+                            </button>
+                          )}
+                          <details className="source-track-rule">
+                            <summary>
+                              Règle de piste audio pour cette source
+                            </summary>
+                            <form
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                const form = new FormData(event.currentTarget);
+                                void run(async () => {
+                                  const fallback = String(
+                                    form.get("fallback_audio_stream_index") ||
+                                      "",
+                                  ).trim();
+                                  const channels = String(
+                                    form.get("channels") || "",
+                                  ).trim();
+                                  const body = {
+                                    title:
+                                      String(form.get("title") || "").trim() ||
+                                      undefined,
+                                    language:
+                                      String(
+                                        form.get("language") || "",
+                                      ).trim() || undefined,
+                                    channel_layout:
+                                      String(
+                                        form.get("channel_layout") || "",
+                                      ).trim() || undefined,
+                                    channels: channels
+                                      ? Number(channels)
+                                      : undefined,
+                                    fallback_audio_stream_index: fallback
+                                      ? Number(fallback)
+                                      : undefined,
+                                  };
+                                  checked(
+                                    await api.PUT(
+                                      "/api/admin/sources/{id}/audio-track-rule",
+                                      {
+                                        params: {
+                                          path: { id: source.id },
+                                          header: csrf,
+                                        },
+                                        body,
+                                      },
+                                    ),
+                                  );
+                                  setNotice(
+                                    "Règle de piste enregistrée; les clips résolus sont replanifiés.",
+                                  );
+                                });
+                              }}
+                            >
+                              <label>
+                                Titre de piste exact
+                                <input name="title" placeholder="ex. Voix" />
+                              </label>
+                              <label>
+                                Langue exacte
+                                <input name="language" placeholder="ex. fra" />
+                              </label>
+                              <label>
+                                Disposition
+                                <input
+                                  name="channel_layout"
+                                  placeholder="ex. stereo"
+                                />
+                              </label>
+                              <label>
+                                Nombre de canaux exact
+                                <input name="channels" type="number" min="1" />
+                              </label>
+                              <label>
+                                Piste audio de repli (index global)
+                                <input
+                                  name="fallback_audio_stream_index"
+                                  type="number"
+                                  min="0"
+                                />
+                              </label>
+                              <button className="secondary" disabled={busy}>
+                                Enregistrer la règle
+                              </button>
+                            </form>
+                          </details>
+                          <ul>
+                            {source.files.map((file) => (
+                              <li
+                                className="source-file"
+                                key={file.relative_path}
+                              >
+                                <strong>{file.relative_path}</strong> ·{" "}
+                                {file.status}
+                                {file.error_code && (
+                                  <span> · {file.error_code}</span>
+                                )}
+                                {file.status === "ready" && (
+                                  <p className="hint">
+                                    {file.duration_seconds?.toFixed(2) ??
+                                      "Durée inconnue"}{" "}
+                                    s
+                                    {file.video_codec
+                                      ? ` · ${file.video_codec}`
+                                      : ""}
+                                    {file.recorded_at
+                                      ? ` · ${file.recorded_at}${file.recorded_at_estimated ? " (estimée)" : ""}`
+                                      : ""}
+                                  </p>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
             </div>
           </div>
         </>

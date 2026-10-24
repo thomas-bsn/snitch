@@ -41,7 +41,7 @@ jobs:
           docker build -f deploy/docker/app.Dockerfile -t snitch-smoke:local .
           docker build -f deploy/docker/worker.Dockerfile -t snitch-worker:local .
           docker run --rm snitch-worker:local python -m pip check
-          docker run --rm snitch-worker:local
+          docker run --rm --entrypoint python snitch-worker:local -c "import snitch_worker.runner"
           python scripts/smoke_compose.py snitch-smoke:local
   publish:
     # A reviewed version tag triggers publication only after every check and both builds.

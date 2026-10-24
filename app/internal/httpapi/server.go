@@ -232,7 +232,10 @@ func fmtError(err error) string {
 }
 
 func sessionCookie(r *http.Request) (*http.Cookie, error) {
-	if c, err := r.Cookie("snitch_session"); err == nil { return c, nil }; return r.Cookie("receipts_session")
+	if c, err := r.Cookie("snitch_session"); err == nil {
+		return c, nil
+	}
+	return r.Cookie("receipts_session")
 }
 func oauthCookie(r *http.Request) (*http.Cookie, error) {
 	if c, err := r.Cookie("snitch_oauth"); err == nil {

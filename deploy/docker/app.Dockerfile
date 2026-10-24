@@ -20,7 +20,7 @@ ARG TARGETARCH
 RUN GOMAXPROCS=2 CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -p 2 -trimpath -ldflags="-s -w" -o /snitch ./cmd/snitch
 
 FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
-RUN apk add --no-cache ffmpeg=8.1.2-r0 && adduser -D -u 10001 snitch && mkdir -p /data/media && chown snitch:snitch /data/media
+RUN apk add --no-cache ffmpeg=8.1.3-r0 && adduser -D -u 10001 snitch && mkdir -p /data/media && chown snitch:snitch /data/media
 COPY --from=go /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=go /notices /usr/share/licenses/snitch/third-party
 COPY --from=web /notices /usr/share/licenses/snitch/third-party
