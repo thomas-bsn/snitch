@@ -745,6 +745,7 @@ export interface components {
     };
     WorkerClaim: {
       job: components["schemas"]["Job"] | null;
+      lease_token: string;
     };
     WorkerJobInput: {
       job: components["schemas"]["Job"];
@@ -1821,7 +1822,9 @@ export interface operations {
   getWorkerJobInput: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        "X-Worker-Lease-Token": string;
+      };
       path: {
         id: number;
       };
@@ -1852,7 +1855,9 @@ export interface operations {
   getWorkerJobMedia: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        "X-Worker-Lease-Token": string;
+      };
       path: {
         id: number;
       };
@@ -1892,7 +1897,9 @@ export interface operations {
   heartbeatWorkerJob: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        "X-Worker-Lease-Token": string;
+      };
       path: {
         id: number;
       };
@@ -1925,7 +1932,9 @@ export interface operations {
   completeWorkerJob: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        "X-Worker-Lease-Token": string;
+      };
       path: {
         id: number;
       };
@@ -1960,7 +1969,9 @@ export interface operations {
   failWorkerJob: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        "X-Worker-Lease-Token": string;
+      };
       path: {
         id: number;
       };

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"receipts/internal/auth"
 )
 
 type Status string
@@ -45,6 +46,11 @@ type Job struct {
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Result         json.RawMessage `json:"result,omitempty"`
+}
+
+type Assignment struct {
+	Job        Job    `json:"job"`
+	LeaseToken string `json:"lease_token"`
 }
 
 type ScheduleInput struct {
@@ -94,6 +100,20 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 		tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
 			return Job{}, false, fmt.Errorf("begin job schedule: %w", err)
+		}
+		var lockedClipID int64
+		err = tx.QueryRow(ctx, `SELECT id FROM clips WHERE id=$1 FOR UPDATE`, input.ClipID).Scan(&lockedClipID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			_ = tx.Rollback(ctx)
+			return Job{}, false, ErrClipNotFound
+		}
+		if err != nil {
+			_ = tx.Rollback(ctx)
+			return Job{}, false, fmt.Errorf("lock clip before scheduling step: %w", err)
+		}
+		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND status IN ('pending','leased')`, input.ClipID, input.Step, input.InputVersion); err != nil {
+			_ = tx.Rollback(ctx)
+			return Job{}, false, fmt.Errorf("invalidate superseded step version: %w", err)
 		}
 		job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND status IN ('pending','leased') FOR UPDATE`, input.ClipID, input.Step, input.InputVersion))
 		if err == nil {
@@ -158,12 +178,15 @@ func (s *Service) List(ctx context.Context, filter Filter) (Page, error) {
 
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
-func (s *Service) Claim(ctx context.Context, workerID string) (*Job, error) {
+func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("begin job claim: %w", err)
 	}
 	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='lease_expired',updated_at=now() WHERE status='leased' AND lease_expires_at<=now()`); err != nil {
+		return nil, fmt.Errorf("recover expired job leases: %w", err)
+	}
 	var maximum, reported int
 	err = tx.QueryRow(ctx, `SELECT max_concurrency,reported_concurrency FROM workers WHERE id=$1 AND revoked_at IS NULL FOR UPDATE`, workerID).Scan(&maximum, &reported)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -187,19 +210,23 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Job, error) {
 	if err != nil {
 		return nil, fmt.Errorf("select job for claim: %w", err)
 	}
-	job, err = scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='leased',lease_owner=$2,lease_expires_at=now()+interval '2 minutes',attempts=attempts+1,updated_at=now() WHERE id=$1 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, job.ID, workerID))
+	leaseToken := "lt_" + auth.Token()
+	job, err = scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='leased',lease_owner=$2,lease_token_hash=$3,completed_by_worker_id=NULL,completed_lease_token_hash=NULL,lease_expires_at=now()+interval '2 minutes',attempts=attempts+1,updated_at=now() WHERE id=$1 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, job.ID, workerID, auth.Hash(leaseToken)))
 	if err != nil {
 		return nil, fmt.Errorf("lease claimed job: %w", err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit job claim: %w", err)
 	}
-	return &job, nil
+	return &Assignment{Job: job, LeaseToken: leaseToken}, nil
 }
 
-func (s *Service) Input(ctx context.Context, id int64, workerID string) (Input, error) {
+func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken string) (Input, error) {
+	if !validLeaseToken(leaseToken) {
+		return Input{}, ErrLeaseNotOwned
+	}
 	var input Input
-	err := s.pool.QueryRow(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,c.original_name,c.size_bytes,c.duration_seconds,c.video_codec,c.audio_codec,c.tracks FROM jobs j JOIN clips c ON c.id=j.clip_id WHERE j.id=$1 AND j.status='leased' AND j.lease_owner=$2 AND j.lease_expires_at>now()`, id, workerID).Scan(&input.Job.ID, &input.Job.ClipID, &input.Job.Step, &input.Job.InputVersion, &input.Job.Status, &input.Job.Priority, &input.Job.Attempts, &input.Job.MaxAttempts, &input.Job.LeaseOwner, &input.Job.LeaseExpiresAt, &input.Job.NextAttemptAt, &input.Job.LastError, &input.Job.CreatedAt, &input.Job.UpdatedAt, &input.Job.Result, &input.OriginalName, &input.SizeBytes, &input.DurationSeconds, &input.VideoCodec, &input.AudioCodec, &input.Tracks)
+	err := s.pool.QueryRow(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,c.original_name,c.size_bytes,c.duration_seconds,c.video_codec,c.audio_codec,c.tracks FROM jobs j JOIN clips c ON c.id=j.clip_id WHERE j.id=$1 AND j.status='leased' AND j.lease_owner=$2 AND j.lease_token_hash=$3 AND j.lease_expires_at>now()`, id, workerID, auth.Hash(leaseToken)).Scan(&input.Job.ID, &input.Job.ClipID, &input.Job.Step, &input.Job.InputVersion, &input.Job.Status, &input.Job.Priority, &input.Job.Attempts, &input.Job.MaxAttempts, &input.Job.LeaseOwner, &input.Job.LeaseExpiresAt, &input.Job.NextAttemptAt, &input.Job.LastError, &input.Job.CreatedAt, &input.Job.UpdatedAt, &input.Job.Result, &input.OriginalName, &input.SizeBytes, &input.DurationSeconds, &input.VideoCodec, &input.AudioCodec, &input.Tracks)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Input{}, ErrLeaseNotOwned
 	}
@@ -210,8 +237,11 @@ func (s *Service) Input(ctx context.Context, id int64, workerID string) (Input, 
 	return input, nil
 }
 
-func (s *Service) Heartbeat(ctx context.Context, id int64, workerID string) error {
-	result, err := s.pool.Exec(ctx, `UPDATE jobs SET lease_expires_at=now()+interval '2 minutes',updated_at=now() WHERE id=$1 AND status='leased' AND lease_owner=$2 AND lease_expires_at>now()`, id, workerID)
+func (s *Service) Heartbeat(ctx context.Context, id int64, workerID, leaseToken string) error {
+	if !validLeaseToken(leaseToken) {
+		return ErrLeaseNotOwned
+	}
+	result, err := s.pool.Exec(ctx, `UPDATE jobs SET lease_expires_at=now()+interval '2 minutes',updated_at=now() WHERE id=$1 AND status='leased' AND lease_owner=$2 AND lease_token_hash=$3 AND lease_expires_at>now()`, id, workerID, auth.Hash(leaseToken))
 	if err != nil {
 		return fmt.Errorf("renew job lease: %w", err)
 	}
@@ -221,7 +251,10 @@ func (s *Service) Heartbeat(ctx context.Context, id int64, workerID string) erro
 	return nil
 }
 
-func (s *Service) Complete(ctx context.Context, id int64, workerID, inputVersion string, result json.RawMessage) (Job, error) {
+func (s *Service) Complete(ctx context.Context, id int64, workerID, leaseToken, inputVersion string, result json.RawMessage) (Job, error) {
+	if !validLeaseToken(leaseToken) {
+		return Job{}, ErrLeaseNotOwned
+	}
 	if !json.Valid(result) || len(result) == 0 || len(result) > 12*1024 {
 		return Job{}, ErrInvalidInput
 	}
@@ -229,17 +262,34 @@ func (s *Service) Complete(ctx context.Context, id int64, workerID, inputVersion
 	if err := json.Unmarshal(result, &object); err != nil || object == nil {
 		return Job{}, ErrInvalidInput
 	}
-	job, err := scanJob(s.pool.QueryRow(ctx, `UPDATE jobs SET status='done',lease_owner=NULL,lease_expires_at=NULL,result=$4::jsonb,last_error='',updated_at=now() WHERE id=$1 AND lease_owner=$2 AND status='leased' AND lease_expires_at>now() AND input_version=$3 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, id, workerID, inputVersion, []byte(result)))
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Job{}, fmt.Errorf("begin job completion: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	job, err := scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='done',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,completed_by_worker_id=$2,completed_lease_token_hash=$3,result=$5::jsonb,last_error='',updated_at=now() WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' AND lease_expires_at>now() AND input_version=$4 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, id, workerID, auth.Hash(leaseToken), inputVersion, []byte(result)))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Job{}, ErrLeaseNotOwned
+		// A worker may lose the successful response and retry the same result.
+		// Return the committed row only to the worker that completed it, and only
+		// when the step version and JSON result are identical.
+		job, err = scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result FROM jobs WHERE id=$1 AND status='done' AND completed_by_worker_id=$2 AND completed_lease_token_hash=$3 AND input_version=$4 AND result=$5::jsonb`, id, workerID, auth.Hash(leaseToken), inputVersion, []byte(result)))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Job{}, ErrLeaseNotOwned
+		}
 	}
 	if err != nil {
 		return Job{}, fmt.Errorf("complete worker job: %w", err)
 	}
+	if err = tx.Commit(ctx); err != nil {
+		return Job{}, fmt.Errorf("commit job completion: %w", err)
+	}
 	return job, nil
 }
 
-func (s *Service) Fail(ctx context.Context, id int64, workerID, message string) (Job, error) {
+func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, message string) (Job, error) {
+	if !validLeaseToken(leaseToken) {
+		return Job{}, ErrLeaseNotOwned
+	}
 	if len(message) > 256 || strings.TrimSpace(message) != message {
 		return Job{}, ErrInvalidInput
 	}
@@ -248,7 +298,7 @@ func (s *Service) Fail(ctx context.Context, id int64, workerID, message string) 
 	if message == "provider_unavailable" || message == "invalid_input" {
 		code = message
 	}
-	job, err := scanJob(s.pool.QueryRow(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,last_error=$3,updated_at=now() WHERE id=$1 AND lease_owner=$2 AND status='leased' AND lease_expires_at>now() RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, id, workerID, code))
+	job, err := scanJob(s.pool.QueryRow(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error=$4,updated_at=now() WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' AND lease_expires_at>now() RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, id, workerID, auth.Hash(leaseToken), code))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Job{}, ErrLeaseNotOwned
 	}
@@ -259,6 +309,10 @@ func (s *Service) Fail(ctx context.Context, id int64, workerID, message string) 
 }
 
 var ErrLeaseNotOwned = errors.New("worker does not own active job lease")
+
+func validLeaseToken(token string) bool {
+	return strings.HasPrefix(token, "lt_") && len(token) >= 32 && len(token) <= 128 && !strings.ContainsAny(token, " \t\r\n")
+}
 
 type scanner interface{ Scan(...any) error }
 

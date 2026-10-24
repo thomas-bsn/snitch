@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -37,7 +38,7 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	admin := ts.Client()
 	admin.Jar = jar
 	anon := &http.Client{Transport: ts.Client().Transport}
-	call := func(client *http.Client, method, path string, body []byte, csrf, token string, withOrigin bool, want int) []byte {
+	callWithLease := func(client *http.Client, method, path string, body []byte, csrf, token string, withOrigin bool, leaseToken string, want int) []byte {
 		t.Helper()
 		req, requestErr := http.NewRequest(method, ts.URL+path, bytes.NewReader(body))
 		if requestErr != nil {
@@ -55,6 +56,9 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 		if token != "" {
 			req.Header.Set("Authorization", "Bearer "+token)
 		}
+		if leaseToken != "" {
+			req.Header.Set("X-Worker-Lease-Token", leaseToken)
+		}
 		resp, requestErr := client.Do(req)
 		if requestErr != nil {
 			t.Fatal(requestErr)
@@ -68,6 +72,10 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("%s %s: got %d want %d: %s", method, path, resp.StatusCode, want, data)
 		}
 		return data
+	}
+	call := func(client *http.Client, method, path string, body []byte, csrf, token string, withOrigin bool, want int) []byte {
+		t.Helper()
+		return callWithLease(client, method, path, body, csrf, token, withOrigin, "", want)
 	}
 	call(admin, http.MethodPost, "/api/setup", []byte(`{"code":"`+code+`","username":"administrator","password":"synthetic-password"}`), "", "", true, http.StatusCreated)
 	var me struct {
@@ -129,7 +137,7 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	if err = json.Unmarshal(jobBody, &queued); err != nil || queued.ID < 1 {
 		t.Fatalf("job was not scheduled: %s %v", jobBody, err)
 	}
-	secondJobBody := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "fixture.echo", "input_version": "worker-v2"}), me.CSRF, "", true, http.StatusCreated)
+	secondJobBody := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "fixture.echo.second", "input_version": "worker-v2"}), me.CSRF, "", true, http.StatusCreated)
 	var secondQueued struct {
 		ID int64 `json:"id"`
 	}
@@ -139,13 +147,14 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", registration.Token, false, http.StatusOK)
 	claimedBody := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", registration.Token, false, http.StatusOK)
 	var claimed struct {
-		Job struct {
+		LeaseToken string `json:"lease_token"`
+		Job        struct {
 			ID           int64  `json:"id"`
 			Status       string `json:"status"`
 			InputVersion string `json:"input_version"`
 		} `json:"job"`
 	}
-	if err = json.Unmarshal(claimedBody, &claimed); err != nil || claimed.Job.ID != queued.ID || claimed.Job.Status != "leased" {
+	if err = json.Unmarshal(claimedBody, &claimed); err != nil || claimed.Job.ID != queued.ID || claimed.Job.Status != "leased" || claimed.LeaseToken == "" {
 		t.Fatalf("worker did not receive scheduled job: %s %v", claimedBody, err)
 	}
 	secondClaim := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", registration.Token, false, http.StatusOK)
@@ -163,29 +172,111 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", other.Token, false, http.StatusOK)
 	otherClaimBody := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", other.Token, false, http.StatusOK)
 	var otherClaim struct {
-		Job struct {
+		LeaseToken string `json:"lease_token"`
+		Job        struct {
 			ID int64 `json:"id"`
 		} `json:"job"`
 	}
-	if err = json.Unmarshal(otherClaimBody, &otherClaim); err != nil || otherClaim.Job.ID != secondQueued.ID {
+	if err = json.Unmarshal(otherClaimBody, &otherClaim); err != nil || otherClaim.Job.ID != secondQueued.ID || otherClaim.LeaseToken == "" {
 		t.Fatalf("second worker did not receive the next available job: %s %v", otherClaimBody, err)
 	}
-	call(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/input", nil, "", other.Token, false, http.StatusNotFound)
-	call(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/media", nil, "", other.Token, false, http.StatusNotFound)
-	inputBody := call(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/input", nil, "", registration.Token, false, http.StatusOK)
+	callWithLease(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/input", nil, "", other.Token, false, otherClaim.LeaseToken, http.StatusNotFound)
+	callWithLease(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/media", nil, "", other.Token, false, otherClaim.LeaseToken, http.StatusNotFound)
+	inputBody := callWithLease(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/input", nil, "", registration.Token, false, claimed.LeaseToken, http.StatusOK)
 	if bytes.Contains(inputBody, []byte(mediaRoot)) || bytes.Contains(inputBody, []byte(storageKey)) || !bytes.Contains(inputBody, []byte(`"media_url":"/api/worker/jobs/`)) {
 		t.Fatalf("worker input exposed a storage path or omitted scoped media URL: %s", inputBody)
 	}
-	media := call(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/media", nil, "", registration.Token, false, http.StatusOK)
+	media := callWithLease(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/media", nil, "", registration.Token, false, claimed.LeaseToken, http.StatusOK)
 	if !bytes.Equal(media, content) {
 		t.Fatalf("worker received wrong media bytes: %q", media)
 	}
-	call(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(queued.ID)+"/heartbeat", []byte(`{}`), "", registration.Token, false, http.StatusOK)
-	completed := call(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(queued.ID)+"/complete", []byte(`{"input_version":"worker-v1","result":{"provider":"fixture","sha256":"synthetic"}}`), "", registration.Token, false, http.StatusOK)
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(queued.ID)+"/heartbeat", []byte(`{}`), "", registration.Token, false, claimed.LeaseToken, http.StatusOK)
+	completed := callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(queued.ID)+"/complete", []byte(`{"input_version":"worker-v1","result":{"provider":"fixture","sha256":"synthetic"}}`), "", registration.Token, false, claimed.LeaseToken, http.StatusOK)
 	if !bytes.Contains(completed, []byte(`"status":"done"`)) || !bytes.Contains(completed, []byte(`"provider":"fixture"`)) {
 		t.Fatalf("worker result was not recorded: %s", completed)
 	}
-	call(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(secondQueued.ID)+"/fail", []byte(`{"error":"invalid_input"}`), "", other.Token, false, http.StatusOK)
+	completedAgain := callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(queued.ID)+"/complete", []byte(`{"input_version":"worker-v1","result":{"provider":"fixture","sha256":"synthetic"}}`), "", registration.Token, false, claimed.LeaseToken, http.StatusOK)
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(queued.ID)+"/complete", []byte(`{"input_version":"worker-v1","result":{"provider":"fixture","sha256":"different"}}`), "", registration.Token, false, claimed.LeaseToken, http.StatusConflict)
+	if !bytes.Contains(completedAgain, []byte(`"status":"done"`)) || !bytes.Contains(completedAgain, []byte(`"provider":"fixture"`)) {
+		t.Fatalf("repeated completion was not idempotent: %s", completedAgain)
+	}
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(secondQueued.ID)+"/fail", []byte(`{"error":"invalid_input"}`), "", other.Token, false, otherClaim.LeaseToken, http.StatusOK)
+	concurrentJobBody := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "fixture.concurrent", "input_version": "worker-v1"}), me.CSRF, "", true, http.StatusCreated)
+	var concurrentJob struct {
+		ID int64 `json:"id"`
+	}
+	if err = json.Unmarshal(concurrentJobBody, &concurrentJob); err != nil || concurrentJob.ID < 1 {
+		t.Fatalf("concurrent claim job was not scheduled: %s %v", concurrentJobBody, err)
+	}
+	type claimResponse struct {
+		body        []byte
+		workerToken string
+		err         error
+	}
+	claimResults := make(chan claimResponse, 2)
+	for _, workerToken := range []string{registration.Token, other.Token} {
+		go func(workerToken string) {
+			req, requestErr := http.NewRequest(http.MethodPost, ts.URL+"/api/worker/jobs/claim", nil)
+			if requestErr != nil {
+				claimResults <- claimResponse{workerToken: workerToken, err: requestErr}
+				return
+			}
+			req.Header.Set("Authorization", "Bearer "+workerToken)
+			resp, requestErr := anon.Do(req)
+			if requestErr != nil {
+				claimResults <- claimResponse{workerToken: workerToken, err: requestErr}
+				return
+			}
+			defer resp.Body.Close()
+			body, readErr := io.ReadAll(resp.Body)
+			if resp.StatusCode != http.StatusOK && readErr == nil {
+				readErr = fmt.Errorf("claim returned HTTP %d: %s", resp.StatusCode, body)
+			}
+			claimResults <- claimResponse{body: body, workerToken: workerToken, err: readErr}
+		}(workerToken)
+	}
+	var concurrentClaims []struct {
+		workerToken string
+		LeaseToken  string `json:"lease_token"`
+		Job         *struct {
+			ID int64 `json:"id"`
+		} `json:"job"`
+	}
+	for range 2 {
+		response := <-claimResults
+		if response.err != nil {
+			t.Fatal(response.err)
+		}
+		var result struct {
+			LeaseToken string `json:"lease_token"`
+			Job        *struct {
+				ID int64 `json:"id"`
+			} `json:"job"`
+		}
+		if err = json.Unmarshal(response.body, &result); err != nil {
+			t.Fatalf("decode concurrent claim: %s %v", response.body, err)
+		}
+		concurrentClaims = append(concurrentClaims, struct {
+			workerToken string
+			LeaseToken  string `json:"lease_token"`
+			Job         *struct {
+				ID int64 `json:"id"`
+			} `json:"job"`
+		}{workerToken: response.workerToken, LeaseToken: result.LeaseToken, Job: result.Job})
+	}
+	claimedCount := 0
+	for _, result := range concurrentClaims {
+		if result.Job != nil {
+			if result.Job.ID != concurrentJob.ID || result.LeaseToken == "" {
+				t.Fatalf("unexpected concurrent claim: %+v", result)
+			}
+			claimedCount++
+			callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(concurrentJob.ID)+"/complete", []byte(`{"input_version":"worker-v1","result":{"fixture":"concurrent"}}`), "", result.workerToken, false, result.LeaseToken, http.StatusOK)
+		}
+	}
+	if claimedCount != 1 {
+		t.Fatalf("one pending task must have exactly one concurrent claimant, got %d: %+v", claimedCount, concurrentClaims)
+	}
 	expiringJobBody := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "fixture.expire", "input_version": "worker-v1"}), me.CSRF, "", true, http.StatusCreated)
 	var expiringJob struct {
 		ID int64 `json:"id"`
@@ -195,23 +286,79 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	}
 	expiringClaimBody := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", registration.Token, false, http.StatusOK)
 	var expiringClaim struct {
-		Job struct {
+		LeaseToken string `json:"lease_token"`
+		Job        struct {
 			ID int64 `json:"id"`
 		} `json:"job"`
 	}
-	if err = json.Unmarshal(expiringClaimBody, &expiringClaim); err != nil || expiringClaim.Job.ID != expiringJob.ID {
+	if err = json.Unmarshal(expiringClaimBody, &expiringClaim); err != nil || expiringClaim.Job.ID != expiringJob.ID || expiringClaim.LeaseToken == "" {
 		t.Fatalf("worker did not acquire expiring job: %s %v", expiringClaimBody, err)
 	}
 	if _, err = pool.Exec(ctx, `UPDATE jobs SET lease_expires_at=now()-interval '1 second' WHERE id=$1`, expiringJob.ID); err != nil {
 		t.Fatal(err)
 	}
-	call(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/input", nil, "", registration.Token, false, http.StatusNotFound)
-	call(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/heartbeat", []byte(`{}`), "", registration.Token, false, http.StatusConflict)
-	call(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/complete", []byte(`{"input_version":"worker-v1","result":{"fixture":true}}`), "", registration.Token, false, http.StatusConflict)
-	call(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/fail", []byte(`{"error":"provider_unavailable"}`), "", registration.Token, false, http.StatusConflict)
-	if _, err = pool.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,last_error='fixture_expired' WHERE id=$1`, expiringJob.ID); err != nil {
-		t.Fatal(err)
+	callWithLease(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/input", nil, "", registration.Token, false, expiringClaim.LeaseToken, http.StatusNotFound)
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/heartbeat", []byte(`{}`), "", registration.Token, false, expiringClaim.LeaseToken, http.StatusConflict)
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/complete", []byte(`{"input_version":"worker-v1","result":{"fixture":true}}`), "", registration.Token, false, expiringClaim.LeaseToken, http.StatusConflict)
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/fail", []byte(`{"error":"provider_unavailable"}`), "", registration.Token, false, expiringClaim.LeaseToken, http.StatusConflict)
+	reclaimedBody := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", registration.Token, false, http.StatusOK)
+	var reclaimed struct {
+		LeaseToken string `json:"lease_token"`
+		Job        struct {
+			ID     int64  `json:"id"`
+			Status string `json:"status"`
+		} `json:"job"`
 	}
+	if err = json.Unmarshal(reclaimedBody, &reclaimed); err != nil || reclaimed.Job.ID != expiringJob.ID || reclaimed.Job.Status != "leased" || reclaimed.LeaseToken == "" || reclaimed.LeaseToken == expiringClaim.LeaseToken {
+		t.Fatalf("another worker did not reclaim expired lease: %s %v", reclaimedBody, err)
+	}
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/complete", []byte(`{"input_version":"worker-v1","result":{"fixture":"stale-owner"}}`), "", registration.Token, false, expiringClaim.LeaseToken, http.StatusConflict)
+	callWithLease(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/input", nil, "", registration.Token, false, reclaimed.LeaseToken, http.StatusOK)
+	currentResult := []byte(`{"input_version":"worker-v1","result":{"fixture":true}}`)
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/complete", currentResult, "", registration.Token, false, reclaimed.LeaseToken, http.StatusOK)
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(expiringJob.ID)+"/complete", currentResult, "", registration.Token, false, reclaimed.LeaseToken, http.StatusOK)
+	versionV1Body := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "fixture.versioned", "input_version": "v1"}), me.CSRF, "", true, http.StatusCreated)
+	var versionV1 struct {
+		ID int64 `json:"id"`
+	}
+	if err = json.Unmarshal(versionV1Body, &versionV1); err != nil || versionV1.ID < 1 {
+		t.Fatalf("version 1 job was not scheduled: %s %v", versionV1Body, err)
+	}
+	call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "fixture.sibling", "input_version": "v1"}), me.CSRF, "", true, http.StatusCreated)
+	versionV1ClaimBody := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", registration.Token, false, http.StatusOK)
+	var versionV1Claim struct {
+		LeaseToken string `json:"lease_token"`
+		Job        struct {
+			ID int64 `json:"id"`
+		} `json:"job"`
+	}
+	if err = json.Unmarshal(versionV1ClaimBody, &versionV1Claim); err != nil || versionV1Claim.Job.ID != versionV1.ID || versionV1Claim.LeaseToken == "" {
+		t.Fatalf("worker did not acquire version 1 job: %s %v", versionV1ClaimBody, err)
+	}
+	versionV2Body := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "fixture.versioned", "input_version": "v2", "priority": 10}), me.CSRF, "", true, http.StatusCreated)
+	var versionV2 struct {
+		ID int64 `json:"id"`
+	}
+	if err = json.Unmarshal(versionV2Body, &versionV2); err != nil || versionV2.ID < 1 || versionV2.ID == versionV1.ID {
+		t.Fatalf("version 2 job was not scheduled independently: %s %v", versionV2Body, err)
+	}
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(versionV1.ID)+"/complete", []byte(`{"input_version":"v1","result":{"fixture":"stale"}}`), "", registration.Token, false, versionV1Claim.LeaseToken, http.StatusConflict)
+	call(admin, http.MethodGet, "/api/admin/jobs?status=failed&step=fixture.versioned", nil, "", "", false, http.StatusOK)
+	siblingPage := call(admin, http.MethodGet, "/api/admin/jobs?status=pending&step=fixture.sibling", nil, "", "", false, http.StatusOK)
+	if !bytes.Contains(siblingPage, []byte(`"total":1`)) {
+		t.Fatalf("scheduling a new version invalidated a different step: %s", siblingPage)
+	}
+	versionV2ClaimBody := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", other.Token, false, http.StatusOK)
+	var versionV2Claim struct {
+		LeaseToken string `json:"lease_token"`
+		Job        struct {
+			ID int64 `json:"id"`
+		} `json:"job"`
+	}
+	if err = json.Unmarshal(versionV2ClaimBody, &versionV2Claim); err != nil || versionV2Claim.Job.ID != versionV2.ID || versionV2Claim.LeaseToken == "" {
+		t.Fatalf("worker did not claim current version: %s %v", versionV2ClaimBody, err)
+	}
+	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(versionV2.ID)+"/complete", []byte(`{"input_version":"v2","result":{"fixture":"current"}}`), "", other.Token, false, versionV2Claim.LeaseToken, http.StatusOK)
 	call(admin, http.MethodDelete, "/api/admin/workers/"+registration.ID, nil, me.CSRF, "", true, http.StatusNoContent)
 	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", registration.Token, false, http.StatusUnauthorized)
 	call(admin, http.MethodDelete, "/api/admin/workers/"+other.ID, nil, me.CSRF, "", true, http.StatusNoContent)

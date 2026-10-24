@@ -128,7 +128,15 @@ func (s *Server) claimWorkerJob(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{"job": job})
+	if job == nil {
+		reply(w, http.StatusOK, map[string]any{"job": nil, "lease_token": ""})
+		return
+	}
+	reply(w, http.StatusOK, job)
+}
+
+func workerLeaseToken(r *http.Request) string {
+	return r.Header.Get("X-Worker-Lease-Token")
 }
 
 func workerJobID(w http.ResponseWriter, r *http.Request) (int64, bool) {
@@ -145,7 +153,7 @@ func (s *Server) workerJobInput(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	input, err := s.Jobs.Input(r.Context(), id, currentWorker(r).ID)
+	input, err := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
 	if errors.Is(err, jobs.ErrLeaseNotOwned) {
 		fail(w, http.StatusNotFound, "job_not_found")
 		return
@@ -162,7 +170,7 @@ func (s *Server) workerJobMedia(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	input, err := s.Jobs.Input(r.Context(), id, currentWorker(r).ID)
+	input, err := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
 	if errors.Is(err, jobs.ErrLeaseNotOwned) {
 		fail(w, http.StatusNotFound, "job_not_found")
 		return
@@ -201,7 +209,7 @@ func (s *Server) workerJobHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.Jobs.Heartbeat(r.Context(), id, currentWorker(r).ID); errors.Is(err, jobs.ErrLeaseNotOwned) {
+	if err := s.Jobs.Heartbeat(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r)); errors.Is(err, jobs.ErrLeaseNotOwned) {
 		fail(w, http.StatusConflict, "lease_not_owned")
 	} else if err != nil {
 		s.internal(w, err)
@@ -222,7 +230,7 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	job, err := s.Jobs.Complete(r.Context(), id, currentWorker(r).ID, input.InputVersion, input.Result)
+	job, err := s.Jobs.Complete(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.InputVersion, input.Result)
 	if errors.Is(err, jobs.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_job_result")
 	} else if errors.Is(err, jobs.ErrLeaseNotOwned) {
@@ -245,7 +253,7 @@ func (s *Server) failWorkerJob(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	job, err := s.Jobs.Fail(r.Context(), id, currentWorker(r).ID, input.Error)
+	job, err := s.Jobs.Fail(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.Error)
 	if errors.Is(err, jobs.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_job_error")
 	} else if errors.Is(err, jobs.ErrLeaseNotOwned) {

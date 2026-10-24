@@ -26,9 +26,11 @@ class WorkerClaim:
     """
         Attributes:
             job (Job | None):
+            lease_token (str):
      """
 
     job: Job | None
+    lease_token: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -43,11 +45,14 @@ class WorkerClaim:
         else:
             job = self.job
 
+        lease_token = self.lease_token
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "job": job,
+            "lease_token": lease_token,
         })
 
         return field_dict
@@ -76,8 +81,11 @@ class WorkerClaim:
         job = _parse_job(d.pop("job"))
 
 
+        lease_token = d.pop("lease_token")
+
         worker_claim = cls(
             job=job,
+            lease_token=lease_token,
         )
 
 

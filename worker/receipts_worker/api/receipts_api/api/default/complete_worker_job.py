@@ -19,9 +19,12 @@ def _get_kwargs(
     id: int,
     *,
     body: WorkerResultInput,
+    x_worker_lease_token: str,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+    headers["X-Worker-Lease-Token"] = x_worker_lease_token
+
 
 
 
@@ -72,11 +75,13 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: WorkerResultInput,
+    x_worker_lease_token: str,
 
 ) -> Response[Error | Job]:
     """
     Args:
         id (int):
+        x_worker_lease_token (str):
         body (WorkerResultInput):
 
     Raises:
@@ -91,6 +96,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         id=id,
 body=body,
+x_worker_lease_token=x_worker_lease_token,
 
     )
 
@@ -105,11 +111,13 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: WorkerResultInput,
+    x_worker_lease_token: str,
 
 ) -> Error | Job | None:
     """
     Args:
         id (int):
+        x_worker_lease_token (str):
         body (WorkerResultInput):
 
     Raises:
@@ -125,6 +133,7 @@ def sync(
         id=id,
 client=client,
 body=body,
+x_worker_lease_token=x_worker_lease_token,
 
     ).parsed
 
@@ -133,11 +142,13 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: WorkerResultInput,
+    x_worker_lease_token: str,
 
 ) -> Response[Error | Job]:
     """
     Args:
         id (int):
+        x_worker_lease_token (str):
         body (WorkerResultInput):
 
     Raises:
@@ -152,6 +163,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         id=id,
 body=body,
+x_worker_lease_token=x_worker_lease_token,
 
     )
 
@@ -166,11 +178,13 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: WorkerResultInput,
+    x_worker_lease_token: str,
 
 ) -> Error | Job | None:
     """
     Args:
         id (int):
+        x_worker_lease_token (str):
         body (WorkerResultInput):
 
     Raises:
@@ -186,5 +200,6 @@ async def asyncio(
         id=id,
 client=client,
 body=body,
+x_worker_lease_token=x_worker_lease_token,
 
     )).parsed

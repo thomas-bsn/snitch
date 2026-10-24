@@ -1176,7 +1176,10 @@
       "get": {
         "operationId": "getWorkerJobInput",
         "security": [{"workerBearer": []}],
-        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
+          {"in": "header", "name": "X-Worker-Lease-Token", "required": true, "schema": {"type": "string"}}
+        ],
         "responses": {
           "200": {"description": "Métadonnées et média du job attribué", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerJobInput"}}}},
           "default": {"description": "Jeton invalide, tâche non détenue ou serveur indisponible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
@@ -1188,7 +1191,10 @@
       "get": {
         "operationId": "getWorkerJobMedia",
         "security": [{"workerBearer": []}],
-        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
+          {"in": "header", "name": "X-Worker-Lease-Token", "required": true, "schema": {"type": "string"}}
+        ],
         "responses": {
           "200": {"description": "Original du clip assigné", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
           "206": {"description": "Plage de l’original du clip assigné", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
@@ -1201,7 +1207,10 @@
       "post": {
         "operationId": "heartbeatWorkerJob",
         "security": [{"workerBearer": []}],
-        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
+          {"in": "header", "name": "X-Worker-Lease-Token", "required": true, "schema": {"type": "string"}}
+        ],
         "responses": {
           "200": {"description": "Lease renouvelé", "content": {"application/json": {"schema": {"type": "object", "required": ["renewed"], "properties": {"renewed": {"type": "boolean"}}}}}},
           "default": {"description": "Jeton invalide, lease perdu ou serveur indisponible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
@@ -1212,7 +1221,10 @@
       "post": {
         "operationId": "completeWorkerJob",
         "security": [{"workerBearer": []}],
-        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
+          {"in": "header", "name": "X-Worker-Lease-Token", "required": true, "schema": {"type": "string"}}
+        ],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerResultInput"}}}},
         "responses": {
           "200": {"description": "Résultat enregistré", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Job"}}}},
@@ -1224,7 +1236,10 @@
       "post": {
         "operationId": "failWorkerJob",
         "security": [{"workerBearer": []}],
-        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
+          {"in": "header", "name": "X-Worker-Lease-Token", "required": true, "schema": {"type": "string"}}
+        ],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerFailureInput"}}}},
         "responses": {
           "200": {"description": "Échec enregistré", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Job"}}}},
@@ -2227,8 +2242,8 @@
       },
       "WorkerClaim": {
         "type": "object",
-        "required": ["job"],
-        "properties": {"job": {"allOf": [{"$ref": "#/components/schemas/Job"}], "nullable": true}}
+        "required": ["job", "lease_token"],
+        "properties": {"job": {"allOf": [{"$ref": "#/components/schemas/Job"}], "nullable": true}, "lease_token": {"type": "string"}}
       },
       "WorkerJobInput": {
         "type": "object",

@@ -16,8 +16,13 @@ from typing import cast
 
 def _get_kwargs(
     id: int,
+    *,
+    x_worker_lease_token: str,
 
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
+    headers["X-Worker-Lease-Token"] = x_worker_lease_token
+
 
 
 
@@ -30,6 +35,7 @@ def _get_kwargs(
     }
 
 
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -63,11 +69,13 @@ def sync_detailed(
     id: int,
     *,
     client: AuthenticatedClient,
+    x_worker_lease_token: str,
 
 ) -> Response[Error | HeartbeatWorkerJobResponse200]:
     """
     Args:
         id (int):
+        x_worker_lease_token (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -80,6 +88,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+x_worker_lease_token=x_worker_lease_token,
 
     )
 
@@ -93,11 +102,13 @@ def sync(
     id: int,
     *,
     client: AuthenticatedClient,
+    x_worker_lease_token: str,
 
 ) -> Error | HeartbeatWorkerJobResponse200 | None:
     """
     Args:
         id (int):
+        x_worker_lease_token (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -111,6 +122,7 @@ def sync(
     return sync_detailed(
         id=id,
 client=client,
+x_worker_lease_token=x_worker_lease_token,
 
     ).parsed
 
@@ -118,11 +130,13 @@ async def asyncio_detailed(
     id: int,
     *,
     client: AuthenticatedClient,
+    x_worker_lease_token: str,
 
 ) -> Response[Error | HeartbeatWorkerJobResponse200]:
     """
     Args:
         id (int):
+        x_worker_lease_token (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,6 +149,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+x_worker_lease_token=x_worker_lease_token,
 
     )
 
@@ -148,11 +163,13 @@ async def asyncio(
     id: int,
     *,
     client: AuthenticatedClient,
+    x_worker_lease_token: str,
 
 ) -> Error | HeartbeatWorkerJobResponse200 | None:
     """
     Args:
         id (int):
+        x_worker_lease_token (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -166,5 +183,6 @@ async def asyncio(
     return (await asyncio_detailed(
         id=id,
 client=client,
+x_worker_lease_token=x_worker_lease_token,
 
     )).parsed
