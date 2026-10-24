@@ -76,7 +76,10 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Administrateurs uniquement, session, origine et CSRF requis. Approuve un compte en attente sans
+    changer son rôle ; 400 invalid_id si identifiant invalide, 404 not_pending si absent ou déjà
+    approuvé.
+
     Args:
         id (int):
         origin (str):
@@ -112,7 +115,10 @@ def sync(
     x_csrf_token: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Administrateurs uniquement, session, origine et CSRF requis. Approuve un compte en attente sans
+    changer son rôle ; 400 invalid_id si identifiant invalide, 404 not_pending si absent ou déjà
+    approuvé.
+
     Args:
         id (int):
         origin (str):
@@ -143,7 +149,10 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Administrateurs uniquement, session, origine et CSRF requis. Approuve un compte en attente sans
+    changer son rôle ; 400 invalid_id si identifiant invalide, 404 not_pending si absent ou déjà
+    approuvé.
+
     Args:
         id (int):
         origin (str):
@@ -179,7 +188,10 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Administrateurs uniquement, session, origine et CSRF requis. Approuve un compte en attente sans
+    changer son rôle ; 400 invalid_id si identifiant invalide, 404 not_pending si absent ou déjà
+    approuvé.
+
     Args:
         id (int):
         origin (str):

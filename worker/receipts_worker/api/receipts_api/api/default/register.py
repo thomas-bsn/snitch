@@ -76,7 +76,11 @@ def sync_detailed(
     origin: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Après installation uniquement (409 setup_required sinon). Crée toujours un utilisateur ordinaire,
+    sans session : 201 pending si approbation requise (valeur initiale), active sinon. Le nom est unique
+    sans distinction de casse (409 username_unavailable). Limites Unicode du schéma Credentials ;
+    propriétés supplémentaires, dont code et role, interdites (400).
+
     Args:
         origin (str):
         body (Credentials):
@@ -109,7 +113,11 @@ def sync(
     origin: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Après installation uniquement (409 setup_required sinon). Crée toujours un utilisateur ordinaire,
+    sans session : 201 pending si approbation requise (valeur initiale), active sinon. Le nom est unique
+    sans distinction de casse (409 username_unavailable). Limites Unicode du schéma Credentials ;
+    propriétés supplémentaires, dont code et role, interdites (400).
+
     Args:
         origin (str):
         body (Credentials):
@@ -137,7 +145,11 @@ async def asyncio_detailed(
     origin: str,
 
 ) -> Response[Error | Status]:
-    """ 
+    """  Après installation uniquement (409 setup_required sinon). Crée toujours un utilisateur ordinaire,
+    sans session : 201 pending si approbation requise (valeur initiale), active sinon. Le nom est unique
+    sans distinction de casse (409 username_unavailable). Limites Unicode du schéma Credentials ;
+    propriétés supplémentaires, dont code et role, interdites (400).
+
     Args:
         origin (str):
         body (Credentials):
@@ -170,7 +182,11 @@ async def asyncio(
     origin: str,
 
 ) -> Error | Status | None:
-    """ 
+    """  Après installation uniquement (409 setup_required sinon). Crée toujours un utilisateur ordinaire,
+    sans session : 201 pending si approbation requise (valeur initiale), active sinon. Le nom est unique
+    sans distinction de casse (409 username_unavailable). Limites Unicode du schéma Credentials ;
+    propriétés supplémentaires, dont code et role, interdites (400).
+
     Args:
         origin (str):
         body (Credentials):

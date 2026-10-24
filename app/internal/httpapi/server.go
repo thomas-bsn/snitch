@@ -51,7 +51,7 @@ type credentials struct {
 type DiscordSettings struct {
 	ClientID             string `json:"client_id"`
 	ClientSecret         string `json:"client_secret,omitempty"`
-	RegistrationApproval bool   `json:"registration_approval"`
+	RegistrationApproval *bool  `json:"registration_approval"`
 }
 
 func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
@@ -439,7 +439,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &c) {
 		return
 	}
-	if len(c.ClientID) > 128 || len(c.ClientSecret) > 2048 {
+	if c.RegistrationApproval == nil || len(c.ClientID) > 128 || len(c.ClientSecret) > 2048 {
 		fail(w, 400, "invalid_request")
 		return
 	}
@@ -467,7 +467,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, err = tx.Exec(r.Context(), `UPDATE installation SET registration_approval=$1 WHERE id=1`, c.RegistrationApproval); err != nil {
+	if _, err = tx.Exec(r.Context(), `UPDATE installation SET registration_approval=$1 WHERE id=1`, *c.RegistrationApproval); err != nil {
 		s.internal(w, err)
 		return
 	}
