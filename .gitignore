@@ -1,10 +1,10 @@
-node_modules/
+node_modules
 web/dist/
 app/ui/dist/*
 !app/ui/dist/.gitkeep
 .env
 *.log
-.venv/
+.venv
 __pycache__/
 .pytest_cache/
 playwright-report/
