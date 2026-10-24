@@ -7,8 +7,13 @@ from .clip_tracks_item import ClipTracksItem
 from .clip_visibility import ClipVisibility
 from .credentials import Credentials
 from .error import Error
+from .job import Job
+from .job_input import JobInput
+from .job_page import JobPage
+from .job_status import JobStatus
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
+from .list_jobs_status import ListJobsStatus
 from .media_track import MediaTrack
 from .redirect import Redirect
 from .scan_source_body import ScanSourceBody
@@ -43,8 +48,13 @@ __all__ = (
     "ClipVisibility",
     "Credentials",
     "Error",
+    "Job",
+    "JobInput",
+    "JobPage",
+    "JobStatus",
     "ListClipsStatus",
     "ListClipsVisibility",
+    "ListJobsStatus",
     "MediaTrack",
     "Redirect",
     "ScanSourceBody",

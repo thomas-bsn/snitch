@@ -14,6 +14,7 @@ type SourceFile = components["schemas"]["SourceFile"];
 type SourceWithFiles = Source & { files: SourceFile[] };
 type Upload = components["schemas"]["Upload"];
 type Clip = components["schemas"]["Clip"];
+type Job = components["schemas"]["Job"];
 const messages: Record<string, string> = {
   unavailable:
     "Le service est temporairement indisponible. Réessayez dans un instant.",
@@ -60,6 +61,14 @@ function App() {
   const [allowedRoots, setAllowedRoots] = useState<string[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobPage, setJobPage] = useState(1);
+  const [jobTotal, setJobTotal] = useState(0);
+  const [jobFilters, setJobFilters] = useState({
+    status: "" as "" | "pending" | "leased" | "done" | "failed",
+    clip_id: "",
+    step: "",
+  });
   const [clipPage, setClipPage] = useState(1);
   const [clipTotal, setClipTotal] = useState(0);
   const [uploadVisibility, setUploadVisibility] = useState<
@@ -101,10 +110,12 @@ function App() {
     if (me.data?.user.role === "admin") {
       setSettings(checked(await api.GET("/api/admin/settings")));
       setPending(checked(await api.GET("/api/admin/users")));
+      await refreshJobs(1);
       await refreshSources();
     } else {
       setSources([]);
       setAllowedRoots([]);
+      setJobs([]);
     }
   }
   async function refreshClips(page: number) {
@@ -123,6 +134,54 @@ function App() {
   async function refreshUploads() {
     const result = await api.GET("/api/uploads", { params: { header: csrf } });
     if (result.data) setUploads(result.data.items);
+  }
+  async function refreshJobs(page: number) {
+    const result = checked(
+      await api.GET("/api/admin/jobs", {
+        params: {
+          query: {
+            page,
+            page_size: 10,
+            status: jobFilters.status || undefined,
+            clip_id: jobFilters.clip_id
+              ? Number(jobFilters.clip_id)
+              : undefined,
+            step: jobFilters.step || undefined,
+          },
+        },
+      }),
+    );
+    setJobs(result.items);
+    setJobPage(result.page);
+    setJobTotal(result.total);
+  }
+  async function scheduleJob(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    await run(async () => {
+      const result = await api.POST("/api/admin/jobs", {
+        params: { header: csrf },
+        body: {
+          clip_id: Number(data.get("clip_id")),
+          step: String(data.get("step")),
+          input_version: String(data.get("input_version")),
+          priority: Number(data.get("priority")),
+        },
+      });
+      checked(result);
+      form.reset();
+      await refreshJobs(1);
+      setNotice(
+        result.response.status === 201
+          ? "Tâche planifiée."
+          : "Cette étape et cette version sont déjà dans la file.",
+      );
+    });
+  }
+  async function filterJobs(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await run(() => refreshJobs(1));
   }
   async function addUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -858,6 +917,128 @@ function App() {
                   ))}
                 </ul>
               )}
+            </section>
+          )}
+          {session.user.role === "admin" && (
+            <section className="card">
+              <h2>File de tâches ({jobTotal})</h2>
+              <p className="hint">
+                Les tâches restent en attente jusqu’à ce qu’un worker prenne en
+                charge leur étape.
+              </p>
+              <form onSubmit={scheduleJob}>
+                <label>
+                  ID du clip
+                  <input name="clip_id" type="number" min="1" required />
+                </label>
+                <label>
+                  Étape
+                  <input
+                    name="step"
+                    required
+                    maxLength={64}
+                    pattern="[a-z][a-z0-9_.-]{0,63}"
+                  />
+                </label>
+                <label>
+                  Version d’entrée
+                  <input name="input_version" required maxLength={128} />
+                </label>
+                <label>
+                  Priorité
+                  <input
+                    name="priority"
+                    type="number"
+                    min="-100"
+                    max="100"
+                    defaultValue="0"
+                  />
+                </label>
+                <button disabled={busy}>Planifier l’étape</button>
+              </form>
+              <form onSubmit={filterJobs}>
+                <label>
+                  État de la tâche
+                  <select
+                    value={jobFilters.status}
+                    onChange={(event) =>
+                      setJobFilters({
+                        ...jobFilters,
+                        status: event.target.value as typeof jobFilters.status,
+                      })
+                    }
+                  >
+                    <option value="">Tous les états</option>
+                    <option value="pending">En attente</option>
+                    <option value="leased">Louée</option>
+                    <option value="done">Terminée</option>
+                    <option value="failed">Échouée</option>
+                  </select>
+                </label>
+                <label>
+                  ID du clip à filtrer
+                  <input
+                    type="number"
+                    min="1"
+                    value={jobFilters.clip_id}
+                    onChange={(event) =>
+                      setJobFilters({
+                        ...jobFilters,
+                        clip_id: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Étape à filtrer
+                  <input
+                    value={jobFilters.step}
+                    onChange={(event) =>
+                      setJobFilters({ ...jobFilters, step: event.target.value })
+                    }
+                  />
+                </label>
+                <button className="secondary" disabled={busy}>
+                  Filtrer les tâches
+                </button>
+              </form>
+              {jobs.length === 0 ? (
+                <p>Aucune tâche ne correspond aux filtres.</p>
+              ) : (
+                <ul aria-label="Tâches">
+                  {jobs.map((job) => (
+                    <li key={job.id}>
+                      <strong>{job.step}</strong>
+                      <p>
+                        Tâche {job.id} · clip {job.clip_id} · {job.status} ·
+                        priorité {job.priority} · tentatives {job.attempts}/
+                        {job.max_attempts}
+                      </p>
+                      <p className="hint">
+                        Version {job.input_version} · créée{" "}
+                        {new Date(job.created_at).toLocaleString("fr-FR")}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="toolbar">
+                <button
+                  className="secondary"
+                  disabled={busy || jobPage <= 1}
+                  onClick={() => run(() => refreshJobs(jobPage - 1))}
+                >
+                  Tâches précédentes
+                </button>
+                <span>Page {jobPage}</span>
+                <button
+                  className="secondary"
+                  disabled={busy || jobPage * 10 >= jobTotal}
+                  onClick={() => run(() => refreshJobs(jobPage + 1))}
+                >
+                  Tâches suivantes
+                </button>
+              </div>
             </section>
           )}
           {session.user.role === "admin" && (

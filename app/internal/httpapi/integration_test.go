@@ -142,6 +142,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipLibrary(t, pool)
 	})
+	t.Run("job queue", func(t *testing.T) {
+		reset(t)
+		testJobQueue(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
 		clipRoot := t.TempDir()
@@ -245,6 +249,15 @@ func TestFoundation(t *testing.T) {
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
 		call(client, "GET", "/api/clips", nil, "", 200)
 		call(client, "GET", "/api/clips/999999", nil, "", 404)
+		var adminID, contractClipID int64
+		if e = pool.QueryRow(ctx, `SELECT id FROM users WHERE username='administrator'`).Scan(&adminID); e != nil {
+			t.Fatal(e)
+		}
+		if e = pool.QueryRow(ctx, `INSERT INTO clips(owner_id,original_name,size_bytes,modified_at,recorded_at) VALUES($1,'contract-synthetic.mp4',1,now(),now()) RETURNING id`, adminID).Scan(&contractClipID); e != nil {
+			t.Fatal(e)
+		}
+		call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.synthetic", "input_version": "contract-v1"}, me.CSRF, 201)
+		call(client, "GET", "/api/admin/jobs?status=pending", nil, "", 200)
 		call(client, "POST", "/api/auth/logout", nil, "wrong", 403)
 		call(client, "PUT", "/api/admin/settings", map[string]any{"client_id": "test-id", "client_secret": "secret-test-only", "registration_approval": true}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/sources", nil, "", 200)
@@ -389,7 +402,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -401,6 +414,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("RECEIPTS_E2E_LIBRARY") == "1" {
 			suites = []string{"library.spec.ts"}
+		}
+		if os.Getenv("RECEIPTS_E2E_JOBS") == "1" {
+			suites = []string{"jobs.spec.ts"}
 		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
@@ -422,7 +438,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" || suite == "library.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -430,7 +446,7 @@ func TestFoundation(t *testing.T) {
 					config.UploadSessionTTL = time.Hour
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
