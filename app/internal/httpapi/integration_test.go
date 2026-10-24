@@ -14,10 +14,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -124,14 +126,19 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testDiscordSettings(t, pool)
 	})
+	t.Run("folder sources", func(t *testing.T) {
+		reset(t)
+		testFolderSources(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
+		clipRoot := t.TempDir()
 		code, e := setup.Issue(ctx, pool)
 		if e != nil {
 			t.Fatal(e)
 		}
 		logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Test Receipts"}, logger)
+		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Test Receipts", ClipRoots: []string{clipRoot}, ProbePath: "ffprobe", StabilityWindow: time.Hour}, logger)
 		// High test allowance isolates security tests from test-suite request volume.
 		ts := httptest.NewUnstartedServer(s.Handler())
 		s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
@@ -197,6 +204,7 @@ func TestFoundation(t *testing.T) {
 		call(anon, "GET", "/api/health/ready", nil, "", 200)
 		call(anon, "GET", "/api/setup", nil, "", 200)
 		call(anon, "GET", "/api/admin/settings", nil, "", 401)
+		call(anon, "GET", "/api/admin/sources", nil, "", 401)
 		call(anon, "POST", "/api/auth/register", creds, "", 409)
 		call(client, "POST", "/api/setup", map[string]string{"code": "wrong", "username": "administrator", "password": "synthetic-password"}, "", 409)
 		call(client, "POST", "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, "", 201)
@@ -207,6 +215,19 @@ func TestFoundation(t *testing.T) {
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
 		call(client, "POST", "/api/auth/logout", nil, "wrong", 403)
 		call(client, "PUT", "/api/admin/settings", map[string]any{"client_id": "test-id", "client_secret": "secret-test-only", "registration_approval": true}, me.CSRF, 200)
+		call(client, "GET", "/api/admin/sources", nil, "", 200)
+		sourceBody := map[string]string{"name": "contract-fixture", "path": clipRoot}
+		sourceResponse := call(client, "POST", "/api/admin/sources", sourceBody, me.CSRF, 201)
+		var createdSource struct {
+			ID int64 `json:"id"`
+		}
+		if e = json.Unmarshal(sourceResponse, &createdSource); e != nil || createdSource.ID == 0 {
+			t.Fatalf("source response: %v %s", e, sourceResponse)
+		}
+		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
+		call(client, "GET", sourcePath+"/files", nil, "", 200)
+		call(client, "POST", sourcePath+"/scan", map[string]any{}, me.CSRF, 202)
+		call(client, "DELETE", sourcePath, nil, me.CSRF, 200)
 		b := call(client, "GET", "/api/admin/settings", nil, "", 200)
 		if bytes.Contains(b, []byte("secret-test-only")) {
 			t.Fatal("secret leaked")
@@ -333,9 +354,12 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
+		}
+		if os.Getenv("RECEIPTS_E2E_SOURCES") == "1" {
+			suites = []string{"sources.spec.ts"}
 		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
@@ -344,7 +368,25 @@ func TestFoundation(t *testing.T) {
 				if e != nil {
 					t.Fatal(e)
 				}
-				s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}
+				sourceRoot := ""
+				if suite == "sources.spec.ts" {
+					sourceRoot = t.TempDir()
+					if e = os.WriteFile(filepath.Join(sourceRoot, "browser-fixture.mp4"), []byte("synthetic-browser-video"), 0o400); e != nil {
+						t.Fatal(e)
+					}
+					config.ClipRoots = []string{sourceRoot}
+					config.ProbePath = syntheticProbeFixture(t)
+					config.StabilityWindow = 10 * time.Millisecond
+					config.ReconcileInterval = 100 * time.Millisecond
+				}
+				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+				if suite == "sources.spec.ts" {
+					if e = s.Start(ctx); e != nil {
+						t.Fatal(e)
+					}
+					defer s.Close()
+				}
 				if suite == "discord-oauth.spec.ts" {
 					browserDiscord(t, s)
 				}
@@ -355,7 +397,7 @@ func TestFoundation(t *testing.T) {
 				args := []string{"run", "test:e2e", "--", suite}
 				cmd := exec.Command("npm", args...)
 				cmd.Dir = "../../../web"
-				cmd.Env = append(os.Environ(), "RECEIPTS_TEST_URL="+ts.URL, "RECEIPTS_TEST_CODE="+code)
+				cmd.Env = append(os.Environ(), "RECEIPTS_TEST_URL="+ts.URL, "RECEIPTS_TEST_CODE="+code, "RECEIPTS_TEST_SOURCE_ROOT="+sourceRoot)
 				out, e := cmd.CombinedOutput()
 				t.Log(string(out))
 				if e != nil {

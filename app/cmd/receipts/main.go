@@ -124,6 +124,10 @@ func run() error {
 		}
 	}()
 	api := httpapi.New(p, c, slog.Default())
+	if err = api.Start(ctx); err != nil {
+		return fmt.Errorf("cannot start source monitoring")
+	}
+	defer api.Close()
 	server := &http.Server{Addr: c.Address, Handler: api.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
 	errs := make(chan error, 1)
 	go func() { errs <- server.ListenAndServe() }()

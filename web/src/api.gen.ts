@@ -220,6 +220,73 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Les chemins sont réservés à l'administration et ne sont jamais retournés aux membres. */
+    get: operations["listSources"];
+    put?: never;
+    /** @description Administrateurs uniquement. Le chemin doit être un dossier existant sous une racine CLIPS_ROOTS, sans sortie par lien symbolique. */
+    post: operations["createSource"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/sources/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Désactive la surveillance sans supprimer source, clips ou provenances. */
+    delete: operations["disableSource"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/sources/{id}/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["sourceFiles"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/sources/{id}/scan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["scanSource"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -272,6 +339,61 @@ export interface components {
       client_secret?: string;
       /** @description Booléen obligatoire et non nul. Politique commune aux nouvelles inscriptions locales et Discord, sans approbation rétroactive des comptes déjà en attente. */
       registration_approval: boolean;
+    };
+    SourceInput: {
+      name: string;
+      path: string;
+    };
+    Source: {
+      /** Format: int64 */
+      id: number;
+      name: string;
+      /** @description Visible uniquement aux administrateurs. */
+      path: string;
+      /** @enum {string} */
+      visibility: "private" | "shared";
+      enabled: boolean;
+      /** @enum {string} */
+      health: "ready" | "unavailable" | "warning";
+      /** Format: date-time */
+      last_scan_at?: string | null;
+    };
+    SourceList: {
+      allowed_roots: string[];
+      items: components["schemas"]["Source"][];
+    };
+    SourceFiles: {
+      items: components["schemas"]["SourceFile"][];
+    };
+    SourceFile: {
+      name: string;
+      relative_path: string;
+      /** @enum {string} */
+      status: "waiting_stability" | "ready" | "unreadable" | "missing";
+      error_code?: string;
+      /** Format: int64 */
+      size_bytes: number;
+      /** Format: date-time */
+      modified_at: string;
+      /** Format: date-time */
+      discovered_at?: string;
+      /** Format: date-time */
+      recorded_at?: string;
+      recorded_at_estimated: boolean;
+      /** Format: double */
+      duration_seconds?: number;
+      format_name?: string;
+      video_codec?: string;
+      audio_codec?: string;
+      tracks: components["schemas"]["MediaTrack"][];
+    };
+    MediaTrack: {
+      type: string;
+      codec: string;
+      title?: string;
+      language?: string;
+      width?: number;
+      height?: number;
     };
     Redirect: {
       /** Format: uri */
@@ -818,6 +940,174 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listSources: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sources configurées et racines autorisées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SourceList"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createSource: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SourceInput"];
+      };
+    };
+    responses: {
+      /** @description Source créée et première réconciliation planifiée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Source"];
+        };
+      };
+      /** @description Error (400 path outside configured roots, 409 duplicate, 422 inaccessible path, 503 roots unconfigured) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  disableSource: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Source désactivée, historique conservé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  sourceFiles: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fichiers découverts dans cette source */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SourceFiles"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scanSource: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Réconciliation planifiée */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Error */
       default: {
         headers: {
           [name: string]: unknown;

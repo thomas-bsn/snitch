@@ -24,6 +24,7 @@ import (
 	"receipts/internal/auth"
 	"receipts/internal/config"
 	"receipts/internal/database"
+	"receipts/internal/library"
 	"receipts/internal/settings"
 	"receipts/internal/setup"
 	"receipts/ui"
@@ -35,6 +36,7 @@ type Server struct {
 	Log           *slog.Logger
 	Client        *http.Client
 	Store         settings.Store
+	Library       *library.Service
 	rates         sync.Map
 	passwordSlots chan struct{}
 	dummyPassword string
@@ -55,8 +57,11 @@ type DiscordSettings struct {
 }
 
 func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
-	return &Server{Pool: p, Config: c, Log: logger, Client: &http.Client{Timeout: 10 * time.Second}, Store: settings.Store{Pool: p, Key: c.MasterKey}, passwordSlots: make(chan struct{}, 2), dummyPassword: auth.Password(auth.Token())}
+	return &Server{Pool: p, Config: c, Log: logger, Client: &http.Client{Timeout: 10 * time.Second}, Store: settings.Store{Pool: p, Key: c.MasterKey}, Library: library.New(p, library.Config{Roots: c.ClipRoots, ProbePath: c.ProbePath, Stability: c.StabilityWindow, ReconcileEvery: c.ReconcileInterval, Exclude: c.ClipExcludePatterns}, logger), passwordSlots: make(chan struct{}, 2), dummyPassword: auth.Password(auth.Token())}
 }
+
+func (s *Server) Start(ctx context.Context) error { return s.Library.Start(ctx) }
+func (s *Server) Close()                          { s.Library.Close() }
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health/live", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]string{"status": "ok"}) })
@@ -74,6 +79,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/admin/settings", s.protected(true, http.HandlerFunc(s.putSettings)))
 	mux.Handle("GET /api/admin/users", s.protected(true, http.HandlerFunc(s.pending)))
 	mux.Handle("POST /api/admin/users/{id}/approve", s.protected(true, http.HandlerFunc(s.approve)))
+	mux.Handle("GET /api/admin/sources", s.protected(true, http.HandlerFunc(s.listSources)))
+	mux.Handle("POST /api/admin/sources", s.protected(true, http.HandlerFunc(s.createSource)))
+	mux.Handle("DELETE /api/admin/sources/{id}", s.protected(true, http.HandlerFunc(s.disableSource)))
+	mux.Handle("GET /api/admin/sources/{id}/files", s.protected(true, http.HandlerFunc(s.sourceFiles)))
+	mux.Handle("POST /api/admin/sources/{id}/scan", s.protected(true, http.HandlerFunc(s.scanSource)))
 	embedded, _ := fs.Sub(ui.Files, "dist")
 	files := http.FileServer(http.FS(embedded))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

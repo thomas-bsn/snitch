@@ -709,6 +709,69 @@
         ],
         "description": "Administrateurs uniquement, session, origine et CSRF requis. Approuve un compte en attente sans changer son rôle ; 400 invalid_id si identifiant invalide, 404 not_pending si absent ou déjà approuvé."
       }
+    },
+    "/api/admin/sources": {
+      "get": {
+        "operationId": "listSources",
+        "responses": {
+          "200": {"description": "Sources configurées et racines autorisées", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SourceList"}}}},
+          "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "Administrateurs uniquement. Les chemins sont réservés à l'administration et ne sont jamais retournés aux membres."
+      },
+      "post": {
+        "operationId": "createSource",
+        "parameters": [
+          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
+          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SourceInput"}}}},
+        "responses": {
+          "201": {"description": "Source créée et première réconciliation planifiée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Source"}}}},
+          "default": {"description": "Error (400 path outside configured roots, 409 duplicate, 422 inaccessible path, 503 roots unconfigured)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "Administrateurs uniquement. Le chemin doit être un dossier existant sous une racine CLIPS_ROOTS, sans sortie par lien symbolique."
+      }
+    },
+    "/api/admin/sources/{id}": {
+      "delete": {
+        "operationId": "disableSource",
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
+          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
+          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {"description": "Source désactivée, historique conservé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Status"}}}},
+          "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "Désactive la surveillance sans supprimer source, clips ou provenances."
+      }
+    },
+    "/api/admin/sources/{id}/files": {
+      "get": {
+        "operationId": "sourceFiles",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {
+          "200": {"description": "Fichiers découverts dans cette source", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SourceFiles"}}}},
+          "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/admin/sources/{id}/scan": {
+      "post": {
+        "operationId": "scanSource",
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
+          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
+          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false}}}},
+        "responses": {
+          "202": {"description": "Réconciliation planifiée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Status"}}}},
+          "default": {"description": "Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
     }
   },
   "components": {
@@ -903,6 +966,75 @@
             "type": "boolean",
             "description": "Booléen obligatoire et non nul. Politique commune aux nouvelles inscriptions locales et Discord, sans approbation rétroactive des comptes déjà en attente."
           }
+        }
+      },
+      "SourceInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "path"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 80},
+          "path": {"type": "string", "minLength": 1, "maxLength": 4096}
+        }
+      },
+      "Source": {
+        "type": "object",
+        "required": ["id", "name", "path", "visibility", "enabled", "health"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "name": {"type": "string"},
+          "path": {"type": "string", "description": "Visible uniquement aux administrateurs."},
+          "visibility": {"type": "string", "enum": ["private", "shared"]},
+          "enabled": {"type": "boolean"},
+          "health": {"type": "string", "enum": ["ready", "unavailable", "warning"]},
+          "last_scan_at": {"type": "string", "format": "date-time", "nullable": true}
+        }
+      },
+      "SourceList": {
+        "type": "object",
+        "required": ["allowed_roots", "items"],
+        "properties": {
+          "allowed_roots": {"type": "array", "items": {"type": "string"}},
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/Source"}}
+        }
+      },
+      "SourceFiles": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/SourceFile"}}
+        }
+      },
+      "SourceFile": {
+        "type": "object",
+        "required": ["name", "relative_path", "status", "size_bytes", "modified_at", "recorded_at_estimated", "tracks"],
+        "properties": {
+          "name": {"type": "string"},
+          "relative_path": {"type": "string"},
+          "status": {"type": "string", "enum": ["waiting_stability", "ready", "unreadable", "missing"]},
+          "error_code": {"type": "string"},
+          "size_bytes": {"type": "integer", "format": "int64", "minimum": 0},
+          "modified_at": {"type": "string", "format": "date-time"},
+          "discovered_at": {"type": "string", "format": "date-time"},
+          "recorded_at": {"type": "string", "format": "date-time"},
+          "recorded_at_estimated": {"type": "boolean"},
+          "duration_seconds": {"type": "number", "format": "double", "minimum": 0},
+          "format_name": {"type": "string"},
+          "video_codec": {"type": "string"},
+          "audio_codec": {"type": "string"},
+          "tracks": {"type": "array", "items": {"$ref": "#/components/schemas/MediaTrack"}}
+        }
+      },
+      "MediaTrack": {
+        "type": "object",
+        "required": ["type", "codec"],
+        "properties": {
+          "type": {"type": "string"},
+          "codec": {"type": "string"},
+          "title": {"type": "string"},
+          "language": {"type": "string"},
+          "width": {"type": "integer"},
+          "height": {"type": "integer"}
         }
       },
       "Redirect": {

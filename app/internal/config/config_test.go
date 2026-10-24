@@ -2,7 +2,9 @@ package config
 
 import (
 	"encoding/base64"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestConfig(t *testing.T) {
@@ -24,6 +26,43 @@ func TestConfig(t *testing.T) {
 	t.Setenv("MASTER_KEY", "wrong")
 	if _, err := Load(); err == nil {
 		t.Fatal("invalid key accepted")
+	}
+}
+
+func TestSourceRuntimeConfiguration(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/receipts")
+	t.Setenv("MASTER_KEY", base64.StdEncoding.EncodeToString(make([]byte, 32)))
+	t.Setenv("PUBLIC_URL", "https://receipts.example")
+	t.Setenv("COOKIE_SECURE", "true")
+	t.Setenv("CLIPS_ROOTS", filepath.Join("relative", "media")+string(filepath.ListSeparator)+"/mnt/captures")
+	t.Setenv("CLIP_STABILITY_WINDOW", "2m")
+	t.Setenv("SOURCE_RECONCILE_INTERVAL", "10m")
+	t.Setenv("CLIP_EXCLUDE_PATTERNS", "*.tmp, *.part")
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.ClipRoots) != 2 || !filepath.IsAbs(got.ClipRoots[0]) || got.ClipRoots[1] != "/mnt/captures" {
+		t.Fatalf("unexpected roots: %#v", got.ClipRoots)
+	}
+	if got.ProbePath != "ffprobe" || got.StabilityWindow != 2*time.Minute || got.ReconcileInterval != 10*time.Minute {
+		t.Fatalf("unexpected source settings: %+v", got)
+	}
+	if len(got.ClipExcludePatterns) != 2 || got.ClipExcludePatterns[0] != "*.tmp" || got.ClipExcludePatterns[1] != "*.part" {
+		t.Fatalf("unexpected exclude patterns: %#v", got.ClipExcludePatterns)
+	}
+	for _, tc := range []struct{ key, value string }{
+		{"CLIP_STABILITY_WINDOW", "-1s"},
+		{"CLIP_STABILITY_WINDOW", "25h"},
+		{"SOURCE_RECONCILE_INTERVAL", "500ms"},
+		{"SOURCE_RECONCILE_INTERVAL", "25h"},
+	} {
+		t.Run(tc.key+"="+tc.value, func(t *testing.T) {
+			t.Setenv(tc.key, tc.value)
+			if _, err := Load(); err == nil {
+				t.Fatal("invalid source setting accepted")
+			}
+		})
 	}
 }
 
