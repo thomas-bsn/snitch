@@ -96,14 +96,21 @@ type Page struct {
 }
 
 type Input struct {
-	Job             Job             `json:"job"`
-	OriginalName    string          `json:"original_name"`
-	SizeBytes       int64           `json:"size_bytes"`
-	DurationSeconds *float64        `json:"duration_seconds"`
-	VideoCodec      string          `json:"video_codec"`
-	AudioCodec      string          `json:"audio_codec"`
-	Tracks          json.RawMessage `json:"tracks"`
-	MediaURL        string          `json:"media_url"`
+	Job             Job              `json:"job"`
+	OriginalName    string           `json:"original_name"`
+	SizeBytes       int64            `json:"size_bytes"`
+	DurationSeconds *float64         `json:"duration_seconds"`
+	VideoCodec      string           `json:"video_codec"`
+	AudioCodec      string           `json:"audio_codec"`
+	Tracks          json.RawMessage  `json:"tracks"`
+	MediaURL        string           `json:"media_url"`
+	Vocabulary      []VocabularyTerm `json:"vocabulary"`
+}
+
+type VocabularyTerm struct {
+	Term              string   `json:"term"`
+	Variants          []string `json:"variants"`
+	PreferredSpelling string   `json:"preferred_spelling"`
 }
 
 type Service struct{ pool *pgxpool.Pool }
@@ -382,6 +389,19 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 		return Input{}, fmt.Errorf("read worker job input: %w", err)
 	}
 	input.MediaURL = fmt.Sprintf("/api/worker/jobs/%d/media", id)
+	input.Vocabulary = []VocabularyTerm{}
+	if strings.HasPrefix(input.Job.Step, "transcription.audio.") {
+		vocabMarker := strings.LastIndex(input.Job.InputVersion, "-vocab-")
+		if vocabMarker >= 0 {
+			var rawVocabulary []byte
+			if queryErr := s.pool.QueryRow(ctx, `SELECT terms FROM transcription_vocabulary_versions WHERE version=$1`, input.Job.InputVersion[vocabMarker+len("-vocab-"):]).Scan(&rawVocabulary); queryErr != nil {
+				return Input{}, fmt.Errorf("read transcription vocabulary snapshot: %w", queryErr)
+			}
+			if queryErr := json.Unmarshal(rawVocabulary, &input.Vocabulary); queryErr != nil {
+				return Input{}, fmt.Errorf("decode transcription vocabulary snapshot: %w", queryErr)
+			}
+		}
+	}
 	return input, nil
 }
 

@@ -4,6 +4,8 @@ Le serveur reste propriétaire des clips, des permissions et des résultats. Les
 
 Chaque changement de règle ou de dérogation versionne l’entrée de transcription et ne replanifie que les clips concernés. Un ancien résultat n’est pas présenté comme courant lorsque sa piste ou sa configuration ne correspond plus à la sélection active. Le worker annonce `transcription.audio.*`, récupère le média seulement avec son lease actif, mappe l’index global FFmpeg choisi et prépare un WAV PCM 16 kHz mono. Il conserve tout l’axe audio, silences inclus, pour que les temps fournis restent relatifs au clip. Le média original n’est jamais modifié.
 
+Le panneau **Vocabulaire de transcription** permet d’ajouter, modifier, activer, désactiver ou supprimer un terme, ses variantes et sa graphie préférée. La version de l’ensemble actif est incluse dans chaque tâche de transcription. Les termes et variantes sont envoyés dans le champ `prompt` du fournisseur compatible lorsqu’il accepte ce champ. Modifier le vocabulaire ne lance pas un scan général : l’administrateur planifie une transcription ciblée depuis le clip concerné. La transcription précédente reste visible pendant l’attente et le traitement, puis est remplacée seulement après le succès de la nouvelle tâche. Les autres étapes et les métadonnées du clip ne sont pas invalidées.
+
 ## Configurer un fournisseur compatible
 
 Le dépôt ne choisit ni ne télécharge un modèle définitif. Le worker accepte un endpoint compatible avec `POST /v1/audio/transcriptions`, par exemple un serveur local qui implémente ce protocole. Configurer dans l’environnement du conteneur :

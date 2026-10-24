@@ -56,6 +56,8 @@ from .upload_status import UploadStatus
 from .upload_visibility import UploadVisibility
 from .user import User
 from .user_role import UserRole
+from .vocabulary_list import VocabularyList
+from .vocabulary_term_input import VocabularyTermInput
 from .worker import Worker
 from .worker_claim import WorkerClaim
 from .worker_failure_input import WorkerFailureInput
@@ -67,6 +69,7 @@ from .worker_registration import WorkerRegistration
 from .worker_registration_input import WorkerRegistrationInput
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
+from .worker_vocabulary_term import WorkerVocabularyTerm
 
 __all__ = (
     "AudioTrackOverride",
@@ -125,6 +128,8 @@ __all__ = (
     "UploadVisibility",
     "User",
     "UserRole",
+    "VocabularyList",
+    "VocabularyTermInput",
     "Worker",
     "WorkerClaim",
     "WorkerFailureInput",
@@ -136,4 +141,5 @@ __all__ = (
     "WorkerRegistrationInput",
     "WorkerResultInput",
     "WorkerResultInputResult",
+    "WorkerVocabularyTerm",
 )

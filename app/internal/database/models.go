@@ -135,6 +135,22 @@ type SourceFile struct {
 	ErrorCode          pgtype.Text        `json:"error_code"`
 }
 
+type TranscriptionVocabularyTerm struct {
+	ID                int64              `json:"id"`
+	Term              string             `json:"term"`
+	Variants          []string           `json:"variants"`
+	PreferredSpelling string             `json:"preferred_spelling"`
+	Active            bool               `json:"active"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TranscriptionVocabularyVersion struct {
+	Version   string             `json:"version"`
+	Terms     []byte             `json:"terms"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Upload struct {
 	ID           string             `json:"id"`
 	OwnerID      int64              `json:"owner_id"`

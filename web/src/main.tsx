@@ -18,6 +18,7 @@ type Job = components["schemas"]["Job"];
 type JobEvent = components["schemas"]["JobEvent"];
 type JobControls = components["schemas"]["JobControls"];
 type Worker = components["schemas"]["Worker"];
+type VocabularyTerm = components["schemas"]["VocabularyTerm"];
 const messages: Record<string, string> = {
   unavailable:
     "Le service est temporairement indisponible. Réessayez dans un instant.",
@@ -91,6 +92,9 @@ function App() {
     updated_at: "",
   });
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [vocabulary, setVocabulary] = useState<VocabularyTerm[]>([]);
+  const [vocabularyVersion, setVocabularyVersion] = useState("");
+  const [editingTerm, setEditingTerm] = useState<VocabularyTerm>();
   const [newWorkerToken, setNewWorkerToken] = useState("");
   const [jobPage, setJobPage] = useState(1);
   const [jobTotal, setJobTotal] = useState(0);
@@ -155,6 +159,7 @@ function App() {
     }
     if (me.data?.user.role === "admin") {
       setSettings(checked(await api.GET("/api/admin/settings")));
+      await refreshVocabulary();
       setPending(checked(await api.GET("/api/admin/users")));
       await refreshJobs(1);
       await refreshJobControls();
@@ -166,6 +171,7 @@ function App() {
       setJobs([]);
       setJobControls({ paused: false, max_concurrency: 1, updated_at: "" });
       setWorkers([]);
+      setVocabulary([]);
       setNewWorkerToken("");
     }
   }
@@ -181,6 +187,44 @@ function App() {
     setClips(result.items);
     setClipPage(result.page);
     setClipTotal(result.total);
+  }
+  async function refreshVocabulary() {
+    const result = checked(await api.GET("/api/admin/vocabulary"));
+    setVocabulary(result.items);
+    setVocabularyVersion(result.version);
+  }
+  async function saveVocabularyTerm(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const body = {
+      term: String(form.get("term") ?? ""),
+      variants: String(form.get("variants") ?? "").split(",").map((value) => value.trim()).filter(Boolean),
+      preferred_spelling: String(form.get("preferred_spelling") ?? ""),
+      active: form.get("active") === "on",
+    };
+    setBusy(true);
+    try {
+      const result = editingTerm
+        ? await api.PUT("/api/admin/vocabulary/{id}", { params: { path: { id: editingTerm.id }, header: csrf }, body })
+        : await api.POST("/api/admin/vocabulary", { params: { header: csrf }, body });
+      checked(result);
+      setEditingTerm(undefined);
+      formElement.reset();
+      await refreshVocabulary();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Impossible d’enregistrer le terme.");
+    } finally { setBusy(false); }
+  }
+  async function removeVocabularyTerm(id: number) {
+    setBusy(true);
+    try {
+      checkedNoContent(await api.DELETE("/api/admin/vocabulary/{id}", { params: { path: { id }, header: csrf } }));
+      if (editingTerm?.id === id) setEditingTerm(undefined);
+      await refreshVocabulary();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Impossible de supprimer le terme.");
+    } finally { setBusy(false); }
   }
   async function loadClipDetail(id: number) {
     try {
@@ -1092,6 +1136,27 @@ function App() {
                     : "Continuer sans Discord"}
                 </button>
               </form>
+            </section>
+          )}
+          {session.user.role === "admin" && (
+            <section className="card" id="vocabulary">
+              <h2>Vocabulaire de transcription</h2>
+              <p className="hint">Version active : {vocabularyVersion}. Ces termes sont envoyés au fournisseur à la prochaine transcription planifiée.</p>
+              <form onSubmit={saveVocabularyTerm} key={editingTerm?.id ?? "new-vocabulary-term"}>
+                <label>Terme<input name="term" required maxLength={160} defaultValue={editingTerm?.term ?? ""} /></label>
+                <label>Variantes, séparées par des virgules<input name="variants" maxLength={4000} defaultValue={editingTerm?.variants.join(", ") ?? ""} /></label>
+                <label>Graphie préférée<input name="preferred_spelling" required maxLength={160} defaultValue={editingTerm?.preferred_spelling ?? ""} /></label>
+                <label className="checkbox"><input name="active" type="checkbox" defaultChecked={editingTerm?.active ?? true} />Actif pour les prochaines transcriptions</label>
+                <button disabled={busy}>{editingTerm ? "Enregistrer le terme" : "Ajouter le terme"}</button>
+                {editingTerm && <button type="button" className="secondary" onClick={() => setEditingTerm(undefined)}>Annuler</button>}
+              </form>
+              <ul className="vocabulary-list">
+                {vocabulary.map((term) => <li key={term.id}>
+                  <div><strong>{term.preferred_spelling}</strong><span>{term.term}{term.variants.length ? ` · ${term.variants.join(" · ")}` : ""}</span><small>{term.active ? "Actif" : "Inactif"}</small></div>
+                  <div className="actions"><button type="button" className="secondary" onClick={() => setEditingTerm(term)}>Modifier</button><button type="button" className="secondary" disabled={busy} onClick={() => void removeVocabularyTerm(term.id)}>Supprimer</button></div>
+                </li>)}
+              </ul>
+              {vocabulary.length === 0 && <p>Aucun terme enregistré.</p>}
             </section>
           )}
           {session.user.role === "admin" && (

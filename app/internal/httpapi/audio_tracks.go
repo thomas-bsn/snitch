@@ -237,7 +237,19 @@ func (s *Server) scheduleResolvedTranscription(ctx context.Context, id int64, ex
 	if !ready {
 		return jobs.Job{}, false, nil
 	}
-	version := fmt.Sprintf("transcription-v2-audio-%d-rule-%d", *index, selection.RuleVersion)
+	vocabulary, err := s.activeVocabulary(ctx)
+	if err != nil {
+		return jobs.Job{}, false, err
+	}
+	vocabVersion := vocabularyVersion(vocabulary)
+	vocabularyJSON, err := json.Marshal(vocabulary)
+	if err != nil {
+		return jobs.Job{}, false, err
+	}
+	if _, err = s.Pool.Exec(ctx, `INSERT INTO transcription_vocabulary_versions(version,terms) VALUES($1,$2) ON CONFLICT(version) DO NOTHING`, vocabVersion, vocabularyJSON); err != nil {
+		return jobs.Job{}, false, err
+	}
+	version := fmt.Sprintf("transcription-v3-audio-%d-rule-%d-vocab-%s", *index, selection.RuleVersion, vocabVersion)
 	job, created, err := s.Jobs.Schedule(ctx, jobs.ScheduleInput{ClipID: id, Step: fmt.Sprintf("transcription.audio.%d", *index), InputVersion: version, MaxAttempts: 3})
 	return job, created, err
 }

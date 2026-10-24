@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -83,6 +84,41 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/auth/me", nil, "", http.StatusOK), &session); err != nil {
 		t.Fatal(err)
 	}
+	var vocabulary struct {
+		Items []struct {
+			ID                int64    `json:"id"`
+			Term              string   `json:"term"`
+			Variants          []string `json:"variants"`
+			PreferredSpelling string   `json:"preferred_spelling"`
+			Active            bool     `json:"active"`
+		} `json:"items"`
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/vocabulary", nil, "", http.StatusOK), &vocabulary); err != nil {
+		t.Fatal(err)
+	}
+	if vocabulary.Version == "" {
+		t.Fatal("empty vocabulary must still have a stable version")
+	}
+	var term struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/vocabulary", map[string]any{"term": "Final Fantasy XIV", "variants": []string{"FFXIV", "Final Fantasy 14"}, "preferred_spelling": "FFXIV", "active": true}, session.CSRF, http.StatusCreated), &term); err != nil {
+		t.Fatal(err)
+	}
+	if term.ID < 1 {
+		t.Fatal("vocabulary term was not created")
+	}
+	call(admin, http.MethodPost, "/api/admin/vocabulary", map[string]any{"term": " ", "variants": []string{}, "preferred_spelling": "Invalid", "active": true}, session.CSRF, http.StatusBadRequest)
+	call(admin, http.MethodPost, "/api/admin/vocabulary", map[string]any{"term": "final fantasy xiv", "variants": []string{}, "preferred_spelling": "FFXIV", "active": true}, session.CSRF, http.StatusConflict)
+	call(admin, http.MethodPut, "/api/admin/vocabulary/"+strconv64(term.ID), map[string]any{"term": "Final Fantasy XIV", "variants": []string{"FFXIV", "Final Fantasy 14"}, "preferred_spelling": "Final Fantasy XIV", "active": false}, session.CSRF, http.StatusOK)
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/vocabulary", nil, "", http.StatusOK), &vocabulary); err != nil {
+		t.Fatal(err)
+	}
+	if len(vocabulary.Items) != 1 || vocabulary.Items[0].Active || vocabulary.Items[0].PreferredSpelling != "Final Fantasy XIV" {
+		t.Fatalf("vocabulary edit was not persisted: %+v", vocabulary)
+	}
+	call(admin, http.MethodDelete, "/api/admin/vocabulary/"+strconv64(term.ID), nil, session.CSRF, http.StatusNoContent)
 	content := []byte("synthetic-multipiste-video")
 	var upload struct {
 		ID string `json:"id"`
@@ -245,6 +281,46 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if detail.Transcription.Provider != "fixture" || detail.Transcription.Model != "deterministic-v1" || detail.Transcription.Version != "deterministic-v1" || detail.Transcription.AudioStreamIndex != 2 || len(detail.Transcription.Segments) != 1 || detail.Transcription.Segments[0].Start != 1.25 || detail.Transcription.Segments[0].Words[1].Word != "joué" || detail.Transcription.Segments[0].Words[1].Start != 1.55 {
 		t.Fatalf("completed transcript was not available on the clip with word-level timecodes: %+v", detail.Transcription)
 	}
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/vocabulary", map[string]any{"term": "Final Fantasy XIV", "variants": []string{"FFXIV", "Final Fantasy 14"}, "preferred_spelling": "FFXIV", "active": true}, session.CSRF, http.StatusCreated), &term); err != nil {
+		t.Fatal(err)
+	}
+	var vocabTask struct {
+		Job struct {
+			ID           int64  `json:"id"`
+			InputVersion string `json:"input_version"`
+		} `json:"job"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(completed.ClipID)+"/transcription", map[string]int{"audio_stream_index": 2}, session.CSRF, http.StatusCreated), &vocabTask); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(vocabTask.Job.InputVersion, "vocab-") || vocabTask.Job.InputVersion == scheduled.Job.InputVersion {
+		t.Fatalf("vocabulary version missing from transcription input: %+v", vocabTask.Job)
+	}
+	call(admin, http.MethodPut, "/api/admin/vocabulary/"+strconv64(term.ID), map[string]any{"term": "Final Fantasy XIV", "variants": []string{"FFXIV", "Final Fantasy 14"}, "preferred_spelling": "Final Fantasy XIV", "active": true}, session.CSRF, http.StatusOK)
+	workerCall(http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"transcription.audio.*"}}, "", http.StatusOK)
+	if err := json.Unmarshal(workerCall(http.MethodPost, "/api/worker/jobs/claim", nil, "", http.StatusOK), &assignment); err != nil {
+		t.Fatal(err)
+	}
+	var workerInput struct {
+		Vocabulary []struct {
+			Term              string   `json:"term"`
+			Variants          []string `json:"variants"`
+			PreferredSpelling string   `json:"preferred_spelling"`
+		} `json:"vocabulary"`
+	}
+	if err := json.Unmarshal(workerCall(http.MethodGet, "/api/worker/jobs/"+strconv64(vocabTask.Job.ID)+"/input", nil, assignment.LeaseToken, http.StatusOK), &workerInput); err != nil {
+		t.Fatal(err)
+	}
+	if len(workerInput.Vocabulary) != 1 || workerInput.Vocabulary[0].PreferredSpelling != "FFXIV" || len(workerInput.Vocabulary[0].Variants) != 2 {
+		t.Fatalf("active French vocabulary was not sent to the worker: %+v", workerInput.Vocabulary)
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(completed.ClipID), nil, "", http.StatusOK), &detail); err != nil {
+		t.Fatal(err)
+	}
+	if detail.Transcription.Provider != "fixture" {
+		t.Fatalf("previous successful transcript disappeared before replacement succeeded: %+v", detail.Transcription)
+	}
+	workerCall(http.MethodPost, "/api/worker/jobs/"+strconv64(vocabTask.Job.ID)+"/complete", map[string]any{"input_version": assignment.Job.InputVersion, "result": map[string]any{"provider": "fixture", "model": "deterministic-v1", "version": "deterministic-v1", "audio_stream_index": 2, "segments": []any{}}}, assignment.LeaseToken, http.StatusOK)
 	var emptyScheduled struct {
 		Job struct {
 			ID int64 `json:"id"`
@@ -329,7 +405,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(sourceClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusOK), &sourceTask); err != nil {
 		t.Fatal(err)
 	}
-	if sourceTask.Job.Step != "transcription.audio.2" || sourceTask.Job.InputVersion != "transcription-v2-audio-2-rule-1" {
+	if sourceTask.Job.Step != "transcription.audio.2" || !strings.HasPrefix(sourceTask.Job.InputVersion, "transcription-v3-audio-2-rule-1-vocab-") {
 		t.Fatalf("source policy version not included in targeted task: %+v", sourceTask.Job)
 	}
 	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": "Micro"}, session.CSRF, http.StatusOK), &ruleResult); err != nil {
@@ -344,7 +420,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(sourceClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusOK), &sourceTask); err != nil {
 		t.Fatal(err)
 	}
-	if sourceTask.Job.Step != "transcription.audio.1" || sourceTask.Job.InputVersion != "transcription-v2-audio-1-rule-2" {
+	if sourceTask.Job.Step != "transcription.audio.1" || !strings.HasPrefix(sourceTask.Job.InputVersion, "transcription-v3-audio-1-rule-2-vocab-") {
 		t.Fatalf("updated source rule did not create a targeted transcription version: %+v", sourceTask.Job)
 	}
 }

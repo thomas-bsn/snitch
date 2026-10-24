@@ -214,8 +214,9 @@ class FakeProviderTests(unittest.TestCase):
             id=84, step="transcription.audio.2", input_version="track-v1"
         )
         claim = SimpleNamespace(job=task, lease_token="lt_fixture-lease")
+        captured = {}
         transcriber = SimpleNamespace(
-            transcribe=lambda wav: {
+            transcribe=lambda wav, vocabulary=None: captured.update(vocabulary=vocabulary) or {
                 "provider": "fixture",
                 "model": "deterministic-v1",
                 "version": "deterministic-v1",
@@ -230,7 +231,7 @@ class FakeProviderTests(unittest.TestCase):
             patch.object(
                 runner,
                 "get_job_input",
-                return_value=SimpleNamespace(media_url="/api/worker/jobs/84/media"),
+                return_value=SimpleNamespace(media_url="/api/worker/jobs/84/media", vocabulary=[SimpleNamespace(term="Final Fantasy XIV", variants=["FFXIV"], preferred_spelling="FFXIV")]),
             ),
             patch.object(runner, "prepare_audio") as prepare,
             patch.object(runner, "complete_job", return_value=object()) as complete,
@@ -247,6 +248,7 @@ class FakeProviderTests(unittest.TestCase):
             "lt_fixture-lease",
         )
         self.assertEqual(prepare.call_args.args[2], 2)
+        self.assertEqual(captured["vocabulary"][0]["preferred_spelling"], "FFXIV")
         result = complete.call_args.kwargs["body"].result.to_dict()
         self.assertEqual(result["audio_stream_index"], 2)
         self.assertEqual(result["segments"], [])
@@ -346,6 +348,7 @@ class FakeProviderTests(unittest.TestCase):
                             "audio_codec": "",
                             "tracks": [],
                             "media_url": "/api/worker/jobs/42/media",
+                            "vocabulary": [],
                         },
                     )
                 if self.path == "/api/worker/jobs/42/media":

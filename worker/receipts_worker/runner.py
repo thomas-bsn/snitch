@@ -39,7 +39,7 @@ def fake_provider(step: str) -> dict[str, Any]:
 
 
 class Transcriber(Protocol):
-    def transcribe(self, wav_path: str) -> dict[str, Any]: ...
+    def transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None = None) -> dict[str, Any]: ...
 
 
 class OpenAICompatibleTranscriber:
@@ -52,7 +52,7 @@ class OpenAICompatibleTranscriber:
         self.model = model.strip()
         self.api_key = api_key
 
-    def transcribe(self, wav_path: str) -> dict[str, Any]:
+    def transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         with open(wav_path, "rb") as audio:
             response = httpx.post(
@@ -62,6 +62,10 @@ class OpenAICompatibleTranscriber:
                     "model": self.model,
                     "response_format": "verbose_json",
                     "timestamp_granularities[]": ["segment", "word"],
+                    **({"prompt": "; ".join(
+                        f"{term['term']} (variantes: {', '.join(term.get('variants', []))}; graphie préférée: {term['preferred_spelling']})"
+                        for term in vocabulary
+                    )} if vocabulary else {}),
                 },
                 files={"file": ("audio.wav", audio, "audio/wav")},
                 timeout=3600,
@@ -245,7 +249,11 @@ def run_once(
                 stream_index = int(job.step.rsplit(".", 1)[1])
                 prepare_audio(original, wav_path, stream_index)
                 active_transcriber = transcriber or configured_transcriber()
-                result = active_transcriber.transcribe(wav_path)
+                vocabulary = [
+                    {"term": term.term, "variants": term.variants, "preferred_spelling": term.preferred_spelling}
+                    for term in (task_input.vocabulary or [])
+                ]
+                result = active_transcriber.transcribe(wav_path, vocabulary)
                 result["audio_stream_index"] = stream_index
         else:
             raise ValueError("unsupported worker step")

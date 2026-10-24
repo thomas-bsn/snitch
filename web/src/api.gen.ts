@@ -686,6 +686,42 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/vocabulary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. */
+    get: operations["listVocabulary"];
+    put?: never;
+    /** @description Administrateurs uniquement. */
+    post: operations["createVocabulary"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/vocabulary/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. */
+    put: operations["updateVocabulary"];
+    post?: never;
+    /** @description Administrateurs uniquement. */
+    delete: operations["deleteVocabulary"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -911,6 +947,7 @@ export interface components {
       audio_codec: string;
       tracks: Record<string, never>[];
       media_url: string;
+      vocabulary: components["schemas"]["WorkerVocabularyTerm"][];
     };
     WorkerResultInput: {
       input_version: string;
@@ -1072,6 +1109,25 @@ export interface components {
       selection_source?: string;
       /** Format: int64 */
       rule_version?: number;
+    };
+    VocabularyTermInput: {
+      term: string;
+      variants: string[];
+      preferred_spelling: string;
+      active: boolean;
+    };
+    VocabularyTerm: {
+      /** Format: int64 */
+      id: number;
+    } & components["schemas"]["VocabularyTermInput"];
+    VocabularyList: {
+      items: components["schemas"]["VocabularyTerm"][];
+      version: string;
+    };
+    WorkerVocabularyTerm: {
+      term: string;
+      variants: string[];
+      preferred_spelling: string;
     };
   };
   responses: never;
@@ -2846,6 +2902,183 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVocabulary: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Vocabulaire administrateur */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VocabularyList"];
+        };
+      };
+      /** @description Erreur (401 session requise, 403 administrateur requis, 503 indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVocabulary: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VocabularyTermInput"];
+      };
+    };
+    responses: {
+      /** @description Terme créé */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VocabularyTerm"];
+        };
+      };
+      /** @description Entrée invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Terme en doublon */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (401 session requise, 403 administrateur requis, 503 indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVocabulary: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VocabularyTermInput"];
+      };
+    };
+    responses: {
+      /** @description Terme modifié */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VocabularyTerm"];
+        };
+      };
+      /** @description Entrée invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Terme introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Terme en doublon */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (401 session requise, 403 administrateur requis, 503 indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteVocabulary: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Terme supprimé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Terme introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (401 session requise, 403 administrateur requis, 503 indisponible) */
       default: {
         headers: {
           [name: string]: unknown;
