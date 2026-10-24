@@ -481,7 +481,9 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	var indexed int
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM transcript_embeddings WHERE clip_id=$1`, completed.ClipID).Scan(&indexed); err != nil || indexed != 1 {
-		t.Fatalf("completed transcript was not indexed: count=%d err=%v", indexed, err)
+		var taskState, taskError string
+		diagnosticErr := pool.QueryRow(context.Background(), `SELECT COALESCE(t.state,'missing'),COALESCE(t.error,'') FROM jobs j LEFT JOIN embedding_tasks t ON t.transcription_job_id=j.id WHERE j.id=$1`, assignment.Job.ID).Scan(&taskState, &taskError)
+		t.Fatalf("completed transcript was not indexed: count=%d err=%v task_state=%q task_error=%q diagnostic_err=%v", indexed, err, taskState, taskError, diagnosticErr)
 	}
 	call(admin, http.MethodPost, "/api/admin/embeddings/rebuild", map[string]string{"model": "fixture-embedding-v2"}, session.CSRF, http.StatusAccepted)
 	select {
