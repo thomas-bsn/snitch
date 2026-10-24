@@ -109,5 +109,6 @@ Chatbot, keyframes, analyse visuelle/VLM, résumés et événements de jeu, sép
 ## Documents
 
 - [Spec détaillée de phase 0](docs/specs/phase-0.md)
+- [Spec détaillée de phase 3](docs/specs/phase-3.md) · [Issue GitHub phase 3](https://github.com/thomas-bsn/snitch/issues/19)
 - [Handoff historique](HANDOFF.md)
 - [Glossaire métier](GLOSSARY.md)
