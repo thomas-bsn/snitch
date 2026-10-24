@@ -31,6 +31,7 @@ class Worker:
             last_seen_at (datetime.datetime | None):
             created_at (datetime.datetime):
             revoked_at (datetime.datetime | None):
+            connected (bool):
      """
 
     id: str
@@ -40,6 +41,7 @@ class Worker:
     last_seen_at: datetime.datetime | None
     created_at: datetime.datetime
     revoked_at: datetime.datetime | None
+    connected: bool
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -69,6 +71,8 @@ class Worker:
         else:
             revoked_at = self.revoked_at
 
+        connected = self.connected
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -80,6 +84,7 @@ class Worker:
             "last_seen_at": last_seen_at,
             "created_at": created_at,
             "revoked_at": revoked_at,
+            "connected": connected,
         })
 
         return field_dict
@@ -138,6 +143,8 @@ class Worker:
         revoked_at = _parse_revoked_at(d.pop("revoked_at"))
 
 
+        connected = d.pop("connected")
+
         worker = cls(
             id=id,
             name=name,
@@ -146,6 +153,7 @@ class Worker:
             last_seen_at=last_seen_at,
             created_at=created_at,
             revoked_at=revoked_at,
+            connected=connected,
         )
 
 

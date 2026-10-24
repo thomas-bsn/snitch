@@ -2995,7 +2995,8 @@
           "reported_concurrency",
           "last_seen_at",
           "created_at",
-          "revoked_at"
+          "revoked_at",
+          "connected"
         ],
         "properties": {
           "id": {
@@ -3027,6 +3028,9 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "connected": {
+            "type": "boolean"
           }
         }
       },

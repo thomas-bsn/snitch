@@ -822,6 +822,7 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       revoked_at: string | null;
+      connected: boolean;
     };
     WorkerRegistrationInput: {
       name: string;

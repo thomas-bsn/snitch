@@ -20,6 +20,9 @@ var (
 	namePattern     = regexp.MustCompile(`^[\pL\pN][\pL\pN _.-]{0,63}$`)
 )
 
+// ConnectedWindow is six five-second worker poll intervals.
+const ConnectedWindow = 30 * time.Second
+
 type Worker struct {
 	ID                  string     `json:"id"`
 	Name                string     `json:"name"`
@@ -28,6 +31,7 @@ type Worker struct {
 	LastSeenAt          *time.Time `json:"last_seen_at"`
 	CreatedAt           time.Time  `json:"created_at"`
 	RevokedAt           *time.Time `json:"revoked_at"`
+	Connected           bool       `json:"connected"`
 }
 
 type Registration struct {
@@ -60,7 +64,7 @@ func (s *Service) Register(ctx context.Context, input Input) (Registration, erro
 }
 
 func (s *Service) List(ctx context.Context) ([]Worker, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at FROM workers ORDER BY created_at,id`)
+	rows, err := s.pool.Query(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($1 * interval '1 second'),false) FROM workers ORDER BY created_at,id`, int64(ConnectedWindow.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("list workers: %w", err)
 	}
@@ -68,7 +72,7 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 	items := []Worker{}
 	for rows.Next() {
 		var worker Worker
-		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt); err != nil {
+		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected); err != nil {
 			return nil, fmt.Errorf("scan worker: %w", err)
 		}
 		items = append(items, worker)

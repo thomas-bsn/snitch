@@ -104,7 +104,10 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("worker listing exposed the one-time token")
 	}
 	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", "", false, http.StatusUnauthorized)
-	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", registration.Token, false, http.StatusOK)
+	pulseBody := call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", registration.Token, false, http.StatusOK)
+	if !bytes.Contains(pulseBody, []byte(`"connected":true`)) {
+		t.Fatalf("worker pulse did not report connected: %s", pulseBody)
+	}
 	call(anon, http.MethodGet, "/api/admin/workers", nil, "", registration.Token, false, http.StatusUnauthorized)
 	call(anon, http.MethodGet, "/api/admin/jobs", nil, "", registration.Token, false, http.StatusUnauthorized)
 	call(anon, http.MethodGet, "/api/clips", nil, "", registration.Token, false, http.StatusUnauthorized)
@@ -112,6 +115,41 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	if !bytes.Contains(listed, []byte(`"last_seen_at":`)) {
 		t.Fatalf("worker activity was not recorded: %s", listed)
 	}
+	setPresence := func(age string) {
+		t.Helper()
+		if _, updateErr := pool.Exec(ctx, `UPDATE workers SET last_seen_at=now()-$1::interval WHERE id=$2`, age, registration.ID); updateErr != nil {
+			t.Fatal(updateErr)
+		}
+	}
+	assertConnected := func(want bool) {
+		t.Helper()
+		var page struct {
+			Items []struct {
+				ID        string  `json:"id"`
+				Connected bool    `json:"connected"`
+				RevokedAt *string `json:"revoked_at"`
+			} `json:"items"`
+		}
+		if decodeErr := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/workers", nil, "", "", false, http.StatusOK), &page); decodeErr != nil {
+			t.Fatal(decodeErr)
+		}
+		found := false
+		for _, item := range page.Items {
+			if item.ID == registration.ID && item.Connected != want {
+				t.Fatalf("worker connected=%v, want %v", item.Connected, want)
+			}
+			if item.ID == registration.ID {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("worker %s missing from API response", registration.ID)
+		}
+	}
+	assertConnected(true)
+	setPresence("2 minutes")
+	assertConnected(false)
+	setPresence("0 seconds")
 	var ownerID int64
 	if err = pool.QueryRow(ctx, `SELECT id FROM users WHERE username='administrator'`).Scan(&ownerID); err != nil {
 		t.Fatal(err)
@@ -361,6 +399,7 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	}
 	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(versionV2.ID)+"/complete", []byte(`{"input_version":"v2","result":{"fixture":"current"}}`), "", other.Token, false, versionV2Claim.LeaseToken, http.StatusOK)
 	call(admin, http.MethodDelete, "/api/admin/workers/"+registration.ID, nil, me.CSRF, "", true, http.StatusNoContent)
+	assertConnected(false)
 	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", registration.Token, false, http.StatusUnauthorized)
 	call(admin, http.MethodDelete, "/api/admin/workers/"+other.ID, nil, me.CSRF, "", true, http.StatusNoContent)
 }
