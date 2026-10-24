@@ -31,12 +31,16 @@ test("recherche exacte française, filtres et lecture du passage", async ({ page
     const completion = await workerCall(`/api/worker/jobs/${assignment.job.id}/complete`, { input_version: assignment.job.input_version, result: { provider: "fixture", model: "deterministic-v1", version: "deterministic-v1", language: "fr", audio_stream_index: 2, segments: [{ start: 1.25, end: 2.1, text: "Bien joué !", words: [{ word: "Bien", start: 1.25, end: 1.52 }, { word: "joué", start: 1.55, end: 1.9 }] }] } }, assignment.lease_token);
     const search = await fetch("/api/search?q=JOUE&mode=exact&page=1&page_size=10").then((response) => response.json());
     const fullText = await fetch("/api/search?q=JO&mode=full_text&visibility=private&status=ready&from=2025-01-01&to=2025-01-03").then((response) => response.json());
+    const approximate = await fetch("/api/search?q=jouee&mode=full_text&visibility=private&status=ready&from=2025-01-01&to=2025-01-03").then((response) => response.json());
     const sourceFilter = await fetch("/api/search?q=JOUE&mode=exact&source_id=1").then((response) => response.json());
-    return { clip_id: completed.clip_id, completion: completion.status, search, fullText, sourceFilter };
+    const unrelated = await fetch("/api/search?q=zzzqqq&mode=full_text").then((response) => response.json());
+    return { clip_id: completed.clip_id, completion: completion.status, search, fullText, approximate, sourceFilter, unrelated };
   });
   expect(fixture.completion).toBe(200);
   expect(fixture.search).toMatchObject({ total: 1, page: 1, items: [{ clip_id: fixture.clip_id, match_type: "exact", timestamp: 1.55, matched_text: "joué" }] });
   expect(fixture.fullText).toMatchObject({ total: 1, items: [{ clip_id: fixture.clip_id, match_type: "full_text", timestamp: 1.55 }] });
+  expect(fixture.approximate).toMatchObject({ total: 1, items: [{ clip_id: fixture.clip_id, match_type: "approximate", timestamp: 1.55, matched_text: "joué" }] });
+  expect(fixture.unrelated).toMatchObject({ total: 0, items: [] });
   expect(fixture.sourceFilter.total).toBe(0);
 
   await page.getByLabel("Rechercher dans les paroles").fill("JOUE");
@@ -46,6 +50,14 @@ test("recherche exacte française, filtres et lecture du passage", async ({ page
   const search = page.getByRole("region", { name: "Recherche dans les paroles" });
   await expect(search.getByText("1 résultat · page 1")).toBeVisible();
   await expect(search.locator("mark")).toHaveText("joué");
+  await page.getByLabel("Rechercher dans les paroles").fill("jouee");
+  await page.getByLabel("Type de recherche").selectOption("full_text");
+  await page.getByRole("button", { name: "Rechercher", exact: true }).click();
+  await expect(search.getByText("Correspondance approximative")).toBeVisible();
+  await expect(search.locator("mark")).toHaveText("joué");
+  await page.getByLabel("Rechercher dans les paroles").fill("JOUE");
+  await page.getByLabel("Type de recherche").selectOption("exact");
+  await page.getByRole("button", { name: "Rechercher", exact: true }).click();
   await search.getByRole("button", { name: "Ouvrir à 00:01" }).click();
   await expect(search.getByLabel("Lecture synthetic-search.mp4")).toBeVisible();
   await page.evaluate(() => {
