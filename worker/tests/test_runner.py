@@ -1,7 +1,15 @@
 import hashlib
+import json
+import ssl
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+import httpx
+from receipts_api.client import AuthenticatedClient
 
 from receipts_worker import runner
 
@@ -50,6 +58,40 @@ class FakeProviderTests(unittest.TestCase):
         result = complete.call_args.kwargs["body"].result.to_dict()
         self.assertEqual(result["provider"], "fixture")
         self.assertEqual(result["media_sha256"], hashlib.sha256(media).hexdigest())
+
+    def test_run_once_rejects_untrusted_https_certificate(self):
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"id": "wk_fixture"}).encode())
+
+            def log_message(self, *_args):
+                pass
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        fixture = Path(__file__).parent / "fixtures"
+        tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        tls.load_cert_chain(
+            fixture / "untrusted-test-cert.pem",
+            fixture / "untrusted-test-key.pem",
+        )
+        server.socket = tls.wrap_socket(server.socket, server_side=True)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        self.addCleanup(thread.join, 2)
+        client = AuthenticatedClient(
+            base_url=f"https://localhost:{server.server_port}",
+            token="rw_synthetic-test-token",
+            verify_ssl=True,
+        )
+        self.addCleanup(client.get_httpx_client().close)
+
+        with self.assertRaises(httpx.ConnectError):
+            runner.run_once(client)
 
     @staticmethod
     def _media_response(url, media):
