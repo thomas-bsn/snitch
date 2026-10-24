@@ -67,6 +67,19 @@ type Job struct {
 	CompletedByWorkerID     pgtype.Text        `json:"completed_by_worker_id"`
 	LeaseTokenHash          []byte             `json:"lease_token_hash"`
 	CompletedLeaseTokenHash []byte             `json:"completed_lease_token_hash"`
+	Cycle                   int32              `json:"cycle"`
+}
+
+type JobEvent struct {
+	ID        int64              `json:"id"`
+	JobID     int64              `json:"job_id"`
+	Event     string             `json:"event"`
+	Cycle     int32              `json:"cycle"`
+	Attempt   pgtype.Int4        `json:"attempt"`
+	Actor     string             `json:"actor"`
+	ActorID   string             `json:"actor_id"`
+	ErrorCode string             `json:"error_code"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type OauthState struct {

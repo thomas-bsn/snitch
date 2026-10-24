@@ -27,12 +27,14 @@ class JobInput:
             step (str):
             input_version (str):
             priority (int | Unset):  Default: 0.
+            max_attempts (int | Unset):  Default: 3.
      """
 
     clip_id: int
     step: str
     input_version: str
     priority: int | Unset = 0
+    max_attempts: int | Unset = 3
 
 
 
@@ -47,6 +49,8 @@ class JobInput:
 
         priority = self.priority
 
+        max_attempts = self.max_attempts
+
 
         field_dict: dict[str, Any] = {}
 
@@ -57,6 +61,8 @@ class JobInput:
         })
         if priority is not UNSET:
             field_dict["priority"] = priority
+        if max_attempts is not UNSET:
+            field_dict["max_attempts"] = max_attempts
 
         return field_dict
 
@@ -73,11 +79,14 @@ class JobInput:
 
         priority = d.pop("priority", UNSET)
 
+        max_attempts = d.pop("max_attempts", UNSET)
+
         job_input = cls(
             clip_id=clip_id,
             step=step,
             input_version=input_version,
             priority=priority,
+            max_attempts=max_attempts,
         )
 
         return job_input

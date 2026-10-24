@@ -146,6 +146,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)
 	})
+	t.Run("job retry and cancellation", func(t *testing.T) {
+		reset(t)
+		testJobRetryOperations(t, pool)
+	})
 	t.Run("worker authentication and registration", func(t *testing.T) {
 		reset(t)
 		testWorkerRegistration(t, pool)
