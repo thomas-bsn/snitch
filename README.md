@@ -30,7 +30,7 @@ Continuer sans Discord, ou ouvrir « Accès et Discord » pour saisir les identi
 - [Déploiement Forgeyard, variables et migrations](docs/deployment.md)
 - [Développement, tests et CI](docs/development.md) · [Contribution](CONTRIBUTING.md)
 - [Sauvegarde et restauration](docs/backups.md) · [Licences des distributions](deploy/NOTICES.md)
-- [Bilan et mesures de phase 0](docs/phase-0-report.md) · [Bilan de phase 1](docs/phase-1-report.md) · [Roadmap](ROADMAP.md) · [Spec de phase 1](docs/specs/phase-1.md) · [Glossaire](GLOSSARY.md)
+- [Bilan et mesures de phase 0](docs/phase-0-report.md) · [Bilan de phase 1](docs/phase-1-report.md) · [Roadmap](ROADMAP.md) · [Specs de phase 1](docs/specs/phase-1.md) et [phase 2](docs/specs/phase-2.md) · [Glossaire](GLOSSARY.md)
 
 Les administrateurs peuvent ajouter des dossiers sous les racines configurées. Le scan garde l’historique des emplacements disparus et évite de déclarer des fichiers manquants si un dossier est inaccessible ou si le parcours est incomplet. Une empreinte SHA-256 permet de relier le même contenu à plusieurs emplacements ; remplacer le contenu d’un chemin crée une nouvelle identité de clip. Une disparition d’au moins 20 % des fichiers suivis produit un avertissement de santé. Voir la [décision de réconciliation](docs/adr/0010-identite-et-reconciliation-des-clips.md).
 
