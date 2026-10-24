@@ -1,6 +1,6 @@
 # Snitch / Receipts
 
-Receipts (nom d’affichage configurable) est un socle open source MIT pour une bibliothèque de clips de jeu. Il propose les comptes locaux, l’approbation, Discord facultatif, les imports vidéo reprenables et la réconciliation de dossiers autorisés. Recherche avancée et worker GPU restent à venir. Aucun modèle n’est nécessaire.
+Receipts (nom d’affichage configurable) est un socle open source MIT pour une bibliothèque de clips de jeu. Il propose les comptes locaux, l’approbation, Discord facultatif, les imports vidéo reprenables, la réconciliation de dossiers autorisés et un worker distant sécurisé. Les étapes IA et la recherche avancée restent à venir ; aucun modèle n’est nécessaire à ce stade.
 
 ## Essayer localement
 
@@ -32,8 +32,8 @@ Le worker de phase 2 est une image autonome, absente de Compose : l’administra
 - [Déploiement Forgeyard, variables et migrations](docs/deployment.md)
 - [Développement, tests et CI](docs/development.md) · [Contribution](CONTRIBUTING.md)
 - [Sauvegarde et restauration](docs/backups.md) · [Licences des distributions](deploy/NOTICES.md)
-- [Bilan et mesures de phase 0](docs/phase-0-report.md) · [Bilan de phase 1](docs/phase-1-report.md) · [Roadmap](ROADMAP.md) · [Specs de phase 1](docs/specs/phase-1.md) et [phase 2](docs/specs/phase-2.md) · [Glossaire](GLOSSARY.md)
+- [Bilans de phases 0](docs/phase-0-report.md), [1](docs/phase-1-report.md) et [2](docs/phase-2-report.md) · [Roadmap](ROADMAP.md) · [Specs de phase 1](docs/specs/phase-1.md) et [phase 2](docs/specs/phase-2.md) · [Glossaire](GLOSSARY.md)
 
 Les administrateurs peuvent ajouter des dossiers sous les racines configurées. Le scan garde l’historique des emplacements disparus et évite de déclarer des fichiers manquants si un dossier est inaccessible ou si le parcours est incomplet. Une empreinte SHA-256 permet de relier le même contenu à plusieurs emplacements ; remplacer le contenu d’un chemin crée une nouvelle identité de clip. Une disparition d’au moins 20 % des fichiers suivis produit un avertissement de santé. Voir la [décision de réconciliation](docs/adr/0010-identite-et-reconciliation-des-clips.md).
 
-Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. La phase 1 est validée ; la phase 2 est en cours d’implémentation, avec le contrôle worker HTTPS et le fournisseur factice en place. Le benchmark réel de phase 7 demande une autorisation séparée.
+Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. La phase 1 est validée ; la phase 2 est implémentée localement et attend sa validation finale avant la phase 3. Le benchmark réel de phase 7 demande une autorisation séparée.
