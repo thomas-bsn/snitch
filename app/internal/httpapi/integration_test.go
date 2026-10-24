@@ -85,7 +85,7 @@ func TestFoundation(t *testing.T) {
 	})
 	reset := func(t *testing.T) {
 		t.Helper()
-		_, e := pool.Exec(ctx, `TRUNCATE sessions,oauth_states,settings,users RESTART IDENTITY CASCADE; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true`)
+		_, e := pool.Exec(ctx, `TRUNCATE sessions,oauth_states,settings,users RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true`)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -267,6 +267,8 @@ func TestFoundation(t *testing.T) {
 			CSRF string `json:"csrf_token"`
 		}
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
+		call(client, "GET", "/api/admin/job-controls", nil, "", 200)
+		call(client, "PUT", "/api/admin/job-controls", map[string]any{"paused": false, "max_concurrency": 2}, me.CSRF, 200)
 		call(client, "GET", "/api/clips", nil, "", 200)
 		call(client, "GET", "/api/clips/999999", nil, "", 404)
 		var adminID, contractClipID int64
@@ -284,6 +286,8 @@ func TestFoundation(t *testing.T) {
 			t.Fatalf("contract worker job: %s %v", contractJobBody, e)
 		}
 		call(client, "GET", "/api/admin/jobs?status=pending", nil, "", 200)
+		contractJobPath := "/api/admin/jobs/" + strconv64(contractJob.ID)
+		call(client, "GET", contractJobPath+"/history", nil, "", 200)
 		workerBody := call(client, "POST", "/api/admin/workers", map[string]any{"name": "contract-worker", "max_concurrency": 1}, me.CSRF, 201)
 		var contractWorker struct {
 			ID    string `json:"id"`
@@ -311,7 +315,13 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", workerJobPath+"/media", nil, "", 404)
 		call(client, "POST", workerJobPath+"/heartbeat", map[string]any{}, "", 200)
 		call(client, "POST", workerJobPath+"/complete", map[string]any{"input_version": "contract-v1", "result": map[string]any{"fixture": true}}, "", 200)
-		call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.failure", "input_version": "failure-v1"}, me.CSRF, 201)
+		failedJobBody := call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.failure", "input_version": "failure-v1", "max_attempts": 1}, me.CSRF, 201)
+		var failedContractJob struct {
+			ID int64 `json:"id"`
+		}
+		if e = json.Unmarshal(failedJobBody, &failedContractJob); e != nil || failedContractJob.ID < 1 {
+			t.Fatalf("contract failure job: %s %v", failedJobBody, e)
+		}
 		failedClaim := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var failedJob struct {
 			LeaseToken string `json:"lease_token"`
@@ -325,6 +335,10 @@ func TestFoundation(t *testing.T) {
 		leaseToken = failedJob.LeaseToken
 		call(client, "POST", "/api/worker/jobs/"+strconv64(failedJob.Job.ID)+"/fail", map[string]any{"error": "provider_unavailable"}, "", 200)
 		workerToken = ""
+		failedPath := "/api/admin/jobs/" + strconv64(failedContractJob.ID)
+		call(client, "GET", failedPath+"/history", nil, "", 200)
+		call(client, "POST", failedPath+"/retry", nil, me.CSRF, 200)
+		call(client, "DELETE", failedPath, nil, me.CSRF, 204)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
 		call(client, "POST", "/api/auth/logout", nil, "wrong", 403)
 		call(client, "PUT", "/api/admin/settings", map[string]any{"client_id": "test-id", "client_secret": "secret-test-only", "registration_approval": true}, me.CSRF, 200)

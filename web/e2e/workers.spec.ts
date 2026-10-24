@@ -24,9 +24,11 @@ test("un administrateur crée un worker puis révoque son jeton", async ({
     "synthetic-worker",
   );
 
-  await page.getByRole("button", { name: "Révoquer le jeton" }).click();
-  await expect(page.getByRole("list", { name: "Workers" })).toContainText(
-    "Révoqué",
-  );
+  const worker = page
+    .getByRole("list", { name: "Workers" })
+    .getByRole("listitem")
+    .filter({ hasText: "synthetic-worker" });
+  await worker.getByRole("button", { name: "Révoquer le jeton" }).click();
+  await expect(worker).toContainText("Révoqué");
   await expect(token).toHaveCount(0);
 });

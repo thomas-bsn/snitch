@@ -9,6 +9,8 @@ from .credentials import Credentials
 from .error import Error
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
 from .job import Job
+from .job_controls import JobControls
+from .job_controls_input import JobControlsInput
 from .job_event import JobEvent
 from .job_event_actor import JobEventActor
 from .job_event_event import JobEventEvent
@@ -67,6 +69,8 @@ __all__ = (
     "Error",
     "HeartbeatWorkerJobResponse200",
     "Job",
+    "JobControls",
+    "JobControlsInput",
     "JobEvent",
     "JobEventActor",
     "JobEventEvent",

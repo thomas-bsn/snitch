@@ -70,6 +70,13 @@ type Job struct {
 	Cycle                   int32              `json:"cycle"`
 }
 
+type JobControl struct {
+	ID             bool               `json:"id"`
+	Paused         bool               `json:"paused"`
+	MaxConcurrency int32              `json:"max_concurrency"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type JobEvent struct {
 	ID        int64              `json:"id"`
 	JobID     int64              `json:"job_id"`

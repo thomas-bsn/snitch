@@ -77,13 +77,18 @@ test("un administrateur planifie et filtre une tâche persistante", async ({
     if (!response.ok) throw new Error("synthetic worker registration failed");
     return (await response.json()).token as string;
   });
-  const workerRequest = async (path: string, body?: unknown) =>
+  const workerRequest = async (
+    path: string,
+    body?: unknown,
+    leaseToken?: string,
+  ) =>
     page.evaluate(
-      async ({ path, body, token }) => {
+      async ({ path, body, token, leaseToken }) => {
         const response = await fetch(path, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
+            ...(leaseToken ? { "X-Worker-Lease-Token": leaseToken } : {}),
             ...(body ? { "Content-Type": "application/json" } : {}),
           },
           body: body ? JSON.stringify(body) : undefined,
@@ -92,13 +97,17 @@ test("un administrateur planifie et filtre une tâche persistante", async ({
           throw new Error(`synthetic worker request failed: ${path}`);
         return response.json();
       },
-      { path, body, token: workerToken },
+      { path, body, token: workerToken, leaseToken },
     );
   await workerRequest("/api/worker/pulse", { capacity: 1 });
   const lease = await workerRequest("/api/worker/jobs/claim");
-  await workerRequest(`/api/worker/jobs/${lease.job.id}/fail`, {
-    error: "invalid_input",
-  });
+  await workerRequest(
+    `/api/worker/jobs/${lease.job.id}/fail`,
+    {
+      error: "invalid_input",
+    },
+    lease.lease_token,
+  );
   await page.getByLabel("État de la tâche").selectOption("dead");
   await page.getByRole("button", { name: "Filtrer les tâches" }).click();
   await expect(page.getByRole("list", { name: "Tâches" })).toContainText(
