@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -167,56 +168,13 @@ func (s *Server) serveClipMedia(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT cs.root_path,sf.relative_path FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=$1 AND sf.status='ready' AND cs.enabled ORDER BY sf.modified_at DESC`, v.ID)
+	candidate, err := s.resolveClipMedia(r.Context(), v.ID)
+	if errors.Is(err, os.ErrNotExist) {
+		fail(w, 404, "media_not_found")
+		return
+	}
 	if err != nil {
 		s.internal(w, err)
-		return
-	}
-	var candidate string
-	for rows.Next() {
-		var root, relative string
-		if rows.Scan(&root, &relative) != nil {
-			continue
-		}
-		base, e := filepath.EvalSymlinks(root)
-		if e != nil {
-			continue
-		}
-		path := filepath.Join(base, filepath.FromSlash(relative))
-		resolved, e := filepath.EvalSymlinks(path)
-		if e != nil || !inside(base, resolved) {
-			continue
-		}
-		info, e := os.Stat(resolved)
-		if e != nil || !info.Mode().IsRegular() {
-			continue
-		}
-		candidate = resolved
-		break
-	}
-	rows.Close()
-	if candidate == "" {
-		var key string
-		err = s.Pool.QueryRow(r.Context(), `SELECT um.storage_key FROM uploaded_media um WHERE um.clip_id=$1 ORDER BY um.created_at DESC LIMIT 1`, v.ID).Scan(&key)
-		if err == nil {
-			root, rootErr := filepath.EvalSymlinks(s.Uploads.MediaRoot())
-			if rootErr == nil {
-				candidate = filepath.Join(root, key+".media")
-			}
-		}
-	}
-	if candidate == "" {
-		fail(w, 404, "media_not_found")
-		return
-	}
-	resolved, resolveErr := filepath.EvalSymlinks(candidate)
-	if resolveErr != nil || resolved != candidate {
-		fail(w, 404, "media_not_found")
-		return
-	}
-	linkInfo, linkErr := os.Lstat(candidate)
-	if linkErr != nil || linkInfo.Mode()&os.ModeSymlink != 0 || !linkInfo.Mode().IsRegular() {
-		fail(w, 404, "media_not_found")
 		return
 	}
 	f, err := os.Open(candidate)
@@ -271,6 +229,64 @@ func (s *Server) serveClipMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = f.Seek(start, io.SeekStart)
 	_, _ = io.CopyN(w, f, end-start+1)
+}
+
+func (s *Server) resolveClipMedia(ctx context.Context, clipID int64) (string, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT cs.root_path,sf.relative_path FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=$1 AND sf.status='ready' AND cs.enabled ORDER BY sf.modified_at DESC`, clipID)
+	if err != nil {
+		return "", fmt.Errorf("query clip source media: %w", err)
+	}
+	var candidate string
+	for rows.Next() {
+		var root, relative string
+		if rows.Scan(&root, &relative) != nil {
+			continue
+		}
+		base, e := filepath.EvalSymlinks(root)
+		if e != nil {
+			continue
+		}
+		path := filepath.Join(base, filepath.FromSlash(relative))
+		resolved, e := filepath.EvalSymlinks(path)
+		if e != nil || !inside(base, resolved) {
+			continue
+		}
+		info, e := os.Stat(resolved)
+		if e != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		candidate = resolved
+		break
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return "", fmt.Errorf("read clip source media: %w", err)
+	}
+	rows.Close()
+	if candidate == "" {
+		var key string
+		err = s.Pool.QueryRow(ctx, `SELECT um.storage_key FROM uploaded_media um WHERE um.clip_id=$1 ORDER BY um.created_at DESC LIMIT 1`, clipID).Scan(&key)
+		if err == nil {
+			root, rootErr := filepath.EvalSymlinks(s.Uploads.MediaRoot())
+			if rootErr == nil {
+				candidate = filepath.Join(root, key+".media")
+			}
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return "", fmt.Errorf("query uploaded clip media: %w", err)
+		}
+	}
+	if candidate == "" {
+		return "", os.ErrNotExist
+	}
+	resolved, err := filepath.EvalSymlinks(candidate)
+	if err != nil || resolved != candidate {
+		return "", os.ErrNotExist
+	}
+	info, err := os.Lstat(candidate)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return "", os.ErrNotExist
+	}
+	return candidate, nil
 }
 
 func inside(root, path string) bool {

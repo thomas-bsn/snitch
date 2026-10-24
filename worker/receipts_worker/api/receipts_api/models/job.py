@@ -9,9 +9,12 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.job_status import JobStatus
+from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
+if TYPE_CHECKING:
+  from ..models.job_result_type_0 import JobResultType0
 
 
 
@@ -39,6 +42,7 @@ class Job:
             last_error (str):
             created_at (datetime.datetime):
             updated_at (datetime.datetime):
+            result (JobResultType0 | None | Unset):
      """
 
     id: int
@@ -55,6 +59,7 @@ class Job:
     last_error: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
+    result: JobResultType0 | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -62,6 +67,7 @@ class Job:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.job_result_type_0 import JobResultType0 # noqa: PLC0415
         id = self.id
 
         clip_id = self.clip_id
@@ -95,6 +101,14 @@ class Job:
 
         updated_at = self.updated_at.isoformat()
 
+        result: dict[str, Any] | None | Unset
+        if isinstance(self.result, Unset):
+            result = UNSET
+        elif isinstance(self.result, JobResultType0):
+            result = self.result.to_dict()
+        else:
+            result = self.result
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -114,6 +128,8 @@ class Job:
             "created_at": created_at,
             "updated_at": updated_at,
         })
+        if result is not UNSET:
+            field_dict["result"] = result
 
         return field_dict
 
@@ -121,6 +137,7 @@ class Job:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.job_result_type_0 import JobResultType0 # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -184,6 +201,26 @@ class Job:
 
 
 
+        def _parse_result(data: object) -> JobResultType0 | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                result_type_0 = JobResultType0.from_dict(data)
+
+
+
+                return result_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(JobResultType0 | None | Unset, data)
+
+        result = _parse_result(d.pop("result", UNSET))
+
+
         job = cls(
             id=id,
             clip_id=clip_id,
@@ -199,6 +236,7 @@ class Job:
             last_error=last_error,
             created_at=created_at,
             updated_at=updated_at,
+            result=result,
         )
 
 

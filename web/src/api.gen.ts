@@ -302,6 +302,155 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Les jetons ne sont jamais renvoyés après leur création. */
+    get: operations["listWorkers"];
+    put?: never;
+    /** @description Administrateurs uniquement. */
+    post: operations["registerWorker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. L’historique du worker est conservé. */
+    delete: operations["revokeWorker"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/pulse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["workerPulse"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/jobs/claim": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["claimWorkerJob"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/jobs/{id}/input": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description L’accès est limité aux tâches détenues par le worker. Aucun chemin système n’est exposé. */
+    get: operations["getWorkerJobInput"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/jobs/{id}/media": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description L’accès média exige un lease détenu par le worker. Les réponses n’exposent aucun chemin système. */
+    get: operations["getWorkerJobMedia"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/jobs/{id}/heartbeat": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["heartbeatWorkerJob"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/jobs/{id}/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["completeWorkerJob"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/jobs/{id}/fail": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["failWorkerJob"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/sources": {
     parameters: {
       query?: never;
@@ -540,6 +689,9 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       updated_at: string;
+      result?: {
+        [key: string]: unknown;
+      } | null;
     };
     JobInput: {
       /** Format: int64 */
@@ -555,6 +707,64 @@ export interface components {
       page_size: number;
       /** Format: int64 */
       total: number;
+    };
+    Worker: {
+      id: string;
+      name: string;
+      max_concurrency: number;
+      reported_concurrency: number;
+      /** Format: date-time */
+      last_seen_at: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      revoked_at: string | null;
+    };
+    WorkerRegistrationInput: {
+      name: string;
+      max_concurrency: number;
+    };
+    WorkerRegistration: {
+      id: string;
+      name: string;
+      max_concurrency: number;
+      reported_concurrency: number;
+      /** Format: date-time */
+      last_seen_at: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      revoked_at: string | null;
+      token: string;
+    };
+    WorkerPage: {
+      items: components["schemas"]["Worker"][];
+    };
+    WorkerPulseInput: {
+      capacity: number;
+    };
+    WorkerClaim: {
+      job: components["schemas"]["Job"] | null;
+    };
+    WorkerJobInput: {
+      job: components["schemas"]["Job"];
+      original_name: string;
+      /** Format: int64 */
+      size_bytes: number;
+      duration_seconds?: number | null;
+      video_codec: string;
+      audio_codec: string;
+      tracks: Record<string, never>[];
+      media_url: string;
+    };
+    WorkerResultInput: {
+      input_version: string;
+      result: {
+        [key: string]: unknown;
+      };
+    };
+    WorkerFailureInput: {
+      error: string;
     };
     Source: {
       /** Format: int64 */
@@ -1439,6 +1649,339 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid task, 404 clip not found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listWorkers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Workers enregistrés, sans leurs secrets */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerPage"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  registerWorker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerRegistrationInput"];
+      };
+    };
+    responses: {
+      /** @description Worker créé ; le jeton brut est retourné une seule fois */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerRegistration"];
+        };
+      };
+      /** @description Erreur de validation ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  revokeWorker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Jeton révoqué */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Worker introuvable ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  workerPulse: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerPulseInput"];
+      };
+    };
+    responses: {
+      /** @description Worker authentifié et activité mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Worker"];
+        };
+      };
+      /** @description Jeton invalide ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  claimWorkerJob: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Tâche attribuée ou file vide */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerClaim"];
+        };
+      };
+      /** @description Jeton invalide ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerJobInput: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Métadonnées et média du job attribué */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerJobInput"];
+        };
+      };
+      /** @description Jeton invalide, tâche non détenue ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerJobMedia: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Original du clip assigné */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+        };
+      };
+      /** @description Plage de l’original du clip assigné */
+      206: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+        };
+      };
+      /** @description Jeton invalide, tâche non détenue ou média introuvable */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  heartbeatWorkerJob: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Lease renouvelé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            renewed: boolean;
+          };
+        };
+      };
+      /** @description Jeton invalide, lease perdu ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  completeWorkerJob: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerResultInput"];
+      };
+    };
+    responses: {
+      /** @description Résultat enregistré */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Job"];
+        };
+      };
+      /** @description Résultat invalide, lease perdu ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  failWorkerJob: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerFailureInput"];
+      };
+    };
+    responses: {
+      /** @description Échec enregistré */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Job"];
+        };
+      };
+      /** @description Erreur invalide, lease perdu ou serveur indisponible */
       default: {
         headers: {
           [name: string]: unknown;
