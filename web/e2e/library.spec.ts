@@ -50,7 +50,7 @@ test("un membre filtre la bibliothèque et lit une plage d’un clip partagé ou
     page.getByText("synthetic-private.mp4", { exact: true }),
   ).toBeVisible();
   await page.getByRole("combobox").nth(1).selectOption("shared");
-  await page.getByRole("button", { name: "Filtrer" }).click();
+  await page.getByRole("button", { name: "Filtrer", exact: true }).click();
   await expect(
     page.getByText("synthetic-private.mp4", { exact: true }),
   ).toHaveCount(0);

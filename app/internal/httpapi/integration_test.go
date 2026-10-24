@@ -470,6 +470,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("RECEIPTS_E2E_JOBS") == "1" {
 			suites = []string{"jobs.spec.ts"}
 		}
+		if os.Getenv("RECEIPTS_E2E_WORKERS") == "1" {
+			suites = []string{"workers.spec.ts"}
+		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
 				reset(t)

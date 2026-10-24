@@ -53,6 +53,12 @@ function checked<T>(result: { data?: T; error?: { error: string } }): T {
   if (!result.data) throw new Error("Réponse du serveur absente.");
   return result.data;
 }
+function checkedNoContent(result: { error?: { error: string } }): void {
+  if (result.error)
+    throw new Error(
+      messages[result.error.error] ?? "La demande a échoué. Réessayez.",
+    );
+}
 function App() {
   const [setup, setSetup] = useState<Setup>();
   const [session, setSession] = useState<Session>();
@@ -209,7 +215,7 @@ function App() {
   }
   async function revokeWorker(worker: Worker) {
     await run(async () => {
-      checked(
+      checkedNoContent(
         await api.DELETE("/api/admin/workers/{id}", {
           params: { path: { id: worker.id }, header: csrf },
         }),
