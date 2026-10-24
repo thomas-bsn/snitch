@@ -35,18 +35,20 @@ import (
 )
 
 type Server struct {
-	Pool          *pgxpool.Pool
-	Config        config.Config
-	Log           *slog.Logger
-	Client        *http.Client
-	Store         settings.Store
-	Library       *library.Service
-	Jobs          *jobs.Service
-	Uploads       *uploads.Service
-	Workers       *workers.Service
-	rates         sync.Map
-	passwordSlots chan struct{}
-	dummyPassword string
+	Pool            *pgxpool.Pool
+	Config          config.Config
+	Log             *slog.Logger
+	Client          *http.Client
+	Store           settings.Store
+	Library         *library.Service
+	Jobs            *jobs.Service
+	Uploads         *uploads.Service
+	Workers         *workers.Service
+	rates           sync.Map
+	embeddingCancel context.CancelFunc
+	embeddingWG     sync.WaitGroup
+	passwordSlots   chan struct{}
+	dummyPassword   string
 }
 type session struct {
 	User database.GetUserRow
@@ -68,6 +70,9 @@ func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	if err := s.ensureEmbeddingProfile(ctx); err != nil {
+		return fmt.Errorf("initialize embedding profile: %w", err)
+	}
 	if err := s.Uploads.Start(ctx); err != nil {
 		return fmt.Errorf("start uploads: %w", err)
 	}
@@ -75,9 +80,24 @@ func (s *Server) Start(ctx context.Context) error {
 		s.Uploads.Close()
 		return fmt.Errorf("start library: %w", err)
 	}
+	if s.Config.EmbeddingsURL != "" {
+		embeddingCtx, cancel := context.WithCancel(ctx)
+		s.embeddingCancel = cancel
+		for worker := 0; worker < 4; worker++ {
+			s.embeddingWG.Add(1)
+			go func() { defer s.embeddingWG.Done(); s.embeddingLoop(embeddingCtx) }()
+		}
+	}
 	return nil
 }
-func (s *Server) Close() { s.Library.Close(); s.Uploads.Close() }
+func (s *Server) Close() {
+	if s.embeddingCancel != nil {
+		s.embeddingCancel()
+	}
+	s.embeddingWG.Wait()
+	s.Library.Close()
+	s.Uploads.Close()
+}
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health/live", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]string{"status": "ok"}) })
@@ -133,6 +153,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/uploads/{id}", s.protected(false, http.HandlerFunc(s.cancelUpload)))
 	mux.Handle("GET /api/clips", s.protected(false, http.HandlerFunc(s.listClips)))
 	mux.Handle("GET /api/search", s.protected(false, http.HandlerFunc(s.search)))
+	mux.Handle("GET /api/admin/embeddings", s.protected(true, http.HandlerFunc(s.embeddingStatus)))
+	mux.Handle("POST /api/admin/embeddings/backfill", s.protected(true, http.HandlerFunc(s.backfillEmbeddings)))
+	mux.Handle("POST /api/admin/embeddings/rebuild", s.protected(true, http.HandlerFunc(s.rebuildEmbeddings)))
 	mux.Handle("GET /api/clips/{id}", s.protected(false, http.HandlerFunc(s.getClip)))
 	mux.Handle("POST /api/admin/clips/{id}/transcription", s.protected(true, http.HandlerFunc(s.scheduleTranscription)))
 	mux.Handle("GET /api/admin/transcriptions/batch-preview", s.protected(true, http.HandlerFunc(s.batchTranscriptionPreview)))
@@ -337,9 +360,15 @@ func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 	}
 	status := "degraded"
 	// No model is installed implicitly. The probe checks the provider, never indexes media.
-	if s.Config.EmbeddingsURL != "" && s.Config.EmbeddingsModel != "" {
-		body := strings.NewReader(`{"model":` + strconv.Quote(s.Config.EmbeddingsModel) + `,"input":"health"}`)
-		req, err := http.NewRequestWithContext(ctx, "POST", s.Config.EmbeddingsURL, body)
+	model := s.Config.EmbeddingsModel
+	var activeModel string
+	if err := s.Pool.QueryRow(ctx, `SELECT p.model FROM embedding_index_state i JOIN embedding_profiles p ON p.id=i.active_profile_id WHERE i.id=1`).Scan(&activeModel); err == nil && activeModel != "" {
+		model = activeModel
+	}
+	if s.Config.EmbeddingsURL != "" && model != "" {
+		body, _ := json.Marshal(embeddingBatch{Model: model, Input: []string{"health"}})
+		requestBody := strings.NewReader(string(body))
+		req, err := http.NewRequestWithContext(ctx, "POST", s.Config.EmbeddingsURL, requestBody)
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
 			resp, e := s.Client.Do(req)

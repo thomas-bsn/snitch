@@ -468,6 +468,15 @@ func (s *Service) Complete(ctx context.Context, id int64, workerID, leaseToken, 
 		return Job{}, fmt.Errorf("complete worker job: %w", err)
 	}
 	if newlyCompleted {
+		if strings.HasPrefix(job.Step, "transcription.audio.") {
+			var embeddingStateID int
+			if err = tx.QueryRow(ctx, `SELECT id FROM embedding_index_state WHERE id=1 FOR SHARE`).Scan(&embeddingStateID); err != nil {
+				return Job{}, fmt.Errorf("lock embedding profile state: %w", err)
+			}
+			if _, err = tx.Exec(ctx, `INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT p.id,$1 FROM embedding_profiles p JOIN embedding_index_state s ON s.id=1 WHERE p.id=s.active_profile_id OR p.id=s.candidate_profile_id ON CONFLICT(profile_id,transcription_job_id) DO NOTHING`, id); err != nil {
+				return Job{}, fmt.Errorf("queue transcript embeddings: %w", err)
+			}
+		}
 		if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id) VALUES($1,'completed',$2,$3,'worker',$4)`, id, job.Cycle, job.Attempts, workerID); err != nil {
 			return Job{}, fmt.Errorf("record completed job: %w", err)
 		}

@@ -114,6 +114,7 @@ function App() {
   const [searchPage, setSearchPage] = useState(1);
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchDegraded, setSearchDegraded] = useState(false);
   const [searchFilters, setSearchFilters] = useState({
     from: "",
     to: "",
@@ -137,6 +138,25 @@ function App() {
   const [vocabularyVersion, setVocabularyVersion] = useState("");
   const [pipeline, setPipeline] = useState<TranscriptionPipeline>();
   const [pipelineVersion, setPipelineVersion] = useState("");
+  const [embeddingState, setEmbeddingState] = useState<{
+    configured: boolean;
+    provider: string;
+    model: string;
+    dimensions: number;
+    state: string;
+    error?: string;
+    pending: number;
+    done: number;
+    failed: number;
+    candidate_model?: string;
+    candidate_state?: string;
+    candidate_error?: string;
+    candidate_total?: number;
+    candidate_done?: number;
+    candidate_pending?: number;
+    candidate_failed?: number;
+  }>();
+  const [embeddingModel, setEmbeddingModel] = useState("");
   const [editingTerm, setEditingTerm] = useState<VocabularyTerm>();
   const [newWorkerToken, setNewWorkerToken] = useState("");
   const [jobPage, setJobPage] = useState(1);
@@ -213,6 +233,7 @@ function App() {
       setSettings(checked(await api.GET("/api/admin/settings")));
       await refreshVocabulary();
       await refreshPipeline();
+      await refreshEmbeddings();
       setPending(checked(await api.GET("/api/admin/users")));
       await refreshJobs(1);
       await refreshJobControls();
@@ -294,6 +315,7 @@ function App() {
     setSearchResults(result.items);
     setSearchTotal(result.total);
     setSearchPage(result.page);
+    setSearchDegraded(Boolean(result.degraded));
   }
   async function refreshVocabulary() {
     const result = checked(await api.GET("/api/admin/vocabulary"));
@@ -304,6 +326,47 @@ function App() {
     const result = checked(await api.GET("/api/admin/transcription-pipeline"));
     setPipeline(result.config);
     setPipelineVersion(result.version);
+  }
+  async function refreshEmbeddings() {
+    const response = await fetch("/api/admin/embeddings", {
+      credentials: "same-origin",
+    });
+    if (response.ok) setEmbeddingState(await response.json());
+  }
+  useEffect(() => {
+    if (session?.user.role !== "admin") return;
+    const timer = window.setInterval(() => {
+      void refreshEmbeddings();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [session?.user.role]);
+  async function backfillEmbeddings() {
+    const response = await fetch("/api/admin/embeddings/backfill", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: csrf,
+    });
+    if (!response.ok)
+      throw new Error(
+        "Impossible de lancer l’indexation des transcriptions existantes.",
+      );
+    const result = await response.json();
+    setNotice(`${result.queued} transcription(s) ajoutée(s) à l’indexation.`);
+    await refreshEmbeddings();
+  }
+  async function rebuildEmbeddings() {
+    const response = await fetch("/api/admin/embeddings/rebuild", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { ...csrf, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: embeddingModel }),
+    });
+    if (!response.ok)
+      throw new Error("Impossible de lancer la reconstruction de l’index.");
+    setNotice(
+      "Nouvel index en préparation. L’index actif reste utilisé pendant le traitement.",
+    );
+    await refreshEmbeddings();
   }
   async function savePipeline(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1131,6 +1194,7 @@ function App() {
                       >
                         <option value="full_text">Plein texte</option>
                         <option value="exact">Mot exact</option>
+                        <option value="hybrid">Sémantique + plein texte</option>
                       </select>
                     </label>
                     <label>
@@ -1214,6 +1278,12 @@ function App() {
                     </label>
                     <button disabled={busy}>Rechercher</button>
                   </form>
+                  {searchDegraded && (
+                    <p role="status">
+                      Recherche sémantique indisponible : résultats en plein
+                      texte.
+                    </p>
+                  )}
                   {searchResults.length > 0 && (
                     <>
                       <p role="status">
@@ -1236,7 +1306,11 @@ function App() {
                               ? "Correspondance exacte"
                               : item.match_type === "approximate"
                                 ? "Correspondance approximative"
-                                : "Plein texte"}
+                                : item.match_type === "semantic"
+                                  ? "Correspondance sémantique"
+                                  : item.match_type === "hybrid"
+                                    ? "Sémantique + plein texte"
+                                    : "Plein texte"}
                             <p>
                               {highlighted(item.context, item.matched_text)}
                             </p>
@@ -1722,6 +1796,82 @@ function App() {
                   <button disabled={busy} onClick={() => discord(true)}>
                     Lier Discord
                   </button>
+                </section>
+              )}
+              {session.user.role === "admin" && embeddingState && (
+                <section className="card" aria-label="Index sémantique">
+                  <h2>Index sémantique</h2>
+                  <p>
+                    {embeddingState.configured
+                      ? `${embeddingState.provider} · Modèle ${embeddingState.model} · ${embeddingState.dimensions || "dimension à détecter"} dimensions`
+                      : "Service d’embeddings non configuré. La recherche lexicale reste disponible."}
+                  </p>
+                  <p>
+                    État : {embeddingState.state} · {embeddingState.pending} en
+                    attente · {embeddingState.done} indexées ·{" "}
+                    {embeddingState.failed} en échec
+                  </p>
+                  {embeddingState.error && (
+                    <p role="status">Erreur : {embeddingState.error}</p>
+                  )}
+                  <button
+                    className="secondary"
+                    disabled={busy || !embeddingState.configured}
+                    onClick={() => run(backfillEmbeddings)}
+                  >
+                    Indexer les transcriptions existantes
+                  </button>
+                  {embeddingState.candidate_state &&
+                  embeddingState.candidate_state !== "failed" ? (
+                    <>
+                      <p role="status">
+                        Index candidat {embeddingState.candidate_model} ·{" "}
+                        {embeddingState.candidate_state} ·{" "}
+                        {embeddingState.candidate_done}/
+                        {embeddingState.candidate_total} indexées ·{" "}
+                        {embeddingState.candidate_pending} en attente ·{" "}
+                        {embeddingState.candidate_failed} en échec
+                      </p>
+                      {embeddingState.candidate_error && (
+                        <p role="status">
+                          Erreur : {embeddingState.candidate_error}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        run(rebuildEmbeddings);
+                      }}
+                    >
+                      {embeddingState.candidate_state === "failed" && (
+                        <p role="status">
+                          La reconstruction a échoué. L’index actif reste
+                          utilisé ; vous pouvez relancer la préparation.
+                        </p>
+                      )}
+                      <label>
+                        Modèle à reconstruire
+                        <input
+                          value={embeddingModel || embeddingState.model}
+                          onChange={(event) =>
+                            setEmbeddingModel(event.target.value)
+                          }
+                          maxLength={128}
+                          required
+                        />
+                      </label>
+                      <button
+                        className="secondary"
+                        disabled={busy || !embeddingState.configured}
+                      >
+                        {embeddingState.candidate_state === "failed"
+                          ? "Recommencer la reconstruction"
+                          : "Reconstruire et basculer l’index"}
+                      </button>
+                    </form>
+                  )}
                 </section>
               )}
               {session.user.role === "admin" && settings && (

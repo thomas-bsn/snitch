@@ -56,6 +56,8 @@ La migration `00002_oauth_session.sql` invalide les anciens parcours OAuth en co
 | `EMBEDDINGS_URL` | URL HTTP(S) facultative du point d'accès compatible embeddings ; pas d'identifiants ni query string. |
 | `EMBEDDINGS_MODEL` | Modèle déjà disponible chez le fournisseur ; aucun téléchargement implicite. Vide : pas d'appel au fournisseur. |
 
+Quand ce fournisseur est configuré, les nouvelles transcriptions sont ajoutées à une file durable. La page d’administration expose l’état de l’index, le rattrapage explicite des transcriptions existantes et la reconstruction vers un autre modèle. Les recherches hybrides combinent le classement textuel et vectoriel ; si le fournisseur est indisponible, elles signalent le repli plein texte.
+
 L’exemple [.env.example](../.env.example) prépare les variables du déploiement local Compose ; aucune image GHCR n’est encore publiée. Pour ce démarrage local, les embeddings sont facultatifs et peuvent rester absents. Aucun chemin vers la bibliothèque de l'hôte n'est nécessaire.
 
 - `GET /api/health/live` : processus vivant, HTTP 200, `{"status":"ok"}`.

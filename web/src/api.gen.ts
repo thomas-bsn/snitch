@@ -722,6 +722,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/embeddings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. État de l’index actif et file d’indexation. */
+    get: operations["getEmbeddingIndexStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/embeddings/backfill": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Ajoute les transcriptions terminées à la file d’indexation sans relancer leur traitement vidéo. */
+    post: operations["backfillEmbeddingIndex"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/embeddings/rebuild": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Builds a candidate index while the active index remains available, then switches after indexing completes. */
+    post: operations["rebuildEmbeddingIndex"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/vocabulary/{id}": {
     parameters: {
       query?: never;
@@ -747,7 +798,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué. */
+    /** @description Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué. */
     get: operations["searchTranscripts"];
     put?: never;
     post?: never;
@@ -1231,7 +1282,7 @@ export interface components {
       status: "ready" | "waiting_stability" | "unreadable" | "missing";
       sources: string[];
       /** @enum {string} */
-      match_type: "exact" | "full_text" | "approximate";
+      match_type: "exact" | "full_text" | "approximate" | "hybrid" | "semantic";
       context: string;
       matched_text: string;
       /** Format: double */
@@ -1242,6 +1293,8 @@ export interface components {
       page: number;
       page_size: number;
       total: number;
+      /** @description Vrai si la recherche sémantique n’a pas pu être utilisée et que le plein texte a pris le relais. */
+      degraded?: boolean;
     };
   };
   responses: never;
@@ -3159,6 +3212,103 @@ export interface operations {
       };
     };
   };
+  getEmbeddingIndexStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de l’index */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            configured: boolean;
+            provider: string;
+            model: string;
+            dimensions: number;
+            state: string;
+            error?: string;
+            pending: number;
+            done: number;
+            failed: number;
+            candidate_model?: string;
+            candidate_state?: string;
+            candidate_error?: string;
+            candidate_total?: number;
+            candidate_done?: number;
+            candidate_pending?: number;
+            candidate_failed?: number;
+          };
+        };
+      };
+    };
+  };
+  backfillEmbeddingIndex: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Transcriptions mises en file */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** Format: int64 */
+            queued?: number;
+          };
+        };
+      };
+    };
+  };
+  rebuildEmbeddingIndex: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          model: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Rebuild queued */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A rebuild is already running */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   updateVocabulary: {
     parameters: {
       query?: never;
@@ -3261,7 +3411,7 @@ export interface operations {
     parameters: {
       query: {
         q: string;
-        mode?: "exact" | "full_text";
+        mode?: "exact" | "full_text" | "hybrid";
         page?: number;
         page_size?: number;
         visibility?: "shared" | "private";

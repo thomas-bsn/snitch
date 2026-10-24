@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -29,12 +30,15 @@ class SearchPage:
             page (int):
             page_size (int):
             total (int):
+            degraded (bool | Unset): Vrai si la recherche sémantique n’a pas pu être utilisée et que le plein texte a pris
+                le relais.
      """
 
     items: list[SearchResult]
     page: int
     page_size: int
     total: int
+    degraded: bool | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -56,6 +60,8 @@ class SearchPage:
 
         total = self.total
 
+        degraded = self.degraded
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -65,6 +71,8 @@ class SearchPage:
             "page_size": page_size,
             "total": total,
         })
+        if degraded is not UNSET:
+            field_dict["degraded"] = degraded
 
         return field_dict
 
@@ -90,11 +98,14 @@ class SearchPage:
 
         total = d.pop("total")
 
+        degraded = d.pop("degraded", UNSET)
+
         search_page = cls(
             items=items,
             page=page,
             page_size=page_size,
             total=total,
+            degraded=degraded,
         )
 
 

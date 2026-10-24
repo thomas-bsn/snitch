@@ -8,7 +8,7 @@ Snitch indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a dit 
 - Phase 1 : implémentée et vérifiée localement ; [bilan](docs/phase-1-report.md) disponible. Validation utilisateur de fin de phase reçue.
 - Phase 2 : implémentée, vérifiée et validée ; [bilan](docs/phase-2-report.md) disponible.
 - Phase 3 : implémentée, vérifiée et prête à clôturer ; VAD et profils de pipeline versionnés inclus. Voir le [bilan](docs/phase-3-report.md).
-- Phase 4 : spécifiée, non implémentée ; [spec](docs/specs/phase-4.md), issue parente [#26](https://github.com/thomas-bsn/snitch/issues/26) et tickets #27–#29 ouverts.
+- Phase 4 : implémentée sur `integration/phase-4-semantic-search` ; validation PostgreSQL/pgvector et Playwright bloquée ici par l’absence de Docker. Voir le [bilan](docs/phase-4-report.md), la [spec](docs/specs/phase-4.md), issue parente [#26](https://github.com/thomas-bsn/snitch/issues/26) et tickets #27–#29 (ouverts jusqu’à la validation de bout en bout).
 - Phases 5 à 7 : non implémentées.
 - Aucun média réel traité, aucun déploiement effectué, aucun code ni image publié. Le dépôt public et le suivi des issues existent sur GitHub.
 

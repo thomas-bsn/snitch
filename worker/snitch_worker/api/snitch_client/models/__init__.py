@@ -5,12 +5,14 @@ from .audio_track_rule import AudioTrackRule
 from .audio_track_rule_result import AudioTrackRuleResult
 from .audio_track_selection import AudioTrackSelection
 from .audio_track_selection_status import AudioTrackSelectionStatus
+from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
 from .bootstrap import Bootstrap
 from .clip import Clip
 from .clip_page import ClipPage
 from .clip_visibility import ClipVisibility
 from .credentials import Credentials
 from .error import Error
+from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
 from .job import Job
 from .job_controls import JobControls
@@ -28,6 +30,7 @@ from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
 from .media_track import MediaTrack
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
+from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
 from .scan_source_body import ScanSourceBody
 from .schedule_transcription_batch_body import ScheduleTranscriptionBatchBody
@@ -95,12 +98,14 @@ __all__ = (
     "AudioTrackRuleResult",
     "AudioTrackSelection",
     "AudioTrackSelectionStatus",
+    "BackfillEmbeddingIndexResponse202",
     "Bootstrap",
     "Clip",
     "ClipPage",
     "ClipVisibility",
     "Credentials",
     "Error",
+    "GetEmbeddingIndexStatusResponse200",
     "HeartbeatWorkerJobResponse200",
     "Job",
     "JobControls",
@@ -118,6 +123,7 @@ __all__ = (
     "ListJobsStatus",
     "MediaTrack",
     "PreviewTranscriptionBatchResponse200",
+    "RebuildEmbeddingIndexBody",
     "Redirect",
     "ScanSourceBody",
     "ScheduledTranscription",
