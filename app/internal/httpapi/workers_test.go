@@ -84,6 +84,7 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	if err = json.Unmarshal(call(admin, http.MethodGet, "/api/auth/me", nil, "", "", false, http.StatusOK), &me); err != nil {
 		t.Fatal(err)
 	}
+	call(admin, http.MethodPut, "/api/admin/job-controls", mustJSON(t, map[string]any{"paused": false, "max_concurrency": 2}), me.CSRF, "", true, http.StatusOK)
 	call(anon, http.MethodGet, "/api/admin/workers", nil, "", "", false, http.StatusUnauthorized)
 	created := call(admin, http.MethodPost, "/api/admin/workers", mustJSON(t, map[string]any{"name": "synthetic-gpu", "max_concurrency": 1}), me.CSRF, "", true, http.StatusCreated)
 	var registration struct {
