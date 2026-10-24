@@ -41,6 +41,7 @@ class Clip:
             video_codec (str):
             audio_codec (str):
             tracks (list[ClipTracksItem]):
+            uploaders (list[str]):
             duration_seconds (float | None | Unset):
             status (str | Unset):
             sources (list[str] | Unset):
@@ -59,6 +60,7 @@ class Clip:
     video_codec: str
     audio_codec: str
     tracks: list[ClipTracksItem]
+    uploaders: list[str]
     duration_seconds: float | None | Unset = UNSET
     status: str | Unset = UNSET
     sources: list[str] | Unset = UNSET
@@ -101,6 +103,10 @@ class Clip:
 
 
 
+        uploaders = self.uploaders
+
+
+
         duration_seconds: float | None | Unset
         if isinstance(self.duration_seconds, Unset):
             duration_seconds = UNSET
@@ -132,6 +138,7 @@ class Clip:
             "video_codec": video_codec,
             "audio_codec": audio_codec,
             "tracks": tracks,
+            "uploaders": uploaders,
         })
         if duration_seconds is not UNSET:
             field_dict["duration_seconds"] = duration_seconds
@@ -191,6 +198,9 @@ class Clip:
             tracks.append(tracks_item)
 
 
+        uploaders = cast(list[str], d.pop("uploaders"))
+
+
         def _parse_duration_seconds(data: object) -> float | None | Unset:
             if data is None:
                 return data
@@ -220,6 +230,7 @@ class Clip:
             video_codec=video_codec,
             audio_codec=audio_codec,
             tracks=tracks,
+            uploaders=uploaders,
             duration_seconds=duration_seconds,
             status=status,
             sources=sources,

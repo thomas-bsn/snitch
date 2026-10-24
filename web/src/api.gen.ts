@@ -581,6 +581,7 @@ export interface components {
       tracks: Record<string, never>[];
       status?: string;
       sources?: string[];
+      uploaders: string[];
     };
     ClipPage: {
       items: components["schemas"]["Clip"][];

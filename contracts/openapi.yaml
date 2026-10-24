@@ -2084,7 +2084,8 @@
           "format_name",
           "video_codec",
           "audio_codec",
-          "tracks"
+          "tracks",
+          "uploaders"
         ],
         "properties": {
           "id": {
@@ -2146,6 +2147,12 @@
             "type": "string"
           },
           "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "uploaders": {
             "type": "array",
             "items": {
               "type": "string"

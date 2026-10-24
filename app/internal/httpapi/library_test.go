@@ -88,21 +88,17 @@ func testClipLibrary(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	content := []byte("synthetic-browser-video")
-	upload := func(visibility string) int64 {
-		video := content
-		if visibility == "private" {
-			video = []byte("private-synthetic-browser-video")
-		}
+	upload := func(client *http.Client, csrf, visibility string, video []byte) int64 {
 		body, _ := json.Marshal(map[string]any{"filename": "fixture.mp4", "size_bytes": len(video), "visibility": visibility})
-		_, data := call(admin, "POST", "/api/uploads", body, "application/json", session.CSRF, "", 201)
+		_, data := call(client, "POST", "/api/uploads", body, "application/json", csrf, "", 201)
 		var item struct {
 			ID string `json:"id"`
 		}
 		if err := json.Unmarshal(data, &item); err != nil {
 			t.Fatal(err)
 		}
-		call(admin, "PUT", "/api/uploads/"+item.ID+"/chunks", video, "application/octet-stream", session.CSRF, "", 200)
-		_, data = call(admin, "POST", "/api/uploads/"+item.ID+"/complete", []byte(`{}`), "application/json", session.CSRF, "", 201)
+		call(client, "PUT", "/api/uploads/"+item.ID+"/chunks", video, "application/octet-stream", csrf, "", 200)
+		_, data = call(client, "POST", "/api/uploads/"+item.ID+"/complete", []byte(`{}`), "application/json", csrf, "", 201)
 		var clip struct {
 			ClipID int64 `json:"clip_id"`
 		}
@@ -111,8 +107,8 @@ func testClipLibrary(t *testing.T, pool *pgxpool.Pool) {
 		}
 		return clip.ClipID
 	}
-	sharedID := upload("shared")
-	privateID := upload("private")
+	sharedID := upload(admin, session.CSRF, "shared", content)
+	privateID := upload(admin, session.CSRF, "private", []byte("private-synthetic-browser-video"))
 	_, data = call(admin, "POST", "/api/admin/sources", mustJSON(t, map[string]string{"name": "library-fixture", "path": clipRoot}), "application/json", session.CSRF, "", 201)
 	var source struct {
 		ID int64 `json:"id"`
@@ -154,8 +150,9 @@ func testClipLibrary(t *testing.T, pool *pgxpool.Pool) {
 	_, data = call(admin, "GET", "/api/clips?page=1&page_size=1&visibility=shared", nil, "", "", "", 200)
 	var page struct {
 		Items []struct {
-			ID         int64  `json:"id"`
-			Visibility string `json:"visibility"`
+			ID         int64    `json:"id"`
+			Visibility string   `json:"visibility"`
+			Uploaders  []string `json:"uploaders"`
 		} `json:"items"`
 		Total int `json:"total"`
 	}
@@ -164,10 +161,6 @@ func testClipLibrary(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if page.Total != 2 || len(page.Items) != 1 || page.Items[0].Visibility != "shared" {
 		t.Fatalf("unexpected shared page: %+v", page)
-	}
-	_, data = call(admin, "GET", "/api/clips?page=2&page_size=1&visibility=shared", nil, "", "", "", 200)
-	if err := json.Unmarshal(data, &page); err != nil || len(page.Items) != 1 || page.Items[0].ID != sharedID {
-		t.Fatalf("unexpected second page: %s %v", data, err)
 	}
 	call(admin, "GET", "/api/clips/"+strconv64(privateID), nil, "", "", "", 200)
 	if _, err := pool.Exec(context.Background(), `INSERT INTO users(username,role,approved) VALUES('other-member','user',true)`); err != nil {
@@ -185,6 +178,30 @@ func testClipLibrary(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	otherJar.SetCookies(otherURL, issued.Result().Cookies())
+	_, data = call(otherClient, "GET", "/api/auth/me", nil, "", "", "", 200)
+	var otherSession struct {
+		CSRF string `json:"csrf_token"`
+	}
+	if err := json.Unmarshal(data, &otherSession); err != nil {
+		t.Fatal(err)
+	}
+	if duplicateID := upload(otherClient, otherSession.CSRF, "shared", content); duplicateID != sharedID {
+		t.Fatalf("identical upload created a second clip: got %d want %d", duplicateID, sharedID)
+	}
+	_, data = call(admin, "GET", "/api/clips/"+strconv64(sharedID), nil, "", "", "", 200)
+	var sharedDetails struct {
+		Uploaders []string `json:"uploaders"`
+	}
+	if err := json.Unmarshal(data, &sharedDetails); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(sharedDetails.Uploaders, ",") != "administrator,other-member" {
+		t.Fatalf("deduplicated upload authors not exposed: %+v", sharedDetails.Uploaders)
+	}
+	_, data = call(admin, "GET", "/api/clips?page=2&page_size=1&visibility=shared", nil, "", "", "", 200)
+	if err := json.Unmarshal(data, &page); err != nil || len(page.Items) != 1 || page.Items[0].ID != sharedID || strings.Join(page.Items[0].Uploaders, ",") != "administrator,other-member" {
+		t.Fatalf("unexpected second page: %s %v", data, err)
+	}
 	_, data = call(otherClient, "GET", "/api/clips?page=1&page_size=10", nil, "", "", "", 200)
 	if strings.Contains(string(data), `"id":`+strconv64(privateID)) {
 		t.Fatalf("other member library leaked private clip: %s", data)

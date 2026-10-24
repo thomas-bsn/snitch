@@ -696,6 +696,9 @@ function App() {
                         {clip.audio_codec || "absent"} · {clip.size_bytes}{" "}
                         octets · sources {clip.sources?.join(", ") || "upload"}
                       </p>
+                      {clip.uploaders.length > 0 && (
+                        <p>Importé par {clip.uploaders.join(", ")}</p>
+                      )}
                       {clip.status === "ready" && (
                         <video
                           controls

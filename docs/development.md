@@ -15,7 +15,7 @@ docker run --rm snitch-worker:local python -m pip check
 python3 scripts/smoke_compose.py snitch-smoke:local
 ```
 
-`test -z "$(gofmt -l app)"` vérifie le format Go. Le script lance `go test -race -tags integration ./... -count=1` avec le socket du contexte Docker actif. Les tests utilisent PostgreSQL/pgvector réel via Testcontainers et des données synthétiques ; les cinq suites navigateur utilisent la vraie API avec Discord simulé, sans compte externe. Aucun scan de bibliothèque n’existe. Ne pas lancer simultanément gros builds et tests sur une VM de 2 Go.
+`test -z "$(gofmt -l app)"` vérifie le format Go. Le script lance `go test -race -tags integration ./... -count=1` avec le socket du contexte Docker actif. Les tests utilisent PostgreSQL/pgvector réel via Testcontainers et des données synthétiques ; les huit suites navigateur utilisent la vraie API avec Discord simulé, sans compte externe. Aucun scan de bibliothèque n’existe. Ne pas lancer simultanément gros builds et tests sur une VM de 2 Go.
 
 Le contrat source `contracts/openapi.yaml` génère Go/TypeScript/Python et sqlc avec `bash scripts/generate.sh`. `check_generated.py` compare les octets avant/après. Le build Vite remplace `app/ui/dist` ; préserver son fichier suivi `.gitkeep` avant commit. Les sorties compilées restent ignorées.
 

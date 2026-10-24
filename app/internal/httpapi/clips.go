@@ -33,6 +33,7 @@ type clipItem struct {
 	Tracks              any       `json:"tracks"`
 	Status              string    `json:"status"`
 	Sources             []string  `json:"sources"`
+	Uploaders           []string  `json:"uploaders"`
 }
 
 func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +105,8 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 	args = append(args, size, (page-1)*size)
 	rows, err := s.Pool.Query(r.Context(), `SELECT c.id,c.owner_id,u.username,c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.recorded_at,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
- COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb)
+ COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
+ COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb)
  FROM clips c JOIN users u ON u.id=c.owner_id WHERE `+visibilityClause+" AND "+filters+" ORDER BY c.recorded_at DESC,c.id DESC LIMIT $9 OFFSET $10", args...)
 	if err != nil {
 		s.internal(w, err)
@@ -114,7 +116,7 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 	items := []clipItem{}
 	for rows.Next() {
 		var v clipItem
-		if err = rows.Scan(&v.ID, &v.OwnerID, &v.Owner, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources); err != nil {
+		if err = rows.Scan(&v.ID, &v.OwnerID, &v.Owner, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders); err != nil {
 			s.internal(w, err)
 			return
 		}
@@ -139,8 +141,9 @@ func (s *Server) authorizedClip(w http.ResponseWriter, r *http.Request) (clipIte
 	var v clipItem
 	err = s.Pool.QueryRow(r.Context(), `SELECT c.id,c.owner_id,u.username,c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.recorded_at,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
- COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb)
- FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, ss.User.Role == "admin").Scan(&v.ID, &v.OwnerID, &v.Owner, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources)
+ COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
+ COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb)
+ FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, ss.User.Role == "admin").Scan(&v.ID, &v.OwnerID, &v.Owner, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, 404, "clip_not_found")
 		return clipItem{}, false
