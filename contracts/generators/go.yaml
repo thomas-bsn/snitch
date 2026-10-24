@@ -1,0 +1,5 @@
+package: contract
+generate:
+  models: true
+  embedded-spec: true
+output: internal/httpapi/contract/types.gen.go

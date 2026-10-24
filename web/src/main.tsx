@@ -1,0 +1,394 @@
+import React, { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import createClient from "openapi-fetch";
+import type { paths, components } from "./api.gen";
+import "./style.css";
+
+const api = createClient<paths>();
+type Setup = components["schemas"]["Setup"];
+type Session = components["schemas"]["Session"];
+type Settings = components["schemas"]["Settings"];
+type User = components["schemas"]["User"];
+const messages: Record<string, string> = {
+  invalid_credentials_or_pending:
+    "Identifiants incorrects ou inscription en attente d’approbation.",
+  setup_closed_or_invalid_code:
+    "Installation déjà terminée, ou code invalide / expiré.",
+  username_unavailable: "Ce nom est déjà utilisé.",
+  invalid_credentials_format:
+    "Nom de 3 à 64 caractères et mot de passe de 12 à 256 caractères requis.",
+  rate_limited: "Trop de tentatives. Patientez quelques secondes.",
+  busy: "Le serveur est occupé. Réessayez dans quelques secondes.",
+  forbidden: "Accès réservé aux administrateurs.",
+  csrf_rejected: "Session expirée. Rechargez la page.",
+};
+function checked<T>(result: { data?: T; error?: { error: string } }): T {
+  if (result.error)
+    throw new Error(
+      messages[result.error.error] ?? "La demande a échoué. Réessayez.",
+    );
+  if (!result.data) throw new Error("Réponse du serveur absente.");
+  return result.data;
+}
+function App() {
+  const [setup, setSetup] = useState<Setup>();
+  const [session, setSession] = useState<Session>();
+  const [settings, setSettings] = useState<Settings>();
+  const [pending, setPending] = useState<User[]>([]);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState(
+    new URLSearchParams(location.search).get("notice") === "pending"
+      ? "Inscription Discord en attente d’approbation."
+      : "",
+  );
+  const [register, setRegister] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const csrf = {
+    "X-CSRF-Token": session?.csrf_token ?? "",
+    Origin: location.origin,
+  };
+  async function refresh() {
+    const state = checked(await api.GET("/api/setup"));
+    setSetup(state);
+    document.title = state.display_name;
+    const me = await api.GET("/api/auth/me");
+    setSession(me.data);
+    if (me.data?.user.role === "admin") {
+      setSettings(checked(await api.GET("/api/admin/settings")));
+      setPending(checked(await api.GET("/api/admin/users")));
+    }
+  }
+  useEffect(() => {
+    refresh().catch((e: Error) => setError(e.message));
+  }, []);
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur inattendue.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function credentials(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const body = {
+      username: String(data.get("username")),
+      password: String(data.get("password")),
+    };
+    await run(async () => {
+      if (!setup?.initialized) {
+        checked(
+          await api.POST("/api/setup", {
+            body: { ...body, code: String(data.get("code")) },
+            params: { header: { Origin: location.origin } },
+          }),
+        );
+      } else if (register) {
+        const result = checked(
+          await api.POST("/api/auth/register", {
+            body,
+            params: { header: { Origin: location.origin } },
+          }),
+        );
+        setNotice(
+          result.status === "pending"
+            ? "Inscription en attente d’approbation par un administrateur."
+            : "Compte créé. Vous pouvez vous connecter.",
+        );
+        setRegister(false);
+        return;
+      } else {
+        checked(
+          await api.POST("/api/auth/login", {
+            body,
+            params: { header: { Origin: location.origin } },
+          }),
+        );
+      }
+      await refresh();
+    });
+  }
+  async function discord(link: boolean) {
+    await run(async () => {
+      const result = link
+        ? checked(
+            await api.POST("/api/auth/discord/link", {
+              params: { header: csrf },
+            }),
+          )
+        : checked(
+            await api.POST("/api/auth/discord/start", {
+              params: { header: { Origin: location.origin } },
+            }),
+          );
+      location.assign(result.url);
+    });
+  }
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    await run(async () => {
+      checked(
+        await api.PUT("/api/admin/settings", {
+          params: { header: csrf },
+          body: {
+            client_id: String(data.get("client_id")),
+            client_secret: String(data.get("client_secret")),
+            registration_approval: data.get("approval") === "on",
+          },
+        }),
+      );
+      await refresh();
+      setNotice("Réglages enregistrés.");
+    });
+    form.querySelector<HTMLInputElement>('input[name="client_secret"]')!.value =
+      "";
+  }
+  return (
+    <main>
+      <header>
+        <span className="brand-mark">R</span>
+        <div>
+          <p className="eyebrow">VOTRE MÉMOIRE DE JEU</p>
+          <h1>{setup?.display_name ?? "Receipts"}</h1>
+        </div>
+      </header>
+      {error && (
+        <p role="alert" className="alert error">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="alert">
+          {notice}
+        </p>
+      )}
+      {!setup ? (
+        <p>Chargement…</p>
+      ) : !session ? (
+        <section className="card auth">
+          <p className="eyebrow">
+            {!setup.initialized ? "PREMIER DÉMARRAGE · PHASE 0" : "BIENVENUE"}
+          </p>
+          <h2>
+            {!setup.initialized
+              ? "Installer votre espace"
+              : register
+                ? "Demander un compte"
+                : "Retrouver votre espace"}
+          </h2>
+          <p>
+            {!setup.initialized
+              ? "Créez le premier compte administrateur avec le code temporaire affiché dans les logs du serveur."
+              : "Connectez-vous pour accéder à votre bibliothèque."}
+          </p>
+          <form onSubmit={credentials}>
+            {!setup.initialized && (
+              <label>
+                Code d’installation
+                <input name="code" required autoComplete="off" />
+              </label>
+            )}
+            <label>
+              Nom d’utilisateur
+              <input
+                name="username"
+                required
+                minLength={3}
+                maxLength={64}
+                autoComplete="username"
+              />
+            </label>
+            <label>
+              Mot de passe
+              <input
+                name="password"
+                type="password"
+                required
+                minLength={12}
+                maxLength={256}
+                autoComplete={
+                  !setup.initialized || register
+                    ? "new-password"
+                    : "current-password"
+                }
+              />
+            </label>
+            <p className="hint">12 caractères minimum.</p>
+            <button disabled={busy} type="submit">
+              {!setup.initialized
+                ? "Créer l’administrateur"
+                : register
+                  ? "Demander l’accès"
+                  : "Se connecter"}
+            </button>
+          </form>
+          {setup.initialized && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => setRegister(!register)}
+            >
+              {register ? "Retour à la connexion" : "Créer un compte"}
+            </button>
+          )}
+          {setup.initialized && setup.discord_enabled && (
+            <>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => discord(false)}
+              >
+                Continuer avec Discord
+              </button>
+              <p className="hint">
+                Vous serez redirigé vers Discord. Seule votre identité publique
+                est demandée.
+              </p>
+            </>
+          )}
+        </section>
+      ) : (
+        <>
+          <div className="toolbar">
+            <p>
+              Connecté : <strong>{session.user.username}</strong> ·{" "}
+              {session.user.role === "admin" ? "Administrateur" : "Utilisateur"}
+            </p>
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() =>
+                run(async () => {
+                  checked(
+                    await api.POST("/api/auth/logout", {
+                      params: { header: csrf },
+                    }),
+                  );
+                  setSession(undefined);
+                  await refresh();
+                })
+              }
+            >
+              Se déconnecter
+            </button>
+          </div>
+          <section className="card">
+            <p className="eyebrow">LE SOCLE EST PRÊT</p>
+            <h2>Votre bibliothèque arrive à la prochaine phase.</h2>
+            <p>
+              L’accès et l’installation sont disponibles. Les vidéos ne sont pas
+              encore importées.
+            </p>
+            <ol>
+              {setup.deferred_steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </section>
+          {setup.discord_enabled && (
+            <section className="card">
+              <h2>Lier votre identité Discord</h2>
+              <p>
+                Cette action associe votre compte actuel à votre identité
+                Discord, sans fusion par pseudo. Elle ouvre Discord.
+              </p>
+              <button disabled={busy} onClick={() => discord(true)}>
+                Lier Discord
+              </button>
+            </section>
+          )}
+          {session.user.role === "admin" && settings && (
+            <section className="card">
+              <h2>Accès et Discord</h2>
+              <p>
+                Discord est facultatif. Laissez l’identifiant vide pour le
+                désactiver.
+              </p>
+              <p className="hint">
+                URL de retour à renseigner dans Discord : {location.origin}
+                /api/auth/discord/callback
+              </p>
+              <form
+                onSubmit={save}
+                key={`${settings.client_id}-${settings.registration_approval}`}
+              >
+                <label>
+                  Identifiant de l’application Discord
+                  <input
+                    name="client_id"
+                    defaultValue={settings.client_id}
+                    maxLength={128}
+                  />
+                </label>
+                <label>
+                  Secret Discord
+                  <input
+                    name="client_secret"
+                    type="password"
+                    autoComplete="new-password"
+                    maxLength={2048}
+                    placeholder={
+                      settings.secret_configured
+                        ? "Configuré — laisser vide pour conserver"
+                        : "Non configuré"
+                    }
+                  />
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    name="approval"
+                    defaultChecked={settings.registration_approval}
+                  />
+                  Approbation administrateur requise pour les nouveaux comptes
+                </label>
+                <button disabled={busy}>Enregistrer les réglages</button>
+              </form>
+            </section>
+          )}
+          {session.user.role === "admin" && (
+            <section className="card">
+              <h2>Inscriptions en attente ({pending.length})</h2>
+              {pending.length === 0 ? (
+                <p>Aucune demande en attente.</p>
+              ) : (
+                <ul>
+                  {pending.map((user) => (
+                    <li className="pending" key={user.id}>
+                      <span>{user.username}</span>
+                      <button
+                        disabled={busy}
+                        onClick={() =>
+                          run(async () => {
+                            checked(
+                              await api.POST("/api/admin/users/{id}/approve", {
+                                params: { path: { id: user.id }, header: csrf },
+                              }),
+                            );
+                            await refresh();
+                          })
+                        }
+                      >
+                        Approuver {user.username}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+        </>
+      )}
+      <footer>Phase 0 · Installation et accès · Aucun média traité</footer>
+    </main>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(<App />);

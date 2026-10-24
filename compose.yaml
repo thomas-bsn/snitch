@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-ghcr.io/thomas-bsn/receipts-postgres:phase0}
+    environment:
+      POSTGRES_USER: receipts
+      POSTGRES_DB: receipts
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    command: [postgres, -c, shared_buffers=128MB, -c, work_mem=4MB, -c, max_connections=30]
+    volumes: [database:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U receipts -d receipts]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    x-forgeyard:
+      memory: 512
+      backup: {type: postgres}
+  migrate:
+    image: ${RECEIPTS_IMAGE:-ghcr.io/thomas-bsn/receipts:phase0}
+    command: [migrate]
+    environment:
+      DATABASE_URL: postgres://receipts:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/receipts?sslmode=disable
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+    x-forgeyard: {memory: 256}
+  app:
+    image: ${RECEIPTS_IMAGE:-ghcr.io/thomas-bsn/receipts:phase0}
+    command: [serve]
+    environment:
+      DATABASE_URL: postgres://receipts:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/receipts?sslmode=disable
+      MASTER_KEY: ${MASTER_KEY:?Set MASTER_KEY}
+      PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      DISPLAY_NAME: ${DISPLAY_NAME:-Receipts}
+      CLIPS_ROOTS: ${CLIPS_ROOTS:-}
+      EMBEDDINGS_URL: ${EMBEDDINGS_URL:-http://embed:11434/v1/embeddings}
+      EMBEDDINGS_MODEL: ${EMBEDDINGS_MODEL:-}
+      GOMEMLIMIT: 300MiB
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, /receipts, healthcheck]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    x-forgeyard:
+      memory: 384
+      expose: {port: 8080}
+  embed:
+    image: ${EMBED_IMAGE:-ghcr.io/thomas-bsn/receipts-embed:phase0}
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes: [embeddings:/root/.ollama]
+    restart: unless-stopped
+    x-forgeyard: {memory: 1536}
+volumes:
+  database:
+  embeddings:
