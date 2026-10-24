@@ -739,6 +739,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/transcriptions/batch-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["previewTranscriptionBatch"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/transcriptions/batch-schedule": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["scheduleTranscriptionBatch"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3159,6 +3191,99 @@ export interface operations {
         };
       };
       /** @description Requête invalide ou erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewTranscriptionBatch: {
+    parameters: {
+      query?: {
+        visibility?: string;
+        status?: string;
+        owner_id?: string;
+        source_id?: string;
+        from?: string;
+        to?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            eligible: number;
+            already_processed: number;
+            already_queued: number;
+            unavailable: number;
+            selection_required: number;
+          };
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scheduleTranscriptionBatch: {
+    parameters: {
+      query?: {
+        visibility?: string;
+        status?: string;
+        owner_id?: string;
+        source_id?: string;
+        from?: string;
+        to?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          confirm: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            preview: {
+              eligible?: number;
+              already_processed?: number;
+              already_queued?: number;
+              unavailable?: number;
+              selection_required?: number;
+            };
+            scheduled: number;
+          };
+        };
+      };
+      /** @description Error */
       default: {
         headers: {
           [name: string]: unknown;

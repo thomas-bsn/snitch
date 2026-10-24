@@ -133,6 +133,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/search", s.protected(false, http.HandlerFunc(s.search)))
 	mux.Handle("GET /api/clips/{id}", s.protected(false, http.HandlerFunc(s.getClip)))
 	mux.Handle("POST /api/admin/clips/{id}/transcription", s.protected(true, http.HandlerFunc(s.scheduleTranscription)))
+	mux.Handle("GET /api/admin/transcriptions/batch-preview", s.protected(true, http.HandlerFunc(s.batchTranscriptionPreview)))
+	mux.Handle("POST /api/admin/transcriptions/batch-schedule", s.protected(true, http.HandlerFunc(s.batchTranscriptionSchedule)))
 	mux.Handle("GET /api/clips/{id}/media", s.protected(false, http.HandlerFunc(s.serveClipMedia)))
 	embedded, _ := fs.Sub(ui.Files, "dist")
 	files := http.FileServer(http.FS(embedded))

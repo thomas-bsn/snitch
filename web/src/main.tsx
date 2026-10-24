@@ -137,6 +137,7 @@ function App() {
     from: "",
     to: "",
   });
+  const [batchPreview, setBatchPreview] = useState<{ eligible: number; already_processed: number; already_queued: number; unavailable: number; selection_required: number }>();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(
     (() => {
@@ -200,6 +201,24 @@ function App() {
     setClips(result.items);
     setClipPage(result.page);
     setClipTotal(result.total);
+  }
+  async function previewBatch() {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(clipFilters)) if (value) query.set(key, value);
+    const response = await fetch(`/api/admin/transcriptions/batch-preview?${query}`, { credentials: "same-origin" });
+    if (!response.ok) throw new Error("Impossible de prévisualiser ce lot.");
+    setBatchPreview(await response.json());
+  }
+  async function scheduleBatch() {
+    if (!batchPreview?.eligible || !window.confirm(`Planifier ${batchPreview.eligible} transcription(s) ?`)) return;
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(clipFilters)) if (value) query.set(key, value);
+    const response = await fetch(`/api/admin/transcriptions/batch-schedule?${query}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", ...csrf }, body: JSON.stringify({ confirm: true }) });
+    if (!response.ok) throw new Error("Impossible de planifier ce lot.");
+    const result = await response.json();
+    setNotice(`${result.scheduled} tâche(s) ajoutée(s) à la file.`);
+    setBatchPreview(result.preview);
+    await refreshJobs(1);
   }
   async function runSearch(page = 1) {
     const query = new URLSearchParams({ q: searchQuery, mode: searchMode, page: String(page), page_size: "10" });
@@ -983,6 +1002,16 @@ function App() {
               </label>
               <button className="filter-submit" disabled={busy}>Appliquer les filtres</button>
             </form>
+            {session.user.role === "admin" && <section className="card" aria-label="Planification par lot">
+              <h3>Planifier les transcriptions visibles</h3>
+              <p className="hint">Prévisualisez les clips selon les filtres ci-dessus. Rien n’est ajouté à la file avant votre confirmation.</p>
+              <button className="secondary" disabled={busy} onClick={() => void run(previewBatch)}>Prévisualiser le lot</button>
+              {batchPreview && <div role="status" className="batch-counts">
+                <p>{batchPreview.eligible} éligible(s) · {batchPreview.already_processed} déjà traité(s) · {batchPreview.already_queued} déjà en file</p>
+                <p>{batchPreview.unavailable} original(aux) indisponible(s) · {batchPreview.selection_required} piste(s) à sélectionner</p>
+                <button disabled={busy || batchPreview.eligible === 0} onClick={() => void run(scheduleBatch)}>Confirmer et planifier {batchPreview.eligible}</button>
+              </div>}
+            </section>}
             {clips.length === 0 ? (
               <p>Aucun clip visible pour ces filtres.</p>
             ) : (
