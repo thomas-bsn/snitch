@@ -24,7 +24,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
 	"github.com/jackc/pgx/v5/pgxpool"
- _ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -89,6 +89,29 @@ func TestFoundation(t *testing.T) {
 			t.Fatal(e)
 		}
 	}
+	t.Run("optional embeddings do not block foundation", func(t *testing.T) {
+		provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}))
+		endpoint := provider.URL
+		provider.Close() // A configured but unreachable service must not block the foundation.
+		for _, endpoint := range []string{"", endpoint} {
+			s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Fixture", EmbeddingsURL: endpoint, EmbeddingsModel: "fixture-only"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+			ts := httptest.NewServer(s.Handler())
+			for path, want := range map[string]string{"/api/health/live": `"status":"ok"`, "/api/health/ready": `"status":"degraded"`, "/api/setup": `"initialized":false`} {
+				resp, err := ts.Client().Get(ts.URL + path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				body, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				if resp.StatusCode != 200 || !bytes.Contains(body, []byte(want)) {
+					t.Fatalf("%s with embeddings %q: %d %s", path, endpoint, resp.StatusCode, body)
+				}
+			}
+			ts.Close()
+		}
+	})
 	t.Run("first admin concurrent and expired code", func(t *testing.T) {
 		reset(t)
 		code, e := setup.Issue(ctx, pool)
@@ -143,9 +166,10 @@ func TestFoundation(t *testing.T) {
 		logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Test Receipts"}, logger)
 		// High test allowance isolates security tests from test-suite request volume.
-		ts := httptest.NewServer(s.Handler())
+		ts := httptest.NewUnstartedServer(s.Handler())
+		s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
+		ts.Start()
 		defer ts.Close()
-		s.Config.PublicURL = ts.URL
 		jar, _ := cookiejar.New(nil)
 		client := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 		anon := &http.Client{CheckRedirect: client.CheckRedirect}
@@ -338,25 +362,33 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		t.Run("browser", func(t *testing.T) {
-			reset(t)
-			code, e := setup.Issue(ctx, pool)
-			if e != nil {
-				t.Fatal(e)
-			}
-			s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-			ts := httptest.NewServer(s.Handler())
-			defer ts.Close()
-			s.Config.PublicURL = ts.URL
-			cmd := exec.Command("npm", "run", "test:e2e")
-			cmd.Dir = "../../../web"
-			cmd.Env = append(os.Environ(), "RECEIPTS_TEST_URL="+ts.URL, "RECEIPTS_TEST_CODE="+code)
-			out, e := cmd.CombinedOutput()
-			t.Log(string(out))
-			if e != nil {
-				t.Fatal(e)
-			}
-		})
+		suites := []string{"foundation.spec.ts", "access.spec.ts"}
+		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
+			suites = suites[:1]
+		}
+		for _, suite := range suites {
+			t.Run("browser/"+suite, func(t *testing.T) {
+				reset(t)
+				code, e := setup.Issue(ctx, pool)
+				if e != nil {
+					t.Fatal(e)
+				}
+				s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+				ts := httptest.NewUnstartedServer(s.Handler())
+				s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
+				ts.Start()
+				defer ts.Close()
+				args := []string{"run", "test:e2e", "--", suite}
+				cmd := exec.Command("npm", args...)
+				cmd.Dir = "../../../web"
+				cmd.Env = append(os.Environ(), "RECEIPTS_TEST_URL="+ts.URL, "RECEIPTS_TEST_CODE="+code)
+				out, e := cmd.CombinedOutput()
+				t.Log(string(out))
+				if e != nil {
+					t.Fatal(e)
+				}
+			})
+		}
 	}
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
@@ -366,4 +398,3 @@ func TestFoundation(t *testing.T) {
 		t.Log("PostgreSQL container at test end:", string(stats))
 	}
 }
-

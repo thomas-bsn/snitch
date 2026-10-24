@@ -186,7 +186,7 @@ function App() {
           <p>
             {!setup.initialized
               ? "Créez le premier compte administrateur avec le code temporaire affiché dans les logs du serveur."
-              : "Connectez-vous pour accéder à votre bibliothèque."}
+              : "Connectez-vous pour accéder à votre espace."}
           </p>
           <form onSubmit={credentials}>
             {!setup.initialized && (
@@ -385,6 +385,17 @@ function App() {
             </section>
           )}
         </>
+      )}
+      {setup && !session && (
+        <section className="card">
+          <h2>Les prochaines étapes</h2>
+          <p>La bibliothèque sera disponible à la phase 1.</p>
+          <ol>
+            {setup.deferred_steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </section>
       )}
       <footer>Phase 0 · Installation et accès · Aucun média traité</footer>
     </main>

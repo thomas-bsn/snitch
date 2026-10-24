@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,7 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
- _ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
 	"receipts/internal/config"
@@ -27,12 +28,24 @@ func main() {
 	}
 }
 func run() error {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	if len(os.Args) != 2 {
 		return fmt.Errorf("usage: receipts serve|migrate|healthcheck")
 	}
 	if os.Args[1] == "healthcheck" {
 		client := http.Client{Timeout: 3 * time.Second}
-		resp, err := client.Get("http://127.0.0.1:8080/api/health/ready")
+		address := os.Getenv("LISTEN_ADDR")
+		if address == "" {
+			address = ":8080"
+		}
+		host, port, err := net.SplitHostPort(address)
+		if err != nil {
+			return fmt.Errorf("invalid LISTEN_ADDR")
+		}
+		if host == "" || host == "0.0.0.0" || host == "::" {
+			host = "127.0.0.1"
+		}
+		resp, err := client.Get("http://" + net.JoinHostPort(host, port) + "/api/health/ready")
 		if err != nil {
 			return fmt.Errorf("API unavailable")
 		}
@@ -44,7 +57,6 @@ func run() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	if os.Args[1] == "migrate" {
 		// This command deliberately needs only DATABASE_URL, not the encryption key.
 		db, err := goose.OpenDBWithDriver("pgx", os.Getenv("DATABASE_URL"))
@@ -125,4 +137,3 @@ func run() error {
 	}
 	return nil
 }
-
