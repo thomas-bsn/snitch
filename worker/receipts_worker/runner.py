@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import ssl
+import threading
 import time
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -14,6 +15,7 @@ from receipts_api.api.default.claim_worker_job import sync as claim_job
 from receipts_api.api.default.complete_worker_job import sync as complete_job
 from receipts_api.api.default.fail_worker_job import sync as fail_job
 from receipts_api.api.default.get_worker_job_input import sync as get_job_input
+from receipts_api.api.default.heartbeat_worker_job import sync as heartbeat_job
 from receipts_api.api.default.worker_pulse import sync as pulse
 from receipts_api.client import AuthenticatedClient
 from receipts_api.models.error import Error
@@ -25,7 +27,11 @@ from receipts_api.models.worker_result_input_result import WorkerResultInputResu
 
 def fake_provider(media: bytes, step: str) -> dict[str, Any]:
     """Return deterministic synthetic output without interpreting media."""
-    return {"provider": "fixture", "step": step, "media_sha256": hashlib.sha256(media).hexdigest()}
+    return {
+        "provider": "fixture",
+        "step": step,
+        "media_sha256": hashlib.sha256(media).hexdigest(),
+    }
 
 
 def _require_response(value: Any, operation: str) -> Any:
@@ -34,8 +40,35 @@ def _require_response(value: Any, operation: str) -> Any:
     return value
 
 
-def run_once(client: AuthenticatedClient, capacity: int = 1) -> bool:
+def _heartbeat_loop(
+    client: AuthenticatedClient,
+    job_id: int,
+    lease_token: str,
+    interval: float,
+    stop: threading.Event,
+    errors: list[Exception],
+) -> None:
+    while not stop.wait(interval):
+        try:
+            _require_response(
+                heartbeat_job(
+                    client=client,
+                    id=job_id,
+                    x_worker_lease_token=lease_token,
+                ),
+                "heartbeat",
+            )
+        except (httpx.HTTPError, RuntimeError) as exc:
+            errors.append(exc)
+            return
+
+
+def run_once(
+    client: AuthenticatedClient, capacity: int = 1, heartbeat_interval: float = 45.0
+) -> bool:
     """Process at most one leased task. Return False when the queue is empty."""
+    if heartbeat_interval <= 0:
+        raise ValueError("heartbeat interval must be positive")
     _require_response(
         pulse(client=client, body=WorkerPulseInput(capacity=capacity)), "pulse"
     )
@@ -43,37 +76,78 @@ def run_once(client: AuthenticatedClient, capacity: int = 1) -> bool:
     if claim is None or claim.job is None:
         return False
     job = claim.job
+    lease_token = claim.lease_token
+    heartbeat_stop = threading.Event()
+    heartbeat_errors: list[Exception] = []
+    heartbeater = threading.Thread(
+        target=_heartbeat_loop,
+        args=(
+            client,
+            job.id,
+            lease_token,
+            heartbeat_interval,
+            heartbeat_stop,
+            heartbeat_errors,
+        ),
+        daemon=True,
+    )
+    heartbeater.start()
     try:
         task_input = _require_response(
-            get_job_input(client=client, id=job.id), "task input"
+            get_job_input(
+                client=client,
+                id=job.id,
+                x_worker_lease_token=lease_token,
+            ),
+            "task input",
         )
         parsed = task_input.to_dict()
         media_url = parsed["media_url"]
         url = urljoin(client._base_url.rstrip("/") + "/", media_url)
-        if urlparse(url).scheme != "https" or urlparse(url).netloc != urlparse(client._base_url).netloc:
+        if (
+            urlparse(url).scheme != "https"
+            or urlparse(url).netloc != urlparse(client._base_url).netloc
+        ):
             raise ValueError("task media URL must use the configured HTTPS API origin")
-        media_response = client.get_httpx_client().get(url)
+        media_response = client.get_httpx_client().get(
+            url, headers={"X-Worker-Lease-Token": lease_token}
+        )
         media_response.raise_for_status()
         result = fake_provider(media_response.content, job.step)
+        heartbeat_stop.set()
+        heartbeater.join()
+        if heartbeat_errors:
+            raise RuntimeError("worker lease lost")
         result_model = WorkerResultInputResult()
         result_model.additional_properties.update(result)
         _require_response(
             complete_job(
                 client=client,
                 id=job.id,
-                body=WorkerResultInput(input_version=job.input_version, result=result_model),
+                body=WorkerResultInput(
+                    input_version=job.input_version, result=result_model
+                ),
+                x_worker_lease_token=lease_token,
             ),
             "complete",
         )
     except (httpx.HTTPError, KeyError, RuntimeError, TypeError, ValueError):
-        _require_response(
-            fail_job(
-                client=client,
-                id=job.id,
-                body=WorkerFailureInput(error="provider_unavailable"),
-            ),
-            "fail",
-        )
+        heartbeat_stop.set()
+        heartbeater.join()
+        try:
+            _require_response(
+                fail_job(
+                    client=client,
+                    id=job.id,
+                    body=WorkerFailureInput(error="provider_unavailable"),
+                    x_worker_lease_token=lease_token,
+                ),
+                "fail",
+            )
+        except (httpx.HTTPError, RuntimeError):
+            # The lease may have expired or moved while the provider was busy.
+            # In that case the old attempt must not mutate the recovered task.
+            pass
     return True
 
 
@@ -81,14 +155,20 @@ def main() -> None:
     api_url = os.environ.get("RECEIPTS_API_URL", "").strip()
     token = os.environ.get("RECEIPTS_WORKER_TOKEN", "").strip()
     capacity_text = os.environ.get("RECEIPTS_WORKER_CAPACITY", "1")
-    if not api_url or urlparse(api_url).scheme != "https" or not urlparse(api_url).netloc:
+    if (
+        not api_url
+        or urlparse(api_url).scheme != "https"
+        or not urlparse(api_url).netloc
+    ):
         raise SystemExit("RECEIPTS_API_URL must be an HTTPS URL")
     if not token:
         raise SystemExit("RECEIPTS_WORKER_TOKEN is required")
     try:
         capacity = int(capacity_text)
     except ValueError as exc:
-        raise SystemExit("RECEIPTS_WORKER_CAPACITY must be an integer from 1 to 4") from exc
+        raise SystemExit(
+            "RECEIPTS_WORKER_CAPACITY must be an integer from 1 to 4"
+        ) from exc
     if capacity < 1 or capacity > 4:
         raise SystemExit("RECEIPTS_WORKER_CAPACITY must be an integer from 1 to 4")
     ca_bundle = os.environ.get("RECEIPTS_WORKER_CA_BUNDLE")

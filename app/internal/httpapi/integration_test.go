@@ -181,6 +181,7 @@ func TestFoundation(t *testing.T) {
 		}
 		seen := map[string]bool{}
 		workerToken := ""
+		leaseToken := ""
 		call := func(c *http.Client, method, path string, body any, csrf string, want int) []byte {
 			t.Helper()
 			s.rates.Clear()
@@ -197,6 +198,9 @@ func TestFoundation(t *testing.T) {
 			req.Header.Set("X-CSRF-Token", csrf)
 			if workerToken != "" {
 				req.Header.Set("Authorization", "Bearer "+workerToken)
+			}
+			if leaseToken != "" {
+				req.Header.Set("X-Worker-Lease-Token", leaseToken)
 			}
 			resp, e := c.Do(req)
 			if e != nil {
@@ -285,13 +289,15 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1}, "", 200)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {
-			Job struct {
+			LeaseToken string `json:"lease_token"`
+			Job        struct {
 				ID int64 `json:"id"`
 			} `json:"job"`
 		}
-		if e = json.Unmarshal(claimedBody, &claimedContractJob); e != nil || claimedContractJob.Job.ID != contractJob.ID {
+		if e = json.Unmarshal(claimedBody, &claimedContractJob); e != nil || claimedContractJob.Job.ID != contractJob.ID || claimedContractJob.LeaseToken == "" {
 			t.Fatalf("contract worker claim: %s %v", claimedBody, e)
 		}
+		leaseToken = claimedContractJob.LeaseToken
 		workerJobPath := "/api/worker/jobs/" + strconv64(contractJob.ID)
 		call(client, "GET", workerJobPath+"/input", nil, "", 200)
 		call(client, "GET", workerJobPath+"/media", nil, "", 404)
@@ -300,13 +306,15 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.failure", "input_version": "failure-v1"}, me.CSRF, 201)
 		failedClaim := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var failedJob struct {
-			Job struct {
+			LeaseToken string `json:"lease_token"`
+			Job        struct {
 				ID int64 `json:"id"`
 			} `json:"job"`
 		}
-		if e = json.Unmarshal(failedClaim, &failedJob); e != nil || failedJob.Job.ID < 1 {
+		if e = json.Unmarshal(failedClaim, &failedJob); e != nil || failedJob.Job.ID < 1 || failedJob.LeaseToken == "" {
 			t.Fatalf("second worker claim: %s %v", failedClaim, e)
 		}
+		leaseToken = failedJob.LeaseToken
 		call(client, "POST", "/api/worker/jobs/"+strconv64(failedJob.Job.ID)+"/fail", map[string]any{"error": "provider_unavailable"}, "", 200)
 		workerToken = ""
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)

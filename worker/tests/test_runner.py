@@ -2,6 +2,7 @@ import hashlib
 import json
 import ssl
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -10,7 +11,6 @@ from unittest.mock import patch
 
 import httpx
 from receipts_api.client import AuthenticatedClient
-
 from receipts_worker import runner
 
 
@@ -30,18 +30,19 @@ class FakeProviderTests(unittest.TestCase):
     def test_run_once_polls_fetches_scoped_media_and_completes(self):
         media = b"synthetic-video-fixture"
         http_client = SimpleNamespace(
-            get=lambda url: self._media_response(url, media)
+            get=lambda url, headers=None: self._media_response(url, media, headers)
         )
         client = SimpleNamespace(
             _base_url="https://receipts.example",
             get_httpx_client=lambda: http_client,
         )
         task = SimpleNamespace(id=42, step="fixture.echo", input_version="v1")
-        claim = SimpleNamespace(job=task)
+        claim = SimpleNamespace(job=task, lease_token="lt_synthetic-lease-token")
 
         with (
             patch.object(runner, "pulse", return_value=object()) as pulse,
             patch.object(runner, "claim_job", return_value=claim),
+            patch.object(runner, "heartbeat_job", return_value=object()),
             patch.object(
                 runner,
                 "get_job_input",
@@ -58,6 +59,51 @@ class FakeProviderTests(unittest.TestCase):
         result = complete.call_args.kwargs["body"].result.to_dict()
         self.assertEqual(result["provider"], "fixture")
         self.assertEqual(result["media_sha256"], hashlib.sha256(media).hexdigest())
+        self.assertEqual(
+            complete.call_args.kwargs["x_worker_lease_token"],
+            "lt_synthetic-lease-token",
+        )
+
+    def test_run_once_renews_lease_while_provider_is_working(self):
+        client = SimpleNamespace(
+            _base_url="https://receipts.example",
+            get_httpx_client=lambda: SimpleNamespace(
+                get=lambda url, headers=None: self._media_response(
+                    url, b"synthetic-video-fixture", headers
+                )
+            ),
+        )
+        task = SimpleNamespace(id=42, step="fixture.echo", input_version="v1")
+        claim = SimpleNamespace(job=task, lease_token="lt_synthetic-lease-token")
+        with (
+            patch.object(runner, "pulse", return_value=object()),
+            patch.object(runner, "claim_job", return_value=claim),
+            patch.object(
+                runner,
+                "get_job_input",
+                return_value=SimpleNamespace(
+                    to_dict=lambda: {"media_url": "/api/worker/jobs/42/media"}
+                ),
+            ),
+            patch.object(runner, "complete_job", return_value=object()) as complete,
+            patch.object(runner, "heartbeat_job", return_value=object()) as heartbeat,
+            patch.object(
+                runner,
+                "fake_provider",
+                side_effect=lambda *_: time.sleep(0.05) or {"provider": "fixture"},
+            ),
+        ):
+            self.assertTrue(runner.run_once(client, heartbeat_interval=0.01))
+
+        self.assertGreaterEqual(heartbeat.call_count, 1)
+        self.assertEqual(
+            heartbeat.call_args.kwargs["x_worker_lease_token"],
+            "lt_synthetic-lease-token",
+        )
+        self.assertEqual(
+            complete.call_args.kwargs["x_worker_lease_token"],
+            "lt_synthetic-lease-token",
+        )
 
     def test_run_once_rejects_untrusted_https_certificate(self):
         class Handler(BaseHTTPRequestHandler):
@@ -112,6 +158,7 @@ class FakeProviderTests(unittest.TestCase):
             "created_at": "2026-10-24T09:00:00Z",
             "updated_at": "2026-10-24T09:00:00Z",
         }
+        lease_token = "lt_synthetic-lease-token"
 
         class Handler(BaseHTTPRequestHandler):
             def _reply(self, status, data, content_type="application/json"):
@@ -124,6 +171,9 @@ class FakeProviderTests(unittest.TestCase):
 
             def _authorized(self):
                 return self.headers.get("Authorization") == "Bearer rw_synthetic-token"
+
+            def _lease_authorized(self):
+                return self.headers.get("X-Worker-Lease-Token") == lease_token
 
             def do_POST(self):
                 if not self._authorized():
@@ -142,17 +192,29 @@ class FakeProviderTests(unittest.TestCase):
                         },
                     )
                 if self.path == "/api/worker/jobs/claim":
-                    return self._reply(200, {"job": job})
+                    return self._reply(200, {"job": job, "lease_token": lease_token})
+                if self.path == "/api/worker/jobs/42/heartbeat":
+                    if not self._lease_authorized():
+                        return self._reply(409, {"error": "lease_not_owned"})
+                    return self._reply(200, {"renewed": True})
                 if self.path == "/api/worker/jobs/42/complete":
-                    request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                    if not self._lease_authorized():
+                        return self._reply(409, {"error": "lease_not_owned"})
+                    request = json.loads(
+                        self.rfile.read(int(self.headers["Content-Length"]))
+                    )
                     state["result"] = request["result"]
-                    return self._reply(200, {**job, "status": "done", "result": state["result"]})
+                    return self._reply(
+                        200, {**job, "status": "done", "result": state["result"]}
+                    )
                 return self._reply(404, {"error": "not_found"})
 
             def do_GET(self):
                 if not self._authorized():
                     return self._reply(401, {"error": "worker_token_invalid"})
                 if self.path == "/api/worker/jobs/42/input":
+                    if not self._lease_authorized():
+                        return self._reply(404, {"error": "job_not_found"})
                     return self._reply(
                         200,
                         {
@@ -166,6 +228,8 @@ class FakeProviderTests(unittest.TestCase):
                         },
                     )
                 if self.path == "/api/worker/jobs/42/media":
+                    if not self._lease_authorized():
+                        return self._reply(404, {"error": "job_not_found"})
                     return self._reply(200, media, "application/octet-stream")
                 return self._reply(404, {"error": "not_found"})
 
@@ -201,9 +265,11 @@ class FakeProviderTests(unittest.TestCase):
         )
 
     @staticmethod
-    def _media_response(url, media):
+    def _media_response(url, media, headers=None):
         if url != "https://receipts.example/api/worker/jobs/42/media":
             raise AssertionError(f"unexpected media URL: {url}")
+        if headers != {"X-Worker-Lease-Token": "lt_synthetic-lease-token"}:
+            raise AssertionError(f"missing lease token header: {headers}")
         return SimpleNamespace(content=media, raise_for_status=lambda: None)
 
 
