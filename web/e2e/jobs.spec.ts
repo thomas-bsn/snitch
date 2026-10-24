@@ -59,4 +59,65 @@ test("un administrateur planifie et filtre une tâche persistante", async ({
   await expect(
     page.getByRole("list", { name: "Tâches" }).getByText("fixture.inspect"),
   ).toBeVisible();
+
+  const workerToken = await page.evaluate(async () => {
+    const me = await fetch("/api/auth/me").then((response) => response.json());
+    const response = await fetch("/api/admin/workers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": me.csrf_token,
+        Origin: location.origin,
+      },
+      body: JSON.stringify({
+        name: "synthetic-retry-worker",
+        max_concurrency: 1,
+      }),
+    });
+    if (!response.ok) throw new Error("synthetic worker registration failed");
+    return (await response.json()).token as string;
+  });
+  const workerRequest = async (path: string, body?: unknown) =>
+    page.evaluate(
+      async ({ path, body, token }) => {
+        const response = await fetch(path, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...(body ? { "Content-Type": "application/json" } : {}),
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        if (!response.ok)
+          throw new Error(`synthetic worker request failed: ${path}`);
+        return response.json();
+      },
+      { path, body, token: workerToken },
+    );
+  await workerRequest("/api/worker/pulse", { capacity: 1 });
+  const lease = await workerRequest("/api/worker/jobs/claim");
+  await workerRequest(`/api/worker/jobs/${lease.job.id}/fail`, {
+    error: "invalid_input",
+  });
+  await page.getByLabel("État de la tâche").selectOption("dead");
+  await page.getByRole("button", { name: "Filtrer les tâches" }).click();
+  await expect(page.getByRole("list", { name: "Tâches" })).toContainText(
+    "dead",
+  );
+  await page.getByRole("button", { name: "Relancer" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    `Tâche ${lease.job.id} relancée.`,
+  );
+  await page.getByLabel("État de la tâche").selectOption("");
+  await page.getByRole("button", { name: "Filtrer les tâches" }).click();
+  await page.getByRole("button", { name: "Historique" }).click();
+  const history = page.getByRole("list", {
+    name: `Historique de la tâche ${lease.job.id}`,
+  });
+  await expect(history).toContainText("marked_dead");
+  await expect(history).toContainText("admin_relaunched");
+  await page.getByRole("button", { name: "Annuler" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    `Tâche ${lease.job.id} annulée.`,
+  );
 });

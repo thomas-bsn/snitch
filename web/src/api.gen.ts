@@ -302,6 +302,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/jobs/{id}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Les messages et chemins fournis par le worker sont expurgés. */
+    get: operations["getJobHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/jobs/{id}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. L’historique d’essais est conservé. */
+    post: operations["relaunchJob"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/jobs/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Une tâche annulée garde son historique et ne peut plus accepter de résultat worker. */
+    delete: operations["cancelJob"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/workers": {
     parameters: {
       query?: never;
@@ -675,7 +726,14 @@ export interface components {
       step: string;
       input_version: string;
       /** @enum {string} */
-      status: "pending" | "leased" | "done" | "failed";
+      status:
+        | "pending"
+        | "leased"
+        | "done"
+        | "failed"
+        | "retry_wait"
+        | "cancelled"
+        | "dead";
       priority: number;
       attempts: number;
       max_attempts: number;
@@ -692,6 +750,7 @@ export interface components {
       result?: {
         [key: string]: unknown;
       } | null;
+      cycle: number;
     };
     JobInput: {
       /** Format: int64 */
@@ -700,6 +759,8 @@ export interface components {
       input_version: string;
       /** @default 0 */
       priority: number;
+      /** @default 3 */
+      max_attempts: number;
     };
     JobPage: {
       items: components["schemas"]["Job"][];
@@ -707,6 +768,30 @@ export interface components {
       page_size: number;
       /** Format: int64 */
       total: number;
+    };
+    JobEvent: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      event:
+        | "attempt_started"
+        | "retry_scheduled"
+        | "marked_dead"
+        | "admin_relaunched"
+        | "cancelled"
+        | "completed"
+        | "lease_expired";
+      cycle: number;
+      attempt: number | null;
+      /** @enum {string} */
+      actor: "admin" | "worker" | "system";
+      actor_id: string;
+      error_code: string;
+      /** Format: date-time */
+      created_at: string;
+    };
+    JobHistory: {
+      items: components["schemas"]["JobEvent"][];
     };
     Worker: {
       id: string;
@@ -1583,7 +1668,14 @@ export interface operations {
   listJobs: {
     parameters: {
       query?: {
-        status?: "pending" | "leased" | "done" | "failed";
+        status?:
+          | "pending"
+          | "leased"
+          | "done"
+          | "failed"
+          | "retry_wait"
+          | "cancelled"
+          | "dead";
         clip_id?: number;
         step?: string;
         page?: number;
@@ -1650,6 +1742,103 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid task, 404 clip not found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getJobHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historique expurgé des tentatives et actions */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobHistory"];
+        };
+      };
+      /** @description Tâche introuvable ou accès refusé */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  relaunchJob: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Tâche dead remise en attente avec nouvel essai */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Job"];
+        };
+      };
+      /** @description Tâche introuvable ou non relançable */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelJob: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Tâche annulée */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Tâche introuvable ou non annulable */
       default: {
         headers: {
           [name: string]: unknown;

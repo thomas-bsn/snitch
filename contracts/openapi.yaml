@@ -993,7 +993,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["pending", "leased", "done", "failed"]
+              "enum": ["pending", "leased", "done", "failed", "retry_wait", "cancelled", "dead"]
             }
           },
           {
@@ -1092,6 +1092,49 @@
           }
         },
         "description": "Administrateurs uniquement. La planification répétée d'une tâche active est idempotente."
+      }
+    },
+    "/api/admin/jobs/{id}/history": {
+      "get": {
+        "operationId": "getJobHistory",
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}
+        ],
+        "responses": {
+          "200": {"description": "Historique expurgé des tentatives et actions", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/JobHistory"}}}},
+          "default": {"description": "Tâche introuvable ou accès refusé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "Administrateurs uniquement. Les messages et chemins fournis par le worker sont expurgés."
+      }
+    },
+    "/api/admin/jobs/{id}/retry": {
+      "post": {
+        "operationId": "relaunchJob",
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
+          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
+          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {"description": "Tâche dead remise en attente avec nouvel essai", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Job"}}}},
+          "default": {"description": "Tâche introuvable ou non relançable", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "Administrateurs uniquement. L’historique d’essais est conservé."
+      }
+    },
+    "/api/admin/jobs/{id}": {
+      "delete": {
+        "operationId": "cancelJob",
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}},
+          {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
+          {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "204": {"description": "Tâche annulée"},
+          "default": {"description": "Tâche introuvable ou non annulable", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "Administrateurs uniquement. Une tâche annulée garde son historique et ne peut plus accepter de résultat worker."
       }
     },
     "/api/admin/workers": {
@@ -2152,14 +2195,15 @@
           "next_attempt_at",
           "last_error",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "cycle"
         ],
         "properties": {
           "id": {"type": "integer", "format": "int64"},
           "clip_id": {"type": "integer", "format": "int64"},
           "step": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"},
           "input_version": {"type": "string"},
-          "status": {"type": "string", "enum": ["pending", "leased", "done", "failed"]},
+          "status": {"type": "string", "enum": ["pending", "leased", "done", "failed", "retry_wait", "cancelled", "dead"]},
           "priority": {"type": "integer", "minimum": -100, "maximum": 100},
           "attempts": {"type": "integer", "minimum": 0},
           "max_attempts": {"type": "integer", "minimum": 1},
@@ -2169,7 +2213,8 @@
           "last_error": {"type": "string"},
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"},
-          "result": {"type": "object", "additionalProperties": true, "nullable": true}
+          "result": {"type": "object", "additionalProperties": true, "nullable": true},
+          "cycle": {"type": "integer", "minimum": 0}
         }
       },
       "JobInput": {
@@ -2180,7 +2225,8 @@
           "clip_id": {"type": "integer", "format": "int64", "minimum": 1},
           "step": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"},
           "input_version": {"type": "string", "minLength": 1, "maxLength": 128},
-          "priority": {"type": "integer", "minimum": -100, "maximum": 100, "default": 0}
+          "priority": {"type": "integer", "minimum": -100, "maximum": 100, "default": 0},
+          "max_attempts": {"type": "integer", "minimum": 1, "maximum": 20, "default": 3}
         }
       },
       "JobPage": {
@@ -2192,6 +2238,25 @@
           "page_size": {"type": "integer"},
           "total": {"type": "integer", "format": "int64"}
         }
+      },
+      "JobEvent": {
+        "type": "object",
+        "required": ["id", "event", "cycle", "attempt", "actor", "actor_id", "error_code", "created_at"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "event": {"type": "string", "enum": ["attempt_started", "retry_scheduled", "marked_dead", "admin_relaunched", "cancelled", "completed", "lease_expired"]},
+          "cycle": {"type": "integer", "minimum": 0},
+          "attempt": {"type": "integer", "minimum": 1, "nullable": true},
+          "actor": {"type": "string", "enum": ["admin", "worker", "system"]},
+          "actor_id": {"type": "string"},
+          "error_code": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "JobHistory": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/JobEvent"}}}
       },
       "Worker": {
         "type": "object",

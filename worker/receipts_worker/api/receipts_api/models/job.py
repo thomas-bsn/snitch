@@ -42,6 +42,7 @@ class Job:
             last_error (str):
             created_at (datetime.datetime):
             updated_at (datetime.datetime):
+            cycle (int):
             result (JobResultType0 | None | Unset):
      """
 
@@ -59,6 +60,7 @@ class Job:
     last_error: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
+    cycle: int
     result: JobResultType0 | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -101,6 +103,8 @@ class Job:
 
         updated_at = self.updated_at.isoformat()
 
+        cycle = self.cycle
+
         result: dict[str, Any] | None | Unset
         if isinstance(self.result, Unset):
             result = UNSET
@@ -127,6 +131,7 @@ class Job:
             "last_error": last_error,
             "created_at": created_at,
             "updated_at": updated_at,
+            "cycle": cycle,
         })
         if result is not UNSET:
             field_dict["result"] = result
@@ -201,6 +206,8 @@ class Job:
 
 
 
+        cycle = d.pop("cycle")
+
         def _parse_result(data: object) -> JobResultType0 | None | Unset:
             if data is None:
                 return data
@@ -236,6 +243,7 @@ class Job:
             last_error=last_error,
             created_at=created_at,
             updated_at=updated_at,
+            cycle=cycle,
             result=result,
         )
 

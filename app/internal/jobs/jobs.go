@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,16 +19,22 @@ import (
 type Status string
 
 const (
-	Pending Status = "pending"
-	Leased  Status = "leased"
-	Done    Status = "done"
-	Failed  Status = "failed"
+	Pending   Status = "pending"
+	Leased    Status = "leased"
+	Done      Status = "done"
+	Failed    Status = "failed"
+	RetryWait Status = "retry_wait"
+	Cancelled Status = "cancelled"
+	Dead      Status = "dead"
 )
 
 var (
-	ErrInvalidInput = errors.New("invalid job input")
-	ErrClipNotFound = errors.New("clip not found")
-	stepPattern     = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,63}$`)
+	ErrInvalidInput    = errors.New("invalid job input")
+	ErrClipNotFound    = errors.New("clip not found")
+	ErrJobNotFound     = errors.New("job not found")
+	ErrNotCancellable  = errors.New("job cannot be cancelled")
+	ErrNotRelaunchable = errors.New("job is not dead")
+	stepPattern        = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,63}$`)
 )
 
 type Job struct {
@@ -39,6 +46,7 @@ type Job struct {
 	Priority       int             `json:"priority"`
 	Attempts       int             `json:"attempts"`
 	MaxAttempts    int             `json:"max_attempts"`
+	Cycle          int             `json:"cycle"`
 	LeaseOwner     *string         `json:"lease_owner"`
 	LeaseExpiresAt *time.Time      `json:"lease_expires_at"`
 	NextAttemptAt  time.Time       `json:"next_attempt_at"`
@@ -58,6 +66,18 @@ type ScheduleInput struct {
 	Step         string
 	InputVersion string
 	Priority     int
+	MaxAttempts  int
+}
+
+type Event struct {
+	ID        int64     `json:"id"`
+	Event     string    `json:"event"`
+	Cycle     int       `json:"cycle"`
+	Attempt   *int      `json:"attempt"`
+	Actor     string    `json:"actor"`
+	ActorID   string    `json:"actor_id"`
+	ErrorCode string    `json:"error_code"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Filter struct {
@@ -93,7 +113,10 @@ func New(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
 // Schedule creates one active job per clip, step, and input version. Concurrent
 // callers receive the same persisted job rather than creating duplicate work.
 func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool, error) {
-	if input.ClipID < 1 || !stepPattern.MatchString(input.Step) || input.InputVersion == "" || len(input.InputVersion) > 128 || strings.TrimSpace(input.InputVersion) != input.InputVersion || input.Priority < -100 || input.Priority > 100 {
+	if input.MaxAttempts == 0 {
+		input.MaxAttempts = 3
+	}
+	if input.ClipID < 1 || !stepPattern.MatchString(input.Step) || input.InputVersion == "" || len(input.InputVersion) > 128 || strings.TrimSpace(input.InputVersion) != input.InputVersion || input.Priority < -100 || input.Priority > 100 || input.MaxAttempts < 1 || input.MaxAttempts > 20 {
 		return Job{}, false, ErrInvalidInput
 	}
 	for attempt := 0; attempt < 5; attempt++ {
@@ -111,11 +134,11 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("lock clip before scheduling step: %w", err)
 		}
-		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND status IN ('pending','leased')`, input.ClipID, input.Step, input.InputVersion); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND status IN ('pending','leased','retry_wait')`, input.ClipID, input.Step, input.InputVersion); err != nil {
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("invalidate superseded step version: %w", err)
 		}
-		job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND status IN ('pending','leased') FOR UPDATE`, input.ClipID, input.Step, input.InputVersion))
+		job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND status IN ('pending','leased','retry_wait') FOR UPDATE`, input.ClipID, input.Step, input.InputVersion))
 		if err == nil {
 			if err = tx.Commit(ctx); err != nil {
 				return Job{}, false, fmt.Errorf("commit existing job schedule: %w", err)
@@ -126,7 +149,7 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("find active job: %w", err)
 		}
-		job, err = scanJob(tx.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority) VALUES($1,$2,$3,$4) ON CONFLICT (clip_id,step,input_version) WHERE status IN ('pending','leased') DO NOTHING RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, input.ClipID, input.Step, input.InputVersion, input.Priority))
+		job, err = scanJob(tx.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,$4,$5) ON CONFLICT (clip_id,step,input_version) WHERE status IN ('pending','leased','retry_wait') DO NOTHING RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, input.ClipID, input.Step, input.InputVersion, input.Priority, input.MaxAttempts))
 		if errors.Is(err, pgx.ErrNoRows) {
 			_ = tx.Rollback(ctx)
 			continue
@@ -148,7 +171,7 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 }
 
 func (s *Service) List(ctx context.Context, filter Filter) (Page, error) {
-	if filter.Page < 1 || filter.Page > 100000 || filter.PageSize < 1 || filter.PageSize > 100 || (filter.Status != "" && filter.Status != Pending && filter.Status != Leased && filter.Status != Done && filter.Status != Failed) || filter.ClipID < 0 || (filter.Step != "" && !stepPattern.MatchString(filter.Step)) {
+	if filter.Page < 1 || filter.Page > 100000 || filter.PageSize < 1 || filter.PageSize > 100 || (filter.Status != "" && filter.Status != Pending && filter.Status != Leased && filter.Status != Done && filter.Status != Failed && filter.Status != RetryWait && filter.Status != Cancelled && filter.Status != Dead) || filter.ClipID < 0 || (filter.Step != "" && !stepPattern.MatchString(filter.Step)) {
 		return Page{}, ErrInvalidInput
 	}
 	args := []any{filter.Status, filter.ClipID, filter.Step}
@@ -157,7 +180,7 @@ func (s *Service) List(ctx context.Context, filter Filter) (Page, error) {
 		return Page{}, fmt.Errorf("count jobs: %w", err)
 	}
 	args = append(args, filter.PageSize, (filter.Page-1)*filter.PageSize)
-	rows, err := s.pool.Query(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result FROM jobs WHERE ($1='' OR status=$1) AND ($2=0 OR clip_id=$2) AND ($3='' OR step=$3) ORDER BY priority DESC,created_at,id LIMIT $4 OFFSET $5`, args...)
+	rows, err := s.pool.Query(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE ($1='' OR status=$1) AND ($2=0 OR clip_id=$2) AND ($3='' OR step=$3) ORDER BY priority DESC,created_at,id LIMIT $4 OFFSET $5`, args...)
 	if err != nil {
 		return Page{}, fmt.Errorf("list jobs: %w", err)
 	}
@@ -176,6 +199,104 @@ func (s *Service) List(ctx context.Context, filter Filter) (Page, error) {
 	return Page{Items: items, Page: filter.Page, PageSize: filter.PageSize, Total: total}, nil
 }
 
+func (s *Service) History(ctx context.Context, jobID int64) ([]Event, error) {
+	if jobID < 1 {
+		return nil, ErrJobNotFound
+	}
+	var exists bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs WHERE id=$1)`, jobID).Scan(&exists); err != nil {
+		return nil, fmt.Errorf("check job history: %w", err)
+	}
+	if !exists {
+		return nil, ErrJobNotFound
+	}
+	rows, err := s.pool.Query(ctx, `SELECT id,event,cycle,attempt,actor,actor_id,error_code,created_at FROM job_events WHERE job_id=$1 ORDER BY id`, jobID)
+	if err != nil {
+		return nil, fmt.Errorf("read job history: %w", err)
+	}
+	defer rows.Close()
+	events := []Event{}
+	for rows.Next() {
+		var event Event
+		if err = rows.Scan(&event.ID, &event.Event, &event.Cycle, &event.Attempt, &event.Actor, &event.ActorID, &event.ErrorCode, &event.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan job history: %w", err)
+		}
+		events = append(events, event)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("read job history rows: %w", err)
+	}
+	return events, nil
+}
+
+func (s *Service) Relaunch(ctx context.Context, jobID, adminID int64) (Job, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Job{}, fmt.Errorf("begin job relaunch: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var previousError string
+	err = tx.QueryRow(ctx, `SELECT last_error FROM jobs WHERE id=$1 AND status='dead' FOR UPDATE`, jobID).Scan(&previousError)
+	if errors.Is(err, pgx.ErrNoRows) {
+		var exists bool
+		if checkErr := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs WHERE id=$1)`, jobID).Scan(&exists); checkErr != nil {
+			return Job{}, fmt.Errorf("check job relaunch target: %w", checkErr)
+		}
+		if !exists {
+			return Job{}, ErrJobNotFound
+		}
+		return Job{}, ErrNotRelaunchable
+	}
+	if err != nil {
+		return Job{}, fmt.Errorf("lock dead job: %w", err)
+	}
+	job, err := scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='pending',attempts=0,cycle=cycle+1,next_attempt_at=now(),last_error='',updated_at=now() WHERE id=$1 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, jobID))
+	if err != nil {
+		return Job{}, fmt.Errorf("relaunch dead job: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,actor,actor_id,error_code) VALUES($1,'admin_relaunched',$2,'admin',$3,$4)`, jobID, job.Cycle, strconv.FormatInt(adminID, 10), previousError); err != nil {
+		return Job{}, fmt.Errorf("record job relaunch: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Job{}, fmt.Errorf("commit job relaunch: %w", err)
+	}
+	return job, nil
+}
+
+func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin job cancellation: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var cycle, attempt int
+	var status Status
+	err = tx.QueryRow(ctx, `SELECT cycle,attempts,status FROM jobs WHERE id=$1 FOR UPDATE`, jobID).Scan(&cycle, &attempt, &status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrJobNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("lock job to cancel: %w", err)
+	}
+	if status != Pending && status != RetryWait && status != Leased {
+		return ErrNotCancellable
+	}
+	if _, err = tx.Exec(ctx, `UPDATE jobs SET status='cancelled',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,updated_at=now() WHERE id=$1`, jobID); err != nil {
+		return fmt.Errorf("cancel job: %w", err)
+	}
+	var attemptValue any
+	if status == Leased && attempt > 0 {
+		attemptValue = attempt
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id,error_code) VALUES($1,'cancelled',$2,$3,'admin',$4,'cancelled_by_admin')`, jobID, cycle, attemptValue, strconv.FormatInt(adminID, 10)); err != nil {
+		return fmt.Errorf("record job cancellation: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit job cancellation: %w", err)
+	}
+	return nil
+}
+
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
 func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, error) {
@@ -184,8 +305,17 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		return nil, fmt.Errorf("begin job claim: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='lease_expired',updated_at=now() WHERE status='leased' AND lease_expires_at<=now()`); err != nil {
+	if _, err = tx.Exec(ctx, `WITH expired AS (
+		UPDATE jobs SET status=CASE WHEN attempts>=max_attempts THEN 'dead' ELSE 'pending' END,
+		 lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='lease_expired',updated_at=now()
+		 WHERE status='leased' AND lease_expires_at<=now()
+		 RETURNING id,attempts,cycle,status
+	) INSERT INTO job_events(job_id,event,cycle,attempt,actor,error_code)
+	  SELECT id,CASE WHEN status='dead' THEN 'marked_dead' ELSE 'lease_expired' END,cycle,attempts,'system',CASE WHEN status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END FROM expired`); err != nil {
 		return nil, fmt.Errorf("recover expired job leases: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',updated_at=now() WHERE status='retry_wait' AND next_attempt_at<=now()`); err != nil {
+		return nil, fmt.Errorf("activate due job retries: %w", err)
 	}
 	var maximum, reported int
 	err = tx.QueryRow(ctx, `SELECT max_concurrency,reported_concurrency FROM workers WHERE id=$1 AND revoked_at IS NULL FOR UPDATE`, workerID).Scan(&maximum, &reported)
@@ -203,7 +333,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if capacity < 1 || active >= capacity {
 		return nil, tx.Commit(ctx)
 	}
-	job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result FROM jobs WHERE status='pending' AND next_attempt_at<=now() ORDER BY priority DESC,created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`))
+	job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE status='pending' AND next_attempt_at<=now() ORDER BY priority DESC,created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -211,9 +341,12 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		return nil, fmt.Errorf("select job for claim: %w", err)
 	}
 	leaseToken := "lt_" + auth.Token()
-	job, err = scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='leased',lease_owner=$2,lease_token_hash=$3,completed_by_worker_id=NULL,completed_lease_token_hash=NULL,lease_expires_at=now()+interval '2 minutes',attempts=attempts+1,updated_at=now() WHERE id=$1 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, job.ID, workerID, auth.Hash(leaseToken)))
+	job, err = scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='leased',lease_owner=$2,lease_token_hash=$3,completed_by_worker_id=NULL,completed_lease_token_hash=NULL,lease_expires_at=now()+interval '2 minutes',attempts=attempts+1,updated_at=now() WHERE id=$1 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, job.ID, workerID, auth.Hash(leaseToken)))
 	if err != nil {
 		return nil, fmt.Errorf("lease claimed job: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id) SELECT id,'attempt_started',cycle,attempts,'worker',$2 FROM jobs WHERE id=$1`, job.ID, workerID); err != nil {
+		return nil, fmt.Errorf("record job attempt: %w", err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit job claim: %w", err)
@@ -267,18 +400,24 @@ func (s *Service) Complete(ctx context.Context, id int64, workerID, leaseToken, 
 		return Job{}, fmt.Errorf("begin job completion: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	job, err := scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='done',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,completed_by_worker_id=$2,completed_lease_token_hash=$3,result=$5::jsonb,last_error='',updated_at=now() WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' AND lease_expires_at>now() AND input_version=$4 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, id, workerID, auth.Hash(leaseToken), inputVersion, []byte(result)))
+	job, err := scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='done',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,completed_by_worker_id=$2,completed_lease_token_hash=$3,result=$5::jsonb,last_error='',updated_at=now() WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' AND lease_expires_at>now() AND input_version=$4 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, id, workerID, auth.Hash(leaseToken), inputVersion, []byte(result)))
+	newlyCompleted := err == nil
 	if errors.Is(err, pgx.ErrNoRows) {
 		// A worker may lose the successful response and retry the same result.
 		// Return the committed row only to the worker that completed it, and only
 		// when the step version and JSON result are identical.
-		job, err = scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result FROM jobs WHERE id=$1 AND status='done' AND completed_by_worker_id=$2 AND completed_lease_token_hash=$3 AND input_version=$4 AND result=$5::jsonb`, id, workerID, auth.Hash(leaseToken), inputVersion, []byte(result)))
+		job, err = scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE id=$1 AND status='done' AND completed_by_worker_id=$2 AND completed_lease_token_hash=$3 AND input_version=$4 AND result=$5::jsonb`, id, workerID, auth.Hash(leaseToken), inputVersion, []byte(result)))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Job{}, ErrLeaseNotOwned
 		}
 	}
 	if err != nil {
 		return Job{}, fmt.Errorf("complete worker job: %w", err)
+	}
+	if newlyCompleted {
+		if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id) VALUES($1,'completed',$2,$3,'worker',$4)`, id, job.Cycle, job.Attempts, workerID); err != nil {
+			return Job{}, fmt.Errorf("record completed job: %w", err)
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return Job{}, fmt.Errorf("commit job completion: %w", err)
@@ -298,14 +437,49 @@ func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, mess
 	if message == "provider_unavailable" || message == "invalid_input" {
 		code = message
 	}
-	job, err := scanJob(s.pool.QueryRow(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error=$4,updated_at=now() WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' AND lease_expires_at>now() RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result`, id, workerID, auth.Hash(leaseToken), code))
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Job{}, fmt.Errorf("begin worker job failure: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' AND lease_expires_at>now() FOR UPDATE`, id, workerID, auth.Hash(leaseToken)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Job{}, ErrLeaseNotOwned
 	}
 	if err != nil {
-		return Job{}, fmt.Errorf("fail worker job: %w", err)
+		return Job{}, fmt.Errorf("read worker job for failure: %w", err)
+	}
+	status := RetryWait
+	delay := retryDelay(job.Attempts)
+	if code == "invalid_input" || job.Attempts >= job.MaxAttempts {
+		status = Dead
+	}
+	job, err = scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status=$4,lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error=$5,next_attempt_at=CASE WHEN $4='retry_wait' THEN now()+$6::interval ELSE next_attempt_at END,updated_at=now() WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, id, workerID, auth.Hash(leaseToken), status, code, delay.String()))
+	if err != nil {
+		return Job{}, fmt.Errorf("update failed worker job: %w", err)
+	}
+	event := "retry_scheduled"
+	if status == Dead {
+		event = "marked_dead"
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id,error_code) VALUES($1,$2,$3,$4,'worker',$5,$6)`, id, event, job.Cycle, job.Attempts, workerID, code); err != nil {
+		return Job{}, fmt.Errorf("record worker job failure: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Job{}, fmt.Errorf("commit worker job failure: %w", err)
 	}
 	return job, nil
+}
+
+func retryDelay(attempt int) time.Duration {
+	delay := 2 * time.Second
+	for i := 1; i < attempt && delay < 15*time.Minute; i++ {
+		delay *= 2
+	}
+	if delay > 15*time.Minute {
+		return 15 * time.Minute
+	}
+	return delay
 }
 
 var ErrLeaseNotOwned = errors.New("worker does not own active job lease")
@@ -318,6 +492,6 @@ type scanner interface{ Scan(...any) error }
 
 func scanJob(row scanner) (Job, error) {
 	var job Job
-	err := row.Scan(&job.ID, &job.ClipID, &job.Step, &job.InputVersion, &job.Status, &job.Priority, &job.Attempts, &job.MaxAttempts, &job.LeaseOwner, &job.LeaseExpiresAt, &job.NextAttemptAt, &job.LastError, &job.CreatedAt, &job.UpdatedAt, &job.Result)
+	err := row.Scan(&job.ID, &job.ClipID, &job.Step, &job.InputVersion, &job.Status, &job.Priority, &job.Attempts, &job.MaxAttempts, &job.LeaseOwner, &job.LeaseExpiresAt, &job.NextAttemptAt, &job.LastError, &job.CreatedAt, &job.UpdatedAt, &job.Result, &job.Cycle)
 	return job, err
 }
