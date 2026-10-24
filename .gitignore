@@ -1,0 +1,13 @@
+node_modules/
+web/dist/
+app/ui/dist/*
+!app/ui/dist/.gitkeep
+.env
+*.log
+.venv/
+__pycache__/
+.pytest_cache/
+playwright-report/
+test-results/
+.coverage
+bin/
