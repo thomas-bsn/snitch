@@ -121,7 +121,7 @@ func testJobControls(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("worker registration: %s %v", body, err)
 		}
 		workerTokens = append(workerTokens, registration.Token)
-		call(workerClient, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 2}, registration.Token, "", http.StatusOK)
+		call(workerClient, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 2, "supported_steps": []string{"fixture.*"}}, registration.Token, "", http.StatusOK)
 	}
 	claim := func(token string) (int64, string) {
 		t.Helper()

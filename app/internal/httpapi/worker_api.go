@@ -98,7 +98,8 @@ func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Capacity int `json:"capacity"`
+		Capacity       int      `json:"capacity"`
+		SupportedSteps []string `json:"supported_steps"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -108,9 +109,11 @@ func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_worker_capacity")
 		return
 	}
-	if err := s.Workers.Touch(r.Context(), worker.ID, input.Capacity); err != nil {
+	if err := s.Workers.Pulse(r.Context(), worker.ID, input.Capacity, input.SupportedSteps); err != nil {
 		if errors.Is(err, workers.ErrUnauthorized) {
 			fail(w, http.StatusUnauthorized, "worker_token_invalid")
+		} else if errors.Is(err, workers.ErrInvalidInput) {
+			fail(w, http.StatusBadRequest, "invalid_worker_capabilities")
 		} else {
 			s.internal(w, err)
 		}

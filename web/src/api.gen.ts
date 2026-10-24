@@ -846,6 +846,7 @@ export interface components {
     };
     WorkerPulseInput: {
       capacity: number;
+      supported_steps: string[];
     };
     WorkerClaim: {
       job: components["schemas"]["Job"] | null;

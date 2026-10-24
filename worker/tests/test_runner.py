@@ -84,7 +84,9 @@ class FakeProviderTests(unittest.TestCase):
             runner.fake_provider("transcription.whisper")
 
     def test_run_once_completes_fixture_without_requesting_media(self):
-        http_client = SimpleNamespace(get=lambda *_args, **_kwargs: self.fail("media requested"))
+        http_client = SimpleNamespace(
+            get=lambda *_args, **_kwargs: self.fail("media requested")
+        )
         client = SimpleNamespace(
             _base_url="https://receipts.example",
             get_httpx_client=lambda: http_client,
@@ -108,6 +110,8 @@ class FakeProviderTests(unittest.TestCase):
             self.assertTrue(runner.run_once(client, capacity=1))
 
         pulse.assert_called_once()
+        advertised = pulse.call_args.kwargs["body"].to_dict()
+        self.assertEqual(advertised["supported_steps"], ["fixture.*"])
         complete.assert_called_once()
         result = complete.call_args.kwargs["body"].result.to_dict()
         self.assertEqual(result["provider"], "fixture")
@@ -225,6 +229,10 @@ class FakeProviderTests(unittest.TestCase):
                 if not self._authorized():
                     return self._reply(401, {"error": "worker_token_invalid"})
                 if self.path == "/api/worker/pulse":
+                    pulse_body = json.loads(
+                        self.rfile.read(int(self.headers["Content-Length"]))
+                    )
+                    state["pulse"] = pulse_body
                     return self._reply(
                         200,
                         {
@@ -306,6 +314,8 @@ class FakeProviderTests(unittest.TestCase):
         self.assertTrue(runner.run_once(client))
         self.assertEqual(state["result"]["provider"], "fixture")
         self.assertEqual(state["result"]["step"], "fixture.echo")
+        self.assertEqual(state["pulse"]["supported_steps"], ["fixture.*"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -104,7 +104,7 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("worker listing exposed the one-time token")
 	}
 	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", "", false, http.StatusUnauthorized)
-	pulseBody := call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", registration.Token, false, http.StatusOK)
+	pulseBody := call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1,"supported_steps":["fixture.*"]}`), "", registration.Token, false, http.StatusOK)
 	if !bytes.Contains(pulseBody, []byte(`"connected":true`)) {
 		t.Fatalf("worker pulse did not report connected: %s", pulseBody)
 	}
@@ -183,7 +183,14 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	if err = json.Unmarshal(secondJobBody, &secondQueued); err != nil || secondQueued.ID < 1 || secondQueued.ID == queued.ID {
 		t.Fatalf("second job was not scheduled: %s %v", secondJobBody, err)
 	}
-	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", registration.Token, false, http.StatusOK)
+	unsupportedBody := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "transcription.whisper", "input_version": "future-v1", "priority": 20}), me.CSRF, "", true, http.StatusCreated)
+	var unsupportedQueued struct {
+		ID int64 `json:"id"`
+	}
+	if err = json.Unmarshal(unsupportedBody, &unsupportedQueued); err != nil || unsupportedQueued.ID < 1 {
+		t.Fatalf("future job was not scheduled: %s %v", unsupportedBody, err)
+	}
+	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1,"supported_steps":["fixture.*"]}`), "", registration.Token, false, http.StatusOK)
 	claimedBody := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", registration.Token, false, http.StatusOK)
 	var claimed struct {
 		LeaseToken string `json:"lease_token"`
@@ -195,6 +202,10 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if err = json.Unmarshal(claimedBody, &claimed); err != nil || claimed.Job.ID != queued.ID || claimed.Job.Status != "leased" || claimed.LeaseToken == "" {
 		t.Fatalf("worker did not receive scheduled job: %s %v", claimedBody, err)
+	}
+	var unsupportedStatus string
+	if err = pool.QueryRow(ctx, `SELECT status FROM jobs WHERE id=$1`, unsupportedQueued.ID).Scan(&unsupportedStatus); err != nil || unsupportedStatus != "pending" {
+		t.Fatalf("unsupported future step status = %q, want pending (err %v)", unsupportedStatus, err)
 	}
 	secondClaim := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", registration.Token, false, http.StatusOK)
 	if !bytes.Contains(secondClaim, []byte(`"job":null`)) {
@@ -208,7 +219,7 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	if err = json.Unmarshal(otherBody, &other); err != nil || other.Token == "" {
 		t.Fatalf("second worker registration: %v %s", err, otherBody)
 	}
-	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", other.Token, false, http.StatusOK)
+	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1,"supported_steps":["fixture.*"]}`), "", other.Token, false, http.StatusOK)
 	otherClaimBody := call(anon, http.MethodPost, "/api/worker/jobs/claim", nil, "", other.Token, false, http.StatusOK)
 	var otherClaim struct {
 		LeaseToken string `json:"lease_token"`
@@ -218,6 +229,10 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if err = json.Unmarshal(otherClaimBody, &otherClaim); err != nil || otherClaim.Job.ID != secondQueued.ID || otherClaim.LeaseToken == "" {
 		t.Fatalf("second worker did not receive the next available job: %s %v", otherClaimBody, err)
+	}
+	var unsupportedAttempts, unsupportedEvents int
+	if err = pool.QueryRow(ctx, `SELECT attempts,(SELECT count(*) FROM job_events WHERE job_id=jobs.id) FROM jobs WHERE id=$1 AND status='pending'`, unsupportedQueued.ID).Scan(&unsupportedAttempts, &unsupportedEvents); err != nil || unsupportedAttempts != 0 || unsupportedEvents != 0 {
+		t.Fatalf("unsupported future step was executed (attempts=%d events=%d, err %v)", unsupportedAttempts, unsupportedEvents, err)
 	}
 	callWithLease(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/input", nil, "", other.Token, false, otherClaim.LeaseToken, http.StatusNotFound)
 	callWithLease(anon, http.MethodGet, "/api/worker/jobs/"+strconv64(queued.ID)+"/media", nil, "", other.Token, false, otherClaim.LeaseToken, http.StatusNotFound)

@@ -99,7 +99,10 @@ test("un administrateur planifie et filtre une tâche persistante", async ({
       },
       { path, body, token: workerToken, leaseToken },
     );
-  await workerRequest("/api/worker/pulse", { capacity: 1 });
+  await workerRequest("/api/worker/pulse", {
+    capacity: 1,
+    supported_steps: ["fixture.*"],
+  });
   const lease = await workerRequest("/api/worker/jobs/claim");
   await workerRequest(
     `/api/worker/jobs/${lease.job.id}/fail`,
