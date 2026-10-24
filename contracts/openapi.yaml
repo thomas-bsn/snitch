@@ -2791,6 +2791,47 @@
         "security": [{"session": []}]
       }
     },
+    "/api/admin/embeddings": {
+      "get": {
+        "operationId": "getEmbeddingIndexStatus",
+        "description": "Administrateurs uniquement. État de l’index actif et file d’indexation.",
+        "responses": {
+          "200": {
+            "description": "État de l’index",
+            "content": {"application/json": {"schema": {
+              "type": "object",
+              "required": ["configured", "provider", "model", "dimensions", "state", "pending", "done", "failed"],
+              "properties": {"configured": {"type": "boolean"}, "provider": {"type": "string"}, "model": {"type": "string"}, "dimensions": {"type": "integer"}, "state": {"type": "string"}, "error": {"type": "string"}, "pending": {"type": "integer"}, "done": {"type": "integer"}, "failed": {"type": "integer"}, "candidate_model": {"type": "string"}, "candidate_state": {"type": "string"}, "candidate_error": {"type": "string"}, "candidate_total": {"type": "integer"}, "candidate_done": {"type": "integer"}, "candidate_pending": {"type": "integer"}, "candidate_failed": {"type": "integer"}}
+            }}}
+          }
+        },
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/embeddings/backfill": {
+      "post": {
+        "operationId": "backfillEmbeddingIndex",
+        "description": "Ajoute les transcriptions terminées à la file d’indexation sans relancer leur traitement vidéo.",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {
+          "202": {
+            "description": "Transcriptions mises en file",
+            "content": {"application/json": {"schema": {"type": "object", "properties": {"queued": {"type": "integer", "format": "int64"}}}}}
+          }
+        },
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/embeddings/rebuild": {
+      "post": {
+        "operationId": "rebuildEmbeddingIndex",
+        "description": "Builds a candidate index while the active index remains available, then switches after indexing completes.",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["model"], "properties": {"model": {"type": "string", "minLength": 1, "maxLength": 128}}}}}},
+        "responses": {"202": {"description": "Rebuild queued"}, "409": {"description": "A rebuild is already running"}},
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/vocabulary/{id}": {
       "put": {
         "operationId": "updateVocabulary",
@@ -2929,7 +2970,7 @@
     "/api/search": {
       "get": {
         "operationId": "searchTranscripts",
-        "description": "Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué.",
+        "description": "Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué.",
         "parameters": [
           {
             "in": "query",
@@ -2948,7 +2989,8 @@
               "type": "string",
               "enum": [
                 "exact",
-                "full_text"
+                "full_text",
+                "hybrid"
               ],
               "default": "full_text"
             }
@@ -4819,7 +4861,9 @@
             "enum": [
               "exact",
               "full_text",
-              "approximate"
+              "approximate",
+              "hybrid",
+              "semantic"
             ]
           },
           "context": {
@@ -4858,6 +4902,10 @@
           },
           "total": {
             "type": "integer"
+          },
+          "degraded": {
+            "type": "boolean",
+            "description": "Vrai si la recherche sémantique n’a pas pu être utilisée et que le plein texte a pris le relais."
           }
         }
       }

@@ -232,6 +232,54 @@ test("recherche exacte française, filtres et lecture du passage", async ({
     "JOUE",
   );
 
+  let hybridCalls = 0;
+  await page.route("**/api/search?**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("mode") === "hybrid") {
+      hybridCalls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items:
+            hybridCalls === 1
+              ? [
+                  {
+                    clip_id: fixture.clip_id,
+                    clip_name: "fixture-search.mp4",
+                    visibility: "private",
+                    recorded_at: new Date().toISOString(),
+                    status: "ready",
+                    sources: [],
+                    match_type: "semantic",
+                    context: "Bien joué !",
+                    matched_text: "Bien joué !",
+                    timestamp: 1.55,
+                  },
+                ]
+              : [],
+          page: 1,
+          page_size: 10,
+          total: hybridCalls === 1 ? 1 : 0,
+          degraded: hybridCalls > 1,
+        }),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+  await page.getByLabel("Rechercher dans les paroles").fill("intention");
+  await page.getByLabel("Type de recherche").selectOption("hybrid");
+  await page.getByRole("button", { name: "Rechercher", exact: true }).click();
+  await expect(page.getByText("Correspondance sémantique")).toBeVisible();
+  await page.getByLabel("Rechercher dans les paroles").fill("mot absent");
+  await page.getByRole("button", { name: "Rechercher", exact: true }).click();
+  await expect(
+    page.getByText(
+      "Recherche sémantique indisponible : résultats en plein texte.",
+    ),
+  ).toBeVisible();
+
   const privateAccess = await page.evaluate(async (clipID: number) => {
     const headers = (csrf: string) => ({
       "Content-Type": "application/json",

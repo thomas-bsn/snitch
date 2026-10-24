@@ -6,6 +6,7 @@ package database
 
 import (
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 type Clip struct {
@@ -45,6 +46,34 @@ type ClipSource struct {
 	ScanGeneration int64              `json:"scan_generation"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	HealthMessage  string             `json:"health_message"`
+}
+
+type EmbeddingIndexState struct {
+	ID                 int32              `json:"id"`
+	ActiveProfileID    pgtype.Int8        `json:"active_profile_id"`
+	CandidateProfileID pgtype.Int8        `json:"candidate_profile_id"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type EmbeddingProfile struct {
+	ID         int64              `json:"id"`
+	Model      string             `json:"model"`
+	Dimensions pgtype.Int4        `json:"dimensions"`
+	State      string             `json:"state"`
+	Error      pgtype.Text        `json:"error"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type EmbeddingTask struct {
+	ID                 int64              `json:"id"`
+	ProfileID          int64              `json:"profile_id"`
+	TranscriptionJobID int64              `json:"transcription_job_id"`
+	State              string             `json:"state"`
+	Attempts           int32              `json:"attempts"`
+	Error              pgtype.Text        `json:"error"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	LeaseExpiresAt     pgtype.Timestamptz `json:"lease_expires_at"`
 }
 
 type Installation struct {
@@ -133,6 +162,17 @@ type SourceFile struct {
 	LastSeenGeneration int64              `json:"last_seen_generation"`
 	Status             string             `json:"status"`
 	ErrorCode          pgtype.Text        `json:"error_code"`
+}
+
+type TranscriptEmbedding struct {
+	ProfileID          int64           `json:"profile_id"`
+	TranscriptionJobID int64           `json:"transcription_job_id"`
+	ClipID             int64           `json:"clip_id"`
+	SegmentIndex       int32           `json:"segment_index"`
+	SegmentStart       float64         `json:"segment_start"`
+	SegmentEnd         float64         `json:"segment_end"`
+	Text               string          `json:"text"`
+	Embedding          pgvector.Vector `json:"embedding"`
 }
 
 type TranscriptionPipelineActive struct {

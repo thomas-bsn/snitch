@@ -26,6 +26,40 @@ import (
 
 func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	var providerMu sync.Mutex
+	failModels := map[string]bool{}
+	candidateStarted := make(chan struct{}, 1)
+	candidateRelease := make(chan struct{})
+	embeddings := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Model string   `json:"model"`
+			Input []string `json:"input"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			t.Error(err)
+			return
+		}
+		providerMu.Lock()
+		shouldFail := failModels[input.Model]
+		providerMu.Unlock()
+		if shouldFail {
+			http.Error(w, "synthetic provider failure", http.StatusServiceUnavailable)
+			return
+		}
+		if input.Model == "fixture-embedding-v2" {
+			select {
+			case candidateStarted <- struct{}{}:
+			default:
+			}
+			<-candidateRelease
+		}
+		data := make([]map[string]any, len(input.Input))
+		for i := range input.Input {
+			data[i] = map[string]any{"embedding": []float32{1, 0.25, 0.5}}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+	}))
+	defer embeddings.Close()
 	sourceRoot := t.TempDir()
 	if err := os.WriteFile(filepath.Join(sourceRoot, "source-clip.mp4"), []byte("synthetic-source-multipiste-video"), 0o400); err != nil {
 		t.Fatal(err)
@@ -37,7 +71,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	api := New(pool, config.Config{
 		MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Snitch",
 		ProbePath: syntheticProbeFixture(t), ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024,
-		UploadChunkBytes: 1024, UploadSessionTTL: time.Hour,
+		UploadChunkBytes: 1024, UploadSessionTTL: time.Hour, EmbeddingsURL: embeddings.URL, EmbeddingsModel: "fixture-embedding-v1",
 	}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	if err := api.Start(context.Background()); err != nil {
 		t.Fatal(err)
@@ -434,6 +468,136 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	workerCall(http.MethodPost, "/api/worker/jobs/"+strconv64(assignment.Job.ID)+"/complete", map[string]any{"input_version": assignment.Job.InputVersion, "result": map[string]any{}}, assignment.LeaseToken, http.StatusBadRequest)
 	workerCall(http.MethodPost, "/api/worker/jobs/"+strconv64(assignment.Job.ID)+"/complete", map[string]any{"input_version": assignment.Job.InputVersion, "result": parsedResult}, assignment.LeaseToken, http.StatusOK)
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		var count int
+		if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM transcript_embeddings WHERE clip_id=$1`, completed.ClipID).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count > 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	var indexed int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM transcript_embeddings WHERE clip_id=$1`, completed.ClipID).Scan(&indexed); err != nil || indexed != 1 {
+		indexErr := api.indexNext(context.Background())
+		var taskState, taskError string
+		var taskProfile, activeProfile int64
+		diagnosticErr := pool.QueryRow(context.Background(), `SELECT COALESCE(t.state,'missing'),COALESCE(t.error,''),COALESCE(t.profile_id,0),COALESCE(s.active_profile_id,0) FROM jobs j LEFT JOIN embedding_tasks t ON t.transcription_job_id=j.id CROSS JOIN embedding_index_state s WHERE j.id=$1 AND s.id=1`, assignment.Job.ID).Scan(&taskState, &taskError, &taskProfile, &activeProfile)
+		t.Fatalf("completed transcript was not indexed: count=%d err=%v index_err=%v task_state=%q task_error=%q task_profile=%d active_profile=%d diagnostic_err=%v", indexed, err, indexErr, taskState, taskError, taskProfile, activeProfile, diagnosticErr)
+	}
+	call(admin, http.MethodPost, "/api/admin/embeddings/rebuild", map[string]string{"model": "fixture-embedding-v2"}, session.CSRF, http.StatusAccepted)
+	select {
+	case <-candidateStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("candidate embeddings were not requested")
+	}
+	var oldProfileStatus struct {
+		Model string `json:"model"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/embeddings", nil, "", http.StatusOK), &oldProfileStatus); err != nil || oldProfileStatus.Model != "fixture-embedding-v1" {
+		t.Fatalf("active profile changed before candidate completion: %+v err=%v", oldProfileStatus, err)
+	}
+	var availableSearch struct {
+		Items    []searchItem `json:"items"`
+		Degraded bool         `json:"degraded"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=concept+inattendu&mode=hybrid&page=1&page_size=10", nil, "", http.StatusOK), &availableSearch); err != nil || availableSearch.Degraded || len(availableSearch.Items) == 0 {
+		t.Fatalf("old index was unavailable during candidate rebuild: %+v err=%v", availableSearch, err)
+	}
+	close(candidateRelease)
+	rebuildDeadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(rebuildDeadline) {
+		var status struct {
+			Model          string `json:"model"`
+			CandidateModel string `json:"candidate_model"`
+		}
+		if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/embeddings", nil, "", http.StatusOK), &status); err != nil {
+			t.Fatal(err)
+		}
+		if status.Model == "fixture-embedding-v2" && status.CandidateModel == "" {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	var activeModel string
+	if err := pool.QueryRow(context.Background(), `SELECT p.model FROM embedding_index_state s JOIN embedding_profiles p ON p.id=s.active_profile_id WHERE s.id=1`).Scan(&activeModel); err != nil || activeModel != "fixture-embedding-v2" {
+		t.Fatalf("candidate index did not atomically replace the active profile: model=%s err=%v", activeModel, err)
+	}
+	var semanticSearch struct {
+		Items    []searchItem `json:"items"`
+		Degraded bool         `json:"degraded"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=concept+inattendu&mode=hybrid&page=1&page_size=10", nil, "", http.StatusOK), &semanticSearch); err != nil {
+		t.Fatal(err)
+	}
+	if semanticSearch.Degraded || len(semanticSearch.Items) == 0 || semanticSearch.Items[0].MatchType != "semantic" {
+		t.Fatalf("hybrid mode did not return a semantic-only hit: %+v", semanticSearch)
+	}
+	if semanticSearch.Items[0].Timestamp != 1.25 {
+		t.Fatalf("semantic hit lost its transcript timestamp: %+v", semanticSearch.Items[0])
+	}
+	var fusedSearch struct {
+		Items []searchItem `json:"items"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=joué&mode=hybrid&page=1&page_size=10", nil, "", http.StatusOK), &fusedSearch); err != nil {
+		t.Fatal(err)
+	}
+	if len(fusedSearch.Items) == 0 || fusedSearch.Items[0].MatchType != "hybrid" {
+		t.Fatalf("lexical and semantic ranks were not fused: %+v", fusedSearch)
+	}
+	var filteredSearch struct {
+		Items []searchItem `json:"items"`
+		Total int          `json:"total"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=concept+inattendu&mode=hybrid&visibility=private&page=1&page_size=10", nil, "", http.StatusOK), &filteredSearch); err != nil {
+		t.Fatal(err)
+	}
+	if filteredSearch.Total != 0 || len(filteredSearch.Items) != 0 {
+		t.Fatalf("hybrid visibility filter leaked shared results: %+v", filteredSearch)
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=concept+inattendu&mode=hybrid&page=2&page_size=10", nil, "", http.StatusOK), &filteredSearch); err != nil {
+		t.Fatal(err)
+	}
+	if filteredSearch.Total != 1 || len(filteredSearch.Items) != 0 {
+		t.Fatalf("hybrid pagination did not preserve total and page: %+v", filteredSearch)
+	}
+	providerMu.Lock()
+	failModels["fixture-embedding-v2"] = true
+	providerMu.Unlock()
+	var fallbackSearch struct {
+		Degraded bool `json:"degraded"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=concept+inattendu&mode=hybrid&page=1&page_size=10", nil, "", http.StatusOK), &fallbackSearch); err != nil || !fallbackSearch.Degraded {
+		t.Fatalf("provider failure did not expose lexical fallback: %+v err=%v", fallbackSearch, err)
+	}
+	providerMu.Lock()
+	delete(failModels, "fixture-embedding-v2")
+	failModels["fixture-embedding-failed"] = true
+	providerMu.Unlock()
+	call(admin, http.MethodPost, "/api/admin/embeddings/rebuild", map[string]string{"model": "fixture-embedding-failed"}, session.CSRF, http.StatusAccepted)
+	failureDeadline := time.Now().Add(5 * time.Second)
+	var failedCandidate string
+	for time.Now().Before(failureDeadline) {
+		var status struct {
+			CandidateState string `json:"candidate_state"`
+		}
+		if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/embeddings", nil, "", http.StatusOK), &status); err != nil {
+			t.Fatal(err)
+		}
+		failedCandidate = status.CandidateState
+		if failedCandidate == "failed" {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if failedCandidate != "failed" {
+		t.Fatalf("failed candidate state not surfaced: %q", failedCandidate)
+	}
+	if err := pool.QueryRow(context.Background(), `SELECT p.model FROM embedding_index_state s JOIN embedding_profiles p ON p.id=s.active_profile_id WHERE s.id=1`).Scan(&activeModel); err != nil || activeModel != "fixture-embedding-v2" {
+		t.Fatalf("failed rebuild replaced the working profile: model=%s err=%v", activeModel, err)
+	}
 	var detail struct {
 		Transcription struct {
 			Provider         string `json:"provider"`
@@ -567,8 +731,8 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	var sourceClipID int64
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
+	sourceDeadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(sourceDeadline) {
 		var files struct {
 			Items []struct {
 				ClipID *int64 `json:"clip_id"`

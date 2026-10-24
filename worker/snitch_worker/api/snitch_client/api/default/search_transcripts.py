@@ -129,10 +129,10 @@ def sync_detailed(
 
 ) -> Response[Error | SearchPage]:
     """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
-    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les
-    résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et
-    administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est
-    effectué.
+    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode
+    hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés
+    hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
+    worker n’est effectué.
 
     Args:
         q (str):
@@ -188,10 +188,10 @@ def sync(
 
 ) -> Error | SearchPage | None:
     """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
-    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les
-    résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et
-    administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est
-    effectué.
+    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode
+    hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés
+    hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
+    worker n’est effectué.
 
     Args:
         q (str):
@@ -242,10 +242,10 @@ async def asyncio_detailed(
 
 ) -> Response[Error | SearchPage]:
     """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
-    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les
-    résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et
-    administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est
-    effectué.
+    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode
+    hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés
+    hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
+    worker n’est effectué.
 
     Args:
         q (str):
@@ -301,10 +301,10 @@ async def asyncio(
 
 ) -> Error | SearchPage | None:
     """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
-    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Les
-    résultats exacts et plein texte précèdent les approximations. Les clips privés hors propriétaire et
-    administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est
-    effectué.
+    texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode
+    hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés
+    hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
+    worker n’est effectué.
 
     Args:
         q (str):
