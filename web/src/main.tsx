@@ -19,6 +19,7 @@ type JobEvent = components["schemas"]["JobEvent"];
 type JobControls = components["schemas"]["JobControls"];
 type Worker = components["schemas"]["Worker"];
 type VocabularyTerm = components["schemas"]["VocabularyTerm"];
+type SearchResult = { clip_id: number; clip_name: string; visibility: string; recorded_at: string; status: string; sources: string[]; match_type: string; context: string; matched_text: string; timestamp: number };
 const messages: Record<string, string> = {
   unavailable:
     "Le service est temporairement indisponible. Réessayez dans un instant.",
@@ -73,6 +74,11 @@ function checkedNoContent(result: { error?: { error: string } }): void {
       messages[result.error.error] ?? "La demande a échoué. Réessayez.",
     );
 }
+function highlighted(context: string, match: string): React.ReactNode {
+  const start = context.toLocaleLowerCase("fr").indexOf(match.toLocaleLowerCase("fr"));
+  if (start < 0 || !match) return context;
+  return <>{context.slice(0, start)}<mark>{context.slice(start, start + match.length)}</mark>{context.slice(start + match.length)}</>;
+}
 function App() {
   const [setup, setSetup] = useState<Setup>();
   const [session, setSession] = useState<Session>();
@@ -83,6 +89,13 @@ function App() {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
   const [clipDetails, setClipDetails] = useState<Record<number, Clip>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState("full_text");
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchFilters, setSearchFilters] = useState({ from: "", to: "", source_id: "", visibility: "", status: "" });
+  const [searchPlayback, setSearchPlayback] = useState<SearchResult>();
   const [selectedAudioTracks, setSelectedAudioTracks] = useState<Record<number, number>>({});
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobHistory, setJobHistory] = useState<Record<number, JobEvent[]>>({});
@@ -187,6 +200,16 @@ function App() {
     setClips(result.items);
     setClipPage(result.page);
     setClipTotal(result.total);
+  }
+  async function runSearch(page = 1) {
+    const query = new URLSearchParams({ q: searchQuery, mode: searchMode, page: String(page), page_size: "10" });
+    for (const [key, value] of Object.entries(searchFilters)) if (value) query.set(key, value);
+    const response = await fetch(`/api/search?${query}`, { credentials: "same-origin" });
+    if (!response.ok) throw new Error("Impossible de rechercher dans les transcriptions.");
+    const result = await response.json();
+    setSearchResults(result.items);
+    setSearchTotal(result.total);
+    setSearchPage(result.page);
   }
   async function refreshVocabulary() {
     const result = checked(await api.GET("/api/admin/vocabulary"));
@@ -856,6 +879,26 @@ function App() {
           </section>
           <section className="card library-card" aria-label="Bibliothèque" id="library">
             <div className="library-heading"><div><p className="eyebrow">VOTRE COLLECTION</p><h2>Bibliothèque</h2><p>{clipTotal} clips · derniers ajouts en premier</p></div><a className="primary-link" href="#uploads">＋ Importer des clips</a></div>
+            <section className="transcript-search" aria-label="Recherche dans les paroles">
+              <h3>Rechercher dans les paroles</h3>
+              <form onSubmit={(event) => { event.preventDefault(); run(() => runSearch(1)); }}>
+                <label>Paroles<input aria-label="Rechercher dans les paroles" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Ex. bonjour tout le monde" required /></label>
+                <label>Type de recherche<select aria-label="Type de recherche" value={searchMode} onChange={(event) => setSearchMode(event.target.value)}><option value="full_text">Plein texte</option><option value="exact">Mot exact</option></select></label>
+                <label>Du<input aria-label="Date de début de recherche" type="date" value={searchFilters.from} onChange={(e) => setSearchFilters({ ...searchFilters, from: e.target.value })} /></label>
+                <label>Au<input aria-label="Date de fin de recherche" type="date" value={searchFilters.to} onChange={(e) => setSearchFilters({ ...searchFilters, to: e.target.value })} /></label>
+                <label>Source (ID)<input aria-label="Source de recherche" type="number" min="1" value={searchFilters.source_id} onChange={(e) => setSearchFilters({ ...searchFilters, source_id: e.target.value })} /></label>
+                <label>Visibilité<select aria-label="Visibilité de recherche" value={searchFilters.visibility} onChange={(e) => setSearchFilters({ ...searchFilters, visibility: e.target.value })}><option value="">Toutes</option><option value="shared">Partagées</option><option value="private">Privées</option></select></label>
+                <label>État du clip<select aria-label="État du clip recherché" value={searchFilters.status} onChange={(e) => setSearchFilters({ ...searchFilters, status: e.target.value })}><option value="">Tous</option><option value="ready">Prêtes</option><option value="waiting_stability">En attente</option><option value="unreadable">Illisibles</option><option value="missing">Original introuvable</option></select></label>
+                <button disabled={busy}>Rechercher</button>
+              </form>
+              {searchResults.length > 0 && <><p role="status">{searchTotal} résultat{searchTotal > 1 ? "s" : ""} · page {searchPage}</p><ol className="search-results">{searchResults.map((item, index) => <li key={`${item.clip_id}-${item.timestamp}-${index}`}>
+                <strong>{item.clip_name}</strong> · {new Date(item.recorded_at).toLocaleDateString("fr-FR")} · {item.visibility === "shared" ? "Partagé" : "Privé"} · {item.match_type === "exact" ? "Correspondance exacte" : "Plein texte"}
+                <p>{highlighted(item.context, item.matched_text)}</p>
+                <button className="secondary" disabled={item.status !== "ready"} onClick={() => setSearchPlayback(item)}>Ouvrir à {formatTimecode(item.timestamp)}</button>
+              </li>)}</ol><div className="toolbar"><button className="secondary" disabled={busy || searchPage <= 1} onClick={() => run(() => runSearch(searchPage - 1))}>Précédente</button><span>Page {searchPage} · {searchTotal} résultats</span><button className="secondary" disabled={busy || searchPage * 10 >= searchTotal} onClick={() => run(() => runSearch(searchPage + 1))}>Suivante</button></div></>}
+              {searchQuery && searchResults.length === 0 && <p role="status">Aucun résultat · {searchTotal} résultat trouvé</p>}
+              {searchPlayback && <section aria-label="Lecture du résultat" className="search-playback"><h4>{searchPlayback.clip_name} · {formatTimecode(searchPlayback.timestamp)}</h4><video controls autoPlay preload="metadata" src={`/api/clips/${searchPlayback.clip_id}/media`} aria-label={`Lecture ${searchPlayback.clip_name}`} onLoadedMetadata={(event) => { event.currentTarget.currentTime = searchPlayback.timestamp; void event.currentTarget.play().catch(() => undefined); }} /><button className="secondary" onClick={() => setSearchPlayback(undefined)}>Fermer la lecture</button></section>}
+            </section>
             <form
               onSubmit={(event) => {
                 event.preventDefault();

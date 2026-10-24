@@ -722,6 +722,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Recherche exacte ou plein texte insensible à la casse et aux accents français. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué. */
+    get: operations["searchTranscripts"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1128,6 +1145,30 @@ export interface components {
       term: string;
       variants: string[];
       preferred_spelling: string;
+    };
+    SearchResult: {
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      /** @enum {string} */
+      visibility: "shared" | "private";
+      /** Format: date-time */
+      recorded_at: string;
+      /** @enum {string} */
+      status: "ready" | "waiting_stability" | "unreadable" | "missing";
+      sources: string[];
+      /** @enum {string} */
+      match_type: "exact" | "full_text";
+      context: string;
+      matched_text: string;
+      /** Format: double */
+      timestamp: number;
+    };
+    SearchPage: {
+      items: components["schemas"]["SearchResult"][];
+      page: number;
+      page_size: number;
+      total: number;
     };
   };
   responses: never;
@@ -3079,6 +3120,45 @@ export interface operations {
         content?: never;
       };
       /** @description Erreur (401 session requise, 403 administrateur requis, 503 indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  searchTranscripts: {
+    parameters: {
+      query: {
+        q: string;
+        mode?: "exact" | "full_text";
+        page?: number;
+        page_size?: number;
+        visibility?: "shared" | "private";
+        status?: "ready" | "waiting_stability" | "unreadable" | "missing";
+        source_id?: number;
+        from?: string;
+        to?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultats filtrés, total exact et page courante */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SearchPage"];
+        };
+      };
+      /** @description Requête invalide ou erreur */
       default: {
         headers: {
           [name: string]: unknown;

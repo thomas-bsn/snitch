@@ -2909,6 +2909,125 @@
           }
         ]
       }
+    },
+    "/api/search": {
+      "get": {
+        "operationId": "searchTranscripts",
+        "description": "Recherche exacte ou plein texte insensible à la casse et aux accents français. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "full_text"
+              ],
+              "default": "full_text"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "visibility",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "shared",
+                "private"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "waiting_stability",
+                "unreadable",
+                "missing"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_id",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultats filtrés, total exact et page courante",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Requête invalide ou erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4378,6 +4497,100 @@
           },
           "preferred_spelling": {
             "type": "string"
+          }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "required": [
+          "clip_id",
+          "clip_name",
+          "visibility",
+          "recorded_at",
+          "status",
+          "sources",
+          "match_type",
+          "context",
+          "matched_text",
+          "timestamp"
+        ],
+        "properties": {
+          "clip_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "clip_name": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "shared",
+              "private"
+            ]
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "waiting_stability",
+              "unreadable",
+              "missing"
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "match_type": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "full_text"
+            ]
+          },
+          "context": {
+            "type": "string"
+          },
+          "matched_text": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0
+          }
+        }
+      },
+      "SearchPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
           }
         }
       }

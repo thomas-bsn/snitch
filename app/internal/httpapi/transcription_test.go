@@ -281,6 +281,21 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if detail.Transcription.Provider != "fixture" || detail.Transcription.Model != "deterministic-v1" || detail.Transcription.Version != "deterministic-v1" || detail.Transcription.AudioStreamIndex != 2 || len(detail.Transcription.Segments) != 1 || detail.Transcription.Segments[0].Start != 1.25 || detail.Transcription.Segments[0].Words[1].Word != "joué" || detail.Transcription.Segments[0].Words[1].Start != 1.55 {
 		t.Fatalf("completed transcript was not available on the clip with word-level timecodes: %+v", detail.Transcription)
 	}
+	var search struct {
+		Total int `json:"total"`
+		Items []struct {
+			MatchType string  `json:"match_type"`
+			ClipID    int64   `json:"clip_id"`
+			Timestamp float64 `json:"timestamp"`
+			Context   string  `json:"context"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=JOUE&mode=exact&page=1&page_size=10", nil, "", http.StatusOK), &search); err != nil {
+		t.Fatal(err)
+	}
+	if search.Total != 1 || len(search.Items) != 1 || search.Items[0].ClipID != completed.ClipID || search.Items[0].Timestamp != 1.55 || search.Items[0].MatchType != "exact" || !strings.Contains(search.Items[0].Context, "joué") {
+		t.Fatalf("accent/case tolerant exact search returned unexpected results: %+v", search)
+	}
 	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/vocabulary", map[string]any{"term": "Final Fantasy XIV", "variants": []string{"FFXIV", "Final Fantasy 14"}, "preferred_spelling": "FFXIV", "active": true}, session.CSRF, http.StatusCreated), &term); err != nil {
 		t.Fatal(err)
 	}
