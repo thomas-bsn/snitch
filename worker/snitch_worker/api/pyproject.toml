@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "receipts-api"
+name = "snitch-client"
 version = "0.1.0"
-description = "A client library for accessing Receipts phase 0"
+description = "A client library for accessing Snitch"
 authors = []
 readme = "README.md"
 packages = [
-    { include = "receipts_api" },
+    { include = "snitch_client" },
 ]
-include = ["receipts_api/py.typed"]
+include = ["snitch_client/py.typed"]
 
 [tool.poetry.dependencies]
 python = "^3.11"

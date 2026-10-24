@@ -1,5 +1,5 @@
 
-""" A client library for accessing Receipts phase 0 """
+""" A client library for accessing Snitch """
 from .client import AuthenticatedClient, Client
 
 __all__ = (

@@ -14,8 +14,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"receipts/internal/config"
-	"receipts/internal/setup"
+	"snitch/internal/config"
+	"snitch/internal/setup"
 )
 
 func testJobControls(t *testing.T, pool *pgxpool.Pool) {

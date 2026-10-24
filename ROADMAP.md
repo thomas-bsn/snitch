@@ -1,13 +1,13 @@
-# Receipts — Roadmap V1
+# Snitch — Roadmap V1
 
-Receipts indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a dit et quand, puis ouvrir le bon clip au bon instant. Le nom est provisoire. Cette roadmap reprend les phases et contraintes du handoff ; elle ne remplace pas leurs futures specs détaillées.
+Snitch indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a dit et quand, puis ouvrir le bon clip au bon instant. Cette roadmap reprend les phases et contraintes du handoff ; elle ne remplace pas leurs futures specs détaillées.
 
 ## État actuel
 
 - Phase 0 : implémentée et vérifiée localement ; [bilan et mesures](docs/phase-0-report.md) disponibles. Les issues #1 à #7 sont fermées. La CI distante, publication et validation NAS ne sont pas exécutées.
 - Phase 1 : implémentée et vérifiée localement ; [bilan](docs/phase-1-report.md) disponible. Validation utilisateur de fin de phase reçue.
 - Phase 2 : implémentée, vérifiée et validée ; [bilan](docs/phase-2-report.md) disponible.
-- Phase 3 : fonctions principales implémentées localement ; la revue finale a relevé des exigences VAD et de versionnement de configuration encore manquantes. Voir le [bilan de phase 3](docs/phase-3-report.md).
+- Phase 3 : implémentée, vérifiée et prête à clôturer ; VAD et profils de pipeline versionnés inclus. Voir le [bilan](docs/phase-3-report.md).
 - Phases 4 à 7 : non implémentées.
 - Aucun média réel traité, aucun déploiement effectué, aucun code ni image publié. Le dépôt public et le suivi des issues existent sur GitHub.
 
@@ -63,7 +63,7 @@ Acquisition serveur transactionnelle, tentatives bornées, lease et heartbeat, r
 
 ### Phase 3
 
-Préparation WAV 16 kHz mono sur le worker, pistes vocales conservées et piste jeu ignorée seulement lorsqu'elle est identifiable. Demander un échantillon des titres Medal au moment utile. Langue française, vocabulaire personnalisable et VAD. Départager les modèles de transcription au benchmark. Recherche française avec unaccent et pg_trgm ; résultats sûrs/approximatifs et leurs listes issus de SQL.
+Livrée : préparation WAV 16 kHz mono, règles de piste, profil de pipeline avec VAD énergie optionnel versionné, transcription française configurable et recherche exacte/plein texte/approximative avec accents tolérés. La VAD conserve les offsets d’origine. La recherche plein texte repose sur SQL normalisé plutôt que `tsvector`; le benchmark et le choix du modèle restent en phase 7.
 
 ### Phase 4
 
@@ -101,7 +101,7 @@ Mesurer distributions de temps par étape, clips/heure et concurrence worker 1�
 
 ## Choix laissés ouverts
 
-Nom définitif, titres réels des pistes Medal, modèles définitifs et seuils vocaux. Ne pas les considérer comme décidés par les brouillons de code.
+Titres réels des pistes Medal, modèles définitifs et seuils vocaux. Ne pas les considérer comme décidés par les brouillons de code.
 
 ## Hors V1
 

@@ -7,7 +7,7 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
   await page.goto("/");
   await page
     .getByLabel("Code d’installation")
-    .fill(process.env.RECEIPTS_TEST_CODE!);
+    .fill(process.env.SNITCH_TEST_CODE!);
   await page.getByLabel("Nom d’utilisateur").fill("administrator");
   await page
     .getByLabel("Mot de passe", { exact: true })

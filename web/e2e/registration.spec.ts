@@ -12,7 +12,7 @@ test("installation, connexion, approbation et refus anonymes", async ({
   ).toBeVisible();
   await page
     .getByLabel("Code d’installation")
-    .fill(process.env.RECEIPTS_TEST_CODE!);
+    .fill(process.env.SNITCH_TEST_CODE!);
   await page.getByLabel("Nom d’utilisateur").fill("administrator");
   await page
     .getByLabel("Mot de passe", { exact: true })
@@ -91,7 +91,7 @@ test("installation, connexion, approbation et refus anonymes", async ({
   expect(
     (
       await page.request.post("/api/auth/logout", {
-        headers: { Origin: process.env.RECEIPTS_TEST_URL! },
+        headers: { Origin: process.env.SNITCH_TEST_URL! },
       })
     ).status(),
   ).toBe(403);

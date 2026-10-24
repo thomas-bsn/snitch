@@ -704,6 +704,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/transcription-pipeline": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. */
+    get: operations["getTranscriptionPipeline"];
+    /** @description Enregistre un snapshot immuable et l'active pour les nouvelles tâches. */
+    put: operations["updateTranscriptionPipeline"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/vocabulary/{id}": {
     parameters: {
       query?: never;
@@ -997,6 +1015,29 @@ export interface components {
       tracks: Record<string, never>[];
       media_url: string;
       vocabulary: components["schemas"]["WorkerVocabularyTerm"][];
+      pipeline?: components["schemas"]["TranscriptionPipeline"];
+      pipeline_version?: string;
+    };
+    TranscriptionPipeline: {
+      /** @enum {string} */
+      provider: "openai-compatible";
+      model: string;
+      language: string;
+      /** @enum {string} */
+      preparation: "wav-16khz-mono-v1";
+      vad: {
+        /** @enum {string} */
+        mode: "off" | "energy";
+        version: string;
+        threshold?: number;
+        min_speech_ms?: number;
+        min_silence_ms?: number;
+        padding_ms?: number;
+      };
+    };
+    TranscriptionPipelineState: {
+      version: string;
+      config: components["schemas"]["TranscriptionPipeline"];
     };
     WorkerResultInput: {
       input_version: string;
@@ -3061,6 +3102,60 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Error"];
         };
+      };
+    };
+  };
+  getTranscriptionPipeline: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Configuration active */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TranscriptionPipelineState"];
+        };
+      };
+    };
+  };
+  updateTranscriptionPipeline: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TranscriptionPipeline"];
+      };
+    };
+    responses: {
+      /** @description Nouvelle version activée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TranscriptionPipelineState"];
+        };
+      };
+      /** @description Configuration invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

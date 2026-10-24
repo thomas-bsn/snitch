@@ -59,6 +59,12 @@ from .transcript_segment import TranscriptSegment
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
 from .transcription_input import TranscriptionInput
+from .transcription_pipeline import TranscriptionPipeline
+from .transcription_pipeline_preparation import TranscriptionPipelinePreparation
+from .transcription_pipeline_provider import TranscriptionPipelineProvider
+from .transcription_pipeline_state import TranscriptionPipelineState
+from .transcription_pipeline_vad import TranscriptionPipelineVad
+from .transcription_pipeline_vad_mode import TranscriptionPipelineVadMode
 from .upload import Upload
 from .upload_input import UploadInput
 from .upload_input_visibility import UploadInputVisibility
@@ -141,6 +147,12 @@ __all__ = (
     "Status",
     "Transcription",
     "TranscriptionInput",
+    "TranscriptionPipeline",
+    "TranscriptionPipelinePreparation",
+    "TranscriptionPipelineProvider",
+    "TranscriptionPipelineState",
+    "TranscriptionPipelineVad",
+    "TranscriptionPipelineVadMode",
     "TranscriptSegment",
     "TranscriptWord",
     "Upload",

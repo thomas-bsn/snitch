@@ -2,9 +2,9 @@
 from importlib.metadata import distributions
 from pathlib import Path
 import shutil
-out = Path('/usr/share/licenses/receipts/python')
+out = Path('/usr/share/licenses/snitch/python')
 for dist in distributions():
-    if dist.metadata['Name'] == 'receipts-api':
+    if dist.metadata['Name'] == 'snitch-client':
         continue
     files = [f for f in dist.files or [] if any(p.lower().startswith(('license', 'notice', 'copying', 'copyright')) for p in f.parts)]
     if not files:

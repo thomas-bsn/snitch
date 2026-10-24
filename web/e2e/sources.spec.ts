@@ -6,7 +6,7 @@ test("un administrateur ajoute une source et voit ses clips validés", async ({
   await page.goto("/");
   await page
     .getByLabel("Code d’installation")
-    .fill(process.env.RECEIPTS_TEST_CODE!);
+    .fill(process.env.SNITCH_TEST_CODE!);
   await page.getByLabel("Nom d’utilisateur").fill("administrator");
   await page
     .getByLabel("Mot de passe", { exact: true })
@@ -19,7 +19,7 @@ test("un administrateur ajoute une source et voit ses clips validés", async ({
   await page.getByLabel("Nom de la source").fill("Captures de test");
   await page
     .getByLabel("Chemin du dossier autorisé")
-    .fill(process.env.RECEIPTS_TEST_SOURCE_ROOT!);
+    .fill(process.env.SNITCH_TEST_SOURCE_ROOT!);
   await page.getByRole("button", { name: "Ajouter le dossier" }).click();
   await expect(
     page.getByText("Captures de test", { exact: true }),

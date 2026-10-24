@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"receipts/internal/config"
-	"receipts/internal/setup"
+	"snitch/internal/config"
+	"snitch/internal/setup"
 )
 
 func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
@@ -35,7 +35,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	api := New(pool, config.Config{
-		MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts",
+		MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Snitch",
 		ProbePath: syntheticProbeFixture(t), ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024,
 		UploadChunkBytes: 1024, UploadSessionTTL: time.Hour,
 	}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
@@ -101,6 +101,33 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if vocabulary.Version == "" {
 		t.Fatal("empty vocabulary must still have a stable version")
 	}
+	var pipelineState struct {
+		Version string `json:"version"`
+		Config  struct {
+			Provider string `json:"provider"`
+			Model    string `json:"model"`
+			VAD      struct {
+				Mode string `json:"mode"`
+			} `json:"vad"`
+		} `json:"config"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/transcription-pipeline", nil, "", http.StatusOK), &pipelineState); err != nil {
+		t.Fatal(err)
+	}
+	if pipelineState.Version != "pipeline-v1" || pipelineState.Config.VAD.Mode != "off" {
+		t.Fatalf("unexpected default pipeline: %+v", pipelineState)
+	}
+	updatedPipeline := map[string]any{"provider": "openai-compatible", "model": "test-profile", "language": "fr", "preparation": "wav-16khz-mono-v1", "vad": map[string]any{"mode": "energy", "version": "energy-v1", "threshold": 0.02, "min_speech_ms": 100, "min_silence_ms": 300, "padding_ms": 100}}
+	var newPipeline struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/transcription-pipeline", updatedPipeline, session.CSRF, http.StatusOK), &newPipeline); err != nil {
+		t.Fatal(err)
+	}
+	if newPipeline.Version == "" || newPipeline.Version == pipelineState.Version {
+		t.Fatalf("pipeline update did not create a new version: %+v", newPipeline)
+	}
+	call(admin, http.MethodPut, "/api/admin/transcription-pipeline", map[string]any{"provider": "openai-compatible", "model": "bad", "language": "fr", "preparation": "wav-16khz-mono-v1", "vad": map[string]any{"mode": "energy", "version": "energy-v1", "threshold": 2, "min_speech_ms": 100, "min_silence_ms": 300, "padding_ms": 100}}, session.CSRF, http.StatusBadRequest)
 	var term struct {
 		ID int64 `json:"id"`
 	}
@@ -385,7 +412,21 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if assignment.Job.ID != scheduled.Job.ID || assignment.LeaseToken == "" {
 		t.Fatalf("transcription was not leased to a capable worker: %+v", assignment)
 	}
-	workerCall(http.MethodGet, "/api/worker/jobs/"+strconv64(assignment.Job.ID)+"/input", nil, assignment.LeaseToken, http.StatusOK)
+	var leasedInput struct {
+		PipelineVersion string `json:"pipeline_version"`
+		Pipeline        struct {
+			Model string `json:"model"`
+			VAD   struct {
+				Mode string `json:"mode"`
+			} `json:"vad"`
+		} `json:"pipeline"`
+	}
+	if err := json.Unmarshal(workerCall(http.MethodGet, "/api/worker/jobs/"+strconv64(assignment.Job.ID)+"/input", nil, assignment.LeaseToken, http.StatusOK), &leasedInput); err != nil {
+		t.Fatal(err)
+	}
+	if leasedInput.PipelineVersion != newPipeline.Version || leasedInput.Pipeline.Model != "test-profile" || leasedInput.Pipeline.VAD.Mode != "energy" {
+		t.Fatalf("worker did not receive its immutable pipeline snapshot: %+v", leasedInput)
+	}
 	const result = `{"provider":"fixture","model":"deterministic-v1","version":"deterministic-v1","language":"fr","audio_stream_index":2,"segments":[{"start":1.25,"end":2.1,"text":"Bien joué !","words":[{"word":"Bien","start":1.25,"end":1.52},{"word":"joué","start":1.55,"end":1.9}]}]}`
 	var parsedResult any
 	if err := json.Unmarshal([]byte(result), &parsedResult); err != nil {
@@ -468,7 +509,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(completed.ClipID)+"/transcription", map[string]int{"audio_stream_index": 2}, session.CSRF, http.StatusCreated), &vocabTask); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(vocabTask.Job.InputVersion, "vocab-") || vocabTask.Job.InputVersion == scheduled.Job.InputVersion {
+	if !strings.Contains(vocabTask.Job.InputVersion, "-v") || vocabTask.Job.InputVersion == scheduled.Job.InputVersion {
 		t.Fatalf("vocabulary version missing from transcription input: %+v", vocabTask.Job)
 	}
 	call(admin, http.MethodPut, "/api/admin/vocabulary/"+strconv64(term.ID), map[string]any{"term": "Final Fantasy XIV", "variants": []string{"FFXIV", "Final Fantasy 14"}, "preferred_spelling": "Final Fantasy XIV", "active": true}, session.CSRF, http.StatusOK)
@@ -580,7 +621,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(sourceClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusOK), &sourceTask); err != nil {
 		t.Fatal(err)
 	}
-	if sourceTask.Job.Step != "transcription.audio.2" || !strings.HasPrefix(sourceTask.Job.InputVersion, "transcription-v3-audio-2-rule-1-vocab-") {
+	if sourceTask.Job.Step != "transcription.audio.2" || !strings.HasPrefix(sourceTask.Job.InputVersion, "t4-a2-r1-v") || !strings.HasSuffix(sourceTask.Job.InputVersion, "-p"+newPipeline.Version) {
 		t.Fatalf("source policy version not included in targeted task: %+v", sourceTask.Job)
 	}
 	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": "Micro"}, session.CSRF, http.StatusOK), &ruleResult); err != nil {
@@ -595,7 +636,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(sourceClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusOK), &sourceTask); err != nil {
 		t.Fatal(err)
 	}
-	if sourceTask.Job.Step != "transcription.audio.1" || !strings.HasPrefix(sourceTask.Job.InputVersion, "transcription-v3-audio-1-rule-2-vocab-") {
+	if sourceTask.Job.Step != "transcription.audio.1" || !strings.HasPrefix(sourceTask.Job.InputVersion, "t4-a1-r2-v") || !strings.HasSuffix(sourceTask.Job.InputVersion, "-p"+newPipeline.Version) {
 		t.Fatalf("updated source rule did not create a targeted transcription version: %+v", sourceTask.Job)
 	}
 }

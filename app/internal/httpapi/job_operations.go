@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"receipts/internal/jobs"
+	"snitch/internal/jobs"
 )
 
 func parseJobID(w http.ResponseWriter, r *http.Request) (int64, bool) {

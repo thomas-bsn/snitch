@@ -9,23 +9,25 @@ import ssl
 import subprocess
 import tempfile
 import threading
+import wave
+import struct
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Protocol
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from receipts_api.api.default.claim_worker_job import sync as claim_job
-from receipts_api.api.default.complete_worker_job import sync as complete_job
-from receipts_api.api.default.fail_worker_job import sync as fail_job
-from receipts_api.api.default.get_worker_job_input import sync as get_job_input
-from receipts_api.api.default.heartbeat_worker_job import sync as heartbeat_job
-from receipts_api.api.default.worker_pulse import sync as pulse
-from receipts_api.client import AuthenticatedClient
-from receipts_api.models.error import Error
-from receipts_api.models.worker_failure_input import WorkerFailureInput
-from receipts_api.models.worker_pulse_input import WorkerPulseInput
-from receipts_api.models.worker_result_input import WorkerResultInput
-from receipts_api.models.worker_result_input_result import WorkerResultInputResult
+from snitch_client.api.default.claim_worker_job import sync as claim_job
+from snitch_client.api.default.complete_worker_job import sync as complete_job
+from snitch_client.api.default.fail_worker_job import sync as fail_job
+from snitch_client.api.default.get_worker_job_input import sync as get_job_input
+from snitch_client.api.default.heartbeat_worker_job import sync as heartbeat_job
+from snitch_client.api.default.worker_pulse import sync as pulse
+from snitch_client.client import AuthenticatedClient
+from snitch_client.models.error import Error
+from snitch_client.models.worker_failure_input import WorkerFailureInput
+from snitch_client.models.worker_pulse_input import WorkerPulseInput
+from snitch_client.models.worker_result_input import WorkerResultInput
+from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
 
 def fake_provider(step: str) -> dict[str, Any]:
@@ -52,7 +54,7 @@ class OpenAICompatibleTranscriber:
         self.model = model.strip()
         self.api_key = api_key
 
-    def transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    def transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None = None, language: str = "fr") -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         with open(wav_path, "rb") as audio:
             response = httpx.post(
@@ -62,6 +64,7 @@ class OpenAICompatibleTranscriber:
                     "model": self.model,
                     "response_format": "verbose_json",
                     "timestamp_granularities[]": ["segment", "word"],
+                    "language": language,
                     **({"prompt": "; ".join(
                         f"{term['term']} (variantes: {', '.join(term.get('variants', []))}; graphie préférée: {term['preferred_spelling']})"
                         for term in vocabulary
@@ -141,12 +144,100 @@ def prepare_audio(media_path: str, wav_path: str, stream_index: int) -> None:
     )
 
 
-def configured_transcriber() -> OpenAICompatibleTranscriber:
+def configured_transcriber(model: str = "") -> OpenAICompatibleTranscriber:
     return OpenAICompatibleTranscriber(
         os.environ.get("TRANSCRIPTION_API_URL", ""),
-        os.environ.get("TRANSCRIPTION_MODEL", ""),
+        model.strip() or os.environ.get("TRANSCRIPTION_MODEL", ""),
         os.environ.get("TRANSCRIPTION_API_KEY", ""),
     )
+
+
+def detect_voice_spans(wav_path: str, config: dict[str, Any]) -> list[tuple[float, float]]:
+    """Energy VAD returning source-relative spans in seconds."""
+    vad = config.get("vad") or {}
+    if vad.get("mode", "off") == "off":
+        with wave.open(wav_path, "rb") as audio:
+            return [(0.0, audio.getnframes() / audio.getframerate())]
+    if vad.get("mode") != "energy":
+        raise ValueError("unsupported VAD mode")
+    with wave.open(wav_path, "rb") as audio:
+        rate = audio.getframerate()
+        width = audio.getsampwidth()
+        frame_ms = 20
+        frame_size = max(1, rate * frame_ms // 1000)
+        chunks: list[tuple[int, int, bool]] = []
+        index = 0
+        threshold = int(float(vad["threshold"]) * (2 ** (8 * width - 1)))
+        while True:
+            data = audio.readframes(frame_size)
+            if not data:
+                break
+            frames = len(data) // width
+            if width == 2:
+                count = len(data) // 2
+                values = struct.unpack("<" + "h" * count, data[:count * 2])
+                rms = int((sum(sample * sample for sample in values) / max(1, count)) ** 0.5)
+            else:
+                rms = 0
+            chunks.append((index, index + frames, rms >= threshold))
+            index += frames
+    min_speech = max(1, int(vad.get("min_speech_ms", 100)) // frame_ms)
+    min_silence = max(1, int(vad.get("min_silence_ms", 300)) // frame_ms)
+    padding = max(0, int(vad.get("padding_ms", 100))) / 1000
+    active = [flag for _, _, flag in chunks]
+    # Bridge short silence gaps before collecting spans.
+    gap = 0
+    for i, is_active in enumerate(active):
+        if not is_active:
+            gap += 1
+        elif 0 < gap < min_silence:
+            for j in range(i-gap, i):
+                active[j] = True
+            gap = 0
+        else:
+            gap = 0
+    spans: list[tuple[float, float]] = []
+    start: int | None = None
+    for i, is_active in enumerate(active + [False]):
+        if is_active and start is None:
+            start = i
+        if not is_active and start is not None:
+            if i - start >= min_speech:
+                begin = max(0.0, chunks[start][0] / rate - padding)
+                end = min(index / rate, chunks[i-1][1] / rate + padding)
+                spans.append((begin, end))
+            start = None
+    return spans
+
+
+def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: dict[str, Any], vocabulary: list[dict[str, Any]]) -> dict[str, Any]:
+    spans = detect_voice_spans(wav_path, config)
+    results: list[dict[str, Any]] = []
+    with tempfile.TemporaryDirectory(prefix="snitch-vad-") as temporary:
+        for index, (start, end) in enumerate(spans):
+            chunk_path = os.path.join(temporary, f"speech-{index}.wav")
+            with wave.open(wav_path, "rb") as source:
+                rate, width, channels = source.getframerate(), source.getsampwidth(), source.getnchannels()
+                source.setpos(int(start * rate))
+                frames = source.readframes(max(1, int((end-start) * rate)))
+                with wave.open(chunk_path, "wb") as chunk:
+                    chunk.setnchannels(channels); chunk.setsampwidth(width); chunk.setframerate(rate); chunk.writeframes(frames)
+            if isinstance(transcriber, OpenAICompatibleTranscriber):
+                part = transcriber.transcribe(chunk_path, vocabulary, str(config.get("language", "fr")))
+            else:
+                part = transcriber.transcribe(chunk_path, vocabulary)
+            for segment in part.get("segments", []):
+                segment["start"] = float(segment["start"]) + start
+                segment["end"] = float(segment["end"]) + start
+                for word in segment.get("words", []):
+                    word["start"] = float(word["start"]) + start
+                    word["end"] = float(word["end"]) + start
+            results.extend(part.get("segments", []))
+    if not spans:
+        return {"provider": "openai-compatible", "model": getattr(transcriber, "model", "fixture"), "version": getattr(transcriber, "model", "fixture"), "language": config.get("language", "fr"), "segments": []}
+    metadata = part if results else {"provider": "openai-compatible", "model": getattr(transcriber, "model", "fixture"), "version": getattr(transcriber, "model", "fixture"), "language": config.get("language", "fr")}
+    metadata["segments"] = results
+    return metadata
 
 
 def _require_response(value: Any, operation: str) -> Any:
@@ -236,7 +327,7 @@ def run_once(
             if media_url.startswith("/"):
                 media_url = urljoin(client._base_url, media_url)
             with tempfile.TemporaryDirectory(
-                prefix="receipts-transcription-"
+                prefix="snitch-transcription-"
             ) as temporary:
                 original = os.path.join(temporary, "original.media")
                 wav_path = os.path.join(temporary, "prepared.wav")
@@ -248,12 +339,14 @@ def run_once(
                         output.writelines(media.iter_bytes())
                 stream_index = int(job.step.rsplit(".", 1)[1])
                 prepare_audio(original, wav_path, stream_index)
-                active_transcriber = transcriber or configured_transcriber()
+                pipeline_value = getattr(task_input, "pipeline", None)
+                pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
+                active_transcriber = transcriber or configured_transcriber(str(pipeline.get("model", "")))
                 vocabulary = [
                     {"term": term.term, "variants": term.variants, "preferred_spelling": term.preferred_spelling}
                     for term in (task_input.vocabulary or [])
                 ]
-                result = active_transcriber.transcribe(wav_path, vocabulary)
+                result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
                 result["audio_stream_index"] = stream_index
         else:
             raise ValueError("unsupported worker step")
@@ -357,26 +450,26 @@ def run_until_stopped(
 
 
 def main() -> None:
-    api_url = os.environ.get("RECEIPTS_API_URL", "").strip()
-    token = os.environ.get("RECEIPTS_WORKER_TOKEN", "").strip()
-    capacity_text = os.environ.get("RECEIPTS_WORKER_CAPACITY", "1")
+    api_url = os.environ.get("SNITCH_API_URL", os.environ.get("RECEIPTS_API_URL", "")).strip()
+    token = os.environ.get("SNITCH_WORKER_TOKEN", os.environ.get("RECEIPTS_WORKER_TOKEN", "")).strip()
+    capacity_text = os.environ.get("SNITCH_WORKER_CAPACITY", os.environ.get("RECEIPTS_WORKER_CAPACITY", "1"))
     if (
         not api_url
         or urlparse(api_url).scheme != "https"
         or not urlparse(api_url).netloc
     ):
-        raise SystemExit("RECEIPTS_API_URL must be an HTTPS URL")
+        raise SystemExit("SNITCH_API_URL must be an HTTPS URL")
     if not token:
-        raise SystemExit("RECEIPTS_WORKER_TOKEN is required")
+        raise SystemExit("SNITCH_WORKER_TOKEN is required")
     try:
         capacity = int(capacity_text)
     except ValueError as exc:
         raise SystemExit(
-            "RECEIPTS_WORKER_CAPACITY must be an integer from 1 to 4"
+            "SNITCH_WORKER_CAPACITY must be an integer from 1 to 4"
         ) from exc
     if capacity < 1 or capacity > 4:
-        raise SystemExit("RECEIPTS_WORKER_CAPACITY must be an integer from 1 to 4")
-    ca_bundle = os.environ.get("RECEIPTS_WORKER_CA_BUNDLE")
+        raise SystemExit("SNITCH_WORKER_CAPACITY must be an integer from 1 to 4")
+    ca_bundle = os.environ.get("SNITCH_WORKER_CA_BUNDLE", os.environ.get("RECEIPTS_WORKER_CA_BUNDLE"))
     tls_context = ssl.create_default_context(cafile=ca_bundle) if ca_bundle else True
     with AuthenticatedClient(
         base_url=api_url.rstrip("/"),

@@ -6,7 +6,7 @@ Les médias importés sont stockés dans le volume nommé `media`, séparé de P
 
 Importer **compose.yaml seul**, jamais compose.override.yaml. Fournir dans les variables chiffrées du projet :
 
-- `RECEIPTS_IMAGE`, `POSTGRES_IMAGE`, `EMBED_IMAGE` : références publiées immuables, idéalement `ghcr.io/<propriétaire>/<dépôt>[-postgres|-embed]@sha256:…`. Les forks utilisent leur propre namespace.
+- `SNITCH_IMAGE`, `POSTGRES_IMAGE`, `EMBED_IMAGE` : références publiées immuables, idéalement `ghcr.io/<propriétaire>/<dépôt>[-postgres|-embed]@sha256:…`. Les forks utilisent leur propre namespace.
 - `POSTGRES_PASSWORD` : mot de passe aléatoire ; les caractères réservés d’URL sont admis, car l’application et la migration passent le mot de passe par `PGPASSWORD`, hors URL.
 - `MASTER_KEY` : 32 octets aléatoires encodés base64 ; conserver la même clé entre redémarrages et la sauvegarder séparément.
 - `PUBLIC_URL=https://<projet>.<domaine>`, `COOKIE_SECURE=true`, `DISPLAY_NAME` facultatif.

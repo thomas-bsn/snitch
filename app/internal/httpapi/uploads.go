@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"receipts/internal/uploads"
+	"snitch/internal/uploads"
 )
 
 type createUploadRequest struct {

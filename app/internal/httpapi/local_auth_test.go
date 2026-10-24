@@ -20,9 +20,9 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"receipts/internal/auth"
-	"receipts/internal/config"
-	"receipts/internal/setup"
+	"snitch/internal/auth"
+	"snitch/internal/config"
+	"snitch/internal/setup"
 )
 
 func testLocalAuthentication(t *testing.T, pool *pgxpool.Pool) {
@@ -111,7 +111,7 @@ func testLocalAuthentication(t *testing.T, pool *pgxpool.Pool) {
 			req.Header.Set("Origin", origin)
 			req.Header.Set("X-CSRF-Token", csrf)
 			if token != "" {
-				req.AddCookie(&http.Cookie{Name: "receipts_session", Value: token})
+				req.AddCookie(&http.Cookie{Name: "snitch_session", Value: token})
 			}
 			route, params, err := router.FindRoute(req)
 			if err != nil {

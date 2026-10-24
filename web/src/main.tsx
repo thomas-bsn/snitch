@@ -19,6 +19,7 @@ type JobEvent = components["schemas"]["JobEvent"];
 type JobControls = components["schemas"]["JobControls"];
 type Worker = components["schemas"]["Worker"];
 type VocabularyTerm = components["schemas"]["VocabularyTerm"];
+type TranscriptionPipeline = components["schemas"]["TranscriptionPipeline"];
 type SearchResult = { clip_id: number; clip_name: string; visibility: string; recorded_at: string; status: string; sources: string[]; match_type: string; context: string; matched_text: string; timestamp: number };
 const messages: Record<string, string> = {
   unavailable:
@@ -107,6 +108,8 @@ function App() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [vocabulary, setVocabulary] = useState<VocabularyTerm[]>([]);
   const [vocabularyVersion, setVocabularyVersion] = useState("");
+  const [pipeline, setPipeline] = useState<TranscriptionPipeline>();
+  const [pipelineVersion, setPipelineVersion] = useState("");
   const [editingTerm, setEditingTerm] = useState<VocabularyTerm>();
   const [newWorkerToken, setNewWorkerToken] = useState("");
   const [jobPage, setJobPage] = useState(1);
@@ -150,12 +153,12 @@ function App() {
   const [register, setRegister] = useState(false);
   const [busy, setBusy] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">(() => {
-    const saved = localStorage.getItem("receipts-theme");
+    const saved = (localStorage.getItem("snitch-theme") ?? localStorage.getItem("receipts-theme"));
     return saved === "light" ? "light" : "dark";
   });
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem("receipts-theme", theme);
+    localStorage.setItem("snitch-theme", theme);
   }, [theme]);
   const csrf = {
     "X-CSRF-Token": session?.csrf_token ?? "",
@@ -174,6 +177,7 @@ function App() {
     if (me.data?.user.role === "admin") {
       setSettings(checked(await api.GET("/api/admin/settings")));
       await refreshVocabulary();
+      await refreshPipeline();
       setPending(checked(await api.GET("/api/admin/users")));
       await refreshJobs(1);
       await refreshJobControls();
@@ -234,6 +238,35 @@ function App() {
     const result = checked(await api.GET("/api/admin/vocabulary"));
     setVocabulary(result.items);
     setVocabularyVersion(result.version);
+  }
+  async function refreshPipeline() {
+    const result = checked(await api.GET("/api/admin/transcription-pipeline"));
+    setPipeline(result.config);
+    setPipelineVersion(result.version);
+  }
+  async function savePipeline(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const mode = String(form.get("vad_mode") || "off");
+    const body: TranscriptionPipeline = {
+      provider: "openai-compatible",
+      model: String(form.get("model") || "default").trim(),
+      language: String(form.get("language") || "fr").trim(),
+      preparation: "wav-16khz-mono-v1",
+      vad: mode === "energy" ? {
+        mode: "energy", version: "energy-v1",
+        threshold: Number(form.get("threshold") || 0.02),
+        min_speech_ms: Number(form.get("min_speech_ms") || 100),
+        min_silence_ms: Number(form.get("min_silence_ms") || 300),
+        padding_ms: Number(form.get("padding_ms") || 100),
+      } : { mode: "off", version: "vad-off-v1" },
+    };
+    await run(async () => {
+      const saved = checked(await api.PUT("/api/admin/transcription-pipeline", { params: { header: csrf }, body }));
+      setPipeline(saved.config);
+      setPipelineVersion(saved.version);
+      setNotice("Configuration enregistrée. Les prochaines transcriptions utiliseront cette version.");
+    });
   }
   async function saveVocabularyTerm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -693,7 +726,7 @@ function App() {
         <span className="brand-mark">R</span>
         <div>
           <p className="eyebrow">VOTRE MÉMOIRE DE JEU</p>
-          <h1>{setup?.display_name ?? "Receipts"}</h1>
+          <h1>{setup?.display_name ?? "Snitch"}</h1>
         </div>
       </header>
       {error && (
@@ -795,7 +828,7 @@ function App() {
         <>
           <div className="app-shell">
             <aside className="sidebar" aria-label="Navigation principale">
-              <a className="sidebar-brand" href="#library" aria-label="Receipts, bibliothèque">
+              <a className="sidebar-brand" href="#library" aria-label="Snitch, bibliothèque">
                 <span className="brand-mark">R</span>
                 <span>{setup.display_name}</span>
               </a>
@@ -1211,6 +1244,24 @@ function App() {
             </section>
           )}
           {session.user.role === "admin" && (
+            <section className="card" id="transcription-pipeline">
+              <h2>Pipeline de transcription</h2>
+              {pipeline && <>
+                <p className="hint">Version active : {pipelineVersion}. Une modification ne change pas les résultats déjà calculés.</p>
+                <form onSubmit={savePipeline}>
+                  <label>Profil de modèle (doit correspondre à TRANSCRIPTION_MODEL sur le worker)<input name="model" required maxLength={100} defaultValue={pipeline.model} /></label>
+                  <label>Langue<input name="language" required maxLength={32} defaultValue={pipeline.language} /></label>
+                  <label>Détection d’activité vocale<select name="vad_mode" defaultValue={pipeline.vad.mode}><option value="off">Désactivée</option><option value="energy">VAD énergie</option></select></label>
+                  <label>Seuil d’énergie (0 à 1)<input name="threshold" type="number" min="0.001" max="0.999" step="0.001" defaultValue={pipeline.vad.threshold ?? 0.02} /></label>
+                  <label>Durée minimale de parole (ms)<input name="min_speech_ms" type="number" min="1" max="5000" defaultValue={pipeline.vad.min_speech_ms ?? 100} /></label>
+                  <label>Silence minimum entre zones (ms)<input name="min_silence_ms" type="number" min="1" max="10000" defaultValue={pipeline.vad.min_silence_ms ?? 300} /></label>
+                  <label>Marge autour des zones (ms)<input name="padding_ms" type="number" min="0" max="2000" defaultValue={pipeline.vad.padding_ms ?? 100} /></label>
+                  <button disabled={busy}>Enregistrer et versionner</button>
+                </form>
+              </>}
+            </section>
+          )}
+          {session.user.role === "admin" && (
             <section className="card" id="vocabulary">
               <h2>Vocabulaire de transcription</h2>
               <p className="hint">Version active : {vocabularyVersion}. Ces termes sont envoyés au fournisseur à la prochaine transcription planifiée.</p>
@@ -1574,7 +1625,7 @@ function App() {
               <h2>Sources dossier</h2>
               {allowedRoots.length === 0 ? (
                 <p className="hint">
-                  Aucun dossier n’est monté pour Receipts. Configurez
+                  Aucun dossier n’est monté pour Snitch. Configurez
                   CLIPS_ROOTS et un accès hôte en lecture seule dans votre
                   environnement.
                 </p>

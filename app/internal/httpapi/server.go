@@ -22,16 +22,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/time/rate"
-	"receipts/internal/auth"
-	"receipts/internal/config"
-	"receipts/internal/database"
-	"receipts/internal/jobs"
-	"receipts/internal/library"
-	"receipts/internal/settings"
-	"receipts/internal/setup"
-	"receipts/internal/uploads"
-	"receipts/internal/workers"
-	"receipts/ui"
+	"snitch/internal/auth"
+	"snitch/internal/config"
+	"snitch/internal/database"
+	"snitch/internal/jobs"
+	"snitch/internal/library"
+	"snitch/internal/settings"
+	"snitch/internal/setup"
+	"snitch/internal/uploads"
+	"snitch/internal/workers"
+	"snitch/ui"
 )
 
 type Server struct {
@@ -93,6 +93,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/auth/discord/callback", s.rateLimited("discord", http.HandlerFunc(s.discordCallback)))
 	mux.Handle("GET /api/admin/settings", s.protected(true, http.HandlerFunc(s.getSettings)))
 	mux.Handle("GET /api/admin/vocabulary", s.protected(true, http.HandlerFunc(s.listVocabulary)))
+	mux.Handle("GET /api/admin/transcription-pipeline", s.protected(true, http.HandlerFunc(s.getTranscriptionPipeline)))
+	mux.Handle("PUT /api/admin/transcription-pipeline", s.protected(true, http.HandlerFunc(s.putTranscriptionPipeline)))
 	mux.Handle("POST /api/admin/vocabulary", s.protected(true, http.HandlerFunc(s.createVocabulary)))
 	mux.Handle("PUT /api/admin/vocabulary/{id}", s.protected(true, http.HandlerFunc(s.updateVocabulary)))
 	mux.Handle("DELETE /api/admin/vocabulary/{id}", s.protected(true, http.HandlerFunc(s.deleteVocabulary)))
@@ -228,6 +230,17 @@ func fmtError(err error) string {
 	}
 	return "operation_error"
 }
+
+func sessionCookie(r *http.Request) (*http.Cookie, error) {
+	if c, err := r.Cookie("snitch_session"); err == nil { return c, nil }; return r.Cookie("receipts_session")
+}
+func oauthCookie(r *http.Request) (*http.Cookie, error) {
+	if c, err := r.Cookie("snitch_oauth"); err == nil {
+		return c, nil
+	}
+	return r.Cookie("receipts_oauth")
+}
+
 func (s *Server) cookie(w http.ResponseWriter, name, value string, age int) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", HttpOnly: true, Secure: s.Config.Secure, SameSite: http.SameSiteLaxMode, MaxAge: age})
 }
@@ -237,12 +250,12 @@ func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, id int64) 
 	if err != nil {
 		return err
 	}
-	s.cookie(w, "receipts_session", token, 7*86400)
+	s.cookie(w, "snitch_session", token, 7*86400)
 	return nil
 }
 func (s *Server) findSession(r *http.Request) (session, error) {
 	var ss session
-	c, err := r.Cookie("receipts_session")
+	c, err := sessionCookie(r)
 	if err != nil {
 		return ss, err
 	}
@@ -462,12 +475,12 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	reply(w, 200, map[string]any{"user": ss.User, "csrf_token": ss.CSRF})
 }
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	c, _ := r.Cookie("receipts_session")
+	c, _ := sessionCookie(r)
 	if _, err := s.Pool.Exec(r.Context(), `DELETE FROM sessions WHERE token_hash=$1`, auth.Hash(c.Value)); err != nil {
 		s.internal(w, err)
 		return
 	}
-	s.cookie(w, "receipts_session", "", -1)
+	s.cookie(w, "snitch_session", "", -1)
 	reply(w, 200, map[string]string{"status": "ok"})
 }
 func (s *Server) pending(w http.ResponseWriter, r *http.Request) {
@@ -613,7 +626,7 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/api/auth/discord/link" {
 		ss := r.Context().Value(sessionKey{}).(session)
 		userID = &ss.User.ID
-		c, _ := r.Cookie("receipts_session")
+		c, _ := sessionCookie(r)
 		sessionHash = auth.Hash(c.Value)
 	}
 	state, browser := auth.Token(), auth.Token()
@@ -622,14 +635,14 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	s.cookie(w, "receipts_oauth", browser, 600)
+	s.cookie(w, "snitch_oauth", browser, 600)
 	q := url.Values{"client_id": {id}, "response_type": {"code"}, "scope": {"identify"}, "state": {state}, "redirect_uri": {s.Config.PublicURL + "/api/auth/discord/callback"}}
 	reply(w, 200, map[string]string{"url": s.Config.DiscordAuthorizeURL + "?" + q.Encode()})
 }
 func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	state, code := r.URL.Query().Get("state"), r.URL.Query().Get("code")
 	providerError := r.URL.Query().Get("error")
-	browser, err := r.Cookie("receipts_oauth")
+	browser, err := oauthCookie(r)
 	if err != nil || state == "" || (code == "" && providerError == "") || (code != "" && providerError != "") {
 		s.oauthFailure(w, r, 400, "invalid_oauth_state")
 		return
@@ -641,10 +654,10 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		s.oauthFailure(w, r, 400, "invalid_oauth_state")
 		return
 	}
-	s.cookie(w, "receipts_oauth", "", -1)
+	s.cookie(w, "snitch_oauth", "", -1)
 	if userID != nil {
 		ss, e := s.findSession(r)
-		c, _ := r.Cookie("receipts_session")
+		c, _ := sessionCookie(r)
 		if e != nil || ss.User.ID != *userID || c == nil || subtle.ConstantTimeCompare(sessionHash, auth.Hash(c.Value)) != 1 {
 			s.oauthFailure(w, r, 403, "link_session_required")
 			return

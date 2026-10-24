@@ -13,6 +13,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.job import Job
+  from ..models.transcription_pipeline import TranscriptionPipeline
   from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem
   from ..models.worker_vocabulary_term import WorkerVocabularyTerm
 
@@ -37,6 +38,8 @@ class WorkerJobInput:
             media_url (str):
             vocabulary (list[WorkerVocabularyTerm]):
             duration_seconds (float | None | Unset):
+            pipeline (TranscriptionPipeline | Unset):
+            pipeline_version (str | Unset):
      """
 
     job: Job
@@ -48,6 +51,8 @@ class WorkerJobInput:
     media_url: str
     vocabulary: list[WorkerVocabularyTerm]
     duration_seconds: float | None | Unset = UNSET
+    pipeline: TranscriptionPipeline | Unset = UNSET
+    pipeline_version: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -56,6 +61,7 @@ class WorkerJobInput:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.job import Job # noqa: PLC0415
+        from ..models.transcription_pipeline import TranscriptionPipeline # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         job = self.job.to_dict()
@@ -90,6 +96,12 @@ class WorkerJobInput:
         else:
             duration_seconds = self.duration_seconds
 
+        pipeline: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.pipeline, Unset):
+            pipeline = self.pipeline.to_dict()
+
+        pipeline_version = self.pipeline_version
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -105,6 +117,10 @@ class WorkerJobInput:
         })
         if duration_seconds is not UNSET:
             field_dict["duration_seconds"] = duration_seconds
+        if pipeline is not UNSET:
+            field_dict["pipeline"] = pipeline
+        if pipeline_version is not UNSET:
+            field_dict["pipeline_version"] = pipeline_version
 
         return field_dict
 
@@ -113,6 +129,7 @@ class WorkerJobInput:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.job import Job # noqa: PLC0415
+        from ..models.transcription_pipeline import TranscriptionPipeline # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         d = dict(src_dict)
@@ -161,6 +178,18 @@ class WorkerJobInput:
         duration_seconds = _parse_duration_seconds(d.pop("duration_seconds", UNSET))
 
 
+        _pipeline = d.pop("pipeline", UNSET)
+        pipeline: TranscriptionPipeline | Unset
+        if isinstance(_pipeline,  Unset):
+            pipeline = UNSET
+        else:
+            pipeline = TranscriptionPipeline.from_dict(_pipeline)
+
+
+
+
+        pipeline_version = d.pop("pipeline_version", UNSET)
+
         worker_job_input = cls(
             job=job,
             original_name=original_name,
@@ -171,6 +200,8 @@ class WorkerJobInput:
             media_url=media_url,
             vocabulary=vocabulary,
             duration_seconds=duration_seconds,
+            pipeline=pipeline,
+            pipeline_version=pipeline_version,
         )
 
 

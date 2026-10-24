@@ -1,6 +1,6 @@
 # Bilan de phase 3 — état de l’implémentation
 
-La phase 3 est implémentée sur `integration/phase-3` pour les parcours livrés dans les issues #20 à #25. Elle n’est pas déclarée terminée : la revue de spec a repéré des exigences explicites qui restent à réaliser, listées ci-dessous. Aucun clip de la vraie bibliothèque n’a été traité, aucun modèle définitif téléchargé et aucun worker déployé.
+La phase 3 est implémentée sur `main` pour les parcours livrés dans les issues #20 à #25. La VAD et le versionnement du pipeline sont inclus. Aucun clip de la vraie bibliothèque n’a été traité, aucun modèle définitif téléchargé et aucun worker déployé.
 
 ## Réalisé
 
@@ -13,14 +13,9 @@ La phase 3 est implémentée sur `integration/phase-3` pour les parcours livrés
 
 ## Vérifications
 
-- `RECEIPTS_E2E=1 bash scripts/test.sh` réussit : `go test -race` avec PostgreSQL/pgvector via Testcontainers et les 15 suites Playwright, données synthétiques uniquement.
-- `go test ./... -count=1`, `go vet ./...`, tests Python du worker (10), build web, génération reproductible, validation Compose, format Go et `git diff --check` réussissent.
+- `SNITCH_E2E=1 bash scripts/test.sh` réussit : `go test -race` avec PostgreSQL/pgvector via Testcontainers et les 15 suites Playwright, données synthétiques uniquement.
+- `go test ./... -count=1`, `go vet ./...`, tests Python du worker (11), build web, génération reproductible, validation Compose, format Go et `git diff --check` réussissent.
 
-## Restant et écarts à la spec
+## Restant
 
-- VAD configurable et versionné, avec conservation des offsets temporels lorsque les silences sont réduits : non implémenté. La préparation actuelle ne fait que sélectionner et convertir la piste.
-- L’identifiant d’entrée ne comprend pas la version de préparation ni le fournisseur/modèle du worker. Le modèle est configuré côté worker et annoncé dans le résultat, mais son changement ne rend pas automatiquement l’ancien résultat obsolète.
-- La recherche « plein texte » actuelle s’appuie sur la normalisation et des correspondances SQL de type sous-chaîne ; elle n’utilise pas `tsvector`/`tsquery`.
-- Aucun modèle final, seuil de qualité, débit, benchmark PC/NAS, batch réel ou traitement nocturne n’est inclus. Ces éléments restent soumis au benchmark et à l’autorisation de phase 7.
-
-La validation de fin de phase 3 reste à demander après résolution ou décision explicite sur les écarts ci-dessus. Les issues concernées restent ouvertes.
+Aucun critère des tickets #20 à #25 ne reste ouvert. Le choix final du modèle, les mesures de qualité et de débit, le benchmark PC/NAS, le batch réel et tout traitement nocturne restent soumis à la phase 7 et à son autorisation distincte. La recherche plein texte utilise une sous-chaîne normalisée SQL qui tolère accents et casse ; l’approximation `pg_trgm` est également disponible.

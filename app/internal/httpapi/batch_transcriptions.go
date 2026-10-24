@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"receipts/internal/jobs"
+	"snitch/internal/jobs"
 )
 
 type batchPreview struct {
@@ -135,7 +135,11 @@ func (s *Server) previewTranscriptionBatch(r *http.Request) (batchPreview, error
 		if vocabErr != nil {
 			return batchPreview{}, vocabErr
 		}
-		version := fmt.Sprintf("transcription-v3-audio-%d-rule-%d-vocab-%s", *selection.AudioStreamIndex, selection.RuleVersion, vocabularyVersion(vocabulary))
+		pipelineVersion, pipelineErr := s.activeTranscriptionPipeline(r.Context())
+		if pipelineErr != nil {
+			return batchPreview{}, pipelineErr
+		}
+		version := fmt.Sprintf("t4-a%d-r%d-v%s-p%s", *selection.AudioStreamIndex, selection.RuleVersion, vocabularyVersion(vocabulary), pipelineVersion)
 		var doneCurrent, queuedCurrent bool
 		if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND status='done'), EXISTS(SELECT 1 FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND status IN ('pending','leased','retry_wait'))`, id, step, version).Scan(&doneCurrent, &queuedCurrent); err != nil {
 			return batchPreview{}, err

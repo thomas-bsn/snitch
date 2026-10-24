@@ -1,6 +1,6 @@
-# Receipts
+# Snitch
 
-Receipts permet de retrouver les paroles et les voix présentes dans des clips de jeu.
+Snitch permet de retrouver les paroles et les voix présentes dans des clips de jeu.
 
 ## Langage
 
@@ -23,4 +23,4 @@ _Avoid_ : Locuteur local, compte.
 
 **Inscription en attente** : Une demande d'accès qui nécessite l'approbation d'un administrateur avant connexion.
 
-**Bibliothèque** : L'ensemble des clips connus de Receipts, y compris ceux dont l'original est introuvable.
+**Bibliothèque** : L'ensemble des clips connus de Snitch, y compris ceux dont l'original est introuvable.

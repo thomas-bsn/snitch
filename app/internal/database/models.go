@@ -135,6 +135,17 @@ type SourceFile struct {
 	ErrorCode          pgtype.Text        `json:"error_code"`
 }
 
+type TranscriptionPipelineActive struct {
+	ID      bool   `json:"id"`
+	Version string `json:"version"`
+}
+
+type TranscriptionPipelineVersion struct {
+	Version   string             `json:"version"`
+	Config    []byte             `json:"config"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type TranscriptionVocabularyTerm struct {
 	ID                int64              `json:"id"`
 	Term              string             `json:"term"`

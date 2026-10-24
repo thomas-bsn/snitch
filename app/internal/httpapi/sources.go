@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"receipts/internal/library"
+	"snitch/internal/library"
 )
 
 func (s *Server) listSources(w http.ResponseWriter, r *http.Request) {

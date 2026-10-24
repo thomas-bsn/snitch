@@ -13,7 +13,7 @@ test("installer sans Discord, refuser un code invalide et retrouver sa session",
   await expect(page.getByRole("alert")).toContainText("code invalide / expiré");
   await page
     .getByLabel("Code d’installation")
-    .fill(process.env.RECEIPTS_TEST_CODE!);
+    .fill(process.env.SNITCH_TEST_CODE!);
   await page.getByRole("button", { name: "Créer l’administrateur" }).click();
   await expect(page.locator(".sidebar-user strong")).toHaveText(
     "administrator",

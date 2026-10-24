@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"receipts/internal/auth"
+	"snitch/internal/auth"
 )
 
 type Status string
@@ -105,6 +105,8 @@ type Input struct {
 	Tracks          json.RawMessage  `json:"tracks"`
 	MediaURL        string           `json:"media_url"`
 	Vocabulary      []VocabularyTerm `json:"vocabulary"`
+	Pipeline        json.RawMessage  `json:"pipeline"`
+	PipelineVersion string           `json:"pipeline_version"`
 }
 
 type VocabularyTerm struct {
@@ -390,16 +392,32 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 	}
 	input.MediaURL = fmt.Sprintf("/api/worker/jobs/%d/media", id)
 	input.Vocabulary = []VocabularyTerm{}
+	input.Pipeline = json.RawMessage(`{"provider":"openai-compatible","model":"default","language":"fr","preparation":"wav-16khz-mono-v1","vad":{"mode":"off","version":"vad-off-v1"}}`)
 	if strings.HasPrefix(input.Job.Step, "transcription.audio.") {
-		vocabMarker := strings.LastIndex(input.Job.InputVersion, "-vocab-")
+		vocabMarker := strings.Index(input.Job.InputVersion, "-v")
 		if vocabMarker >= 0 {
+			vocabVersion := input.Job.InputVersion[vocabMarker+len("-v"):]
+			marker := strings.Index(vocabVersion, "-p")
+			if marker < 0 {
+				return Input{}, fmt.Errorf("transcription input has no pipeline separator")
+			}
+			vocabVersion = vocabVersion[:marker]
 			var rawVocabulary []byte
-			if queryErr := s.pool.QueryRow(ctx, `SELECT terms FROM transcription_vocabulary_versions WHERE version=$1`, input.Job.InputVersion[vocabMarker+len("-vocab-"):]).Scan(&rawVocabulary); queryErr != nil {
+			if queryErr := s.pool.QueryRow(ctx, `SELECT terms FROM transcription_vocabulary_versions WHERE version=$1`, vocabVersion).Scan(&rawVocabulary); queryErr != nil {
 				return Input{}, fmt.Errorf("read transcription vocabulary snapshot: %w", queryErr)
 			}
 			if queryErr := json.Unmarshal(rawVocabulary, &input.Vocabulary); queryErr != nil {
 				return Input{}, fmt.Errorf("decode transcription vocabulary snapshot: %w", queryErr)
 			}
+		}
+		pipelineMarker := strings.LastIndex(input.Job.InputVersion, "-p")
+		if pipelineMarker < 0 {
+			return Input{}, fmt.Errorf("transcription input has no pipeline version")
+		}
+		pipelineVersion := input.Job.InputVersion[pipelineMarker+len("-p"):]
+		input.PipelineVersion = pipelineVersion
+		if queryErr := s.pool.QueryRow(ctx, `SELECT config FROM transcription_pipeline_versions WHERE version=$1`, pipelineVersion).Scan(&input.Pipeline); queryErr != nil {
+			return Input{}, fmt.Errorf("read transcription pipeline snapshot: %w", queryErr)
 		}
 	}
 	return input, nil

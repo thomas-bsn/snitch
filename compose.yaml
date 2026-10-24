@@ -17,25 +17,25 @@ services:
       memory: 512
       backup: {type: postgres}
   migrate:
-    image: ${RECEIPTS_IMAGE:?Set RECEIPTS_IMAGE to a built or published immutable image}
+    image: ${SNITCH_IMAGE:?Set SNITCH_IMAGE to a built or published immutable image}
     command: [migrate]
     environment:
-      DATABASE_URL: postgres://receipts@postgres:5432/receipts?sslmode=disable
+      DATABASE_URL: postgres://snitch@postgres:5432/snitch?sslmode=disable
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     depends_on:
       postgres: {condition: service_healthy}
     restart: "no"
     x-forgeyard: {memory: 256}
   app:
-    image: ${RECEIPTS_IMAGE:?Set RECEIPTS_IMAGE to a built or published immutable image}
+    image: ${SNITCH_IMAGE:?Set SNITCH_IMAGE to a built or published immutable image}
     command: [serve]
     environment:
-      DATABASE_URL: postgres://receipts@postgres:5432/receipts?sslmode=disable
+      DATABASE_URL: postgres://snitch@postgres:5432/snitch?sslmode=disable
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       MASTER_KEY: ${MASTER_KEY:?Set MASTER_KEY}
       PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
-      DISPLAY_NAME: ${DISPLAY_NAME:-Receipts}
+      DISPLAY_NAME: ${DISPLAY_NAME:-Snitch}
       CLIPS_ROOTS: ${CLIPS_ROOTS:-}
       FFPROBE_PATH: ${FFPROBE_PATH:-ffprobe}
       CLIP_STABILITY_WINDOW: ${CLIP_STABILITY_WINDOW:-3s}
@@ -52,7 +52,7 @@ services:
       postgres: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
     healthcheck:
-      test: [CMD, /receipts, healthcheck]
+      test: [CMD, /snitch, healthcheck]
       interval: 15s
       timeout: 5s
       retries: 3

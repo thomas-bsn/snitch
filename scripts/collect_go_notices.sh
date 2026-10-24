@@ -3,7 +3,7 @@ set -eu
 mkdir -p /notices/go
 cp "$(go env GOROOT)/LICENSE" /notices/go/LICENSE
 [ ! -f "$(go env GOROOT)/PATENTS" ] || cp "$(go env GOROOT)/PATENTS" /notices/go/PATENTS
-go list -deps -f '{{with .Module}}{{.Path}} {{.Version}} {{.Dir}}{{end}}' ./cmd/receipts | sort -u | while read -r module version directory; do
+go list -deps -f '{{with .Module}}{{.Path}} {{.Version}} {{.Dir}}{{end}}' ./cmd/snitch | sort -u | while read -r module version directory; do
   [ -n "$directory" ] || continue
   target="/notices/go/$module@$version"
   mkdir -p "$target"

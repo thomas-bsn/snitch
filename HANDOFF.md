@@ -1,4 +1,4 @@
-# Receipts — reprise de session
+# Snitch — reprise de session
 
 > Archive de reprise : les mentions ci-dessous concernant l'état du projet, le blocage réseau et l'autorisation de coder sont obsolètes. Lire AGENTS.md, ROADMAP.md et la spec de phase 0 pour l'état actuel. Conserver les détails des phases futures jusqu'à leur reprise dans les specs correspondantes.
 
@@ -73,7 +73,7 @@ app/
   migrations/, queries/, sqlc.yaml
   ui/                     # SPA compilée et embed.FS
 web/src/, web/e2e/
-worker/pyproject.toml, worker/receipts_worker/api/
+worker/pyproject.toml, worker/snitch_worker/api/
 contracts/openapi.yaml, contracts/generators/
 deploy/docker/
 docs/adr/, docs/development.md, docs/deployment.md, docs/testing.md

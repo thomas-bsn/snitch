@@ -1,17 +1,19 @@
 import json
 import ssl
 import threading
+import tempfile
 import time
 import unittest
+import wave
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import httpx
-from receipts_api.client import AuthenticatedClient
+from snitch_client.client import AuthenticatedClient
 
-from receipts_worker import runner
+from snitch_worker import runner
 
 
 class FakeProviderTests(unittest.TestCase):
@@ -89,7 +91,7 @@ class FakeProviderTests(unittest.TestCase):
             get=lambda *_args, **_kwargs: self.fail("media requested")
         )
         client = SimpleNamespace(
-            _base_url="https://receipts.example",
+            _base_url="https://snitch.example",
             get_httpx_client=lambda: http_client,
         )
         task = SimpleNamespace(id=42, step="fixture.echo", input_version="v1")
@@ -125,7 +127,7 @@ class FakeProviderTests(unittest.TestCase):
         )
 
     def test_run_once_renews_lease_while_provider_is_working(self):
-        client = SimpleNamespace(_base_url="https://receipts.example")
+        client = SimpleNamespace(_base_url="https://snitch.example")
         task = SimpleNamespace(id=42, step="fixture.echo", input_version="v1")
         claim = SimpleNamespace(job=task, lease_token="lt_synthetic-lease-token")
         with (
@@ -207,7 +209,7 @@ class FakeProviderTests(unittest.TestCase):
 
         http_client = SimpleNamespace(stream=Mock(return_value=MediaStream()))
         client = SimpleNamespace(
-            _base_url="https://receipts.example",
+            _base_url="https://snitch.example",
             get_httpx_client=lambda: http_client,
         )
         task = SimpleNamespace(
@@ -234,6 +236,7 @@ class FakeProviderTests(unittest.TestCase):
                 return_value=SimpleNamespace(media_url="/api/worker/jobs/84/media", vocabulary=[SimpleNamespace(term="Final Fantasy XIV", variants=["FFXIV"], preferred_spelling="FFXIV")]),
             ),
             patch.object(runner, "prepare_audio") as prepare,
+            patch.object(runner, "transcribe_prepared_audio", return_value={"provider":"fixture","model":"deterministic-v1","version":"deterministic-v1","language":"fr","segments":[]}) as transcribe,
             patch.object(runner, "complete_job", return_value=object()) as complete,
         ):
             self.assertTrue(runner.run_once(client, transcriber=transcriber))
@@ -241,14 +244,14 @@ class FakeProviderTests(unittest.TestCase):
         request = http_client.stream
         self.assertEqual(
             request.call_args.args[1],
-            "https://receipts.example/api/worker/jobs/84/media",
+            "https://snitch.example/api/worker/jobs/84/media",
         )
         self.assertEqual(
             request.call_args.kwargs["headers"]["X-Worker-Lease-Token"],
             "lt_fixture-lease",
         )
         self.assertEqual(prepare.call_args.args[2], 2)
-        self.assertEqual(captured["vocabulary"][0]["preferred_spelling"], "FFXIV")
+        self.assertEqual(transcribe.call_args.args[3][0]["preferred_spelling"], "FFXIV")
         result = complete.call_args.kwargs["body"].result.to_dict()
         self.assertEqual(result["audio_stream_index"], 2)
         self.assertEqual(result["segments"], [])
@@ -256,6 +259,24 @@ class FakeProviderTests(unittest.TestCase):
     def test_provider_requires_explicit_endpoint_and_model(self):
         with self.assertRaises(ValueError):
             runner.configured_transcriber()
+
+    def test_energy_vad_preserves_source_offsets_for_synthetic_audio(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "synthetic.wav"
+            rate = 16000
+            silence = b"\0\0" * (rate // 2)
+            speech = b"\xff\x3f" * (rate // 2)
+            with wave.open(str(path), "wb") as audio:
+                audio.setnchannels(1)
+                audio.setsampwidth(2)
+                audio.setframerate(rate)
+                audio.writeframes(silence + speech + silence + speech + silence)
+            spans = runner.detect_voice_spans(str(path), {
+                "vad": {"mode":"energy", "threshold":0.05, "min_speech_ms":100, "min_silence_ms":100, "padding_ms":50}
+            })
+            self.assertEqual(len(spans), 2)
+            self.assertAlmostEqual(spans[0][0], 0.45, delta=0.03)
+            self.assertAlmostEqual(spans[1][0], 1.45, delta=0.03)
 
     def test_run_once_completes_job_through_trusted_https_contract(self):
         state = {}
@@ -349,6 +370,8 @@ class FakeProviderTests(unittest.TestCase):
                             "tracks": [],
                             "media_url": "/api/worker/jobs/42/media",
                             "vocabulary": [],
+                            "pipeline": {"provider":"openai-compatible","model":"default","language":"fr","preparation":"wav-16khz-mono-v1","vad":{"mode":"off","version":"vad-off-v1"}},
+                            "pipeline_version": "pipeline-v1",
                         },
                     )
                 if self.path == "/api/worker/jobs/42/media":

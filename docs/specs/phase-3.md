@@ -1,4 +1,4 @@
-# Receipts — Phase 3 : préparation audio, transcription et recherche textuelle
+# Snitch — Phase 3 : préparation audio, transcription et recherche textuelle
 
 Issue GitHub : https://github.com/thomas-bsn/snitch/issues/19 (`ready-for-agent`).
 
@@ -8,7 +8,7 @@ La bibliothèque permet de retrouver et lire les clips, et la file peut distribu
 
 ## Solution
 
-Ajouter un pipeline de phase 3 qui prépare l’audio des clips lisibles, transcrit les paroles en français avec des timestamps au niveau des mots, et rend ces paroles consultables depuis Receipts. L’administrateur peut configurer le vocabulaire de jeu et les règles de sélection des pistes audio. Les tâches restent durables, versionnées et visibles dans la file existante. Les utilisateurs peuvent rechercher une expression, distinguer les correspondances exactes des approximations, puis ouvrir le clip au moment correspondant.
+Ajouter un pipeline de phase 3 qui prépare l’audio des clips lisibles, transcrit les paroles en français avec des timestamps au niveau des mots, et rend ces paroles consultables depuis Snitch. L’administrateur peut configurer le vocabulaire de jeu et les règles de sélection des pistes audio. Les tâches restent durables, versionnées et visibles dans la file existante. Les utilisateurs peuvent rechercher une expression, distinguer les correspondances exactes des approximations, puis ouvrir le clip au moment correspondant.
 
 Le traitement s’exécute sur le worker via HTTPS. Les modèles et fournisseurs restent remplaçables ; la phase ne désigne pas de modèle final ni ne promet de qualité ou de débit avant le benchmark de phase 7. Les tests utilisent des médias synthétiques dédiés et un transcripteur déterministe. Aucun clip de la vraie bibliothèque n’est traité avant l’autorisation séparée du benchmark.
 
@@ -24,7 +24,7 @@ Le traitement s’exécute sur le worker via HTTPS. Les modèles et fournisseurs
 8. En tant qu’administrateur, je veux relancer une transcription après avoir corrigé sa configuration, afin de remplacer son résultat sans dupliquer les segments.
 9. En tant qu’exploitant, je veux qu’une modification de piste, de vocabulaire, de préparation audio ou de modèle invalide le résultat de transcription concerné, afin qu’un ancien résultat ne soit pas présenté comme actuel.
 10. En tant qu’exploitant, je veux qu’une nouvelle version de transcription n’invalide pas les métadonnées du clip ni les tâches d’autres étapes, afin de limiter le retraitement.
-11. En tant qu’utilisateur, je veux que Receipts inspecte les pistes audio disponibles d’un clip, afin de pouvoir distinguer la voix du jeu et les pistes de mixage.
+11. En tant qu’utilisateur, je veux que Snitch inspecte les pistes audio disponibles d’un clip, afin de pouvoir distinguer la voix du jeu et les pistes de mixage.
 12. En tant qu’administrateur, je veux consulter les numéros, titres, langues et dispositions de canaux des pistes détectées, afin de choisir la bonne piste sans deviner à partir du nom du fichier.
 13. En tant qu’administrateur, je veux définir une règle de sélection des pistes par source et une règle de repli, afin d’appliquer une configuration cohérente à un lot.
 14. En tant qu’administrateur, je veux pouvoir sélectionner une piste précise pour un clip ambigu, afin de corriger une exception sans modifier tous les clips.
@@ -66,7 +66,7 @@ Le traitement s’exécute sur le worker via HTTPS. Les modèles et fournisseurs
 ## Implementation Decisions
 
 - Le monolithe Go reste propriétaire de PostgreSQL, des permissions, du contrat API, de la planification des tâches et de la recherche textuelle. Le worker Python réalise la préparation audio et appelle un fournisseur de transcription via l’interface de capacités de phase 2.
-- Le worker communique uniquement avec Receipts via HTTPS sortant et les jetons worker existants. Il n’accède jamais directement à PostgreSQL et ne reçoit que les médias autorisés par un lease actif.
+- Le worker communique uniquement avec Snitch via HTTPS sortant et les jetons worker existants. Il n’accède jamais directement à PostgreSQL et ne reçoit que les médias autorisés par un lease actif.
 - Le pipeline comporte des étapes versionnées de sélection/préparation audio et de transcription. Les paramètres d’entrée incluent au minimum la piste retenue, la préparation, la langue, le fournisseur/modèle et la version du vocabulaire applicable.
 - Les tâches sont planifiées seulement pour des clips prêts dont un original est lisible. Les clips indisponibles restent visibles dans la bibliothèque ; leur transcription n’est pas marquée réussie.
 - L’inspection audio réutilise les métadonnées déjà extraites pour les clips et peut examiner la structure du média autorisé au worker. Aucun original n’est modifié, déplacé, renommé ou supprimé.
@@ -78,7 +78,7 @@ Le traitement s’exécute sur le worker via HTTPS. Les modèles et fournisseurs
 - Aucun service externe n’est requis pour les tests. Les tests utilisent un fournisseur déterministe qui rend des segments synthétiques avec timestamps au niveau des mots.
 - La persistance garde le texte, les temps de début/fin, la piste audio source, les segments lisibles, la provenance de modèle/configuration, les dates et l’état. Les contraintes et transactions rendent la répétition d’un résultat idempotente et empêchent qu’une ancienne version remplace la version courante.
 - Une transcription valide sans parole est un résultat réussi vide. Les erreurs de décodage, de fournisseur ou de format restent visibles et suivent les retries bornés de la file existante.
-- Le vocabulaire est administrable dans Receipts. Les termes actifs et leurs variantes font partie de la version de configuration utilisée pour chaque travail ; une modification ne déclenche pas d’invalidation de métadonnées ou d’autres étapes.
+- Le vocabulaire est administrable dans Snitch. Les termes actifs et leurs variantes font partie de la version de configuration utilisée pour chaque travail ; une modification ne déclenche pas d’invalidation de métadonnées ou d’autres étapes.
 - La recherche utilise PostgreSQL : normalisation française des accents et de la casse, recherche plein texte, puis correspondance floue avec `pg_trgm`. Les embeddings et la recherche sémantique appartiennent à la phase 4.
 - Les résultats indiquent leur type de correspondance et retournent des extraits, les mots/segments pertinents, leurs timestamps, et les clips autorisés. Les compteurs et la pagination sont calculés dans les requêtes SQL, pas estimés par la SPA.
 - La lecture ouvre le clip au temps du segment à l’aide du lecteur vidéo existant et de l’accès média authentifié. Les permissions de bibliothèque privée sont appliquées à la liste de recherche, aux détails et au média.

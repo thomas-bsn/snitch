@@ -4,7 +4,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   use: {
-    baseURL: process.env.RECEIPTS_TEST_URL ?? "http://localhost:8080",
+    baseURL: process.env.SNITCH_TEST_URL ?? "http://localhost:8080",
     headless: true,
   },
   reporter: "list",

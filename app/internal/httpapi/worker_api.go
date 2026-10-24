@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"receipts/internal/jobs"
-	"receipts/internal/workers"
+	"snitch/internal/jobs"
+	"snitch/internal/workers"
 )
 
 type workerIdentityKey struct{}

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/jackc/pgx/v5"
-	"receipts/internal/auth"
-	"receipts/internal/database"
+	"snitch/internal/auth"
+	"snitch/internal/database"
 )
 
 type Store struct {

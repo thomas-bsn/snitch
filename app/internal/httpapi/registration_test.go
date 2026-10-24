@@ -18,8 +18,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"receipts/internal/config"
-	"receipts/internal/setup"
+	"snitch/internal/config"
+	"snitch/internal/setup"
 )
 
 func testRegistration(t *testing.T, pool *pgxpool.Pool) {
@@ -53,7 +53,7 @@ func testRegistration(t *testing.T, pool *pgxpool.Pool) {
 		req.Header.Set("Origin", origin)
 		req.Header.Set("X-CSRF-Token", csrf)
 		if token != "" {
-			req.AddCookie(&http.Cookie{Name: "receipts_session", Value: token})
+			req.AddCookie(&http.Cookie{Name: "snitch_session", Value: token})
 		}
 		route, params, err := router.FindRoute(req)
 		if err != nil {
@@ -78,7 +78,7 @@ func testRegistration(t *testing.T, pool *pgxpool.Pool) {
 		}
 		r := result{body: b}
 		for _, c := range resp.Cookies() {
-			if c.Name == "receipts_session" {
+			if c.Name == "snitch_session" {
 				r.token = c.Value
 			}
 		}

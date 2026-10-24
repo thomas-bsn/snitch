@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"receipts/internal/jobs"
+	"snitch/internal/jobs"
 )
 
 type audioTrackRule struct {
@@ -249,9 +249,21 @@ func (s *Server) scheduleResolvedTranscription(ctx context.Context, id int64, ex
 	if _, err = s.Pool.Exec(ctx, `INSERT INTO transcription_vocabulary_versions(version,terms) VALUES($1,$2) ON CONFLICT(version) DO NOTHING`, vocabVersion, vocabularyJSON); err != nil {
 		return jobs.Job{}, false, err
 	}
-	version := fmt.Sprintf("transcription-v3-audio-%d-rule-%d-vocab-%s", *index, selection.RuleVersion, vocabVersion)
+	pipelineVersion, err := s.activeTranscriptionPipeline(ctx)
+	if err != nil {
+		return jobs.Job{}, false, err
+	}
+	version := fmt.Sprintf("t4-a%d-r%d-v%s-p%s", *index, selection.RuleVersion, vocabVersion, pipelineVersion)
 	job, created, err := s.Jobs.Schedule(ctx, jobs.ScheduleInput{ClipID: id, Step: fmt.Sprintf("transcription.audio.%d", *index), InputVersion: version, MaxAttempts: 3})
 	return job, created, err
+}
+
+func (s *Server) activeTranscriptionPipeline(ctx context.Context) (string, error) {
+	var version string
+	if err := s.Pool.QueryRow(ctx, `SELECT version FROM transcription_pipeline_active WHERE id=true`).Scan(&version); err != nil {
+		return "", err
+	}
+	return version, nil
 }
 func hasAudioTrack(tracks []audioTrack, index int) bool {
 	for _, t := range tracks {

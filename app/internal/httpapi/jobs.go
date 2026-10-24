@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"receipts/internal/jobs"
+	"snitch/internal/jobs"
 )
 
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {

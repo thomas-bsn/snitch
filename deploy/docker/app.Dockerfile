@@ -17,21 +17,21 @@ RUN sh /collect_go_notices.sh
 COPY --from=web /src/app/ui/dist ./ui/dist
 ARG TARGETOS=linux
 ARG TARGETARCH
-RUN GOMAXPROCS=2 CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -p 2 -trimpath -ldflags="-s -w" -o /receipts ./cmd/receipts
+RUN GOMAXPROCS=2 CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -p 2 -trimpath -ldflags="-s -w" -o /snitch ./cmd/snitch
 
 FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
-RUN apk add --no-cache ffmpeg=8.1.2-r0 && adduser -D -u 10001 receipts && mkdir -p /data/media && chown receipts:receipts /data/media
+RUN apk add --no-cache ffmpeg=8.1.2-r0 && adduser -D -u 10001 snitch && mkdir -p /data/media && chown snitch:snitch /data/media
 COPY --from=go /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=go /notices /usr/share/licenses/receipts/third-party
-COPY --from=web /notices /usr/share/licenses/receipts/third-party
-COPY deploy/licenses/ffmpeg/ /usr/share/licenses/receipts/third-party/ffmpeg/
-COPY --from=go /receipts /receipts
-COPY LICENSE /usr/share/licenses/receipts/LICENSE
+COPY --from=go /notices /usr/share/licenses/snitch/third-party
+COPY --from=web /notices /usr/share/licenses/snitch/third-party
+COPY deploy/licenses/ffmpeg/ /usr/share/licenses/snitch/third-party/ffmpeg/
+COPY --from=go /snitch /snitch
+COPY LICENSE /usr/share/licenses/snitch/LICENSE
 RUN ffmpeg -hide_banner -loglevel error -f lavfi -i 'testsrc2=size=64x64:rate=1:duration=1' -an -c:v mpeg4 -pix_fmt yuv420p /tmp/synthetic-video.mp4 \
  && ffmpeg -hide_banner -loglevel error -f lavfi -i 'anullsrc=r=8000:cl=mono' -t 1 -vn -c:a aac /tmp/synthetic-no-video.mp4 \
- && /receipts probe-smoke /tmp/synthetic-video.mp4 /tmp/synthetic-no-video.mp4 \
+ && /snitch probe-smoke /tmp/synthetic-video.mp4 /tmp/synthetic-no-video.mp4 \
  && rm /tmp/synthetic-video.mp4 /tmp/synthetic-no-video.mp4
-USER receipts
+USER snitch
 EXPOSE 8080
-ENTRYPOINT ["/receipts"]
+ENTRYPOINT ["/snitch"]
 CMD ["serve"]

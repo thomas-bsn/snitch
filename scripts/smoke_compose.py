@@ -18,7 +18,7 @@ image = sys.argv[1] if len(sys.argv) > 1 else 'snitch-smoke:local'
 report = {}
 with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
     temp = Path(temp)
-    env = dict(os.environ, RECEIPTS_IMAGE=image, POSTGRES_IMAGE=images['postgres'], EMBED_IMAGE=images['embed'],
+    env = dict(os.environ, SNITCH_IMAGE=image, POSTGRES_IMAGE=images['postgres'], EMBED_IMAGE=images['embed'],
                POSTGRES_PASSWORD='synthetic:@/?#%+ '+secrets.token_hex(16), MASTER_KEY=base64.b64encode(secrets.token_bytes(32)).decode(),
                PUBLIC_URL='http://127.0.0.1:8080', COOKIE_SECURE='false', DISPLAY_NAME='Synthetic distribution', CLIPS_ROOTS='', EMBEDDINGS_MODEL='')
     override = temp / 'local.yaml'
@@ -89,7 +89,7 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
             samples.append([json.loads(line) for line in raw.splitlines()])
             time.sleep(2)
         report['idle_samples'] = samples
-        replay = compose(good, 'run', '--rm', '--no-deps', '--entrypoint', '/bin/sh', 'migrate', '-c', '/receipts migrate >/dev/null 2>&1 && cat /sys/fs/cgroup/memory.peak').stdout.strip()
+        replay = compose(good, 'run', '--rm', '--no-deps', '--entrypoint', '/bin/sh', 'migrate', '-c', '/snitch migrate >/dev/null 2>&1 && cat /sys/fs/cgroup/memory.peak').stdout.strip()
         report['migration_replay_peak_bytes'] = int(replay)
         report['protocol'] = {'warmup_seconds':10, 'samples':5, 'between_samples_seconds':2, 'model_loaded':False}
         report['images'] = json.loads(docker('image', 'inspect', image, images['postgres'], images['embed']).stdout)

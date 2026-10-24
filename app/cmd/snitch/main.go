@@ -13,16 +13,16 @@ import (
 	"syscall"
 	"time"
 
-	"receipts/internal/library"
+	"snitch/internal/library"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
-	"receipts/internal/config"
-	"receipts/internal/httpapi"
-	"receipts/internal/setup"
-	"receipts/migrations"
+	"snitch/internal/config"
+	"snitch/internal/httpapi"
+	"snitch/internal/setup"
+	"snitch/migrations"
 )
 
 func main() {
@@ -46,7 +46,7 @@ func run() error {
 		return nil
 	}
 	if len(os.Args) != 2 {
-		return fmt.Errorf("usage: receipts serve|migrate|healthcheck|probe-smoke <video> <no-video>")
+		return fmt.Errorf("usage: snitch serve|migrate|healthcheck|probe-smoke <video> <no-video>")
 	}
 	if os.Args[1] == "healthcheck" {
 		client := http.Client{Timeout: 3 * time.Second}
@@ -112,7 +112,7 @@ func run() error {
 	probe, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if err := checkSchema(probe, p); err != nil {
-		return fmt.Errorf("database unavailable or migrations missing: run receipts migrate before serve")
+		return fmt.Errorf("database unavailable or migrations missing: run snitch migrate before serve")
 	}
 	code, err := setup.Issue(probe, p)
 	if err != nil {

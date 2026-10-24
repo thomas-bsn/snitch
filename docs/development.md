@@ -6,7 +6,7 @@ Go 1.27.3, Node 24.21.0/npm, Python 3.12.15 et Docker Compose v2. Installer `npm
 npm --prefix web run lint
 npm --prefix web run build
 (cd app && go vet ./...)
-RECEIPTS_E2E=1 bash scripts/test.sh
+SNITCH_E2E=1 bash scripts/test.sh
 .venv/bin/python scripts/check_generated.py
 .venv/bin/python scripts/check_compose.py
 docker build -f deploy/docker/app.Dockerfile -t snitch-smoke:local .

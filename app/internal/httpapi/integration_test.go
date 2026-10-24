@@ -29,9 +29,9 @@ import (
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"receipts/internal/config"
-	"receipts/internal/setup"
-	"receipts/migrations"
+	"snitch/internal/config"
+	"snitch/internal/setup"
+	"snitch/migrations"
 )
 
 const pgImage = "pgvector/pgvector:0.8.7-pg18-bookworm@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11"
@@ -459,7 +459,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/auth/me", nil, "", 200)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/uploads") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") {
+				if strings.HasPrefix(path, "/api/uploads") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" {
 					continue // Upload bodies, media ranges, transcription and batch scheduling, and transcript search have dedicated suites.
 				}
 				if !seen[method+" "+path] {
@@ -506,39 +506,39 @@ func TestFoundation(t *testing.T) {
 			t.Fatal("embedded SPA missing")
 		}
 	})
-	if os.Getenv("RECEIPTS_E2E") == "1" {
+	if os.Getenv("SNITCH_E2E") == "1" {
 		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts"}
-		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
+		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
-		if os.Getenv("RECEIPTS_E2E_SOURCES") == "1" {
+		if os.Getenv("SNITCH_E2E_SOURCES") == "1" {
 			suites = []string{"sources.spec.ts"}
 		}
-		if os.Getenv("RECEIPTS_E2E_UPLOADS") == "1" {
+		if os.Getenv("SNITCH_E2E_UPLOADS") == "1" {
 			suites = []string{"uploads.spec.ts"}
 		}
-		if os.Getenv("RECEIPTS_E2E_LIBRARY") == "1" {
+		if os.Getenv("SNITCH_E2E_LIBRARY") == "1" {
 			suites = []string{"library.spec.ts"}
 		}
-		if os.Getenv("RECEIPTS_E2E_JOBS") == "1" {
+		if os.Getenv("SNITCH_E2E_JOBS") == "1" {
 			suites = []string{"jobs.spec.ts"}
 		}
-		if os.Getenv("RECEIPTS_E2E_WORKERS") == "1" {
+		if os.Getenv("SNITCH_E2E_WORKERS") == "1" {
 			suites = []string{"workers.spec.ts"}
 		}
-		if os.Getenv("RECEIPTS_E2E_CONTROLS") == "1" {
+		if os.Getenv("SNITCH_E2E_CONTROLS") == "1" {
 			suites = []string{"queue-controls.spec.ts"}
 		}
-		if os.Getenv("RECEIPTS_E2E_TRANSCRIPTION") == "1" {
+		if os.Getenv("SNITCH_E2E_TRANSCRIPTION") == "1" {
 			suites = []string{"transcription.spec.ts"}
 		}
-		if os.Getenv("RECEIPTS_E2E_BATCH_TRANSCRIPTIONS") == "1" {
+		if os.Getenv("SNITCH_E2E_BATCH_TRANSCRIPTIONS") == "1" {
 			suites = []string{"batch-transcriptions.spec.ts"}
 		}
-		if os.Getenv("RECEIPTS_E2E_SEARCH") == "1" {
+		if os.Getenv("SNITCH_E2E_SEARCH") == "1" {
 			suites = []string{"search.spec.ts"}
 		}
-		if os.Getenv("RECEIPTS_E2E_VOCABULARY") == "1" {
+		if os.Getenv("SNITCH_E2E_VOCABULARY") == "1" {
 			suites = []string{"vocabulary.spec.ts"}
 		}
 		for _, suite := range suites {
@@ -585,7 +585,7 @@ func TestFoundation(t *testing.T) {
 				args := []string{"run", "test:e2e", "--", suite}
 				cmd := exec.Command("npm", args...)
 				cmd.Dir = "../../../web"
-				cmd.Env = append(os.Environ(), "RECEIPTS_TEST_URL="+ts.URL, "RECEIPTS_TEST_CODE="+code, "RECEIPTS_TEST_SOURCE_ROOT="+sourceRoot, "RECEIPTS_TEST_UPLOAD_CHUNK=16384")
+				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_UPLOAD_CHUNK=16384")
 				out, e := cmd.CombinedOutput()
 				t.Log(string(out))
 				if e != nil {

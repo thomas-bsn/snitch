@@ -30,7 +30,7 @@ type Config struct {
 func Load() (Config, error) {
 	c := Config{
 		DatabaseURL: os.Getenv("DATABASE_URL"), PublicURL: env("PUBLIC_URL", "http://localhost:8080"),
-		Address: env("LISTEN_ADDR", ":8080"), DisplayName: env("DISPLAY_NAME", "Receipts"),
+		Address: env("LISTEN_ADDR", ":8080"), DisplayName: env("DISPLAY_NAME", "Snitch"),
 		EmbeddingsURL: os.Getenv("EMBEDDINGS_URL"), EmbeddingsModel: os.Getenv("EMBEDDINGS_MODEL"),
 		ClipRoots: splitRoots(os.Getenv("CLIPS_ROOTS")), ProbePath: env("FFPROBE_PATH", "ffprobe"),
 		ClipExcludePatterns: splitPatterns(env("CLIP_EXCLUDE_PATTERNS", ".*,*.tmp,*.part,*.partial,*.crdownload,*.download")),

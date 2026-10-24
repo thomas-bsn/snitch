@@ -10,7 +10,7 @@ La phase 1 doit vérifier qu'un fichier local est lisible comme vidéo et conser
 
 L'application appelle le binaire `ffprobe` directement, sans shell, avec une entrée de fichier local résolue dans une source autorisée, un délai d'exécution borné, une sortie JSON plafonnée et une liste de protocoles limitée à `file,pipe`. Le sondage est en lecture seule et aucun transcodage n'est exécuté.
 
-L'image app contient le paquet Alpine v3.24 `ffmpeg` 8.1.2-r0, qui fournit `ffprobe`. Ce paquet est identifié GPL-2.0-or-later et LGPL-2.1-or-later ; ce composant conserve ses licences propres et ne change pas la licence MIT du code Receipts. Les textes GPL/LGPL et la version/source FFmpeg sont conservés dans les notices. Avant toute publication d'image, fournir les sources correspondantes exactes de l'APK Alpine et les informations de build applicables ; ne pas présenter l'image entière comme MIT uniquement.
+L'image app contient le paquet Alpine v3.24 `ffmpeg` 8.1.2-r0, qui fournit `ffprobe`. Ce paquet est identifié GPL-2.0-or-later et LGPL-2.1-or-later ; ce composant conserve ses licences propres et ne change pas la licence MIT du code Snitch. Les textes GPL/LGPL et la version/source FFmpeg sont conservés dans les notices. Avant toute publication d'image, fournir les sources correspondantes exactes de l'APK Alpine et les informations de build applicables ; ne pas présenter l'image entière comme MIT uniquement.
 
 ## Alternatives écartées
 

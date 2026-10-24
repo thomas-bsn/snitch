@@ -1,18 +1,18 @@
 [project]
-name = "receipts-worker"
+name = "snitch-worker"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["receipts-api"]
+dependencies = ["snitch-client"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-packages = [{ include = "receipts_worker" }]
+packages = [{ include = "snitch_worker" }]
 
 [tool.uv.sources]
-receipts-api = { path = "receipts_worker/api", editable = true }
+snitch-client = { path = "snitch_worker/api", editable = true }
 
 [dependency-groups]
 dev = ["openapi-python-client==0.29.1"]

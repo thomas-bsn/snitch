@@ -445,40 +445,6 @@ wheels = [
 ]
 
 [[package]]
-name = "receipts-api"
-version = "0.1.0"
-source = { editable = "receipts_worker/api" }
-dependencies = [
-    { name = "attrs" },
-    { name = "httpx" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "attrs", specifier = ">=22.2.0" },
-    { name = "httpx", specifier = ">=0.23.1,<0.29.0" },
-]
-
-[[package]]
-name = "receipts-worker"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "receipts-api" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "openapi-python-client" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "receipts-api", editable = "receipts_worker/api" }]
-
-[package.metadata.requires-dev]
-dev = [{ name = "openapi-python-client", specifier = "==0.29.1" }]
-
-[[package]]
 name = "rich"
 version = "15.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -533,6 +499,40 @@ sdist = { url = "https://files.pythonhosted.org/packages/58/15/8b3609fd3830ef7b2
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686", size = 9755, upload-time = "2023-10-24T04:13:38.866Z" },
 ]
+
+[[package]]
+name = "snitch-client"
+version = "0.1.0"
+source = { editable = "snitch_worker/api" }
+dependencies = [
+    { name = "attrs" },
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "attrs", specifier = ">=22.2.0" },
+    { name = "httpx", specifier = ">=0.23.1,<0.29.0" },
+]
+
+[[package]]
+name = "snitch-worker"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "snitch-client" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "openapi-python-client" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "snitch-client", editable = "snitch_worker/api" }]
+
+[package.metadata.requires-dev]
+dev = [{ name = "openapi-python-client", specifier = "==0.29.1" }]
 
 [[package]]
 name = "typer"

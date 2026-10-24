@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"receipts/internal/config"
-	"receipts/internal/setup"
+	"snitch/internal/config"
+	"snitch/internal/setup"
 )
 
 type reconciliationItem struct {

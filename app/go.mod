@@ -1,4 +1,4 @@
-module receipts
+module snitch
 
 go 1.27.3
 

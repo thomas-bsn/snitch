@@ -18,9 +18,9 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"receipts/internal/auth"
-	"receipts/internal/config"
-	"receipts/internal/setup"
+	"snitch/internal/auth"
+	"snitch/internal/config"
+	"snitch/internal/setup"
 )
 
 func testDiscordSettings(t *testing.T, pool *pgxpool.Pool) {

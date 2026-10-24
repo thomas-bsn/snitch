@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Receipts phase 0",
+    "title": "Snitch",
     "version": "0.1.0",
     "license": {
       "name": "MIT"
@@ -2775,6 +2775,22 @@
         ]
       }
     },
+    "/api/admin/transcription-pipeline": {
+      "get": {
+        "operationId": "getTranscriptionPipeline",
+        "responses": {"200": {"description": "Configuration active", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionPipelineState"}}}}},
+        "description": "Administrateurs uniquement.",
+        "security": [{"session": []}]
+      },
+      "put": {
+        "operationId": "updateTranscriptionPipeline",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionPipeline"}}}},
+        "responses": {"200": {"description": "Nouvelle version activée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionPipelineState"}}}}, "400": {"description": "Configuration invalide"}},
+        "description": "Enregistre un snapshot immuable et l'active pour les nouvelles tâches.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/vocabulary/{id}": {
       "put": {
         "operationId": "updateVocabulary",
@@ -3271,7 +3287,7 @@
       "session": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "receipts_session"
+        "name": "snitch_session"
       },
       "workerBearer": {
         "type": "http",
@@ -4055,9 +4071,23 @@
             "items": {
               "$ref": "#/components/schemas/WorkerVocabularyTerm"
             }
-          }
+          },
+          "pipeline": {"$ref": "#/components/schemas/TranscriptionPipeline"},
+          "pipeline_version": {"type": "string"}
         }
       },
+      "TranscriptionPipeline": {
+        "type": "object", "additionalProperties": false,
+        "required": ["provider", "model", "language", "preparation", "vad"],
+        "properties": {
+          "provider": {"type": "string", "enum": ["openai-compatible"]},
+          "model": {"type": "string", "minLength": 1, "maxLength": 100},
+          "language": {"type": "string", "minLength": 1, "maxLength": 32},
+          "preparation": {"type": "string", "enum": ["wav-16khz-mono-v1"]},
+          "vad": {"type": "object", "required": ["mode", "version"], "properties": {"mode": {"type": "string", "enum": ["off", "energy"]}, "version": {"type": "string"}, "threshold": {"type": "number", "minimum": 0, "maximum": 1}, "min_speech_ms": {"type": "integer", "minimum": 1, "maximum": 5000}, "min_silence_ms": {"type": "integer", "minimum": 1, "maximum": 10000}, "padding_ms": {"type": "integer", "minimum": 0, "maximum": 2000}}}
+        }
+      },
+      "TranscriptionPipelineState": {"type": "object", "required": ["version", "config"], "properties": {"version": {"type": "string"}, "config": {"$ref": "#/components/schemas/TranscriptionPipeline"}}},
       "WorkerResultInput": {
         "type": "object",
         "additionalProperties": false,

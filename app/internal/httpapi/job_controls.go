@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"receipts/internal/jobs"
+	"snitch/internal/jobs"
 )
 
 func (s *Server) getJobControls(w http.ResponseWriter, r *http.Request) {

@@ -2,7 +2,7 @@
 from pathlib import Path
 
 
-root = Path(__file__).resolve().parents[1] / "worker/receipts_worker/api"
+root = Path(__file__).resolve().parents[1] / "worker/snitch_worker/api"
 for path in root.rglob("*.py"):
     lines = path.read_bytes().splitlines()
     while lines and not lines[-1].strip():

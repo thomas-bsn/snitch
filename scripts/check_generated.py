@@ -3,7 +3,7 @@ import hashlib
 import subprocess
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
-locations = ["app/internal/database", "app/internal/httpapi/contract", "web/src/api.gen.ts", "worker/receipts_worker/api"]
+locations = ["app/internal/database", "app/internal/httpapi/contract", "web/src/api.gen.ts", "worker/snitch_worker/api"]
 def snapshot():
     result = {}
     for location in locations:
