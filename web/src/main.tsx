@@ -16,6 +16,7 @@ type Upload = components["schemas"]["Upload"];
 type Clip = components["schemas"]["Clip"];
 type Job = components["schemas"]["Job"];
 type JobEvent = components["schemas"]["JobEvent"];
+type JobControls = components["schemas"]["JobControls"];
 type Worker = components["schemas"]["Worker"];
 const messages: Record<string, string> = {
   unavailable:
@@ -73,6 +74,11 @@ function App() {
   const [clips, setClips] = useState<Clip[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobHistory, setJobHistory] = useState<Record<number, JobEvent[]>>({});
+  const [jobControls, setJobControls] = useState<JobControls>({
+    paused: false,
+    max_concurrency: 1,
+    updated_at: "",
+  });
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [newWorkerToken, setNewWorkerToken] = useState("");
   const [jobPage, setJobPage] = useState(1);
@@ -132,12 +138,14 @@ function App() {
       setSettings(checked(await api.GET("/api/admin/settings")));
       setPending(checked(await api.GET("/api/admin/users")));
       await refreshJobs(1);
+      await refreshJobControls();
       setWorkers(checked(await api.GET("/api/admin/workers")).items);
       await refreshSources();
     } else {
       setSources([]);
       setAllowedRoots([]);
       setJobs([]);
+      setJobControls({ paused: false, max_concurrency: 1, updated_at: "" });
       setWorkers([]);
       setNewWorkerToken("");
     }
@@ -178,6 +186,26 @@ function App() {
     setJobs(result.items);
     setJobPage(result.page);
     setJobTotal(result.total);
+  }
+  async function refreshJobControls() {
+    setJobControls(checked(await api.GET("/api/admin/job-controls")));
+  }
+  async function saveJobControls(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await run(async () => {
+      setJobControls(
+        checked(
+          await api.PUT("/api/admin/job-controls", {
+            params: { header: csrf },
+            body: {
+              paused: jobControls.paused,
+              max_concurrency: jobControls.max_concurrency,
+            },
+          }),
+        ),
+      );
+      setNotice("Contrôles de file enregistrés.");
+    });
   }
   async function scheduleJob(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -976,6 +1004,53 @@ function App() {
                     ? "Désactiver Discord"
                     : "Continuer sans Discord"}
                 </button>
+              </form>
+            </section>
+          )}
+          {session.user.role === "admin" && (
+            <section className="card" aria-label="Contrôle de la file">
+              <h2>Contrôle de la file</h2>
+              <p aria-live="polite">
+                {jobControls.paused
+                  ? "Acquisitions en pause"
+                  : "Acquisitions actives"}
+              </p>
+              <form onSubmit={saveJobControls}>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={jobControls.paused}
+                    onChange={(event) =>
+                      setJobControls({
+                        ...jobControls,
+                        paused: event.target.checked,
+                      })
+                    }
+                  />
+                  Suspendre les nouvelles acquisitions
+                </label>
+                <label>
+                  Parallélisme global
+                  <input
+                    type="number"
+                    min="1"
+                    max="4"
+                    required
+                    value={jobControls.max_concurrency}
+                    onChange={(event) =>
+                      setJobControls({
+                        ...jobControls,
+                        max_concurrency: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <p className="hint">
+                  La limite globale s’applique en plus de la capacité de chaque
+                  worker. Les tâches déjà actives peuvent se terminer pendant
+                  une pause.
+                </p>
+                <button disabled={busy}>Enregistrer les contrôles</button>
               </form>
             </section>
           )}
