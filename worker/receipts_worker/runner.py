@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import ssl
 import time
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -91,10 +92,11 @@ def main() -> None:
     if capacity < 1 or capacity > 4:
         raise SystemExit("RECEIPTS_WORKER_CAPACITY must be an integer from 1 to 4")
     ca_bundle = os.environ.get("RECEIPTS_WORKER_CA_BUNDLE")
+    tls_context = ssl.create_default_context(cafile=ca_bundle) if ca_bundle else True
     with AuthenticatedClient(
         base_url=api_url.rstrip("/"),
         token=token,
-        verify_ssl=ca_bundle or True,
+        verify_ssl=tls_context,
         timeout=httpx.Timeout(30.0),
     ) as client:
         while True:
