@@ -51,7 +51,7 @@ type credentials struct {
 type DiscordSettings struct {
 	ClientID             *string `json:"client_id"`
 	ClientSecret         string  `json:"client_secret,omitempty"`
-	RegistrationApproval bool    `json:"registration_approval"`
+	RegistrationApproval *bool   `json:"registration_approval"`
 }
 
 func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
@@ -444,7 +444,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &c) {
 		return
 	}
-	if c.ClientID == nil || utf8.RuneCountInString(*c.ClientID) > 128 || utf8.RuneCountInString(c.ClientSecret) > 2048 {
+	if c.RegistrationApproval == nil || c.ClientID == nil || utf8.RuneCountInString(*c.ClientID) > 128 || utf8.RuneCountInString(c.ClientSecret) > 2048 {
 		fail(w, 400, "invalid_request")
 		return
 	}
@@ -464,7 +464,14 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if *c.ClientID != "" && c.ClientSecret == "" {
-		secret, err := s.Store.Get(r.Context(), "discord_client_secret")
+		var encrypted []byte
+		err := tx.QueryRow(r.Context(), `SELECT value FROM settings WHERE key='discord_client_secret'`).Scan(&encrypted)
+		secret := ""
+		if err == nil {
+			secret, err = auth.Open(s.Config.MasterKey, "discord_client_secret", encrypted)
+		} else if errors.Is(err, pgx.ErrNoRows) {
+			err = nil
+		}
 		if err != nil {
 			s.internal(w, err)
 			return
@@ -492,7 +499,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, err = tx.Exec(r.Context(), `UPDATE installation SET registration_approval=$1 WHERE id=1`, c.RegistrationApproval); err != nil {
+	if _, err = tx.Exec(r.Context(), `UPDATE installation SET registration_approval=$1 WHERE id=1`, *c.RegistrationApproval); err != nil {
 		s.internal(w, err)
 		return
 	}

@@ -150,7 +150,7 @@
             }
           }
         },
-        "description": "Cr\u00e9e le premier administrateur avec nom personnel (3\u201364 caract\u00e8res Unicode), mot de passe (12\u2013256) et code temporaire des logs. Code valide 15 minutes, usage unique ; erreur 409 setup_closed_or_invalid_code si incorrect, expir\u00e9, rejou\u00e9 ou installation termin\u00e9e. Entr\u00e9e absente/invalide : 400. Une seule demande concurrente r\u00e9ussit. Ouvre une session de sept jours."
+        "description": "Crée le premier administrateur avec nom personnel (3–64 caractères Unicode), mot de passe (12–256) et code temporaire des logs. Code valide 15 minutes, usage unique ; erreur 409 setup_closed_or_invalid_code si incorrect, expiré, rejoué ou installation terminée. Entrée absente/invalide : 400. Une seule demande concurrente réussit. Ouvre une session de sept jours."
       }
     },
     "/api/auth/login": {
@@ -200,7 +200,7 @@
             }
           }
         },
-        "description": "Connexion locale, nom de 3\u201364 caract\u00e8res Unicode et mot de passe de 12\u2013256. Entr\u00e9e hors contrat : 400 ; code de setup et propri\u00e9t\u00e9s suppl\u00e9mentaires interdits. Refus identique 401 invalid_credentials_or_pending pour compte absent, mot de passe incorrect ou approbation manquante. Session opaque de sept jours, cookie HttpOnly, SameSite=Lax et Secure en production. Limite par adresse distante : rafale de dix, puis une demande toutes les six secondes ; 429 avec Retry-After: 6."
+        "description": "Connexion locale, nom de 3–64 caractères Unicode et mot de passe de 12–256. Entrée hors contrat : 400 ; code de setup et propriétés supplémentaires interdits. Refus identique 401 invalid_credentials_or_pending pour compte absent, mot de passe incorrect ou approbation manquante. Session opaque de sept jours, cookie HttpOnly, SameSite=Lax et Secure en production. Limite par adresse distante : rafale de dix, puis une demande toutes les six secondes ; 429 avec Retry-After: 6."
       }
     },
     "/api/auth/register": {
@@ -249,7 +249,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Après installation uniquement (409 setup_required sinon). Crée toujours un utilisateur ordinaire, sans session : 201 pending si approbation requise (valeur initiale), active sinon. Le nom est unique sans distinction de casse (409 username_unavailable). Limites Unicode du schéma Credentials ; propriétés supplémentaires, dont code et role, interdites (400)."
       }
     },
     "/api/auth/me": {
@@ -278,7 +279,7 @@
           }
         },
         "parameters": [],
-        "description": "Retourne le compte approuv\u00e9 et son jeton CSRF si la session est active. Une session absente, expir\u00e9e ou r\u00e9voqu\u00e9e renvoie 401 unauthorized."
+        "description": "Retourne le compte approuvé et son jeton CSRF si la session est active. Une session absente, expirée ou révoquée renvoie 401 unauthorized."
       }
     },
     "/api/auth/logout": {
@@ -325,7 +326,7 @@
             }
           }
         ],
-        "description": "R\u00e9voque la session courante en base et efface le cookie. Exige session active, m\u00eame origine et X-CSRF-Token. Une session expir\u00e9e ou d\u00e9j\u00e0 d\u00e9connect\u00e9e renvoie 401 unauthorized ; absence ou erreur CSRF : 403 csrf_rejected."
+        "description": "Révoque la session courante en base et efface le cookie. Exige session active, même origine et X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur CSRF : 403 csrf_rejected."
       }
     },
     "/api/auth/discord/start": {
@@ -569,7 +570,8 @@
             }
           }
         },
-        "parameters": []
+        "parameters": [],
+        "description": "Administrateurs uniquement. Liste persistée des inscriptions non approuvées, ordonnée par identifiant ; tableau vide si aucune demande."
       }
     },
     "/api/admin/users/{id}/approve": {
@@ -625,7 +627,8 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "description": "Administrateurs uniquement, session, origine et CSRF requis. Approuve un compte en attente sans changer son rôle ; 400 invalid_id si identifiant invalide, 404 not_pending si absent ou déjà approuvé."
       }
     }
   },
@@ -818,7 +821,8 @@
             "writeOnly": true
           },
           "registration_approval": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Booléen obligatoire et non nul. Politique commune aux nouvelles inscriptions locales et Discord, sans approbation rétroactive des comptes déjà en attente."
           }
         }
       },

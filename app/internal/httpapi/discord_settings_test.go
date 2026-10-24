@@ -14,6 +14,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers/legacy"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"receipts/internal/auth"
 	"receipts/internal/config"
@@ -29,6 +32,15 @@ func testDiscordSettings(t *testing.T, pool *pgxpool.Pool) {
 	defer ts.Close()
 	jar, _ := cookiejar.New(nil)
 	client := &http.Client{Jar: jar}
+	spec, err := openapi3.NewLoader().LoadFromFile("../../../contracts/openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec.Servers = nil
+	router, err := legacy.NewRouter(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
 	call := func(t *testing.T, method, path, data, csrf string, want int) []byte {
 		t.Helper()
 		req, err := http.NewRequest(method, ts.URL+path, strings.NewReader(data))
@@ -44,11 +56,19 @@ func testDiscordSettings(t *testing.T, pool *pgxpool.Pool) {
 		}
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
-		if bytes.Contains(body, []byte("fixture-discord-secret")) {
+		if bytes.Contains(body, []byte("fixture-discord-secret")) || bytes.Contains(body, []byte("replacement-secret")) {
 			t.Fatal("secret returned to browser")
 		}
 		if resp.StatusCode != want {
 			t.Fatalf("%s %s: got %d want %d: %s", method, path, resp.StatusCode, want, body)
+		}
+		route, params, err := router.FindRoute(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		input := &openapi3filter.RequestValidationInput{Request: req, Route: route, PathParams: params, Options: &openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc}}
+		if err := openapi3filter.ValidateResponse(context.Background(), &openapi3filter.ResponseValidationInput{RequestValidationInput: input, Status: resp.StatusCode, Header: resp.Header, Body: io.NopCloser(bytes.NewReader(body))}); err != nil {
+			t.Fatal("Discord settings response contract", err)
 		}
 		return body
 	}

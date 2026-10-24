@@ -25,7 +25,8 @@ class SettingsInput:
         Attributes:
             client_id (str): Required application identifier. Empty disables Discord and removes the stored secret.
                 Whitespace-only values are rejected; saving does not verify credentials with Discord.
-            registration_approval (bool):
+            registration_approval (bool): Booléen obligatoire et non nul. Politique commune aux nouvelles inscriptions
+                locales et Discord, sans approbation rétroactive des comptes déjà en attente.
             client_secret (str | Unset): Write-only application secret. Omit or send an empty string to retain the current
                 secret. Enabling Discord requires a new or existing nonempty secret; whitespace-only values are rejected.
      """

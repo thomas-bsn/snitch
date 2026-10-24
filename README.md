@@ -1,6 +1,6 @@
 # Receipts
 
-Socle Go et interface française embarquée pour retrouver, dans les prochaines phases, les paroles et les voix de clips de jeu. La phase 0 est en cours de vérification : les tickets #2 et #3 couvrent le démarrage vierge, le premier administrateur et les sessions locales. La configuration facultative de Discord et ses secrets sont couverts par le ticket #5 ; les échanges de connexion Discord seront validés au ticket #6. Aucune bibliothèque ni aucun traitement de média n'est disponible.
+Socle Go et interface française embarquée pour retrouver, dans les prochaines phases, les paroles et les voix de clips de jeu. La phase 0 est en cours de vérification : les tickets #2 à #4 couvrent le démarrage vierge, le premier administrateur, les sessions locales et les inscriptions avec approbation. La configuration facultative de Discord et ses secrets sont couverts par le ticket #5 ; les échanges de connexion Discord seront validés au ticket #6. Aucune bibliothèque ni aucun traitement de média n'est disponible.
 
 ## Démarrer le socle en développement
 
@@ -44,6 +44,14 @@ Les mots de passe utilisent Argon2id version 19 : mémoire 32 MiB, trois itérat
 Le cookie `receipts_session` utilise `Path=/`, `HttpOnly`, `SameSite=Lax` et une durée maximale de 604800 secondes. `Secure` est activé par défaut ; conserver HTTPS et `COOKIE_SECURE=true` en production. Chaque mutation doit transmettre `Origin` égal à `PUBLIC_URL`. Les mutations authentifiées exigent aussi `X-CSRF-Token`, obtenu avec `GET /api/auth/me`. Les fonctions privées exigent une session approuvée et les routes `/api/admin/…` le rôle administrateur ; masquer un écran n’est jamais la protection d’accès.
 
 L’installation, la connexion et l’inscription partagent une limite par adresse réseau distante : rafale de dix demandes, puis une demande toutes les six secondes ; `429` annonce `Retry-After: 6`. Deux traitements de mots de passe au plus s’exécutent simultanément par processus ; un excès renvoie `429 busy`. Les en-têtes de proxy transmis par le client sont ignorés : derrière un proxy, les clients partageant son adresse partagent actuellement cette limite. Les refus de connexion sont identiques pour compte inexistant, mot de passe incorrect et compte en attente. Les secrets saisis ne sont ni journalisés ni renvoyés.
+
+## Inscriptions et approbation
+
+Après installation, « Créer un compte » permet de demander un accès local. L’approbation est requise par défaut : l’écran confirme la mise en attente et aucune session n’est ouverte. Le demandeur ne peut ni se connecter ni accéder aux fonctions privées tant qu’un administrateur n’a pas cliqué sur « Approuver » dans la liste des inscriptions en attente. Cette liste et son compteur proviennent de la base. Le nouveau compte garde le rôle utilisateur.
+
+Dans « Accès et Discord », l’administrateur peut décocher l’approbation requise puis enregistrer les réglages. Ce choix s’applique aux **nouveaux** comptes locaux et Discord ; les demandes déjà en attente restent à approuver explicitement. Un compte créé sans approbation peut se connecter aussitôt avec ses identifiants. Réactiver ce réglage soumet les prochaines inscriptions à approbation sans modifier les comptes existants. Le réglage API `registration_approval` est un booléen obligatoire : une valeur absente ou nulle est refusée sans modifier la politique.
+
+Les noms sont uniques sans distinction de casse. Les inscriptions utilisent les mêmes limites Unicode que l’installation ; un nom indisponible renvoie `409 username_unavailable`. Avant installation, l’inscription renvoie `409 setup_required` et ne crée jamais d’administrateur. Les routes de liste, d’approbation et de réglages sont réservées aux administrateurs ; leurs mutations exigent origine et CSRF. Une approbation répétée ou un identifiant inexistant renvoie `404 not_pending`.
 
 ## Discord facultatif et sauvegarde des secrets
 
@@ -91,7 +99,7 @@ npm --prefix web run lint
 
 Les tests utilisent uniquement une base Testcontainers jetable avec pgvector et des données synthétiques. Le scénario de l'exécutable vérifie migrations séparées/rejouées, SPA embarquée, port configurable, santé pendant une panne PostgreSQL, logs et arrêt. Les tests API couvrent aussi l'échec d'une migration invalide. `RECEIPTS_E2E=1` lance les scénarios navigateur sur la vraie API, dont installation sans Discord, code invalide, rechargement, connexion/déconnexion et configuration/conservation/désactivation du secret Discord ; `RECEIPTS_E2E_FOUNDATION=1` permet de limiter le navigateur au socle du ticket #2. Installer Chromium une fois avec `cd web && npx playwright install chromium`. Le script détecte le contexte Docker actif ; les surcharges Testcontainers peuvent être fournies par l'environnement.
 
-Le contrat source est [contracts/openapi.yaml](contracts/openapi.yaml). Les opérations d’installation et de session locale sont vérifiées avec leurs entrées, réponses et refus. Les réglages Discord sont vérifiés avec conservation/remplacement du secret, stockage chiffré, refus d’altération et permissions. Les échanges Discord présents dans le brouillon restent à vérifier au ticket #6. Pour régénérer les types Go, TypeScript, Python et les requêtes sqlc :
+Le contrat source est [contracts/openapi.yaml](contracts/openapi.yaml). Les opérations d’installation et de session locale sont vérifiées avec leurs entrées, réponses et refus. Les inscriptions, approbations et politiques sont vérifiées par HTTP réel et par le scénario navigateur `registration.spec.ts` (attente, refus de connexion, réglage sans effet rétroactif, approbation et rôle utilisateur). Les réglages Discord sont vérifiés avec conservation/remplacement du secret, stockage chiffré, refus d’altération et permissions. Les échanges Discord présents dans le brouillon restent à vérifier au ticket #6. Pour régénérer les types Go, TypeScript, Python et les requêtes sqlc :
 
 ```sh
 python3 -m venv .venv
@@ -102,4 +110,4 @@ python3 scripts/check_generated.py
 
 Les versions des générateurs sont épinglées. Le dernier contrôle compare tous les octets générés avant et après régénération et échoue si les artefacts divergent. Le worker reste un squelette de contrat, sans traitement GPU.
 
-La [roadmap](ROADMAP.md), la [spec de phase 0](docs/specs/phase-0.md), le [glossaire](GLOSSARY.md) et les [ADR](docs/adr/) décrivent le périmètre. Les tests du brouillon qui dépassent les tickets #2 et #3 ne constituent pas la validation des tickets suivants. Le déploiement, la CI et le bilan complet de phase restent à finaliser avant validation du passage à la phase 1.
+La [roadmap](ROADMAP.md), la [spec de phase 0](docs/specs/phase-0.md), le [glossaire](GLOSSARY.md) et les [ADR](docs/adr/) décrivent le périmètre. Les tests du brouillon qui dépassent les tickets #2 à #4 ne constituent pas la validation des tickets suivants. Le déploiement, la CI et le bilan complet de phase restent à finaliser avant validation du passage à la phase 1.
