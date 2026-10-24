@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+from ..types import UNSET, Unset
+from typing import cast
+
+if TYPE_CHECKING:
+  from ..models.transcript_segment import TranscriptSegment
+
+
+
+
+
+T = TypeVar("T", bound="Transcription")
+
+
+
+@_attrs_define
+class Transcription:
+    """
+        Attributes:
+            provider (str):
+            model (str):
+            audio_stream_index (int):
+            segments (list[TranscriptSegment]):
+            version (str | Unset):
+            language (str | Unset):
+     """
+
+    provider: str
+    model: str
+    audio_stream_index: int
+    segments: list[TranscriptSegment]
+    version: str | Unset = UNSET
+    language: str | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+
+
+
+
+    def to_dict(self) -> dict[str, Any]:
+        from ..models.transcript_segment import TranscriptSegment # noqa: PLC0415
+        provider = self.provider
+
+        model = self.model
+
+        audio_stream_index = self.audio_stream_index
+
+        segments = []
+        for segments_item_data in self.segments:
+            segments_item = segments_item_data.to_dict()
+            segments.append(segments_item)
+
+
+
+        version = self.version
+
+        language = self.language
+
+
+        field_dict: dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update({
+            "provider": provider,
+            "model": model,
+            "audio_stream_index": audio_stream_index,
+            "segments": segments,
+        })
+        if version is not UNSET:
+            field_dict["version"] = version
+        if language is not UNSET:
+            field_dict["language"] = language
+
+        return field_dict
+
+
+
+    @classmethod
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.transcript_segment import TranscriptSegment # noqa: PLC0415
+        d = dict(src_dict)
+        provider = d.pop("provider")
+
+        model = d.pop("model")
+
+        audio_stream_index = d.pop("audio_stream_index")
+
+        segments = []
+        _segments = d.pop("segments")
+        for segments_item_data in (_segments):
+            segments_item = TranscriptSegment.from_dict(segments_item_data)
+
+
+
+            segments.append(segments_item)
+
+
+        version = d.pop("version", UNSET)
+
+        language = d.pop("language", UNSET)
+
+        transcription = cls(
+            provider=provider,
+            model=model,
+            audio_stream_index=audio_stream_index,
+            segments=segments,
+            version=version,
+            language=language,
+        )
+
+
+        transcription.additional_properties = d
+        return transcription
+
+    @property
+    def additional_keys(self) -> list[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

@@ -6,10 +6,11 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import httpx
 from receipts_api.client import AuthenticatedClient
+
 from receipts_worker import runner
 
 
@@ -111,7 +112,9 @@ class FakeProviderTests(unittest.TestCase):
 
         pulse.assert_called_once()
         advertised = pulse.call_args.kwargs["body"].to_dict()
-        self.assertEqual(advertised["supported_steps"], ["fixture.*"])
+        self.assertEqual(
+            advertised["supported_steps"], ["fixture.*", "transcription.audio.*"]
+        )
         complete.assert_called_once()
         result = complete.call_args.kwargs["body"].result.to_dict()
         self.assertEqual(result["provider"], "fixture")
@@ -188,6 +191,69 @@ class FakeProviderTests(unittest.TestCase):
 
         with self.assertRaises(httpx.ConnectError):
             runner.run_once(client)
+
+    def test_transcription_claim_prepares_global_stream_and_accepts_empty_result(self):
+        media_request = SimpleNamespace(
+            raise_for_status=lambda: None,
+            iter_bytes=lambda: [b"synthetic-multitrack-media"],
+        )
+
+        class MediaStream:
+            def __enter__(self):
+                return media_request
+
+            def __exit__(self, *_args):
+                return False
+
+        http_client = SimpleNamespace(stream=Mock(return_value=MediaStream()))
+        client = SimpleNamespace(
+            _base_url="https://receipts.example",
+            get_httpx_client=lambda: http_client,
+        )
+        task = SimpleNamespace(
+            id=84, step="transcription.audio.2", input_version="track-v1"
+        )
+        claim = SimpleNamespace(job=task, lease_token="lt_fixture-lease")
+        transcriber = SimpleNamespace(
+            transcribe=lambda wav: {
+                "provider": "fixture",
+                "model": "deterministic-v1",
+                "version": "deterministic-v1",
+                "language": "fr",
+                "segments": [],
+            }
+        )
+        with (
+            patch.object(runner, "pulse", return_value=object()),
+            patch.object(runner, "claim_job", return_value=claim),
+            patch.object(runner, "heartbeat_job", return_value=object()),
+            patch.object(
+                runner,
+                "get_job_input",
+                return_value=SimpleNamespace(media_url="/api/worker/jobs/84/media"),
+            ),
+            patch.object(runner, "prepare_audio") as prepare,
+            patch.object(runner, "complete_job", return_value=object()) as complete,
+        ):
+            self.assertTrue(runner.run_once(client, transcriber=transcriber))
+
+        request = http_client.stream
+        self.assertEqual(
+            request.call_args.args[1],
+            "https://receipts.example/api/worker/jobs/84/media",
+        )
+        self.assertEqual(
+            request.call_args.kwargs["headers"]["X-Worker-Lease-Token"],
+            "lt_fixture-lease",
+        )
+        self.assertEqual(prepare.call_args.args[2], 2)
+        result = complete.call_args.kwargs["body"].result.to_dict()
+        self.assertEqual(result["audio_stream_index"], 2)
+        self.assertEqual(result["segments"], [])
+
+    def test_provider_requires_explicit_endpoint_and_model(self):
+        with self.assertRaises(ValueError):
+            runner.configured_transcriber()
 
     def test_run_once_completes_job_through_trusted_https_contract(self):
         state = {}
@@ -314,7 +380,9 @@ class FakeProviderTests(unittest.TestCase):
         self.assertTrue(runner.run_once(client))
         self.assertEqual(state["result"]["provider"], "fixture")
         self.assertEqual(state["result"]["step"], "fixture.echo")
-        self.assertEqual(state["pulse"]["supported_steps"], ["fixture.*"])
+        self.assertEqual(
+            state["pulse"]["supported_steps"], ["fixture.*", "transcription.audio.*"]
+        )
 
 
 if __name__ == "__main__":

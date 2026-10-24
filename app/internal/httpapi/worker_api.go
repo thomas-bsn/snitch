@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"receipts/internal/jobs"
 	"receipts/internal/workers"
 )
@@ -233,6 +234,27 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 	}
 	if !decode(w, r, &input) {
 		return
+	}
+	var step, status string
+	stepErr := s.Pool.QueryRow(r.Context(), `SELECT step,status FROM jobs WHERE id=$1`, id).Scan(&step, &status)
+	if stepErr != nil && !errors.Is(stepErr, pgx.ErrNoRows) {
+		s.internal(w, stepErr)
+		return
+	}
+	if stepErr == nil && status != "done" && strings.HasPrefix(step, "transcription.audio.") {
+		leased, leaseErr := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
+		if errors.Is(leaseErr, jobs.ErrLeaseNotOwned) {
+			fail(w, http.StatusConflict, "lease_not_owned")
+			return
+		}
+		if leaseErr != nil {
+			s.internal(w, leaseErr)
+			return
+		}
+		if !validTranscriptionResult(input.Result, leased.Job.Step) {
+			fail(w, http.StatusBadRequest, "invalid_transcription_result")
+			return
+		}
 	}
 	job, err := s.Jobs.Complete(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.InputVersion, input.Result)
 	if errors.Is(err, jobs.ErrInvalidInput) {

@@ -57,6 +57,15 @@ function checked<T>(result: { data?: T; error?: { error: string } }): T {
   if (!result.data) throw new Error("Réponse du serveur absente.");
   return result.data;
 }
+function formatTimecode(seconds: number): string {
+  const whole = Math.floor(Math.max(0, seconds));
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor((whole % 3600) / 60);
+  const remainder = whole % 60;
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+}
 function checkedNoContent(result: { error?: { error: string } }): void {
   if (result.error)
     throw new Error(
@@ -72,6 +81,8 @@ function App() {
   const [allowedRoots, setAllowedRoots] = useState<string[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
+  const [clipDetails, setClipDetails] = useState<Record<number, Clip>>({});
+  const [selectedAudioTracks, setSelectedAudioTracks] = useState<Record<number, number>>({});
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobHistory, setJobHistory] = useState<Record<number, JobEvent[]>>({});
   const [jobControls, setJobControls] = useState<JobControls>({
@@ -170,6 +181,14 @@ function App() {
     setClips(result.items);
     setClipPage(result.page);
     setClipTotal(result.total);
+  }
+  async function loadClipDetail(id: number) {
+    try {
+      const detail = checked(await api.GET("/api/clips/{id}", { params: { path: { id } } }));
+      setClipDetails((current) => ({ ...current, [id]: detail }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Impossible de charger le clip.");
+    }
   }
   async function refreshUploads() {
     const result = await api.GET("/api/uploads", { params: { header: csrf } });
@@ -888,7 +907,9 @@ function App() {
                       <strong className="clip-name" title={clip.original_name}>{clip.original_name}</strong>
                       <p className="clip-meta">{new Date(clip.recorded_at).toLocaleDateString("fr-FR")} · {clip.owner}</p>
                       <div className="clip-card-footer"><span className={`clip-state state-${clip.status}`}>{clip.status === "ready" ? "Disponible" : clip.status === "missing" ? "Introuvable" : clip.status === "unreadable" ? "Illisible" : "En attente"}</span><span className="visibility-chip">{clip.visibility === "shared" ? "Partagé" : "Privé"}</span></div>
-                      <details>
+                      <details onToggle={(event) => {
+                        if (event.currentTarget.open && !clipDetails[clip.id]) void loadClipDetail(clip.id);
+                      }}>
                         <summary>Détails et lecture</summary>
                       <p>
                         {clip.format_name} · audio{" "}
@@ -900,12 +921,54 @@ function App() {
                       )}
                       {clip.status === "ready" && (
                         <video
+                          id={`clip-player-${clip.id}`}
                           controls
                           preload="metadata"
                           src={`/api/clips/${clip.id}/media`}
                           aria-label={`Lecture ${clip.original_name}`}
                         />
                       )}
+                      {clip.status === "ready" && session.user.role === "admin" && clip.tracks.some((track) => track.type === "audio") && (
+                        <div className="transcription-controls">
+                          <label>
+                            Piste audio
+                            <select
+                              value={selectedAudioTracks[clip.id] ?? clip.tracks.find((track) => track.type === "audio")?.index ?? ""}
+                              onChange={(event) => setSelectedAudioTracks({ ...selectedAudioTracks, [clip.id]: Number(event.target.value) })}
+                            >
+                              {clip.tracks.filter((track) => track.type === "audio").map((track) => (
+                                <option key={track.index} value={track.index}>Piste {track.index} · {track.title || track.language || track.codec}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <button className="secondary" onClick={() => run(async () => {
+                            const response = checked(await api.POST("/api/admin/clips/{id}/transcription", {
+                              params: { path: { id: clip.id }, header: csrf },
+                              body: { audio_stream_index: selectedAudioTracks[clip.id] ?? clip.tracks.find((track) => track.type === "audio")!.index },
+                            }));
+                            setNotice(`Transcription planifiée (tâche ${response.job.id}).`);
+                            await refreshJobs(1);
+                          })}>Transcrire</button>
+                        </div>
+                      )}
+                      {clipDetails[clip.id]?.transcription && (() => {
+                        const transcript = clipDetails[clip.id]!.transcription!;
+                        return (
+                          <section className="clip-transcript" aria-label="Transcription horodatée">
+                            <h3>Transcription · {transcript.provider} / {transcript.model}</h3>
+                            {transcript.segments.length === 0 ? <p>Aucune parole détectée.</p> : transcript.segments.map((segment, segmentIndex) => (
+                              <p key={`${segment.start}-${segmentIndex}`}>
+                                <button className="transcript-time" onClick={() => {
+                                  const player = document.getElementById(`clip-player-${clip.id}`) as HTMLVideoElement | null;
+                                  if (player) { player.currentTime = segment.start; void player.play(); }
+                                }}>{formatTimecode(segment.start)}</button>{" "}
+                                {segment.words.map((word, wordIndex) => <span key={`${word.start}-${wordIndex}`}>{word.word}{" "}</span>)}
+                              </p>
+                            ))}
+                          </section>
+                        );
+                      })()}
+                      {clipDetails[clip.id] && <button className="secondary" onClick={() => void loadClipDetail(clip.id)}>Actualiser la transcription</button>}
                       </details>
                     </div>
                   </li>

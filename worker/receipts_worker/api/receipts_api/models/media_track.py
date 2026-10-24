@@ -23,6 +23,7 @@ T = TypeVar("T", bound="MediaTrack")
 class MediaTrack:
     """
         Attributes:
+            index (int):
             type_ (str):
             codec (str):
             title (str | Unset):
@@ -31,6 +32,7 @@ class MediaTrack:
             height (int | Unset):
      """
 
+    index: int
     type_: str
     codec: str
     title: str | Unset = UNSET
@@ -44,6 +46,8 @@ class MediaTrack:
 
 
     def to_dict(self) -> dict[str, Any]:
+        index = self.index
+
         type_ = self.type_
 
         codec = self.codec
@@ -60,6 +64,7 @@ class MediaTrack:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "index": index,
             "type": type_,
             "codec": codec,
         })
@@ -79,6 +84,8 @@ class MediaTrack:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        index = d.pop("index")
+
         type_ = d.pop("type")
 
         codec = d.pop("codec")
@@ -92,6 +99,7 @@ class MediaTrack:
         height = d.pop("height", UNSET)
 
         media_track = cls(
+            index=index,
             type_=type_,
             codec=codec,
             title=title,

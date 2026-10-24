@@ -124,6 +124,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/uploads/{id}", s.protected(false, http.HandlerFunc(s.cancelUpload)))
 	mux.Handle("GET /api/clips", s.protected(false, http.HandlerFunc(s.listClips)))
 	mux.Handle("GET /api/clips/{id}", s.protected(false, http.HandlerFunc(s.getClip)))
+	mux.Handle("POST /api/admin/clips/{id}/transcription", s.protected(true, http.HandlerFunc(s.scheduleTranscription)))
 	mux.Handle("GET /api/clips/{id}/media", s.protected(false, http.HandlerFunc(s.serveClipMedia)))
 	embedded, _ := fs.Sub(ui.Files, "dist")
 	files := http.FileServer(http.FS(embedded))

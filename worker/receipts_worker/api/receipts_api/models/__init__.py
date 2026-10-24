@@ -3,7 +3,6 @@
 from .bootstrap import Bootstrap
 from .clip import Clip
 from .clip_page import ClipPage
-from .clip_tracks_item import ClipTracksItem
 from .clip_visibility import ClipVisibility
 from .credentials import Credentials
 from .error import Error
@@ -25,6 +24,7 @@ from .list_jobs_status import ListJobsStatus
 from .media_track import MediaTrack
 from .redirect import Redirect
 from .scan_source_body import ScanSourceBody
+from .scheduled_transcription import ScheduledTranscription
 from .session import Session
 from .settings import Settings
 from .settings_input import SettingsInput
@@ -38,6 +38,10 @@ from .source_input import SourceInput
 from .source_list import SourceList
 from .source_visibility import SourceVisibility
 from .status import Status
+from .transcript_segment import TranscriptSegment
+from .transcript_word import TranscriptWord
+from .transcription import Transcription
+from .transcription_input import TranscriptionInput
 from .upload import Upload
 from .upload_input import UploadInput
 from .upload_input_visibility import UploadInputVisibility
@@ -63,7 +67,6 @@ __all__ = (
     "Bootstrap",
     "Clip",
     "ClipPage",
-    "ClipTracksItem",
     "ClipVisibility",
     "Credentials",
     "Error",
@@ -85,6 +88,7 @@ __all__ = (
     "MediaTrack",
     "Redirect",
     "ScanSourceBody",
+    "ScheduledTranscription",
     "Session",
     "Settings",
     "SettingsInput",
@@ -98,6 +102,10 @@ __all__ = (
     "SourceList",
     "SourceVisibility",
     "Status",
+    "Transcription",
+    "TranscriptionInput",
+    "TranscriptSegment",
+    "TranscriptWord",
     "Upload",
     "UploadInput",
     "UploadInputVisibility",

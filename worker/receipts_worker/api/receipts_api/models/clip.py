@@ -14,7 +14,8 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.clip_tracks_item import ClipTracksItem
+  from ..models.media_track import MediaTrack
+  from ..models.transcription import Transcription
 
 
 
@@ -40,11 +41,12 @@ class Clip:
             format_name (str):
             video_codec (str):
             audio_codec (str):
-            tracks (list[ClipTracksItem]):
+            tracks (list[MediaTrack]):
             uploaders (list[str]):
             duration_seconds (float | None | Unset):
             status (str | Unset):
             sources (list[str] | Unset):
+            transcription (Transcription | Unset):
      """
 
     id: int
@@ -59,11 +61,12 @@ class Clip:
     format_name: str
     video_codec: str
     audio_codec: str
-    tracks: list[ClipTracksItem]
+    tracks: list[MediaTrack]
     uploaders: list[str]
     duration_seconds: float | None | Unset = UNSET
     status: str | Unset = UNSET
     sources: list[str] | Unset = UNSET
+    transcription: Transcription | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -71,7 +74,8 @@ class Clip:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.clip_tracks_item import ClipTracksItem # noqa: PLC0415
+        from ..models.media_track import MediaTrack # noqa: PLC0415
+        from ..models.transcription import Transcription # noqa: PLC0415
         id = self.id
 
         owner_id = self.owner_id
@@ -121,6 +125,10 @@ class Clip:
 
 
 
+        transcription: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.transcription, Unset):
+            transcription = self.transcription.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -146,6 +154,8 @@ class Clip:
             field_dict["status"] = status
         if sources is not UNSET:
             field_dict["sources"] = sources
+        if transcription is not UNSET:
+            field_dict["transcription"] = transcription
 
         return field_dict
 
@@ -153,7 +163,8 @@ class Clip:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.clip_tracks_item import ClipTracksItem # noqa: PLC0415
+        from ..models.media_track import MediaTrack # noqa: PLC0415
+        from ..models.transcription import Transcription # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -191,7 +202,7 @@ class Clip:
         tracks = []
         _tracks = d.pop("tracks")
         for tracks_item_data in (_tracks):
-            tracks_item = ClipTracksItem.from_dict(tracks_item_data)
+            tracks_item = MediaTrack.from_dict(tracks_item_data)
 
 
 
@@ -216,6 +227,16 @@ class Clip:
         sources = cast(list[str], d.pop("sources", UNSET))
 
 
+        _transcription = d.pop("transcription", UNSET)
+        transcription: Transcription | Unset
+        if isinstance(_transcription,  Unset):
+            transcription = UNSET
+        else:
+            transcription = Transcription.from_dict(_transcription)
+
+
+
+
         clip = cls(
             id=id,
             owner_id=owner_id,
@@ -234,6 +255,7 @@ class Clip:
             duration_seconds=duration_seconds,
             status=status,
             sources=sources,
+            transcription=transcription,
         )
 
 

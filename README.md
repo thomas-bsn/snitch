@@ -1,6 +1,6 @@
 # Snitch / Receipts
 
-Receipts (nom d’affichage configurable) est un socle open source MIT pour une bibliothèque de clips de jeu. Il propose les comptes locaux, l’approbation, Discord facultatif, les imports vidéo reprenables, la réconciliation de dossiers autorisés et un worker distant sécurisé. Les étapes IA et la recherche avancée restent à venir ; aucun modèle n’est nécessaire à ce stade.
+Receipts (nom d’affichage configurable) est un socle open source MIT pour une bibliothèque de clips de jeu. Il propose les comptes locaux, l’approbation, Discord facultatif, les imports vidéo reprenables, la réconciliation de dossiers autorisés et un worker distant sécurisé. La phase 3 ajoute la transcription des clips prêts via un worker configurable; aucun modèle final n’est imposé ou inclus dans le dépôt.
 
 ## Essayer localement
 
@@ -25,15 +25,15 @@ Continuer sans Discord, ou ouvrir « Accès et Discord » pour saisir les identi
 
 `docker compose stop` arrête les services ; `docker compose up -d` retrouve les volumes et l’installation. `docker compose down` conserve les données ; ajouter `-v` les détruit. L’override local expose uniquement l’interface sur loopback et PostgreSQL sur loopback 55432 ; `COOKIE_SECURE=false` est réservé à cet essai HTTP. Aucun dossier hôte n’est monté.
 
-Le worker de phase 2 est une image autonome, absente de Compose : l’administrateur crée un worker dans l’interface et copie son jeton une seule fois. Construisez l’image avec `docker build -f deploy/docker/worker.Dockerfile -t snitch-worker .`, puis lancez-la en renseignant `RECEIPTS_API_URL` (URL HTTPS de Receipts), `RECEIPTS_WORKER_TOKEN` et éventuellement `RECEIPTS_WORKER_CAPACITY` (1–4, défaut 1). `RECEIPTS_WORKER_CA_BUNDLE` peut pointer vers une autorité de certification approuvée. La validation TLS reste activée. À chaque pulse, un worker déclare les étapes qu’il sait traiter; le serveur ne lui attribue que celles-ci et garde les autres en attente. Le fournisseur factice de phase 2 déclare uniquement `fixture.*`, retourne des métadonnées déterministes et ne télécharge ni ne lit le média.
+Le worker autonome (absent de Compose) traite les fixtures et les tâches de transcription. Créez-le dans l’interface pour obtenir un jeton, construisez `deploy/docker/worker.Dockerfile`, puis configurez `RECEIPTS_API_URL` (HTTPS), `RECEIPTS_WORKER_TOKEN`, `TRANSCRIPTION_API_URL` et `TRANSCRIPTION_MODEL`. L’URL du fournisseur doit exposer `/v1/audio/transcriptions` et retourner des segments et mots horodatés; aucun fournisseur ni modèle n’est présélectionné. `TRANSCRIPTION_API_KEY` est facultative et n’est jamais écrite dans les logs. Sans URL ou modèle, la tâche échoue avec un code lisible et peut être relancée après configuration. `RECEIPTS_WORKER_CA_BUNDLE` accepte une autorité de certification personnalisée. La validation TLS de Receipts reste activée. [Configurer le worker et le fournisseur de transcription](docs/transcription-worker.md).
 
 ## Exploiter ou contribuer
 
 - [Déploiement Forgeyard, variables et migrations](docs/deployment.md)
 - [Développement, tests et CI](docs/development.md) · [Contribution](CONTRIBUTING.md)
 - [Sauvegarde et restauration](docs/backups.md) · [Licences des distributions](deploy/NOTICES.md)
-- [Bilans de phases 0](docs/phase-0-report.md), [1](docs/phase-1-report.md) et [2](docs/phase-2-report.md) · [Roadmap](ROADMAP.md) · [Specs de phase 1](docs/specs/phase-1.md) et [phase 2](docs/specs/phase-2.md) · [Glossaire](GLOSSARY.md)
+- [Bilans de phases 0](docs/phase-0-report.md), [1](docs/phase-1-report.md) et [2](docs/phase-2-report.md) · [Roadmap](ROADMAP.md) · [Specs de phases 1](docs/specs/phase-1.md), [2](docs/specs/phase-2.md) et [3](docs/specs/phase-3.md) · [Glossaire](GLOSSARY.md)
 
 Les administrateurs peuvent ajouter des dossiers sous les racines configurées. Le scan garde l’historique des emplacements disparus et évite de déclarer des fichiers manquants si un dossier est inaccessible ou si le parcours est incomplet. Une empreinte SHA-256 permet de relier le même contenu à plusieurs emplacements ; remplacer le contenu d’un chemin crée une nouvelle identité de clip. Une disparition d’au moins 20 % des fichiers suivis produit un avertissement de santé. Voir la [décision de réconciliation](docs/adr/0010-identite-et-reconciliation-des-clips.md).
 
-Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. La phase 1 est validée ; la phase 2 est implémentée localement et attend sa validation finale avant la phase 3. Le benchmark réel de phase 7 demande une autorisation séparée.
+Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. Les phases 0 à 2 sont validées ; la phase 3 est en cours. Le benchmark réel de phase 7 demande une autorisation séparée.

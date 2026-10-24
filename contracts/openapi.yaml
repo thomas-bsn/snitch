@@ -2417,6 +2417,82 @@
         },
         "description": "Administrateurs uniquement. La concurrence globale est bornée à 1–4."
       }
+    },
+    "/api/admin/clips/{id}/transcription": {
+      "post": {
+        "operationId": "scheduleTranscription",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscriptionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transcription planifiée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledTranscription"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Tâche active déjà planifiée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledTranscription"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Clip non prêt ou piste audio inconnue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. La piste audio utilise son index global FFmpeg."
+      }
     }
   },
   "components": {
@@ -3403,9 +3479,14 @@
         "type": "object",
         "required": [
           "type",
-          "codec"
+          "codec",
+          "index"
         ],
         "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
           "type": {
             "type": "string"
           },
@@ -3509,7 +3590,7 @@
           "tracks": {
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/MediaTrack"
             }
           },
           "status": {
@@ -3526,6 +3607,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "transcription": {
+            "$ref": "#/components/schemas/Transcription"
           }
         }
       },
@@ -3593,6 +3677,111 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 4
+          }
+        }
+      },
+      "TranscriptionInput": {
+        "type": "object",
+        "required": [
+          "audio_stream_index"
+        ],
+        "properties": {
+          "audio_stream_index": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ScheduledTranscription": {
+        "type": "object",
+        "required": [
+          "job"
+        ],
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/Job"
+          }
+        }
+      },
+      "TranscriptWord": {
+        "type": "object",
+        "required": [
+          "word",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "word": {
+            "type": "string"
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "TranscriptSegment": {
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "text",
+          "words"
+        ],
+        "properties": {
+          "start": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          },
+          "words": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptWord"
+            }
+          }
+        }
+      },
+      "Transcription": {
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "audio_stream_index",
+          "segments"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "audio_stream_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptSegment"
+            }
           }
         }
       }
