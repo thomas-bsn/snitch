@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from typing import cast
 
 
 
@@ -23,9 +24,11 @@ class WorkerPulseInput:
     """
         Attributes:
             capacity (int):
+            supported_steps (list[str]):
      """
 
     capacity: int
+    supported_steps: list[str]
 
 
 
@@ -34,11 +37,16 @@ class WorkerPulseInput:
     def to_dict(self) -> dict[str, Any]:
         capacity = self.capacity
 
+        supported_steps = self.supported_steps
+
+
+
 
         field_dict: dict[str, Any] = {}
 
         field_dict.update({
             "capacity": capacity,
+            "supported_steps": supported_steps,
         })
 
         return field_dict
@@ -50,8 +58,12 @@ class WorkerPulseInput:
         d = dict(src_dict)
         capacity = d.pop("capacity")
 
+        supported_steps = cast(list[str], d.pop("supported_steps"))
+
+
         worker_pulse_input = cls(
             capacity=capacity,
+            supported_steps=supported_steps,
         )
 
         return worker_pulse_input

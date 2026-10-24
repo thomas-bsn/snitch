@@ -163,4 +163,5 @@ type Worker struct {
 	LastSeenAt          pgtype.Timestamptz `json:"last_seen_at"`
 	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	SupportedSteps      []string           `json:"supported_steps"`
 }

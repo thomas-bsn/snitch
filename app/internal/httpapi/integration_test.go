@@ -298,7 +298,7 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "GET", "/api/admin/workers", nil, "", 200)
 		workerToken = contractWorker.Token
-		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1}, "", 200)
+		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.synthetic"}}, "", 200)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {
 			LeaseToken string `json:"lease_token"`
@@ -322,6 +322,7 @@ func TestFoundation(t *testing.T) {
 		if e = json.Unmarshal(failedJobBody, &failedContractJob); e != nil || failedContractJob.ID < 1 {
 			t.Fatalf("contract failure job: %s %v", failedJobBody, e)
 		}
+		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.failure"}}, "", 200)
 		failedClaim := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var failedJob struct {
 			LeaseToken string `json:"lease_token"`

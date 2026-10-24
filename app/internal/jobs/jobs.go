@@ -328,7 +328,8 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		return nil, fmt.Errorf("activate due job retries: %w", err)
 	}
 	var maximum, reported int
-	err = tx.QueryRow(ctx, `SELECT max_concurrency,reported_concurrency FROM workers WHERE id=$1 AND revoked_at IS NULL FOR UPDATE`, workerID).Scan(&maximum, &reported)
+	var supportedSteps []string
+	err = tx.QueryRow(ctx, `SELECT max_concurrency,reported_concurrency,supported_steps FROM workers WHERE id=$1 AND revoked_at IS NULL FOR UPDATE`, workerID).Scan(&maximum, &reported, &supportedSteps)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -347,7 +348,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if capacity < 1 || active >= capacity || globalActive >= globalCapacity {
 		return nil, tx.Commit(ctx)
 	}
-	job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE status='pending' AND next_attempt_at<=now() ORDER BY priority DESC,created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`))
+	job, err := scanJob(tx.QueryRow(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle FROM jobs j WHERE j.status='pending' AND j.next_attempt_at<=now() AND EXISTS (SELECT 1 FROM unnest($1::text[]) AS capability WHERE CASE WHEN right(capability,2)='.*' THEN left(j.step,length(capability)-1)=left(capability,length(capability)-1) ELSE j.step=capability END) ORDER BY j.priority DESC,j.created_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1`, supportedSteps))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}

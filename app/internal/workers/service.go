@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,10 +15,11 @@ import (
 )
 
 var (
-	ErrInvalidInput = errors.New("invalid worker input")
-	ErrNotFound     = errors.New("worker not found")
-	ErrUnauthorized = errors.New("worker unauthorized")
-	namePattern     = regexp.MustCompile(`^[\pL\pN][\pL\pN _.-]{0,63}$`)
+	ErrInvalidInput       = errors.New("invalid worker input")
+	ErrNotFound           = errors.New("worker not found")
+	ErrUnauthorized       = errors.New("worker unauthorized")
+	namePattern           = regexp.MustCompile(`^[\pL\pN][\pL\pN _.-]{0,63}$`)
+	stepCapabilityPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,127}(\.\*)?$`)
 )
 
 // ConnectedWindow is six five-second worker poll intervals.
@@ -119,6 +121,35 @@ func (s *Service) Touch(ctx context.Context, id string, capacity int) error {
 	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_seen_at=now(),reported_concurrency=$2 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity)
 	if err != nil {
 		return fmt.Errorf("update worker activity: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// Pulse refreshes worker presence, available capacity, and the step families
+// this running worker can claim. Capabilities are replaced on every pulse.
+func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedSteps []string) error {
+	if capacity < 1 || capacity > 4 || len(supportedSteps) > 64 {
+		return ErrInvalidInput
+	}
+	steps := make([]string, 0, len(supportedSteps))
+	seen := make(map[string]struct{}, len(supportedSteps))
+	for _, step := range supportedSteps {
+		if !stepCapabilityPattern.MatchString(step) || (strings.HasSuffix(step, ".*") && strings.Count(step, "*") != 1) {
+			return ErrInvalidInput
+		}
+		if _, exists := seen[step]; exists {
+			continue
+		}
+		seen[step] = struct{}{}
+		steps = append(steps, step)
+	}
+	slices.Sort(steps)
+	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_seen_at=now(),reported_concurrency=$2,supported_steps=$3 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity, steps)
+	if err != nil {
+		return fmt.Errorf("update worker pulse: %w", err)
 	}
 	if result.RowsAffected() == 0 {
 		return ErrUnauthorized

@@ -3121,13 +3121,23 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "capacity"
+          "capacity",
+          "supported_steps"
         ],
         "properties": {
           "capacity": {
             "type": "integer",
             "minimum": 1,
             "maximum": 4
+          },
+          "supported_steps": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_.-]{0,127}(\\.\\*)?$",
+              "maxLength": 130
+            }
           }
         }
       },

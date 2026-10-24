@@ -74,7 +74,11 @@ def run_once(
     if heartbeat_interval <= 0:
         raise ValueError("heartbeat interval must be positive")
     _require_response(
-        pulse(client=client, body=WorkerPulseInput(capacity=capacity)), "pulse"
+        pulse(
+            client=client,
+            body=WorkerPulseInput(capacity=capacity, supported_steps=["fixture.*"]),
+        ),
+        "pulse",
     )
     if stop is not None and stop.is_set():
         return False

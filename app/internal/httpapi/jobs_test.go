@@ -267,7 +267,7 @@ func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
 	if err = json.Unmarshal(workerBody, &worker); err != nil || worker.Token == "" {
 		t.Fatalf("worker registration: %s %v", workerBody, err)
 	}
-	callWorker(http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", worker.Token, "", http.StatusOK)
+	callWorker(http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1,"supported_steps":["fixture.*"]}`), "", worker.Token, "", http.StatusOK)
 	claim := func() struct {
 		LeaseToken string `json:"lease_token"`
 		Job        struct {
