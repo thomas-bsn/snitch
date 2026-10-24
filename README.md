@@ -1,6 +1,6 @@
 # Snitch / Receipts
 
-Receipts (nom d’affichage configurable) est un socle open source MIT pour une future bibliothèque de clips de jeu. La phase 0 fournit installation, comptes locaux, approbation et Discord facultatif. La phase 1 ajoute l’enregistrement des dossiers autorisés et leur réconciliation ; recherche avancée et worker GPU restent à venir. Aucun modèle n’est nécessaire.
+Receipts (nom d’affichage configurable) est un socle open source MIT pour une bibliothèque de clips de jeu. Il propose les comptes locaux, l’approbation, Discord facultatif, les imports vidéo reprenables et la réconciliation de dossiers autorisés. Recherche avancée et worker GPU restent à venir. Aucun modèle n’est nécessaire.
 
 ## Essayer localement
 
@@ -19,7 +19,7 @@ docker compose up -d
 docker compose logs app
 ```
 
-Ouvrir <http://localhost:8080>, saisir le code d’installation, choisir votre nom et un mot de passe personnel (12–256 caractères), puis créer le premier administrateur. Le code dure 15 minutes et ne sert qu’une fois. Si le code perdu a expiré, redémarrer l’application pour en obtenir un nouveau ; un redémarrage conserve un code encore valide sans le réafficher. Une installation terminée ne se rouvre pas.
+Ouvrir <http://localhost:8080>, saisir le code d’installation, choisir votre nom et un mot de passe personnel (12–256 caractères), puis créer le premier administrateur. Le code dure 15 minutes et ne sert qu’une fois. Si le code perdu a expiré, redémarrer l’application pour en obtenir un nouveau ; un redémarrage conserve un code encore valide sans le réafficher. Une installation terminée ne se rouvre pas. Les membres peuvent ensuite importer leurs vidéos par blocs, reprendre un transfert interrompu ou l’annuler. `MAX_UPLOAD_BYTES`, `UPLOAD_CHUNK_BYTES` et `UPLOAD_SESSION_TTL` règlent la limite (20 GiB), le bloc (4 MiB) et la durée de reprise (168 h). Les fichiers importés persistent dans le volume Docker nommé `media` ; sauvegardez-le séparément de PostgreSQL.
 
 Continuer sans Discord, ou ouvrir « Accès et Discord » pour saisir les identifiants de **votre** application Discord et enregistrer l’URL de retour affichée. Les inscriptions demandent une approbation par défaut. [Guide des comptes, sessions et Discord](docs/access.md).
 

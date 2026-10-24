@@ -51,7 +51,7 @@ func testFolderSources(t *testing.T, pool *pgxpool.Pool) {
 	}
 	s := New(pool, config.Config{
 		MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts",
-		ClipRoots: []string{root}, ProbePath: probe, StabilityWindow: 10 * time.Millisecond, ReconcileInterval: 100 * time.Millisecond,
+		ClipRoots: []string{root}, ProbePath: probe, StabilityWindow: 10 * time.Millisecond, ReconcileInterval: 100 * time.Millisecond, UploadRoot: t.TempDir(),
 	}, slog.New(slog.NewJSONHandler(os.Stderr, nil)))
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatal(err)
@@ -248,7 +248,7 @@ func testSourceReconciliation(t *testing.T, pool *pgxpool.Pool) {
 	}
 	s := New(pool, config.Config{
 		MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts",
-		ClipRoots: []string{allowed}, ProbePath: probe, StabilityWindow: 10 * time.Millisecond, ReconcileInterval: time.Hour,
+		ClipRoots: []string{allowed}, ProbePath: probe, StabilityWindow: 10 * time.Millisecond, ReconcileInterval: time.Hour, UploadRoot: t.TempDir(),
 	}, slog.New(slog.NewJSONHandler(os.Stderr, nil)))
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatal(err)

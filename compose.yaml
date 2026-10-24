@@ -41,6 +41,10 @@ services:
       CLIP_STABILITY_WINDOW: ${CLIP_STABILITY_WINDOW:-3s}
       SOURCE_RECONCILE_INTERVAL: ${SOURCE_RECONCILE_INTERVAL:-5m}
       CLIP_EXCLUDE_PATTERNS: ${CLIP_EXCLUDE_PATTERNS:-.*,*.tmp,*.part,*.partial,*.crdownload,*.download}
+      UPLOAD_ROOT: ${UPLOAD_ROOT:-/data/media}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-21474836480}
+      UPLOAD_CHUNK_BYTES: ${UPLOAD_CHUNK_BYTES:-4194304}
+      UPLOAD_SESSION_TTL: ${UPLOAD_SESSION_TTL:-168h}
       EMBEDDINGS_URL: ${EMBEDDINGS_URL:-http://embed:11434/v1/embeddings}
       EMBEDDINGS_MODEL: ${EMBEDDINGS_MODEL:-}
       GOMEMLIMIT: 300MiB
@@ -53,6 +57,7 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+    volumes: [media:/data/media]
     x-forgeyard:
       memory: 384
       expose: {port: 8080}
@@ -68,3 +73,4 @@ services:
 volumes:
   database:
   embeddings:
+  media:

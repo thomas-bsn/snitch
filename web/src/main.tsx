@@ -12,6 +12,7 @@ type User = components["schemas"]["User"];
 type Source = components["schemas"]["Source"];
 type SourceFile = components["schemas"]["SourceFile"];
 type SourceWithFiles = Source & { files: SourceFile[] };
+type Upload = components["schemas"]["Upload"];
 const messages: Record<string, string> = {
   unavailable:
     "Le service est temporairement indisponible. Réessayez dans un instant.",
@@ -56,6 +57,7 @@ function App() {
   const [pending, setPending] = useState<User[]>([]);
   const [sources, setSources] = useState<SourceWithFiles[]>([]);
   const [allowedRoots, setAllowedRoots] = useState<string[]>([]);
+  const [uploads, setUploads] = useState<Upload[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(
     (() => {
@@ -77,6 +79,7 @@ function App() {
     document.title = state.display_name;
     const me = await api.GET("/api/auth/me");
     setSession(me.data);
+    if (me.data) await refreshUploads();
     if (me.data?.user.role === "admin") {
       setSettings(checked(await api.GET("/api/admin/settings")));
       setPending(checked(await api.GET("/api/admin/users")));
@@ -85,6 +88,113 @@ function App() {
       setSources([]);
       setAllowedRoots([]);
     }
+  }
+  async function refreshUploads() {
+    const result = await api.GET("/api/uploads", { params: { header: csrf } });
+    if (result.data) setUploads(result.data.items);
+  }
+  async function addUpload(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const file =
+      form.querySelector<HTMLInputElement>('input[type="file"]')?.files?.[0];
+    if (!file) return;
+    await run(async () => {
+      const upload = checked(
+        await api.POST("/api/uploads", {
+          params: { header: csrf },
+          body: {
+            filename: file.name,
+            size_bytes: file.size,
+            visibility: "shared",
+          },
+        }),
+      );
+      for (let offset = upload.offset_bytes; offset < file.size; ) {
+        const end = Math.min(offset + upload.chunk_size_bytes, file.size);
+        const response = await fetch(`/api/uploads/${upload.id}/chunks`, {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: {
+            ...csrf,
+            "Content-Type": "application/octet-stream",
+            "Content-Range": `bytes ${offset}-${end - 1}/${file.size}`,
+          },
+          body: file.slice(offset, end),
+        });
+        const body = await response.json();
+        if (!response.ok)
+          throw new Error(
+            messages[body.error] ?? "L’envoi du fichier a échoué.",
+          );
+        offset = body.offset_bytes;
+        setNotice(
+          `Envoi de ${file.name} : ${Math.round((offset / file.size) * 100)} %`,
+        );
+      }
+      checked(
+        await api.POST("/api/uploads/{id}/complete", {
+          params: { path: { id: upload.id }, header: csrf },
+        }),
+      );
+      form.reset();
+      await refreshUploads();
+      setNotice(
+        `« ${file.name} » a été vérifiée et ajoutée à la bibliothèque.`,
+      );
+    });
+  }
+  async function resumeUpload(upload: Upload) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size !== upload.size_bytes) {
+        setError(
+          "Sélectionnez le même fichier (nom et taille) pour reprendre cet envoi.",
+        );
+        return;
+      }
+      await run(async () => {
+        for (let offset = upload.offset_bytes; offset < file.size; ) {
+          const end = Math.min(offset + upload.chunk_size_bytes, file.size);
+          const response = await fetch(`/api/uploads/${upload.id}/chunks`, {
+            method: "PUT",
+            credentials: "same-origin",
+            headers: {
+              ...csrf,
+              "Content-Type": "application/octet-stream",
+              "Content-Range": `bytes ${offset}-${end - 1}/${file.size}`,
+            },
+            body: file.slice(offset, end),
+          });
+          const body = await response.json();
+          if (!response.ok)
+            throw new Error(
+              messages[body.error] ?? "La reprise de l’envoi a échoué.",
+            );
+          offset = body.offset_bytes;
+        }
+        checked(
+          await api.POST("/api/uploads/{id}/complete", {
+            params: { path: { id: upload.id }, header: csrf },
+          }),
+        );
+        await refreshUploads();
+      });
+    };
+    input.click();
+  }
+  async function cancelUpload(upload: Upload) {
+    await run(async () => {
+      checked(
+        await api.DELETE("/api/uploads/{id}", {
+          params: { path: { id: upload.id }, header: csrf },
+        }),
+      );
+      await refreshUploads();
+    });
   }
   async function refreshSources() {
     const result = checked(await api.GET("/api/admin/sources"));
@@ -382,17 +492,53 @@ function App() {
             </button>
           </div>
           <section className="card">
-            <p className="eyebrow">LE SOCLE EST PRÊT</p>
-            <h2>Votre bibliothèque arrive à la prochaine phase.</h2>
+            <p className="eyebrow">IMPORTER UNE VIDÉO</p>
+            <h2>Ajouter à la bibliothèque</h2>
             <p>
-              L’accès et l’installation sont disponibles. Les vidéos ne sont pas
-              encore importées.
+              Les envois sont découpés pour reprendre après une coupure. Ils
+              apparaissent dans la bibliothèque après validation.
             </p>
-            <ol>
-              {setup.deferred_steps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
+            <form onSubmit={addUpload}>
+              <label>
+                Fichier vidéo
+                <input
+                  type="file"
+                  accept="video/*,.mkv,.mp4,.mov,.webm"
+                  required
+                />
+              </label>
+              <button disabled={busy}>Envoyer la vidéo</button>
+            </form>
+            <h3>Envois à reprendre ({uploads.length})</h3>
+            {uploads.length === 0 ? (
+              <p>Aucun envoi en attente.</p>
+            ) : (
+              <ul>
+                {uploads.map((upload) => (
+                  <li className="source" key={upload.id}>
+                    <strong>{upload.original_name}</strong> ·{" "}
+                    {upload.offset_bytes} / {upload.size_bytes} octets ·{" "}
+                    {upload.status}
+                    <div className="toolbar">
+                      <button
+                        className="secondary"
+                        disabled={busy || upload.status !== "uploading"}
+                        onClick={() => resumeUpload(upload)}
+                      >
+                        Reprendre
+                      </button>
+                      <button
+                        className="secondary"
+                        disabled={busy || upload.status !== "uploading"}
+                        onClick={() => cancelUpload(upload)}
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
           {setup.discord_enabled && (
             <section className="card">

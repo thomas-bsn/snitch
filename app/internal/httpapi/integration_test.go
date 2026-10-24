@@ -134,6 +134,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testSourceReconciliation(t, pool)
 	})
+	t.Run("resumable uploads", func(t *testing.T) {
+		reset(t)
+		testResumableUploads(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
 		clipRoot := t.TempDir()
@@ -331,6 +335,9 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/auth/me", nil, "", 200)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
+				if strings.HasPrefix(path, "/api/uploads") {
+					continue // Exercised in the dedicated resumable upload HTTP suite.
+				}
 				if !seen[method+" "+path] {
 					t.Errorf("untested contract operation %s %s", method, path)
 				}
@@ -376,12 +383,15 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("RECEIPTS_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts"}
 		if os.Getenv("RECEIPTS_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
 		if os.Getenv("RECEIPTS_E2E_SOURCES") == "1" {
 			suites = []string{"sources.spec.ts"}
+		}
+		if os.Getenv("RECEIPTS_E2E_UPLOADS") == "1" {
+			suites = []string{"uploads.spec.ts"}
 		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
@@ -402,8 +412,15 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
+				if suite == "uploads.spec.ts" {
+					config.UploadRoot = t.TempDir()
+					config.ProbePath = syntheticProbeFixture(t)
+					config.UploadMaxBytes = 1 << 20
+					config.UploadChunkBytes = 16 * 1024
+					config.UploadSessionTTL = time.Hour
+				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
@@ -419,7 +436,7 @@ func TestFoundation(t *testing.T) {
 				args := []string{"run", "test:e2e", "--", suite}
 				cmd := exec.Command("npm", args...)
 				cmd.Dir = "../../../web"
-				cmd.Env = append(os.Environ(), "RECEIPTS_TEST_URL="+ts.URL, "RECEIPTS_TEST_CODE="+code, "RECEIPTS_TEST_SOURCE_ROOT="+sourceRoot)
+				cmd.Env = append(os.Environ(), "RECEIPTS_TEST_URL="+ts.URL, "RECEIPTS_TEST_CODE="+code, "RECEIPTS_TEST_SOURCE_ROOT="+sourceRoot, "RECEIPTS_TEST_UPLOAD_CHUNK=16384")
 				out, e := cmd.CombinedOutput()
 				t.Log(string(out))
 				if e != nil {

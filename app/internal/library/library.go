@@ -116,6 +116,24 @@ type Metadata struct {
 	Tracks              []Track
 }
 
+// ProbeFile checks an already-stored local video without changing it.
+func ProbeFile(ctx context.Context, probePath, path string) (Metadata, error) {
+	if probePath == "" {
+		probePath = "ffprobe"
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return Metadata{}, errProbe
+	}
+	service := &Service{config: Config{ProbePath: probePath}}
+	return service.probe(ctx, path, info.ModTime())
+}
+
+// HashFile returns the SHA-256 identity for a stable local clip.
+func HashFile(ctx context.Context, path string) ([sha256.Size]byte, error) {
+	return hashFile(ctx, path)
+}
+
 func New(pool *pgxpool.Pool, config Config, logger interface{ Warn(string, ...any) }) *Service {
 	if config.ProbePath == "" {
 		config.ProbePath = "ffprobe"
