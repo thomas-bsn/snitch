@@ -158,7 +158,7 @@ export function VoiceMatchingCard({
           </label>
           <button>Enregistrer les seuils</button>
           <button type="button" className="secondary" onClick={rematch}>
-            Relancer le rapprochement
+            Rapprocher de nouveau les voix
           </button>
         </form>
       )}
