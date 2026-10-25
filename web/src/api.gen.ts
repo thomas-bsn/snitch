@@ -686,6 +686,60 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/sources/{id}/microphone-track": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Règle de piste micro de la source et pistes audio réellement détectées sur ses clips (index, titre, langue), à partir desquelles choisir : aucun titre n'est supposé. */
+    get: operations["getSourceMicrophoneTrack"];
+    /** @description Administrateurs uniquement. Désigne la piste micro de la source (index global et/ou titre exact) et sa Personne propriétaire, puis l'applique aux clips prêts de la source : la piste reçoit directement son propriétaire, sans diarisation. status_counts rapporte, par état, le résultat sur chaque clip. Enregistrer une règle identique la réapplique sans nouvelle version. */
+    put: operations["putSourceMicrophoneTrack"];
+    post?: never;
+    /** @description Administrateurs uniquement. Retire la règle ; les attributions de piste micro sans validation humaine disparaissent, les validations humaines sont conservées. */
+    delete: operations["deleteSourceMicrophoneTrack"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/microphone-track": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés, pour un clip visible. Piste micro désignée (règle de la source ou remplacement du clip), rôle de chaque piste audio, raison explicite quand la désignation ne s'applique pas, et historique des changements. */
+    get: operations["getClipMicrophoneTrack"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/microphone-track": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Remplace la règle de la source pour ce clip : une autre piste et un autre propriétaire, ou disabled=true pour dire qu'il n'y a pas de piste micro. Le changement est historisé. */
+    put: operations["putClipMicrophoneTrack"];
+    post?: never;
+    /** @description Administrateurs uniquement. Retire le remplacement du clip ; la règle de la source s'applique de nouveau. Le changement est historisé. */
+    delete: operations["deleteClipMicrophoneTrack"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/vocabulary": {
     parameters: {
       query?: never;
@@ -1408,6 +1462,11 @@ export interface components {
       /** Format: int64 */
       id: number;
       label: string;
+      /**
+       * @description microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le clip, aucune empreinte).
+       * @enum {string}
+       */
+      kind: "diarized" | "microphone";
       ordinal: number;
       speaking_seconds: number;
       turn_count: number;
@@ -1613,6 +1672,120 @@ export interface components {
     };
     AudioTrackOverride: {
       audio_stream_index: number;
+    };
+    /** @description Au moins un de audio_stream_index ou title ; si les deux sont donnés, la piste doit correspondre aux deux. */
+    MicrophoneTrackRuleInput: {
+      /** @description Index global FFmpeg d'une piste détectée. */
+      audio_stream_index?: number;
+      /** @description Titre exact (sans casse) d'une piste détectée. */
+      title?: string;
+      /**
+       * Format: int64
+       * @description Personne propriétaire du micro.
+       */
+      person_id: number;
+    };
+    /** @description Soit disabled=true seul, soit audio_stream_index et person_id ensemble. */
+    MicrophoneTrackClipInput: {
+      /** @description true : ce clip n'a pas de piste micro. */
+      disabled?: boolean;
+      audio_stream_index?: number;
+      /** Format: int64 */
+      person_id?: number;
+    };
+    MicrophoneDetectedTrack: {
+      audio_stream_index: number;
+      title: string;
+      language: string;
+      channels: number;
+      channel_layout: string;
+      /** @description Nombre de clips prêts de la source portant cette piste. */
+      clip_count: number;
+    };
+    MicrophoneSourceRuleValue: {
+      audio_stream_index: number | null;
+      title: string | null;
+      person: components["schemas"]["PersonRef"];
+      /** Format: int64 */
+      version: number;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    MicrophoneSourceRule: {
+      /** Format: int64 */
+      source_id: number;
+      rule: components["schemas"]["MicrophoneSourceRuleValue"] | null;
+      detected_tracks: components["schemas"]["MicrophoneDetectedTrack"][];
+      /** @description Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, disabled, none). Vide en lecture. */
+      status_counts: {
+        [key: string]: number;
+      };
+    };
+    /**
+     * @description none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain.
+     * @enum {string}
+     */
+    MicrophoneTrackStatus:
+      | "none"
+      | "designated"
+      | "disabled"
+      | "track_not_found"
+      | "ambiguous_track"
+      | "conflicting_sources"
+      | "blocked_by_validation";
+    MicrophoneTrackItem: {
+      index: number;
+      title: string;
+      language: string;
+      channels: number;
+      channel_layout: string;
+      /**
+       * @description other : piste traitée normalement (diarisation).
+       * @enum {string}
+       */
+      role: "microphone" | "candidate" | "other";
+    };
+    /** @description Désignation telle qu'elle était, avec le nom de la Personne à l'époque. */
+    MicrophoneSnapshot: {
+      audio_stream_index?: number;
+      title?: string;
+      disabled?: boolean;
+      person?: components["schemas"]["PersonRef"];
+    };
+    MicrophoneTrackEvent: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      scope: "source" | "clip";
+      /** Format: int64 */
+      source_id: number | null;
+      /** @enum {string} */
+      action: "set" | "remove" | "disable";
+      old_rule: components["schemas"]["MicrophoneSnapshot"] | null;
+      new_rule: components["schemas"]["MicrophoneSnapshot"] | null;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    ClipMicrophoneTrack: {
+      /** Format: int64 */
+      clip_id: number;
+      status: components["schemas"]["MicrophoneTrackStatus"];
+      /** @enum {string|null} */
+      selection_source: "source_rule" | "clip_override" | null;
+      audio_stream_index: number | null;
+      person: components["schemas"]["PersonRef"] | null;
+      /** @description Pistes qui correspondent toutes à la règle (ambiguous_track). */
+      candidates: number[];
+      /**
+       * Format: int64
+       * @description Locuteur local de la piste micro, une fois la désignation appliquée.
+       */
+      local_speaker_id: number | null;
+      applied: boolean;
+      tracks: components["schemas"]["MicrophoneTrackItem"][];
+      /** @description Changements de règle de la source et remplacements du clip, du plus récent au plus ancien (50 au plus). */
+      history: components["schemas"]["MicrophoneTrackEvent"][];
     };
     AudioTrackSelection: {
       /** @enum {string} */
@@ -3437,6 +3610,212 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getSourceMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Règle et pistes détectées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MicrophoneSourceRule"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putSourceMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MicrophoneTrackRuleInput"];
+      };
+    };
+    responses: {
+      /** @description Règle enregistrée et appliquée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MicrophoneSourceRule"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteSourceMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Règle retirée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MicrophoneSourceRule"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Piste micro du clip */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipMicrophoneTrack"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putClipMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MicrophoneTrackClipInput"];
+      };
+    };
+    responses: {
+      /** @description Piste micro du clip */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipMicrophoneTrack"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteClipMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Piste micro du clip */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipMicrophoneTrack"];
         };
       };
       /** @description Erreur */

@@ -157,6 +157,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonValidation(t, pool)
 	})
+	t.Run("microphone track", func(t *testing.T) {
+		reset(t)
+		testMicrophoneTrack(t, pool)
+	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)
@@ -324,6 +328,12 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", speakerPath+"/correction", map[string]any{"new_person_name": "Corrected", "expected_person_id": contractPerson.ID}, me.CSRF, 200)
 		call(client, "GET", speakerPath+"/history", nil, "", 200)
 		call(client, "GET", speakerPath+"/excerpt", nil, "", 404)
+		// Microphone track of a clip: view, replacement, disabling and removal.
+		micPath := "/api/clips/" + strconv64(contractClipID) + "/microphone-track"
+		call(client, "GET", micPath, nil, "", 200)
+		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/microphone-track", map[string]any{"audio_stream_index": 1, "person_id": contractPerson.ID}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/microphone-track", map[string]any{"disabled": true}, me.CSRF, 200)
+		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/microphone-track", nil, me.CSRF, 200)
 		contractJobBody := call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.synthetic", "input_version": "contract-v1"}, me.CSRF, 201)
 		var contractJob struct {
 			ID int64 `json:"id"`
@@ -410,6 +420,9 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "PUT", "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": "Voice"}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
+		call(client, "GET", sourcePath+"/microphone-track", nil, "", 200)
+		call(client, "PUT", sourcePath+"/microphone-track", map[string]any{"title": "Voice", "person_id": contractPerson.ID}, me.CSRF, 200)
+		call(client, "DELETE", sourcePath+"/microphone-track", nil, me.CSRF, 200)
 		call(client, "GET", sourcePath+"/files", nil, "", 200)
 		call(client, "POST", sourcePath+"/scan", map[string]any{}, me.CSRF, 202)
 		call(client, "DELETE", sourcePath, nil, me.CSRF, 200)
@@ -543,7 +556,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "microphone.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -583,6 +596,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_PERSONS") == "1" {
 			suites = []string{"persons.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_MICROPHONE") == "1" {
+			suites = []string{"microphone.spec.ts"}
+		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
 				reset(t)
@@ -592,7 +608,7 @@ func TestFoundation(t *testing.T) {
 				}
 				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}
 				sourceRoot := ""
-				if suite == "sources.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "microphone.spec.ts" {
 					sourceRoot = t.TempDir()
 					if e = os.WriteFile(filepath.Join(sourceRoot, "browser-fixture.mp4"), []byte("synthetic-browser-video"), 0o400); e != nil {
 						t.Fatal(e)
@@ -612,7 +628,7 @@ func TestFoundation(t *testing.T) {
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}

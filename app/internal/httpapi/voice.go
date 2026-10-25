@@ -155,6 +155,21 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 		}
 		index = selection.AudioStreamIndex
 	}
+	// A designated microphone track is attributed directly and never diarized; the
+	// designation is (re)applied first so a clip ingested after the rule is covered.
+	if _, err = s.applyMicrophone(r.Context(), id, s.authorOf(r)); err != nil {
+		s.internal(w, err)
+		return
+	}
+	var microphone bool
+	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='microphone')`, id, *index).Scan(&microphone); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if microphone {
+		fail(w, http.StatusConflict, "microphone_track_not_diarized")
+		return
+	}
 	// A human validation pins the local speakers of this stream: a new diarization
 	// would replace them and drop what users validated (see ticket 33 design).
 	var locked bool
@@ -226,6 +241,7 @@ type voiceFingerprintView struct {
 type localSpeakerView struct {
 	ID              int64                  `json:"id"`
 	Label           string                 `json:"label"`
+	Kind            string                 `json:"kind"`
 	Ordinal         int                    `json:"ordinal"`
 	SpeakingSeconds float64                `json:"speaking_seconds"`
 	TurnCount       int                    `json:"turn_count"`
@@ -284,6 +300,18 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if diarization == nil {
+		// A microphone track is attributed without any diarization step.
+		attributions, attrErr := s.effectiveAttributionPointers(r.Context(), clip.ID)
+		if attrErr != nil {
+			s.internal(w, attrErr)
+			return
+		}
+		microphone, micErr := s.microphoneSpeakerViews(r.Context(), clip.ID, attributions)
+		if micErr != nil {
+			s.internal(w, micErr)
+			return
+		}
+		view["speakers"] = microphone
 		reply(w, http.StatusOK, view)
 		return
 	}
@@ -308,14 +336,14 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	}
 	speakers := []localSpeakerView{}
 	byID := map[int64]int{}
-	rows, err := s.Pool.Query(r.Context(), `SELECT id,label,ordinal,speaking_seconds,turn_count FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 ORDER BY ordinal`, clip.ID, index)
+	rows, err := s.Pool.Query(r.Context(), `SELECT id,label,ordinal,speaking_seconds,turn_count,kind FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 ORDER BY ordinal`, clip.ID, index)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	for rows.Next() {
 		sp := localSpeakerView{Fingerprints: []voiceFingerprintView{}}
-		if err = rows.Scan(&sp.ID, &sp.Label, &sp.Ordinal, &sp.SpeakingSeconds, &sp.TurnCount); err != nil {
+		if err = rows.Scan(&sp.ID, &sp.Label, &sp.Ordinal, &sp.SpeakingSeconds, &sp.TurnCount, &sp.Kind); err != nil {
 			rows.Close()
 			s.internal(w, err)
 			return
@@ -328,6 +356,21 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	if err = rows.Err(); err != nil {
 		s.internal(w, err)
 		return
+	}
+	// The microphone speaker lives on its own stream: list it first, once.
+	microphone, err := s.microphoneSpeakerViews(r.Context(), clip.ID, attributions)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	for i := len(microphone) - 1; i >= 0; i-- {
+		if _, listed := byID[microphone[i].ID]; !listed {
+			speakers = append([]localSpeakerView{microphone[i]}, speakers...)
+		}
+	}
+	byID = map[int64]int{}
+	for i, sp := range speakers {
+		byID[sp.ID] = i
 	}
 	fpRows, err := s.Pool.Query(r.Context(), `SELECT local_speaker_id,id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions FROM voice_fingerprints WHERE clip_id=$1 ORDER BY id`, clip.ID)
 	if err != nil {
