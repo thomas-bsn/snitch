@@ -89,6 +89,9 @@ func TestFoundation(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
+		if _, e = pool.Exec(ctx, `UPDATE voice_pipeline_active SET version='voice-v1' WHERE id=true`); e != nil {
+			t.Fatal(e)
+		}
 	}
 	t.Run("optional embeddings do not block foundation", func(t *testing.T) {
 		provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -145,6 +148,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("transcription pipeline", func(t *testing.T) {
 		reset(t)
 		testTranscriptionPipeline(t, pool)
+	})
+	t.Run("voice diarization", func(t *testing.T) {
+		reset(t)
+		testVoiceDiarization(t, pool)
 	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
@@ -291,6 +298,11 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", map[string]int{"audio_stream_index": 2}, me.CSRF, 200)
 		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", nil, me.CSRF, 200)
+		// Voice endpoints: contract conformity here, full behavior in the voice suite.
+		call(client, "GET", "/api/admin/voice-pipeline", nil, "", 200)
+		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "access_confirmed": false, "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
+		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
+		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/voice", nil, "", 200)
 		contractJobBody := call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.synthetic", "input_version": "contract-v1"}, me.CSRF, 201)
 		var contractJob struct {
 			ID int64 `json:"id"`
@@ -510,7 +522,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -544,6 +556,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_VOCABULARY") == "1" {
 			suites = []string{"vocabulary.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_VOICE") == "1" {
+			suites = []string{"voice.spec.ts"}
+		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
 				reset(t)
@@ -564,7 +579,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -572,7 +587,7 @@ func TestFoundation(t *testing.T) {
 					config.UploadSessionTTL = time.Hour
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
