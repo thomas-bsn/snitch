@@ -37,11 +37,13 @@ const unknownSpeakerPredicate = `ls.kind='diarized' AND NOT EXISTS (SELECT 1 FRO
 
 // voiceGroupsCTE defines members(id, clip_id, clip_name, label, speaking_seconds, excluded,
 // gid) for the caller ($1 user id, $2 administrator): the visible unknown voices with the
-// id of their group.
+// id of their group. Visibility is applied before the connected components are computed,
+// so a voice of a clip the caller cannot see never joins two voices they can see.
 const voiceGroupsCTE = `WITH RECURSIVE eligible AS (
-  SELECT ls.id,ls.clip_id,ls.label,ls.speaking_seconds,
+  SELECT ls.id,ls.clip_id,c.original_name AS clip_name,ls.label,ls.speaking_seconds,
          EXISTS (SELECT 1 FROM voice_group_exclusions x WHERE x.local_speaker_id=ls.id) AS excluded
-  FROM local_speakers ls WHERE ` + unknownSpeakerPredicate + `
+  FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id
+  WHERE (c.visibility='shared' OR c.owner_id=$1 OR $2) AND ` + unknownSpeakerPredicate + `
 ), edges AS (
   SELECT l.speaker_a_id AS a,l.speaker_b_id AS b FROM voice_group_links l
     JOIN eligible x ON x.id=l.speaker_a_id AND NOT x.excluded JOIN eligible y ON y.id=l.speaker_b_id AND NOT y.excluded
@@ -55,9 +57,8 @@ const voiceGroupsCTE = `WITH RECURSIVE eligible AS (
 ), comp AS (
   SELECT node AS id,min(root) AS gid FROM reach GROUP BY node
 ), visible AS (
-  SELECT e.id,e.clip_id,c.original_name AS clip_name,e.label,e.speaking_seconds,e.excluded,comp.gid
-  FROM eligible e JOIN comp ON comp.id=e.id JOIN clips c ON c.id=e.clip_id
-  WHERE c.visibility='shared' OR c.owner_id=$1 OR $2
+  SELECT e.id,e.clip_id,e.clip_name,e.label,e.speaking_seconds,e.excluded,comp.gid
+  FROM eligible e JOIN comp ON comp.id=e.id
 ), members AS (
   SELECT v.*,min(v.id) OVER (PARTITION BY v.gid) AS group_id FROM visible v
 )`
@@ -358,11 +359,17 @@ func (s *Server) nameVoiceGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		personID = *input.PersonID
-		if err = tx.QueryRow(ctx, `SELECT display_name FROM persons WHERE id=$1 FOR SHARE`, personID).Scan(&name); errors.Is(err, pgx.ErrNoRows) {
+		var optedOut bool
+		if err = tx.QueryRow(ctx, `SELECT display_name,voice_profile_deleted_at IS NOT NULL FROM persons WHERE id=$1 FOR SHARE`, personID).Scan(&name, &optedOut); errors.Is(err, pgx.ErrNoRows) {
 			fail(w, http.StatusNotFound, "person_not_found")
 			return
 		} else if err != nil {
 			s.internal(w, err)
+			return
+		}
+		if optedOut {
+			// Same rule as a single validation: no new reference after a profile deletion.
+			fail(w, http.StatusConflict, "voice_profile_deleted")
 			return
 		}
 	}
@@ -449,6 +456,11 @@ func (s *Server) refreshVoiceGroupLinks(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// The unknown filter is applied by the index scan itself, so the limit counts
+	// unknown neighbors only.
+	if _, err = tx.Exec(ctx, `SET LOCAL hnsw.iterative_scan = relaxed_order`); err != nil {
+		return err
+	}
 	rows, err := tx.Query(ctx, `SELECT DISTINCT f.model,f.model_version,f.dimensions FROM voice_fingerprints f JOIN local_speakers ls ON ls.id=f.local_speaker_id WHERE f.usable AND f.scope='speaker' AND `+unknownSpeakerPredicate)
 	if err != nil {
 		return err
@@ -476,10 +488,10 @@ FROM (SELECT f.local_speaker_id AS sid,f.embedding::vector(%[1]d) AS e FROM voic
       WHERE f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND `+unknownSpeakerPredicate+`) t
 CROSS JOIN LATERAL (
   SELECT f2.local_speaker_id AS sid,1-(f2.embedding::vector(%[1]d) <=> t.e) AS sim
-  FROM voice_fingerprints f2
-  WHERE f2.usable AND f2.scope='speaker' AND f2.model=$1 AND f2.model_version=$2 AND f2.dimensions=%[1]d AND f2.local_speaker_id<>t.sid
+  FROM voice_fingerprints f2 JOIN local_speakers ls ON ls.id=f2.local_speaker_id
+  WHERE f2.usable AND f2.scope='speaker' AND f2.model=$1 AND f2.model_version=$2 AND f2.dimensions=%[1]d AND f2.local_speaker_id<>t.sid AND `+unknownSpeakerPredicate+`
   ORDER BY f2.embedding::vector(%[1]d) <=> t.e LIMIT 20) n
-WHERE n.sim>=$3 AND n.sid IN (SELECT ls.id FROM local_speakers ls WHERE `+unknownSpeakerPredicate+`)
+WHERE n.sim>=$3
 GROUP BY 1,2`, g.dimensions)
 		if _, err = tx.Exec(ctx, query, g.model, g.version, settings.SuggestionThreshold); err != nil {
 			return err

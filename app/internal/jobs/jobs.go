@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -452,7 +454,10 @@ func (s *Service) Complete(ctx context.Context, id int64, workerID, leaseToken, 
 // first successful completion; any error rolls the whole completion back.
 type CompleteOptions struct {
 	MaxResultBytes int
-	Project        func(ctx context.Context, tx pgx.Tx, job Job) error
+	// Summarize returns what jobs.result keeps instead of the raw result, for
+	// results that must not be stored as received (voice embeddings).
+	Summarize func(result json.RawMessage) json.RawMessage
+	Project       func(ctx context.Context, tx pgx.Tx, job Job) error
 }
 
 func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseToken, inputVersion string, result json.RawMessage, opts CompleteOptions) (Job, error) {
@@ -469,18 +474,26 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 	if err := json.Unmarshal(result, &object); err != nil || object == nil {
 		return Job{}, ErrInvalidInput
 	}
+	// The digest of the result as received identifies an identical retry, even when
+	// only a summary is stored.
+	sum := sha256.Sum256(result)
+	digest := hex.EncodeToString(sum[:])
+	stored := []byte(result)
+	if opts.Summarize != nil {
+		stored = opts.Summarize(result)
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Job{}, fmt.Errorf("begin job completion: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	job, err := scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='done',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,completed_by_worker_id=$2,completed_lease_token_hash=$3,result=$5::jsonb,last_error='',updated_at=now() WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' AND lease_expires_at>now() AND input_version=$4 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, id, workerID, auth.Hash(leaseToken), inputVersion, []byte(result)))
+	job, err := scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status='done',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,completed_by_worker_id=$2,completed_lease_token_hash=$3,result=$5::jsonb,result_digest=$6,last_error='',updated_at=now() WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' AND lease_expires_at>now() AND input_version=$4 RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, id, workerID, auth.Hash(leaseToken), inputVersion, stored, digest))
 	newlyCompleted := err == nil
 	if errors.Is(err, pgx.ErrNoRows) {
 		// A worker may lose the successful response and retry the same result.
 		// Return the committed row only to the worker that completed it, and only
 		// when the step version and JSON result are identical.
-		job, err = scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE id=$1 AND status='done' AND completed_by_worker_id=$2 AND completed_lease_token_hash=$3 AND input_version=$4 AND result=$5::jsonb`, id, workerID, auth.Hash(leaseToken), inputVersion, []byte(result)))
+		job, err = scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE id=$1 AND status='done' AND completed_by_worker_id=$2 AND completed_lease_token_hash=$3 AND input_version=$4 AND (result_digest=$6 OR (result_digest IS NULL AND result=$5::jsonb))`, id, workerID, auth.Hash(leaseToken), inputVersion, stored, digest))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Job{}, ErrLeaseNotOwned
 		}

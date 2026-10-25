@@ -192,6 +192,22 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceProfileDeletion(t, pool)
 	})
+	t.Run("voice vectors not persisted in jobs", func(t *testing.T) {
+		reset(t)
+		testVoiceVectorsNeverPersistedInJobs(t, pool)
+	})
+	t.Run("voice group visibility is not transitive", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupVisibilityIsNotTransitive(t, pool)
+	})
+	t.Run("voice group naming refuses deleted profile", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupNamingRefusesDeletedProfile(t, pool)
+	})
+	t.Run("voice group links ignore known neighbors", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupLinksIgnoreKnownNeighbors(t, pool)
+	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)

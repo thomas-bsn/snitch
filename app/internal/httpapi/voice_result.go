@@ -99,11 +99,19 @@ func parseFingerprints(raw json.RawMessage, index int, diarizationJobID int64) (
 	return result, true
 }
 
+// fingerprintSummary is what jobs.result keeps of a fingerprint result: never a
+// vector, which would survive the deletion of a voice profile.
+func fingerprintSummary(r fingerprintResult) json.RawMessage {
+	out, _ := json.Marshal(map[string]any{"embedding_model": r.EmbeddingModel, "embedding_model_version": r.EmbeddingModelVersion, "audio_stream_index": r.AudioStreamIndex, "diarization_job_id": r.DiarizationJobID, "dimensions": r.Dimensions, "fingerprint_count": len(*r.Fingerprints)})
+	return out
+}
+
 // completeVoiceJob validates and records a voice result. Validation happens only
 // while the lease is held; the projection into tables runs inside the same
 // transaction as the job completion, so a rejected or stale result stores nothing.
 func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int64, step, status, inputVersion string, result json.RawMessage) {
 	var project func(ctx context.Context, tx pgx.Tx, job jobs.Job) error
+	var summarize func(json.RawMessage) json.RawMessage
 	if status != "done" {
 		leased, err := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
 		if errors.Is(err, jobs.ErrLeaseNotOwned) {
@@ -144,12 +152,13 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 				fail(w, http.StatusBadRequest, "invalid_voice_result")
 				return
 			}
+			summarize = func(json.RawMessage) json.RawMessage { return fingerprintSummary(parsed) }
 			project = func(ctx context.Context, tx pgx.Tx, job jobs.Job) error {
 				return projectFingerprints(ctx, tx, job, parsed, config, index, diarizationID)
 			}
 		}
 	}
-	job, err := s.Jobs.CompleteWith(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), inputVersion, result, jobs.CompleteOptions{MaxResultBytes: maxVoiceResultBytes, Project: project})
+	job, err := s.Jobs.CompleteWith(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), inputVersion, result, jobs.CompleteOptions{MaxResultBytes: maxVoiceResultBytes, Summarize: summarize, Project: project})
 	switch {
 	case errors.Is(err, jobs.ErrInvalidInput):
 		fail(w, http.StatusBadRequest, "invalid_voice_result")
