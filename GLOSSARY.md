@@ -19,6 +19,23 @@ _Avoid_ : Locuteur local, compte.
 
 **Attribution** : Le lien entre une voix observée et une personne, avec son niveau de confiance et son état de validation.
 
+**Niveau de décision** : Le statut d'une attribution : validée par un humain, automatique, suggestion, ambiguë ou inconnue. Il indique ce que l'utilisateur peut tenir pour acquis et ce qu'il doit vérifier.
+_Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision).
+
+**Attribution automatique** : Une attribution déduite par Snitch, distincte d'une validation humaine. Elle n'est jamais un échantillon vocal validé et ne sert pas de référence. Seul l'administrateur active ou désactive ce mode.
+
+**Référence** : L'ensemble des échantillons vocaux validés d'une Personne, avec lesquels les autres voix sont comparées.
+
+**Voix ambiguë** : Une voix proche de plusieurs Personnes sans qu'aucune ne se détache ; elle est présentée avec ses candidates et jamais attribuée d'elle-même.
+
+**Voix inconnue** : Une voix sans validation humaine ni attribution automatique ; une suggestion ou une voix ambiguë reste inconnue tant qu'un utilisateur n'a pas tranché.
+
+**Groupe de voix inconnues** : Un ensemble de voix inconnues proches proposé pour être nommé en une seule fois comme une Personne. Il n'est jamais confirmé automatiquement, et une voix isolée forme un groupe à elle seule.
+
+**Piste micro** : La piste audio d'une source qui ne contient que la voix de son propriétaire ; elle lui est attribuée directement, sans diarisation.
+
+**Profil vocal** : Les échantillons validés, empreintes et attributions d'une Personne. Son titulaire peut le supprimer ; ses voix redeviennent alors inconnues et ne sont plus rapprochées d'elle.
+
 **Administrateur** : Un utilisateur autorisé à configurer l'application et à approuver les inscriptions.
 
 **Inscription en attente** : Une demande d'accès qui nécessite l'approbation d'un administrateur avant connexion.
