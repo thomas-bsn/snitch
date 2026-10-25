@@ -374,6 +374,22 @@ type VoiceFingerprint struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceGroupExclusion struct {
+	LocalSpeakerID int64              `json:"local_speaker_id"`
+	ExcludedBy     pgtype.Int8        `json:"excluded_by"`
+	ExcludedAt     pgtype.Timestamptz `json:"excluded_at"`
+}
+
+type VoiceGroupLink struct {
+	SpeakerAID   int64              `json:"speaker_a_id"`
+	SpeakerBID   int64              `json:"speaker_b_id"`
+	Similarity   float64            `json:"similarity"`
+	Model        string             `json:"model"`
+	ModelVersion string             `json:"model_version"`
+	Dimensions   int32              `json:"dimensions"`
+	ComputedAt   pgtype.Timestamptz `json:"computed_at"`
+}
+
 type VoiceMatchingSetting struct {
 	ID                  bool               `json:"id"`
 	AutoEnabled         bool               `json:"auto_enabled"`

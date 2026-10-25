@@ -13,6 +13,7 @@ import {
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
 import { VoiceAutomationCard } from "./voice/VoiceAutomationCard";
+import { VoiceGroupsCard } from "./voice/VoiceGroupsCard";
 import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
 import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
 
@@ -1024,6 +1025,9 @@ function App() {
               <a className="nav-link active" href="#library">
                 <span aria-hidden="true">▦</span> Bibliothèque
               </a>
+              <a className="nav-link" href="#voice-groups">
+                <span aria-hidden="true">◍</span> Voix inconnues
+              </a>
               <a className="nav-link" href="#uploads">
                 <span aria-hidden="true">⇧</span> Imports
                 {uploads.length > 0 && (
@@ -1853,6 +1857,7 @@ function App() {
                   </button>
                 </div>
               </section>
+              <VoiceGroupsCard csrf={csrf} />
               {setup.discord_enabled && (
                 <section className="card" id="settings">
                   <h2>Lier votre identité Discord</h2>

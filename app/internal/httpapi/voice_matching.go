@@ -265,6 +265,10 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	for _, g := range groups {
 		s.ensureVoiceIndex(ctx, g)
 	}
+	// Proposed proximity between unknown voices follows the references and thresholds.
+	if err = s.refreshVoiceGroupLinks(ctx); err != nil {
+		s.Log.Error("voice group links failed", "error", err)
+	}
 	return stats, nil
 }
 

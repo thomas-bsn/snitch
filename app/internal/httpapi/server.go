@@ -164,6 +164,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerVoiceRoutes(mux)
 	s.registerPersonRoutes(mux)
 	s.registerVoiceMatchingRoutes(mux)
+	s.registerVoiceGroupRoutes(mux)
 	s.registerMicrophoneRoutes(mux)
 	s.registerVoiceAutomationRoutes(mux)
 	embedded, _ := fs.Sub(ui.Files, "dist")

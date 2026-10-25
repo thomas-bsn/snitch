@@ -258,7 +258,9 @@ export function SpeakerRow({
                 ? "Correction"
                 : event.action === "match"
                   ? "Rapprochement"
-                  : "Validation"}{" "}
+                  : event.action === "group_validate"
+                    ? "Validation par groupe"
+                    : "Validation"}{" "}
               :{" "}
               {event.old_person?.display_name ??
                 levelLabels[event.old_decision_level as DecisionLevel] ??
