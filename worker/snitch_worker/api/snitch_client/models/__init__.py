@@ -42,6 +42,7 @@ from .job_status import JobStatus
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
+from .list_voice_groups_sort import ListVoiceGroupsSort
 from .local_speaker import LocalSpeaker
 from .local_speaker_kind import LocalSpeakerKind
 from .local_speaker_state import LocalSpeakerState
@@ -120,9 +121,25 @@ from .user import User
 from .user_role import UserRole
 from .vocabulary_list import VocabularyList
 from .vocabulary_term_input import VocabularyTermInput
+from .voice_accuracy import VoiceAccuracy
+from .voice_accuracy_criteria import VoiceAccuracyCriteria
+from .voice_accuracy_evaluation import VoiceAccuracyEvaluation
+from .voice_accuracy_library import VoiceAccuracyLibrary
+from .voice_accuracy_person import VoiceAccuracyPerson
+from .voice_automation_criteria_input import VoiceAutomationCriteriaInput
+from .voice_automation_event import VoiceAutomationEvent
+from .voice_automation_event_action import VoiceAutomationEventAction
+from .voice_automation_input import VoiceAutomationInput
+from .voice_automation_result import VoiceAutomationResult
 from .voice_fingerprint import VoiceFingerprint
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
+from .voice_group import VoiceGroup
+from .voice_group_exclusion import VoiceGroupExclusion
+from .voice_group_list import VoiceGroupList
+from .voice_group_member import VoiceGroupMember
+from .voice_group_naming import VoiceGroupNaming
+from .voice_group_naming_input import VoiceGroupNamingInput
 from .voice_matching_input import VoiceMatchingInput
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_summary import VoiceMatchingSummary
@@ -193,6 +210,7 @@ __all__ = (
     "ListClipsStatus",
     "ListClipsVisibility",
     "ListJobsStatus",
+    "ListVoiceGroupsSort",
     "LocalSpeaker",
     "LocalSpeakerKind",
     "LocalSpeakerState",
@@ -271,9 +289,25 @@ __all__ = (
     "UserRole",
     "VocabularyList",
     "VocabularyTermInput",
+    "VoiceAccuracy",
+    "VoiceAccuracyCriteria",
+    "VoiceAccuracyEvaluation",
+    "VoiceAccuracyLibrary",
+    "VoiceAccuracyPerson",
+    "VoiceAutomationCriteriaInput",
+    "VoiceAutomationEvent",
+    "VoiceAutomationEventAction",
+    "VoiceAutomationInput",
+    "VoiceAutomationResult",
     "VoiceFingerprint",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
+    "VoiceGroup",
+    "VoiceGroupExclusion",
+    "VoiceGroupList",
+    "VoiceGroupMember",
+    "VoiceGroupNaming",
+    "VoiceGroupNamingInput",
     "VoiceMatchingInput",
     "VoiceMatchingSettings",
     "VoiceMatchingSummary",

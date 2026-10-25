@@ -34,6 +34,7 @@ function when(iso: string): string {
 const actionLabels: Record<string, string> = {
   correct: "Correction",
   match: "Rapprochement",
+  group_validate: "Validation par groupe",
   merge: "Fusion de Personnes",
   split: "Séparation de la Personne",
   delete_person: "Suppression de la Personne",

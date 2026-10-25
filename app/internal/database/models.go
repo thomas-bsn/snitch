@@ -355,6 +355,20 @@ type User struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceAutomationEvent struct {
+	ID                 int64              `json:"id"`
+	Action             string             `json:"action"`
+	AuthorID           pgtype.Int8        `json:"author_id"`
+	AuthorUsername     string             `json:"author_username"`
+	CriteriaMet        bool               `json:"criteria_met"`
+	Forced             bool               `json:"forced"`
+	MeasuredPrecision  pgtype.Float8      `json:"measured_precision"`
+	Confirmations      int32              `json:"confirmations"`
+	PrecisionThreshold float64            `json:"precision_threshold"`
+	MinConfirmations   int32              `json:"min_confirmations"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type VoiceFingerprint struct {
 	ID               int64              `json:"id"`
 	LocalSpeakerID   int64              `json:"local_speaker_id"`
@@ -375,6 +389,22 @@ type VoiceFingerprint struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceGroupExclusion struct {
+	LocalSpeakerID int64              `json:"local_speaker_id"`
+	ExcludedBy     pgtype.Int8        `json:"excluded_by"`
+	ExcludedAt     pgtype.Timestamptz `json:"excluded_at"`
+}
+
+type VoiceGroupLink struct {
+	SpeakerAID   int64              `json:"speaker_a_id"`
+	SpeakerBID   int64              `json:"speaker_b_id"`
+	Similarity   float64            `json:"similarity"`
+	Model        string             `json:"model"`
+	ModelVersion string             `json:"model_version"`
+	Dimensions   int32              `json:"dimensions"`
+	ComputedAt   pgtype.Timestamptz `json:"computed_at"`
+}
+
 type VoiceMatchingSetting struct {
 	ID                  bool               `json:"id"`
 	AutoEnabled         bool               `json:"auto_enabled"`
@@ -384,6 +414,10 @@ type VoiceMatchingSetting struct {
 	MaxCandidates       int32              `json:"max_candidates"`
 	UpdatedBy           pgtype.Int8        `json:"updated_by"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	PrecisionThreshold  float64            `json:"precision_threshold"`
+	MinConfirmations    int32              `json:"min_confirmations"`
+	AutoChangedAt       pgtype.Timestamptz `json:"auto_changed_at"`
+	AutoChangedBy       pgtype.Int8        `json:"auto_changed_by"`
 }
 
 type VoicePipelineActive struct {

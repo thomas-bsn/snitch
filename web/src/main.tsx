@@ -13,6 +13,8 @@ import {
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
 import { PersonsCard } from "./voice/PersonsCard";
+import { VoiceAutomationCard } from "./voice/VoiceAutomationCard";
+import { VoiceGroupsCard } from "./voice/VoiceGroupsCard";
 import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
 import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
 
@@ -1024,6 +1026,9 @@ function App() {
               <a className="nav-link active" href="#library">
                 <span aria-hidden="true">▦</span> Bibliothèque
               </a>
+              <a className="nav-link" href="#voice-groups">
+                <span aria-hidden="true">◍</span> Voix inconnues
+              </a>
               <a className="nav-link" href="#uploads">
                 <span aria-hidden="true">⇧</span> Imports
                 {uploads.length > 0 && (
@@ -1853,6 +1858,7 @@ function App() {
                   </button>
                 </div>
               </section>
+              <VoiceGroupsCard csrf={csrf} />
               {setup.discord_enabled && (
                 <section className="card" id="settings">
                   <h2>Lier votre identité Discord</h2>
@@ -2126,6 +2132,10 @@ function App() {
               {session.user.role === "admin" && (
                 <VoiceMatchingCard csrf={csrf} />
               )}
+              <VoiceAutomationCard
+                isAdmin={session.user.role === "admin"}
+                csrf={csrf}
+              />
               {session.user.role === "admin" && (
                 <section className="card" id="vocabulary">
                   <h2>Vocabulaire de transcription</h2>

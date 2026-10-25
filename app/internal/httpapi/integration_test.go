@@ -92,7 +92,7 @@ func TestFoundation(t *testing.T) {
 		if _, e = pool.Exec(ctx, `UPDATE voice_pipeline_active SET version='voice-v1' WHERE id=true`); e != nil {
 			t.Fatal(e)
 		}
-		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5 WHERE id=true`); e != nil {
+		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events`); e != nil {
 			t.Fatal(e)
 		}
 	}
@@ -163,6 +163,14 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice matching", func(t *testing.T) {
 		reset(t)
 		testVoiceMatching(t, pool)
+	})
+	t.Run("voice automation", func(t *testing.T) {
+		reset(t)
+		testVoiceAutomation(t, pool)
+	})
+	t.Run("voice groups", func(t *testing.T) {
+		reset(t)
+		testVoiceGroups(t, pool)
 	})
 	t.Run("microphone track", func(t *testing.T) {
 		reset(t)
@@ -359,6 +367,18 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.5, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-matching/rematch", nil, me.CSRF, 200)
+		// Accuracy measure and automation switch (behavior in the voice automation suite).
+		call(client, "GET", "/api/admin/voice-accuracy", nil, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/voice-automation/criteria", map[string]any{"precision_threshold": 0.95, "min_confirmations": 50}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/voice-automation", map[string]any{"enabled": true}, me.CSRF, 409)
+		call(client, "PUT", "/api/admin/voice-automation", map[string]any{"enabled": false}, me.CSRF, 200)
+		// Groups of unknown voices (behavior in the voice groups suite).
+		call(client, "GET", "/api/voice-groups", nil, "", 200)
+		call(client, "GET", "/api/voice-groups?sort=members&proposed=true&page=1&page_size=5", nil, "", 200)
+		call(client, "GET", "/api/voice-groups/999999", nil, "", 404)
+		call(client, "POST", "/api/voice-groups/999999/naming", map[string]any{"new_person_name": "Nobody", "local_speaker_ids": []int64{999999}}, me.CSRF, 404)
+		call(client, "PUT", speakerPath+"/group-exclusion", nil, me.CSRF, 409)
+		call(client, "DELETE", speakerPath+"/group-exclusion", nil, me.CSRF, 200)
 		// Microphone track of a clip: view, replacement, disabling and removal.
 		micPath := "/api/clips/" + strconv64(contractClipID) + "/microphone-track"
 		call(client, "GET", micPath, nil, "", 200)
@@ -587,7 +607,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "person-corrections.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "person-corrections.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -630,11 +650,17 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_MATCHING") == "1" {
 			suites = []string{"matching.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_AUTOMATION") == "1" {
+			suites = []string{"automation.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_MICROPHONE") == "1" {
 			suites = []string{"microphone.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PERSON_FILTER") == "1" {
 			suites = []string{"person-filter.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_GROUPS") == "1" {
+			suites = []string{"voice-groups.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PERSON_CORRECTIONS") == "1" {
 			suites = []string{"person-corrections.spec.ts"}
@@ -659,7 +685,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" || suite == "person-corrections.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" || suite == "voice-groups.spec.ts" || suite == "automation.spec.ts" || suite == "person-corrections.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -668,7 +694,7 @@ func TestFoundation(t *testing.T) {
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "matching.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "person-corrections.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "matching.spec.ts" || suite == "automation.spec.ts" || suite == "person-corrections.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "voice-groups.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
