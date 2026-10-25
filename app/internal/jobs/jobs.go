@@ -457,7 +457,7 @@ type CompleteOptions struct {
 	// Summarize returns what jobs.result keeps instead of the raw result, for
 	// results that must not be stored as received (voice embeddings).
 	Summarize func(result json.RawMessage) json.RawMessage
-	Project       func(ctx context.Context, tx pgx.Tx, job Job) error
+	Project   func(ctx context.Context, tx pgx.Tx, job Job) error
 }
 
 func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseToken, inputVersion string, result json.RawMessage, opts CompleteOptions) (Job, error) {

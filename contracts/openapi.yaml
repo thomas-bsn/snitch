@@ -3042,7 +3042,7 @@
         "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingInput"}}}},
         "responses": {"200": {"description": "Seuils enregistrés ; les empreintes déjà stockées sont rapprochées de nouveau", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
-        "description": "Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (ticket d'activation). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.",
+        "description": "Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.",
         "security": [{"session": []}]
       }
     },
@@ -4575,7 +4575,7 @@
           "decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
           "validation_state": {"type": "string", "enum": ["validated", "unvalidated"], "description": "validated : validation humaine (fait foi, source d'Échantillon vocal validé)."},
           "confidence": {"type": "number", "nullable": true, "minimum": 0, "maximum": 1, "description": "Confiance automatique du rapprochement, absente d'une validation humaine."},
-          "origin": {"type": "string", "description": "human (validation), matching (rapprochement en base), puis microphone_track selon les tickets suivants."},
+          "origin": {"type": "string", "description": "human (validation), matching (rapprochement en base), puis microphone_track selon les étapes suivantes."},
           "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true},
           "revision": {"type": "integer", "minimum": 1},
           "decided_at": {"type": "string", "format": "date-time"},

@@ -1,10 +1,10 @@
 -- +goose Up
--- Database-side voice matching (phase 5, ticket 35): configurable thresholds, the
+-- Database-side voice matching (phase 5): configurable thresholds, the
 -- automation switch, the candidates of an ambiguous voice and the model that produced
 -- a machine attribution. Matching never creates voice_samples.
 
 -- Single-row settings. auto_enabled stays false until an administrator turns the
--- automation on (ticket 38): while it is false every match is at most a suggestion.
+-- automation on (automation switch): while it is false every match is at most a suggestion.
 -- Similarities are cosine similarities in [-1, 1]; the initial values are not final
 -- choices and wait for the phase 7 benchmark.
 CREATE TABLE voice_matching_settings (

@@ -39,8 +39,8 @@ class Attribution:
             validation_state (AttributionValidationState): validated : validation humaine (fait foi, source d'Échantillon
                 vocal validé).
             confidence (float | None): Confiance automatique du rapprochement, absente d'une validation humaine.
-            origin (str): human (validation), matching (rapprochement en base), puis microphone_track selon les tickets
-                suivants.
+            origin (str): human (validation), matching (rapprochement en base), puis microphone_track selon les étapes
+                suivantes.
             author (AttributionAuthor | None):
             revision (int):
             decided_at (datetime.datetime):

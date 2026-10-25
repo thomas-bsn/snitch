@@ -1,5 +1,5 @@
 -- +goose Up
--- Person corrections (phase 5, ticket 40): merge, separation and deletion. The
+-- Person corrections (phase 5): merge, separation and deletion. The
 -- per-voice history stays in attribution_events (free-form action); this table keeps
 -- the Person-level trail, including for a Person that no longer exists. Persons and
 -- authors are stored by id and by name at the time, without foreign keys, and no voice

@@ -80,8 +80,9 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | VoiceMatchingSettings]:
-    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (ticket
-    d'activation). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.
+    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
+    d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
+    vidéo.
 
     Args:
         origin (str):
@@ -118,8 +119,9 @@ def sync(
     x_csrf_token: str,
 
 ) -> Error | VoiceMatchingSettings | None:
-    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (ticket
-    d'activation). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.
+    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
+    d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
+    vidéo.
 
     Args:
         origin (str):
@@ -151,8 +153,9 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | VoiceMatchingSettings]:
-    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (ticket
-    d'activation). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.
+    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
+    d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
+    vidéo.
 
     Args:
         origin (str):
@@ -189,8 +192,9 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> Error | VoiceMatchingSettings | None:
-    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (ticket
-    d'activation). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.
+    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
+    d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
+    vidéo.
 
     Args:
         origin (str):

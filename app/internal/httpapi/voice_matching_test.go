@@ -249,7 +249,7 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	}
 
 	// Without the automation switch no voice is ever automatic, whatever its score. Once
-	// an administrator enables it (ticket 38), strong matches become automatic and weaker
+	// an administrator enables it (automation switch), strong matches become automatic and weaker
 	// ones stay suggestions; automatic attributions still create no reference.
 	if _, err := pool.Exec(context.Background(), `UPDATE voice_matching_settings SET auto_enabled=true`); err != nil {
 		t.Fatal(err)

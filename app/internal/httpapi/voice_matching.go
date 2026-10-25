@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Voice matching (phase 5, ticket 35). Matching compares the usable fingerprints of
+// Voice matching (phase 5). Matching compares the usable fingerprints of
 // local speakers with the references of every Person, entirely in PostgreSQL: no worker
 // and no media. References are the active validated voice samples and nothing else;
 // matching only writes machine attributions (origin "matching") and their candidates,
@@ -35,7 +35,7 @@ import (
 //     suggestion;
 //   - otherwise: a suggestion.
 //
-// Later tickets reuse rematchVoices (#38 after toggling auto_enabled, #40 and #41 after
+// The automation switch, Person corrections and voice profile deletion reuse rematchVoices (after
 // merging or deleting a Person) and extend the writers of machine attributions through
 // the origin column.
 
@@ -82,7 +82,7 @@ func (s *Server) getVoiceMatching(w http.ResponseWriter, r *http.Request) {
 }
 
 // putVoiceMatching changes the thresholds. The automation switch is deliberately not
-// part of this input: its activation is a separate administrator decision (ticket 38).
+// part of this input: its activation is a separate administrator decision (automation switch).
 func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		AutomaticThreshold  *float64 `json:"automatic_threshold"`
@@ -158,7 +158,7 @@ type matchTarget struct {
 type existingMatch struct {
 	attributionID int64
 	personID      *int64
-	level         string
+	level         DecisionLevel
 	confidence    *float64
 	signature     string
 }
@@ -180,14 +180,11 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	var stats matchStats
-	tx, err := s.Pool.Begin(ctx)
+	tx, err := s.beginLocked(ctx, lockVoiceMatching)
 	if err != nil {
 		return stats, err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('snitch.voice_matching'))`); err != nil {
-		return stats, err
-	}
 	settings, err := loadMatchingSettings(ctx, tx)
 	if err != nil {
 		return stats, err
@@ -235,11 +232,11 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 		level, person, confidence, candidates := decideMatch(t.scores, settings)
 		stats.Evaluated++
 		switch level {
-		case "automatic":
+		case LevelAutomatic:
 			stats.Automatic++
-		case "suggestion":
+		case LevelSuggestion:
 			stats.Suggestion++
-		case "ambiguous":
+		case LevelAmbiguous:
 			stats.Ambiguous++
 		default:
 			stats.Unknown++
@@ -318,9 +315,9 @@ ORDER BY t.sid,s.score DESC NULLS LAST,s.person_id`, g.dimensions, matchingOrigi
 }
 
 // decideMatch turns the per-Person scores of one speaker into a decision level.
-func decideMatch(scores []matchScore, settings matchingSettings) (level string, person *int64, confidence *float64, candidates []matchScore) {
+func decideMatch(scores []matchScore, settings matchingSettings) (level DecisionLevel, person *int64, confidence *float64, candidates []matchScore) {
 	if len(scores) == 0 {
-		return "unknown", nil, nil, nil
+		return LevelUnknown, nil, nil, nil
 	}
 	best := scores[0]
 	conf := best.score
@@ -337,15 +334,15 @@ func decideMatch(scores []matchScore, settings matchingSettings) (level string, 
 		if len(close) > settings.MaxCandidates {
 			close = close[:settings.MaxCandidates]
 		}
-		return "ambiguous", nil, &conf, close
+		return LevelAmbiguous, nil, &conf, close
 	}
 	alternatives := scores
 	if len(alternatives) > settings.MaxCandidates {
 		alternatives = alternatives[:settings.MaxCandidates]
 	}
-	level = "suggestion"
+	level = LevelSuggestion
 	if settings.AutoEnabled && best.score >= settings.AutomaticThreshold {
-		level = "automatic"
+		level = LevelAutomatic
 	}
 	id := best.personID
 	return level, &id, &conf, alternatives
@@ -412,7 +409,7 @@ func personNames(ctx context.Context, tx pgx.Tx, targets []matchTarget, existing
 	return names, rows.Err()
 }
 
-func eventRow(ctx context.Context, tx pgx.Tx, speakerID, clipID int64, oldPerson *int64, oldLevel string, newPerson *int64, newLevel string, names map[int64]string) error {
+func eventRow(ctx context.Context, tx pgx.Tx, speakerID, clipID int64, oldPerson *int64, oldLevel DecisionLevel, newPerson *int64, newLevel DecisionLevel, names map[int64]string) error {
 	name := func(id *int64) string {
 		if id == nil {
 			return ""
@@ -425,7 +422,7 @@ func eventRow(ctx context.Context, tx pgx.Tx, speakerID, clipID int64, oldPerson
 
 // writeMatch stores the decision of one speaker, and a history event when the Person
 // or the decision level changed (a plain confidence drift is not an event).
-func writeMatch(ctx context.Context, tx pgx.Tx, t matchTarget, level string, person *int64, confidence *float64, candidates []matchScore, old existingMatch, names map[int64]string) error {
+func writeMatch(ctx context.Context, tx pgx.Tx, t matchTarget, level DecisionLevel, person *int64, confidence *float64, candidates []matchScore, old existingMatch, names map[int64]string) error {
 	signature := matchSignature(candidates)
 	hadOld := old.attributionID != 0
 	samePerson := hadOld && ((old.personID == nil) == (person == nil)) && (person == nil || *old.personID == *person)
@@ -455,11 +452,11 @@ RETURNING id`, t.speakerID, person, level, confidence, t.model, t.version, match
 	if hadOld && samePerson && old.level == level {
 		return nil
 	}
-	oldLevel := "unknown"
+	oldLevel := LevelUnknown
 	if hadOld {
 		oldLevel = old.level
 	}
-	if !hadOld && level == "unknown" {
+	if !hadOld && level == LevelUnknown {
 		return nil // first evaluation with no match: nothing changed for readers
 	}
 	return eventRow(ctx, tx, t.speakerID, t.clipID, old.personID, oldLevel, person, level, names)
@@ -476,10 +473,28 @@ func removeMatch(ctx context.Context, tx pgx.Tx, speakerID int64, old existingMa
 	if _, err := tx.Exec(ctx, `DELETE FROM speaker_attributions WHERE id=$1 AND validation_state='unvalidated' AND origin=$2`, old.attributionID, matchingOrigin); err != nil {
 		return err
 	}
-	if old.level == "unknown" {
+	if old.level == LevelUnknown {
 		return nil
 	}
-	return eventRow(ctx, tx, speakerID, clipID, old.personID, old.level, nil, "unknown", names)
+	return eventRow(ctx, tx, speakerID, clipID, old.personID, old.level, nil, LevelUnknown, names)
+}
+
+const (
+	lockVoiceMatching = "snitch.voice_matching"
+	lockVoiceGroups   = "snitch.voice_groups"
+)
+
+// beginLocked opens a transaction holding the named transaction-level advisory lock.
+func (s *Server) beginLocked(ctx context.Context, lockName string) (pgx.Tx, error) {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, lockName); err != nil {
+		tx.Rollback(ctx)
+		return nil, err
+	}
+	return tx, nil
 }
 
 var voiceIndexes sync.Map
@@ -487,7 +502,7 @@ var voiceIndexes sync.Map
 // ensureVoiceIndex creates the HNSW index of one fingerprint group: vectors of
 // different models, versions or dimensions never share an index. The matching above
 // compares against the (small) reference set exactly; the index serves the nearest
-// neighbor searches over all usable fingerprints (groups of unknown voices, ticket 36).
+// neighbor searches over all usable fingerprints (groups of unknown voices, unknown voice groups).
 func (s *Server) ensureVoiceIndex(ctx context.Context, g matchGroup) {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%d", g.model, g.version, g.dimensions)))
 	name := "voice_fingerprints_hnsw_" + hex.EncodeToString(sum[:6])

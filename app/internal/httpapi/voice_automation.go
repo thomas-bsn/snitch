@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Accuracy measure and automation switch (phase 5, ticket 38).
+// Accuracy measure and automation switch (phase 5).
 //
 // The measure replays the matching on the validated samples themselves, with one rule:
 // a clip that served as a reference never serves as a test. For each Person the clips
@@ -206,7 +206,7 @@ ORDER BY vs.person_id,vs.clip_id,vs.id`)
 	forced.AutoEnabled = true
 	for _, sample := range tests {
 		level, predicted, _, _ := decideMatch(scores[sample.id], forced)
-		if level != "automatic" || predicted == nil {
+		if level != LevelAutomatic || predicted == nil {
 			continue
 		}
 		eval.EvaluatedAutomatic++

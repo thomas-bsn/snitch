@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Person corrections (phase 5, ticket 40): a Person created by mistake is merged into
+// Person corrections (phase 5): a Person created by mistake is merged into
 // another, separated from some of its voices, or deleted. Every route is open to any
 // signed-in user, like the creation of Persons and the validation of voices. The
 // invariants of the validation stay: a merge never replaces a human validation, it only
@@ -42,14 +42,13 @@ type personIdentity struct {
 	ID     int64
 	Name   string
 	UserID *int64
-	// OptedOut is set when the Person deleted their voice profile (ticket 41).
+	// OptedOut is set when the Person deleted their voice profile (voice profile deletion).
 	OptedOut bool
 }
 
 func personPathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id < 1 {
-		fail(w, http.StatusBadRequest, "invalid_person_id")
+	id, ok := pathID(w, r, "invalid_person_id")
+	if !ok {
 		return 0, false
 	}
 	return id, true
@@ -633,13 +632,8 @@ func (s *Server) beginCorrection(ctx context.Context) (pgx.Tx, func(), error) {
 	voiceMatchingLock.Lock()
 	var once sync.Once
 	unlock := func() { once.Do(voiceMatchingLock.Unlock) }
-	tx, err := s.Pool.Begin(ctx)
+	tx, err := s.beginLocked(ctx, lockVoiceMatching)
 	if err != nil {
-		unlock()
-		return nil, unlock, err
-	}
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('snitch.voice_matching'))`); err != nil {
-		tx.Rollback(ctx)
 		unlock()
 		return nil, unlock, err
 	}

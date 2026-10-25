@@ -1,9 +1,9 @@
 -- +goose Up
--- Deleting a voice profile (phase 5, ticket 41). The opt-out lives on the Person and
+-- Deleting a voice profile (phase 5). The opt-out lives on the Person and
 -- holds no voice data: while it is set, matching ignores the Person's references,
 -- validations and corrections to that Person are refused, and a microphone-track
 -- designation naming the Person is not applied. Deleting the Person is a separate
--- operation (ticket 40) and also removes the opt-out together with the Person.
+-- operation (Person corrections) and also removes the opt-out together with the Person.
 ALTER TABLE persons ADD COLUMN voice_profile_deleted_at timestamptz;
 
 -- Audit trail of the deletions. Person and account are kept by id and by name at the

@@ -161,8 +161,8 @@ func testVoiceProfileDeletion(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("the Person must show the deleted profile: %+v %v", gone, err)
 	}
 
-	// Group links (ticket 36) never point at voices whose fingerprints were erased, and
-	// the accuracy measure (ticket 38) keeps working over the remaining references.
+	// Group links (unknown voice groups) never point at voices whose fingerprints were erased, and
+	// the accuracy measure keeps working over the remaining references.
 	if h.count(`SELECT count(*) FROM voice_group_links WHERE speaker_a_id=ANY($1) OR speaker_b_id=ANY($1)`, []int64{refAlice.ID, nearAlice.ID, micID}) != 0 {
 		t.Fatal("group links must not reference erased fingerprints")
 	}

@@ -2,7 +2,7 @@ import createClient from "openapi-fetch";
 import type { paths, components } from "../api.gen";
 
 // Voice screens live in their own files; they share the generated contract but
-// not main.tsx state, so later phase 5 tickets can add screens without conflicts.
+// not main.tsx state, so later phase 5 screens can add screens without conflicts.
 export const voiceApi = createClient<paths>();
 export type ClipVoice = components["schemas"]["ClipVoice"];
 export type LocalSpeaker = components["schemas"]["LocalSpeaker"];

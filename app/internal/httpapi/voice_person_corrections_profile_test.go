@@ -30,8 +30,8 @@ func (h *voiceHarness) verificationSummary() (verificationSummaryView, int) {
 	return v, sum
 }
 
-// Corrections next to the voice profile deletion (ticket 41) and the verification view
-// (ticket 37): an opt-out is never dissolved or rebuilt by a merge, a deletion removes
+// Corrections next to the voice profile deletion (voice profile deletion) and the verification view
+// (review view): an opt-out is never dissolved or rebuilt by a merge, a deletion removes
 // it without touching its immutable trace, and the verification counters stay true.
 func testPersonCorrectionsWithProfiles(t *testing.T, h *voiceHarness, member *voiceUser) {
 	clipA, clipB := h.clipIDs[0], h.clipIDs[1]

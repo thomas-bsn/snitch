@@ -1,6 +1,6 @@
 -- +goose Up
 -- Persons, attributions, validated voice samples and their immutable history
--- (phase 5, ticket 33). Later tickets extend these tables instead of replacing them.
+-- (phase 5). Later phase 5 steps extend these tables instead of replacing them.
 
 -- A Person is an identity, never an account; user_id is an optional link.
 CREATE TABLE persons (
@@ -14,7 +14,7 @@ CREATE TABLE persons (
 
 -- The link between a local speaker and a Person. A local speaker holds at most one
 -- human-validated row (the first validation stands, arbitrated by the partial unique
--- index below) and at most one machine row (written by matching in later tickets,
+-- index below) and at most one machine row (written by matching in later steps,
 -- never an authority over the validated row). The effective attribution of a speaker
 -- is the validated row when it exists, otherwise the machine row.
 --

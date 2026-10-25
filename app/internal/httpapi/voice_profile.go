@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 )
 
 // registerVoiceProfileRoutes declares the account link and voice profile deletion
-// routes (phase 5, ticket 41).
+// routes (phase 5).
 func (s *Server) registerVoiceProfileRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/me/person", s.protected(false, http.HandlerFunc(s.getMyPerson)))
 	mux.Handle("PUT /api/admin/persons/{id}/account", s.protected(true, http.HandlerFunc(s.linkPersonAccount)))
@@ -38,9 +37,8 @@ func (s *Server) getMyPerson(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linkPersonAccount(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id < 1 {
-		fail(w, http.StatusBadRequest, "invalid_person_id")
+	id, ok := pathID(w, r, "invalid_person_id")
+	if !ok {
 		return
 	}
 	var input struct {
@@ -55,7 +53,7 @@ func (s *Server) linkPersonAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var userID int64
-	if err = s.Pool.QueryRow(r.Context(), `SELECT id FROM users WHERE username=$1`, username).Scan(&userID); errors.Is(err, pgx.ErrNoRows) {
+	if err := s.Pool.QueryRow(r.Context(), `SELECT id FROM users WHERE username=$1`, username).Scan(&userID); errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "user_not_found")
 		return
 	} else if err != nil {
@@ -80,9 +78,8 @@ func (s *Server) linkPersonAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) unlinkPersonAccount(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id < 1 {
-		fail(w, http.StatusBadRequest, "invalid_person_id")
+	id, ok := pathID(w, r, "invalid_person_id")
+	if !ok {
 		return
 	}
 	tag, err := s.Pool.Exec(r.Context(), `UPDATE persons SET user_id=NULL,updated_at=now() WHERE id=$1`, id)
@@ -120,9 +117,8 @@ type voiceProfileDeletion struct {
 // is committed with the erasure and keeps matching from rebuilding the profile.
 // Allowed to the account linked to the Person and to administrators.
 func (s *Server) deleteVoiceProfile(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id < 1 {
-		fail(w, http.StatusBadRequest, "invalid_person_id")
+	id, ok := pathID(w, r, "invalid_person_id")
+	if !ok {
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
@@ -154,14 +150,11 @@ func (s *Server) eraseVoiceProfile(ctx context.Context, personID int64, ss sessi
 	// in flight finishes before the erasure and cannot write after it.
 	voiceMatchingLock.Lock()
 	defer voiceMatchingLock.Unlock()
-	tx, err := s.Pool.Begin(ctx)
+	tx, err := s.beginLocked(ctx, lockVoiceMatching)
 	if err != nil {
 		return out, nil, 0, "", err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('snitch.voice_matching'))`); err != nil {
-		return out, nil, 0, "", err
-	}
 	var name string
 	var linked *int64
 	var already *time.Time

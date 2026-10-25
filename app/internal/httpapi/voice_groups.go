@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Groups of unknown voices (phase 5, ticket 36).
+// Groups of unknown voices (phase 5).
 //
 // A group is never stored. It is the connected set of unknown local speakers joined by
 // proposed proximity links (voice_group_links, rebuilt from the stored fingerprints after
@@ -31,7 +31,7 @@ import (
 //
 // Groups are seen through the clips of the caller: hidden members are neither listed nor
 // counted nor named, and the id of a group is its smallest visible member, so it never
-// reveals a hidden voice. Later tickets (the review view) reuse loadVoiceGroups.
+// reveals a hidden voice. The review view reuses loadVoiceGroups.
 
 const unknownSpeakerPredicate = `ls.kind='diarized' AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND (a.validation_state='validated' OR a.decision_level='automatic'))`
 
@@ -200,9 +200,8 @@ func (s *Server) listVoiceGroups(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getVoiceGroup(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id < 1 {
-		fail(w, http.StatusBadRequest, "invalid_voice_group_id")
+	id, ok := pathID(w, r, "invalid_voice_group_id")
+	if !ok {
 		return
 	}
 	groups, _, err := s.loadVoiceGroups(r.Context(), s.Pool, ss.User.ID, ss.User.Role == "admin", voiceGroupFilter{limit: 1, id: id})
@@ -271,9 +270,8 @@ type voiceGroupNaming struct {
 // validated. One transaction: the Person, the attributions, the samples and the history.
 func (s *Server) nameVoiceGroup(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	groupID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || groupID < 1 {
-		fail(w, http.StatusBadRequest, "invalid_voice_group_id")
+	groupID, ok := pathID(w, r, "invalid_voice_group_id")
+	if !ok {
 		return
 	}
 	var input voiceGroupNaming
@@ -411,10 +409,11 @@ func (s *Server) nameVoiceGroup(w http.ResponseWriter, r *http.Request) {
 // validation already exists for the voice.
 func groupValidate(ctx context.Context, tx pgx.Tx, m voiceGroupMember, personID int64, personName string, ss session) (bool, error) {
 	var oldPersonID *int64
-	var oldName, oldLevel string
+	var oldName string
+	var oldLevel DecisionLevel
 	err := tx.QueryRow(ctx, `SELECT a.person_id,COALESCE(p.display_name,''),a.decision_level FROM speaker_attributions a LEFT JOIN persons p ON p.id=a.person_id WHERE a.local_speaker_id=$1 AND a.validation_state='unvalidated'`, m.LocalSpeakerID).Scan(&oldPersonID, &oldName, &oldLevel)
 	if errors.Is(err, pgx.ErrNoRows) {
-		oldLevel = "unknown"
+		oldLevel = LevelUnknown
 	} else if err != nil {
 		return false, err
 	}
@@ -440,18 +439,15 @@ func groupValidate(ctx context.Context, tx pgx.Tx, m voiceGroupMember, personID 
 
 // refreshVoiceGroupLinks rebuilds the proposed proximity links between unknown voices
 // from the stored fingerprints: for every unknown voice, its nearest neighbors (HNSW index
-// of its model/version/dimensions group, ticket 35) at or above the suggestion threshold
+// of its model/version/dimensions group, database matching) at or above the suggestion threshold
 // of the matching settings. Fingerprints of different models, versions or dimensions are
 // never compared. Links are proposals only and written nowhere else.
 func (s *Server) refreshVoiceGroupLinks(ctx context.Context) error {
-	tx, err := s.Pool.Begin(ctx)
+	tx, err := s.beginLocked(ctx, lockVoiceGroups)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('snitch.voice_groups'))`); err != nil {
-		return err
-	}
 	settings, err := loadMatchingSettings(ctx, tx)
 	if err != nil {
 		return err

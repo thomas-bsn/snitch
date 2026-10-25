@@ -5,12 +5,12 @@ import (
 	"strconv"
 )
 
-// Review of unknown and ambiguous voices (phase 5, ticket 37).
+// Review of unknown and ambiguous voices (phase 5).
 //
 // A case is a visible diarized voice whose effective decision level is unknown or
 // ambiguous: no human validation, no automatic attribution and no suggestion. Cases are
 // ordered by frequency, which means the number of distinct clips of the proposed group
-// (ticket 36) the voice belongs to, then the number of voices of that group, then the
+// (unknown voice groups) the voice belongs to, then the number of voices of that group, then the
 // speaking time: naming one frequent voice settles the most uncertainty. A case is
 // settled with the existing human validation (POST /api/local-speakers/{id}/validation),
 // so nothing is written here. Counters per decision level are aggregated by the database
@@ -22,7 +22,7 @@ type verificationCase struct {
 	ClipName        string          `json:"clip_name"`
 	Label           string          `json:"label"`
 	SpeakingSeconds float64         `json:"speaking_seconds"`
-	DecisionLevel   string          `json:"decision_level"`
+	DecisionLevel   DecisionLevel   `json:"decision_level"`
 	Candidates      []candidateView `json:"candidates"`
 	GroupID         int64           `json:"group_id"`
 	GroupVoiceCount int             `json:"group_voice_count"`
@@ -41,7 +41,7 @@ func (s *Server) voiceVerification(w http.ResponseWriter, r *http.Request) {
 	switch level {
 	case "":
 		level = "all"
-	case "all", "unknown", "ambiguous":
+	case "all", string(LevelUnknown), string(LevelAmbiguous):
 	default:
 		fail(w, http.StatusBadRequest, "invalid_filter")
 		return
@@ -111,7 +111,7 @@ FROM cases ORDER BY clips DESC,voices DESC,speaking_seconds DESC,id LIMIT $4 OFF
 			items[i].Candidates = byAttribution[*id].Candidates
 		}
 	}
-	counts := map[string]int{"human": 0, "automatic": 0, "suggestion": 0, "ambiguous": 0, "unknown": 0}
+	counts := map[DecisionLevel]int{LevelHuman: 0, LevelAutomatic: 0, LevelSuggestion: 0, LevelAmbiguous: 0, LevelUnknown: 0}
 	crows, err := s.Pool.Query(ctx, `SELECT CASE WHEN v.id IS NOT NULL THEN 'human' ELSE COALESCE(m.decision_level,'unknown') END AS level,count(*)::int
 FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id
 LEFT JOIN speaker_attributions v ON v.local_speaker_id=ls.id AND v.validation_state='validated'
@@ -123,7 +123,7 @@ WHERE c.visibility='shared' OR c.owner_id=$1 OR $2 GROUP BY 1`, ss.User.ID, admi
 	}
 	defer crows.Close()
 	for crows.Next() {
-		var l string
+		var l DecisionLevel
 		var n int
 		if err = crows.Scan(&l, &n); err != nil {
 			s.internal(w, err)

@@ -83,9 +83,9 @@ func clipPersonPredicate(personArg, unknownArg string) string {
 }
 
 type clipPerson struct {
-	ID            int64  `json:"id"`
-	DisplayName   string `json:"display_name"`
-	DecisionLevel string `json:"decision_level"`
+	ID            int64         `json:"id"`
+	DisplayName   string        `json:"display_name"`
+	DecisionLevel DecisionLevel `json:"decision_level"`
 }
 
 // clipPersons lists, per clip, the Persons identified in it. A Person who is both
@@ -109,8 +109,8 @@ func (s *Server) clipPersons(ctx context.Context, clipIDs []int64) (map[int64][]
 		}
 		key := [2]int64{clipID, v.ID}
 		if at, seen := index[key]; seen {
-			if v.DecisionLevel == "human" {
-				out[clipID][at].DecisionLevel = "human"
+			if v.DecisionLevel == LevelHuman {
+				out[clipID][at].DecisionLevel = LevelHuman
 			}
 			continue
 		}

@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// Dedicated microphone track (phase 5, ticket 34). An administrator designates,
+// Dedicated microphone track (phase 5). An administrator designates,
 // per source, a detected audio track (by stream index and/or exact title, never a
 // built-in title) and its owner; the track is attributed to that Person directly,
 // without diarization. A clip can replace the choice. Every outcome other than
@@ -206,7 +205,8 @@ func (s *Server) applyMicrophone(ctx context.Context, clipID int64, author autho
 		return d, err
 	}
 	var oldPersonID *int64
-	var oldName, oldLevel string
+	var oldName string
+	var oldLevel DecisionLevel
 	var attributionID *int64
 	var oldOrigin string
 	if existing {
@@ -220,9 +220,9 @@ func (s *Server) applyMicrophone(ctx context.Context, clipID int64, author autho
 		}
 	}
 	if oldLevel == "" {
-		oldLevel = "unknown"
+		oldLevel = LevelUnknown
 	}
-	event := func(action string, newPerson *personRef, newLevel string) error {
+	event := func(action string, newPerson *personRef, newLevel DecisionLevel) error {
 		var newID *int64
 		newName := ""
 		if newPerson != nil {
@@ -255,12 +255,12 @@ func (s *Server) applyMicrophone(ctx context.Context, clipID int64, author autho
 			if _, err = tx.Exec(ctx, `INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,confidence,origin,author_id,author_username) VALUES($1,$2,'automatic','unvalidated',1,$3,$4,$5)`, speakerID, d.Person.ID, microphoneOrigin, author.ID, author.Username); err != nil {
 				return d, err
 			}
-			err = event("microphone_assign", d.Person, "automatic")
+			err = event("microphone_assign", d.Person, LevelAutomatic)
 		case oldPersonID == nil || *oldPersonID != d.Person.ID || oldOrigin != microphoneOrigin:
 			if _, err = tx.Exec(ctx, `UPDATE speaker_attributions SET person_id=$2,decision_level='automatic',confidence=1,origin=$3,author_id=$4,author_username=$5,revision=revision+1,decided_at=now() WHERE id=$1`, *attributionID, d.Person.ID, microphoneOrigin, author.ID, author.Username); err != nil {
 				return d, err
 			}
-			err = event("microphone_assign", d.Person, "automatic")
+			err = event("microphone_assign", d.Person, LevelAutomatic)
 		}
 		if err != nil {
 			return d, err
@@ -279,7 +279,7 @@ func (s *Server) applyMicrophone(ctx context.Context, clipID int64, author autho
 			// A human validation is never lost: the speaker stays, only the machine
 			// attribution of the designation is withdrawn.
 			if attributionID != nil {
-				if err = event("microphone_unassign", nil, "unknown"); err != nil {
+				if err = event("microphone_unassign", nil, LevelUnknown); err != nil {
 					return d, err
 				}
 			}
@@ -679,9 +679,8 @@ func (s *Server) getClipMicrophone(w http.ResponseWriter, r *http.Request) {
 }
 
 func clipPathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id < 1 {
-		fail(w, http.StatusBadRequest, "invalid_clip_id")
+	id, ok := pathID(w, r, "invalid_clip_id")
+	if !ok {
 		return 0, false
 	}
 	return id, true

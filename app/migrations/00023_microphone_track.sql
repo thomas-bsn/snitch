@@ -1,5 +1,5 @@
 -- +goose Up
--- Dedicated microphone track (phase 5, ticket 34). An administrator designates, per
+-- Dedicated microphone track (phase 5). An administrator designates, per
 -- source, which detected audio track is a microphone and which Person owns it; the
 -- track then receives that Person directly, without diarization. A clip can replace
 -- the choice. Rules reference the tracks really detected (index and/or exact title);

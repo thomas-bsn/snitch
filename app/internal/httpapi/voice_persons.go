@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// registerPersonRoutes declares the Person and attribution routes (phase 5, ticket 33).
+// registerPersonRoutes declares the Person and attribution routes (phase 5).
 // Every route is open to any signed-in user: all users can create Persons, validate
 // and correct. Visibility of the underlying clip is always enforced.
 func (s *Server) registerPersonRoutes(mux *http.ServeMux) {
@@ -35,19 +34,19 @@ type authorRef struct {
 	Username string `json:"username"`
 }
 
-// attributionView is the contract shape of one attribution row. Later tickets
+// attributionView is the contract shape of one attribution row. Later phase 5 steps
 // (matching, microphone track, merge) reuse it unchanged.
 type attributionView struct {
-	ID              int64      `json:"id"`
-	LocalSpeakerID  int64      `json:"local_speaker_id"`
-	Person          *personRef `json:"person"`
-	DecisionLevel   string     `json:"decision_level"`
-	ValidationState string     `json:"validation_state"`
-	Confidence      *float64   `json:"confidence"`
-	Origin          string     `json:"origin"`
-	Author          *authorRef `json:"author"`
-	Revision        int        `json:"revision"`
-	DecidedAt       time.Time  `json:"decided_at"`
+	ID              int64         `json:"id"`
+	LocalSpeakerID  int64         `json:"local_speaker_id"`
+	Person          *personRef    `json:"person"`
+	DecisionLevel   DecisionLevel `json:"decision_level"`
+	ValidationState string        `json:"validation_state"`
+	Confidence      *float64      `json:"confidence"`
+	Origin          string        `json:"origin"`
+	Author          *authorRef    `json:"author"`
+	Revision        int           `json:"revision"`
+	DecidedAt       time.Time     `json:"decided_at"`
 	// Candidates are the Persons a machine attribution hesitated between (ambiguous)
 	// or its alternatives; always empty for a human validation.
 	Candidates []candidateView `json:"candidates"`
@@ -235,9 +234,8 @@ func (s *Server) createPerson(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getPerson(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id < 1 {
-		fail(w, http.StatusBadRequest, "invalid_person_id")
+	id, ok := pathID(w, r, "invalid_person_id")
+	if !ok {
 		return
 	}
 	v, err := scanPerson(s.Pool.QueryRow(r.Context(), `SELECT `+personColumns+` FROM persons p WHERE p.id=$1`, id))
@@ -262,13 +260,12 @@ type speakerRef struct {
 // caller; an invisible speaker is indistinguishable from a missing one.
 func (s *Server) authorizedSpeaker(w http.ResponseWriter, r *http.Request) (speakerRef, bool) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id < 1 {
-		fail(w, http.StatusBadRequest, "invalid_local_speaker_id")
+	id, ok := pathID(w, r, "invalid_local_speaker_id")
+	if !ok {
 		return speakerRef{}, false
 	}
 	ref := speakerRef{ID: id}
-	err = s.Pool.QueryRow(r.Context(), `SELECT ls.clip_id,ls.audio_stream_index,ls.label FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, ss.User.Role == "admin").Scan(&ref.ClipID, &ref.Index, &ref.Label)
+	err := s.Pool.QueryRow(r.Context(), `SELECT ls.clip_id,ls.audio_stream_index,ls.label FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, ss.User.Role == "admin").Scan(&ref.ClipID, &ref.Index, &ref.Label)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "local_speaker_not_found")
 		return speakerRef{}, false
@@ -347,7 +344,8 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 		return
 	}
 	var oldPersonID *int64
-	var oldName, oldLevel string
+	var oldName string
+	var oldLevel DecisionLevel
 	var oldSampleID *int64
 	var attributionID int64
 	if correct {
@@ -360,7 +358,7 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 			s.internal(w, err)
 			return
 		}
-		oldLevel = "human"
+		oldLevel = LevelHuman
 		if *oldPersonID != *input.ExpectedPersonID {
 			tx.Rollback(ctx)
 			s.conflict(w, r, sp.ID, "attribution_changed")
@@ -374,7 +372,7 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 		// What the machine said before the human decided stays in the history.
 		err = tx.QueryRow(ctx, `SELECT a.person_id,COALESCE(p.display_name,''),a.decision_level FROM speaker_attributions a LEFT JOIN persons p ON p.id=a.person_id WHERE a.local_speaker_id=$1 AND a.validation_state='unvalidated'`, sp.ID).Scan(&oldPersonID, &oldName, &oldLevel)
 		if errors.Is(err, pgx.ErrNoRows) {
-			oldLevel = "unknown"
+			oldLevel = LevelUnknown
 		} else if err != nil {
 			s.internal(w, err)
 			return
@@ -468,15 +466,15 @@ func (s *Server) conflict(w http.ResponseWriter, r *http.Request, speakerID int6
 }
 
 type attributionEventView struct {
-	ID               int64      `json:"id"`
-	LocalSpeakerID   int64      `json:"local_speaker_id"`
-	Action           string     `json:"action"`
-	OldPerson        *personRef `json:"old_person"`
-	OldDecisionLevel string     `json:"old_decision_level"`
-	NewPerson        *personRef `json:"new_person"`
-	NewDecisionLevel string     `json:"new_decision_level"`
-	Author           *authorRef `json:"author"`
-	CreatedAt        time.Time  `json:"created_at"`
+	ID               int64         `json:"id"`
+	LocalSpeakerID   int64         `json:"local_speaker_id"`
+	Action           string        `json:"action"`
+	OldPerson        *personRef    `json:"old_person"`
+	OldDecisionLevel DecisionLevel `json:"old_decision_level"`
+	NewPerson        *personRef    `json:"new_person"`
+	NewDecisionLevel DecisionLevel `json:"new_decision_level"`
+	Author           *authorRef    `json:"author"`
+	CreatedAt        time.Time     `json:"created_at"`
 }
 
 func (s *Server) localSpeakerHistory(w http.ResponseWriter, r *http.Request) {

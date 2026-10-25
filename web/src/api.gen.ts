@@ -1060,7 +1060,7 @@ export interface paths {
       cookie?: never;
     };
     get?: never;
-    /** @description Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (ticket d'activation). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. */
+    /** @description Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. */
     put: operations["updateVoiceMatching"];
     post?: never;
     delete?: never;
@@ -1765,7 +1765,7 @@ export interface components {
       validation_state: "validated" | "unvalidated";
       /** @description Confiance automatique du rapprochement, absente d'une validation humaine. */
       confidence: number | null;
-      /** @description human (validation), matching (rapprochement en base), puis microphone_track selon les tickets suivants. */
+      /** @description human (validation), matching (rapprochement en base), puis microphone_track selon les étapes suivantes. */
       origin: string;
       author: components["schemas"]["AttributionAuthor"] | null;
       revision: number;

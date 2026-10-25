@@ -192,7 +192,7 @@ func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result dia
 	}
 	// Validations take the clip row FOR SHARE, so this check cannot race with one.
 	var locked bool
-	// A designated microphone track is never diarized either (ticket 34).
+	// A designated microphone track is never diarized either (microphone track).
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND a.validation_state='validated') OR EXISTS(SELECT 1 FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='microphone')`, job.ClipID, index).Scan(&locked); err != nil {
 		return fmt.Errorf("check validated speakers: %w", err)
 	}

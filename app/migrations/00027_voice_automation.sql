@@ -1,5 +1,5 @@
 -- +goose Up
--- Accuracy criteria and history of the automation switch (phase 5, ticket 38). The
+-- Accuracy criteria and history of the automation switch (phase 5). The
 -- switch itself (auto_enabled) was created with the matching settings and stays false
 -- until an administrator turns it on. The initial criteria are conventional starting
 -- points to be adjusted after the phase 7 benchmark, not guarantees of any kind.

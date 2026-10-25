@@ -41,7 +41,7 @@ type libraryPage struct {
 	Total int `json:"total"`
 }
 
-// testPersonFilter covers ticket 39: the Person filter of search (four modes) and
+// testPersonFilter covers the Person filter: the Person filter of search (four modes) and
 // of the library, driven only by the traced attributions of local speakers.
 func testPersonFilter(t *testing.T, pool *pgxpool.Pool) {
 	ctx := context.Background()

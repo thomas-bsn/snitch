@@ -17,7 +17,7 @@ import (
 	"snitch/internal/jobs"
 )
 
-// registerVoiceRoutes declares the phase 5 voice routes. Later tickets add their
+// registerVoiceRoutes declares the phase 5 voice routes. Later phase 5 steps add their
 // own register method in their own file and one call in Handler.
 func (s *Server) registerVoiceRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/admin/voice-pipeline", s.protected(true, http.HandlerFunc(s.getVoicePipeline)))
@@ -118,9 +118,8 @@ func (s *Server) putVoicePipeline(w http.ResponseWriter, r *http.Request) {
 // scheduleVoice is the only way voice processing starts: an explicit admin action
 // for one clip whose transcription already exists. It never touches transcription.
 func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id < 1 {
-		fail(w, http.StatusBadRequest, "invalid_clip_id")
+	id, ok := pathID(w, r, "invalid_clip_id")
+	if !ok {
 		return
 	}
 	var input struct {
@@ -171,7 +170,7 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A human validation pins the local speakers of this stream: a new diarization
-	// would replace them and drop what users validated (see ticket 33 design).
+	// would replace them and drop what users validated (see the persons and attributions design).
 	var locked bool
 	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND a.validation_state='validated')`, id, *index).Scan(&locked); err != nil {
 		s.internal(w, err)
@@ -238,6 +237,29 @@ type voiceFingerprintView struct {
 	Dimensions     int     `json:"dimensions"`
 }
 
+// DecisionLevel is the decision level of an attribution. The values are part of the
+// API contract and of the database (decision_level columns).
+type DecisionLevel string
+
+const (
+	LevelHuman      DecisionLevel = "human"
+	LevelAutomatic  DecisionLevel = "automatic"
+	LevelSuggestion DecisionLevel = "suggestion"
+	LevelAmbiguous  DecisionLevel = "ambiguous"
+	LevelUnknown    DecisionLevel = "unknown"
+)
+
+// pathID reads the positive integer {id} of the route, answering 400 with code when
+// it is malformed.
+func pathID(w http.ResponseWriter, r *http.Request, code string) (int64, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id < 1 {
+		fail(w, http.StatusBadRequest, code)
+		return 0, false
+	}
+	return id, true
+}
+
 type localSpeakerView struct {
 	ID              int64                  `json:"id"`
 	Label           string                 `json:"label"`
@@ -246,7 +268,7 @@ type localSpeakerView struct {
 	SpeakingSeconds float64                `json:"speaking_seconds"`
 	TurnCount       int                    `json:"turn_count"`
 	State           string                 `json:"state"`
-	DecisionLevel   string                 `json:"decision_level"`
+	DecisionLevel   DecisionLevel          `json:"decision_level"`
 	Person          *personRef             `json:"person"`
 	Attribution     *attributionView       `json:"attribution"`
 	Fingerprints    []voiceFingerprintView `json:"fingerprints"`
@@ -255,12 +277,12 @@ type localSpeakerView struct {
 // applyAttribution fills the identity fields of a local speaker from its effective
 // attribution. A suggestion or an ambiguous voice stays "unidentified".
 func (sp *localSpeakerView) applyAttribution(a *attributionView) {
-	sp.State, sp.DecisionLevel, sp.Person, sp.Attribution = "unidentified", "unknown", nil, nil
+	sp.State, sp.DecisionLevel, sp.Person, sp.Attribution = "unidentified", LevelUnknown, nil, nil
 	if a == nil {
 		return
 	}
 	sp.DecisionLevel, sp.Person, sp.Attribution = a.DecisionLevel, a.Person, a
-	if a.DecisionLevel == "human" || a.DecisionLevel == "automatic" {
+	if a.DecisionLevel == LevelHuman || a.DecisionLevel == LevelAutomatic {
 		sp.State = "identified"
 	}
 }
@@ -462,7 +484,7 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 		}
 		sort.SliceStable(order, func(i, j int) bool { return overlap[order[i]] > overlap[order[j]] })
 		segment["local_speaker_id"], segment["local_speaker_label"] = order[0], labels[order[0]]
-		segment["local_speaker_decision_level"] = "unknown"
+		segment["local_speaker_decision_level"] = LevelUnknown
 		if a, found := attributions[order[0]]; found {
 			segment["local_speaker_decision_level"] = a.DecisionLevel
 			if a.Person != nil {
