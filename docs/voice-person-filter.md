@@ -7,7 +7,7 @@ Périmètre du ticket #39 (phase 5). Le filtre ne s'appuie que sur les attributi
 - **Attribution effective** d'un Locuteur local : la ligne validée (humaine) si elle existe, sinon la ligne machine, sinon aucune.
 - **Personne identifiée** : niveau de décision `human` ou `automatic` avec une Personne. Une suggestion, une ambiguïté ou l'absence d'attribution forment l'état **inconnu** ; le niveau tracé reste affiché sur le résultat.
 - **Segment de recherche** : attribué au Locuteur local dont les tours recouvrent le plus le segment (même règle que l'affichage du clip, égalité au plus petit rang). Un segment sans recouvrement est inconnu.
-- **Clip de la bibliothèque** : il correspond à une Personne s'il contient une voix identifiée comme elle ; il correspond à « inconnu » s'il contient au moins une voix non identifiée.
+- **Clip de la bibliothèque** : il correspond à une Personne s'il contient une voix identifiée comme elle ; il correspond à « inconnu » s'il contient au moins une voix non identifiée ou s'il n'a aucun Locuteur local (clip jamais diarisé : ses segments sont inconnus en recherche). Un clip dont toutes les voix sont identifiées n'est pas inconnu. La bibliothèque et la recherche appliquent ainsi la même règle : sans voix identifiée, c'est inconnu.
 
 ## API
 

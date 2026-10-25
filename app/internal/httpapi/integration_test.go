@@ -208,6 +208,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceGroupLinksIgnoreKnownNeighbors(t, pool)
 	})
+	t.Run("library unknown filter matches search", func(t *testing.T) {
+		reset(t)
+		testLibraryUnknownFilterMatchesSearch(t, pool)
+	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)

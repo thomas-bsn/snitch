@@ -74,9 +74,11 @@ func segmentPersonPredicate(alias, personArg, unknownArg string) string {
 }
 
 // clipPersonPredicate keeps the clips `c` that have a voice identified as the
-// Person, or (unknown) a voice that is not identified.
+// Person, or (unknown) that have a voice that is not identified or no Local speaker
+// at all. This is the clip-level reading of the segment rule (segmentPersonPredicate):
+// a segment without identified voice is unknown, including in a clip never diarized.
 func clipPersonPredicate(personArg, unknownArg string) string {
-	return fmt.Sprintf(`(%[1]s::bigint=0 OR EXISTS(SELECT 1 FROM local_speakers ls CROSS JOIN LATERAL (%[3]s) eff WHERE ls.clip_id=c.id AND eff.decision_level IN %[4]s AND eff.person_id=%[1]s::bigint)) AND (NOT %[2]s::boolean OR EXISTS(SELECT 1 FROM local_speakers ls LEFT JOIN LATERAL (%[3]s) eff ON true WHERE ls.clip_id=c.id AND (eff.person_id IS NULL OR eff.decision_level NOT IN %[4]s)))`,
+	return fmt.Sprintf(`(%[1]s::bigint=0 OR EXISTS(SELECT 1 FROM local_speakers ls CROSS JOIN LATERAL (%[3]s) eff WHERE ls.clip_id=c.id AND eff.decision_level IN %[4]s AND eff.person_id=%[1]s::bigint)) AND (NOT %[2]s::boolean OR NOT EXISTS(SELECT 1 FROM local_speakers ls WHERE ls.clip_id=c.id) OR EXISTS(SELECT 1 FROM local_speakers ls LEFT JOIN LATERAL (%[3]s) eff ON true WHERE ls.clip_id=c.id AND (eff.person_id IS NULL OR eff.decision_level NOT IN %[4]s)))`,
 		personArg, unknownArg, effectiveAttributionOf("ls"), identifiedLevels)
 }
 
