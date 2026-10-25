@@ -215,8 +215,8 @@ export function PersonsCard({
         onClick={() => (events ? setEvents(null) : void loadEvents())}
       >
         {events
-          ? "Masquer l’historique des corrections"
-          : "Historique des corrections"}
+          ? "Masquer le journal des corrections"
+          : "Journal des corrections"}
       </button>
       {events && (
         <ul aria-label="Historique des corrections de Personnes">

@@ -29,7 +29,7 @@ Chaque réponse donne ce qui a changé : `attributions`, `samples`, `microphone_
 
 ## Interface
 
-La carte « Personnes » liste les Personnes avec leurs références, propose « Fusionner » et « Supprimer » avec confirmation et résultat, et l'historique des corrections. Une voix validée propose « Séparer de cette Personne » (avec confirmation) ; son historique affiche les entrées de fusion, séparation et suppression.
+La carte « Personnes » liste les Personnes avec leurs références, propose « Fusionner » et « Supprimer » avec confirmation et résultat, et le journal des corrections. Une voix validée propose « Séparer de cette Personne » (avec confirmation) ; son historique affiche les entrées de fusion, séparation et suppression.
 
 ## Tests
 

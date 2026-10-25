@@ -48,9 +48,7 @@ test("un utilisateur fusionne, sépare et supprime des Personnes créées par er
   ).toContainText(
     "Fusion de Personnes : Alicia Synthétique → Alice Synthétique",
   );
-  await card
-    .getByRole("button", { name: "Historique des corrections" })
-    .click();
+  await card.getByRole("button", { name: "Journal des corrections" }).click();
   await expect(
     card.getByRole("list", {
       name: "Historique des corrections de Personnes",
