@@ -12,7 +12,7 @@ Les clips importés après l'enregistrement de la règle sont couverts à la pro
 
 ## Ce que reçoit la piste
 
-La piste désignée devient un Locuteur local de type `microphone` (libellé « Piste micro »), sans tâche de diarisation ni empreinte, avec un seul tour couvrant le clip. Son Attribution est automatique, non validée, d'origine `microphone_track`, de confiance 1, signée par l'administrateur qui a fixé la règle. Elle n'est jamais un Échantillon vocal validé : elle ne contribue pas aux références (ADR 0008). Tout utilisateur connecté peut la valider ou la corriger comme un autre Locuteur local ; la validation humaine l'emporte et n'est jamais perdue.
+La piste désignée devient un Locuteur local de type `microphone` (libellé « Piste micro »), sans tâche de diarisation ni empreinte, avec un seul tour couvrant le clip. Son Attribution est de niveau `automatic` (indépendamment de l'interrupteur d'automatisation, qui ne gouverne que le rapprochement vocal), non validée, d'origine `microphone_track`, de confiance 1, signée par l'administrateur qui a fixé la règle. Elle n'est jamais un Échantillon vocal validé : elle ne contribue pas aux références (ADR 0008). Tout utilisateur connecté peut la valider ou la corriger comme un autre Locuteur local ; la validation humaine l'emporte et n'est jamais perdue.
 
 Les autres pistes audio d'un clip restent traitées normalement, y compris la diarisation. La planification d'une étape vocale sur la piste micro est refusée (`microphone_track_not_diarized`), de même qu'un résultat de diarisation tardif sur cette piste.
 

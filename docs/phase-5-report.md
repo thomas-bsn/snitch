@@ -26,6 +26,19 @@ Environnement : Docker via Colima. Réussies :
 
 Non exécutés ici : builds d'images Docker app/worker et smoke Compose (CI distante non exécutée), `pip check` dans l'image worker (il a été exécuté sur l'environnement Python local).
 
+## Corrections de la revue de code
+
+Constats corrigés sur `ticket/phase-5-review-fixes` (chaque correction a d'abord un test qui échoue) :
+
+- **Fuite biométrique** : le résultat d'une tâche d'empreintes ne persiste plus ses vecteurs dans `jobs.result` (résumé sans vecteur et condensé SHA-256 pour la reprise d'un résultat identique ; migration 00031, qui nettoie aussi les lignes existantes). Après suppression d'un profil, aucun vecteur ne subsiste dans la file, les réponses de planification ou de reprise.
+- Nommage d'un groupe refusé pour une Personne au profil supprimé (`409 voice_profile_deleted`).
+- Liens de groupes : la limite de 20 voisins s'applique après le filtre des voix inconnues.
+- Groupes : composantes calculées sur les seules voix visibles de l'utilisateur ; un clip privé ne relie plus deux voix visibles.
+- Filtre « inconnu » harmonisé entre recherche et bibliothèque.
+- Fusion et suppression de Personne : refus pour un non-administrateur si des attributions touchent des clips invisibles (voir les écarts).
+- Résultat vocal avec lease expiré : le comportement était déjà correct (409, aucune ligne partielle) ; test ajouté. Le résultat périmé était déjà couvert.
+- Standards : type `DecisionLevel` et constantes, helpers `pathID` et `beginLocked`, commentaires indépendants des numéros de ticket.
+
 ## Restant
 
 - Benchmark réel, seuils et critères définitifs (95 %, 50 confirmations, 0,90 / 0,75 / 0,05 sont des valeurs de départ), choix du modèle de diarisation et d'empreintes, accès à un vrai modèle : phase 7, avec autorisation séparée.
@@ -36,11 +49,15 @@ Non exécutés ici : builds d'images Docker app/worker et smoke Compose (CI dist
 ## Écarts et choix à confirmer
 
 - **Liaison compte-Personne réservée aux administrateurs** : la spec ne le précisait pas ; la suppression du profil est ouverte au compte lié et aux administrateurs.
-- **Tous les utilisateurs connectés** peuvent créer, valider, corriger, fusionner, séparer et supprimer des Personnes (conforme à « tous les utilisateurs connectés valident », mais étendu aux opérations destructrices de #40) : à confirmer, ou à restreindre.
+- **Tous les utilisateurs connectés** peuvent créer, valider, corriger, fusionner, séparer et supprimer des Personnes (conforme à « tous les utilisateurs connectés valident », mais étendu aux opérations destructrices de #40). Choix tranché à la revue : fusion et suppression réécrivent toutes les attributions d'une Personne, y compris sur des clips privés que l'appelant ne voit pas ; un utilisateur non administrateur est donc refusé (`409 person_has_hidden_voices`) si la Personne est attribuée sur un clip qu'il ne peut pas voir. L'administrateur voit tout et n'est pas limité ; la séparation et les corrections par voix suivaient déjà la visibilité. À confirmer, ou à assouplir.
 - **Une Personne liée à un compte n'est pas supprimable**, pour ne pas supprimer silencieusement l'identité d'un utilisateur.
 - **Pas de levée du retrait du profil vocal** : une Personne ayant supprimé son profil ne peut plus recevoir de validation ni de rapprochement ; la rétablir demande une décision.
 - **Rapprochement synchrone dans la requête de validation** : la requête attend le recalcul de la bibliothèque (un échec est journalisé sans défaire la validation) ; acceptable pour la phase 5, à revoir en phase 7.
 - **Verrou de re-diarisation** : une piste dont un Locuteur local est validé ne peut plus être rediarisée, ce que la spec n'avait pas prévu.
+- **Empreintes par tour de parole** : elles sont calculées et stockées (portée `turn`) mais ne servent pas au rapprochement, qui ne compare que les empreintes de portée `speaker` ; leur usage est laissé à la phase 7.
+- **`confirm_unmet_criteria`** : l'administrateur peut activer l'automatisation sous les critères de précision en le confirmant explicitement (sinon `409 criteria_not_met`) ; l'activation est tracée comme forcée. La spec parle de « proposition » d'activation lorsque les critères sont atteints ; ce forçage est un ajout.
+- **Attributions micro au niveau `automatic`** : la piste micro désignée est attribuée au niveau `automatic` indépendamment de l'interrupteur d'automatisation (qui ne gouverne que le rapprochement vocal), sans jamais devenir un Échantillon vocal validé.
+- **Filtre « inconnu »** : règle unique pour la recherche (segment) et la bibliothèque (clip) : sans voix identifiée, c'est inconnu, y compris pour un clip sans Locuteur local.
 - **Playwright** : `person-filter.spec.ts` a été signalé comme éventuellement instable par un agent ; il a passé dans la dernière exécution complète, sans flake observé. À surveiller.
 - **Numérotation des migrations** : 00026 et 00028 ne sont pas utilisées (tickets n'ayant pas eu besoin de migration) ; les migrations passent vierges et rejouées.
 - **Mentions « aucun code avant accord » obsolètes** : la note de la spec de phase 5 et la ligne d'état de la roadmap sont mises à jour. HANDOFF.md n'a pas été modifié : ses mentions d'état restent historiques (voir AGENTS.md).

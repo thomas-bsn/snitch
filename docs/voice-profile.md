@@ -26,6 +26,8 @@ Autorisée au compte lié à la Personne et aux administrateurs (`403 forbidden`
 
 ## Pas de reconstitution
 
+Aucun vecteur n'existe hors de `voice_fingerprints` : le résultat d'une tâche d'empreintes est stocké sans vecteur dans `jobs.result` (résumé et condensé seulement), si bien que la suppression d'un profil ne laisse rien dans la file ni dans les réponses de planification ou de reprise.
+
 Le marqueur de retrait ne contient aucune donnée vocale. Tant qu'il est posé :
 
 - le rapprochement ignore les références de la Personne, même insérées hors API ;
