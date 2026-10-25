@@ -62,6 +62,7 @@ from .microphone_track_item_role import MicrophoneTrackItemRole
 from .microphone_track_rule_input import MicrophoneTrackRuleInput
 from .microphone_track_status import MicrophoneTrackStatus
 from .person import Person
+from .person_account_input import PersonAccountInput
 from .person_input import PersonInput
 from .person_list import PersonList
 from .person_ref import PersonRef
@@ -116,6 +117,16 @@ from .user import User
 from .user_role import UserRole
 from .vocabulary_list import VocabularyList
 from .vocabulary_term_input import VocabularyTermInput
+from .voice_accuracy import VoiceAccuracy
+from .voice_accuracy_criteria import VoiceAccuracyCriteria
+from .voice_accuracy_evaluation import VoiceAccuracyEvaluation
+from .voice_accuracy_library import VoiceAccuracyLibrary
+from .voice_accuracy_person import VoiceAccuracyPerson
+from .voice_automation_criteria_input import VoiceAutomationCriteriaInput
+from .voice_automation_event import VoiceAutomationEvent
+from .voice_automation_event_action import VoiceAutomationEventAction
+from .voice_automation_input import VoiceAutomationInput
+from .voice_automation_result import VoiceAutomationResult
 from .voice_fingerprint import VoiceFingerprint
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
@@ -132,6 +143,7 @@ from .voice_pipeline import VoicePipeline
 from .voice_pipeline_fake import VoicePipelineFake
 from .voice_pipeline_provider import VoicePipelineProvider
 from .voice_pipeline_state import VoicePipelineState
+from .voice_profile_deletion import VoiceProfileDeletion
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
@@ -219,6 +231,7 @@ __all__ = (
     "MicrophoneTrackRuleInput",
     "MicrophoneTrackStatus",
     "Person",
+    "PersonAccountInput",
     "PersonInput",
     "PersonList",
     "PersonRef",
@@ -273,6 +286,16 @@ __all__ = (
     "UserRole",
     "VocabularyList",
     "VocabularyTermInput",
+    "VoiceAccuracy",
+    "VoiceAccuracyCriteria",
+    "VoiceAccuracyEvaluation",
+    "VoiceAccuracyLibrary",
+    "VoiceAccuracyPerson",
+    "VoiceAutomationCriteriaInput",
+    "VoiceAutomationEvent",
+    "VoiceAutomationEventAction",
+    "VoiceAutomationInput",
+    "VoiceAutomationResult",
     "VoiceFingerprint",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
@@ -289,6 +312,7 @@ __all__ = (
     "VoicePipelineFake",
     "VoicePipelineProvider",
     "VoicePipelineState",
+    "VoiceProfileDeletion",
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",

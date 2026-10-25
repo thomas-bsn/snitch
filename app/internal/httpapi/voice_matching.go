@@ -42,12 +42,15 @@ import (
 const matchingOrigin = "matching"
 
 type matchingSettings struct {
-	AutoEnabled         bool      `json:"auto_enabled"`
-	AutomaticThreshold  float64   `json:"automatic_threshold"`
-	SuggestionThreshold float64   `json:"suggestion_threshold"`
-	AmbiguityMargin     float64   `json:"ambiguity_margin"`
-	MaxCandidates       int       `json:"max_candidates"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	AutoEnabled         bool       `json:"auto_enabled"`
+	AutomaticThreshold  float64    `json:"automatic_threshold"`
+	SuggestionThreshold float64    `json:"suggestion_threshold"`
+	AmbiguityMargin     float64    `json:"ambiguity_margin"`
+	MaxCandidates       int        `json:"max_candidates"`
+	PrecisionThreshold  float64    `json:"precision_threshold"`
+	MinConfirmations    int        `json:"min_confirmations"`
+	AutoChangedAt       *time.Time `json:"auto_changed_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 type voiceDB interface {
@@ -56,7 +59,7 @@ type voiceDB interface {
 
 func loadMatchingSettings(ctx context.Context, db voiceDB) (matchingSettings, error) {
 	var v matchingSettings
-	err := db.QueryRow(ctx, `SELECT auto_enabled,automatic_threshold,suggestion_threshold,ambiguity_margin,max_candidates,updated_at FROM voice_matching_settings WHERE id=true`).Scan(&v.AutoEnabled, &v.AutomaticThreshold, &v.SuggestionThreshold, &v.AmbiguityMargin, &v.MaxCandidates, &v.UpdatedAt)
+	err := db.QueryRow(ctx, `SELECT auto_enabled,automatic_threshold,suggestion_threshold,ambiguity_margin,max_candidates,precision_threshold,min_confirmations,auto_changed_at,updated_at FROM voice_matching_settings WHERE id=true`).Scan(&v.AutoEnabled, &v.AutomaticThreshold, &v.SuggestionThreshold, &v.AmbiguityMargin, &v.MaxCandidates, &v.PrecisionThreshold, &v.MinConfirmations, &v.AutoChangedAt, &v.UpdatedAt)
 	return v, err
 }
 
@@ -277,7 +280,7 @@ func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, 
 	query := fmt.Sprintf(`WITH refs AS (
   SELECT vs.person_id,f.embedding::vector(%[1]d) AS e
   FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.retired_at IS NULL AND f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
+  WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons op WHERE op.id=vs.person_id AND op.voice_profile_deleted_at IS NOT NULL) AND f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
 ), targets AS (
   SELECT f.local_speaker_id AS sid,f.clip_id,f.embedding::vector(%[1]d) AS e
   FROM voice_fingerprints f

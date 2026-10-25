@@ -187,12 +187,13 @@ type OauthState struct {
 }
 
 type Person struct {
-	ID          int64              `json:"id"`
-	DisplayName string             `json:"display_name"`
-	UserID      pgtype.Int8        `json:"user_id"`
-	CreatedBy   pgtype.Int8        `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID                    int64              `json:"id"`
+	DisplayName           string             `json:"display_name"`
+	UserID                pgtype.Int8        `json:"user_id"`
+	CreatedBy             pgtype.Int8        `json:"created_by"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	VoiceProfileDeletedAt pgtype.Timestamptz `json:"voice_profile_deleted_at"`
 }
 
 type Session struct {
@@ -340,6 +341,20 @@ type User struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceAutomationEvent struct {
+	ID                 int64              `json:"id"`
+	Action             string             `json:"action"`
+	AuthorID           pgtype.Int8        `json:"author_id"`
+	AuthorUsername     string             `json:"author_username"`
+	CriteriaMet        bool               `json:"criteria_met"`
+	Forced             bool               `json:"forced"`
+	MeasuredPrecision  pgtype.Float8      `json:"measured_precision"`
+	Confirmations      int32              `json:"confirmations"`
+	PrecisionThreshold float64            `json:"precision_threshold"`
+	MinConfirmations   int32              `json:"min_confirmations"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type VoiceFingerprint struct {
 	ID               int64              `json:"id"`
 	LocalSpeakerID   int64              `json:"local_speaker_id"`
@@ -385,6 +400,10 @@ type VoiceMatchingSetting struct {
 	MaxCandidates       int32              `json:"max_candidates"`
 	UpdatedBy           pgtype.Int8        `json:"updated_by"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	PrecisionThreshold  float64            `json:"precision_threshold"`
+	MinConfirmations    int32              `json:"min_confirmations"`
+	AutoChangedAt       pgtype.Timestamptz `json:"auto_changed_at"`
+	AutoChangedBy       pgtype.Int8        `json:"auto_changed_by"`
 }
 
 type VoicePipelineActive struct {
@@ -396,6 +415,19 @@ type VoicePipelineVersion struct {
 	Version   string             `json:"version"`
 	Config    []byte             `json:"config"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoiceProfileDeletion struct {
+	ID                int64              `json:"id"`
+	PersonID          int64              `json:"person_id"`
+	PersonName        string             `json:"person_name"`
+	LinkedUserID      pgtype.Int8        `json:"linked_user_id"`
+	DeletedBy         pgtype.Int8        `json:"deleted_by"`
+	DeletedByUsername string             `json:"deleted_by_username"`
+	SampleCount       int32              `json:"sample_count"`
+	FingerprintCount  int32              `json:"fingerprint_count"`
+	AttributionCount  int32              `json:"attribution_count"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type VoiceSample struct {

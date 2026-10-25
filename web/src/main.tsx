@@ -12,6 +12,9 @@ import {
 } from "./voice/PersonFilter";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
+import { MyVoiceCard } from "./voice/MyVoiceCard";
+import { PersonAccountCard } from "./voice/PersonAccountCard";
+import { VoiceAutomationCard } from "./voice/VoiceAutomationCard";
 import { VoiceGroupsCard } from "./voice/VoiceGroupsCard";
 import { VoiceVerificationCard } from "./voice/VoiceVerificationCard";
 import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
@@ -2128,12 +2131,20 @@ function App() {
                   )}
                 </section>
               )}
+              <MyVoiceCard csrf={csrf} />
+              {session.user.role === "admin" && (
+                <PersonAccountCard csrf={csrf} />
+              )}
               {session.user.role === "admin" && (
                 <VoicePipelineCard csrf={csrf} />
               )}
               {session.user.role === "admin" && (
                 <VoiceMatchingCard csrf={csrf} />
               )}
+              <VoiceAutomationCard
+                isAdmin={session.user.role === "admin"}
+                csrf={csrf}
+              />
               {session.user.role === "admin" && (
                 <section className="card" id="vocabulary">
                   <h2>Vocabulaire de transcription</h2>

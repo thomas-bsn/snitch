@@ -241,8 +241,15 @@ function CaseItem({
           >
             <option value="">Choisir…</option>
             {persons.map((p) => (
-              <option key={p.id} value={p.id}>
+              <option
+                key={p.id}
+                value={p.id}
+                disabled={p.voice_profile_deleted_at !== null}
+              >
                 {p.display_name}
+                {p.voice_profile_deleted_at !== null
+                  ? " (profil vocal supprimé)"
+                  : ""}
               </option>
             ))}
           </select>
