@@ -216,6 +216,20 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("matching must neither create Persons nor references")
 	}
 
+	// A microphone-track speaker keeps its designated owner: matching never touches it,
+	// even when its fingerprint is close to another Person's reference.
+	micSpeaker := h.fixtureSpeaker(clipC, "MIC", usableAt(5))
+	if _, err := pool.Exec(context.Background(), `UPDATE local_speakers SET kind='microphone',diarization_job_id=NULL WHERE id=$1`, micSpeaker.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,confidence,origin) VALUES($1,$2,'automatic','unvalidated',1,'microphone_track')`, micSpeaker.ID, bob); err != nil {
+		t.Fatal(err)
+	}
+	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
+	if h.count(`SELECT count(*) FROM speaker_attributions WHERE local_speaker_id=$1 AND origin='microphone_track' AND person_id=$2`, micSpeaker.ID, bob) != 1 || h.count(`SELECT count(*) FROM speaker_attributions WHERE local_speaker_id=$1`, micSpeaker.ID) != 1 {
+		t.Fatal("matching must ignore microphone-track speakers")
+	}
+
 	// A correction retires the old reference and creates a new one: the stored
 	// fingerprints are matched again without any worker.
 	h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/correction", bobReference.ID), map[string]any{"person_id": alice, "expected_person_id": bob}, http.StatusOK)

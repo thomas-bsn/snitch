@@ -112,7 +112,7 @@ func testPersonFilter(t *testing.T, pool *pgxpool.Pool) {
 
 	// Human validation of SPEAKER_00, automatic machine attribution of SPEAKER_01.
 	h.userCall(alice, http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/validation", first), map[string]any{"person_id": alicePerson.ID}, http.StatusCreated)
-	if _, err := pool.Exec(ctx, `INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,confidence,origin) VALUES($1,$2,'automatic','unvalidated',0.97,'synthetic_origin')`, second, bobPerson.ID); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,confidence,origin) VALUES($1,$2,'automatic','unvalidated',0.97,'synthetic_origin') ON CONFLICT (local_speaker_id) WHERE validation_state='unvalidated' DO UPDATE SET person_id=EXCLUDED.person_id,decision_level=EXCLUDED.decision_level,confidence=EXCLUDED.confidence,origin=EXCLUDED.origin`, second, bobPerson.ID); err != nil {
 		t.Fatal(err)
 	}
 

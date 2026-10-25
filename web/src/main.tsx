@@ -12,6 +12,8 @@ import {
 } from "./voice/PersonFilter";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
+import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
+import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
 
 const api = createClient<paths>();
 type Setup = components["schemas"]["Setup"];
@@ -1807,6 +1809,15 @@ function App() {
                                   reloadToken={clipDetails[clip.id]}
                                 />
                               )}
+                            {clipDetails[clip.id] &&
+                              clip.status === "ready" && (
+                                <MicrophoneClipCard
+                                  clipId={clip.id}
+                                  isAdmin={session.user.role === "admin"}
+                                  csrf={csrf}
+                                  onChanged={() => void loadClipDetail(clip.id)}
+                                />
+                              )}
                             {clipDetails[clip.id] && (
                               <button
                                 className="secondary"
@@ -2726,6 +2737,10 @@ function App() {
                               </button>
                             </form>
                           </details>
+                          <MicrophoneSourceCard
+                            sourceId={source.id}
+                            csrf={csrf}
+                          />
                           <ul>
                             {source.files.map((file) => (
                               <li

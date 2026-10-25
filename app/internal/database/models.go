@@ -52,6 +52,16 @@ type ClipAudioTrackOverride struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ClipMicrophoneOverride struct {
+	ClipID           int64              `json:"clip_id"`
+	Disabled         bool               `json:"disabled"`
+	AudioStreamIndex pgtype.Int4        `json:"audio_stream_index"`
+	PersonID         pgtype.Int8        `json:"person_id"`
+	Version          int64              `json:"version"`
+	UpdatedBy        pgtype.Int8        `json:"updated_by"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ClipSource struct {
 	ID             int64              `json:"id"`
 	Name           string             `json:"name"`
@@ -144,14 +154,28 @@ type JobEvent struct {
 }
 
 type LocalSpeaker struct {
-	ID               int64   `json:"id"`
-	ClipID           int64   `json:"clip_id"`
-	AudioStreamIndex int32   `json:"audio_stream_index"`
-	DiarizationJobID int64   `json:"diarization_job_id"`
-	Label            string  `json:"label"`
-	Ordinal          int32   `json:"ordinal"`
-	SpeakingSeconds  float64 `json:"speaking_seconds"`
-	TurnCount        int32   `json:"turn_count"`
+	ID               int64       `json:"id"`
+	ClipID           int64       `json:"clip_id"`
+	AudioStreamIndex int32       `json:"audio_stream_index"`
+	DiarizationJobID pgtype.Int8 `json:"diarization_job_id"`
+	Label            string      `json:"label"`
+	Ordinal          int32       `json:"ordinal"`
+	SpeakingSeconds  float64     `json:"speaking_seconds"`
+	TurnCount        int32       `json:"turn_count"`
+	Kind             string      `json:"kind"`
+}
+
+type MicrophoneTrackEvent struct {
+	ID             int64              `json:"id"`
+	Scope          string             `json:"scope"`
+	SourceID       pgtype.Int8        `json:"source_id"`
+	ClipID         pgtype.Int8        `json:"clip_id"`
+	Action         string             `json:"action"`
+	OldRule        []byte             `json:"old_rule"`
+	NewRule        []byte             `json:"new_rule"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername string             `json:"author_username"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type OauthState struct {
@@ -200,6 +224,16 @@ type SourceFile struct {
 	LastSeenGeneration int64              `json:"last_seen_generation"`
 	Status             string             `json:"status"`
 	ErrorCode          pgtype.Text        `json:"error_code"`
+}
+
+type SourceMicrophoneTrack struct {
+	SourceID         int64              `json:"source_id"`
+	AudioStreamIndex pgtype.Int4        `json:"audio_stream_index"`
+	Title            pgtype.Text        `json:"title"`
+	PersonID         int64              `json:"person_id"`
+	Version          int64              `json:"version"`
+	UpdatedBy        pgtype.Int8        `json:"updated_by"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type SpeakerAttribution struct {

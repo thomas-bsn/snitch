@@ -278,6 +278,7 @@ func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, 
   SELECT f.local_speaker_id AS sid,f.clip_id,f.embedding::vector(%[1]d) AS e
   FROM voice_fingerprints f
   WHERE f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND ($3::bigint IS NULL OR f.clip_id=$3)
+    AND NOT EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.id=f.local_speaker_id AND ls.kind='microphone')
     AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=f.local_speaker_id AND (a.validation_state='validated' OR a.origin<>'%[2]s'))
 ), scored AS (
   SELECT t.sid,r.person_id,max(1-(t.e <=> r.e)) AS score FROM targets t CROSS JOIN refs r GROUP BY t.sid,r.person_id HAVING max(1-(t.e <=> r.e)) >= $4

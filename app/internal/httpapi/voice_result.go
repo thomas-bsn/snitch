@@ -183,13 +183,14 @@ func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result dia
 	}
 	// Validations take the clip row FOR SHARE, so this check cannot race with one.
 	var locked bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND a.validation_state='validated')`, job.ClipID, index).Scan(&locked); err != nil {
+	// A designated microphone track is never diarized either (ticket 34).
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND a.validation_state='validated') OR EXISTS(SELECT 1 FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='microphone')`, job.ClipID, index).Scan(&locked); err != nil {
 		return fmt.Errorf("check validated speakers: %w", err)
 	}
 	if locked {
 		return errDiarizationLocked
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2`, job.ClipID, index); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='diarized'`, job.ClipID, index); err != nil {
 		return fmt.Errorf("replace local speakers: %w", err)
 	}
 	for ordinal, speaker := range *result.Speakers {

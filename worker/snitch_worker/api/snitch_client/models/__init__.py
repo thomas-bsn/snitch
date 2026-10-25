@@ -16,6 +16,8 @@ from .audio_track_selection_status import AudioTrackSelectionStatus
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
 from .bootstrap import Bootstrap
 from .clip import Clip
+from .clip_microphone_track import ClipMicrophoneTrack
+from .clip_microphone_track_selection_source import ClipMicrophoneTrackSelectionSource
 from .clip_page import ClipPage
 from .clip_person import ClipPerson
 from .clip_visibility import ClipVisibility
@@ -41,8 +43,22 @@ from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
 from .local_speaker import LocalSpeaker
+from .local_speaker_kind import LocalSpeakerKind
 from .local_speaker_state import LocalSpeakerState
 from .media_track import MediaTrack
+from .microphone_detected_track import MicrophoneDetectedTrack
+from .microphone_snapshot import MicrophoneSnapshot
+from .microphone_source_rule import MicrophoneSourceRule
+from .microphone_source_rule_status_counts import MicrophoneSourceRuleStatusCounts
+from .microphone_source_rule_value import MicrophoneSourceRuleValue
+from .microphone_track_clip_input import MicrophoneTrackClipInput
+from .microphone_track_event import MicrophoneTrackEvent
+from .microphone_track_event_action import MicrophoneTrackEventAction
+from .microphone_track_event_scope import MicrophoneTrackEventScope
+from .microphone_track_item import MicrophoneTrackItem
+from .microphone_track_item_role import MicrophoneTrackItemRole
+from .microphone_track_rule_input import MicrophoneTrackRuleInput
+from .microphone_track_status import MicrophoneTrackStatus
 from .person import Person
 from .person_input import PersonInput
 from .person_list import PersonList
@@ -145,6 +161,8 @@ __all__ = (
     "BackfillEmbeddingIndexResponse202",
     "Bootstrap",
     "Clip",
+    "ClipMicrophoneTrack",
+    "ClipMicrophoneTrackSelectionSource",
     "ClipPage",
     "ClipPerson",
     "ClipVisibility",
@@ -170,8 +188,22 @@ __all__ = (
     "ListClipsVisibility",
     "ListJobsStatus",
     "LocalSpeaker",
+    "LocalSpeakerKind",
     "LocalSpeakerState",
     "MediaTrack",
+    "MicrophoneDetectedTrack",
+    "MicrophoneSnapshot",
+    "MicrophoneSourceRule",
+    "MicrophoneSourceRuleStatusCounts",
+    "MicrophoneSourceRuleValue",
+    "MicrophoneTrackClipInput",
+    "MicrophoneTrackEvent",
+    "MicrophoneTrackEventAction",
+    "MicrophoneTrackEventScope",
+    "MicrophoneTrackItem",
+    "MicrophoneTrackItemRole",
+    "MicrophoneTrackRuleInput",
+    "MicrophoneTrackStatus",
     "Person",
     "PersonInput",
     "PersonList",

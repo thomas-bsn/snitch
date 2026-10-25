@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.decision_level import DecisionLevel
+from ..models.local_speaker_kind import LocalSpeakerKind
 from ..models.local_speaker_state import LocalSpeakerState
 from typing import cast
 
@@ -31,6 +32,8 @@ class LocalSpeaker:
         Attributes:
             id (int):
             label (str):
+            kind (LocalSpeakerKind): microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le
+                clip, aucune empreinte).
             ordinal (int):
             speaking_seconds (float):
             turn_count (int):
@@ -46,6 +49,7 @@ class LocalSpeaker:
 
     id: int
     label: str
+    kind: LocalSpeakerKind
     ordinal: int
     speaking_seconds: float
     turn_count: int
@@ -67,6 +71,8 @@ class LocalSpeaker:
         id = self.id
 
         label = self.label
+
+        kind = self.kind.value
 
         ordinal = self.ordinal
 
@@ -103,6 +109,7 @@ class LocalSpeaker:
         field_dict.update({
             "id": id,
             "label": label,
+            "kind": kind,
             "ordinal": ordinal,
             "speaking_seconds": speaking_seconds,
             "turn_count": turn_count,
@@ -126,6 +133,11 @@ class LocalSpeaker:
         id = d.pop("id")
 
         label = d.pop("label")
+
+        kind = LocalSpeakerKind(d.pop("kind"))
+
+
+
 
         ordinal = d.pop("ordinal")
 
@@ -192,6 +204,7 @@ class LocalSpeaker:
         local_speaker = cls(
             id=id,
             label=label,
+            kind=kind,
             ordinal=ordinal,
             speaking_seconds=speaking_seconds,
             turn_count=turn_count,

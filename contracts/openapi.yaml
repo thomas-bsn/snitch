@@ -2695,6 +2695,56 @@
         }
       }
     },
+    "/api/admin/sources/{id}/microphone-track": {
+      "get": {
+        "operationId": "getSourceMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Règle et pistes détectées", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneSourceRule"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Règle de piste micro de la source et pistes audio réellement détectées sur ses clips (index, titre, langue), à partir desquelles choisir : aucun titre n'est supposé.",
+        "security": [{"session": []}]
+      },
+      "put": {
+        "operationId": "putSourceMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneTrackRuleInput"}}}},
+        "responses": {"200": {"description": "Règle enregistrée et appliquée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneSourceRule"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Désigne la piste micro de la source (index global et/ou titre exact) et sa Personne propriétaire, puis l'applique aux clips prêts de la source : la piste reçoit directement son propriétaire, sans diarisation. status_counts rapporte, par état, le résultat sur chaque clip. Enregistrer une règle identique la réapplique sans nouvelle version.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "deleteSourceMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Règle retirée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneSourceRule"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Retire la règle ; les attributions de piste micro sans validation humaine disparaissent, les validations humaines sont conservées.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/clips/{id}/microphone-track": {
+      "get": {
+        "operationId": "getClipMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Piste micro du clip", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipMicrophoneTrack"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. Piste micro désignée (règle de la source ou remplacement du clip), rôle de chaque piste audio, raison explicite quand la désignation ne s'applique pas, et historique des changements.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/clips/{id}/microphone-track": {
+      "put": {
+        "operationId": "putClipMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneTrackClipInput"}}}},
+        "responses": {"200": {"description": "Piste micro du clip", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipMicrophoneTrack"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Remplace la règle de la source pour ce clip : une autre piste et un autre propriétaire, ou disabled=true pour dire qu'il n'y a pas de piste micro. Le changement est historisé.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "deleteClipMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Piste micro du clip", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipMicrophoneTrack"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Retire le remplacement du clip ; la règle de la source s'applique de nouveau. Le changement est historisé.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/vocabulary": {
       "get": {
         "operationId": "listVocabulary",
@@ -4443,10 +4493,11 @@
       "AttributionHistory": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/AttributionEvent"}}}},
       "LocalSpeaker": {
         "type": "object",
-        "required": ["id", "label", "ordinal", "speaking_seconds", "turn_count", "state", "decision_level", "person", "attribution", "fingerprints"],
+        "required": ["id", "label", "kind", "ordinal", "speaking_seconds", "turn_count", "state", "decision_level", "person", "attribution", "fingerprints"],
         "properties": {
           "id": {"type": "integer", "format": "int64"},
           "label": {"type": "string"},
+          "kind": {"type": "string", "enum": ["diarized", "microphone"], "description": "microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le clip, aucune empreinte)."},
           "ordinal": {"type": "integer"},
           "speaking_seconds": {"type": "number"},
           "turn_count": {"type": "integer"},
@@ -5058,6 +5109,117 @@
             "type": "integer",
             "minimum": 0
           }
+        }
+      },
+      "MicrophoneTrackRuleInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["person_id"],
+        "properties": {
+          "audio_stream_index": {"type": "integer", "minimum": 0, "description": "Index global FFmpeg d'une piste détectée."},
+          "title": {"type": "string", "minLength": 1, "maxLength": 200, "description": "Titre exact (sans casse) d'une piste détectée."},
+          "person_id": {"type": "integer", "format": "int64", "minimum": 1, "description": "Personne propriétaire du micro."}
+        },
+        "description": "Au moins un de audio_stream_index ou title ; si les deux sont donnés, la piste doit correspondre aux deux."
+      },
+      "MicrophoneTrackClipInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "disabled": {"type": "boolean", "description": "true : ce clip n'a pas de piste micro."},
+          "audio_stream_index": {"type": "integer", "minimum": 0},
+          "person_id": {"type": "integer", "format": "int64", "minimum": 1}
+        },
+        "description": "Soit disabled=true seul, soit audio_stream_index et person_id ensemble."
+      },
+      "MicrophoneDetectedTrack": {
+        "type": "object",
+        "required": ["audio_stream_index", "title", "language", "channels", "channel_layout", "clip_count"],
+        "properties": {
+          "audio_stream_index": {"type": "integer"},
+          "title": {"type": "string"},
+          "language": {"type": "string"},
+          "channels": {"type": "integer"},
+          "channel_layout": {"type": "string"},
+          "clip_count": {"type": "integer", "description": "Nombre de clips prêts de la source portant cette piste."}
+        }
+      },
+      "MicrophoneSourceRuleValue": {
+        "type": "object",
+        "required": ["audio_stream_index", "title", "person", "version", "updated_at"],
+        "properties": {
+          "audio_stream_index": {"type": "integer", "nullable": true},
+          "title": {"type": "string", "nullable": true},
+          "person": {"$ref": "#/components/schemas/PersonRef"},
+          "version": {"type": "integer", "format": "int64"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "MicrophoneSourceRule": {
+        "type": "object",
+        "required": ["source_id", "rule", "detected_tracks", "status_counts"],
+        "properties": {
+          "source_id": {"type": "integer", "format": "int64"},
+          "rule": {"allOf": [{"$ref": "#/components/schemas/MicrophoneSourceRuleValue"}], "nullable": true},
+          "detected_tracks": {"type": "array", "items": {"$ref": "#/components/schemas/MicrophoneDetectedTrack"}},
+          "status_counts": {"type": "object", "additionalProperties": {"type": "integer"}, "description": "Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, disabled, none). Vide en lecture."}
+        }
+      },
+      "MicrophoneTrackStatus": {
+        "type": "string",
+        "enum": ["none", "designated", "disabled", "track_not_found", "ambiguous_track", "conflicting_sources", "blocked_by_validation"],
+        "description": "none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain."
+      },
+      "MicrophoneTrackItem": {
+        "type": "object",
+        "required": ["index", "title", "language", "channels", "channel_layout", "role"],
+        "properties": {
+          "index": {"type": "integer"},
+          "title": {"type": "string"},
+          "language": {"type": "string"},
+          "channels": {"type": "integer"},
+          "channel_layout": {"type": "string"},
+          "role": {"type": "string", "enum": ["microphone", "candidate", "other"], "description": "other : piste traitée normalement (diarisation)."}
+        }
+      },
+      "MicrophoneSnapshot": {
+        "type": "object",
+        "properties": {
+          "audio_stream_index": {"type": "integer"},
+          "title": {"type": "string"},
+          "disabled": {"type": "boolean"},
+          "person": {"$ref": "#/components/schemas/PersonRef"}
+        },
+        "description": "Désignation telle qu'elle était, avec le nom de la Personne à l'époque."
+      },
+      "MicrophoneTrackEvent": {
+        "type": "object",
+        "required": ["id", "scope", "source_id", "action", "old_rule", "new_rule", "author", "created_at"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "scope": {"type": "string", "enum": ["source", "clip"]},
+          "source_id": {"type": "integer", "format": "int64", "nullable": true},
+          "action": {"type": "string", "enum": ["set", "remove", "disable"]},
+          "old_rule": {"allOf": [{"$ref": "#/components/schemas/MicrophoneSnapshot"}], "nullable": true},
+          "new_rule": {"allOf": [{"$ref": "#/components/schemas/MicrophoneSnapshot"}], "nullable": true},
+          "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "ClipMicrophoneTrack": {
+        "type": "object",
+        "required": ["clip_id", "status", "selection_source", "audio_stream_index", "person", "candidates", "local_speaker_id", "applied", "tracks", "history"],
+        "properties": {
+          "clip_id": {"type": "integer", "format": "int64"},
+          "status": {"$ref": "#/components/schemas/MicrophoneTrackStatus"},
+          "selection_source": {"type": "string", "nullable": true, "enum": ["source_rule", "clip_override"]},
+          "audio_stream_index": {"type": "integer", "nullable": true},
+          "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},
+          "candidates": {"type": "array", "items": {"type": "integer"}, "description": "Pistes qui correspondent toutes à la règle (ambiguous_track)."},
+          "local_speaker_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Locuteur local de la piste micro, une fois la désignation appliquée."},
+          "applied": {"type": "boolean"},
+          "tracks": {"type": "array", "items": {"$ref": "#/components/schemas/MicrophoneTrackItem"}},
+          "history": {"type": "array", "items": {"$ref": "#/components/schemas/MicrophoneTrackEvent"}, "description": "Changements de règle de la source et remplacements du clip, du plus récent au plus ancien (50 au plus)."}
         }
       },
       "AudioTrackSelection": {
