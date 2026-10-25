@@ -195,6 +195,21 @@ type Person struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PersonEvent struct {
+	ID                  int64              `json:"id"`
+	Action              string             `json:"action"`
+	PersonID            int64              `json:"person_id"`
+	PersonName          string             `json:"person_name"`
+	TargetPersonID      pgtype.Int8        `json:"target_person_id"`
+	TargetPersonName    string             `json:"target_person_name"`
+	AttributionCount    int32              `json:"attribution_count"`
+	SampleCount         int32              `json:"sample_count"`
+	MicrophoneRuleCount int32              `json:"microphone_rule_count"`
+	AuthorID            pgtype.Int8        `json:"author_id"`
+	AuthorUsername      string             `json:"author_username"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
 type Session struct {
 	TokenHash []byte             `json:"token_hash"`
 	UserID    int64              `json:"user_id"`

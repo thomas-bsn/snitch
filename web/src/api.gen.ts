@@ -857,6 +857,58 @@ export interface paths {
     get: operations["getPerson"];
     put?: never;
     post?: never;
+    /** @description Utilisateurs connectés. Les validations de la Personne sont retirées (les voix redeviennent inconnues), ses Échantillons vocaux effacés des références, les règles de piste micro et surcharges de clip qui la nomment supprimées (avec historique), puis le rapprochement est recalculé sans worker. Clips et empreintes restent. L'historique des voix (action delete_person) et celui des Personnes sont conservés. */
+    delete: operations["deletePerson"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/merge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés. Rattache à la cible les attributions validées (la première validation fait foi, seule la Personne change), les Échantillons vocaux et les désignations de piste micro de la Personne absorbée, qui disparaît ; le rapprochement est recalculé sans worker. Une entrée d'historique (action merge) par voix. */
+    post: operations["mergePerson"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/separation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour des voix de clips visibles (sinon 404). Retire la validation des voix nommées (elles redeviennent inconnues et peuvent être validées de nouveau) et leurs Échantillons vocaux des références ; la Personne est conservée. Historique des voix (action split), rapprochement recalculé. */
+    post: operations["separatePerson"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/person-events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Trace immuable (auteur, date, noms au moment du changement, aucun contenu vocal), y compris pour une Personne qui n'existe plus ; person_id retient aussi les fusions dont elle est la cible. */
+    get: operations["listPersonEvents"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1435,6 +1487,43 @@ export interface components {
       local_speaker_count: number;
       /** Format: date-time */
       created_at: string;
+    };
+    PersonMergeInput: {
+      /**
+       * Format: int64
+       * @description Personne qui reste ; celle du chemin est absorbée.
+       */
+      target_person_id: number;
+    };
+    PersonSeparationInput: {
+      local_speaker_ids: number[];
+    };
+    PersonCorrectionResult: {
+      /** @description Personne qui reste (cible de fusion, Personne séparée) ; null après suppression. */
+      person: components["schemas"]["Person"] | null;
+      /** @description Attributions rattachées (fusion) ou retirées (séparation, suppression). */
+      attributions: number;
+      /** @description Échantillons vocaux déplacés (fusion) ou effacés des références. */
+      samples: number;
+      /** @description Désignations de piste micro déplacées (fusion) ou supprimées (suppression). */
+      microphone_rules: number;
+    };
+    PersonEvent: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      action: "merge" | "split" | "delete";
+      person: components["schemas"]["PersonRef"];
+      target: components["schemas"]["PersonRef"] | null;
+      attribution_count: number;
+      sample_count: number;
+      microphone_rule_count: number;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    PersonEventList: {
+      items: components["schemas"]["PersonEvent"][];
     };
     PersonList: {
       items: components["schemas"]["Person"][];
@@ -4295,6 +4384,174 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deletePerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Personne supprimée ; person est null */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonCorrectionResult"];
+        };
+      };
+      /** @description person_linked_account : une Personne liée à un compte n'est pas supprimée ici */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  mergePerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonMergeInput"];
+      };
+    };
+    responses: {
+      /** @description Fusion faite ; person est la Personne cible */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonCorrectionResult"];
+        };
+      };
+      /** @description same_person ou person_linked_account (la Personne absorbée ne doit pas être liée à un compte) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  separatePerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonSeparationInput"];
+      };
+    };
+    responses: {
+      /** @description Voix séparées ; person est la Personne, conservée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonCorrectionResult"];
+        };
+      };
+      /** @description not_attributed_to_person : une voix n'est pas validée pour cette Personne ; rien n'est changé */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPersonEvents: {
+    parameters: {
+      query?: {
+        person_id?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Corrections de Personnes, les plus récentes d'abord (200 au plus) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonEventList"];
         };
       };
       /** @description Erreur */

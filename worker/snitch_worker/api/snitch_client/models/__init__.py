@@ -60,9 +60,15 @@ from .microphone_track_item_role import MicrophoneTrackItemRole
 from .microphone_track_rule_input import MicrophoneTrackRuleInput
 from .microphone_track_status import MicrophoneTrackStatus
 from .person import Person
+from .person_correction_result import PersonCorrectionResult
+from .person_event import PersonEvent
+from .person_event_action import PersonEventAction
+from .person_event_list import PersonEventList
 from .person_input import PersonInput
 from .person_list import PersonList
+from .person_merge_input import PersonMergeInput
 from .person_ref import PersonRef
+from .person_separation_input import PersonSeparationInput
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
@@ -205,9 +211,15 @@ __all__ = (
     "MicrophoneTrackRuleInput",
     "MicrophoneTrackStatus",
     "Person",
+    "PersonCorrectionResult",
+    "PersonEvent",
+    "PersonEventAction",
+    "PersonEventList",
     "PersonInput",
     "PersonList",
+    "PersonMergeInput",
     "PersonRef",
+    "PersonSeparationInput",
     "PreviewTranscriptionBatchResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",
