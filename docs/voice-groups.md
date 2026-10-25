@@ -23,4 +23,4 @@ Tout utilisateur connecté, pour les clips visibles. Interface : carte « Voix i
 
 ## Extension prévue (vue de vérification, ticket 37)
 
-`loadVoiceGroups` accepte un filtre et renvoie des groupes complets : la vue de vérification peut le réutiliser. Limite assumée : le calcul des composantes et des liens est complet à chaque lecture/rapprochement ; à rendre incrémental en phase 7 si les volumes l'exigent.
+`loadVoiceGroups` accepte un filtre et renvoie des groupes complets : la vue de vérification (ticket 37, voir voice-verification.md) en réutilise la définition SQL (voiceGroupsCTE). Limite assumée : le calcul des composantes et des liens est complet à chaque lecture/rapprochement ; à rendre incrémental en phase 7 si les volumes l'exigent.

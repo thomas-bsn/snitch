@@ -1051,6 +1051,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/voice-verification": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Vue de vérification : uniquement les voix inconnues ou ambiguës (avec leurs Personnes candidates), sur les clips visibles. Tri par fréquence : clips distincts du groupe proposé de la voix, puis nombre de voix du groupe, puis temps de parole. Trancher un cas est une validation humaine (POST /api/local-speakers/{id}/validation) : cette lecture n'écrit rien. Les compteurs par niveau sont calculés en base. Aucune promesse de qualité n'est dérivée du nombre d'extraits. */
+    get: operations["listVoiceVerification"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings": {
     parameters: {
       query?: never;
@@ -1603,6 +1620,45 @@ export interface components {
       /** Format: int64 */
       local_speaker_id: number;
       excluded: boolean;
+    };
+    VoiceVerificationCase: {
+      /**
+       * Format: int64
+       * @description Extrait écoutable par GET /api/local-speakers/{id}/excerpt ; se tranche par POST /api/local-speakers/{id}/validation.
+       */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+      /** @enum {string} */
+      decision_level: "unknown" | "ambiguous";
+      /** @description Personnes entre lesquelles une voix ambiguë hésite ; vide pour une voix inconnue. */
+      candidates: components["schemas"]["AttributionCandidate"][];
+      /**
+       * Format: int64
+       * @description Groupe proposé de la voix (voir /api/voice-groups), la voix seule si aucun lien.
+       */
+      group_id: number;
+      /** @description Voix inconnues visibles du groupe, calculé en base. */
+      group_voice_count: number;
+      /** @description Clips distincts du groupe : la fréquence qui ordonne les cas. */
+      group_clip_count: number;
+    };
+    /** @description Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base. */
+    VoiceVerificationCounts: {
+      human: number;
+      automatic: number;
+      suggestion: number;
+      ambiguous: number;
+      unknown: number;
+    };
+    VoiceVerification: {
+      items: components["schemas"]["VoiceVerificationCase"][];
+      /** @description Nombre de cas avant pagination. */
+      total: number;
+      counts: components["schemas"]["VoiceVerificationCounts"];
     };
     VoiceMatchingSettings: {
       /** @description Faux par défaut : tant que l'administrateur n'a pas activé l'automatisation, un rapprochement n'est jamais plus qu'une suggestion. */
@@ -4863,6 +4919,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceGroupExclusion"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceVerification: {
+    parameters: {
+      query?: {
+        /** @description Ne garder que les voix inconnues ou que les voix ambiguës. */
+        level?: "all" | "unknown" | "ambiguous";
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Cas à vérifier, du plus fréquent au moins fréquent, et compteurs par niveau de décision */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceVerification"];
         };
       };
       /** @description Erreur */

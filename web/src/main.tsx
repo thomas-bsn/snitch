@@ -13,6 +13,7 @@ import {
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
 import { VoiceGroupsCard } from "./voice/VoiceGroupsCard";
+import { VoiceVerificationCard } from "./voice/VoiceVerificationCard";
 import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
 import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
 
@@ -1024,6 +1025,9 @@ function App() {
               <a className="nav-link active" href="#library">
                 <span aria-hidden="true">▦</span> Bibliothèque
               </a>
+              <a className="nav-link" href="#voice-verification">
+                <span aria-hidden="true">✓</span> Vérifier les voix
+              </a>
               <a className="nav-link" href="#voice-groups">
                 <span aria-hidden="true">◍</span> Voix inconnues
               </a>
@@ -1856,6 +1860,7 @@ function App() {
                   </button>
                 </div>
               </section>
+              <VoiceVerificationCard csrf={csrf} />
               <VoiceGroupsCard csrf={csrf} />
               {setup.discord_enabled && (
                 <section className="card" id="settings">

@@ -43,6 +43,7 @@ from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
 from .list_voice_groups_sort import ListVoiceGroupsSort
+from .list_voice_verification_level import ListVoiceVerificationLevel
 from .local_speaker import LocalSpeaker
 from .local_speaker_kind import LocalSpeakerKind
 from .local_speaker_state import LocalSpeakerState
@@ -134,6 +135,10 @@ from .voice_pipeline_state import VoicePipelineState
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
+from .voice_verification import VoiceVerification
+from .voice_verification_case import VoiceVerificationCase
+from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
+from .voice_verification_counts import VoiceVerificationCounts
 from .worker import Worker
 from .worker_claim import WorkerClaim
 from .worker_failure_input import WorkerFailureInput
@@ -195,6 +200,7 @@ __all__ = (
     "ListClipsVisibility",
     "ListJobsStatus",
     "ListVoiceGroupsSort",
+    "ListVoiceVerificationLevel",
     "LocalSpeaker",
     "LocalSpeakerKind",
     "LocalSpeakerState",
@@ -286,6 +292,10 @@ __all__ = (
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",
+    "VoiceVerification",
+    "VoiceVerificationCase",
+    "VoiceVerificationCaseDecisionLevel",
+    "VoiceVerificationCounts",
     "Worker",
     "WorkerClaim",
     "WorkerFailureInput",

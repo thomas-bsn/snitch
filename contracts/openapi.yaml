@@ -3029,6 +3029,15 @@
         "security": [{"session": []}]
       }
     },
+    "/api/voice-verification": {
+      "get": {
+        "operationId": "listVoiceVerification",
+        "parameters": [{"in": "query", "name": "level", "required": false, "schema": {"type": "string", "enum": ["all", "unknown", "ambiguous"], "default": "all"}, "description": "Ne garder que les voix inconnues ou que les voix ambiguës."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
+        "responses": {"200": {"description": "Cas à vérifier, du plus fréquent au moins fréquent, et compteurs par niveau de décision", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceVerification"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Vue de vérification : uniquement les voix inconnues ou ambiguës (avec leurs Personnes candidates), sur les clips visibles. Tri par fréquence : clips distincts du groupe proposé de la voix, puis nombre de voix du groupe, puis temps de parole. Trancher un cas est une validation humaine (POST /api/local-speakers/{id}/validation) : cette lecture n'écrit rien. Les compteurs par niveau sont calculés en base. Aucune promesse de qualité n'est dérivée du nombre d'extraits.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/embeddings": {
       "get": {
         "operationId": "getEmbeddingIndexStatus",
@@ -4530,6 +4539,43 @@
         "type": "object",
         "required": ["local_speaker_id", "excluded"],
         "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "excluded": {"type": "boolean"}}
+      },
+      "VoiceVerificationCase": {
+        "type": "object",
+        "required": ["local_speaker_id", "clip_id", "clip_name", "label", "speaking_seconds", "decision_level", "candidates", "group_id", "group_voice_count", "group_clip_count"],
+        "properties": {
+          "local_speaker_id": {"type": "integer", "format": "int64", "description": "Extrait écoutable par GET /api/local-speakers/{id}/excerpt ; se tranche par POST /api/local-speakers/{id}/validation."},
+          "clip_id": {"type": "integer", "format": "int64"},
+          "clip_name": {"type": "string"},
+          "label": {"type": "string"},
+          "speaking_seconds": {"type": "number"},
+          "decision_level": {"type": "string", "enum": ["unknown", "ambiguous"]},
+          "candidates": {"type": "array", "items": {"$ref": "#/components/schemas/AttributionCandidate"}, "description": "Personnes entre lesquelles une voix ambiguë hésite ; vide pour une voix inconnue."},
+          "group_id": {"type": "integer", "format": "int64", "description": "Groupe proposé de la voix (voir /api/voice-groups), la voix seule si aucun lien."},
+          "group_voice_count": {"type": "integer", "description": "Voix inconnues visibles du groupe, calculé en base."},
+          "group_clip_count": {"type": "integer", "description": "Clips distincts du groupe : la fréquence qui ordonne les cas."}
+        }
+      },
+      "VoiceVerificationCounts": {
+        "type": "object",
+        "required": ["human", "automatic", "suggestion", "ambiguous", "unknown"],
+        "description": "Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base.",
+        "properties": {
+          "human": {"type": "integer"},
+          "automatic": {"type": "integer"},
+          "suggestion": {"type": "integer"},
+          "ambiguous": {"type": "integer"},
+          "unknown": {"type": "integer"}
+        }
+      },
+      "VoiceVerification": {
+        "type": "object",
+        "required": ["items", "total", "counts"],
+        "properties": {
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceVerificationCase"}},
+          "total": {"type": "integer", "description": "Nombre de cas avant pagination."},
+          "counts": {"$ref": "#/components/schemas/VoiceVerificationCounts"}
+        }
       },
       "VoiceMatchingSettings": {
         "type": "object",
