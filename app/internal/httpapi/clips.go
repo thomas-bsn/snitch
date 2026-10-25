@@ -36,6 +36,8 @@ type clipItem struct {
 	Status              string    `json:"status"`
 	Sources             []string  `json:"sources"`
 	Uploaders           []string  `json:"uploaders"`
+	// Persons are the Persons identified in the clip (human or automatic attribution).
+	Persons []clipPerson `json:"persons"`
 }
 
 func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
@@ -94,10 +96,14 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	person, ok := rejectPersonFilter(w, r)
+	if !ok {
+		return
+	}
 	admin := ss.User.Role == "admin"
 	visibilityClause := "(c.visibility='shared' OR c.owner_id=$1 OR $2)"
-	args := []any{ss.User.ID, admin, visibility, status, owner, source, from, to}
-	filters := "($3='' OR c.visibility=$3) AND ($4='' OR c.id IN (SELECT sf.clip_id FROM source_files sf WHERE sf.status=$4) OR ($4='ready' AND EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id)) OR ($4='missing' AND NOT EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready'))) AND ($5=0 OR c.owner_id=$5) AND ($6=0 OR EXISTS(SELECT 1 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id AND cs.id=$6)) AND ($7='' OR c.recorded_at::date >= $7::date) AND ($8='' OR c.recorded_at::date <= $8::date)"
+	args := []any{ss.User.ID, admin, visibility, status, owner, source, from, to, person.PersonID, person.Unknown}
+	filters := "($3='' OR c.visibility=$3) AND ($4='' OR c.id IN (SELECT sf.clip_id FROM source_files sf WHERE sf.status=$4) OR ($4='ready' AND EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id)) OR ($4='missing' AND NOT EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready'))) AND ($5=0 OR c.owner_id=$5) AND ($6=0 OR EXISTS(SELECT 1 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id AND cs.id=$6)) AND ($7='' OR c.recorded_at::date >= $7::date) AND ($8='' OR c.recorded_at::date <= $8::date) AND " + clipPersonPredicate("$9", "$10")
 	var total int
 	err = s.Pool.QueryRow(r.Context(), "SELECT count(*) FROM clips c WHERE "+visibilityClause+" AND "+filters, args...).Scan(&total)
 	if err != nil {
@@ -109,7 +115,7 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
  COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb)
- FROM clips c JOIN users u ON u.id=c.owner_id WHERE `+visibilityClause+" AND "+filters+" ORDER BY c.recorded_at DESC,c.id DESC LIMIT $9 OFFSET $10", args...)
+ FROM clips c JOIN users u ON u.id=c.owner_id WHERE `+visibilityClause+" AND "+filters+" ORDER BY c.recorded_at DESC,c.id DESC LIMIT $11 OFFSET $12", args...)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -127,6 +133,22 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 	if err = rows.Err(); err != nil {
 		s.internal(w, err)
 		return
+	}
+	rows.Close()
+	ids := make([]int64, len(items))
+	for i := range items {
+		ids[i] = items[i].ID
+	}
+	persons, err := s.clipPersons(r.Context(), ids)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	for i := range items {
+		items[i].Persons = persons[items[i].ID]
+		if items[i].Persons == nil {
+			items[i].Persons = []clipPerson{}
+		}
 	}
 	reply(w, 200, map[string]any{"items": items, "page": page, "page_size": size, "total": total})
 }
@@ -179,7 +201,16 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 			transcript = nil
 		}
 	}
-	response := map[string]any{"audio_track_selection": selection, "id": v.ID, "owner_id": v.OwnerID, "owner": v.Owner, "visibility": v.Visibility, "original_name": v.OriginalName, "size_bytes": v.SizeBytes, "discovered_at": v.DiscoveredAt, "recorded_at": v.RecordedAt, "recorded_at_estimated": v.RecordedAtEstimated, "duration_seconds": v.DurationSeconds, "format_name": v.FormatName, "video_codec": v.VideoCodec, "audio_codec": v.AudioCodec, "tracks": v.Tracks, "status": v.Status, "sources": v.Sources, "uploaders": v.Uploaders}
+	persons, personsErr := s.clipPersons(r.Context(), []int64{v.ID})
+	if personsErr != nil {
+		s.internal(w, personsErr)
+		return
+	}
+	clipPeople := persons[v.ID]
+	if clipPeople == nil {
+		clipPeople = []clipPerson{}
+	}
+	response := map[string]any{"persons": clipPeople, "audio_track_selection": selection, "id": v.ID, "owner_id": v.OwnerID, "owner": v.Owner, "visibility": v.Visibility, "original_name": v.OriginalName, "size_bytes": v.SizeBytes, "discovered_at": v.DiscoveredAt, "recorded_at": v.RecordedAt, "recorded_at_estimated": v.RecordedAtEstimated, "duration_seconds": v.DurationSeconds, "format_name": v.FormatName, "video_codec": v.VideoCodec, "audio_codec": v.AudioCodec, "tracks": v.Tracks, "status": v.Status, "sources": v.Sources, "uploaders": v.Uploaders}
 	if transcript != nil {
 		var value any
 		if json.Unmarshal(transcript, &value) == nil {

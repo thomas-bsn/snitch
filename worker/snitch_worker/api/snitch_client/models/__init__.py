@@ -18,6 +18,7 @@ from .clip import Clip
 from .clip_microphone_track import ClipMicrophoneTrack
 from .clip_microphone_track_selection_source import ClipMicrophoneTrackSelectionSource
 from .clip_page import ClipPage
+from .clip_person import ClipPerson
 from .clip_visibility import ClipVisibility
 from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
@@ -158,6 +159,7 @@ __all__ = (
     "ClipMicrophoneTrack",
     "ClipMicrophoneTrackSelectionSource",
     "ClipPage",
+    "ClipPerson",
     "ClipVisibility",
     "ClipVoice",
     "ClipVoiceStatus",

@@ -29,6 +29,8 @@ def _get_kwargs(
     status: SearchTranscriptsStatus | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> dict[str, Any]:
@@ -68,6 +70,10 @@ def _get_kwargs(
     if not isinstance(from_, Unset):
         json_from_ = from_.isoformat()
     params["from"] = json_from_
+
+    params["person_id"] = person_id
+
+    params["person_unknown"] = person_unknown
 
     json_to: str | Unset = UNSET
     if not isinstance(to, Unset):
@@ -125,14 +131,18 @@ def sync_detailed(
     status: SearchTranscriptsStatus | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> Response[Error | SearchPage]:
     """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
     texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode
     hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés
-    hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
-    worker n’est effectué.
+    hors propriétaire et administrateur sont exclus avant calcul du total et pagination ; le filtre
+    Personne (person_id, person_unknown) s’applique aussi avant total et pagination, au segment, dans
+    les trois modes. Chaque résultat porte la Personne identifiée du segment (ou null) et le niveau de
+    décision tracé (unknown sans attribution). Aucun appel au worker n’est effectué.
 
     Args:
         q (str):
@@ -143,6 +153,8 @@ def sync_detailed(
         status (SearchTranscriptsStatus | Unset):
         source_id (int | Unset):
         from_ (datetime.date | Unset):
+        person_id (int | Unset):
+        person_unknown (bool | Unset):
         to (datetime.date | Unset):
 
     Raises:
@@ -163,6 +175,8 @@ visibility=visibility,
 status=status,
 source_id=source_id,
 from_=from_,
+person_id=person_id,
+person_unknown=person_unknown,
 to=to,
 
     )
@@ -184,14 +198,18 @@ def sync(
     status: SearchTranscriptsStatus | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> Error | SearchPage | None:
     """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
     texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode
     hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés
-    hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
-    worker n’est effectué.
+    hors propriétaire et administrateur sont exclus avant calcul du total et pagination ; le filtre
+    Personne (person_id, person_unknown) s’applique aussi avant total et pagination, au segment, dans
+    les trois modes. Chaque résultat porte la Personne identifiée du segment (ou null) et le niveau de
+    décision tracé (unknown sans attribution). Aucun appel au worker n’est effectué.
 
     Args:
         q (str):
@@ -202,6 +220,8 @@ def sync(
         status (SearchTranscriptsStatus | Unset):
         source_id (int | Unset):
         from_ (datetime.date | Unset):
+        person_id (int | Unset):
+        person_unknown (bool | Unset):
         to (datetime.date | Unset):
 
     Raises:
@@ -223,6 +243,8 @@ visibility=visibility,
 status=status,
 source_id=source_id,
 from_=from_,
+person_id=person_id,
+person_unknown=person_unknown,
 to=to,
 
     ).parsed
@@ -238,14 +260,18 @@ async def asyncio_detailed(
     status: SearchTranscriptsStatus | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> Response[Error | SearchPage]:
     """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
     texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode
     hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés
-    hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
-    worker n’est effectué.
+    hors propriétaire et administrateur sont exclus avant calcul du total et pagination ; le filtre
+    Personne (person_id, person_unknown) s’applique aussi avant total et pagination, au segment, dans
+    les trois modes. Chaque résultat porte la Personne identifiée du segment (ou null) et le niveau de
+    décision tracé (unknown sans attribution). Aucun appel au worker n’est effectué.
 
     Args:
         q (str):
@@ -256,6 +282,8 @@ async def asyncio_detailed(
         status (SearchTranscriptsStatus | Unset):
         source_id (int | Unset):
         from_ (datetime.date | Unset):
+        person_id (int | Unset):
+        person_unknown (bool | Unset):
         to (datetime.date | Unset):
 
     Raises:
@@ -276,6 +304,8 @@ visibility=visibility,
 status=status,
 source_id=source_id,
 from_=from_,
+person_id=person_id,
+person_unknown=person_unknown,
 to=to,
 
     )
@@ -297,14 +327,18 @@ async def asyncio(
     status: SearchTranscriptsStatus | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> Error | SearchPage | None:
     """  Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein
     texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode
     hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés
-    hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au
-    worker n’est effectué.
+    hors propriétaire et administrateur sont exclus avant calcul du total et pagination ; le filtre
+    Personne (person_id, person_unknown) s’applique aussi avant total et pagination, au segment, dans
+    les trois modes. Chaque résultat porte la Personne identifiée du segment (ou null) et le niveau de
+    décision tracé (unknown sans attribution). Aucun appel au worker n’est effectué.
 
     Args:
         q (str):
@@ -315,6 +349,8 @@ async def asyncio(
         status (SearchTranscriptsStatus | Unset):
         source_id (int | Unset):
         from_ (datetime.date | Unset):
+        person_id (int | Unset):
+        person_unknown (bool | Unset):
         to (datetime.date | Unset):
 
     Raises:
@@ -336,6 +372,8 @@ visibility=visibility,
 status=status,
 source_id=source_id,
 from_=from_,
+person_id=person_id,
+person_unknown=person_unknown,
 to=to,
 
     )).parsed

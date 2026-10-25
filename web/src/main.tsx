@@ -4,6 +4,12 @@ import createClient from "openapi-fetch";
 import type { paths, components } from "./api.gen";
 import "./style.css";
 import { SpeakerBadge, VoicePanel } from "./voice/VoicePanel";
+import {
+  ClipPersons,
+  PersonFilterSelect,
+  ResultSpeaker,
+  applyPersonFilter,
+} from "./voice/PersonFilter";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
 import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
@@ -35,6 +41,8 @@ type SearchResult = {
   context: string;
   matched_text: string;
   timestamp: number;
+  person?: { id: number; display_name: string } | null;
+  decision_level?: components["schemas"]["DecisionLevel"];
 };
 const messages: Record<string, string> = {
   unavailable:
@@ -126,6 +134,8 @@ function App() {
     visibility: "",
     status: "",
   });
+  const [searchPerson, setSearchPerson] = useState("");
+  const [clipPerson, setClipPerson] = useState("");
   const [searchPlayback, setSearchPlayback] = useState<SearchResult>();
   const [selectedAudioTracks, setSelectedAudioTracks] = useState<
     Record<number, number>
@@ -257,6 +267,7 @@ function App() {
     const query = new URLSearchParams({ page: String(page), page_size: "12" });
     for (const [key, value] of Object.entries(clipFilters))
       if (value) query.set(key, value);
+    applyPersonFilter(query, clipPerson);
     const response = await fetch(`/api/clips?${query}`, {
       credentials: "same-origin",
     });
@@ -310,6 +321,7 @@ function App() {
     });
     for (const [key, value] of Object.entries(searchFilters))
       if (value) query.set(key, value);
+    applyPersonFilter(query, searchPerson);
     const response = await fetch(`/api/search?${query}`, {
       credentials: "same-origin",
     });
@@ -1280,6 +1292,11 @@ function App() {
                         <option value="missing">Original introuvable</option>
                       </select>
                     </label>
+                    <PersonFilterSelect
+                      label="Personne de la recherche"
+                      value={searchPerson}
+                      onChange={setSearchPerson}
+                    />
                     <button disabled={busy}>Rechercher</button>
                   </form>
                   {searchDegraded && (
@@ -1318,6 +1335,10 @@ function App() {
                             <p>
                               {highlighted(item.context, item.matched_text)}
                             </p>
+                            <ResultSpeaker
+                              person={item.person}
+                              level={item.decision_level}
+                            />
                             <button
                               className="secondary"
                               disabled={item.status !== "ready"}
@@ -1474,6 +1495,11 @@ function App() {
                       }
                     />
                   </label>
+                  <PersonFilterSelect
+                    label="Personne de la bibliothèque"
+                    value={clipPerson}
+                    onChange={setClipPerson}
+                  />
                   <button className="filter-submit" disabled={busy}>
                     Appliquer les filtres
                   </button>
@@ -1555,6 +1581,7 @@ function App() {
                             )}{" "}
                             · {clip.owner}
                           </p>
+                          <ClipPersons persons={clip.persons} />
                           <div className="clip-card-footer">
                             <span className={`clip-state state-${clip.status}`}>
                               {clip.status === "ready"
@@ -1767,6 +1794,11 @@ function App() {
                                   </section>
                                 );
                               })()}
+                            {clipDetails[clip.id] && (
+                              <ClipPersons
+                                persons={clipDetails[clip.id].persons}
+                              />
+                            )}
                             {clipDetails[clip.id] &&
                               clip.status === "ready" && (
                                 <VoicePanel
