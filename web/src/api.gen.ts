@@ -4816,7 +4816,7 @@ export interface operations {
           "application/json": components["schemas"]["PersonCorrectionResult"];
         };
       };
-      /** @description person_linked_account : une Personne liée à un compte n'est pas supprimée ici */
+      /** @description person_linked_account : une Personne liée à un compte n'est pas supprimée ici ; person_has_hidden_voices : un utilisateur non administrateur ne supprime pas une Personne attribuée sur un clip qu'il ne peut pas voir */
       409: {
         headers: {
           [name: string]: unknown;
@@ -4863,7 +4863,7 @@ export interface operations {
           "application/json": components["schemas"]["PersonCorrectionResult"];
         };
       };
-      /** @description same_person, person_linked_account (la Personne absorbée ne doit pas être liée à un compte) ou voice_profile_deleted (l'une des deux a supprimé son profil vocal : l'opt-out n'est ni dissous ni reconstitué) */
+      /** @description same_person, person_linked_account (la Personne absorbée ne doit pas être liée à un compte), person_has_hidden_voices (un utilisateur non administrateur ne fusionne pas une Personne attribuée sur un clip qu'il ne peut pas voir) ou voice_profile_deleted (l'une des deux a supprimé son profil vocal : l'opt-out n'est ni dissous ni reconstitué) */
       409: {
         headers: {
           [name: string]: unknown;

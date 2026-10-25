@@ -132,6 +132,7 @@ type Job struct {
 	LeaseTokenHash          []byte             `json:"lease_token_hash"`
 	CompletedLeaseTokenHash []byte             `json:"completed_lease_token_hash"`
 	Cycle                   int32              `json:"cycle"`
+	ResultDigest            pgtype.Text        `json:"result_digest"`
 }
 
 type JobControl struct {

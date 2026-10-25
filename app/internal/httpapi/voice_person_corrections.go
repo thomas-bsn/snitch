@@ -166,6 +166,9 @@ func (s *Server) mergePerson(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusConflict, "person_linked_account")
 		return
 	}
+	if s.refuseHiddenVoices(ctx, w, r, tx, source.ID) {
+		return
+	}
 	// A deleted voice profile is an opt-out: merging into it would rebuild a profile, and
 	// merging out of it would dissolve the opt-out. Both are refused.
 	if source.OptedOut || target.OptedOut {
@@ -220,6 +223,27 @@ func (s *Server) mergePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, http.StatusOK, correctionSummaryView{Person: &view, Attributions: int(attributions.RowsAffected()), Samples: int(samples.RowsAffected()), MicrophoneRules: rules})
+}
+
+// refuseHiddenVoices answers 409 person_has_hidden_voices and returns true when the
+// Person is attributed on a clip the caller cannot see. Merging or deleting a Person
+// rewrites every one of its attributions, so a non-administrator may only do it when
+// all of them are on clips they can read. Single-voice corrections already follow the
+// same visibility rule.
+func (s *Server) refuseHiddenVoices(ctx context.Context, w http.ResponseWriter, r *http.Request, tx pgx.Tx, personID int64) bool {
+	ss := r.Context().Value(sessionKey{}).(session)
+	if ss.User.Role == "admin" {
+		return false
+	}
+	var hidden bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id WHERE a.person_id=$1 AND NOT (c.visibility='shared' OR c.owner_id=$2))`, personID, ss.User.ID).Scan(&hidden); err != nil {
+		s.internal(w, err)
+		return true
+	}
+	if hidden {
+		fail(w, http.StatusConflict, "person_has_hidden_voices")
+	}
+	return hidden
 }
 
 // repointMicrophoneRules makes the source and clip designations that name the Person
@@ -428,6 +452,9 @@ func (s *Server) deletePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	if person.UserID != nil {
 		fail(w, http.StatusConflict, "person_linked_account")
+		return
+	}
+	if s.refuseHiddenVoices(ctx, w, r, tx, id) {
 		return
 	}
 	affected := newAffectedMicrophones()
