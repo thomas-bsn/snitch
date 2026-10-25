@@ -27,6 +27,8 @@ def _get_kwargs(
     owner_id: int | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> dict[str, Any]:
@@ -60,6 +62,10 @@ def _get_kwargs(
     if not isinstance(from_, Unset):
         json_from_ = from_.isoformat()
     params["from"] = json_from_
+
+    params["person_id"] = person_id
+
+    params["person_unknown"] = person_unknown
 
     json_to: str | Unset = UNSET
     if not isinstance(to, Unset):
@@ -116,6 +122,8 @@ def sync_detailed(
     owner_id: int | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> Response[ClipPage | Error]:
@@ -129,6 +137,8 @@ def sync_detailed(
         owner_id (int | Unset):
         source_id (int | Unset):
         from_ (datetime.date | Unset):
+        person_id (int | Unset):
+        person_unknown (bool | Unset):
         to (datetime.date | Unset):
 
     Raises:
@@ -148,6 +158,8 @@ status=status,
 owner_id=owner_id,
 source_id=source_id,
 from_=from_,
+person_id=person_id,
+person_unknown=person_unknown,
 to=to,
 
     )
@@ -168,6 +180,8 @@ def sync(
     owner_id: int | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> ClipPage | Error | None:
@@ -181,6 +195,8 @@ def sync(
         owner_id (int | Unset):
         source_id (int | Unset):
         from_ (datetime.date | Unset):
+        person_id (int | Unset):
+        person_unknown (bool | Unset):
         to (datetime.date | Unset):
 
     Raises:
@@ -201,6 +217,8 @@ status=status,
 owner_id=owner_id,
 source_id=source_id,
 from_=from_,
+person_id=person_id,
+person_unknown=person_unknown,
 to=to,
 
     ).parsed
@@ -215,6 +233,8 @@ async def asyncio_detailed(
     owner_id: int | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> Response[ClipPage | Error]:
@@ -228,6 +248,8 @@ async def asyncio_detailed(
         owner_id (int | Unset):
         source_id (int | Unset):
         from_ (datetime.date | Unset):
+        person_id (int | Unset):
+        person_unknown (bool | Unset):
         to (datetime.date | Unset):
 
     Raises:
@@ -247,6 +269,8 @@ status=status,
 owner_id=owner_id,
 source_id=source_id,
 from_=from_,
+person_id=person_id,
+person_unknown=person_unknown,
 to=to,
 
     )
@@ -267,6 +291,8 @@ async def asyncio(
     owner_id: int | Unset = UNSET,
     source_id: int | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
+    person_id: int | Unset = UNSET,
+    person_unknown: bool | Unset = UNSET,
     to: datetime.date | Unset = UNSET,
 
 ) -> ClipPage | Error | None:
@@ -280,6 +306,8 @@ async def asyncio(
         owner_id (int | Unset):
         source_id (int | Unset):
         from_ (datetime.date | Unset):
+        person_id (int | Unset):
+        person_unknown (bool | Unset):
         to (datetime.date | Unset):
 
     Raises:
@@ -300,6 +328,8 @@ status=status,
 owner_id=owner_id,
 source_id=source_id,
 from_=from_,
+person_id=person_id,
+person_unknown=person_unknown,
 to=to,
 
     )).parsed

@@ -16,6 +16,7 @@ from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexRespons
 from .bootstrap import Bootstrap
 from .clip import Clip
 from .clip_page import ClipPage
+from .clip_person import ClipPerson
 from .clip_visibility import ClipVisibility
 from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
@@ -140,6 +141,7 @@ __all__ = (
     "Bootstrap",
     "Clip",
     "ClipPage",
+    "ClipPerson",
     "ClipVisibility",
     "ClipVoice",
     "ClipVoiceStatus",
