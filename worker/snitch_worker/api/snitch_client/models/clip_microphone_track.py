@@ -33,7 +33,8 @@ class ClipMicrophoneTrack:
             status (MicrophoneTrackStatus): none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a
                 pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à
                 une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées
-                par un humain.
+                par un humain ; owner_profile_deleted : le propriétaire désigné a supprimé son profil vocal, rien ne lui est
+                attribué.
             selection_source (ClipMicrophoneTrackSelectionSource):
             audio_stream_index (int | None):
             person (None | PersonRef):

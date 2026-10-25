@@ -12,6 +12,8 @@ import {
 } from "./voice/PersonFilter";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
+import { MyVoiceCard } from "./voice/MyVoiceCard";
+import { PersonAccountCard } from "./voice/PersonAccountCard";
 import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
 import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
 
@@ -2117,6 +2119,10 @@ function App() {
                     </>
                   )}
                 </section>
+              )}
+              <MyVoiceCard csrf={csrf} />
+              {session.user.role === "admin" && (
+                <PersonAccountCard csrf={csrf} />
               )}
               {session.user.role === "admin" && (
                 <VoicePipelineCard csrf={csrf} />

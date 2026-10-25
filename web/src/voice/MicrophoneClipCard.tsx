@@ -115,6 +115,7 @@ export function MicrophoneClipCard({
               "ambiguous_track",
               "conflicting_sources",
               "blocked_by_validation",
+              "owner_profile_deleted",
             ].includes(view.status)
               ? "microphone-warning"
               : undefined

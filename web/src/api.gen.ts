@@ -863,6 +863,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/me/person": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Les clips où cette Personne est identifiée se listent par le filtre person_id de la bibliothèque, qui applique la visibilité du compte. */
+    get: operations["getMyPerson"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/persons/{id}/account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Un compte est lié à une Personne au plus ; une Personne est liée à un compte au plus. */
+    put: operations["linkPersonAccount"];
+    post?: never;
+    /** @description Administrateurs uniquement. Ne supprime ni la Personne ni son profil vocal. */
+    delete: operations["unlinkPersonAccount"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/voice-profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Compte lié à la Personne, ou administrateur (sinon 403). Efface les Échantillons vocaux validés, les empreintes des voix attribuées à la Personne et toutes les attributions à son nom, qui redeviennent inconnues ; les clips, la Personne et les autres Personnes ne sont pas touchés. Un marqueur de retrait sans donnée vocale empêche le rapprochement de reconstituer le profil : validations et corrections vers cette Personne sont refusées (409 voice_profile_deleted) et une piste micro qui la désigne n'est plus attribuée. La suppression est tracée (compteurs, Personne, auteur) sans aucune donnée vocale. */
+    delete: operations["deleteVoiceProfile"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/local-speakers/{id}/validation": {
     parameters: {
       query?: never;
@@ -1433,8 +1485,26 @@ export interface components {
       validated_sample_count: number;
       /** @description Locuteurs locaux validés pour cette Personne. */
       local_speaker_count: number;
+      /**
+       * Format: date-time
+       * @description Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée.
+       */
+      voice_profile_deleted_at: string | null;
       /** Format: date-time */
       created_at: string;
+    };
+    PersonAccountInput: {
+      username: string;
+    };
+    VoiceProfileDeletion: {
+      /** @description Échantillons vocaux validés effacés (actifs et retirés). */
+      samples: number;
+      /** @description Empreintes effacées. */
+      fingerprints: number;
+      /** @description Attributions effacées ; les voix correspondantes sont inconnues. */
+      attributions: number;
+      /** Format: date-time */
+      deleted_at: string;
     };
     PersonList: {
       items: components["schemas"]["Person"][];
@@ -1813,13 +1883,13 @@ export interface components {
       source_id: number;
       rule: components["schemas"]["MicrophoneSourceRuleValue"] | null;
       detected_tracks: components["schemas"]["MicrophoneDetectedTrack"][];
-      /** @description Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, disabled, none). Vide en lecture. */
+      /** @description Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, owner_profile_deleted, disabled, none). Vide en lecture. */
       status_counts: {
         [key: string]: number;
       };
     };
     /**
-     * @description none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain.
+     * @description none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain ; owner_profile_deleted : le propriétaire désigné a supprimé son profil vocal, rien ne lui est attribué.
      * @enum {string}
      */
     MicrophoneTrackStatus:
@@ -1829,7 +1899,8 @@ export interface components {
       | "track_not_found"
       | "ambiguous_track"
       | "conflicting_sources"
-      | "blocked_by_validation";
+      | "blocked_by_validation"
+      | "owner_profile_deleted";
     MicrophoneTrackItem: {
       index: number;
       title: string;
@@ -4295,6 +4366,159 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getMyPerson: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Personne liée au compte connecté */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description no_linked_person : aucune Personne n'est liée à ce compte */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  linkPersonAccount: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonAccountInput"];
+      };
+    };
+    responses: {
+      /** @description Personne liée au compte */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description account_already_linked : ce compte est déjà lié à une autre Personne */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  unlinkPersonAccount: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Lien supprimé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteVoiceProfile: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Profil vocal effacé (idempotent : une seconde suppression renvoie des compteurs à zéro) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceProfileDeletion"];
         };
       };
       /** @description Erreur */

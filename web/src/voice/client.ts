@@ -39,7 +39,12 @@ const voiceMessages: Record<string, string> = {
   invalid_voice_pipeline: "Configuration vocale invalide.",
   invalid_voice_matching:
     "Seuils invalides : le seuil de suggestion ne peut pas dépasser le seuil automatique.",
-  forbidden: "Accès réservé aux administrateurs.",
+  voice_profile_deleted:
+    "Cette Personne a supprimé son profil vocal : aucune voix ne peut lui être attribuée.",
+  user_not_found: "Aucun compte de ce nom.",
+  account_already_linked: "Ce compte est déjà lié à une autre Personne.",
+  invalid_account: "Indiquez le nom du compte.",
+  forbidden: "Action réservée à la Personne concernée ou à un administrateur.",
   csrf_rejected: "Session expirée. Rechargez la page.",
 };
 

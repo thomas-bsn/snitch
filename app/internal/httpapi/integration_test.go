@@ -172,6 +172,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonFilter(t, pool)
 	})
+	t.Run("voice profile deletion", func(t *testing.T) {
+		reset(t)
+		testVoiceProfileDeletion(t, pool)
+	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)
@@ -344,6 +348,15 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.5, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-matching/rematch", nil, me.CSRF, 200)
+		// Account link and voice profile deletion (behavior in the voice profile suite).
+		personPath := "/api/admin/persons/" + strconv64(contractPerson.ID) + "/account"
+		call(client, "GET", "/api/me/person", nil, "", 404)
+		call(client, "PUT", personPath, map[string]any{"username": "administrator"}, me.CSRF, 200)
+		call(client, "PUT", personPath, map[string]any{"username": "nobody"}, me.CSRF, 404)
+		call(client, "GET", "/api/me/person", nil, "", 200)
+		call(client, "DELETE", personPath, nil, me.CSRF, 200)
+		call(client, "DELETE", "/api/persons/"+strconv64(contractPerson.ID)+"/voice-profile", nil, me.CSRF, 200)
+		call(client, "DELETE", "/api/persons/999999/voice-profile", nil, me.CSRF, 404)
 		// Microphone track of a clip: view, replacement, disabling and removal.
 		micPath := "/api/clips/" + strconv64(contractClipID) + "/microphone-track"
 		call(client, "GET", micPath, nil, "", 200)
@@ -572,7 +585,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-profile.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -615,6 +628,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_MATCHING") == "1" {
 			suites = []string{"matching.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_VOICE_PROFILE") == "1" {
+			suites = []string{"voice-profile.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_MICROPHONE") == "1" {
 			suites = []string{"microphone.spec.ts"}
 		}
@@ -641,7 +657,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" || suite == "voice-profile.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -650,7 +666,7 @@ func TestFoundation(t *testing.T) {
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "matching.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "matching.spec.ts" || suite == "voice-profile.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}

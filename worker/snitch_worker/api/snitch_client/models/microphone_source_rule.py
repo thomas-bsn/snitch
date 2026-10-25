@@ -31,8 +31,8 @@ class MicrophoneSourceRule:
             rule (MicrophoneSourceRuleValue | None):
             detected_tracks (list[MicrophoneDetectedTrack]):
             status_counts (MicrophoneSourceRuleStatusCounts): Après une écriture : nombre de clips par état de désignation
-                (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, disabled, none). Vide
-                en lecture.
+                (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation,
+                owner_profile_deleted, disabled, none). Vide en lecture.
      """
 
     source_id: int

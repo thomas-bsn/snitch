@@ -187,12 +187,13 @@ type OauthState struct {
 }
 
 type Person struct {
-	ID          int64              `json:"id"`
-	DisplayName string             `json:"display_name"`
-	UserID      pgtype.Int8        `json:"user_id"`
-	CreatedBy   pgtype.Int8        `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID                    int64              `json:"id"`
+	DisplayName           string             `json:"display_name"`
+	UserID                pgtype.Int8        `json:"user_id"`
+	CreatedBy             pgtype.Int8        `json:"created_by"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	VoiceProfileDeletedAt pgtype.Timestamptz `json:"voice_profile_deleted_at"`
 }
 
 type Session struct {
@@ -380,6 +381,19 @@ type VoicePipelineVersion struct {
 	Version   string             `json:"version"`
 	Config    []byte             `json:"config"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoiceProfileDeletion struct {
+	ID                int64              `json:"id"`
+	PersonID          int64              `json:"person_id"`
+	PersonName        string             `json:"person_name"`
+	LinkedUserID      pgtype.Int8        `json:"linked_user_id"`
+	DeletedBy         pgtype.Int8        `json:"deleted_by"`
+	DeletedByUsername string             `json:"deleted_by_username"`
+	SampleCount       int32              `json:"sample_count"`
+	FingerprintCount  int32              `json:"fingerprint_count"`
+	AttributionCount  int32              `json:"attribution_count"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type VoiceSample struct {

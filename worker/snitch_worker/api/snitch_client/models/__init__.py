@@ -60,6 +60,7 @@ from .microphone_track_item_role import MicrophoneTrackItemRole
 from .microphone_track_rule_input import MicrophoneTrackRuleInput
 from .microphone_track_status import MicrophoneTrackStatus
 from .person import Person
+from .person_account_input import PersonAccountInput
 from .person_input import PersonInput
 from .person_list import PersonList
 from .person_ref import PersonRef
@@ -124,6 +125,7 @@ from .voice_pipeline import VoicePipeline
 from .voice_pipeline_fake import VoicePipelineFake
 from .voice_pipeline_provider import VoicePipelineProvider
 from .voice_pipeline_state import VoicePipelineState
+from .voice_profile_deletion import VoiceProfileDeletion
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
@@ -205,6 +207,7 @@ __all__ = (
     "MicrophoneTrackRuleInput",
     "MicrophoneTrackStatus",
     "Person",
+    "PersonAccountInput",
     "PersonInput",
     "PersonList",
     "PersonRef",
@@ -269,6 +272,7 @@ __all__ = (
     "VoicePipelineFake",
     "VoicePipelineProvider",
     "VoicePipelineState",
+    "VoiceProfileDeletion",
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",

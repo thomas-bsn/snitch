@@ -273,7 +273,7 @@ func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, 
 	query := fmt.Sprintf(`WITH refs AS (
   SELECT vs.person_id,f.embedding::vector(%[1]d) AS e
   FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.retired_at IS NULL AND f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
+  WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons op WHERE op.id=vs.person_id AND op.voice_profile_deleted_at IS NOT NULL) AND f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
 ), targets AS (
   SELECT f.local_speaker_id AS sid,f.clip_id,f.embedding::vector(%[1]d) AS e
   FROM voice_fingerprints f

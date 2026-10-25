@@ -2920,6 +2920,40 @@
         "security": [{"session": []}]
       }
     },
+    "/api/me/person": {
+      "get": {
+        "operationId": "getMyPerson",
+        "responses": {"200": {"description": "Personne liée au compte connecté", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "404": {"description": "no_linked_person : aucune Personne n'est liée à ce compte", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Les clips où cette Personne est identifiée se listent par le filtre person_id de la bibliothèque, qui applique la visibilité du compte.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/persons/{id}/account": {
+      "put": {
+        "operationId": "linkPersonAccount",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonAccountInput"}}}},
+        "responses": {"200": {"description": "Personne liée au compte", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "409": {"description": "account_already_linked : ce compte est déjà lié à une autre Personne", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Un compte est lié à une Personne au plus ; une Personne est liée à un compte au plus.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "unlinkPersonAccount",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Lien supprimé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Ne supprime ni la Personne ni son profil vocal.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/persons/{id}/voice-profile": {
+      "delete": {
+        "operationId": "deleteVoiceProfile",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Profil vocal effacé (idempotent : une seconde suppression renvoie des compteurs à zéro)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceProfileDeletion"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Compte lié à la Personne, ou administrateur (sinon 403). Efface les Échantillons vocaux validés, les empreintes des voix attribuées à la Personne et toutes les attributions à son nom, qui redeviennent inconnues ; les clips, la Personne et les autres Personnes ne sont pas touchés. Un marqueur de retrait sans donnée vocale empêche le rapprochement de reconstituer le profil : validations et corrections vers cette Personne sont refusées (409 voice_profile_deleted) et une piste micro qui la désigne n'est plus attribuée. La suppression est tracée (compteurs, Personne, auteur) sans aucune donnée vocale.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/local-speakers/{id}/validation": {
       "post": {
         "operationId": "validateLocalSpeaker",
@@ -4393,16 +4427,19 @@
       "PersonRef": {"type": "object", "required": ["id", "display_name"], "properties": {"id": {"type": "integer", "format": "int64"}, "display_name": {"type": "string"}}},
       "Person": {
         "type": "object",
-        "required": ["id", "display_name", "user_id", "validated_sample_count", "local_speaker_count", "created_at"],
+        "required": ["id", "display_name", "user_id", "validated_sample_count", "local_speaker_count", "voice_profile_deleted_at", "created_at"],
         "properties": {
           "id": {"type": "integer", "format": "int64"},
           "display_name": {"type": "string"},
           "user_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Compte lié, le cas échéant : une Personne n'est jamais un compte."},
           "validated_sample_count": {"type": "integer", "description": "Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre n'est pas une garantie de qualité d'identification."},
           "local_speaker_count": {"type": "integer", "description": "Locuteurs locaux validés pour cette Personne."},
+          "voice_profile_deleted_at": {"type": "string", "format": "date-time", "nullable": true, "description": "Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée."},
           "created_at": {"type": "string", "format": "date-time"}
         }
       },
+      "PersonAccountInput": {"type": "object", "additionalProperties": false, "required": ["username"], "properties": {"username": {"type": "string", "minLength": 1, "maxLength": 100}}},
+      "VoiceProfileDeletion": {"type": "object", "required": ["samples", "fingerprints", "attributions", "deleted_at"], "properties": {"samples": {"type": "integer", "description": "Échantillons vocaux validés effacés (actifs et retirés)."}, "fingerprints": {"type": "integer", "description": "Empreintes effacées."}, "attributions": {"type": "integer", "description": "Attributions effacées ; les voix correspondantes sont inconnues."}, "deleted_at": {"type": "string", "format": "date-time"}}},
       "PersonList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Person"}}}},
       "AttributionAuthor": {"type": "object", "required": ["id", "username"], "properties": {"id": {"type": "integer", "format": "int64", "nullable": true}, "username": {"type": "string", "description": "Nom au moment de la décision."}}},
       "DecisionLevel": {"type": "string", "enum": ["human", "automatic", "suggestion", "ambiguous", "unknown"], "description": "human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche."},
@@ -5162,13 +5199,13 @@
           "source_id": {"type": "integer", "format": "int64"},
           "rule": {"allOf": [{"$ref": "#/components/schemas/MicrophoneSourceRuleValue"}], "nullable": true},
           "detected_tracks": {"type": "array", "items": {"$ref": "#/components/schemas/MicrophoneDetectedTrack"}},
-          "status_counts": {"type": "object", "additionalProperties": {"type": "integer"}, "description": "Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, disabled, none). Vide en lecture."}
+          "status_counts": {"type": "object", "additionalProperties": {"type": "integer"}, "description": "Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, owner_profile_deleted, disabled, none). Vide en lecture."}
         }
       },
       "MicrophoneTrackStatus": {
         "type": "string",
-        "enum": ["none", "designated", "disabled", "track_not_found", "ambiguous_track", "conflicting_sources", "blocked_by_validation"],
-        "description": "none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain."
+        "enum": ["none", "designated", "disabled", "track_not_found", "ambiguous_track", "conflicting_sources", "blocked_by_validation", "owner_profile_deleted"],
+        "description": "none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain ; owner_profile_deleted : le propriétaire désigné a supprimé son profil vocal, rien ne lui est attribué."
       },
       "MicrophoneTrackItem": {
         "type": "object",

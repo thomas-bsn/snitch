@@ -21,7 +21,7 @@ T = TypeVar("T", bound="MicrophoneSourceRuleStatusCounts")
 @_attrs_define
 class MicrophoneSourceRuleStatusCounts:
     """ Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track,
-    conflicting_sources, blocked_by_validation, disabled, none). Vide en lecture.
+    conflicting_sources, blocked_by_validation, owner_profile_deleted, disabled, none). Vide en lecture.
 
      """
 
