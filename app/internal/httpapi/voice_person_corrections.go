@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -41,6 +42,8 @@ type personIdentity struct {
 	ID     int64
 	Name   string
 	UserID *int64
+	// OptedOut is set when the Person deleted their voice profile (ticket 41).
+	OptedOut bool
 }
 
 func personPathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
@@ -60,7 +63,7 @@ func lockPersons(ctx context.Context, tx pgx.Tx, ids ...int64) (map[int64]person
 	if _, err := tx.Exec(ctx, `SELECT id FROM speaker_attributions WHERE person_id=ANY($1) ORDER BY id FOR UPDATE`, ids); err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, `SELECT id,display_name,user_id FROM persons WHERE id=ANY($1) ORDER BY id FOR UPDATE`, ids)
+	rows, err := tx.Query(ctx, `SELECT id,display_name,user_id,voice_profile_deleted_at IS NOT NULL FROM persons WHERE id=ANY($1) ORDER BY id FOR UPDATE`, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +71,7 @@ func lockPersons(ctx context.Context, tx pgx.Tx, ids ...int64) (map[int64]person
 	out := map[int64]personIdentity{}
 	for rows.Next() {
 		var p personIdentity
-		if err = rows.Scan(&p.ID, &p.Name, &p.UserID); err != nil {
+		if err = rows.Scan(&p.ID, &p.Name, &p.UserID, &p.OptedOut); err != nil {
 			return nil, err
 		}
 		out[p.ID] = p
@@ -141,11 +144,12 @@ func (s *Server) mergePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	author := s.authorOf(r)
 	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
+	tx, unlock, err := s.beginCorrection(ctx)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
+	defer unlock()
 	defer tx.Rollback(ctx)
 	persons, err := lockPersons(ctx, tx, id, input.TargetPersonID)
 	if err != nil {
@@ -160,6 +164,12 @@ func (s *Server) mergePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	if source.UserID != nil {
 		fail(w, http.StatusConflict, "person_linked_account")
+		return
+	}
+	// A deleted voice profile is an opt-out: merging into it would rebuild a profile, and
+	// merging out of it would dissolve the opt-out. Both are refused.
+	if source.OptedOut || target.OptedOut {
+		fail(w, http.StatusConflict, "voice_profile_deleted")
 		return
 	}
 	// History first, from the state the merge is about to change.
@@ -202,6 +212,7 @@ func (s *Server) mergePerson(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	unlock()
 	s.matchingChanged(ctx, 0)
 	view, err := scanPerson(s.Pool.QueryRow(ctx, `SELECT `+personColumns+` FROM persons p WHERE p.id=$1`, target.ID))
 	if err != nil {
@@ -335,11 +346,12 @@ func (s *Server) separatePerson(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "local_speaker_not_found")
 		return
 	}
-	tx, err := s.Pool.Begin(ctx)
+	tx, unlock, err := s.beginCorrection(ctx)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
+	defer unlock()
 	defer tx.Rollback(ctx)
 	persons, err := lockPersons(ctx, tx, id)
 	if err != nil {
@@ -374,6 +386,7 @@ func (s *Server) separatePerson(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	unlock()
 	s.reconcileMicrophones(ctx, affected, author)
 	s.matchingChanged(ctx, 0)
 	view, err := scanPerson(s.Pool.QueryRow(ctx, `SELECT `+personColumns+` FROM persons p WHERE p.id=$1`, id))
@@ -396,11 +409,12 @@ func (s *Server) deletePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	author := s.authorOf(r)
 	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
+	tx, unlock, err := s.beginCorrection(ctx)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
+	defer unlock()
 	defer tx.Rollback(ctx)
 	persons, err := lockPersons(ctx, tx, id)
 	if err != nil {
@@ -470,6 +484,7 @@ func (s *Server) deletePerson(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	unlock()
 	s.reconcileMicrophones(ctx, affected, author)
 	s.matchingChanged(ctx, 0)
 	reply(w, http.StatusOK, correctionSummaryView{Attributions: attributions, Samples: samples, MicrophoneRules: rules})
@@ -580,4 +595,26 @@ func (s *Server) listPersonEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// beginCorrection opens the transaction of a correction under the matching locks, in the
+// order matching and the voice profile erasure take them (process mutex, then the
+// database lock), so a run in flight finishes first and cannot write a row naming a
+// Person that is being merged or deleted. unlock is idempotent: call it after the
+// commit, before the matching is run again.
+func (s *Server) beginCorrection(ctx context.Context) (pgx.Tx, func(), error) {
+	voiceMatchingLock.Lock()
+	var once sync.Once
+	unlock := func() { once.Do(voiceMatchingLock.Unlock) }
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		unlock()
+		return nil, unlock, err
+	}
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('snitch.voice_matching'))`); err != nil {
+		tx.Rollback(ctx)
+		unlock()
+		return nil, unlock, err
+	}
+	return tx, unlock, nil
 }

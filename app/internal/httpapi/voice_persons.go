@@ -160,15 +160,18 @@ type personView struct {
 	ValidatedSampleCount int       `json:"validated_sample_count"`
 	LocalSpeakerCount    int       `json:"local_speaker_count"`
 	CreatedAt            time.Time `json:"created_at"`
+	// VoiceProfileDeletedAt is set once the Person deleted their voice profile; it
+	// holds no voice data and keeps matching from rebuilding the profile.
+	VoiceProfileDeletedAt *time.Time `json:"voice_profile_deleted_at"`
 }
 
 const personColumns = `p.id,p.display_name,p.user_id,p.created_at,
  (SELECT count(*) FROM voice_samples vs WHERE vs.person_id=p.id AND vs.retired_at IS NULL),
- (SELECT count(*) FROM speaker_attributions a WHERE a.person_id=p.id AND a.validation_state='validated')`
+ (SELECT count(*) FROM speaker_attributions a WHERE a.person_id=p.id AND a.validation_state='validated'),p.voice_profile_deleted_at`
 
 func scanPerson(row pgx.Row) (personView, error) {
 	var v personView
-	err := row.Scan(&v.ID, &v.DisplayName, &v.UserID, &v.CreatedAt, &v.ValidatedSampleCount, &v.LocalSpeakerCount)
+	err := row.Scan(&v.ID, &v.DisplayName, &v.UserID, &v.CreatedAt, &v.ValidatedSampleCount, &v.LocalSpeakerCount, &v.VoiceProfileDeletedAt)
 	return v, err
 }
 
@@ -378,6 +381,7 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 		}
 	}
 	var personID int64
+	var optedOut bool
 	if input.NewPersonName != nil {
 		if err = tx.QueryRow(ctx, `INSERT INTO persons(display_name,created_by) VALUES($1,$2) RETURNING id`, name, ss.User.ID).Scan(&personID); err != nil {
 			s.internal(w, err)
@@ -385,11 +389,16 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 		}
 	} else {
 		personID = *input.PersonID
-		if err = tx.QueryRow(ctx, `SELECT display_name FROM persons WHERE id=$1 FOR SHARE`, personID).Scan(&name); errors.Is(err, pgx.ErrNoRows) {
+		if err = tx.QueryRow(ctx, `SELECT display_name,voice_profile_deleted_at IS NOT NULL FROM persons WHERE id=$1 FOR SHARE`, personID).Scan(&name, &optedOut); errors.Is(err, pgx.ErrNoRows) {
 			fail(w, http.StatusNotFound, "person_not_found")
 			return
 		} else if err != nil {
 			s.internal(w, err)
+			return
+		}
+		if optedOut {
+			// The Person deleted their voice profile: no new reference may be created.
+			fail(w, http.StatusConflict, "voice_profile_deleted")
 			return
 		}
 	}

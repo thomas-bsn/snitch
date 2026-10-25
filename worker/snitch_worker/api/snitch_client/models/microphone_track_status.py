@@ -7,6 +7,7 @@ class MicrophoneTrackStatus(StrEnum):
     DESIGNATED = "designated"
     DISABLED = "disabled"
     NONE = "none"
+    OWNER_PROFILE_DELETED = "owner_profile_deleted"
     TRACK_NOT_FOUND = "track_not_found"
 
     def __str__(self) -> str:

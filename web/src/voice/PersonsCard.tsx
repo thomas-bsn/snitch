@@ -60,6 +60,8 @@ export function PersonsCard({
     switch (code) {
       case "person_linked_account":
         return "Cette Personne est liée à un compte : elle ne peut pas être absorbée ni supprimée ici.";
+      case "voice_profile_deleted":
+        return "Cette Personne a supprimé son profil vocal : elle ne peut être ni fusionnée ni cible d’une fusion.";
       case "same_person":
         return "Choisissez une autre Personne.";
       case "person_not_found":
@@ -128,7 +130,9 @@ export function PersonsCard({
             <strong>{person.display_name}</strong> ·{" "}
             {sampleText(person.validated_sample_count)} ·{" "}
             {person.local_speaker_count} voix validée(s)
-            {person.user_id !== null && " · liée à un compte"}{" "}
+            {person.user_id !== null && " · liée à un compte"}
+            {person.voice_profile_deleted_at !== null &&
+              " · profil vocal supprimé"}{" "}
             <button
               type="button"
               className="secondary"
@@ -163,7 +167,11 @@ export function PersonsCard({
                 >
                   <option value="">Choisir…</option>
                   {persons
-                    .filter((p) => p.id !== pending.person.id)
+                    .filter(
+                      (p) =>
+                        p.id !== pending.person.id &&
+                        p.voice_profile_deleted_at === null,
+                    )
                     .map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.display_name}

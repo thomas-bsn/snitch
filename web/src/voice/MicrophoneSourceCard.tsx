@@ -18,6 +18,7 @@ const outcomeLabels: Record<string, string> = {
   ambiguous_track: "clip à piste ambiguë",
   conflicting_sources: "clip aux règles contradictoires",
   blocked_by_validation: "clip dont les voix sont déjà validées",
+  owner_profile_deleted: "clip dont le propriétaire a supprimé son profil",
   disabled: "clip sans piste micro",
   none: "clip sans désignation",
 };

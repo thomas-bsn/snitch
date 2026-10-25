@@ -155,6 +155,7 @@ func testPersonCorrections(t *testing.T, pool *pgxpool.Pool) {
 	testPersonSeparation(t, h, member)
 	testPersonDeletion(t, h, member)
 	testPersonMergeMicrophone(t, h, member)
+	testPersonCorrectionsWithProfiles(t, h, member)
 }
 
 func personPath(id int64, leaf string) string {

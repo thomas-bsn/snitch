@@ -43,6 +43,7 @@ from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
 from .list_voice_groups_sort import ListVoiceGroupsSort
+from .list_voice_verification_level import ListVoiceVerificationLevel
 from .local_speaker import LocalSpeaker
 from .local_speaker_kind import LocalSpeakerKind
 from .local_speaker_state import LocalSpeakerState
@@ -61,6 +62,7 @@ from .microphone_track_item_role import MicrophoneTrackItemRole
 from .microphone_track_rule_input import MicrophoneTrackRuleInput
 from .microphone_track_status import MicrophoneTrackStatus
 from .person import Person
+from .person_account_input import PersonAccountInput
 from .person_correction_result import PersonCorrectionResult
 from .person_event import PersonEvent
 from .person_event_action import PersonEventAction
@@ -147,9 +149,14 @@ from .voice_pipeline import VoicePipeline
 from .voice_pipeline_fake import VoicePipelineFake
 from .voice_pipeline_provider import VoicePipelineProvider
 from .voice_pipeline_state import VoicePipelineState
+from .voice_profile_deletion import VoiceProfileDeletion
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
+from .voice_verification import VoiceVerification
+from .voice_verification_case import VoiceVerificationCase
+from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
+from .voice_verification_counts import VoiceVerificationCounts
 from .worker import Worker
 from .worker_claim import WorkerClaim
 from .worker_failure_input import WorkerFailureInput
@@ -211,6 +218,7 @@ __all__ = (
     "ListClipsVisibility",
     "ListJobsStatus",
     "ListVoiceGroupsSort",
+    "ListVoiceVerificationLevel",
     "LocalSpeaker",
     "LocalSpeakerKind",
     "LocalSpeakerState",
@@ -229,6 +237,7 @@ __all__ = (
     "MicrophoneTrackRuleInput",
     "MicrophoneTrackStatus",
     "Person",
+    "PersonAccountInput",
     "PersonCorrectionResult",
     "PersonEvent",
     "PersonEventAction",
@@ -315,9 +324,14 @@ __all__ = (
     "VoicePipelineFake",
     "VoicePipelineProvider",
     "VoicePipelineState",
+    "VoiceProfileDeletion",
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",
+    "VoiceVerification",
+    "VoiceVerificationCase",
+    "VoiceVerificationCaseDecisionLevel",
+    "VoiceVerificationCounts",
     "Worker",
     "WorkerClaim",
     "WorkerFailureInput",

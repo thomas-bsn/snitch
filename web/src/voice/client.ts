@@ -47,6 +47,11 @@ const voiceMessages: Record<string, string> = {
   invalid_voice_pipeline: "Configuration vocale invalide.",
   invalid_voice_matching:
     "Seuils invalides : le seuil de suggestion ne peut pas dépasser le seuil automatique.",
+  voice_profile_deleted:
+    "Cette Personne a supprimé son profil vocal : aucune voix ne peut lui être attribuée.",
+  user_not_found: "Aucun compte de ce nom.",
+  account_already_linked: "Ce compte est déjà lié à une autre Personne.",
+  invalid_account: "Indiquez le nom du compte.",
   invalid_voice_criteria:
     "Critères invalides : précision entre 0 et 1, au moins une confirmation.",
   criteria_not_met:
@@ -56,7 +61,8 @@ const voiceMessages: Record<string, string> = {
   not_unknown:
     "Cette voix est déjà identifiée : elle n’appartient à aucun groupe.",
   voice_group_not_found: "Ce groupe n’existe plus.",
-  forbidden: "Accès réservé aux administrateurs.",
+  forbidden:
+    "Action réservée aux administrateurs, ou à la Personne concernée pour son profil vocal.",
   csrf_rejected: "Session expirée. Rechargez la page.",
 };
 

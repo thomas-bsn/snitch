@@ -45,6 +45,8 @@ const (
 	microphoneAmbiguous = "ambiguous_track"
 	microphoneConflict  = "conflicting_sources"
 	microphoneBlocked   = "blocked_by_validation"
+	// The designated owner deleted their voice profile: nothing is attributed to them.
+	microphoneOptedOut = "owner_profile_deleted"
 )
 
 type microphoneDesignation struct {
@@ -99,6 +101,14 @@ func (s *Server) resolveMicrophone(ctx context.Context, q querier, clipID int64,
 		return d, err
 	}
 	if d.Status == microphoneDesigned {
+		var optedOut bool
+		if err = q.QueryRow(ctx, `SELECT voice_profile_deleted_at IS NOT NULL FROM persons WHERE id=$1`, d.Person.ID).Scan(&optedOut); err != nil {
+			return d, err
+		}
+		if optedOut {
+			d.Status = microphoneOptedOut
+			return d, nil
+		}
 		var blocked bool
 		if err = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized' AND a.validation_state='validated')`, clipID, *d.Index).Scan(&blocked); err != nil {
 			return d, err
@@ -609,7 +619,7 @@ func (s *Server) clipMicrophoneView(ctx context.Context, clipID int64) (map[stri
 			continue
 		}
 		role := "other"
-		if (d.Status == microphoneDesigned || d.Status == microphoneBlocked) && d.Index != nil && *d.Index == t.Index {
+		if (d.Status == microphoneDesigned || d.Status == microphoneBlocked || d.Status == microphoneOptedOut) && d.Index != nil && *d.Index == t.Index {
 			role = "microphone"
 		}
 		for _, c := range d.Candidates {

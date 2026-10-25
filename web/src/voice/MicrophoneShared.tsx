@@ -14,7 +14,8 @@ export type MicrophoneTrackStatus =
   | "track_not_found"
   | "ambiguous_track"
   | "conflicting_sources"
-  | "blocked_by_validation";
+  | "blocked_by_validation"
+  | "owner_profile_deleted";
 
 export const microphoneStatusLabels: Record<MicrophoneTrackStatus, string> = {
   none: "Aucune piste micro désignée",
@@ -28,6 +29,8 @@ export const microphoneStatusLabels: Record<MicrophoneTrackStatus, string> = {
     "Les règles de plusieurs sources se contredisent pour ce clip : rien n’est attribué.",
   blocked_by_validation:
     "La piste désignée porte des voix déjà validées par un humain : elle n’est pas remplacée.",
+  owner_profile_deleted:
+    "Le propriétaire désigné a supprimé son profil vocal : rien ne lui est attribué.",
 };
 
 export const microphoneMessages: Record<string, string> = {
