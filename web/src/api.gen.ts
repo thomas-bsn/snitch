@@ -982,6 +982,75 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/voice-groups": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Une voix inconnue (non validée par un humain, non attribuée automatiquement) forme un groupe à elle seule tant qu'un lien de proximité proposé ne la joint pas à une autre. Les groupes ne sont jamais confirmés automatiquement. Nombres de voix et de clips calculés en base sur les seuls clips visibles ; tri par nombre de clips. */
+    get: operations["listVoiceGroups"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-groups/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. L'identifiant d'un groupe est celui de sa plus petite voix visible : il change si ses membres changent. 404 si aucune voix du groupe n'est visible. */
+    get: operations["getVoiceGroup"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-groups/{id}/naming": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés. Passe soit person_id soit new_person_name (Personne créée dans la même transaction) et la liste des voix écoutées. Seule action humaine qui confirme un groupe. Une voix validée simultanément par quelqu'un d'autre est ignorée (skipped) et les autres sont validées. Les voix de clips invisibles ne sont jamais nommées. */
+    post: operations["nameVoiceGroup"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/group-exclusion": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. La voix redevient un groupe à elle seule et les rapprochements ultérieurs ne la rejoignent plus à un groupe. */
+    put: operations["excludeVoiceGroupMember"];
+    post?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. */
+    delete: operations["restoreVoiceGroupMember"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings": {
     parameters: {
       query?: never;
@@ -1483,6 +1552,57 @@ export interface components {
       /** @description Similarité cosinus entre l'empreinte du Locuteur local et la meilleure référence de la Personne. */
       score: number;
       person: components["schemas"]["PersonRef"];
+    };
+    VoiceGroupMember: {
+      /**
+       * Format: int64
+       * @description Extraits écoutables par GET /api/local-speakers/{id}/excerpt.
+       */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+      /** @description Voix exclue de son groupe par un humain ; elle forme un groupe à elle seule. */
+      excluded: boolean;
+    };
+    VoiceGroup: {
+      /**
+       * Format: int64
+       * @description Plus petite voix visible du groupe.
+       */
+      id: number;
+      /** @description Calculé en base sur les voix visibles. */
+      member_count: number;
+      /** @description Clips distincts des voix visibles, calculés en base. */
+      clip_count: number;
+      /** @description Vrai si le groupe réunit au moins deux voix proches ; jamais une confirmation. */
+      proposed: boolean;
+      members: components["schemas"]["VoiceGroupMember"][];
+    };
+    VoiceGroupList: {
+      items: components["schemas"]["VoiceGroup"][];
+      /** @description Nombre de groupes avant pagination. */
+      total: number;
+    };
+    VoiceGroupNamingInput: {
+      /** Format: int64 */
+      person_id?: number;
+      new_person_name?: string;
+      /** @description Exactement les voix visibles du groupe que l'utilisateur a écoutées. */
+      local_speaker_ids: number[];
+    };
+    VoiceGroupNaming: {
+      person: components["schemas"]["Person"];
+      validated: number[];
+      /** @description Voix déjà validées par quelqu'un d'autre pendant l'opération. */
+      skipped: number[];
+    };
+    VoiceGroupExclusion: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      excluded: boolean;
     };
     VoiceMatchingSettings: {
       /** @description Faux par défaut : tant que l'administrateur n'a pas activé l'automatisation, un rapprochement n'est jamais plus qu'une suggestion. */
@@ -4552,6 +4672,197 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceMatchingSummary"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceGroups: {
+    parameters: {
+      query?: {
+        /** @description Tri décroissant par nombre de clips (défaut) ou de voix. */
+        sort?: "clips" | "members";
+        /** @description Vrai : uniquement les groupes proposés (au moins deux voix). */
+        proposed?: boolean;
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Groupes de voix inconnues visibles par l'utilisateur */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceGroup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Groupe et ses voix */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroup"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  nameVoiceGroup: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceGroupNamingInput"];
+      };
+    };
+    responses: {
+      /** @description Chaque voix du groupe est validée comme la Personne : attribution humaine, Échantillon vocal validé et historique créés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupNaming"];
+        };
+      };
+      /** @description group_changed : le groupe n'est plus exactement la liste de voix envoyée (voix exclue, validée ou jointe entre-temps) ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  excludeVoiceGroupMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Voix exclue de son groupe (idempotent) ; les autres voix ne sont pas modifiées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupExclusion"];
+        };
+      };
+      /** @description not_unknown : la voix est déjà validée ou attribuée automatiquement, elle n'appartient à aucun groupe */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  restoreVoiceGroupMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Exclusion levée (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupExclusion"];
         };
       };
       /** @description Erreur */

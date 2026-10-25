@@ -164,6 +164,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceMatching(t, pool)
 	})
+	t.Run("voice groups", func(t *testing.T) {
+		reset(t)
+		testVoiceGroups(t, pool)
+	})
 	t.Run("microphone track", func(t *testing.T) {
 		reset(t)
 		testMicrophoneTrack(t, pool)
@@ -344,6 +348,13 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.5, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-matching/rematch", nil, me.CSRF, 200)
+		// Groups of unknown voices (behavior in the voice groups suite).
+		call(client, "GET", "/api/voice-groups", nil, "", 200)
+		call(client, "GET", "/api/voice-groups?sort=members&proposed=true&page=1&page_size=5", nil, "", 200)
+		call(client, "GET", "/api/voice-groups/999999", nil, "", 404)
+		call(client, "POST", "/api/voice-groups/999999/naming", map[string]any{"new_person_name": "Nobody", "local_speaker_ids": []int64{999999}}, me.CSRF, 404)
+		call(client, "PUT", speakerPath+"/group-exclusion", nil, me.CSRF, 409)
+		call(client, "DELETE", speakerPath+"/group-exclusion", nil, me.CSRF, 200)
 		// Microphone track of a clip: view, replacement, disabling and removal.
 		micPath := "/api/clips/" + strconv64(contractClipID) + "/microphone-track"
 		call(client, "GET", micPath, nil, "", 200)

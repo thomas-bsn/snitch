@@ -42,6 +42,7 @@ from .job_status import JobStatus
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
+from .list_voice_groups_sort import ListVoiceGroupsSort
 from .local_speaker import LocalSpeaker
 from .local_speaker_kind import LocalSpeakerKind
 from .local_speaker_state import LocalSpeakerState
@@ -117,6 +118,12 @@ from .vocabulary_term_input import VocabularyTermInput
 from .voice_fingerprint import VoiceFingerprint
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
+from .voice_group import VoiceGroup
+from .voice_group_exclusion import VoiceGroupExclusion
+from .voice_group_list import VoiceGroupList
+from .voice_group_member import VoiceGroupMember
+from .voice_group_naming import VoiceGroupNaming
+from .voice_group_naming_input import VoiceGroupNamingInput
 from .voice_matching_input import VoiceMatchingInput
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_summary import VoiceMatchingSummary
@@ -187,6 +194,7 @@ __all__ = (
     "ListClipsStatus",
     "ListClipsVisibility",
     "ListJobsStatus",
+    "ListVoiceGroupsSort",
     "LocalSpeaker",
     "LocalSpeakerKind",
     "LocalSpeakerState",
@@ -262,6 +270,12 @@ __all__ = (
     "VoiceFingerprint",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
+    "VoiceGroup",
+    "VoiceGroupExclusion",
+    "VoiceGroupList",
+    "VoiceGroupMember",
+    "VoiceGroupNaming",
+    "VoiceGroupNamingInput",
     "VoiceMatchingInput",
     "VoiceMatchingSettings",
     "VoiceMatchingSummary",
