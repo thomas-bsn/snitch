@@ -30,6 +30,8 @@ type voiceHarness struct {
 	csrf   string
 	token  string
 	clipID int64
+	// ffmpegLog records the arguments of each synthetic excerpt cut.
+	ffmpegLog string
 }
 
 func (h *voiceHarness) adminCall(method, path string, body any, want int) []byte {
@@ -114,9 +116,20 @@ type voiceView struct {
 		LastError string `json:"last_error"`
 	} `json:"steps"`
 	Speakers []struct {
-		ID             int64   `json:"id"`
-		Label          string  `json:"label"`
-		State          string  `json:"state"`
+		ID            int64  `json:"id"`
+		Label         string `json:"label"`
+		State         string `json:"state"`
+		DecisionLevel string `json:"decision_level"`
+		Person        *struct {
+			ID          int64  `json:"id"`
+			DisplayName string `json:"display_name"`
+		} `json:"person"`
+		Attribution *struct {
+			ValidationState string `json:"validation_state"`
+			Author          *struct {
+				Username string `json:"username"`
+			} `json:"author"`
+		} `json:"attribution"`
 		SpeakingSecond float64 `json:"speaking_seconds"`
 		Fingerprints   []struct {
 			Scope         string  `json:"scope"`
@@ -149,7 +162,8 @@ func newVoiceHarness(t *testing.T, pool *pgxpool.Pool) *voiceHarness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Snitch", ProbePath: syntheticProbeFixture(t), ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	ffmpegPath, ffmpegLog := syntheticFFmpegFixture(t)
+	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Snitch", ProbePath: syntheticProbeFixture(t), FFmpegPath: ffmpegPath, ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	if err = api.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +173,7 @@ func newVoiceHarness(t *testing.T, pool *pgxpool.Pool) *voiceHarness {
 	ts.Start()
 	t.Cleanup(ts.Close)
 	jar, _ := cookiejar.New(nil)
-	h := &voiceHarness{t: t, pool: pool, ts: ts, admin: &http.Client{Jar: jar}}
+	h := &voiceHarness{t: t, pool: pool, ts: ts, admin: &http.Client{Jar: jar}, ffmpegLog: ffmpegLog}
 	h.adminCall(http.MethodPost, "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, http.StatusCreated)
 	var session struct {
 		CSRF string `json:"csrf_token"`

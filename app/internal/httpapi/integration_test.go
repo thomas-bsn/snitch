@@ -153,6 +153,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceDiarization(t, pool)
 	})
+	t.Run("persons and attributions", func(t *testing.T) {
+		reset(t)
+		testPersonValidation(t, pool)
+	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)
@@ -303,6 +307,23 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "access_confirmed": false, "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/voice", nil, "", 200)
+		// Person and attribution endpoints, on a synthetic local speaker.
+		var contractSpeakerID int64
+		if e = pool.QueryRow(ctx, `WITH j AS (INSERT INTO jobs(clip_id,step,input_version,status) VALUES($1,'voice.diarization.2','contract-diarization','done') RETURNING id) INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count) SELECT $1,2,id,'SPEAKER_00',0,1.5,1 FROM j RETURNING id`, contractClipID).Scan(&contractSpeakerID); e != nil {
+			t.Fatal(e)
+		}
+		speakerPath := "/api/local-speakers/" + strconv64(contractSpeakerID)
+		var contractPerson struct {
+			ID int64 `json:"id"`
+		}
+		json.Unmarshal(call(client, "POST", "/api/persons", map[string]any{"display_name": "Contract person"}, me.CSRF, 201), &contractPerson)
+		call(client, "GET", "/api/persons?q=contract", nil, "", 200)
+		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID), nil, "", 200)
+		call(client, "POST", speakerPath+"/validation", map[string]any{"person_id": contractPerson.ID}, me.CSRF, 201)
+		call(client, "POST", speakerPath+"/validation", map[string]any{"new_person_name": "Late"}, me.CSRF, 409)
+		call(client, "POST", speakerPath+"/correction", map[string]any{"new_person_name": "Corrected", "expected_person_id": contractPerson.ID}, me.CSRF, 200)
+		call(client, "GET", speakerPath+"/history", nil, "", 200)
+		call(client, "GET", speakerPath+"/excerpt", nil, "", 404)
 		contractJobBody := call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.synthetic", "input_version": "contract-v1"}, me.CSRF, 201)
 		var contractJob struct {
 			ID int64 `json:"id"`
@@ -522,7 +543,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -559,6 +580,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_VOICE") == "1" {
 			suites = []string{"voice.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_PERSONS") == "1" {
+			suites = []string{"persons.spec.ts"}
+		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
 				reset(t)
@@ -579,15 +603,16 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
 					config.UploadChunkBytes = 16 * 1024
 					config.UploadSessionTTL = time.Hour
+					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
