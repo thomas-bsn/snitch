@@ -12,6 +12,7 @@ import {
 } from "./voice/PersonFilter";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
+import { VoiceAutomationCard } from "./voice/VoiceAutomationCard";
 import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
 import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
 
@@ -2124,6 +2125,10 @@ function App() {
               {session.user.role === "admin" && (
                 <VoiceMatchingCard csrf={csrf} />
               )}
+              <VoiceAutomationCard
+                isAdmin={session.user.role === "admin"}
+                csrf={csrf}
+              />
               {session.user.role === "admin" && (
                 <section className="card" id="vocabulary">
                   <h2>Vocabulaire de transcription</h2>

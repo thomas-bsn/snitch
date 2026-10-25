@@ -16,6 +16,7 @@ export type VoiceMatchingSettings =
   components["schemas"]["VoiceMatchingSettings"];
 export type VoiceMatchingSummary =
   components["schemas"]["VoiceMatchingSummary"];
+export type VoiceAccuracy = components["schemas"]["VoiceAccuracy"];
 export type VoicePipeline = components["schemas"]["VoicePipeline"];
 export type CsrfHeaders = { "X-CSRF-Token": string; Origin: string };
 
@@ -39,6 +40,10 @@ const voiceMessages: Record<string, string> = {
   invalid_voice_pipeline: "Configuration vocale invalide.",
   invalid_voice_matching:
     "Seuils invalides : le seuil de suggestion ne peut pas dépasser le seuil automatique.",
+  invalid_voice_criteria:
+    "Critères invalides : précision entre 0 et 1, au moins une confirmation.",
+  criteria_not_met:
+    "Les critères ne sont pas atteints : confirmez explicitement l’activation.",
   forbidden: "Accès réservé aux administrateurs.",
   csrf_rejected: "Session expirée. Rechargez la page.",
 };
