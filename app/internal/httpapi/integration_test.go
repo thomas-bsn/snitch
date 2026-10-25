@@ -216,6 +216,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonCorrectionsRespectVisibility(t, pool)
 	})
+	t.Run("voice result with expired lease", func(t *testing.T) {
+		reset(t)
+		testVoiceResultWithExpiredLease(t, pool)
+	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)
