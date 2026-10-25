@@ -31,6 +31,18 @@ function when(iso: string): string {
   return new Date(iso).toLocaleString("fr-FR");
 }
 
+const actionLabels: Record<string, string> = {
+  correct: "Correction",
+  match: "Rapprochement",
+  merge: "Fusion de Personnes",
+  split: "Séparation de la Personne",
+  delete_person: "Suppression de la Personne",
+};
+
+function actionLabel(action: string): string {
+  return actionLabels[action] ?? "Validation";
+}
+
 function authorName(attribution: Attribution | null | undefined): string {
   return attribution?.author?.username ?? "un utilisateur supprimé";
 }
@@ -58,6 +70,7 @@ export function SpeakerRow({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<AttributionEvent[] | null>(null);
+  const [separating, setSeparating] = useState(false);
 
   const attribution = speaker.attribution;
   const validated = attribution?.validation_state === "validated";
@@ -127,6 +140,31 @@ export function SpeakerRow({
       setEditing(false);
       setPersonId("");
       setNewName("");
+      if (history) await loadHistory();
+      await onChanged();
+    } catch {
+      setMessage("La demande a échoué. Réessayez.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Withdraws the human validation of this voice: it is unknown again.
+  async function separate() {
+    if (!attribution?.person) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await voiceApi.POST("/api/persons/{id}/separation", {
+        params: { path: { id: attribution.person.id }, header: csrf },
+        body: { local_speaker_ids: [speaker.id] },
+      });
+      setMessage(
+        result.error
+          ? messageFor(errorCode(result.error))
+          : "Voix séparée de la Personne : elle est de nouveau inconnue.",
+      );
+      setSeparating(false);
       if (history) await loadHistory();
       await onChanged();
     } catch {
@@ -231,6 +269,23 @@ export function SpeakerRow({
           <button className="secondary" onClick={() => setEditing(true)}>
             Corriger
           </button>
+          {separating ? (
+            <>
+              <button disabled={busy} onClick={() => void separate()}>
+                Confirmer la séparation
+              </button>
+              <button
+                className="secondary"
+                onClick={() => setSeparating(false)}
+              >
+                Annuler la séparation
+              </button>
+            </>
+          ) : (
+            <button className="secondary" onClick={() => setSeparating(true)}>
+              Séparer de cette Personne
+            </button>
+          )}
         </div>
       )}
       <div className="speaker-validation">
@@ -254,12 +309,7 @@ export function SpeakerRow({
           {history.length === 0 && <li>Aucun changement enregistré.</li>}
           {history.map((event) => (
             <li key={event.id}>
-              {event.action === "correct"
-                ? "Correction"
-                : event.action === "match"
-                  ? "Rapprochement"
-                  : "Validation"}{" "}
-              :{" "}
+              {actionLabel(event.action)} :{" "}
               {event.old_person?.display_name ??
                 levelLabels[event.old_decision_level as DecisionLevel] ??
                 "Inconnu"}{" "}

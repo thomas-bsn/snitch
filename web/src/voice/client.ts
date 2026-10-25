@@ -7,6 +7,9 @@ export const voiceApi = createClient<paths>();
 export type ClipVoice = components["schemas"]["ClipVoice"];
 export type LocalSpeaker = components["schemas"]["LocalSpeaker"];
 export type Person = components["schemas"]["Person"];
+export type PersonCorrectionResult =
+  components["schemas"]["PersonCorrectionResult"];
+export type PersonEvent = components["schemas"]["PersonEvent"];
 export type Attribution = components["schemas"]["Attribution"];
 export type AttributionEvent = components["schemas"]["AttributionEvent"];
 export type DecisionLevel = components["schemas"]["DecisionLevel"];
@@ -29,6 +32,10 @@ const voiceMessages: Record<string, string> = {
     "Ce Locuteur local est déjà validé : la première validation fait foi.",
   attribution_changed:
     "L’attribution a changé entre-temps. Vérifiez la valeur actuelle.",
+  not_attributed_to_person:
+    "Cette voix n’est plus validée pour cette Personne.",
+  person_linked_account:
+    "Cette Personne est liée à un compte : elle ne peut pas être absorbée ni supprimée ici.",
   not_validated: "Ce Locuteur local n’est pas encore validé.",
   same_person: "Choisissez une Personne différente pour corriger.",
   person_not_found: "Cette Personne n’existe plus.",
