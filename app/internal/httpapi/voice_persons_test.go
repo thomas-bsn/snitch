@@ -211,8 +211,9 @@ func testPersonValidation(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("refused requests left persons or samples behind")
 	}
 
-	// An automatic attribution (written by matching in a later ticket) is not a sample
-	// and never blocks a human validation, even at high confidence.
+	// An automatic attribution from another origin (here a synthetic one: matching
+	// itself is covered by the voice matching suite, and never overwrites foreign
+	// origins) is not a sample and never blocks a human validation, even at high confidence.
 	var created struct {
 		ID          int64  `json:"id"`
 		DisplayName string `json:"display_name"`
@@ -221,7 +222,7 @@ func testPersonValidation(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("person creation must trim the name: %+v %v", created, err)
 	}
 	carol := created.ID
-	if _, err := pool.Exec(context.Background(), `INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,confidence,origin) VALUES($1,$2,'automatic','unvalidated',0.97,'matching')`, second, carol); err != nil {
+	if _, err := pool.Exec(context.Background(), `INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,confidence,origin) VALUES($1,$2,'automatic','unvalidated',0.97,'synthetic_origin')`, second, carol); err != nil {
 		t.Fatal(err)
 	}
 	view = h.voiceAs(alice)

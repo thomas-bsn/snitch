@@ -48,6 +48,15 @@ type attributionView struct {
 	Author          *authorRef `json:"author"`
 	Revision        int        `json:"revision"`
 	DecidedAt       time.Time  `json:"decided_at"`
+	// Candidates are the Persons a machine attribution hesitated between (ambiguous)
+	// or its alternatives; always empty for a human validation.
+	Candidates []candidateView `json:"candidates"`
+}
+
+type candidateView struct {
+	Rank   int       `json:"rank"`
+	Score  float64   `json:"score"`
+	Person personRef `json:"person"`
 }
 
 // attributionColumns must stay aligned with scanAttribution. Callers join persons as p.
@@ -68,7 +77,35 @@ func scanAttribution(row pgx.Row) (attributionView, error) {
 	if authorID != nil || username != "" {
 		v.Author = &authorRef{ID: authorID, Username: username}
 	}
+	v.Candidates = []candidateView{}
 	return v, nil
+}
+
+// loadCandidates fills the candidates of machine attributions in one query.
+func (s *Server) loadCandidates(ctx context.Context, byAttribution map[int64]*attributionView) error {
+	ids := make([]int64, 0, len(byAttribution))
+	for id := range byAttribution {
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT c.attribution_id,c.rank,c.score,p.id,p.display_name FROM speaker_attribution_candidates c JOIN persons p ON p.id=c.person_id WHERE c.attribution_id=ANY($1) ORDER BY c.attribution_id,c.rank`, ids)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var attributionID int64
+		var c candidateView
+		if err = rows.Scan(&attributionID, &c.Rank, &c.Score, &c.Person.ID, &c.Person.DisplayName); err != nil {
+			return err
+		}
+		if v := byAttribution[attributionID]; v != nil {
+			v.Candidates = append(v.Candidates, c)
+		}
+	}
+	return rows.Err()
 }
 
 // effectiveAttributions returns, per local speaker of a clip, the attribution that
@@ -79,15 +116,30 @@ func (s *Server) effectiveAttributions(ctx context.Context, clipID int64) (map[i
 		return nil, err
 	}
 	defer rows.Close()
-	out := map[int64]attributionView{}
+	pointers := map[int64]*attributionView{}
+	machine := map[int64]*attributionView{}
 	for rows.Next() {
 		v, scanErr := scanAttribution(rows)
 		if scanErr != nil {
 			return nil, scanErr
 		}
-		out[v.LocalSpeakerID] = v
+		pointers[v.LocalSpeakerID] = &v
+		if v.ValidationState == "unvalidated" {
+			machine[v.ID] = &v
+		}
 	}
-	return out, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	if err = s.loadCandidates(ctx, machine); err != nil {
+		return nil, err
+	}
+	out := make(map[int64]attributionView, len(pointers))
+	for id, v := range pointers {
+		out[id] = *v
+	}
+	return out, nil
 }
 
 func (s *Server) validatedAttribution(ctx context.Context, speakerID int64) (*attributionView, error) {
@@ -382,6 +434,8 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 		s.internal(w, err)
 		return
 	}
+	// Adding, correcting or retiring a reference re-examines the stored fingerprints.
+	s.matchingChanged(ctx, 0)
 	view, err := s.validatedAttribution(ctx, sp.ID)
 	if err != nil {
 		s.internal(w, err)

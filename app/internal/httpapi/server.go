@@ -163,6 +163,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/clips/{id}/media", s.protected(false, http.HandlerFunc(s.serveClipMedia)))
 	s.registerVoiceRoutes(mux)
 	s.registerPersonRoutes(mux)
+	s.registerVoiceMatchingRoutes(mux)
 	embedded, _ := fs.Sub(ui.Files, "dist")
 	files := http.FileServer(http.FS(embedded))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -162,6 +162,11 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 	case err != nil:
 		s.internal(w, err)
 	default:
+		if strings.HasPrefix(step, "voice.fingerprint.") {
+			// New fingerprints are matched against the existing references, in the
+			// database only. A failure never undoes the stored result.
+			s.matchingChanged(r.Context(), job.ClipID)
+		}
 		reply(w, http.StatusOK, job)
 	}
 }

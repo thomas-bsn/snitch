@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -30,6 +31,8 @@ type voiceHarness struct {
 	csrf   string
 	token  string
 	clipID int64
+	// clipIDs lists every synthetic clip (clipID is the first); see newVoiceHarnessClips.
+	clipIDs []int64
 	// ffmpegLog records the arguments of each synthetic excerpt cut.
 	ffmpegLog string
 }
@@ -154,9 +157,22 @@ func (h *voiceHarness) voice() voiceView {
 
 func newVoiceHarness(t *testing.T, pool *pgxpool.Pool) *voiceHarness {
 	t.Helper()
+	return newVoiceHarnessClips(t, pool, 1)
+}
+
+// newVoiceHarnessClips discovers several synthetic clips so cross-clip behavior
+// (matching) can be exercised; clipID is the first one found.
+func newVoiceHarnessClips(t *testing.T, pool *pgxpool.Pool, clips int) *voiceHarness {
+	t.Helper()
 	sourceRoot := t.TempDir()
-	if err := os.WriteFile(filepath.Join(sourceRoot, "voice-clip.mp4"), []byte("synthetic-voice-video"), 0o400); err != nil {
-		t.Fatal(err)
+	for i := 0; i < clips; i++ {
+		name := "voice-clip.mp4"
+		if i > 0 {
+			name = fmt.Sprintf("voice-clip-%d.mp4", i+1)
+		}
+		if err := os.WriteFile(filepath.Join(sourceRoot, name), []byte(fmt.Sprintf("synthetic-voice-video-%d", i)), 0o400); err != nil {
+			t.Fatal(err)
+		}
 	}
 	code, err := setup.Issue(context.Background(), pool)
 	if err != nil {
@@ -196,7 +212,8 @@ func newVoiceHarness(t *testing.T, pool *pgxpool.Pool) *voiceHarness {
 		t.Fatal(err)
 	}
 	deadline := time.Now().Add(10 * time.Second)
-	for h.clipID == 0 && time.Now().Before(deadline) {
+	for len(h.clipIDs) < clips && time.Now().Before(deadline) {
+		h.clipIDs = h.clipIDs[:0]
 		var files struct {
 			Items []struct {
 				ClipID *int64 `json:"clip_id"`
@@ -208,14 +225,16 @@ func newVoiceHarness(t *testing.T, pool *pgxpool.Pool) *voiceHarness {
 		}
 		for _, f := range files.Items {
 			if f.Status == "ready" && f.ClipID != nil {
-				h.clipID = *f.ClipID
+				h.clipIDs = append(h.clipIDs, *f.ClipID)
 			}
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if h.clipID == 0 {
-		t.Fatal("synthetic clip was not discovered")
+	if len(h.clipIDs) < clips {
+		t.Fatal("synthetic clips were not discovered")
 	}
+	sort.Slice(h.clipIDs, func(i, j int) bool { return h.clipIDs[i] < h.clipIDs[j] })
+	h.clipID = h.clipIDs[0]
 	return h
 }
 

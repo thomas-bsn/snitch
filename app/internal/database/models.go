@@ -203,18 +203,27 @@ type SourceFile struct {
 }
 
 type SpeakerAttribution struct {
-	ID              int64              `json:"id"`
-	LocalSpeakerID  int64              `json:"local_speaker_id"`
-	PersonID        pgtype.Int8        `json:"person_id"`
-	DecisionLevel   string             `json:"decision_level"`
-	ValidationState string             `json:"validation_state"`
-	Confidence      pgtype.Float8      `json:"confidence"`
-	Origin          string             `json:"origin"`
-	AuthorID        pgtype.Int8        `json:"author_id"`
-	AuthorUsername  string             `json:"author_username"`
-	Revision        int32              `json:"revision"`
-	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ID                int64              `json:"id"`
+	LocalSpeakerID    int64              `json:"local_speaker_id"`
+	PersonID          pgtype.Int8        `json:"person_id"`
+	DecisionLevel     string             `json:"decision_level"`
+	ValidationState   string             `json:"validation_state"`
+	Confidence        pgtype.Float8      `json:"confidence"`
+	Origin            string             `json:"origin"`
+	AuthorID          pgtype.Int8        `json:"author_id"`
+	AuthorUsername    string             `json:"author_username"`
+	Revision          int32              `json:"revision"`
+	DecidedAt         pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	MatchModel        pgtype.Text        `json:"match_model"`
+	MatchModelVersion pgtype.Text        `json:"match_model_version"`
+}
+
+type SpeakerAttributionCandidate struct {
+	AttributionID int64   `json:"attribution_id"`
+	PersonID      int64   `json:"person_id"`
+	Rank          int32   `json:"rank"`
+	Score         float64 `json:"score"`
 }
 
 type SpeakerTurn struct {
@@ -315,6 +324,17 @@ type VoiceFingerprint struct {
 	Dimensions       int32              `json:"dimensions"`
 	Embedding        pgvector.Vector    `json:"embedding"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoiceMatchingSetting struct {
+	ID                  bool               `json:"id"`
+	AutoEnabled         bool               `json:"auto_enabled"`
+	AutomaticThreshold  float64            `json:"automatic_threshold"`
+	SuggestionThreshold float64            `json:"suggestion_threshold"`
+	AmbiguityMargin     float64            `json:"ambiguity_margin"`
+	MaxCandidates       int32              `json:"max_candidates"`
+	UpdatedBy           pgtype.Int8        `json:"updated_by"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type VoicePipelineActive struct {
