@@ -114,6 +114,16 @@ from .user import User
 from .user_role import UserRole
 from .vocabulary_list import VocabularyList
 from .vocabulary_term_input import VocabularyTermInput
+from .voice_accuracy import VoiceAccuracy
+from .voice_accuracy_criteria import VoiceAccuracyCriteria
+from .voice_accuracy_evaluation import VoiceAccuracyEvaluation
+from .voice_accuracy_library import VoiceAccuracyLibrary
+from .voice_accuracy_person import VoiceAccuracyPerson
+from .voice_automation_criteria_input import VoiceAutomationCriteriaInput
+from .voice_automation_event import VoiceAutomationEvent
+from .voice_automation_event_action import VoiceAutomationEventAction
+from .voice_automation_input import VoiceAutomationInput
+from .voice_automation_result import VoiceAutomationResult
 from .voice_fingerprint import VoiceFingerprint
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
@@ -259,6 +269,16 @@ __all__ = (
     "UserRole",
     "VocabularyList",
     "VocabularyTermInput",
+    "VoiceAccuracy",
+    "VoiceAccuracyCriteria",
+    "VoiceAccuracyEvaluation",
+    "VoiceAccuracyLibrary",
+    "VoiceAccuracyPerson",
+    "VoiceAutomationCriteriaInput",
+    "VoiceAutomationEvent",
+    "VoiceAutomationEventAction",
+    "VoiceAutomationInput",
+    "VoiceAutomationResult",
     "VoiceFingerprint",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",

@@ -982,6 +982,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-accuracy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Précision globale et par Personne mesurée sur des clips distincts de ceux des références (un échantillon validé est référence ou test, jamais les deux, et aucun test ne partage un clip avec une référence), nombre de confirmations, couverture automatique et volume de vérification restant, calculés depuis la base. Ces valeurs décrivent l'échantillon disponible : aucune n'est une garantie. */
+    get: operations["getVoiceAccuracy"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-automation/criteria": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Seuil de précision et nombre minimal de confirmations qui déclenchent la proposition d'activation. Ils ne basculent jamais l'automatisation d'eux-mêmes ; leurs valeurs de départ ne sont pas des garanties. */
+    put: operations["updateVoiceAutomationCriteria"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-automation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement : seul endpoint qui active ou désactive l'attribution automatique. L'activation sous les critères exige confirm_unmet_criteria. Chaque changement effectif est tracé avec la mesure du moment. La désactivation ramène les attributions automatiques à des suggestions ; aucune référence n'est créée ni modifiée. */
+    put: operations["setVoiceAutomation"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings": {
     parameters: {
       query?: never;
@@ -1494,6 +1545,15 @@ export interface components {
       /** @description Écart sous lequel deux Personnes sont jugées aussi proches : la voix est ambiguë. */
       ambiguity_margin: number;
       max_candidates: number;
+      /** @description Critère de proposition d'activation : précision mesurée minimale. Valeur de départ configurable, jamais une garantie. */
+      precision_threshold: number;
+      /** @description Critère de proposition d'activation : nombre minimal d'attributions automatiques simulées confirmées par une validation humaine. */
+      min_confirmations: number;
+      /**
+       * Format: date-time
+       * @description Dernier changement de l'interrupteur d'automatisation ; null s'il n'a jamais été modifié.
+       */
+      auto_changed_at: string | null;
       /** Format: date-time */
       updated_at: string;
     };
@@ -1512,6 +1572,95 @@ export interface components {
       unknown: number;
       /** @description Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle. */
       removed: number;
+    };
+    VoiceAutomationCriteriaInput: {
+      precision_threshold: number;
+      min_confirmations: number;
+    };
+    VoiceAutomationInput: {
+      enabled: boolean;
+      /** @description Requis pour activer alors que les critères ne sont pas atteints ; sans effet sinon. */
+      confirm_unmet_criteria?: boolean;
+    };
+    VoiceAutomationResult: {
+      settings: components["schemas"]["VoiceMatchingSettings"];
+      summary: components["schemas"]["VoiceMatchingSummary"];
+    };
+    VoiceAccuracyEvaluation: {
+      /** @description Échantillons validés servant de référence pour cette mesure. */
+      reference_samples: number;
+      /** @description Échantillons validés servant de test : leur clip ne contient aucune référence. */
+      test_samples: number;
+      /** @description Échantillons écartés de la mesure car leur clip contient aussi une référence. */
+      excluded_samples: number;
+      /** @description Tests qui auraient été attribués automatiquement. */
+      evaluated_automatic: number;
+      /** @description Confirmations : attributions automatiques simulées qui désignent la Personne validée par un humain. */
+      confirmed: number;
+      /** @description confirmed / evaluated_automatic ; null si aucun test n'est automatique. */
+      precision: number | null;
+      /** @description evaluated_automatic / test_samples ; null sans test. */
+      coverage: number | null;
+    };
+    VoiceAccuracyPerson: {
+      person: components["schemas"]["PersonRef"];
+      reference_samples: number;
+      test_samples: number;
+      /** @description Tests attribués automatiquement à cette Personne, à raison ou non. */
+      automatic_predictions: number;
+      confirmed: number;
+      precision: number | null;
+    };
+    VoiceAccuracyLibrary: {
+      /** @description Locuteurs locaux diarisés (hors piste micro). */
+      speakers_total: number;
+      /** @description Validés par un humain. */
+      validated: number;
+      /** @description Attribués automatiquement, ou qui le seraient dès l'activation (suggestion au moins égale au seuil automatique). */
+      automatic: number;
+      suggestion: number;
+      ambiguous: number;
+      unknown: number;
+      /** @description Volume de vérification restant : suggestions, ambigus et inconnus. */
+      to_verify: number;
+      /** @description automatic / locuteurs non validés ; null sans locuteur à attribuer. */
+      coverage: number | null;
+      /** @description Pistes micro attribuées à leur propriétaire : comptées à part, indépendantes de l'interrupteur. */
+      microphone_assigned: number;
+    };
+    VoiceAutomationEvent: {
+      /** @enum {string} */
+      action: "enable" | "disable";
+      author: string;
+      criteria_met: boolean;
+      /** @description Activation confirmée explicitement malgré des critères non atteints. */
+      forced: boolean;
+      measured_precision: number | null;
+      confirmations: number;
+      precision_threshold: number;
+      min_confirmations: number;
+      /** Format: date-time */
+      created_at: string;
+    };
+    VoiceAccuracy: {
+      /** Format: date-time */
+      measured_at: string;
+      auto_enabled: boolean;
+      automatic_threshold: number;
+      precision_threshold: number;
+      min_confirmations: number;
+      evaluation: components["schemas"]["VoiceAccuracyEvaluation"];
+      persons: components["schemas"]["VoiceAccuracyPerson"][];
+      library: components["schemas"]["VoiceAccuracyLibrary"];
+      criteria: {
+        met: boolean;
+        precision_met: boolean;
+        confirmations_met: boolean;
+      };
+      /** @description Les critères sont atteints et l'automatisation est désactivée : Snitch propose l'activation à l'administrateur. */
+      activation_proposed: boolean;
+      /** @description Historique des activations et désactivations, du plus récent au plus ancien. */
+      events: components["schemas"]["VoiceAutomationEvent"][];
     };
     /** @description Exactement un de person_id ou new_person_name. */
     AttributionInput: {
@@ -4552,6 +4701,116 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceMatchingSummary"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceAccuracy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Précision mesurée, volumes et proposition d'activation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceAccuracy"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVoiceAutomationCriteria: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceAutomationCriteriaInput"];
+      };
+    };
+    responses: {
+      /** @description Critères enregistrés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  setVoiceAutomation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceAutomationInput"];
+      };
+    };
+    responses: {
+      /** @description État de l'automatisation après rapprochement des empreintes déjà stockées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceAutomationResult"];
+        };
+      };
+      /** @description criteria_not_met : les critères ne sont pas atteints et l'activation n'a pas été confirmée explicitement */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */

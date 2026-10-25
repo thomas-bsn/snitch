@@ -92,7 +92,7 @@ func TestFoundation(t *testing.T) {
 		if _, e = pool.Exec(ctx, `UPDATE voice_pipeline_active SET version='voice-v1' WHERE id=true`); e != nil {
 			t.Fatal(e)
 		}
-		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5 WHERE id=true`); e != nil {
+		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events`); e != nil {
 			t.Fatal(e)
 		}
 	}
@@ -163,6 +163,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice matching", func(t *testing.T) {
 		reset(t)
 		testVoiceMatching(t, pool)
+	})
+	t.Run("voice automation", func(t *testing.T) {
+		reset(t)
+		testVoiceAutomation(t, pool)
 	})
 	t.Run("microphone track", func(t *testing.T) {
 		reset(t)
@@ -344,6 +348,11 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.5, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-matching/rematch", nil, me.CSRF, 200)
+		// Accuracy measure and automation switch (behavior in the voice automation suite).
+		call(client, "GET", "/api/admin/voice-accuracy", nil, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/voice-automation/criteria", map[string]any{"precision_threshold": 0.95, "min_confirmations": 50}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/voice-automation", map[string]any{"enabled": true}, me.CSRF, 409)
+		call(client, "PUT", "/api/admin/voice-automation", map[string]any{"enabled": false}, me.CSRF, 200)
 		// Microphone track of a clip: view, replacement, disabling and removal.
 		micPath := "/api/clips/" + strconv64(contractClipID) + "/microphone-track"
 		call(client, "GET", micPath, nil, "", 200)
