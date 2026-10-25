@@ -107,6 +107,7 @@ type Input struct {
 	Vocabulary      []VocabularyTerm `json:"vocabulary"`
 	Pipeline        json.RawMessage  `json:"pipeline"`
 	PipelineVersion string           `json:"pipeline_version"`
+	Voice           json.RawMessage  `json:"voice,omitempty"`
 }
 
 type VocabularyTerm struct {
@@ -189,7 +190,7 @@ func (s *Service) List(ctx context.Context, filter Filter) (Page, error) {
 		return Page{}, fmt.Errorf("count jobs: %w", err)
 	}
 	args = append(args, filter.PageSize, (filter.Page-1)*filter.PageSize)
-	rows, err := s.pool.Query(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE ($1='' OR status=$1) AND ($2=0 OR clip_id=$2) AND ($3='' OR step=$3) ORDER BY priority DESC,created_at,id LIMIT $4 OFFSET $5`, args...)
+	rows, err := s.pool.Query(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,CASE WHEN step LIKE 'voice.fingerprint.%' THEN NULL ELSE result END,cycle FROM jobs WHERE ($1='' OR status=$1) AND ($2=0 OR clip_id=$2) AND ($3='' OR step=$3) ORDER BY priority DESC,created_at,id LIMIT $4 OFFSET $5`, args...)
 	if err != nil {
 		return Page{}, fmt.Errorf("list jobs: %w", err)
 	}
@@ -420,6 +421,11 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 			return Input{}, fmt.Errorf("read transcription pipeline snapshot: %w", queryErr)
 		}
 	}
+	if strings.HasPrefix(input.Job.Step, "voice.") {
+		if err = s.voiceInput(ctx, &input); err != nil {
+			return Input{}, err
+		}
+	}
 	return input, nil
 }
 
@@ -438,10 +444,25 @@ func (s *Service) Heartbeat(ctx context.Context, id int64, workerID, leaseToken 
 }
 
 func (s *Service) Complete(ctx context.Context, id int64, workerID, leaseToken, inputVersion string, result json.RawMessage) (Job, error) {
+	return s.CompleteWith(ctx, id, workerID, leaseToken, inputVersion, result, CompleteOptions{})
+}
+
+// CompleteOptions extends completion for steps that project their result into
+// dedicated tables. Project runs inside the completion transaction, only for the
+// first successful completion; any error rolls the whole completion back.
+type CompleteOptions struct {
+	MaxResultBytes int
+	Project        func(ctx context.Context, tx pgx.Tx, job Job) error
+}
+
+func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseToken, inputVersion string, result json.RawMessage, opts CompleteOptions) (Job, error) {
 	if !validLeaseToken(leaseToken) {
 		return Job{}, ErrLeaseNotOwned
 	}
-	if !json.Valid(result) || len(result) == 0 || len(result) > 12*1024 {
+	if opts.MaxResultBytes == 0 {
+		opts.MaxResultBytes = 12 * 1024
+	}
+	if !json.Valid(result) || len(result) == 0 || len(result) > opts.MaxResultBytes {
 		return Job{}, ErrInvalidInput
 	}
 	var object map[string]json.RawMessage
@@ -475,6 +496,11 @@ func (s *Service) Complete(ctx context.Context, id int64, workerID, leaseToken, 
 			}
 			if _, err = tx.Exec(ctx, `INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT p.id,$1 FROM embedding_profiles p JOIN embedding_index_state s ON s.id=1 WHERE p.id=s.active_profile_id OR p.id=s.candidate_profile_id ON CONFLICT(profile_id,transcription_job_id) DO NOTHING`, id); err != nil {
 				return Job{}, fmt.Errorf("queue transcript embeddings: %w", err)
+			}
+		}
+		if opts.Project != nil {
+			if err = opts.Project(ctx, tx, job); err != nil {
+				return Job{}, err
 			}
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id) VALUES($1,'completed',$2,$3,'worker',$4)`, id, job.Cycle, job.Attempts, workerID); err != nil {

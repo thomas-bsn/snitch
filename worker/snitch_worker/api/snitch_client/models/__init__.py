@@ -10,6 +10,8 @@ from .bootstrap import Bootstrap
 from .clip import Clip
 from .clip_page import ClipPage
 from .clip_visibility import ClipVisibility
+from .clip_voice import ClipVoice
+from .clip_voice_status import ClipVoiceStatus
 from .credentials import Credentials
 from .error import Error
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
@@ -28,6 +30,8 @@ from .job_status import JobStatus
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
+from .local_speaker import LocalSpeaker
+from .local_speaker_state import LocalSpeakerState
 from .media_track import MediaTrack
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
@@ -37,6 +41,7 @@ from .schedule_transcription_batch_body import ScheduleTranscriptionBatchBody
 from .schedule_transcription_batch_response_200 import ScheduleTranscriptionBatchResponse200
 from .schedule_transcription_batch_response_200_preview import ScheduleTranscriptionBatchResponse200Preview
 from .scheduled_transcription import ScheduledTranscription
+from .scheduled_voice import ScheduledVoice
 from .search_page import SearchPage
 from .search_result import SearchResult
 from .search_result_match_type import SearchResultMatchType
@@ -79,6 +84,16 @@ from .user import User
 from .user_role import UserRole
 from .vocabulary_list import VocabularyList
 from .vocabulary_term_input import VocabularyTermInput
+from .voice_fingerprint import VoiceFingerprint
+from .voice_fingerprint_scope import VoiceFingerprintScope
+from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
+from .voice_pipeline import VoicePipeline
+from .voice_pipeline_fake import VoicePipelineFake
+from .voice_pipeline_provider import VoicePipelineProvider
+from .voice_pipeline_state import VoicePipelineState
+from .voice_schedule_input import VoiceScheduleInput
+from .voice_step import VoiceStep
+from .voice_step_status import VoiceStepStatus
 from .worker import Worker
 from .worker_claim import WorkerClaim
 from .worker_failure_input import WorkerFailureInput
@@ -91,6 +106,10 @@ from .worker_registration_input import WorkerRegistrationInput
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 from .worker_vocabulary_term import WorkerVocabularyTerm
+from .worker_voice_input import WorkerVoiceInput
+from .worker_voice_input_diarization import WorkerVoiceInputDiarization
+from .worker_voice_input_diarization_speakers_item import WorkerVoiceInputDiarizationSpeakersItem
+from .worker_voice_input_diarization_speakers_item_turns_item import WorkerVoiceInputDiarizationSpeakersItemTurnsItem
 
 __all__ = (
     "AudioTrackOverride",
@@ -103,6 +122,8 @@ __all__ = (
     "Clip",
     "ClipPage",
     "ClipVisibility",
+    "ClipVoice",
+    "ClipVoiceStatus",
     "Credentials",
     "Error",
     "GetEmbeddingIndexStatusResponse200",
@@ -121,12 +142,15 @@ __all__ = (
     "ListClipsStatus",
     "ListClipsVisibility",
     "ListJobsStatus",
+    "LocalSpeaker",
+    "LocalSpeakerState",
     "MediaTrack",
     "PreviewTranscriptionBatchResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",
     "ScanSourceBody",
     "ScheduledTranscription",
+    "ScheduledVoice",
     "ScheduleTranscriptionBatchBody",
     "ScheduleTranscriptionBatchResponse200",
     "ScheduleTranscriptionBatchResponse200Preview",
@@ -172,6 +196,16 @@ __all__ = (
     "UserRole",
     "VocabularyList",
     "VocabularyTermInput",
+    "VoiceFingerprint",
+    "VoiceFingerprintScope",
+    "VoiceFingerprintUnusableReason",
+    "VoicePipeline",
+    "VoicePipelineFake",
+    "VoicePipelineProvider",
+    "VoicePipelineState",
+    "VoiceScheduleInput",
+    "VoiceStep",
+    "VoiceStepStatus",
     "Worker",
     "WorkerClaim",
     "WorkerFailureInput",
@@ -184,4 +218,8 @@ __all__ = (
     "WorkerResultInput",
     "WorkerResultInputResult",
     "WorkerVocabularyTerm",
+    "WorkerVoiceInput",
+    "WorkerVoiceInputDiarization",
+    "WorkerVoiceInputDiarizationSpeakersItem",
+    "WorkerVoiceInputDiarizationSpeakersItemTurnsItem",
 )

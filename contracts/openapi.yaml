@@ -2791,6 +2791,41 @@
         "security": [{"session": []}]
       }
     },
+    "/api/admin/voice-pipeline": {
+      "get": {
+        "operationId": "getVoicePipeline",
+        "responses": {"200": {"description": "Configuration vocale active", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoicePipelineState"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Modèle de diarisation et seuils des empreintes ; aucun modèle n'est téléchargé implicitement.",
+        "security": [{"session": []}]
+      },
+      "put": {
+        "operationId": "updateVoicePipeline",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoicePipeline"}}}},
+        "responses": {"200": {"description": "Nouvelle version activée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoicePipelineState"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur factice peut s'exécuter sans access_confirmed.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/clips/{id}/voice": {
+      "post": {
+        "operationId": "scheduleVoice",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceScheduleInput"}}}},
+        "responses": {"201": {"description": "Diarisation planifiée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScheduledVoice"}}}}, "200": {"description": "Étape déjà planifiée pour cette version", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScheduledVoice"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/clips/{id}/voice": {
+      "get": {
+        "operationId": "getClipVoice",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Locuteurs locaux et état des étapes vocales", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipVoice"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour les clips que leur visibilité permet de voir. Consultable worker éteint ; les vecteurs ne sont jamais exposés.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/embeddings": {
       "get": {
         "operationId": "getEmbeddingIndexStatus",
@@ -4115,7 +4150,8 @@
             }
           },
           "pipeline": {"$ref": "#/components/schemas/TranscriptionPipeline"},
-          "pipeline_version": {"type": "string"}
+          "pipeline_version": {"type": "string"},
+          "voice": {"$ref": "#/components/schemas/WorkerVoiceInput"}
         }
       },
       "TranscriptionPipeline": {
@@ -4130,6 +4166,85 @@
         }
       },
       "TranscriptionPipelineState": {"type": "object", "required": ["version", "config"], "properties": {"version": {"type": "string"}, "config": {"$ref": "#/components/schemas/TranscriptionPipeline"}}},
+      "VoicePipeline": {
+        "type": "object", "additionalProperties": false,
+        "required": ["provider", "model", "model_version", "access_confirmed", "min_fingerprint_seconds", "min_quality"],
+        "properties": {
+          "provider": {"type": "string", "enum": ["fake", "pyannote"]},
+          "model": {"type": "string", "minLength": 1, "maxLength": 100},
+          "model_version": {"type": "string", "minLength": 1, "maxLength": 64},
+          "access_confirmed": {"type": "boolean", "description": "Confirmation explicite par l'administrateur du jeton et des conditions d'accès du modèle."},
+          "min_fingerprint_seconds": {"type": "number", "minimum": 0.1, "maximum": 60},
+          "min_quality": {"type": "number", "minimum": 0, "maximum": 1},
+          "fake": {"type": "object", "additionalProperties": false, "required": ["speakers", "dimensions"], "properties": {"speakers": {"type": "integer", "minimum": 1, "maximum": 8}, "dimensions": {"type": "integer", "minimum": 2, "maximum": 512}}, "description": "Réglages du fournisseur factice déterministe, réservés aux tests."}
+        }
+      },
+      "VoicePipelineState": {"type": "object", "required": ["version", "config"], "properties": {"version": {"type": "string"}, "config": {"$ref": "#/components/schemas/VoicePipeline"}}},
+      "VoiceScheduleInput": {"type": "object", "properties": {"audio_stream_index": {"type": "integer", "minimum": 0}}},
+      "ScheduledVoice": {"type": "object", "required": ["job"], "properties": {"job": {"$ref": "#/components/schemas/Job"}}},
+      "VoiceStep": {
+        "type": "object",
+        "required": ["job_id", "step", "status", "input_version", "attempts", "max_attempts", "last_error"],
+        "properties": {
+          "job_id": {"type": "integer", "format": "int64"},
+          "step": {"type": "string"},
+          "status": {"type": "string", "enum": ["pending", "leased", "done", "failed", "retry_wait", "cancelled", "dead"]},
+          "input_version": {"type": "string"},
+          "attempts": {"type": "integer"},
+          "max_attempts": {"type": "integer"},
+          "last_error": {"type": "string", "description": "Code d'erreur expurgé, jamais de détail du fournisseur."}
+        }
+      },
+      "VoiceFingerprint": {
+        "type": "object",
+        "required": ["id", "scope", "start_seconds", "end_seconds", "duration_seconds", "quality", "usable", "unusable_reason", "model", "model_version", "dimensions"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "scope": {"type": "string", "enum": ["speaker", "turn"]},
+          "start_seconds": {"type": "number"},
+          "end_seconds": {"type": "number"},
+          "duration_seconds": {"type": "number"},
+          "quality": {"type": "number", "minimum": 0, "maximum": 1},
+          "usable": {"type": "boolean", "description": "Faux : ne sert ni de référence ni de base de propagation."},
+          "unusable_reason": {"type": "string", "enum": ["", "too_short", "low_quality"]},
+          "model": {"type": "string"},
+          "model_version": {"type": "string"},
+          "dimensions": {"type": "integer"}
+        }
+      },
+      "LocalSpeaker": {
+        "type": "object",
+        "required": ["id", "label", "ordinal", "speaking_seconds", "turn_count", "state", "fingerprints"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "label": {"type": "string"},
+          "ordinal": {"type": "integer"},
+          "speaking_seconds": {"type": "number"},
+          "turn_count": {"type": "integer"},
+          "state": {"type": "string", "enum": ["unidentified"], "description": "Une voix inconnue reste un Locuteur local non identifié ; les attributions arrivent avec les tickets suivants."},
+          "fingerprints": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceFingerprint"}}
+        }
+      },
+      "ClipVoice": {
+        "type": "object",
+        "required": ["clip_id", "status", "steps", "speakers"],
+        "properties": {
+          "clip_id": {"type": "integer", "format": "int64"},
+          "status": {"type": "string", "enum": ["none", "queued", "running", "done", "failed"]},
+          "audio_stream_index": {"type": "integer", "nullable": true},
+          "steps": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceStep"}},
+          "speakers": {"type": "array", "items": {"$ref": "#/components/schemas/LocalSpeaker"}}
+        }
+      },
+      "WorkerVoiceInput": {
+        "type": "object",
+        "required": ["pipeline_version", "config"],
+        "properties": {
+          "pipeline_version": {"type": "string"},
+          "config": {"$ref": "#/components/schemas/VoicePipeline"},
+          "diarization": {"type": "object", "description": "Étape d'empreintes uniquement : locuteurs et tours à encoder.", "required": ["job_id", "speakers"], "properties": {"job_id": {"type": "integer", "format": "int64"}, "speakers": {"type": "array", "items": {"type": "object", "required": ["label", "turns"], "properties": {"label": {"type": "string"}, "turns": {"type": "array", "items": {"type": "object", "required": ["index", "start", "end"], "properties": {"index": {"type": "integer"}, "start": {"type": "number"}, "end": {"type": "number"}}}}}}}}}
+        }
+      },
       "WorkerResultInput": {
         "type": "object",
         "additionalProperties": false,
@@ -4606,7 +4721,9 @@
             "items": {
               "$ref": "#/components/schemas/TranscriptWord"
             }
-          }
+          },
+          "local_speaker_id": {"type": "integer", "format": "int64", "description": "Locuteur local dominant du segment ; absent sans diarisation ou sans recouvrement."},
+          "local_speaker_label": {"type": "string"}
         }
       },
       "Transcription": {

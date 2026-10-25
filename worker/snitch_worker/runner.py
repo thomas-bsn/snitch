@@ -29,6 +29,8 @@ from snitch_client.models.worker_pulse_input import WorkerPulseInput
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
+from snitch_worker.voice import is_voice_step, process_voice_step
+
 
 def fake_provider(step: str) -> dict[str, Any]:
     """Return fixture metadata only; phase 2 must not inspect task media."""
@@ -284,7 +286,7 @@ def run_once(
             client=client,
             body=WorkerPulseInput(
                 capacity=capacity,
-                supported_steps=["fixture.*", "transcription.audio.*"],
+                supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
             ),
         ),
         "pulse",
@@ -348,6 +350,11 @@ def run_once(
                 ]
                 result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
                 result["audio_stream_index"] = stream_index
+        elif is_voice_step(job.step):
+            voice_value = getattr(task_input, "voice", None)
+            voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
+            duration = getattr(task_input, "duration_seconds", None)
+            result = process_voice_step(job.step, voice_input, duration if isinstance(duration, (int, float)) else None)
         else:
             raise ValueError("unsupported worker step")
         heartbeat_stop.set()

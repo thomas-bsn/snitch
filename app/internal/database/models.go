@@ -125,6 +125,17 @@ type JobEvent struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type LocalSpeaker struct {
+	ID               int64   `json:"id"`
+	ClipID           int64   `json:"clip_id"`
+	AudioStreamIndex int32   `json:"audio_stream_index"`
+	DiarizationJobID int64   `json:"diarization_job_id"`
+	Label            string  `json:"label"`
+	Ordinal          int32   `json:"ordinal"`
+	SpeakingSeconds  float64 `json:"speaking_seconds"`
+	TurnCount        int32   `json:"turn_count"`
+}
+
 type OauthState struct {
 	StateHash   []byte             `json:"state_hash"`
 	BrowserHash []byte             `json:"browser_hash"`
@@ -162,6 +173,15 @@ type SourceFile struct {
 	LastSeenGeneration int64              `json:"last_seen_generation"`
 	Status             string             `json:"status"`
 	ErrorCode          pgtype.Text        `json:"error_code"`
+}
+
+type SpeakerTurn struct {
+	ID             int64   `json:"id"`
+	LocalSpeakerID int64   `json:"local_speaker_id"`
+	ClipID         int64   `json:"clip_id"`
+	TurnIndex      int32   `json:"turn_index"`
+	StartSeconds   float64 `json:"start_seconds"`
+	EndSeconds     float64 `json:"end_seconds"`
 }
 
 type TranscriptEmbedding struct {
@@ -233,6 +253,37 @@ type User struct {
 	Approved     bool               `json:"approved"`
 	DiscordID    pgtype.Text        `json:"discord_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoiceFingerprint struct {
+	ID               int64              `json:"id"`
+	LocalSpeakerID   int64              `json:"local_speaker_id"`
+	ClipID           int64              `json:"clip_id"`
+	FingerprintJobID int64              `json:"fingerprint_job_id"`
+	Scope            string             `json:"scope"`
+	TurnID           pgtype.Int8        `json:"turn_id"`
+	StartSeconds     float64            `json:"start_seconds"`
+	EndSeconds       float64            `json:"end_seconds"`
+	DurationSeconds  float64            `json:"duration_seconds"`
+	Quality          float64            `json:"quality"`
+	Usable           bool               `json:"usable"`
+	UnusableReason   string             `json:"unusable_reason"`
+	Model            string             `json:"model"`
+	ModelVersion     string             `json:"model_version"`
+	Dimensions       int32              `json:"dimensions"`
+	Embedding        pgvector.Vector    `json:"embedding"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoicePipelineActive struct {
+	ID      bool   `json:"id"`
+	Version string `json:"version"`
+}
+
+type VoicePipelineVersion struct {
+	Version   string             `json:"version"`
+	Config    []byte             `json:"config"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type Worker struct {

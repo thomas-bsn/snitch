@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import createClient from "openapi-fetch";
 import type { paths, components } from "./api.gen";
 import "./style.css";
+import { SpeakerBadge, VoicePanel } from "./voice/VoicePanel";
+import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 
 const api = createClient<paths>();
 type Setup = components["schemas"]["Setup"];
@@ -1720,6 +1722,11 @@ function App() {
                                           <p
                                             key={`${segment.start}-${segmentIndex}`}
                                           >
+                                            <SpeakerBadge
+                                              label={
+                                                segment.local_speaker_label
+                                              }
+                                            />
                                             <button
                                               className="transcript-time"
                                               onClick={() => {
@@ -1752,6 +1759,15 @@ function App() {
                                   </section>
                                 );
                               })()}
+                            {clipDetails[clip.id] &&
+                              clip.status === "ready" && (
+                                <VoicePanel
+                                  clipId={clip.id}
+                                  isAdmin={session.user.role === "admin"}
+                                  csrf={csrf}
+                                  reloadToken={clipDetails[clip.id]}
+                                />
+                              )}
                             {clipDetails[clip.id] && (
                               <button
                                 className="secondary"
@@ -2051,6 +2067,9 @@ function App() {
                     </>
                   )}
                 </section>
+              )}
+              {session.user.role === "admin" && (
+                <VoicePipelineCard csrf={csrf} />
               )}
               {session.user.role === "admin" && (
                 <section className="card" id="vocabulary">

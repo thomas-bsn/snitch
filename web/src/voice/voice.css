@@ -1,0 +1,42 @@
+.clip-voice {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.6rem;
+  background: var(--surface-raised, #20242a);
+}
+.clip-voice h3 {
+  margin-top: 0;
+}
+.voice-steps,
+.voice-speakers {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.voice-error {
+  color: var(--danger, #f38ba8);
+}
+.speaker-badge {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px dashed currentColor;
+  border-radius: 999px;
+  font-size: 0.8em;
+  opacity: 0.85;
+}
+.voice-pipeline-form {
+  display: grid;
+  gap: 0.75rem;
+}
+.voice-pipeline-form label {
+  display: grid;
+  gap: 0.35rem;
+}
+.voice-pipeline-form label.inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

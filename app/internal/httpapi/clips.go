@@ -183,6 +183,10 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 	if transcript != nil {
 		var value any
 		if json.Unmarshal(transcript, &value) == nil {
+			if err := s.attachLocalSpeakers(r.Context(), v.ID, value); err != nil {
+				s.internal(w, err)
+				return
+			}
 			response["transcription"] = value
 		}
 	}

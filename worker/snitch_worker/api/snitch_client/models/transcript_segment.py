@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -29,12 +30,17 @@ class TranscriptSegment:
             end (float):
             text (str):
             words (list[TranscriptWord]):
+            local_speaker_id (int | Unset): Locuteur local dominant du segment ; absent sans diarisation ou sans
+                recouvrement.
+            local_speaker_label (str | Unset):
      """
 
     start: float
     end: float
     text: str
     words: list[TranscriptWord]
+    local_speaker_id: int | Unset = UNSET
+    local_speaker_label: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -56,6 +62,10 @@ class TranscriptSegment:
 
 
 
+        local_speaker_id = self.local_speaker_id
+
+        local_speaker_label = self.local_speaker_label
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -65,6 +75,10 @@ class TranscriptSegment:
             "text": text,
             "words": words,
         })
+        if local_speaker_id is not UNSET:
+            field_dict["local_speaker_id"] = local_speaker_id
+        if local_speaker_label is not UNSET:
+            field_dict["local_speaker_label"] = local_speaker_label
 
         return field_dict
 
@@ -90,11 +104,17 @@ class TranscriptSegment:
             words.append(words_item)
 
 
+        local_speaker_id = d.pop("local_speaker_id", UNSET)
+
+        local_speaker_label = d.pop("local_speaker_label", UNSET)
+
         transcript_segment = cls(
             start=start,
             end=end,
             text=text,
             words=words,
+            local_speaker_id=local_speaker_id,
+            local_speaker_label=local_speaker_label,
         )
 
 

@@ -161,6 +161,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/transcriptions/batch-preview", s.protected(true, http.HandlerFunc(s.batchTranscriptionPreview)))
 	mux.Handle("POST /api/admin/transcriptions/batch-schedule", s.protected(true, http.HandlerFunc(s.batchTranscriptionSchedule)))
 	mux.Handle("GET /api/clips/{id}/media", s.protected(false, http.HandlerFunc(s.serveClipMedia)))
+	s.registerVoiceRoutes(mux)
 	embedded, _ := fs.Sub(ui.Files, "dist")
 	files := http.FileServer(http.FS(embedded))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -205,6 +206,9 @@ func (s *Server) Handler() http.Handler {
 			if limit <= 0 {
 				limit = 4 << 20
 			}
+		}
+		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/worker/jobs/") && strings.HasSuffix(r.URL.Path, "/complete") {
+			limit = maxVoiceResultBytes + 4096 // voice fingerprints are larger than transcripts
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		mux.ServeHTTP(w, r)

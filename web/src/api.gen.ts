@@ -722,6 +722,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-pipeline": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Modèle de diarisation et seuils des empreintes ; aucun modèle n'est téléchargé implicitement. */
+    get: operations["getVoicePipeline"];
+    /** @description Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur factice peut s'exécuter sans access_confirmed. */
+    put: operations["updateVoicePipeline"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/voice": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation. */
+    post: operations["scheduleVoice"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/voice": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés, pour les clips que leur visibilité permet de voir. Consultable worker éteint ; les vecteurs ne sont jamais exposés. */
+    get: operations["getClipVoice"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings": {
     parameters: {
       query?: never;
@@ -1068,6 +1120,7 @@ export interface components {
       vocabulary: components["schemas"]["WorkerVocabularyTerm"][];
       pipeline?: components["schemas"]["TranscriptionPipeline"];
       pipeline_version?: string;
+      voice?: components["schemas"]["WorkerVoiceInput"];
     };
     TranscriptionPipeline: {
       /** @enum {string} */
@@ -1089,6 +1142,107 @@ export interface components {
     TranscriptionPipelineState: {
       version: string;
       config: components["schemas"]["TranscriptionPipeline"];
+    };
+    VoicePipeline: {
+      /** @enum {string} */
+      provider: "fake" | "pyannote";
+      model: string;
+      model_version: string;
+      /** @description Confirmation explicite par l'administrateur du jeton et des conditions d'accès du modèle. */
+      access_confirmed: boolean;
+      min_fingerprint_seconds: number;
+      min_quality: number;
+      /** @description Réglages du fournisseur factice déterministe, réservés aux tests. */
+      fake?: {
+        speakers: number;
+        dimensions: number;
+      };
+    };
+    VoicePipelineState: {
+      version: string;
+      config: components["schemas"]["VoicePipeline"];
+    };
+    VoiceScheduleInput: {
+      audio_stream_index?: number;
+    };
+    ScheduledVoice: {
+      job: components["schemas"]["Job"];
+    };
+    VoiceStep: {
+      /** Format: int64 */
+      job_id: number;
+      step: string;
+      /** @enum {string} */
+      status:
+        | "pending"
+        | "leased"
+        | "done"
+        | "failed"
+        | "retry_wait"
+        | "cancelled"
+        | "dead";
+      input_version: string;
+      attempts: number;
+      max_attempts: number;
+      /** @description Code d'erreur expurgé, jamais de détail du fournisseur. */
+      last_error: string;
+    };
+    VoiceFingerprint: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      scope: "speaker" | "turn";
+      start_seconds: number;
+      end_seconds: number;
+      duration_seconds: number;
+      quality: number;
+      /** @description Faux : ne sert ni de référence ni de base de propagation. */
+      usable: boolean;
+      /** @enum {string} */
+      unusable_reason: "" | "too_short" | "low_quality";
+      model: string;
+      model_version: string;
+      dimensions: number;
+    };
+    LocalSpeaker: {
+      /** Format: int64 */
+      id: number;
+      label: string;
+      ordinal: number;
+      speaking_seconds: number;
+      turn_count: number;
+      /**
+       * @description Une voix inconnue reste un Locuteur local non identifié ; les attributions arrivent avec les tickets suivants.
+       * @enum {string}
+       */
+      state: "unidentified";
+      fingerprints: components["schemas"]["VoiceFingerprint"][];
+    };
+    ClipVoice: {
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      status: "none" | "queued" | "running" | "done" | "failed";
+      audio_stream_index?: number | null;
+      steps: components["schemas"]["VoiceStep"][];
+      speakers: components["schemas"]["LocalSpeaker"][];
+    };
+    WorkerVoiceInput: {
+      pipeline_version: string;
+      config: components["schemas"]["VoicePipeline"];
+      /** @description Étape d'empreintes uniquement : locuteurs et tours à encoder. */
+      diarization?: {
+        /** Format: int64 */
+        job_id: number;
+        speakers: {
+          label: string;
+          turns: {
+            index: number;
+            start: number;
+            end: number;
+          }[];
+        }[];
+      };
     };
     WorkerResultInput: {
       input_version: string;
@@ -1219,6 +1373,12 @@ export interface components {
       end: number;
       text: string;
       words: components["schemas"]["TranscriptWord"][];
+      /**
+       * Format: int64
+       * @description Locuteur local dominant du segment ; absent sans diarisation ou sans recouvrement.
+       */
+      local_speaker_id?: number;
+      local_speaker_label?: string;
     };
     Transcription: {
       provider: string;
@@ -3209,6 +3369,149 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  getVoicePipeline: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Configuration vocale active */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoicePipelineState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVoicePipeline: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoicePipeline"];
+      };
+    };
+    responses: {
+      /** @description Nouvelle version activée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoicePipelineState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scheduleVoice: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceScheduleInput"];
+      };
+    };
+    responses: {
+      /** @description Étape déjà planifiée pour cette version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledVoice"];
+        };
+      };
+      /** @description Diarisation planifiée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledVoice"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipVoice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Locuteurs locaux et état des étapes vocales */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipVoice"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
       };
     };
   };
