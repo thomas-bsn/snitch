@@ -2,6 +2,7 @@
 
 from .attribution import Attribution
 from .attribution_author import AttributionAuthor
+from .attribution_candidate import AttributionCandidate
 from .attribution_conflict import AttributionConflict
 from .attribution_event import AttributionEvent
 from .attribution_history import AttributionHistory
@@ -99,6 +100,9 @@ from .vocabulary_term_input import VocabularyTermInput
 from .voice_fingerprint import VoiceFingerprint
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
+from .voice_matching_input import VoiceMatchingInput
+from .voice_matching_settings import VoiceMatchingSettings
+from .voice_matching_summary import VoiceMatchingSummary
 from .voice_pipeline import VoicePipeline
 from .voice_pipeline_fake import VoicePipelineFake
 from .voice_pipeline_provider import VoicePipelineProvider
@@ -126,6 +130,7 @@ from .worker_voice_input_diarization_speakers_item_turns_item import WorkerVoice
 __all__ = (
     "Attribution",
     "AttributionAuthor",
+    "AttributionCandidate",
     "AttributionConflict",
     "AttributionEvent",
     "AttributionHistory",
@@ -223,6 +228,9 @@ __all__ = (
     "VoiceFingerprint",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
+    "VoiceMatchingInput",
+    "VoiceMatchingSettings",
+    "VoiceMatchingSummary",
     "VoicePipeline",
     "VoicePipelineFake",
     "VoicePipelineProvider",

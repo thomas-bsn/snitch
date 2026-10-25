@@ -6,6 +6,7 @@ import {
   messageFor,
   voiceApi,
   type Attribution,
+  type AttributionCandidate,
   type AttributionEvent,
   type CsrfHeaders,
   type DecisionLevel,
@@ -73,13 +74,20 @@ export function SpeakerRow({
     setHistory(result.data?.items ?? []);
   }
 
-  async function submit() {
+  // A candidate proposed by matching is confirmed like any other validation:
+  // only the human click creates the validated sample.
+  async function confirmCandidate(candidate: AttributionCandidate) {
+    await submit({ person_id: candidate.person.id });
+  }
+
+  async function submit(chosen?: { person_id: number }) {
     setBusy(true);
     setMessage("");
     const person =
-      newName.trim() !== ""
+      chosen ??
+      (newName.trim() !== ""
         ? { new_person_name: newName.trim() }
-        : { person_id: Number(personId) };
+        : { person_id: Number(personId) });
     try {
       if (validated && attribution?.person) {
         const result = await voiceApi.POST(
@@ -154,6 +162,30 @@ export function SpeakerRow({
             : ""}
         </div>
       )}
+      {!validated && attribution && attribution.candidates.length > 0 && (
+        <div className="speaker-candidates">
+          <span className="hint">
+            {attribution.decision_level === "ambiguous"
+              ? "Voix proche de plusieurs Personnes : à trancher."
+              : "Proposé par le rapprochement vocal (similarité, pas une garantie)."}
+          </span>
+          <ul aria-label={`Personnes proches de ${speaker.label}`}>
+            {attribution.candidates.map((candidate) => (
+              <li key={candidate.person.id}>
+                {candidate.person.display_name} · similarité{" "}
+                {Math.round(candidate.score * 100)} %{" "}
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => void confirmCandidate(candidate)}
+                >
+                  Valider comme {candidate.person.display_name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <audio
         controls
         preload="none"
@@ -185,7 +217,7 @@ export function SpeakerRow({
               onChange={(event) => setNewName(event.target.value)}
             />
           </label>
-          <button disabled={busy || !canSubmit} onClick={submit}>
+          <button disabled={busy || !canSubmit} onClick={() => void submit()}>
             {validated ? "Enregistrer la correction" : "Valider"}
           </button>
           {validated && (
@@ -222,13 +254,20 @@ export function SpeakerRow({
           {history.length === 0 && <li>Aucun changement enregistré.</li>}
           {history.map((event) => (
             <li key={event.id}>
-              {event.action === "correct" ? "Correction" : "Validation"} :{" "}
+              {event.action === "correct"
+                ? "Correction"
+                : event.action === "match"
+                  ? "Rapprochement"
+                  : "Validation"}{" "}
+              :{" "}
               {event.old_person?.display_name ??
                 levelLabels[event.old_decision_level as DecisionLevel] ??
                 "Inconnu"}{" "}
-              → {event.new_person?.display_name ?? "?"} par{" "}
-              {event.author?.username ?? "un utilisateur supprimé"} le{" "}
-              {when(event.created_at)}
+              → {event.new_person?.display_name ?? "Inconnu"}{" "}
+              {event.action === "match"
+                ? "par le rapprochement vocal"
+                : `par ${event.author?.username ?? "un utilisateur supprimé"}`}{" "}
+              le {when(event.created_at)}
             </li>
           ))}
         </ul>

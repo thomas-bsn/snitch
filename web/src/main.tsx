@@ -5,6 +5,7 @@ import type { paths, components } from "./api.gen";
 import "./style.css";
 import { SpeakerBadge, VoicePanel } from "./voice/VoicePanel";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
+import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
 
 const api = createClient<paths>();
 type Setup = components["schemas"]["Setup"];
@@ -2076,6 +2077,9 @@ function App() {
               )}
               {session.user.role === "admin" && (
                 <VoicePipelineCard csrf={csrf} />
+              )}
+              {session.user.role === "admin" && (
+                <VoiceMatchingCard csrf={csrf} />
               )}
               {session.user.role === "admin" && (
                 <section className="card" id="vocabulary">

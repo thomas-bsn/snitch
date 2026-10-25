@@ -37,7 +37,8 @@ class LocalSpeaker:
             state (LocalSpeakerState): identified : attribution humaine ou automatique à une Personne. Une suggestion ou une
                 voix ambiguë reste unidentified ; une voix inconnue ne bloque rien.
             decision_level (DecisionLevel): human : validation humaine ; automatic, suggestion, ambiguous : issus du
-                rapprochement (tickets suivants) ; unknown : aucune attribution.
+                rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown :
+                aucune attribution ou aucune Personne assez proche.
             person (None | PersonRef): Personne de l'attribution effective (validation humaine prioritaire).
             attribution (Attribution | None):
             fingerprints (list[VoiceFingerprint]):

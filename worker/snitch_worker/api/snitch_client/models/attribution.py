@@ -15,6 +15,7 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.attribution_author import AttributionAuthor
+  from ..models.attribution_candidate import AttributionCandidate
   from ..models.person_ref import PersonRef
 
 
@@ -33,14 +34,18 @@ class Attribution:
             local_speaker_id (int):
             person (None | PersonRef):
             decision_level (DecisionLevel): human : validation humaine ; automatic, suggestion, ambiguous : issus du
-                rapprochement (tickets suivants) ; unknown : aucune attribution.
+                rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown :
+                aucune attribution ou aucune Personne assez proche.
             validation_state (AttributionValidationState): validated : validation humaine (fait foi, source d'Échantillon
                 vocal validé).
             confidence (float | None): Confiance automatique du rapprochement, absente d'une validation humaine.
-            origin (str): human, puis matching ou microphone_track selon les tickets suivants.
+            origin (str): human (validation), matching (rapprochement en base), puis microphone_track selon les tickets
+                suivants.
             author (AttributionAuthor | None):
             revision (int):
             decided_at (datetime.datetime):
+            candidates (list[AttributionCandidate]): Personnes entre lesquelles le rapprochement hésite (ambiguë : toutes
+                celles dans la marge) ou alternatives d'une suggestion ; vide pour une validation humaine.
      """
 
     id: int
@@ -53,6 +58,7 @@ class Attribution:
     author: AttributionAuthor | None
     revision: int
     decided_at: datetime.datetime
+    candidates: list[AttributionCandidate]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -61,6 +67,7 @@ class Attribution:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.attribution_author import AttributionAuthor # noqa: PLC0415
+        from ..models.attribution_candidate import AttributionCandidate # noqa: PLC0415
         from ..models.person_ref import PersonRef # noqa: PLC0415
         id = self.id
 
@@ -91,6 +98,13 @@ class Attribution:
 
         decided_at = self.decided_at.isoformat()
 
+        candidates = []
+        for candidates_item_data in self.candidates:
+            candidates_item = candidates_item_data.to_dict()
+            candidates.append(candidates_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -105,6 +119,7 @@ class Attribution:
             "author": author,
             "revision": revision,
             "decided_at": decided_at,
+            "candidates": candidates,
         })
 
         return field_dict
@@ -114,6 +129,7 @@ class Attribution:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.attribution_author import AttributionAuthor # noqa: PLC0415
+        from ..models.attribution_candidate import AttributionCandidate # noqa: PLC0415
         from ..models.person_ref import PersonRef # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
@@ -183,6 +199,16 @@ class Attribution:
 
 
 
+        candidates = []
+        _candidates = d.pop("candidates")
+        for candidates_item_data in (_candidates):
+            candidates_item = AttributionCandidate.from_dict(candidates_item_data)
+
+
+
+            candidates.append(candidates_item)
+
+
         attribution = cls(
             id=id,
             local_speaker_id=local_speaker_id,
@@ -194,6 +220,7 @@ class Attribution:
             author=author,
             revision=revision,
             decided_at=decided_at,
+            candidates=candidates,
         )
 
 

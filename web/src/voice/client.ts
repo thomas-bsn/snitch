@@ -10,6 +10,12 @@ export type Person = components["schemas"]["Person"];
 export type Attribution = components["schemas"]["Attribution"];
 export type AttributionEvent = components["schemas"]["AttributionEvent"];
 export type DecisionLevel = components["schemas"]["DecisionLevel"];
+export type AttributionCandidate =
+  components["schemas"]["AttributionCandidate"];
+export type VoiceMatchingSettings =
+  components["schemas"]["VoiceMatchingSettings"];
+export type VoiceMatchingSummary =
+  components["schemas"]["VoiceMatchingSummary"];
 export type VoicePipeline = components["schemas"]["VoicePipeline"];
 export type CsrfHeaders = { "X-CSRF-Token": string; Origin: string };
 
@@ -31,6 +37,8 @@ const voiceMessages: Record<string, string> = {
   voice_locked_by_validation:
     "Des voix de ce clip sont validées : elles ne peuvent pas être rediarisées.",
   invalid_voice_pipeline: "Configuration vocale invalide.",
+  invalid_voice_matching:
+    "Seuils invalides : le seuil de suggestion ne peut pas dépasser le seuil automatique.",
   forbidden: "Accès réservé aux administrateurs.",
   csrf_rejected: "Session expirée. Rechargez la page.",
 };

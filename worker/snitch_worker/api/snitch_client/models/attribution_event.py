@@ -29,7 +29,8 @@ class AttributionEvent:
         Attributes:
             id (int):
             local_speaker_id (int):
-            action (str): validate, correct ; d'autres actions pourront s'ajouter.
+            action (str): validate, correct, match (changement d'une attribution automatique, sans auteur) ; d'autres
+                actions pourront s'ajouter.
             old_person (None | PersonRef):
             old_decision_level (str):
             new_person (None | PersonRef):

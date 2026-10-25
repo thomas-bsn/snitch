@@ -2890,6 +2890,33 @@
         "security": [{"session": []}]
       }
     },
+    "/api/voice-matching": {
+      "get": {
+        "operationId": "getVoiceMatching",
+        "responses": {"200": {"description": "Réglages du rapprochement vocal", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés : chacun voit les seuils et si l'attribution automatique est activée (désactivée par défaut : les rapprochements restent des suggestions).",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/voice-matching": {
+      "put": {
+        "operationId": "updateVoiceMatching",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingInput"}}}},
+        "responses": {"200": {"description": "Seuils enregistrés ; les empreintes déjà stockées sont rapprochées de nouveau", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (ticket d'activation). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/voice-matching/rematch": {
+      "post": {
+        "operationId": "rematchVoices",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Rapprochement exécuté sur toute la bibliothèque", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingSummary"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/embeddings": {
       "get": {
         "operationId": "getEmbeddingIndexStatus",
@@ -4292,10 +4319,10 @@
       },
       "PersonList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Person"}}}},
       "AttributionAuthor": {"type": "object", "required": ["id", "username"], "properties": {"id": {"type": "integer", "format": "int64", "nullable": true}, "username": {"type": "string", "description": "Nom au moment de la décision."}}},
-      "DecisionLevel": {"type": "string", "enum": ["human", "automatic", "suggestion", "ambiguous", "unknown"], "description": "human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement (tickets suivants) ; unknown : aucune attribution."},
+      "DecisionLevel": {"type": "string", "enum": ["human", "automatic", "suggestion", "ambiguous", "unknown"], "description": "human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche."},
       "Attribution": {
         "type": "object",
-        "required": ["id", "local_speaker_id", "person", "decision_level", "validation_state", "confidence", "origin", "author", "revision", "decided_at"],
+        "required": ["id", "local_speaker_id", "person", "decision_level", "validation_state", "confidence", "origin", "author", "revision", "decided_at", "candidates"],
         "properties": {
           "id": {"type": "integer", "format": "int64"},
           "local_speaker_id": {"type": "integer", "format": "int64"},
@@ -4303,10 +4330,52 @@
           "decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
           "validation_state": {"type": "string", "enum": ["validated", "unvalidated"], "description": "validated : validation humaine (fait foi, source d'Échantillon vocal validé)."},
           "confidence": {"type": "number", "nullable": true, "minimum": 0, "maximum": 1, "description": "Confiance automatique du rapprochement, absente d'une validation humaine."},
-          "origin": {"type": "string", "description": "human, puis matching ou microphone_track selon les tickets suivants."},
+          "origin": {"type": "string", "description": "human (validation), matching (rapprochement en base), puis microphone_track selon les tickets suivants."},
           "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true},
           "revision": {"type": "integer", "minimum": 1},
-          "decided_at": {"type": "string", "format": "date-time"}
+          "decided_at": {"type": "string", "format": "date-time"},
+          "candidates": {"type": "array", "items": {"$ref": "#/components/schemas/AttributionCandidate"}, "description": "Personnes entre lesquelles le rapprochement hésite (ambiguë : toutes celles dans la marge) ou alternatives d'une suggestion ; vide pour une validation humaine."}
+        }
+      },
+      "AttributionCandidate": {
+        "type": "object",
+        "required": ["rank", "score", "person"],
+        "properties": {
+          "rank": {"type": "integer", "minimum": 1},
+          "score": {"type": "number", "description": "Similarité cosinus entre l'empreinte du Locuteur local et la meilleure référence de la Personne."},
+          "person": {"$ref": "#/components/schemas/PersonRef"}
+        }
+      },
+      "VoiceMatchingSettings": {
+        "type": "object",
+        "required": ["auto_enabled", "automatic_threshold", "suggestion_threshold", "ambiguity_margin", "max_candidates", "updated_at"],
+        "properties": {
+          "auto_enabled": {"type": "boolean", "description": "Faux par défaut : tant que l'administrateur n'a pas activé l'automatisation, un rapprochement n'est jamais plus qu'une suggestion."},
+          "automatic_threshold": {"type": "number", "minimum": 0, "maximum": 1, "description": "Similarité minimale d'une attribution automatique."},
+          "suggestion_threshold": {"type": "number", "minimum": 0, "maximum": 1, "description": "Similarité minimale d'une suggestion ; en dessous, la voix est inconnue."},
+          "ambiguity_margin": {"type": "number", "minimum": 0, "maximum": 1, "description": "Écart sous lequel deux Personnes sont jugées aussi proches : la voix est ambiguë."},
+          "max_candidates": {"type": "integer", "minimum": 2, "maximum": 20},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "VoiceMatchingInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["automatic_threshold", "suggestion_threshold", "ambiguity_margin", "max_candidates"],
+        "properties": {
+          "automatic_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+          "suggestion_threshold": {"type": "number", "minimum": 0, "maximum": 1, "description": "Au plus égal au seuil automatique."},
+          "ambiguity_margin": {"type": "number", "minimum": 0, "maximum": 1},
+          "max_candidates": {"type": "integer", "minimum": 2, "maximum": 20}
+        }
+      },
+      "VoiceMatchingSummary": {
+        "type": "object",
+        "required": ["evaluated", "automatic", "suggestion", "ambiguous", "unknown", "removed"],
+        "properties": {
+          "evaluated": {"type": "integer"}, "automatic": {"type": "integer"}, "suggestion": {"type": "integer"},
+          "ambiguous": {"type": "integer"}, "unknown": {"type": "integer"},
+          "removed": {"type": "integer", "description": "Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle."}
         }
       },
       "AttributionInput": {
@@ -4326,7 +4395,7 @@
         "properties": {
           "id": {"type": "integer", "format": "int64"},
           "local_speaker_id": {"type": "integer", "format": "int64"},
-          "action": {"type": "string", "description": "validate, correct ; d'autres actions pourront s'ajouter."},
+          "action": {"type": "string", "description": "validate, correct, match (changement d'une attribution automatique, sans auteur) ; d'autres actions pourront s'ajouter."},
           "old_person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},
           "old_decision_level": {"type": "string"},
           "new_person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},

@@ -35,7 +35,8 @@ class TranscriptSegment:
                 recouvrement.
             local_speaker_label (str | Unset):
             local_speaker_decision_level (DecisionLevel | Unset): human : validation humaine ; automatic, suggestion,
-                ambiguous : issus du rapprochement (tickets suivants) ; unknown : aucune attribution.
+                ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé
+                l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
             local_speaker_person_id (int | Unset): Personne du Locuteur local, si attribuée.
             local_speaker_person_name (str | Unset):
      """

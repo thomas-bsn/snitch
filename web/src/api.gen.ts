@@ -877,6 +877,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/voice-matching": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés : chacun voit les seuils et si l'attribution automatique est activée (désactivée par défaut : les rapprochements restent des suggestions). */
+    get: operations["getVoiceMatching"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-matching": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (ticket d'activation). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. */
+    put: operations["updateVoiceMatching"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-matching/rematch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé. */
+    post: operations["rematchVoices"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings": {
     parameters: {
       query?: never;
@@ -1341,7 +1392,7 @@ export interface components {
       username: string;
     };
     /**
-     * @description human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement (tickets suivants) ; unknown : aucune attribution.
+     * @description human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
      * @enum {string}
      */
     DecisionLevel:
@@ -1364,12 +1415,49 @@ export interface components {
       validation_state: "validated" | "unvalidated";
       /** @description Confiance automatique du rapprochement, absente d'une validation humaine. */
       confidence: number | null;
-      /** @description human, puis matching ou microphone_track selon les tickets suivants. */
+      /** @description human (validation), matching (rapprochement en base), puis microphone_track selon les tickets suivants. */
       origin: string;
       author: components["schemas"]["AttributionAuthor"] | null;
       revision: number;
       /** Format: date-time */
       decided_at: string;
+      /** @description Personnes entre lesquelles le rapprochement hésite (ambiguë : toutes celles dans la marge) ou alternatives d'une suggestion ; vide pour une validation humaine. */
+      candidates: components["schemas"]["AttributionCandidate"][];
+    };
+    AttributionCandidate: {
+      rank: number;
+      /** @description Similarité cosinus entre l'empreinte du Locuteur local et la meilleure référence de la Personne. */
+      score: number;
+      person: components["schemas"]["PersonRef"];
+    };
+    VoiceMatchingSettings: {
+      /** @description Faux par défaut : tant que l'administrateur n'a pas activé l'automatisation, un rapprochement n'est jamais plus qu'une suggestion. */
+      auto_enabled: boolean;
+      /** @description Similarité minimale d'une attribution automatique. */
+      automatic_threshold: number;
+      /** @description Similarité minimale d'une suggestion ; en dessous, la voix est inconnue. */
+      suggestion_threshold: number;
+      /** @description Écart sous lequel deux Personnes sont jugées aussi proches : la voix est ambiguë. */
+      ambiguity_margin: number;
+      max_candidates: number;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    VoiceMatchingInput: {
+      automatic_threshold: number;
+      /** @description Au plus égal au seuil automatique. */
+      suggestion_threshold: number;
+      ambiguity_margin: number;
+      max_candidates: number;
+    };
+    VoiceMatchingSummary: {
+      evaluated: number;
+      automatic: number;
+      suggestion: number;
+      ambiguous: number;
+      unknown: number;
+      /** @description Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle. */
+      removed: number;
     };
     /** @description Exactement un de person_id ou new_person_name. */
     AttributionInput: {
@@ -1391,7 +1479,7 @@ export interface components {
       id: number;
       /** Format: int64 */
       local_speaker_id: number;
-      /** @description validate, correct ; d'autres actions pourront s'ajouter. */
+      /** @description validate, correct, match (changement d'une attribution automatique, sans auteur) ; d'autres actions pourront s'ajouter. */
       action: string;
       old_person: components["schemas"]["PersonRef"] | null;
       old_decision_level: string;
@@ -3971,6 +4059,103 @@ export interface operations {
         content: {
           "audio/wav": string;
           "application/octet-stream": string;
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceMatching: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglages du rapprochement vocal */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVoiceMatching: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceMatchingInput"];
+      };
+    };
+    responses: {
+      /** @description Seuils enregistrés ; les empreintes déjà stockées sont rapprochées de nouveau */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  rematchVoices: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Rapprochement exécuté sur toute la bibliothèque */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingSummary"];
         };
       };
       /** @description Erreur */

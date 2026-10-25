@@ -2,7 +2,12 @@ import { expect, type Page } from "@playwright/test";
 
 // Signs in as the administrator, uploads a synthetic clip, transcribes it and runs
 // the simulated worker through diarization and fingerprints (two local speakers).
-export async function prepareDiarizedClip(page: Page): Promise<void> {
+// By default the second voice has a short, unusable fingerprint (0.3 s): it is never
+// compared. secondFingerprintEnd lets it end later so it becomes usable and takes part in matching.
+export async function prepareDiarizedClip(
+  page: Page,
+  options: { secondFingerprintEnd?: number } = {},
+): Promise<void> {
   await page.goto("/");
   await page
     .getByLabel("Code d’installation")
@@ -113,7 +118,7 @@ export async function prepareDiarizedClip(page: Page): Promise<void> {
   await expect(page.getByText("Diarisation · en file")).toBeVisible();
 
   // The worker returns two local speakers and then their fingerprints.
-  await page.evaluate(async () => {
+  await page.evaluate(async (secondEnd) => {
     const token = (window as unknown as { workerToken: string }).workerToken;
     const call = (path: string, body?: unknown, lease?: string) =>
       fetch(path, {
@@ -177,7 +182,7 @@ export async function prepareDiarizedClip(page: Page): Promise<void> {
               speaker_label: "SPEAKER_01",
               scope: "speaker",
               start: 2.2,
-              end: 2.5,
+              end: secondEnd,
               quality: 0.9,
               embedding: [0.8, 0.6],
             },
@@ -186,5 +191,5 @@ export async function prepareDiarizedClip(page: Page): Promise<void> {
       },
       fingerprints.lease_token,
     );
-  });
+  }, options.secondFingerprintEnd ?? 2.5);
 }
