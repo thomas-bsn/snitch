@@ -30,6 +30,12 @@ class VoiceMatchingSettings:
             suggestion_threshold (float): Similarité minimale d'une suggestion ; en dessous, la voix est inconnue.
             ambiguity_margin (float): Écart sous lequel deux Personnes sont jugées aussi proches : la voix est ambiguë.
             max_candidates (int):
+            precision_threshold (float): Critère de proposition d'activation : précision mesurée minimale. Valeur de départ
+                configurable, jamais une garantie.
+            min_confirmations (int): Critère de proposition d'activation : nombre minimal d'attributions automatiques
+                simulées confirmées par une validation humaine.
+            auto_changed_at (datetime.datetime | None): Dernier changement de l'interrupteur d'automatisation ; null s'il
+                n'a jamais été modifié.
             updated_at (datetime.datetime):
      """
 
@@ -38,6 +44,9 @@ class VoiceMatchingSettings:
     suggestion_threshold: float
     ambiguity_margin: float
     max_candidates: int
+    precision_threshold: float
+    min_confirmations: int
+    auto_changed_at: datetime.datetime | None
     updated_at: datetime.datetime
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -56,6 +65,16 @@ class VoiceMatchingSettings:
 
         max_candidates = self.max_candidates
 
+        precision_threshold = self.precision_threshold
+
+        min_confirmations = self.min_confirmations
+
+        auto_changed_at: None | str
+        if isinstance(self.auto_changed_at, datetime.datetime):
+            auto_changed_at = self.auto_changed_at.isoformat()
+        else:
+            auto_changed_at = self.auto_changed_at
+
         updated_at = self.updated_at.isoformat()
 
 
@@ -67,6 +86,9 @@ class VoiceMatchingSettings:
             "suggestion_threshold": suggestion_threshold,
             "ambiguity_margin": ambiguity_margin,
             "max_candidates": max_candidates,
+            "precision_threshold": precision_threshold,
+            "min_confirmations": min_confirmations,
+            "auto_changed_at": auto_changed_at,
             "updated_at": updated_at,
         })
 
@@ -87,6 +109,28 @@ class VoiceMatchingSettings:
 
         max_candidates = d.pop("max_candidates")
 
+        precision_threshold = d.pop("precision_threshold")
+
+        min_confirmations = d.pop("min_confirmations")
+
+        def _parse_auto_changed_at(data: object) -> datetime.datetime | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                auto_changed_at_type_0 = datetime.datetime.fromisoformat(data)
+
+
+
+                return auto_changed_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None, data)
+
+        auto_changed_at = _parse_auto_changed_at(d.pop("auto_changed_at"))
+
+
         updated_at = datetime.datetime.fromisoformat(d.pop("updated_at"))
 
 
@@ -98,6 +142,9 @@ class VoiceMatchingSettings:
             suggestion_threshold=suggestion_threshold,
             ambiguity_margin=ambiguity_margin,
             max_candidates=max_candidates,
+            precision_threshold=precision_threshold,
+            min_confirmations=min_confirmations,
+            auto_changed_at=auto_changed_at,
             updated_at=updated_at,
         )
 
