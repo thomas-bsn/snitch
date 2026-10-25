@@ -8,12 +8,15 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.decision_level import DecisionLevel
 from ..models.search_result_match_type import SearchResultMatchType
 from ..models.search_result_status import SearchResultStatus
 from ..models.search_result_visibility import SearchResultVisibility
 from typing import cast
 import datetime
 
+if TYPE_CHECKING:
+  from ..models.person_ref import PersonRef
 
 
 
@@ -27,6 +30,11 @@ T = TypeVar("T", bound="SearchResult")
 class SearchResult:
     """
         Attributes:
+            person (None | PersonRef): Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou
+                ambiguïté.
+            decision_level (DecisionLevel): human : validation humaine ; automatic, suggestion, ambiguous : issus du
+                rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown :
+                aucune attribution ou aucune Personne assez proche.
             clip_id (int):
             clip_name (str):
             visibility (SearchResultVisibility):
@@ -39,6 +47,8 @@ class SearchResult:
             timestamp (float):
      """
 
+    person: None | PersonRef
+    decision_level: DecisionLevel
     clip_id: int
     clip_name: str
     visibility: SearchResultVisibility
@@ -56,6 +66,15 @@ class SearchResult:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.person_ref import PersonRef # noqa: PLC0415
+        person: dict[str, Any] | None
+        if isinstance(self.person, PersonRef):
+            person = self.person.to_dict()
+        else:
+            person = self.person
+
+        decision_level = self.decision_level.value
+
         clip_id = self.clip_id
 
         clip_name = self.clip_name
@@ -82,6 +101,8 @@ class SearchResult:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "person": person,
+            "decision_level": decision_level,
             "clip_id": clip_id,
             "clip_name": clip_name,
             "visibility": visibility,
@@ -100,7 +121,31 @@ class SearchResult:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.person_ref import PersonRef # noqa: PLC0415
         d = dict(src_dict)
+        def _parse_person(data: object) -> None | PersonRef:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                person_type_1 = PersonRef.from_dict(data)
+
+
+
+                return person_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | PersonRef, data)
+
+        person = _parse_person(d.pop("person"))
+
+
+        decision_level = DecisionLevel(d.pop("decision_level"))
+
+
+
+
         clip_id = d.pop("clip_id")
 
         clip_name = d.pop("clip_name")
@@ -135,6 +180,8 @@ class SearchResult:
         timestamp = d.pop("timestamp")
 
         search_result = cls(
+            person=person,
+            decision_level=decision_level,
             clip_id=clip_id,
             clip_name=clip_name,
             visibility=visibility,

@@ -1004,7 +1004,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué. */
+    /** @description Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination ; le filtre Personne (person_id, person_unknown) s’applique aussi avant total et pagination, au segment, dans les trois modes. Chaque résultat porte la Personne identifiée du segment (ou null) et le niveau de décision tracé (unknown sans attribution). Aucun appel au worker n’est effectué. */
     get: operations["searchTranscripts"];
     put?: never;
     post?: never;
@@ -1606,6 +1606,13 @@ export interface components {
       /** Format: uri */
       url: string;
     };
+    ClipPerson: {
+      /** Format: int64 */
+      id: number;
+      display_name: string;
+      /** @description human (validée) ou automatic ; human l’emporte si la Personne a les deux dans le clip. */
+      decision_level: components["schemas"]["DecisionLevel"];
+    };
     Clip: {
       /** Format: int64 */
       id: number;
@@ -1630,6 +1637,8 @@ export interface components {
       status?: string;
       sources?: string[];
       uploaders: string[];
+      /** @description Personnes identifiées dans le clip (attribution humaine ou automatique), triées par nom. */
+      persons?: components["schemas"]["ClipPerson"][];
       transcription?: components["schemas"]["Transcription"];
       audio_track_selection?: components["schemas"]["AudioTrackSelection"];
     };
@@ -1730,6 +1739,10 @@ export interface components {
       preferred_spelling: string;
     };
     SearchResult: {
+      /** @description Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté. */
+      person: components["schemas"]["PersonRef"] | null;
+      /** @description Niveau de décision tracé de l’attribution effective ; unknown sans attribution ou sans voix détectée. */
+      decision_level: components["schemas"]["DecisionLevel"];
       /** Format: int64 */
       clip_id: number;
       clip_name: string;
@@ -3184,6 +3197,10 @@ export interface operations {
         owner_id?: number;
         source_id?: number;
         from?: string;
+        /** @description Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown. */
+        person_id?: number;
+        /** @description Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id. */
+        person_unknown?: boolean;
         to?: string;
       };
       header?: never;
@@ -4375,6 +4392,10 @@ export interface operations {
         status?: "ready" | "waiting_stability" | "unreadable" | "missing";
         source_id?: number;
         from?: string;
+        /** @description Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown. */
+        person_id?: number;
+        /** @description Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id. */
+        person_unknown?: boolean;
         to?: string;
       };
       header?: never;

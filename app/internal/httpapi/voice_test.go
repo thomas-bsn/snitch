@@ -25,6 +25,7 @@ import (
 
 type voiceHarness struct {
 	t      *testing.T
+	api    *Server
 	pool   *pgxpool.Pool
 	ts     *httptest.Server
 	admin  *http.Client
@@ -189,7 +190,7 @@ func newVoiceHarnessClips(t *testing.T, pool *pgxpool.Pool, clips int) *voiceHar
 	ts.Start()
 	t.Cleanup(ts.Close)
 	jar, _ := cookiejar.New(nil)
-	h := &voiceHarness{t: t, pool: pool, ts: ts, admin: &http.Client{Jar: jar}, ffmpegLog: ffmpegLog}
+	h := &voiceHarness{t: t, api: api, pool: pool, ts: ts, admin: &http.Client{Jar: jar}, ffmpegLog: ffmpegLog}
 	h.adminCall(http.MethodPost, "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, http.StatusCreated)
 	var session struct {
 		CSRF string `json:"csrf_token"`

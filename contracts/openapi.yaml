@@ -2098,6 +2098,24 @@
           },
           {
             "in": "query",
+            "name": "person_id",
+            "description": "Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "person_unknown",
+            "description": "Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
             "name": "to",
             "schema": {
               "type": "string",
@@ -3096,7 +3114,7 @@
     "/api/search": {
       "get": {
         "operationId": "searchTranscripts",
-        "description": "Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué.",
+        "description": "Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination ; le filtre Personne (person_id, person_unknown) s’applique aussi avant total et pagination, au segment, dans les trois modes. Chaque résultat porte la Personne identifiée du segment (ou null) et le niveau de décision tracé (unknown sans attribution). Aucun appel au worker n’est effectué.",
         "parameters": [
           {
             "in": "query",
@@ -3178,6 +3196,24 @@
             "schema": {
               "type": "string",
               "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "person_id",
+            "description": "Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "person_unknown",
+            "description": "Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id.",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -4686,6 +4722,15 @@
           }
         }
       },
+      "ClipPerson": {
+        "type": "object",
+        "required": ["id", "display_name", "decision_level"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "display_name": {"type": "string"},
+          "decision_level": {"allOf": [{"$ref": "#/components/schemas/DecisionLevel"}], "description": "human (validée) ou automatic ; human l’emporte si la Personne a les deux dans le clip."}
+        }
+      },
       "Clip": {
         "type": "object",
         "required": [
@@ -4774,6 +4819,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "persons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClipPerson"
+            },
+            "description": "Personnes identifiées dans le clip (attribution humaine ou automatique), triées par nom."
           },
           "transcription": {
             "$ref": "#/components/schemas/Transcription"
@@ -5136,9 +5188,13 @@
           "match_type",
           "context",
           "matched_text",
-          "timestamp"
+          "timestamp",
+          "person",
+          "decision_level"
         ],
         "properties": {
+          "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true, "description": "Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté."},
+          "decision_level": {"allOf": [{"$ref": "#/components/schemas/DecisionLevel"}], "description": "Niveau de décision tracé de l’attribution effective ; unknown sans attribution ou sans voix détectée."},
           "clip_id": {
             "type": "integer",
             "format": "int64"
