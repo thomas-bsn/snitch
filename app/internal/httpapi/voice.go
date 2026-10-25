@@ -155,6 +155,17 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 		}
 		index = selection.AudioStreamIndex
 	}
+	// A human validation pins the local speakers of this stream: a new diarization
+	// would replace them and drop what users validated (see ticket 33 design).
+	var locked bool
+	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND a.validation_state='validated')`, id, *index).Scan(&locked); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if locked {
+		fail(w, http.StatusConflict, "voice_locked_by_validation")
+		return
+	}
 	var transcribed bool
 	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM jobs WHERE clip_id=$1 AND step=$2 AND status='done')`, id, fmt.Sprintf("transcription.audio.%d", *index)).Scan(&transcribed); err != nil {
 		s.internal(w, err)
@@ -219,7 +230,23 @@ type localSpeakerView struct {
 	SpeakingSeconds float64                `json:"speaking_seconds"`
 	TurnCount       int                    `json:"turn_count"`
 	State           string                 `json:"state"`
+	DecisionLevel   string                 `json:"decision_level"`
+	Person          *personRef             `json:"person"`
+	Attribution     *attributionView       `json:"attribution"`
 	Fingerprints    []voiceFingerprintView `json:"fingerprints"`
+}
+
+// applyAttribution fills the identity fields of a local speaker from its effective
+// attribution. A suggestion or an ambiguous voice stays "unidentified".
+func (sp *localSpeakerView) applyAttribution(a *attributionView) {
+	sp.State, sp.DecisionLevel, sp.Person, sp.Attribution = "unidentified", "unknown", nil, nil
+	if a == nil {
+		return
+	}
+	sp.DecisionLevel, sp.Person, sp.Attribution = a.DecisionLevel, a.Person, a
+	if a.DecisionLevel == "human" || a.DecisionLevel == "automatic" {
+		sp.State = "identified"
+	}
 }
 
 func voiceStatus(jobStatus string) string {
@@ -274,6 +301,11 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 			status = voiceStatus(fingerprint.Status)
 		}
 	}
+	attributions, err := s.effectiveAttributionPointers(r.Context(), clip.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	speakers := []localSpeakerView{}
 	byID := map[int64]int{}
 	rows, err := s.Pool.Query(r.Context(), `SELECT id,label,ordinal,speaking_seconds,turn_count FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 ORDER BY ordinal`, clip.ID, index)
@@ -282,12 +314,13 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for rows.Next() {
-		sp := localSpeakerView{State: "unidentified", Fingerprints: []voiceFingerprintView{}}
+		sp := localSpeakerView{Fingerprints: []voiceFingerprintView{}}
 		if err = rows.Scan(&sp.ID, &sp.Label, &sp.Ordinal, &sp.SpeakingSeconds, &sp.TurnCount); err != nil {
 			rows.Close()
 			s.internal(w, err)
 			return
 		}
+		sp.applyAttribution(attributions[sp.ID])
 		byID[sp.ID] = len(speakers)
 		speakers = append(speakers, sp)
 	}
@@ -355,6 +388,10 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 	if err = rows.Err(); err != nil || len(turns) == 0 {
 		return err
 	}
+	attributions, err := s.effectiveAttributions(ctx, clipID)
+	if err != nil {
+		return err
+	}
 	for _, raw := range segments {
 		segment, isMap := raw.(map[string]any)
 		if !isMap {
@@ -382,6 +419,13 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 		}
 		sort.SliceStable(order, func(i, j int) bool { return overlap[order[i]] > overlap[order[j]] })
 		segment["local_speaker_id"], segment["local_speaker_label"] = order[0], labels[order[0]]
+		segment["local_speaker_decision_level"] = "unknown"
+		if a, found := attributions[order[0]]; found {
+			segment["local_speaker_decision_level"] = a.DecisionLevel
+			if a.Person != nil {
+				segment["local_speaker_person_id"], segment["local_speaker_person_name"] = a.Person.ID, a.Person.DisplayName
+			}
+		}
 	}
 	return nil
 }

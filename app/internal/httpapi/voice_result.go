@@ -153,6 +153,8 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 	switch {
 	case errors.Is(err, jobs.ErrInvalidInput):
 		fail(w, http.StatusBadRequest, "invalid_voice_result")
+	case errors.Is(err, errDiarizationLocked):
+		fail(w, http.StatusConflict, "diarization_locked")
 	case errors.Is(err, jobs.ErrStaleResult):
 		fail(w, http.StatusConflict, "stale_voice_result")
 	case errors.Is(err, jobs.ErrLeaseNotOwned):
@@ -164,11 +166,23 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 	}
 }
 
+// errDiarizationLocked refuses a diarization result for a stream whose local
+// speakers carry human validations: replacing them would erase those validations.
+var errDiarizationLocked = errors.New("diarization locked by human validation")
+
 // projectDiarization replaces the clip's local speakers for the audio stream and
 // queues the fingerprint step against this exact diarization.
 func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result diarizationResult, pipelineVersion string, index int) error {
 	if _, err := tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR UPDATE`, job.ClipID); err != nil {
 		return fmt.Errorf("lock clip for diarization: %w", err)
+	}
+	// Validations take the clip row FOR SHARE, so this check cannot race with one.
+	var locked bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND a.validation_state='validated')`, job.ClipID, index).Scan(&locked); err != nil {
+		return fmt.Errorf("check validated speakers: %w", err)
+	}
+	if locked {
+		return errDiarizationLocked
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2`, job.ClipID, index); err != nil {
 		return fmt.Errorf("replace local speakers: %w", err)

@@ -1,5 +1,12 @@
 """ Contains all the data models used in inputs/outputs """
 
+from .attribution import Attribution
+from .attribution_author import AttributionAuthor
+from .attribution_conflict import AttributionConflict
+from .attribution_event import AttributionEvent
+from .attribution_history import AttributionHistory
+from .attribution_input import AttributionInput
+from .attribution_validation_state import AttributionValidationState
 from .audio_track_override import AudioTrackOverride
 from .audio_track_rule import AudioTrackRule
 from .audio_track_rule_result import AudioTrackRuleResult
@@ -13,6 +20,7 @@ from .clip_visibility import ClipVisibility
 from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
 from .credentials import Credentials
+from .decision_level import DecisionLevel
 from .error import Error
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
@@ -33,6 +41,10 @@ from .list_jobs_status import ListJobsStatus
 from .local_speaker import LocalSpeaker
 from .local_speaker_state import LocalSpeakerState
 from .media_track import MediaTrack
+from .person import Person
+from .person_input import PersonInput
+from .person_list import PersonList
+from .person_ref import PersonRef
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
@@ -112,6 +124,13 @@ from .worker_voice_input_diarization_speakers_item import WorkerVoiceInputDiariz
 from .worker_voice_input_diarization_speakers_item_turns_item import WorkerVoiceInputDiarizationSpeakersItemTurnsItem
 
 __all__ = (
+    "Attribution",
+    "AttributionAuthor",
+    "AttributionConflict",
+    "AttributionEvent",
+    "AttributionHistory",
+    "AttributionInput",
+    "AttributionValidationState",
     "AudioTrackOverride",
     "AudioTrackRule",
     "AudioTrackRuleResult",
@@ -125,6 +144,7 @@ __all__ = (
     "ClipVoice",
     "ClipVoiceStatus",
     "Credentials",
+    "DecisionLevel",
     "Error",
     "GetEmbeddingIndexStatusResponse200",
     "HeartbeatWorkerJobResponse200",
@@ -145,6 +165,10 @@ __all__ = (
     "LocalSpeaker",
     "LocalSpeakerState",
     "MediaTrack",
+    "Person",
+    "PersonInput",
+    "PersonList",
+    "PersonRef",
     "PreviewTranscriptionBatchResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",

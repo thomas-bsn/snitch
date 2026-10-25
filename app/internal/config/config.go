@@ -15,7 +15,7 @@ import (
 type Config struct {
 	DatabaseURL, PublicURL, Address, DisplayName, EmbeddingsURL, EmbeddingsModel string
 	ClipRoots                                                                    []string
-	ProbePath                                                                    string
+	ProbePath, FFmpegPath                                                        string
 	StabilityWindow                                                              time.Duration
 	ReconcileInterval                                                            time.Duration
 	ClipExcludePatterns                                                          []string
@@ -32,7 +32,7 @@ func Load() (Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"), PublicURL: env("PUBLIC_URL", "http://localhost:8080"),
 		Address: env("LISTEN_ADDR", ":8080"), DisplayName: env("DISPLAY_NAME", "Snitch"),
 		EmbeddingsURL: os.Getenv("EMBEDDINGS_URL"), EmbeddingsModel: os.Getenv("EMBEDDINGS_MODEL"),
-		ClipRoots: splitRoots(os.Getenv("CLIPS_ROOTS")), ProbePath: env("FFPROBE_PATH", "ffprobe"),
+		ClipRoots: splitRoots(os.Getenv("CLIPS_ROOTS")), ProbePath: env("FFPROBE_PATH", "ffprobe"), FFmpegPath: env("FFMPEG_PATH", "ffmpeg"),
 		ClipExcludePatterns: splitPatterns(env("CLIP_EXCLUDE_PATTERNS", ".*,*.tmp,*.part,*.partial,*.crdownload,*.download")),
 		UploadRoot:          env("UPLOAD_ROOT", "/data/media"),
 		DiscordAuthorizeURL: "https://discord.com/oauth2/authorize", DiscordTokenURL: "https://discord.com/api/oauth2/token", DiscordUserURL: "https://discord.com/api/users/@me",

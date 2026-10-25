@@ -2826,6 +2826,70 @@
         "security": [{"session": []}]
       }
     },
+    "/api/persons": {
+      "get": {
+        "operationId": "listPersons",
+        "parameters": [{"in": "query", "name": "q", "required": false, "schema": {"type": "string", "maxLength": 100}}],
+        "responses": {"200": {"description": "Personnes, par nom", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonList"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références).",
+        "security": [{"session": []}]
+      },
+      "post": {
+        "operationId": "createPerson",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonInput"}}}},
+        "responses": {"201": {"description": "Personne créée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Une Personne est une identité, jamais un compte.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/persons/{id}": {
+      "get": {
+        "operationId": "getPerson",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Personne", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/validation": {
+      "post": {
+        "operationId": "validateLocalSpeaker",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionInput"}}}},
+        "responses": {"201": {"description": "Validation enregistrée : Attribution humaine et Échantillon vocal validé créés, même si une confiance automatique existait", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Attribution"}}}}, "409": {"description": "already_validated : la première validation fait foi ; la réponse contient l'attribution existante et son auteur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionConflict"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. Passe soit person_id soit new_person_name (Personne créée dans la même transaction). L'arbitrage entre validations concurrentes est une contrainte PostgreSQL ; la perdante ne crée rien.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/correction": {
+      "post": {
+        "operationId": "correctLocalSpeaker",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionInput"}}}},
+        "responses": {"200": {"description": "Correction enregistrée : ancien échantillon retiré des références, nouveau créé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Attribution"}}}}, "409": {"description": "not_validated, same_person ou attribution_changed (la Personne a changé depuis la lecture ; l'attribution actuelle est renvoyée)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionConflict"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. expected_person_id (Personne vue par l'utilisateur) est obligatoire pour qu'une correction concurrente n'en écrase pas une autre.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/history": {
+      "get": {
+        "operationId": "getLocalSpeakerHistory",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Historique immuable, du plus récent au plus ancien", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionHistory"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. Ancienne valeur, nouvelle valeur, auteur et date de chaque validation ou correction ; aucune donnée vocale.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/excerpt": {
+      "get": {
+        "operationId": "getLocalSpeakerExcerpt",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "query", "name": "turn", "required": false, "schema": {"type": "integer", "minimum": 0}, "description": "Indice du tour de parole ; par défaut le plus long."}],
+        "responses": {"200": {"description": "Extrait audio WAV mono de dix secondes au plus", "content": {"audio/wav": {"schema": {"type": "string", "format": "binary"}}, "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés uniquement, et seulement pour les clips que leur visibilité autorise (sinon 404). Découpé à la demande depuis le fichier du clip, sans stockage ; Range pris en charge.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/embeddings": {
       "get": {
         "operationId": "getEmbeddingIndexStatus",
@@ -4212,16 +4276,79 @@
           "dimensions": {"type": "integer"}
         }
       },
+      "PersonInput": {"type": "object", "additionalProperties": false, "required": ["display_name"], "properties": {"display_name": {"type": "string", "minLength": 1, "maxLength": 100}}},
+      "PersonRef": {"type": "object", "required": ["id", "display_name"], "properties": {"id": {"type": "integer", "format": "int64"}, "display_name": {"type": "string"}}},
+      "Person": {
+        "type": "object",
+        "required": ["id", "display_name", "user_id", "validated_sample_count", "local_speaker_count", "created_at"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "display_name": {"type": "string"},
+          "user_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Compte lié, le cas échéant : une Personne n'est jamais un compte."},
+          "validated_sample_count": {"type": "integer", "description": "Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre n'est pas une garantie de qualité d'identification."},
+          "local_speaker_count": {"type": "integer", "description": "Locuteurs locaux validés pour cette Personne."},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "PersonList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Person"}}}},
+      "AttributionAuthor": {"type": "object", "required": ["id", "username"], "properties": {"id": {"type": "integer", "format": "int64", "nullable": true}, "username": {"type": "string", "description": "Nom au moment de la décision."}}},
+      "DecisionLevel": {"type": "string", "enum": ["human", "automatic", "suggestion", "ambiguous", "unknown"], "description": "human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement (tickets suivants) ; unknown : aucune attribution."},
+      "Attribution": {
+        "type": "object",
+        "required": ["id", "local_speaker_id", "person", "decision_level", "validation_state", "confidence", "origin", "author", "revision", "decided_at"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "local_speaker_id": {"type": "integer", "format": "int64"},
+          "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},
+          "decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
+          "validation_state": {"type": "string", "enum": ["validated", "unvalidated"], "description": "validated : validation humaine (fait foi, source d'Échantillon vocal validé)."},
+          "confidence": {"type": "number", "nullable": true, "minimum": 0, "maximum": 1, "description": "Confiance automatique du rapprochement, absente d'une validation humaine."},
+          "origin": {"type": "string", "description": "human, puis matching ou microphone_track selon les tickets suivants."},
+          "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true},
+          "revision": {"type": "integer", "minimum": 1},
+          "decided_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "AttributionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "person_id": {"type": "integer", "format": "int64", "minimum": 1},
+          "new_person_name": {"type": "string", "minLength": 1, "maxLength": 100},
+          "expected_person_id": {"type": "integer", "format": "int64", "minimum": 1, "description": "Correction uniquement : Personne actuellement validée telle que vue par l'utilisateur."}
+        },
+        "description": "Exactement un de person_id ou new_person_name."
+      },
+      "AttributionConflict": {"type": "object", "required": ["error"], "properties": {"error": {"type": "string"}, "attribution": {"$ref": "#/components/schemas/Attribution"}}},
+      "AttributionEvent": {
+        "type": "object",
+        "required": ["id", "local_speaker_id", "action", "old_person", "old_decision_level", "new_person", "new_decision_level", "author", "created_at"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "local_speaker_id": {"type": "integer", "format": "int64"},
+          "action": {"type": "string", "description": "validate, correct ; d'autres actions pourront s'ajouter."},
+          "old_person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},
+          "old_decision_level": {"type": "string"},
+          "new_person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},
+          "new_decision_level": {"type": "string"},
+          "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "AttributionHistory": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/AttributionEvent"}}}},
       "LocalSpeaker": {
         "type": "object",
-        "required": ["id", "label", "ordinal", "speaking_seconds", "turn_count", "state", "fingerprints"],
+        "required": ["id", "label", "ordinal", "speaking_seconds", "turn_count", "state", "decision_level", "person", "attribution", "fingerprints"],
         "properties": {
           "id": {"type": "integer", "format": "int64"},
           "label": {"type": "string"},
           "ordinal": {"type": "integer"},
           "speaking_seconds": {"type": "number"},
           "turn_count": {"type": "integer"},
-          "state": {"type": "string", "enum": ["unidentified"], "description": "Une voix inconnue reste un Locuteur local non identifié ; les attributions arrivent avec les tickets suivants."},
+          "state": {"type": "string", "enum": ["unidentified", "identified"], "description": "identified : attribution humaine ou automatique à une Personne. Une suggestion ou une voix ambiguë reste unidentified ; une voix inconnue ne bloque rien."},
+          "decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
+          "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true, "description": "Personne de l'attribution effective (validation humaine prioritaire)."},
+          "attribution": {"allOf": [{"$ref": "#/components/schemas/Attribution"}], "nullable": true},
           "fingerprints": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceFingerprint"}}
         }
       },
@@ -4723,7 +4850,10 @@
             }
           },
           "local_speaker_id": {"type": "integer", "format": "int64", "description": "Locuteur local dominant du segment ; absent sans diarisation ou sans recouvrement."},
-          "local_speaker_label": {"type": "string"}
+          "local_speaker_label": {"type": "string"},
+          "local_speaker_decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
+          "local_speaker_person_id": {"type": "integer", "format": "int64", "description": "Personne du Locuteur local, si attribuée."},
+          "local_speaker_person_name": {"type": "string"}
         }
       },
       "Transcription": {

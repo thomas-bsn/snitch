@@ -45,7 +45,7 @@ func TestSourceRuntimeConfiguration(t *testing.T) {
 	if len(got.ClipRoots) != 2 || !filepath.IsAbs(got.ClipRoots[0]) || got.ClipRoots[1] != "/mnt/captures" {
 		t.Fatalf("unexpected roots: %#v", got.ClipRoots)
 	}
-	if got.ProbePath != "ffprobe" || got.StabilityWindow != 2*time.Minute || got.ReconcileInterval != 10*time.Minute {
+	if got.ProbePath != "ffprobe" || got.FFmpegPath != "ffmpeg" || got.StabilityWindow != 2*time.Minute || got.ReconcileInterval != 10*time.Minute {
 		t.Fatalf("unexpected source settings: %+v", got)
 	}
 	if len(got.ClipExcludePatterns) != 2 || got.ClipExcludePatterns[0] != "*.tmp" || got.ClipExcludePatterns[1] != "*.part" {

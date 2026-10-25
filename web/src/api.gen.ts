@@ -774,6 +774,109 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/persons": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références). */
+    get: operations["listPersons"];
+    put?: never;
+    /** @description Utilisateurs connectés. Une Personne est une identité, jamais un compte. */
+    post: operations["createPerson"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. */
+    get: operations["getPerson"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/validation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Passe soit person_id soit new_person_name (Personne créée dans la même transaction). L'arbitrage entre validations concurrentes est une contrainte PostgreSQL ; la perdante ne crée rien. */
+    post: operations["validateLocalSpeaker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/correction": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. expected_person_id (Personne vue par l'utilisateur) est obligatoire pour qu'une correction concurrente n'en écrase pas une autre. */
+    post: operations["correctLocalSpeaker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés, pour un clip visible. Ancienne valeur, nouvelle valeur, auteur et date de chaque validation ou correction ; aucune donnée vocale. */
+    get: operations["getLocalSpeakerHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/excerpt": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés uniquement, et seulement pour les clips que leur visibilité autorise (sinon 404). Découpé à la demande depuis le fichier du clip, sans stockage ; Range pris en charge. */
+    get: operations["getLocalSpeakerExcerpt"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings": {
     parameters: {
       query?: never;
@@ -1204,6 +1307,103 @@ export interface components {
       model_version: string;
       dimensions: number;
     };
+    PersonInput: {
+      display_name: string;
+    };
+    PersonRef: {
+      /** Format: int64 */
+      id: number;
+      display_name: string;
+    };
+    Person: {
+      /** Format: int64 */
+      id: number;
+      display_name: string;
+      /**
+       * Format: int64
+       * @description Compte lié, le cas échéant : une Personne n'est jamais un compte.
+       */
+      user_id: number | null;
+      /** @description Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre n'est pas une garantie de qualité d'identification. */
+      validated_sample_count: number;
+      /** @description Locuteurs locaux validés pour cette Personne. */
+      local_speaker_count: number;
+      /** Format: date-time */
+      created_at: string;
+    };
+    PersonList: {
+      items: components["schemas"]["Person"][];
+    };
+    AttributionAuthor: {
+      /** Format: int64 */
+      id: number | null;
+      /** @description Nom au moment de la décision. */
+      username: string;
+    };
+    /**
+     * @description human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement (tickets suivants) ; unknown : aucune attribution.
+     * @enum {string}
+     */
+    DecisionLevel:
+      | "human"
+      | "automatic"
+      | "suggestion"
+      | "ambiguous"
+      | "unknown";
+    Attribution: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      local_speaker_id: number;
+      person: components["schemas"]["PersonRef"] | null;
+      decision_level: components["schemas"]["DecisionLevel"];
+      /**
+       * @description validated : validation humaine (fait foi, source d'Échantillon vocal validé).
+       * @enum {string}
+       */
+      validation_state: "validated" | "unvalidated";
+      /** @description Confiance automatique du rapprochement, absente d'une validation humaine. */
+      confidence: number | null;
+      /** @description human, puis matching ou microphone_track selon les tickets suivants. */
+      origin: string;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      revision: number;
+      /** Format: date-time */
+      decided_at: string;
+    };
+    /** @description Exactement un de person_id ou new_person_name. */
+    AttributionInput: {
+      /** Format: int64 */
+      person_id?: number;
+      new_person_name?: string;
+      /**
+       * Format: int64
+       * @description Correction uniquement : Personne actuellement validée telle que vue par l'utilisateur.
+       */
+      expected_person_id?: number;
+    };
+    AttributionConflict: {
+      error: string;
+      attribution?: components["schemas"]["Attribution"];
+    };
+    AttributionEvent: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** @description validate, correct ; d'autres actions pourront s'ajouter. */
+      action: string;
+      old_person: components["schemas"]["PersonRef"] | null;
+      old_decision_level: string;
+      new_person: components["schemas"]["PersonRef"] | null;
+      new_decision_level: string;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    AttributionHistory: {
+      items: components["schemas"]["AttributionEvent"][];
+    };
     LocalSpeaker: {
       /** Format: int64 */
       id: number;
@@ -1212,10 +1412,14 @@ export interface components {
       speaking_seconds: number;
       turn_count: number;
       /**
-       * @description Une voix inconnue reste un Locuteur local non identifié ; les attributions arrivent avec les tickets suivants.
+       * @description identified : attribution humaine ou automatique à une Personne. Une suggestion ou une voix ambiguë reste unidentified ; une voix inconnue ne bloque rien.
        * @enum {string}
        */
-      state: "unidentified";
+      state: "unidentified" | "identified";
+      decision_level: components["schemas"]["DecisionLevel"];
+      /** @description Personne de l'attribution effective (validation humaine prioritaire). */
+      person: components["schemas"]["PersonRef"] | null;
+      attribution: components["schemas"]["Attribution"] | null;
       fingerprints: components["schemas"]["VoiceFingerprint"][];
     };
     ClipVoice: {
@@ -1379,6 +1583,13 @@ export interface components {
        */
       local_speaker_id?: number;
       local_speaker_label?: string;
+      local_speaker_decision_level?: components["schemas"]["DecisionLevel"];
+      /**
+       * Format: int64
+       * @description Personne du Locuteur local, si attribuée.
+       */
+      local_speaker_person_id?: number;
+      local_speaker_person_name?: string;
     };
     Transcription: {
       provider: string;
@@ -3502,6 +3713,264 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ClipVoice"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPersons: {
+    parameters: {
+      query?: {
+        q?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Personnes, par nom */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createPerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonInput"];
+      };
+    };
+    responses: {
+      /** @description Personne créée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getPerson: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Personne */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  validateLocalSpeaker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AttributionInput"];
+      };
+    };
+    responses: {
+      /** @description Validation enregistrée : Attribution humaine et Échantillon vocal validé créés, même si une confiance automatique existait */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Attribution"];
+        };
+      };
+      /** @description already_validated : la première validation fait foi ; la réponse contient l'attribution existante et son auteur */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttributionConflict"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  correctLocalSpeaker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AttributionInput"];
+      };
+    };
+    responses: {
+      /** @description Correction enregistrée : ancien échantillon retiré des références, nouveau créé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Attribution"];
+        };
+      };
+      /** @description not_validated, same_person ou attribution_changed (la Personne a changé depuis la lecture ; l'attribution actuelle est renvoyée) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttributionConflict"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getLocalSpeakerHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historique immuable, du plus récent au plus ancien */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttributionHistory"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getLocalSpeakerExcerpt: {
+    parameters: {
+      query?: {
+        /** @description Indice du tour de parole ; par défaut le plus long. */
+        turn?: number;
+      };
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Extrait audio WAV mono de dix secondes au plus */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "audio/wav": string;
+          "application/octet-stream": string;
         };
       };
       /** @description Erreur */

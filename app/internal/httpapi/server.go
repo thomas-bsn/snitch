@@ -162,6 +162,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/transcriptions/batch-schedule", s.protected(true, http.HandlerFunc(s.batchTranscriptionSchedule)))
 	mux.Handle("GET /api/clips/{id}/media", s.protected(false, http.HandlerFunc(s.serveClipMedia)))
 	s.registerVoiceRoutes(mux)
+	s.registerPersonRoutes(mux)
 	embedded, _ := fs.Sub(ui.Files, "dist")
 	files := http.FileServer(http.FS(embedded))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

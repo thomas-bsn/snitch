@@ -9,6 +9,24 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+type AttributionEvent struct {
+	ID               int64              `json:"id"`
+	LocalSpeakerID   int64              `json:"local_speaker_id"`
+	ClipID           int64              `json:"clip_id"`
+	Action           string             `json:"action"`
+	OldPersonID      pgtype.Int8        `json:"old_person_id"`
+	OldPersonName    string             `json:"old_person_name"`
+	OldDecisionLevel string             `json:"old_decision_level"`
+	OldSampleID      pgtype.Int8        `json:"old_sample_id"`
+	NewPersonID      pgtype.Int8        `json:"new_person_id"`
+	NewPersonName    string             `json:"new_person_name"`
+	NewDecisionLevel string             `json:"new_decision_level"`
+	NewSampleID      pgtype.Int8        `json:"new_sample_id"`
+	AuthorID         pgtype.Int8        `json:"author_id"`
+	AuthorUsername   string             `json:"author_username"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type Clip struct {
 	ID                  int64              `json:"id"`
 	OwnerID             int64              `json:"owner_id"`
@@ -144,6 +162,15 @@ type OauthState struct {
 	SessionHash []byte             `json:"session_hash"`
 }
 
+type Person struct {
+	ID          int64              `json:"id"`
+	DisplayName string             `json:"display_name"`
+	UserID      pgtype.Int8        `json:"user_id"`
+	CreatedBy   pgtype.Int8        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Session struct {
 	TokenHash []byte             `json:"token_hash"`
 	UserID    int64              `json:"user_id"`
@@ -173,6 +200,21 @@ type SourceFile struct {
 	LastSeenGeneration int64              `json:"last_seen_generation"`
 	Status             string             `json:"status"`
 	ErrorCode          pgtype.Text        `json:"error_code"`
+}
+
+type SpeakerAttribution struct {
+	ID              int64              `json:"id"`
+	LocalSpeakerID  int64              `json:"local_speaker_id"`
+	PersonID        pgtype.Int8        `json:"person_id"`
+	DecisionLevel   string             `json:"decision_level"`
+	ValidationState string             `json:"validation_state"`
+	Confidence      pgtype.Float8      `json:"confidence"`
+	Origin          string             `json:"origin"`
+	AuthorID        pgtype.Int8        `json:"author_id"`
+	AuthorUsername  string             `json:"author_username"`
+	Revision        int32              `json:"revision"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type SpeakerTurn struct {
@@ -284,6 +326,19 @@ type VoicePipelineVersion struct {
 	Version   string             `json:"version"`
 	Config    []byte             `json:"config"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoiceSample struct {
+	ID             int64              `json:"id"`
+	PersonID       int64              `json:"person_id"`
+	LocalSpeakerID int64              `json:"local_speaker_id"`
+	ClipID         int64              `json:"clip_id"`
+	AttributionID  int64              `json:"attribution_id"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	RetiredBy      pgtype.Int8        `json:"retired_by"`
+	RetiredReason  string             `json:"retired_reason"`
 }
 
 type Worker struct {
