@@ -39,6 +39,11 @@ const voiceMessages: Record<string, string> = {
   invalid_voice_pipeline: "Configuration vocale invalide.",
   invalid_voice_matching:
     "Seuils invalides : le seuil de suggestion ne peut pas dépasser le seuil automatique.",
+  group_changed:
+    "Le groupe a changé entre-temps (voix exclue, validée ou jointe). Vérifiez la liste puis recommencez.",
+  not_unknown:
+    "Cette voix est déjà identifiée : elle n’appartient à aucun groupe.",
+  voice_group_not_found: "Ce groupe n’existe plus.",
   forbidden: "Accès réservé aux administrateurs.",
   csrf_rejected: "Session expirée. Rechargez la page.",
 };
