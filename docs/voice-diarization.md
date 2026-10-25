@@ -12,7 +12,7 @@ Deux étapes versionnées de la file existante, planifiées uniquement par l'adm
 | `voice.fingerprint.<piste>` | `f5-a<piste>-p<version du pipeline vocal>-d<tâche de diarisation>` | Calcule une empreinte par Locuteur local et par tour. |
 
 - `POST /api/admin/clips/{id}/voice` planifie la diarisation d'un clip déjà transcrit (la piste par défaut est la piste sélectionnée). Il n'existe ni scan ni traitement nocturne ; la transcription et la vidéo ne sont jamais retraitées.
-- L'étape d'empreintes est ajoutée automatiquement, dans la transaction du résultat de la diarisation, pour cette diarisation précise. Une nouvelle diarisation remplace l'ancienne et invalide l'étape d'empreintes qui en dépendait.
+- L'étape d'empreintes est ajoutée automatiquement, dans la transaction du résultat de la diarisation, pour cette diarisation précise. Une nouvelle diarisation remplace l'ancienne et invalide l'étape d'empreintes qui en dépendait, sauf si un Locuteur local de la piste a été validé par un utilisateur : elle est alors refusée (voir [Personnes et validation](voice-persons.md)).
 - Changer le pipeline vocal ne fait qu'ajouter une version : seules ces étapes sont rejouées, à la demande.
 
 ## Pipeline vocal
@@ -34,4 +34,4 @@ Le worker récupère sa configuration dans l'entrée de la tâche (`voice`) et n
 
 `GET /api/clips/{id}/voice` (utilisateur connecté, clips visibles) retourne l'état des étapes (statut et dernier code d'erreur expurgé), les Locuteurs locaux et les métadonnées d'empreintes, jamais les vecteurs. `GET /api/clips/{id}` ajoute `local_speaker_id` et `local_speaker_label` à chaque segment de transcription : le Locuteur local dont les tours recouvrent le plus le segment. Un segment sans recouvrement n'a pas de Locuteur. La consultation et la recherche fonctionnent worker éteint.
 
-Dans l'interface, le panneau « Voix » d'un clip affiche l'état des étapes, les Locuteurs locaux (non identifiés) et un bouton administrateur « Diariser les voix » ; la carte « Pipeline vocal » règle le pipeline. Les étapes `voice.*` apparaissent dans la file d'administration comme les autres.
+Dans l'interface, le panneau « Voix » d'un clip affiche l'état des étapes, les Locuteurs locaux (non identifiés tant qu'une Personne ne leur est pas attribuée, voir [Personnes et validation](voice-persons.md)) et un bouton administrateur « Diariser les voix » ; la carte « Pipeline vocal » règle le pipeline. Les étapes `voice.*` apparaissent dans la file d'administration comme les autres.

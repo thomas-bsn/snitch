@@ -40,3 +40,54 @@
   align-items: center;
   gap: 0.5rem;
 }
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.8em;
+}
+.level-human {
+  color: var(--success, #a6e3a1);
+  font-weight: 600;
+}
+.level-automatic {
+  color: var(--accent, #89b4fa);
+}
+.level-suggestion {
+  color: var(--warning, #f9e2af);
+  border-style: dotted;
+}
+.level-ambiguous {
+  color: var(--warning, #fab387);
+  border-style: double;
+}
+.level-unknown {
+  color: inherit;
+  border-style: dashed;
+  opacity: 0.8;
+}
+.speaker-row {
+  display: grid;
+  gap: 0.4rem;
+}
+.speaker-row audio {
+  width: 100%;
+  max-width: 22rem;
+}
+.speaker-validation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+}
+.speaker-validation label {
+  display: grid;
+  gap: 0.2rem;
+}
+.speaker-history {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}

@@ -4,7 +4,12 @@ import {
   voiceChecked,
   type ClipVoice,
   type CsrfHeaders,
+  type DecisionLevel,
+  type Person,
+  levelGlyphs,
+  levelLabels,
 } from "./client";
+import { SpeakerRow } from "./SpeakerRow";
 import "./voice.css";
 
 const statusLabels: Record<ClipVoice["status"], string> = {
@@ -37,16 +42,22 @@ function stepLabel(step: string): string {
 
 export function SpeakerBadge({
   label,
+  personName,
+  level,
 }: {
   label: string | undefined;
+  personName?: string;
+  level?: DecisionLevel;
 }): React.ReactElement | null {
   if (!label) return null;
+  const effective: DecisionLevel = level ?? "unknown";
   return (
     <span
-      className="speaker-badge"
-      title="Locuteur local non identifié dans ce clip"
+      className={`speaker-badge level-${effective}`}
+      title={levelLabels[effective]}
     >
-      {label} · non identifié
+      <span aria-hidden="true">{levelGlyphs[effective]}</span> {label} ·{" "}
+      {personName ?? "non identifié"}
     </span>
   );
 }
@@ -65,6 +76,16 @@ export function VoicePanel({
   const [voice, setVoice] = useState<ClipVoice | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [persons, setPersons] = useState<Person[]>([]);
+
+  async function loadPersons() {
+    const result = await voiceApi.GET("/api/persons", { params: {} });
+    setPersons(result.data?.items ?? []);
+  }
+
+  async function reload() {
+    await Promise.all([load(), loadPersons()]);
+  }
 
   async function load() {
     try {
@@ -82,7 +103,7 @@ export function VoicePanel({
     }
   }
   useEffect(() => {
-    void load();
+    void reload();
   }, [clipId, reloadToken]);
 
   async function schedule() {
@@ -137,17 +158,16 @@ export function VoicePanel({
       )}
       {voice && voice.speakers.length > 0 && (
         <ul className="voice-speakers" aria-label="Locuteurs locaux">
-          {voice.speakers.map((speaker) => {
-            const usable = speaker.fingerprints.filter((f) => f.usable).length;
-            return (
-              <li key={speaker.id}>
-                <strong>{speaker.label}</strong> · non identifié ·{" "}
-                {speaker.speaking_seconds.toFixed(1)} s de parole ·{" "}
-                {speaker.fingerprints.length} empreinte(s), {usable}{" "}
-                utilisable(s)
-              </li>
-            );
-          })}
+          {voice.speakers.map((speaker) => (
+            <li key={speaker.id}>
+              <SpeakerRow
+                speaker={speaker}
+                persons={persons}
+                csrf={csrf}
+                onChanged={reload}
+              />
+            </li>
+          ))}
         </ul>
       )}
       {voice && voice.status === "done" && voice.speakers.length === 0 && (

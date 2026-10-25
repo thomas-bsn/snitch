@@ -1726,6 +1726,12 @@ function App() {
                                               label={
                                                 segment.local_speaker_label
                                               }
+                                              personName={
+                                                segment.local_speaker_person_name
+                                              }
+                                              level={
+                                                segment.local_speaker_decision_level
+                                              }
                                             />
                                             <button
                                               className="transcript-time"
