@@ -8,6 +8,8 @@ import {
 } from "react-router";
 import { AdminLayout, AdminPlaceholder } from "./admin/AdminLayout";
 import { ADMIN_TABS } from "./admin/tabs";
+import { FoldersTab } from "./admin/folders/FoldersTab";
+import { QueueTab } from "./admin/queue/QueueTab";
 import { WorkersTab } from "./admin/workers/WorkersTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
@@ -95,8 +97,12 @@ function Routing() {
             <Route path="admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="workers" replace />} />
               <Route path="workers" element={<WorkersTab />} />
+              <Route path="queue" element={<QueueTab />} />
+              <Route path="folders" element={<FoldersTab />} />
               <Route path="workers/:id" element={<WorkersTab />} />
-              {ADMIN_TABS.filter((tab) => tab.path !== "workers").map((tab) => (
+              {ADMIN_TABS.filter(
+                (tab) => !["workers", "queue", "folders"].includes(tab.path),
+              ).map((tab) => (
                 <Route
                   key={tab.path}
                   path={`${tab.path}/*`}
