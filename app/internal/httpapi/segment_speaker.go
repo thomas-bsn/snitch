@@ -12,8 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// registerSegmentSpeakerRoutes registers the speaker correction of a segment (phase 6,
-// ticket #54).
+// registerSegmentSpeakerRoutes registers the speaker correction of a segment (phase 6).
 func (s *Server) registerSegmentSpeakerRoutes(mux *http.ServeMux) {
 	mux.Handle("PUT /api/clips/{id}/segments/{index}/speaker", s.protected(false, http.HandlerFunc(s.putSegmentSpeaker)))
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Retranscription of a corrected clip (phase 6, ticket #55). A retranscription creates a
+// Retranscription of a corrected clip (phase 6). A retranscription creates a
 // new transcription job whose result replaces the visible text once it succeeds; the
 // corrections of the replaced job are then marked obsolete (segment_corrections.stale_at,
 // set at completion by jobs.CompleteWith) and are never reapplied. Every path that can

@@ -8,7 +8,7 @@ import (
 )
 
 // registerSegmentExportRoutes registers the administrator export of the corrected
-// segments (phase 6, ticket #56). The export only reads; Snitch computes no error rate.
+// segments (phase 6). The export only reads; Snitch computes no error rate.
 func (s *Server) registerSegmentExportRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/admin/segment-corrections/export", s.protected(true, http.HandlerFunc(s.exportSegmentCorrections)))
 }

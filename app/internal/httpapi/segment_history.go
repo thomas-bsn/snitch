@@ -11,7 +11,7 @@ import (
 )
 
 // registerSegmentHistoryRoutes registers the history and restoration routes of a
-// segment (phase 6, ticket #50).
+// segment (phase 6).
 func (s *Server) registerSegmentHistoryRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/clips/{id}/segments/{index}/history", s.protected(false, http.HandlerFunc(s.getSegmentHistory)))
 	mux.Handle("POST /api/clips/{id}/segments/{index}/restore", s.protected(false, http.HandlerFunc(s.restoreSegmentText)))
