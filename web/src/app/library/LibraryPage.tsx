@@ -1,6 +1,7 @@
-import { Link, useLocation, useSearchParams } from "react-router";
+import { Link, useLocation } from "react-router";
 import { useCallback, useMemo } from "react";
 import { useLoaded } from "../api/loaded";
+import { useAddressParams } from "../api/useAddressParams";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
@@ -33,7 +34,7 @@ function readFilters(params: URLSearchParams): Filters {
 export function LibraryPage() {
   const { t, error } = useI18n();
   const location = useLocation();
-  const [params, setParams] = useSearchParams();
+  const { params, update } = useAddressParams();
   useDocumentTitle(t("pages.library.title"));
 
   const filters = useMemo(() => readFilters(params), [params]);
@@ -43,13 +44,13 @@ export function LibraryPage() {
   const choices = useLoaded(fetchFilterOptions);
 
   function change(patch: Partial<Filters>) {
-    const next = new URLSearchParams(params);
-    for (const [key, value] of Object.entries(patch)) {
-      if (value === "" || value === 1) next.delete(key);
-      else next.set(key, String(value));
-    }
-    if (!("page" in patch)) next.delete("page");
-    setParams(next);
+    update((next) => {
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === "" || value === 1) next.delete(key);
+        else next.set(key, String(value));
+      }
+      if (!("page" in patch)) next.delete("page");
+    });
   }
 
   const page = clips.state.status === "ready" ? clips.state.value : null;
@@ -81,7 +82,11 @@ export function LibraryPage() {
         }
         active={active}
         onChange={change}
-        onClear={() => setParams(new URLSearchParams())}
+        onClear={() =>
+          update((next) => {
+            for (const key of [...next.keys()]) next.delete(key);
+          })
+        }
       />
 
       {clips.state.status === "failed" && (
