@@ -123,6 +123,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testLocalAuthentication(t, pool)
 	})
+	t.Run("account preferences", func(t *testing.T) {
+		reset(t)
+		testAccountPreferences(t, pool)
+	})
 	t.Run("public address deduced from the request", func(t *testing.T) {
 		reset(t)
 		testPublicAddress(t, pool)
@@ -392,6 +396,9 @@ func TestFoundation(t *testing.T) {
 			CSRF string `json:"csrf_token"`
 		}
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
+		// Account language (behavior in the account preferences suite).
+		call(client, "GET", "/api/account/preferences", nil, "", 200)
+		call(client, "PUT", "/api/account/preferences", map[string]any{"language": "fr"}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/job-controls", nil, "", 200)
 		call(client, "PUT", "/api/admin/job-controls", map[string]any{"paused": false, "max_concurrency": 2}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/embeddings", nil, "", 200)
@@ -717,11 +724,37 @@ func TestFoundation(t *testing.T) {
 		if !bytes.Contains(html, []byte("<div id=\"root\"")) {
 			t.Fatal("embedded SPA missing")
 		}
+		// Every screen address returns the application, and the old interface keeps its own address.
+		for _, path := range []string{"/library", "/search", "/people", "/import", "/login", "/admin/workers", "/clips/12", "/account/settings"} {
+			resp, e = client.Get(ts.URL + path)
+			if e != nil {
+				t.Fatal(e)
+			}
+			deep, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode != 200 || !bytes.Equal(deep, html) {
+				t.Fatalf("screen address %s does not return the application: %d", path, resp.StatusCode)
+			}
+		}
+		for _, path := range []string{"/legacy/", "/legacy/anything"} {
+			resp, e = client.Get(ts.URL + path)
+			if e != nil {
+				t.Fatal(e)
+			}
+			old, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode != 200 || !bytes.Contains(old, []byte("<div id=\"root\"")) || bytes.Equal(old, html) {
+				t.Fatalf("old interface missing at %s: %d", path, resp.StatusCode)
+			}
+		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
+		}
+		if os.Getenv("SNITCH_E2E_SHELL") == "1" {
+			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SOURCES") == "1" {
 			suites = []string{"sources.spec.ts"}

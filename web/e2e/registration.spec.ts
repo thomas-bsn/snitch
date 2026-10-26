@@ -6,7 +6,7 @@ test("installation, connexion, approbation et refus anonymes", async ({
 }) => {
   const anon = await request.get("/api/admin/settings");
   expect(anon.status()).toBe(401);
-  await page.goto("/");
+  await page.goto("/legacy/");
   await expect(
     page.getByRole("heading", { name: "Installer votre espace" }),
   ).toBeVisible();

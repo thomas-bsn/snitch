@@ -112,6 +112,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/auth/register", s.limited(http.HandlerFunc(s.register)))
 	mux.Handle("GET /api/auth/me", s.protected(false, http.HandlerFunc(s.me)))
 	mux.Handle("POST /api/auth/logout", s.protected(false, http.HandlerFunc(s.logout)))
+	mux.Handle("GET /api/account/preferences", s.protected(false, http.HandlerFunc(s.getAccountPreferences)))
+	mux.Handle("PUT /api/account/preferences", s.protected(false, http.HandlerFunc(s.putAccountPreferences)))
 	mux.Handle("POST /api/auth/discord/start", s.rateLimited("discord", http.HandlerFunc(s.discordStart)))
 	mux.Handle("POST /api/auth/discord/link", s.protected(false, http.HandlerFunc(s.discordStart)))
 	mux.Handle("GET /api/auth/discord/callback", s.rateLimited("discord", http.HandlerFunc(s.discordCallback)))
@@ -192,7 +194,12 @@ func (s *Server) Handler() http.Handler {
 			path = "index.html"
 		}
 		if _, err := fs.Stat(embedded, path); err != nil {
+			// Unknown paths return an application shell, never a 404: each screen has its own
+			// address. The old interface keeps a separate shell under /legacy during the transition.
 			r.URL.Path = "/"
+			if path == "legacy" || strings.HasPrefix(path, "legacy/") {
+				r.URL.Path = "/legacy/"
+			}
 		}
 		files.ServeHTTP(w, r)
 	})
@@ -304,7 +311,7 @@ func (s *Server) findSession(r *http.Request) (session, error) {
 	if err != nil {
 		return ss, err
 	}
-	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,s.csrf FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.CSRF)
+	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF)
 	return ss, err
 }
 func (s *Server) protected(admin bool, next http.Handler) http.Handler {

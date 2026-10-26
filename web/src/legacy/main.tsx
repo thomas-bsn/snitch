@@ -1,35 +1,35 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import createClient from "openapi-fetch";
-import type { paths, components } from "./api.gen";
+import type { paths, components } from "../api.gen";
 import "./style.css";
-import { SpeakerBadge, VoicePanel } from "./voice/VoicePanel";
+import { SpeakerBadge, VoicePanel } from "../voice/VoicePanel";
 import {
   ClipPersons,
   PersonFilterSelect,
   ResultSpeaker,
   applyPersonFilter,
-} from "./voice/PersonFilter";
-import { SegmentText } from "./segments/SegmentText";
+} from "../voice/PersonFilter";
+import { SegmentText } from "../segments/SegmentText";
 import {
   CorrectionsWarningPanel,
   describeCorrections,
   replacedCorrections,
   type CorrectionsToReplace,
-} from "./segments/Retranscription";
-import { SegmentHistory } from "./segments/SegmentHistory";
-import { ObsoleteCorrections } from "./segments/ObsoleteCorrections";
-import { SegmentSpeaker } from "./segments/SegmentSpeaker";
-import { VoicePipelineCard } from "./voice/VoicePipelineCard";
-import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
-import { PersonsCard } from "./voice/PersonsCard";
-import { MyVoiceCard } from "./voice/MyVoiceCard";
-import { PersonAccountCard } from "./voice/PersonAccountCard";
-import { VoiceAutomationCard } from "./voice/VoiceAutomationCard";
-import { VoiceGroupsCard } from "./voice/VoiceGroupsCard";
-import { VoiceVerificationCard } from "./voice/VoiceVerificationCard";
-import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
-import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
+} from "../segments/Retranscription";
+import { SegmentHistory } from "../segments/SegmentHistory";
+import { ObsoleteCorrections } from "../segments/ObsoleteCorrections";
+import { SegmentSpeaker } from "../segments/SegmentSpeaker";
+import { VoicePipelineCard } from "../voice/VoicePipelineCard";
+import { VoiceMatchingCard } from "../voice/VoiceMatchingCard";
+import { PersonsCard } from "../voice/PersonsCard";
+import { MyVoiceCard } from "../voice/MyVoiceCard";
+import { PersonAccountCard } from "../voice/PersonAccountCard";
+import { VoiceAutomationCard } from "../voice/VoiceAutomationCard";
+import { VoiceGroupsCard } from "../voice/VoiceGroupsCard";
+import { VoiceVerificationCard } from "../voice/VoiceVerificationCard";
+import { MicrophoneClipCard } from "../voice/MicrophoneClipCard";
+import { MicrophoneSourceCard } from "../voice/MicrophoneSourceCard";
 
 const api = createClient<paths>();
 type Setup = components["schemas"]["Setup"];

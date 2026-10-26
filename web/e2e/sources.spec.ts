@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("un administrateur ajoute une source et voit ses clips validés", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/legacy/");
   await page
     .getByLabel("Code d’installation")
     .fill(process.env.SNITCH_TEST_CODE!);

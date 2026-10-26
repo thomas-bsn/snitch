@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test("nouvelle installation et étapes reportées", async ({ page }) => {
-  await page.goto("/installation");
+  await page.goto("/legacy/installation");
   await expect(
     page.getByRole("heading", { name: "Installer votre espace" }),
   ).toBeVisible();
