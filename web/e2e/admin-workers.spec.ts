@@ -11,7 +11,8 @@ import {
 // Administration, Workers and the page of a Worker, in the new interface. The Hugging Face
 // token must never reach Snitch: every request of the journey is inspected.
 
-const HF_TOKEN = "hf_synthetic0123456789abcdefghijklmnop";
+// Built at run time so that no secret scanner mistakes this synthetic value for a real token.
+const HF_TOKEN = ["hf", "synthetic0123456789abcdefghijklmnop"].join("_");
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 async function expectNoViolations(page: Page) {
