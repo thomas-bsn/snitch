@@ -52,7 +52,7 @@ jobs:
           docker system prune -af
           docker build -f deploy/docker/worker.Dockerfile -t snitch-worker:local .
           docker run --rm snitch-worker:local python -m pip check
-  publish:
+  publish-release:
     # A reviewed version tag triggers publication only after every check and the verify builds. Tags always publish every image (consistent pinned versions).
     needs: verify
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
