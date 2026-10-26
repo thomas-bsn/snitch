@@ -236,6 +236,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerRegistration(t, pool)
 	})
+	t.Run("worker declared models", func(t *testing.T) {
+		reset(t)
+		testWorkerModels(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
 		clipRoot := t.TempDir()

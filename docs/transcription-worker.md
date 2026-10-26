@@ -20,6 +20,10 @@ La requête demande `verbose_json` et les granularités `segment` et `word`. Le 
 
 `SNITCH_API_URL` reste une URL HTTPS et `SNITCH_WORKER_TOKEN` reste le secret dédié à Snitch (`RECEIPTS_API_URL` et `RECEIPTS_WORKER_TOKEN` sont encore acceptés en alias). Ces paramètres sont indépendants des identifiants du fournisseur de transcription. Utiliser un fichier d’environnement local non versionné pour les secrets.
 
+## Modèles déclarés
+
+À chaque pouls (environ toutes les 45 secondes), le worker déclare à l’application les modèles qu’il utilise ; les administrateurs les voient par worker dans la page Workers (« Transcription : …, Diarisation : …, Empreinte vocale : … », ou « Modèles : non déclaré »). Seuls des identifiants non secrets sont envoyés : fournisseur, nom du modèle, version et, pour la transcription, l’hôte et le port de `TRANSCRIPTION_API_URL` (`hote:port`). Le schéma, le chemin, les paramètres, d’éventuels identifiants dans l’URL, `TRANSCRIPTION_API_KEY` et `SNITCH_WORKER_TOKEN` ne sont jamais lus dans la déclaration. Le worker écarte lui-même toute valeur que l’API refuserait (caractères non sûrs, longueur excessive, forme de clé ou de jeton) ; l’API la refuse de son côté avec `invalid_worker_models`. La transcription est déclarée dès que `TRANSCRIPTION_MODEL` est défini (fournisseur `openai-compatible`). Un rôle non configuré est simplement « non déclaré » ; la déclaration est informative et ne change pas l’identité des tâches.
+
 Les tests utilisent un transcripteur déterministe et des médias synthétiques multipistes. Ils n’appellent aucun fournisseur externe et ne sélectionnent aucun modèle final.
 
 

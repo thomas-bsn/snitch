@@ -162,6 +162,8 @@ from .worker_claim import WorkerClaim
 from .worker_failure_input import WorkerFailureInput
 from .worker_job_input import WorkerJobInput
 from .worker_job_input_tracks_item import WorkerJobInputTracksItem
+from .worker_model import WorkerModel
+from .worker_models import WorkerModels
 from .worker_page import WorkerPage
 from .worker_pulse_input import WorkerPulseInput
 from .worker_registration import WorkerRegistration
@@ -337,6 +339,8 @@ __all__ = (
     "WorkerFailureInput",
     "WorkerJobInput",
     "WorkerJobInputTracksItem",
+    "WorkerModel",
+    "WorkerModels",
     "WorkerPage",
     "WorkerPulseInput",
     "WorkerRegistration",
