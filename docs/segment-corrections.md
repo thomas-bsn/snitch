@@ -1,6 +1,6 @@
 # Corriger le texte d'un segment
 
-Périmètre des tickets 49 (phase 6, socle) et 50 (historique et restauration). Le glossaire, l'ADR et la feuille de route sont mis à jour à la clôture de la phase (ticket 57). Spécification : [phase 6](specs/phase-6.md).
+Corrections du texte et du locuteur des segments (phase 6). Décisions : [ADR 0012](adr/0012-corrections-de-segments.md) ; termes : [glossaire](../GLOSSARY.md) ; bilan : [phase 6](phase-6-report.md). Spécification : [phase 6](specs/phase-6.md).
 
 ## Principe
 
@@ -32,7 +32,7 @@ Corps : `text`, `expected_version` (obligatoire, 0 pour un segment jamais corrig
 - Contrôle de version optimiste : si la version courante diffère de `expected_version`, `409 segment_conflict` avec l'état courant et son auteur (`current`). Si `transcription_job_id` n'est plus la transcription visible : `409 transcription_changed`.
 - Le texte, la version incrémentée et l'entrée d'historique sont écrits dans une seule transaction. La ligne est verrouillée (`FOR UPDATE`) ; deux segments différents ne se bloquent pas.
 
-## Historique et restauration (ticket 50)
+## Historique et restauration
 
 `GET /api/clips/{id}/segments/{index}/history` : réservé aux utilisateurs connectés qui voient le clip (anonyme `401`, clip invisible `404 clip_not_found`, segment absent `404 segment_not_found`). Il renvoie l'état courant (`current`, comme une réponse de correction), le texte d'origine et les entrées de la transcription visible du clip, de la plus récente à la plus ancienne. Chaque entrée porte son `id`, son type (`text`, `speaker`, `restore`), l'ancien et le nouveau texte effectifs (`old_text`, `new_text`, `old_corrected`, `new_corrected`), les libellés de locuteur avant et après, le motif, les versions avant et après, l'auteur (nom au moment de l'écriture) et la date. Les entrées d'une transcription remplacée par une retranscription ne sont plus exposées : seul le segment de la transcription visible est lu.
 
@@ -67,7 +67,7 @@ Une correction de texte n'attend pas le service d'embeddings : elle est enregist
 
 ## Retranscription d'un clip corrigé
 
-Périmètre du ticket 55. Retranscrire un clip ne détruit jamais en silence le travail humain.
+Retranscrire un clip ne détruit jamais en silence le travail humain.
 
 - **Confirmation.** Tout chemin qui planifie une retranscription d'un clip portant des corrections actives (texte ou locuteur de la transcription visible) répond `409 corrections_would_be_replaced` avec `corrections` (tâche de transcription, nombre de textes et de locuteurs corrigés, auteurs, date de la dernière correction). L'administrateur renvoie la même requête avec `confirm_replace_corrections=true` (paramètre de requête) pour confirmer. Chemins protégés : `POST /api/admin/clips/{id}/transcription`, `PUT` et `DELETE /api/admin/clips/{id}/audio-track` (le changement de piste refusé ne modifie rien), `POST /api/admin/jobs` pour une étape `transcription.audio.*`, et `POST /api/admin/jobs/{id}/retry` d'une tâche de transcription `dead`. La page du clip affiche l'avertissement avec les boutons « Confirmer la retranscription et remplacer les corrections » et « Annuler la retranscription ».
 - **Lot.** L'aperçu (`GET /api/admin/transcriptions/batch-preview`) compte `corrected` (clips autrement éligibles qui portent des corrections) et `corrected_segments` ; ces clips sont exclus de `eligible` et du lot. Ils n'y entrent que sur demande explicite : `include_corrected=true` (aperçu) et `include_corrected: true` dans le corps de `batch-schedule`.
@@ -75,7 +75,7 @@ Périmètre du ticket 55. Retranscrire un clip ne détruit jamais en silence le 
 - **Succès.** À l'achèvement de la retranscription (`jobs.CompleteWith`, même transaction), les corrections des tâches de transcription précédentes du clip reçoivent `stale_at` : elles restent dans `segment_corrections` et dans l'historique (immuable), sont obsolètes, ne s'appliquent plus (texte effectif, recherche, réindexation filtrent `stale_at IS NULL`) et ne sont jamais réappliquées au nouveau texte, même identique.
 - **Échec.** La transcription visible est la dernière tâche réussie : une tâche en attente, en cours ou en échec ne la remplace pas. Le texte actuel et ses corrections restent affichés et actifs.
 
-## Corrections simultanées (ticket 51)
+## Corrections simultanées
 
 Le contrôle de version du `PUT` garantit qu'une correction ne remplace jamais silencieusement une autre : la ligne du segment est verrouillée (`FOR UPDATE`), et pour un segment jamais corrigé l'insertion `ON CONFLICT DO NOTHING` désigne le perdant. De deux corrections parties de la même version, une seule aboutit ; l'autre reçoit `409 segment_conflict` avec la version courante (`current` : texte, version, auteur, date) et rien n'est écrit pour elle. Chaque correction acceptée laisse une entrée d'historique : la correction gagnante n'est donc jamais perdue. Deux segments différents ne se bloquent pas et ne se contredisent pas.
 
@@ -93,7 +93,7 @@ Les quatre modes de `GET /api/search` lisent le texte effectif (`eff_segments`),
 
 Chaque résultat porte `corrected` (vrai si `context` est le texte corrigé) ; l'interface affiche alors un badge « Corrigé ». `timestamp` reste le début du mot d'origine (segment non corrigé) ou le début du segment (segment corrigé) : l'ouverture se fait à cet horodatage. Permissions de visibilité, filtres et filtre par Personne s'appliquent avant les comptes et la pagination, comme avant ; le locuteur d'un segment est résolu par `segmentSpeakerJoin`, à qui la recherche passe déjà l'identité du segment (transcription, index).
 
-## Export administrateur (ticket 56)
+## Export administrateur
 
 `GET /api/admin/segment-corrections/export` est réservé aux administrateurs (401 sans session, 403 pour un utilisateur ordinaire). Il prépare la mesure de qualité de la phase 7 : Snitch n'y calcule **aucun taux d'erreur**, il fournit seulement les paires texte d'origine / texte corrigé.
 
@@ -106,7 +106,7 @@ Suppression : supprimer un clip efface en cascade ses corrections et leur histor
 
 Tests : `segment_export_test.go` (sous-test « segment export » de `TestFoundation` : refus 401/403, vide, champs, restauration, pagination, NDJSON, clip privé, suppression de Personne et de profil, suppression du clip, original conservé) et `web/e2e/segment-export.spec.ts` (drapeau `SNITCH_E2E_SEGMENT_EXPORT=1`).
 
-## Corriger le locuteur d'un segment (ticket 54)
+## Corriger le locuteur d'un segment
 
 `PUT /api/clips/{id}/segments/{index}/speaker` avec `{local_speaker_id, expected_version, reason?, transcription_job_id?}` désigne le Locuteur local d'un segment ; `local_speaker_id: null` revient au locuteur déduit des tours de parole (recouvrement maximal, égalité au plus petit ordinal). Le Locuteur local doit appartenir au même clip et à la même piste audio que la transcription visible, sinon `400 invalid_local_speaker`. Choisir la valeur déjà enregistrée répond `400 speaker_unchanged`. Le contrôle de version est celui du texte (le même compteur `version` couvre texte et locuteur) : `409 segment_conflict` ou `transcription_changed` avec l'état courant.
 
