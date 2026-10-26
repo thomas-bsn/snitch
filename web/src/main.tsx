@@ -30,6 +30,7 @@ import { VoiceGroupsCard } from "./voice/VoiceGroupsCard";
 import { VoiceVerificationCard } from "./voice/VoiceVerificationCard";
 import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
 import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
+import { isAdministrator, isSuperAdministrator, roleLabel } from "./roles";
 
 const api = createClient<paths>();
 type Setup = components["schemas"]["Setup"];
@@ -307,7 +308,7 @@ function App() {
       await refreshUploads();
       await refreshClips(1);
     }
-    if (me.data?.user.role === "admin") {
+    if (me.data && isAdministrator(me.data.user.role)) {
       setSettings(checked(await api.GET("/api/admin/settings")));
       await refreshVocabulary();
       await refreshPipeline();
@@ -456,7 +457,7 @@ function App() {
     if (response.ok) setEmbeddingState(await response.json());
   }
   useEffect(() => {
-    if (session?.user.role !== "admin") return;
+    if (!session || !isAdministrator(session.user.role)) return;
     const timer = window.setInterval(() => {
       void refreshEmbeddings();
     }, 5000);
@@ -1172,7 +1173,7 @@ function App() {
                   <span className="nav-count">{uploads.length}</span>
                 )}
               </a>
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <>
                   <p className="nav-label">Administration</p>
                   <a className="nav-link" href="#job-queue">
@@ -1195,11 +1196,7 @@ function App() {
                 </span>
                 <span className="user-copy">
                   <strong>{session.user.username}</strong>
-                  <small>
-                    {session.user.role === "admin"
-                      ? "Administrateur"
-                      : "Membre"}
-                  </small>
+                  <small>{roleLabel(session.user.role)}</small>
                 </span>
               </div>
             </aside>
@@ -1656,7 +1653,7 @@ function App() {
                     Appliquer les filtres
                   </button>
                 </form>
-                {session.user.role === "admin" && (
+                {isAdministrator(session.user.role) && (
                   <section className="card" aria-label="Planification par lot">
                     <h3>Planifier les transcriptions visibles</h3>
                     <p className="hint">
@@ -1808,7 +1805,7 @@ function App() {
                                 </p>
                               )}
                             {clip.status === "ready" &&
-                              session.user.role === "admin" &&
+                              isAdministrator(session.user.role) &&
                               clip.tracks.some(
                                 (track) => track.type === "audio",
                               ) && (
@@ -2011,7 +2008,7 @@ function App() {
                               clip.status === "ready" && (
                                 <VoicePanel
                                   clipId={clip.id}
-                                  isAdmin={session.user.role === "admin"}
+                                  isAdmin={isAdministrator(session.user.role)}
                                   csrf={csrf}
                                   reloadToken={clipDetails[clip.id]}
                                 />
@@ -2020,7 +2017,7 @@ function App() {
                               clip.status === "ready" && (
                                 <MicrophoneClipCard
                                   clipId={clip.id}
-                                  isAdmin={session.user.role === "admin"}
+                                  isAdmin={isAdministrator(session.user.role)}
                                   csrf={csrf}
                                   onChanged={() => void loadClipDetail(clip.id)}
                                 />
@@ -2073,7 +2070,7 @@ function App() {
                   </button>
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <section className="card" aria-label="Export des corrections">
                   <h2>Export des corrections</h2>
                   <p>
@@ -2089,7 +2086,7 @@ function App() {
                   </a>
                 </section>
               )}
-              {session.user.role === "admin" && embeddingState && (
+              {isAdministrator(session.user.role) && embeddingState && (
                 <section className="card" aria-label="Index sémantique">
                   <h2>Index sémantique</h2>
                   <p>
@@ -2172,7 +2169,7 @@ function App() {
                   )}
                 </section>
               )}
-              {session.user.role === "admin" && settings && (
+              {isSuperAdministrator(session.user.role) && settings && (
                 <section className="card">
                   <h2>Accès et Discord</h2>
                   <p>
@@ -2262,7 +2259,7 @@ function App() {
                   </form>
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <section className="card" id="transcription-pipeline">
                   <h2>Pipeline de transcription</h2>
                   {pipeline && (
@@ -2352,20 +2349,20 @@ function App() {
               )}
               <PersonsCard csrf={csrf} />
               <MyVoiceCard csrf={csrf} />
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <PersonAccountCard csrf={csrf} />
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <VoicePipelineCard csrf={csrf} />
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <VoiceMatchingCard csrf={csrf} />
               )}
               <VoiceAutomationCard
-                isAdmin={session.user.role === "admin"}
+                isAdmin={isAdministrator(session.user.role)}
                 csrf={csrf}
               />
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <section className="card" id="vocabulary">
                   <h2>Vocabulaire de transcription</h2>
                   <p className="hint">
@@ -2462,7 +2459,7 @@ function App() {
                   {vocabulary.length === 0 && <p>Aucun terme enregistré.</p>}
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <section
                   className="card"
                   aria-label="Contrôle de la file"
@@ -2513,7 +2510,7 @@ function App() {
                   </form>
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <section className="card" id="workers">
                   <h2>Workers</h2>
                   <p className="hint">
@@ -2645,7 +2642,7 @@ function App() {
                   )}
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <section className="card" id="members">
                   <h2>Inscriptions en attente ({pending.length})</h2>
                   {pending.length === 0 ? (
@@ -2682,7 +2679,7 @@ function App() {
                   )}
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <section className="card" id="job-queue">
                   <h2>File de tâches ({jobTotal})</h2>
                   <p className="hint">
@@ -2877,7 +2874,7 @@ function App() {
                   </div>
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user.role) && (
                 <section className="card" id="sources">
                   <h2>Sources dossier</h2>
                   {allowedRoots.length === 0 ? (

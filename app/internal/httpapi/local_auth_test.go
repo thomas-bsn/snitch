@@ -192,7 +192,7 @@ func testLocalAuthentication(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("successful admins: %d", successes)
 		}
 		var count int
-		if err = pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE role='admin'`).Scan(&count); err != nil || count != 1 {
+		if err = pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE role='super_admin'`).Scan(&count); err != nil || count != 1 {
 			t.Fatal("admin count", count, err)
 		}
 		token := winner.cookies[0].Value

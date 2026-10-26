@@ -40,7 +40,7 @@ func Complete(ctx context.Context, p *pgxpool.Pool, code, username, password str
 		return 0, ErrClosed
 	}
 	var id int64
-	err = tx.QueryRow(ctx, `INSERT INTO users(username,password_hash,role,approved) VALUES($1,$2,'admin',true) RETURNING id`, username, auth.Password(password)).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO users(username,password_hash,role,approved) VALUES($1,$2,'super_admin',true) RETURNING id`, username, auth.Password(password)).Scan(&id)
 	if err != nil {
 		return 0, err
 	}

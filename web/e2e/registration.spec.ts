@@ -42,6 +42,10 @@ test("installation, connexion, approbation et refus anonymes", async ({
   await expect(
     page.getByRole("heading", { name: "Inscriptions en attente (1)" }),
   ).toBeVisible();
+  // The account created by the installation is the Super-administrator.
+  await expect(page.locator(".sidebar-user small")).toHaveText(
+    "Super-administrateur",
+  );
   await page
     .getByLabel("Approbation administrateur requise pour les nouveaux comptes")
     .uncheck();
@@ -84,6 +88,7 @@ test("installation, connexion, approbation et refus anonymes", async ({
     .fill("synthetic-password-456");
   await page.getByRole("button", { name: "Se connecter", exact: true }).click();
   await expect(page.locator(".sidebar-user strong")).toHaveText("player");
+  await expect(page.locator(".sidebar-user small")).toHaveText("Membre");
   await expect(
     page.getByRole("heading", { name: "Accès et Discord" }),
   ).toHaveCount(0);

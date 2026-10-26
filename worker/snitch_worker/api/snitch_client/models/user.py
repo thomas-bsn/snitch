@@ -25,7 +25,8 @@ class User:
         Attributes:
             id (int):
             username (str):
-            role (UserRole):
+            role (UserRole): super_admin : propriétaire de l'installation (compte créé par l'installation, unique, non
+                rétrogradable, non supprimable) ; admin : Administrateur ; user : Utilisateur.
             approved (bool):
      """
 
