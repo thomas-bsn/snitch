@@ -94,6 +94,10 @@ from .search_transcripts_visibility import SearchTranscriptsVisibility
 from .segment_conflict import SegmentConflict
 from .segment_conflict_error import SegmentConflictError
 from .segment_correction import SegmentCorrection
+from .segment_history import SegmentHistory
+from .segment_history_entry import SegmentHistoryEntry
+from .segment_history_entry_kind import SegmentHistoryEntryKind
+from .segment_restore_input import SegmentRestoreInput
 from .segment_text_input import SegmentTextInput
 from .session import Session
 from .settings import Settings
@@ -278,6 +282,10 @@ __all__ = (
     "SegmentConflict",
     "SegmentConflictError",
     "SegmentCorrection",
+    "SegmentHistory",
+    "SegmentHistoryEntry",
+    "SegmentHistoryEntryKind",
+    "SegmentRestoreInput",
     "SegmentTextInput",
     "Session",
     "Settings",

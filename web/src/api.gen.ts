@@ -619,6 +619,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/segments/{index}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés qui peuvent voir le clip. Les entrées sont immuables : ancienne et nouvelle valeur effectives, auteur, date et motif. Seul l'historique du segment de la transcription visible est lu. */
+    get: operations["getSegmentHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/segments/{index}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Restaure le texte d'origine (original=true) ou le texte produit par une entrée antérieure de ce segment (event_id) ; exactement l'un des deux. La restauration est une correction : version incrémentée, segment à réindexer, nouvelle entrée d'historique de type restore ; aucune entrée passée n'est modifiée. Une entrée de locuteur ne se restaure pas ici. */
+    post: operations["restoreSegmentText"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}/media": {
     parameters: {
       query?: never;
@@ -2082,6 +2116,53 @@ export interface components {
       error: "segment_conflict" | "transcription_changed";
       current?: components["schemas"]["SegmentCorrection"];
     };
+    SegmentRestoreInput: {
+      /** @description Version du segment vue par l'appelant. */
+      expected_version: number;
+      /** @description Vrai pour restaurer le texte d'origine du worker ; exclusif avec event_id. */
+      original?: boolean;
+      /**
+       * Format: int64
+       * @description Entrée d'historique de ce segment dont le nouveau texte est restauré ; exclusif avec original.
+       */
+      event_id?: number;
+      /** @description Motif facultatif (500 caractères au plus). */
+      reason?: string;
+      /** Format: int64 */
+      transcription_job_id?: number;
+    };
+    SegmentHistoryEntry: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      kind: "text" | "speaker" | "restore";
+      /** @description Texte effectif avant l'écriture (texte d'origine s'il n'y avait pas de correction). */
+      old_text: string | null;
+      /** @description Texte effectif après l'écriture. */
+      new_text: string | null;
+      old_corrected: boolean;
+      /** @description Faux si l'écriture a rétabli le texte d'origine. */
+      new_corrected: boolean;
+      old_speaker_label: string;
+      new_speaker_label: string;
+      /** Format: int64 */
+      restored_from_event_id: number | null;
+      restored_to_original: boolean;
+      reason: string;
+      version_before: number;
+      version_after: number;
+      author: components["schemas"]["AttributionAuthor"];
+      /** Format: date-time */
+      created_at: string;
+    };
+    SegmentHistory: {
+      /** Format: int64 */
+      transcription_job_id: number;
+      index: number;
+      original_text: string;
+      current: components["schemas"]["SegmentCorrection"];
+      items: components["schemas"]["SegmentHistoryEntry"][];
+    };
     AttributionConflict: {
       error: string;
       attribution?: components["schemas"]["Attribution"];
@@ -2507,6 +2588,8 @@ export interface components {
       preferred_spelling: string;
     };
     SearchResult: {
+      /** @description Vrai si le contexte est le texte corrigé du segment (phase 6) ; la recherche porte toujours sur le texte effectif, jamais sur l’ancien texte remplacé. */
+      corrected: boolean;
       /** @description Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté. */
       person: components["schemas"]["PersonRef"] | null;
       /** @description Niveau de décision tracé de l’attribution effective ; unknown sans attribution ou sans voix détectée. */
@@ -4091,6 +4174,88 @@ export interface operations {
         };
       };
       /** @description Erreur (400 invalid_text, text_too_long, invalid_reason, text_unchanged, invalid_request, invalid_segment_index ; 404 clip_not_found, segment_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getSegmentHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+        /** @description Rang du segment dans la transcription visible du clip. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historique du segment, du plus récent au plus ancien */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentHistory"];
+        };
+      };
+      /** @description Erreur (400 invalid_segment_index, invalid_clip_id ; 404 clip_not_found, segment_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  restoreSegmentText: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        /** @description Rang du segment dans la transcription visible du clip. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SegmentRestoreInput"];
+      };
+    };
+    responses: {
+      /** @description Texte restauré ; état courant du segment */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentCorrection"];
+        };
+      };
+      /** @description segment_conflict ou transcription_changed, comme pour la correction du texte */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentConflict"];
+        };
+      };
+      /** @description Erreur (400 invalid_request, invalid_reason, text_unchanged, event_not_restorable, invalid_segment_index ; 404 clip_not_found, segment_not_found, event_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

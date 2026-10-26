@@ -1,6 +1,6 @@
 # Corriger le texte d'un segment
 
-Périmètre du ticket 49 (phase 6, socle). Le glossaire, l'ADR et la feuille de route sont mis à jour à la clôture de la phase (ticket 57). Spécification : [phase 6](specs/phase-6.md).
+Périmètre des tickets 49 (phase 6, socle) et 50 (historique et restauration). Le glossaire, l'ADR et la feuille de route sont mis à jour à la clôture de la phase (ticket 57). Spécification : [phase 6](specs/phase-6.md).
 
 ## Principe
 
@@ -32,6 +32,18 @@ Corps : `text`, `expected_version` (obligatoire, 0 pour un segment jamais corrig
 - Contrôle de version optimiste : si la version courante diffère de `expected_version`, `409 segment_conflict` avec l'état courant et son auteur (`current`). Si `transcription_job_id` n'est plus la transcription visible : `409 transcription_changed`.
 - Le texte, la version incrémentée et l'entrée d'historique sont écrits dans une seule transaction. La ligne est verrouillée (`FOR UPDATE`) ; deux segments différents ne se bloquent pas.
 
+## Historique et restauration (ticket 50)
+
+`GET /api/clips/{id}/segments/{index}/history` : réservé aux utilisateurs connectés qui voient le clip (anonyme `401`, clip invisible `404 clip_not_found`, segment absent `404 segment_not_found`). Il renvoie l'état courant (`current`, comme une réponse de correction), le texte d'origine et les entrées de la transcription visible du clip, de la plus récente à la plus ancienne. Chaque entrée porte son `id`, son type (`text`, `speaker`, `restore`), l'ancien et le nouveau texte effectifs (`old_text`, `new_text`, `old_corrected`, `new_corrected`), les libellés de locuteur avant et après, le motif, les versions avant et après, l'auteur (nom au moment de l'écriture) et la date. Les entrées d'une transcription remplacée par une retranscription ne sont plus exposées : seul le segment de la transcription visible est lu.
+
+`POST /api/clips/{id}/segments/{index}/restore` : corps `expected_version` (obligatoire), exactement l'un de `original: true` (texte d'origine du worker) ou `event_id` (texte produit par une entrée antérieure du même segment), `reason` et `transcription_job_id` facultatifs.
+
+- Une restauration est une correction : même transaction, même verrou (`FOR UPDATE`), même contrôle de version (`409 segment_conflict` avec l'état courant, ou `409 transcription_changed`), version incrémentée, segment marqué à réindexer, et une nouvelle entrée de type `restore` (`restored_from_event_id`, ou `restored_to_original`). Aucune entrée passée n'est réécrite ni supprimée.
+- Restaurer l'original efface la correction du texte (le segment n'est plus « corrigé », son auteur et sa date sont effacés) mais conserve la ligne et sa version. Restaurer une entrée dont le nouveau texte était l'original revient au même.
+- Refus : `400 invalid_request` (ni `original` ni `event_id`, ou les deux), `400 invalid_reason`, `400 text_unchanged` (le texte effectif est déjà celui demandé), `400 event_not_restorable` (entrée de locuteur), `404 event_not_found` (entrée absente ou d'un autre segment).
+
+Dans l'interface, le bouton « Historique du segment N » de la page du clip déroule les entrées ; « Restaurer la version V du segment N » et « Restaurer le texte d'origine du segment N » restaurent, avec un motif facultatif.
+
 ## Données (migration 00033)
 
 `segment_corrections` : état courant, clé `(transcription_job_id, segment_index)`, supprimée en cascade avec la tâche ou le clip. Elle porte le texte corrigé, l'auteur et la date, la `version`, l'override de locuteur (réservé à l'étape locuteur), `stale_at` (corrections remplacées par une retranscription) et le marqueur « à réindexer » (`reindex_pending`) posé par chaque correction de texte.
@@ -62,3 +74,21 @@ Périmètre du ticket 55. Retranscrire un clip ne détruit jamais en silence le 
 - **Retraitement automatique.** Un changement de règle de piste de source (`PUT /api/admin/sources/{id}/audio-track-rule`) ne retranscrit pas les clips corrigés : ils sont ignorés et comptés dans `corrected_clips_skipped`.
 - **Succès.** À l'achèvement de la retranscription (`jobs.CompleteWith`, même transaction), les corrections des tâches de transcription précédentes du clip reçoivent `stale_at` : elles restent dans `segment_corrections` et dans l'historique (immuable), sont obsolètes, ne s'appliquent plus (texte effectif, recherche, réindexation filtrent `stale_at IS NULL`) et ne sont jamais réappliquées au nouveau texte, même identique.
 - **Échec.** La transcription visible est la dernière tâche réussie : une tâche en attente, en cours ou en échec ne la remplace pas. Le texte actuel et ses corrections restent affichés et actifs.
+
+## Corrections simultanées (ticket 51)
+
+Le contrôle de version du `PUT` garantit qu'une correction ne remplace jamais silencieusement une autre : la ligne du segment est verrouillée (`FOR UPDATE`), et pour un segment jamais corrigé l'insertion `ON CONFLICT DO NOTHING` désigne le perdant. De deux corrections parties de la même version, une seule aboutit ; l'autre reçoit `409 segment_conflict` avec la version courante (`current` : texte, version, auteur, date) et rien n'est écrit pour elle. Chaque correction acceptée laisse une entrée d'historique : la correction gagnante n'est donc jamais perdue. Deux segments différents ne se bloquent pas et ne se contredisent pas.
+
+Interface : en cas de conflit, le formulaire reste ouvert avec le brouillon intact et un bloc « Conflit sur le segment N » indique qui a modifié le segment et quand, ainsi que la version actuelle. « Reprendre ma modification » enregistre le brouillon (éventuellement retouché) par-dessus la version actuelle ; « Abandonner ma modification » ferme le formulaire et jette le brouillon. La transcription affichée est actualisée en arrière-plan.
+
+Tests : `segment_concurrency_test.go` (requêtes simultanées par goroutines sur PostgreSQL réel : un gagnant, conflit avec version et auteur, huit écrivains simultanés, segments différents sans conflit) et `web/e2e/segment-conflicts.spec.ts` (deux utilisateurs, drapeau `SNITCH_E2E_SEGMENT_CORRECTIONS=1`).
+
+## Recherche dans le texte corrigé
+
+Les quatre modes de `GET /api/search` lisent le texte effectif (`eff_segments`), jamais `jobs.result` directement :
+
+- **exact** : les mots d'un segment non corrigé sont ses mots d'origine ; ceux d'un segment corrigé sont découpés dans le texte corrigé (séparation sur les blancs, ponctuation de bord retirée), tous datés au début du segment (les mots ne sont pas réalignés). Les mots d'origine d'un segment corrigé ne produisent donc plus aucun résultat ;
+- **plein texte** et **approximatif** : la sous-chaîne et la similarité trigramme s'appliquent au texte corrigé et à ses mots ;
+- **hybride** : la voie lexicale est la recherche plein texte ci-dessus (rappelée en interne). La voie sémantique lit `transcript_embeddings`, dont le texte et le vecteur datent de l'indexation : le texte affiché est le texte effectif (jointure sur `segment_corrections`), et un segment dont la réindexation est en attente (`reindex_pending`) n'est pas proposé par cette voie, pour ne pas faire remonter l'ancien texte par son ancien vecteur. Il redevient trouvable sémantiquement une fois réindexé (indexation par segment à la charge de la réindexation) ; la voie lexicale le trouve immédiatement.
+
+Chaque résultat porte `corrected` (vrai si `context` est le texte corrigé) ; l'interface affiche alors un badge « Corrigé ». `timestamp` reste le début du mot d'origine (segment non corrigé) ou le début du segment (segment corrigé) : l'ouverture se fait à cet horodatage. Permissions de visibilité, filtres et filtre par Personne s'appliquent avant les comptes et la pagination, comme avant ; le locuteur d'un segment est résolu par `segmentSpeakerJoin`, à qui la recherche passe déjà l'identité du segment (transcription, index).

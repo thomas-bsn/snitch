@@ -17,6 +17,7 @@ import {
   replacedCorrections,
   type CorrectionsToReplace,
 } from "./segments/Retranscription";
+import { SegmentHistory } from "./segments/SegmentHistory";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
 import { PersonsCard } from "./voice/PersonsCard";
@@ -88,6 +89,7 @@ type SearchResult = {
   context: string;
   matched_text: string;
   timestamp: number;
+  corrected?: boolean;
   person?: { id: number; display_name: string } | null;
   decision_level?: components["schemas"]["DecisionLevel"];
 };
@@ -1474,6 +1476,14 @@ function App() {
                                     : "Plein texte"}
                             <p>
                               {highlighted(item.context, item.matched_text)}
+                              {item.corrected && (
+                                <>
+                                  {" "}
+                                  <span className="segment-correction-badge">
+                                    Corrigé
+                                  </span>
+                                </>
+                              )}
                             </p>
                             <ResultSpeaker
                               person={item.person}
@@ -1941,6 +1951,20 @@ function App() {
                                                 transcript.transcription_job_id
                                               }
                                               segment={segment}
+                                              csrf={csrf}
+                                              onChanged={() =>
+                                                loadClipDetail(clip.id)
+                                              }
+                                            />
+                                            <SegmentHistory
+                                              clipId={clip.id}
+                                              jobId={
+                                                transcript.transcription_job_id
+                                              }
+                                              index={segment.index}
+                                              version={
+                                                segment.correction_version ?? 0
+                                              }
                                               csrf={csrf}
                                               onChanged={() =>
                                                 loadClipDetail(clip.id)
