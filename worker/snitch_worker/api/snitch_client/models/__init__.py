@@ -20,10 +20,15 @@ from .audio_track_selection_status import AudioTrackSelectionStatus
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
 from .bootstrap import Bootstrap
 from .clip import Clip
+from .clip_filter_options import ClipFilterOptions
+from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
+from .clip_filter_options_sources_item import ClipFilterOptionsSourcesItem
 from .clip_microphone_track import ClipMicrophoneTrack
 from .clip_microphone_track_selection_source import ClipMicrophoneTrackSelectionSource
 from .clip_page import ClipPage
 from .clip_person import ClipPerson
+from .clip_progress import ClipProgress
+from .clip_step_state import ClipStepState
 from .clip_visibility import ClipVisibility
 from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
@@ -234,10 +239,15 @@ __all__ = (
     "BackfillEmbeddingIndexResponse202",
     "Bootstrap",
     "Clip",
+    "ClipFilterOptions",
+    "ClipFilterOptionsOwnersItem",
+    "ClipFilterOptionsSourcesItem",
     "ClipMicrophoneTrack",
     "ClipMicrophoneTrackSelectionSource",
     "ClipPage",
     "ClipPerson",
+    "ClipProgress",
+    "ClipStepState",
     "ClipVisibility",
     "ClipVoice",
     "ClipVoiceStatus",

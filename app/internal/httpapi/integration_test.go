@@ -164,6 +164,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipLibrary(t, pool)
 	})
+	t.Run("clip progress and filter options", func(t *testing.T) {
+		reset(t)
+		testClipProgress(t, pool)
+	})
 	t.Run("transcription pipeline", func(t *testing.T) {
 		reset(t)
 		testTranscriptionPipeline(t, pool)

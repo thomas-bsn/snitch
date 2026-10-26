@@ -36,7 +36,6 @@ function Placeholder({ title }: { title: MessageKey }) {
   );
 }
 
-export const LibraryPage = () => <Placeholder title="pages.library.title" />;
 export const ImportPage = () => <Placeholder title="pages.import.title" />;
 
 export function SearchPage() {
