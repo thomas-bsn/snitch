@@ -89,6 +89,12 @@ func TestFoundation(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
+		if _, e = pool.Exec(ctx, `UPDATE voice_pipeline_active SET version='voice-v1' WHERE id=true`); e != nil {
+			t.Fatal(e)
+		}
+		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events`); e != nil {
+			t.Fatal(e)
+		}
 	}
 	t.Run("optional embeddings do not block foundation", func(t *testing.T) {
 		provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -145,6 +151,74 @@ func TestFoundation(t *testing.T) {
 	t.Run("transcription pipeline", func(t *testing.T) {
 		reset(t)
 		testTranscriptionPipeline(t, pool)
+	})
+	t.Run("voice diarization", func(t *testing.T) {
+		reset(t)
+		testVoiceDiarization(t, pool)
+	})
+	t.Run("persons and attributions", func(t *testing.T) {
+		reset(t)
+		testPersonValidation(t, pool)
+	})
+	t.Run("voice matching", func(t *testing.T) {
+		reset(t)
+		testVoiceMatching(t, pool)
+	})
+	t.Run("voice automation", func(t *testing.T) {
+		reset(t)
+		testVoiceAutomation(t, pool)
+	})
+	t.Run("voice groups", func(t *testing.T) {
+		reset(t)
+		testVoiceGroups(t, pool)
+	})
+	t.Run("voice verification", func(t *testing.T) {
+		reset(t)
+		testVoiceVerification(t, pool)
+	})
+	t.Run("microphone track", func(t *testing.T) {
+		reset(t)
+		testMicrophoneTrack(t, pool)
+	})
+	t.Run("person corrections", func(t *testing.T) {
+		reset(t)
+		testPersonCorrections(t, pool)
+	})
+	t.Run("person filter", func(t *testing.T) {
+		reset(t)
+		testPersonFilter(t, pool)
+	})
+	t.Run("voice profile deletion", func(t *testing.T) {
+		reset(t)
+		testVoiceProfileDeletion(t, pool)
+	})
+	t.Run("voice vectors not persisted in jobs", func(t *testing.T) {
+		reset(t)
+		testVoiceVectorsNeverPersistedInJobs(t, pool)
+	})
+	t.Run("voice group visibility is not transitive", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupVisibilityIsNotTransitive(t, pool)
+	})
+	t.Run("voice group naming refuses deleted profile", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupNamingRefusesDeletedProfile(t, pool)
+	})
+	t.Run("voice group links ignore known neighbors", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupLinksIgnoreKnownNeighbors(t, pool)
+	})
+	t.Run("library unknown filter matches search", func(t *testing.T) {
+		reset(t)
+		testLibraryUnknownFilterMatchesSearch(t, pool)
+	})
+	t.Run("person corrections respect visibility", func(t *testing.T) {
+		reset(t)
+		testPersonCorrectionsRespectVisibility(t, pool)
+	})
+	t.Run("voice result with expired lease", func(t *testing.T) {
+		reset(t)
+		testVoiceResultWithExpiredLease(t, pool)
 	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
@@ -291,6 +365,74 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", map[string]int{"audio_stream_index": 2}, me.CSRF, 200)
 		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", nil, me.CSRF, 200)
+		// Voice endpoints: contract conformity here, full behavior in the voice suite.
+		call(client, "GET", "/api/admin/voice-pipeline", nil, "", 200)
+		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "access_confirmed": false, "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
+		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
+		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/voice", nil, "", 200)
+		// Person and attribution endpoints, on a synthetic local speaker.
+		var contractSpeakerID int64
+		if e = pool.QueryRow(ctx, `WITH j AS (INSERT INTO jobs(clip_id,step,input_version,status) VALUES($1,'voice.diarization.2','contract-diarization','done') RETURNING id) INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count) SELECT $1,2,id,'SPEAKER_00',0,1.5,1 FROM j RETURNING id`, contractClipID).Scan(&contractSpeakerID); e != nil {
+			t.Fatal(e)
+		}
+		speakerPath := "/api/local-speakers/" + strconv64(contractSpeakerID)
+		var contractPerson struct {
+			ID int64 `json:"id"`
+		}
+		json.Unmarshal(call(client, "POST", "/api/persons", map[string]any{"display_name": "Contract person"}, me.CSRF, 201), &contractPerson)
+		call(client, "GET", "/api/persons?q=contract", nil, "", 200)
+		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID), nil, "", 200)
+		call(client, "POST", speakerPath+"/validation", map[string]any{"person_id": contractPerson.ID}, me.CSRF, 201)
+		call(client, "POST", speakerPath+"/validation", map[string]any{"new_person_name": "Late"}, me.CSRF, 409)
+		call(client, "POST", speakerPath+"/correction", map[string]any{"new_person_name": "Corrected", "expected_person_id": contractPerson.ID}, me.CSRF, 200)
+		call(client, "GET", speakerPath+"/history", nil, "", 200)
+		call(client, "GET", speakerPath+"/excerpt", nil, "", 404)
+		// Person corrections (behavior in the person corrections suite).
+		var absorbed, kept struct {
+			ID int64 `json:"id"`
+		}
+		json.Unmarshal(call(client, "POST", "/api/persons", map[string]any{"display_name": "Absorbed"}, me.CSRF, 201), &absorbed)
+		json.Unmarshal(call(client, "POST", "/api/persons", map[string]any{"display_name": "Kept"}, me.CSRF, 201), &kept)
+		call(client, "POST", "/api/persons/"+strconv64(absorbed.ID)+"/separation", map[string]any{"local_speaker_ids": []int64{contractSpeakerID}}, me.CSRF, 409)
+		call(client, "POST", "/api/persons/"+strconv64(absorbed.ID)+"/merge", map[string]any{"target_person_id": kept.ID}, me.CSRF, 200)
+		call(client, "GET", "/api/person-events?person_id="+strconv64(absorbed.ID), nil, "", 200)
+		call(client, "DELETE", "/api/persons/"+strconv64(kept.ID), nil, me.CSRF, 200)
+		call(client, "DELETE", "/api/persons/"+strconv64(kept.ID), nil, me.CSRF, 404)
+		// Voice matching settings and rematch (behavior in the voice matching suite).
+		call(client, "GET", "/api/voice-matching", nil, "", 200)
+		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.5, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 400)
+		call(client, "POST", "/api/admin/voice-matching/rematch", nil, me.CSRF, 200)
+		// Account link and voice profile deletion (behavior in the voice profile suite).
+		personPath := "/api/admin/persons/" + strconv64(contractPerson.ID) + "/account"
+		call(client, "GET", "/api/me/person", nil, "", 404)
+		call(client, "PUT", personPath, map[string]any{"username": "administrator"}, me.CSRF, 200)
+		call(client, "PUT", personPath, map[string]any{"username": "nobody"}, me.CSRF, 404)
+		call(client, "GET", "/api/me/person", nil, "", 200)
+		call(client, "DELETE", personPath, nil, me.CSRF, 200)
+		call(client, "DELETE", "/api/persons/"+strconv64(contractPerson.ID)+"/voice-profile", nil, me.CSRF, 200)
+		call(client, "DELETE", "/api/persons/999999/voice-profile", nil, me.CSRF, 404)
+		// Accuracy measure and automation switch (behavior in the voice automation suite).
+		call(client, "GET", "/api/admin/voice-accuracy", nil, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/voice-automation/criteria", map[string]any{"precision_threshold": 0.95, "min_confirmations": 50}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/voice-automation", map[string]any{"enabled": true}, me.CSRF, 409)
+		call(client, "PUT", "/api/admin/voice-automation", map[string]any{"enabled": false}, me.CSRF, 200)
+		// Groups of unknown voices (behavior in the voice groups suite).
+		call(client, "GET", "/api/voice-groups", nil, "", 200)
+		call(client, "GET", "/api/voice-groups?sort=members&proposed=true&page=1&page_size=5", nil, "", 200)
+		call(client, "GET", "/api/voice-groups/999999", nil, "", 404)
+		call(client, "POST", "/api/voice-groups/999999/naming", map[string]any{"new_person_name": "Nobody", "local_speaker_ids": []int64{999999}}, me.CSRF, 404)
+		call(client, "PUT", speakerPath+"/group-exclusion", nil, me.CSRF, 409)
+		call(client, "DELETE", speakerPath+"/group-exclusion", nil, me.CSRF, 200)
+		// Review of unknown and ambiguous voices (behavior in the voice verification suite).
+		call(client, "GET", "/api/voice-verification", nil, "", 200)
+		call(client, "GET", "/api/voice-verification?level=ambiguous&page=1&page_size=5", nil, "", 200)
+		// Microphone track of a clip: view, replacement, disabling and removal.
+		micPath := "/api/clips/" + strconv64(contractClipID) + "/microphone-track"
+		call(client, "GET", micPath, nil, "", 200)
+		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/microphone-track", map[string]any{"audio_stream_index": 1, "person_id": contractPerson.ID}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/microphone-track", map[string]any{"disabled": true}, me.CSRF, 200)
+		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/microphone-track", nil, me.CSRF, 200)
 		contractJobBody := call(client, "POST", "/api/admin/jobs", map[string]any{"clip_id": contractClipID, "step": "contract.synthetic", "input_version": "contract-v1"}, me.CSRF, 201)
 		var contractJob struct {
 			ID int64 `json:"id"`
@@ -377,6 +519,9 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "PUT", "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": "Voice"}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
+		call(client, "GET", sourcePath+"/microphone-track", nil, "", 200)
+		call(client, "PUT", sourcePath+"/microphone-track", map[string]any{"title": "Voice", "person_id": contractPerson.ID}, me.CSRF, 200)
+		call(client, "DELETE", sourcePath+"/microphone-track", nil, me.CSRF, 200)
 		call(client, "GET", sourcePath+"/files", nil, "", 200)
 		call(client, "POST", sourcePath+"/scan", map[string]any{}, me.CSRF, 202)
 		call(client, "DELETE", sourcePath, nil, me.CSRF, 200)
@@ -510,7 +655,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -544,6 +689,36 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_VOCABULARY") == "1" {
 			suites = []string{"vocabulary.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_VOICE") == "1" {
+			suites = []string{"voice.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_PERSONS") == "1" {
+			suites = []string{"persons.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_MATCHING") == "1" {
+			suites = []string{"matching.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_PROFILE") == "1" {
+			suites = []string{"voice-profile.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_AUTOMATION") == "1" {
+			suites = []string{"automation.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_MICROPHONE") == "1" {
+			suites = []string{"microphone.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_PERSON_FILTER") == "1" {
+			suites = []string{"person-filter.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_GROUPS") == "1" {
+			suites = []string{"voice-groups.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_VERIFICATION") == "1" {
+			suites = []string{"voice-verification.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_PERSON_CORRECTIONS") == "1" {
+			suites = []string{"person-corrections.spec.ts"}
+		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
 				reset(t)
@@ -553,7 +728,7 @@ func TestFoundation(t *testing.T) {
 				}
 				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}
 				sourceRoot := ""
-				if suite == "sources.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "microphone.spec.ts" {
 					sourceRoot = t.TempDir()
 					if e = os.WriteFile(filepath.Join(sourceRoot, "browser-fixture.mp4"), []byte("synthetic-browser-video"), 0o400); e != nil {
 						t.Fatal(e)
@@ -564,15 +739,16 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" || suite == "voice-groups.spec.ts" || suite == "automation.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
 					config.UploadChunkBytes = 16 * 1024
 					config.UploadSessionTTL = time.Hour
+					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "matching.spec.ts" || suite == "automation.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "voice-groups.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}

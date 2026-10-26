@@ -8,8 +8,9 @@ Snitch indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a dit 
 - Phase 1 : implémentée et vérifiée localement ; [bilan](docs/phase-1-report.md) disponible. Validation utilisateur de fin de phase reçue.
 - Phase 2 : implémentée, vérifiée et validée ; [bilan](docs/phase-2-report.md) disponible.
 - Phase 3 : implémentée, vérifiée et prête à clôturer ; VAD et profils de pipeline versionnés inclus. Voir le [bilan](docs/phase-3-report.md).
-- Phase 4 : implémentée sur `integration/phase-4-semantic-search` ; validation PostgreSQL/pgvector et Playwright bloquée ici par l’absence de Docker. Voir le [bilan](docs/phase-4-report.md), la [spec](docs/specs/phase-4.md), issue parente [#26](https://github.com/thomas-bsn/snitch/issues/26) et tickets #27–#29 (ouverts jusqu’à la validation de bout en bout).
-- Phases 5 à 7 : non implémentées.
+- Phase 4 : implémentée et fusionnée (`integration/phase-4-semantic-search`). Voir le [bilan](docs/phase-4-report.md), la [spec](docs/specs/phase-4.md), issue parente [#26](https://github.com/thomas-bsn/snitch/issues/26) et tickets #27–#29 (ouverts jusqu’à la validation de bout en bout).
+- Phase 5 : implémentée et vérifiée localement sur `integration/phase-5-voice`, en attente de validation utilisateur avant la phase 6. Voir le [bilan](docs/phase-5-report.md), la [spec](docs/specs/phase-5.md), l’[ADR 0011](docs/adr/0011-locuteurs-personnes-et-attributions.md), l’issue parente [#31](https://github.com/thomas-bsn/snitch/issues/31) et les tickets [#32](https://github.com/thomas-bsn/snitch/issues/32) à [#42](https://github.com/thomas-bsn/snitch/issues/42) (ouverts jusqu’à la validation).
+- Phases 6 et 7 : non implémentées.
 - Aucun média réel traité, aucun déploiement effectué, aucun code ni image publié. Le dépôt public et le suivi des issues existent sur GitHub.
 
 ## Règles de progression
@@ -82,6 +83,8 @@ Les échantillons validés et les corrections humaines enrichissent les référe
 
 Une personne avec compte voit les clips où elle est identifiée et peut supprimer son profil vocal, ses empreintes et échantillons ; les attributions correspondantes redeviennent inconnues.
 
+Livrée : voir le [bilan](docs/phase-5-report.md) et l’[ADR 0011](docs/adr/0011-locuteurs-personnes-et-attributions.md) ; tickets : [#32](https://github.com/thomas-bsn/snitch/issues/32) diarisation, [#33](https://github.com/thomas-bsn/snitch/issues/33) Personnes et validation, [#34](https://github.com/thomas-bsn/snitch/issues/34) piste micro, [#35](https://github.com/thomas-bsn/snitch/issues/35) rapprochement, [#36](https://github.com/thomas-bsn/snitch/issues/36) groupes d’inconnues, [#37](https://github.com/thomas-bsn/snitch/issues/37) vérification, [#38](https://github.com/thomas-bsn/snitch/issues/38) précision et automatisation, [#39](https://github.com/thomas-bsn/snitch/issues/39) filtre par Personne, [#40](https://github.com/thomas-bsn/snitch/issues/40) fusion/séparation/suppression, [#41](https://github.com/thomas-bsn/snitch/issues/41) profil vocal, [#42](https://github.com/thomas-bsn/snitch/issues/42) clôture.
+
 ### Phase 6
 
 Toute correction conserve ancienne valeur, nouvelle valeur, auteur et date. Réindexation des seuls segments concernés, sans relancer la vidéo entière.
@@ -112,5 +115,6 @@ Chatbot, keyframes, analyse visuelle/VLM, résumés et événements de jeu, sép
 
 - [Spec détaillée de phase 0](docs/specs/phase-0.md)
 - [Spec détaillée de phase 3](docs/specs/phase-3.md) · [Issue GitHub phase 3](https://github.com/thomas-bsn/snitch/issues/19)
+- [Spec détaillée de phase 5](docs/specs/phase-5.md) · [Issue GitHub phase 5](https://github.com/thomas-bsn/snitch/issues/31) · [ADR 0011](docs/adr/0011-locuteurs-personnes-et-attributions.md)
 - [Handoff historique](HANDOFF.md)
 - [Glossaire métier](GLOSSARY.md)

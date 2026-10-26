@@ -241,6 +241,10 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, stepErr)
 		return
 	}
+	if stepErr == nil && strings.HasPrefix(step, "voice.") {
+		s.completeVoiceJob(w, r, id, step, status, input.InputVersion, input.Result)
+		return
+	}
 	if stepErr == nil && status != "done" && strings.HasPrefix(step, "transcription.audio.") {
 		leased, leaseErr := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
 		if errors.Is(leaseErr, jobs.ErrLeaseNotOwned) {

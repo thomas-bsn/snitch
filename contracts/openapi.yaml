@@ -2098,6 +2098,24 @@
           },
           {
             "in": "query",
+            "name": "person_id",
+            "description": "Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "person_unknown",
+            "description": "Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
             "name": "to",
             "schema": {
               "type": "string",
@@ -2677,6 +2695,56 @@
         }
       }
     },
+    "/api/admin/sources/{id}/microphone-track": {
+      "get": {
+        "operationId": "getSourceMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Règle et pistes détectées", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneSourceRule"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Règle de piste micro de la source et pistes audio réellement détectées sur ses clips (index, titre, langue), à partir desquelles choisir : aucun titre n'est supposé.",
+        "security": [{"session": []}]
+      },
+      "put": {
+        "operationId": "putSourceMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneTrackRuleInput"}}}},
+        "responses": {"200": {"description": "Règle enregistrée et appliquée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneSourceRule"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Désigne la piste micro de la source (index global et/ou titre exact) et sa Personne propriétaire, puis l'applique aux clips prêts de la source : la piste reçoit directement son propriétaire, sans diarisation. status_counts rapporte, par état, le résultat sur chaque clip. Enregistrer une règle identique la réapplique sans nouvelle version.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "deleteSourceMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Règle retirée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneSourceRule"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Retire la règle ; les attributions de piste micro sans validation humaine disparaissent, les validations humaines sont conservées.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/clips/{id}/microphone-track": {
+      "get": {
+        "operationId": "getClipMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Piste micro du clip", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipMicrophoneTrack"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. Piste micro désignée (règle de la source ou remplacement du clip), rôle de chaque piste audio, raison explicite quand la désignation ne s'applique pas, et historique des changements.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/clips/{id}/microphone-track": {
+      "put": {
+        "operationId": "putClipMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MicrophoneTrackClipInput"}}}},
+        "responses": {"200": {"description": "Piste micro du clip", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipMicrophoneTrack"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Remplace la règle de la source pour ce clip : une autre piste et un autre propriétaire, ou disabled=true pour dire qu'il n'y a pas de piste micro. Le changement est historisé.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "deleteClipMicrophoneTrack",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Piste micro du clip", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipMicrophoneTrack"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Retire le remplacement du clip ; la règle de la source s'applique de nouveau. Le changement est historisé.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/vocabulary": {
       "get": {
         "operationId": "listVocabulary",
@@ -2788,6 +2856,283 @@
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionPipeline"}}}},
         "responses": {"200": {"description": "Nouvelle version activée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionPipelineState"}}}}, "400": {"description": "Configuration invalide"}},
         "description": "Enregistre un snapshot immuable et l'active pour les nouvelles tâches.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/voice-pipeline": {
+      "get": {
+        "operationId": "getVoicePipeline",
+        "responses": {"200": {"description": "Configuration vocale active", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoicePipelineState"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Modèle de diarisation et seuils des empreintes ; aucun modèle n'est téléchargé implicitement.",
+        "security": [{"session": []}]
+      },
+      "put": {
+        "operationId": "updateVoicePipeline",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoicePipeline"}}}},
+        "responses": {"200": {"description": "Nouvelle version activée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoicePipelineState"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur factice peut s'exécuter sans access_confirmed.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/clips/{id}/voice": {
+      "post": {
+        "operationId": "scheduleVoice",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceScheduleInput"}}}},
+        "responses": {"201": {"description": "Diarisation planifiée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScheduledVoice"}}}}, "200": {"description": "Étape déjà planifiée pour cette version", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScheduledVoice"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/clips/{id}/voice": {
+      "get": {
+        "operationId": "getClipVoice",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Locuteurs locaux et état des étapes vocales", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipVoice"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour les clips que leur visibilité permet de voir. Consultable worker éteint ; les vecteurs ne sont jamais exposés.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/persons": {
+      "get": {
+        "operationId": "listPersons",
+        "parameters": [{"in": "query", "name": "q", "required": false, "schema": {"type": "string", "maxLength": 100}}],
+        "responses": {"200": {"description": "Personnes, par nom", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonList"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références).",
+        "security": [{"session": []}]
+      },
+      "post": {
+        "operationId": "createPerson",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonInput"}}}},
+        "responses": {"201": {"description": "Personne créée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Une Personne est une identité, jamais un compte.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/persons/{id}": {
+      "get": {
+        "operationId": "getPerson",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Personne", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "deletePerson",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Personne supprimée ; person est null", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonCorrectionResult"}}}}, "409": {"description": "person_linked_account : une Personne liée à un compte n'est pas supprimée ici ; person_has_hidden_voices : un utilisateur non administrateur ne supprime pas une Personne attribuée sur un clip qu'il ne peut pas voir", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Les validations de la Personne sont retirées (les voix redeviennent inconnues), ses Échantillons vocaux effacés des références, les règles de piste micro et surcharges de clip qui la nomment supprimées (avec historique), puis le rapprochement est recalculé sans worker. Clips et empreintes restent. L'historique des voix (action delete_person) et celui des Personnes sont conservés.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/persons/{id}/merge": {
+      "post": {
+        "operationId": "mergePerson",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonMergeInput"}}}},
+        "responses": {"200": {"description": "Fusion faite ; person est la Personne cible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonCorrectionResult"}}}}, "409": {"description": "same_person, person_linked_account (la Personne absorbée ne doit pas être liée à un compte), person_has_hidden_voices (un utilisateur non administrateur ne fusionne pas une Personne attribuée sur un clip qu'il ne peut pas voir) ou voice_profile_deleted (l'une des deux a supprimé son profil vocal : l'opt-out n'est ni dissous ni reconstitué)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Rattache à la cible les attributions validées (la première validation fait foi, seule la Personne change), les Échantillons vocaux et les désignations de piste micro de la Personne absorbée, qui disparaît ; le rapprochement est recalculé sans worker. Une entrée d'historique (action merge) par voix.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/persons/{id}/separation": {
+      "post": {
+        "operationId": "separatePerson",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonSeparationInput"}}}},
+        "responses": {"200": {"description": "Voix séparées ; person est la Personne, conservée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonCorrectionResult"}}}}, "409": {"description": "not_attributed_to_person : une voix n'est pas validée pour cette Personne ; rien n'est changé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour des voix de clips visibles (sinon 404). Retire la validation des voix nommées (elles redeviennent inconnues et peuvent être validées de nouveau) et leurs Échantillons vocaux des références ; la Personne est conservée. Historique des voix (action split), rapprochement recalculé.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/person-events": {
+      "get": {
+        "operationId": "listPersonEvents",
+        "parameters": [{"in": "query", "name": "person_id", "required": false, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Corrections de Personnes, les plus récentes d'abord (200 au plus)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonEventList"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Trace immuable (auteur, date, noms au moment du changement, aucun contenu vocal), y compris pour une Personne qui n'existe plus ; person_id retient aussi les fusions dont elle est la cible.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/me/person": {
+      "get": {
+        "operationId": "getMyPerson",
+        "responses": {"200": {"description": "Personne liée au compte connecté", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "404": {"description": "no_linked_person : aucune Personne n'est liée à ce compte", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Les clips où cette Personne est identifiée se listent par le filtre person_id de la bibliothèque, qui applique la visibilité du compte.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/persons/{id}/account": {
+      "put": {
+        "operationId": "linkPersonAccount",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonAccountInput"}}}},
+        "responses": {"200": {"description": "Personne liée au compte", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "409": {"description": "account_already_linked : ce compte est déjà lié à une autre Personne", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Un compte est lié à une Personne au plus ; une Personne est liée à un compte au plus.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "unlinkPersonAccount",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Lien supprimé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Ne supprime ni la Personne ni son profil vocal.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/persons/{id}/voice-profile": {
+      "delete": {
+        "operationId": "deleteVoiceProfile",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Profil vocal effacé (idempotent : une seconde suppression renvoie des compteurs à zéro)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceProfileDeletion"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Compte lié à la Personne, ou administrateur (sinon 403). Efface les Échantillons vocaux validés, les empreintes des voix attribuées à la Personne et toutes les attributions à son nom, qui redeviennent inconnues ; les clips, la Personne et les autres Personnes ne sont pas touchés. Un marqueur de retrait sans donnée vocale empêche le rapprochement de reconstituer le profil : validations et corrections vers cette Personne sont refusées (409 voice_profile_deleted) et une piste micro qui la désigne n'est plus attribuée. La suppression est tracée (compteurs, Personne, auteur) sans aucune donnée vocale.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/validation": {
+      "post": {
+        "operationId": "validateLocalSpeaker",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionInput"}}}},
+        "responses": {"201": {"description": "Validation enregistrée : Attribution humaine et Échantillon vocal validé créés, même si une confiance automatique existait", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Attribution"}}}}, "409": {"description": "already_validated : la première validation fait foi ; la réponse contient l'attribution existante et son auteur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionConflict"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. Passe soit person_id soit new_person_name (Personne créée dans la même transaction). L'arbitrage entre validations concurrentes est une contrainte PostgreSQL ; la perdante ne crée rien.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/correction": {
+      "post": {
+        "operationId": "correctLocalSpeaker",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionInput"}}}},
+        "responses": {"200": {"description": "Correction enregistrée : ancien échantillon retiré des références, nouveau créé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Attribution"}}}}, "409": {"description": "not_validated, same_person ou attribution_changed (la Personne a changé depuis la lecture ; l'attribution actuelle est renvoyée)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionConflict"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. expected_person_id (Personne vue par l'utilisateur) est obligatoire pour qu'une correction concurrente n'en écrase pas une autre.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/history": {
+      "get": {
+        "operationId": "getLocalSpeakerHistory",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Historique immuable, du plus récent au plus ancien", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AttributionHistory"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. Ancienne valeur, nouvelle valeur, auteur et date de chaque validation ou correction ; aucune donnée vocale.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/excerpt": {
+      "get": {
+        "operationId": "getLocalSpeakerExcerpt",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "query", "name": "turn", "required": false, "schema": {"type": "integer", "minimum": 0}, "description": "Indice du tour de parole ; par défaut le plus long."}],
+        "responses": {"200": {"description": "Extrait audio WAV mono de dix secondes au plus", "content": {"audio/wav": {"schema": {"type": "string", "format": "binary"}}, "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés uniquement, et seulement pour les clips que leur visibilité autorise (sinon 404). Découpé à la demande depuis le fichier du clip, sans stockage ; Range pris en charge.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/voice-matching": {
+      "get": {
+        "operationId": "getVoiceMatching",
+        "responses": {"200": {"description": "Réglages du rapprochement vocal", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés : chacun voit les seuils et si l'attribution automatique est activée (désactivée par défaut : les rapprochements restent des suggestions).",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/voice-matching": {
+      "put": {
+        "operationId": "updateVoiceMatching",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingInput"}}}},
+        "responses": {"200": {"description": "Seuils enregistrés ; les empreintes déjà stockées sont rapprochées de nouveau", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/voice-matching/rematch": {
+      "post": {
+        "operationId": "rematchVoices",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Rapprochement exécuté sur toute la bibliothèque", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingSummary"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/voice-accuracy": {
+      "get": {
+        "operationId": "getVoiceAccuracy",
+        "responses": {"200": {"description": "Précision mesurée, volumes et proposition d'activation", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceAccuracy"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Précision globale et par Personne mesurée sur des clips distincts de ceux des références (un échantillon validé est référence ou test, jamais les deux, et aucun test ne partage un clip avec une référence), nombre de confirmations, couverture automatique et volume de vérification restant, calculés depuis la base. Ces valeurs décrivent l'échantillon disponible : aucune n'est une garantie.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/voice-automation/criteria": {
+      "put": {
+        "operationId": "updateVoiceAutomationCriteria",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceAutomationCriteriaInput"}}}},
+        "responses": {"200": {"description": "Critères enregistrés", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceMatchingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Seuil de précision et nombre minimal de confirmations qui déclenchent la proposition d'activation. Ils ne basculent jamais l'automatisation d'eux-mêmes ; leurs valeurs de départ ne sont pas des garanties.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/voice-automation": {
+      "put": {
+        "operationId": "setVoiceAutomation",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceAutomationInput"}}}},
+        "responses": {"200": {"description": "État de l'automatisation après rapprochement des empreintes déjà stockées", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceAutomationResult"}}}}, "409": {"description": "criteria_not_met : les critères ne sont pas atteints et l'activation n'a pas été confirmée explicitement", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement : seul endpoint qui active ou désactive l'attribution automatique. L'activation sous les critères exige confirm_unmet_criteria. Chaque changement effectif est tracé avec la mesure du moment. La désactivation ramène les attributions automatiques à des suggestions ; aucune référence n'est créée ni modifiée.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/voice-groups": {
+      "get": {
+        "operationId": "listVoiceGroups",
+        "parameters": [{"in": "query", "name": "sort", "required": false, "schema": {"type": "string", "enum": ["clips", "members"], "default": "clips"}, "description": "Tri décroissant par nombre de clips (défaut) ou de voix."}, {"in": "query", "name": "proposed", "required": false, "schema": {"type": "boolean"}, "description": "Vrai : uniquement les groupes proposés (au moins deux voix)."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
+        "responses": {"200": {"description": "Groupes de voix inconnues visibles par l'utilisateur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupList"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Une voix inconnue (non validée par un humain, non attribuée automatiquement) forme un groupe à elle seule tant qu'un lien de proximité proposé ne la joint pas à une autre. Les groupes ne sont jamais confirmés automatiquement. Nombres de voix et de clips calculés en base sur les seuls clips visibles ; tri par nombre de clips.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/voice-groups/{id}": {
+      "get": {
+        "operationId": "getVoiceGroup",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Groupe et ses voix", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroup"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. L'identifiant d'un groupe est celui de sa plus petite voix visible : il change si ses membres changent. 404 si aucune voix du groupe n'est visible.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/voice-groups/{id}/naming": {
+      "post": {
+        "operationId": "nameVoiceGroup",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupNamingInput"}}}},
+        "responses": {"200": {"description": "Chaque voix du groupe est validée comme la Personne : attribution humaine, Échantillon vocal validé et historique créés", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupNaming"}}}}, "409": {"description": "group_changed : le groupe n'est plus exactement la liste de voix envoyée (voix exclue, validée ou jointe entre-temps) ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Passe soit person_id soit new_person_name (Personne créée dans la même transaction) et la liste des voix écoutées. Seule action humaine qui confirme un groupe. Une voix validée simultanément par quelqu'un d'autre est ignorée (skipped) et les autres sont validées. Les voix de clips invisibles ne sont jamais nommées.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/group-exclusion": {
+      "put": {
+        "operationId": "excludeVoiceGroupMember",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Voix exclue de son groupe (idempotent) ; les autres voix ne sont pas modifiées", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupExclusion"}}}}, "409": {"description": "not_unknown : la voix est déjà validée ou attribuée automatiquement, elle n'appartient à aucun groupe", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. La voix redevient un groupe à elle seule et les rapprochements ultérieurs ne la rejoignent plus à un groupe.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "restoreVoiceGroupMember",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Exclusion levée (idempotent)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupExclusion"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/voice-verification": {
+      "get": {
+        "operationId": "listVoiceVerification",
+        "parameters": [{"in": "query", "name": "level", "required": false, "schema": {"type": "string", "enum": ["all", "unknown", "ambiguous"], "default": "all"}, "description": "Ne garder que les voix inconnues ou que les voix ambiguës."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
+        "responses": {"200": {"description": "Cas à vérifier, du plus fréquent au moins fréquent, et compteurs par niveau de décision", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceVerification"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Vue de vérification : uniquement les voix inconnues ou ambiguës (avec leurs Personnes candidates), sur les clips visibles. Tri par fréquence : clips distincts du groupe proposé de la voix, puis nombre de voix du groupe, puis temps de parole. Trancher un cas est une validation humaine (POST /api/local-speakers/{id}/validation) : cette lecture n'écrit rien. Les compteurs par niveau sont calculés en base. Aucune promesse de qualité n'est dérivée du nombre d'extraits.",
         "security": [{"session": []}]
       }
     },
@@ -2970,7 +3315,7 @@
     "/api/search": {
       "get": {
         "operationId": "searchTranscripts",
-        "description": "Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué.",
+        "description": "Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination ; le filtre Personne (person_id, person_unknown) s’applique aussi avant total et pagination, au segment, dans les trois modes. Chaque résultat porte la Personne identifiée du segment (ou null) et le niveau de décision tracé (unknown sans attribution). Aucun appel au worker n’est effectué.",
         "parameters": [
           {
             "in": "query",
@@ -3052,6 +3397,24 @@
             "schema": {
               "type": "string",
               "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "person_id",
+            "description": "Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "person_unknown",
+            "description": "Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id.",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -4115,7 +4478,8 @@
             }
           },
           "pipeline": {"$ref": "#/components/schemas/TranscriptionPipeline"},
-          "pipeline_version": {"type": "string"}
+          "pipeline_version": {"type": "string"},
+          "voice": {"$ref": "#/components/schemas/WorkerVoiceInput"}
         }
       },
       "TranscriptionPipeline": {
@@ -4130,6 +4494,392 @@
         }
       },
       "TranscriptionPipelineState": {"type": "object", "required": ["version", "config"], "properties": {"version": {"type": "string"}, "config": {"$ref": "#/components/schemas/TranscriptionPipeline"}}},
+      "VoicePipeline": {
+        "type": "object", "additionalProperties": false,
+        "required": ["provider", "model", "model_version", "access_confirmed", "min_fingerprint_seconds", "min_quality"],
+        "properties": {
+          "provider": {"type": "string", "enum": ["fake", "pyannote"]},
+          "model": {"type": "string", "minLength": 1, "maxLength": 100},
+          "model_version": {"type": "string", "minLength": 1, "maxLength": 64},
+          "access_confirmed": {"type": "boolean", "description": "Confirmation explicite par l'administrateur du jeton et des conditions d'accès du modèle."},
+          "min_fingerprint_seconds": {"type": "number", "minimum": 0.1, "maximum": 60},
+          "min_quality": {"type": "number", "minimum": 0, "maximum": 1},
+          "fake": {"type": "object", "additionalProperties": false, "required": ["speakers", "dimensions"], "properties": {"speakers": {"type": "integer", "minimum": 1, "maximum": 8}, "dimensions": {"type": "integer", "minimum": 2, "maximum": 512}}, "description": "Réglages du fournisseur factice déterministe, réservés aux tests."}
+        }
+      },
+      "VoicePipelineState": {"type": "object", "required": ["version", "config"], "properties": {"version": {"type": "string"}, "config": {"$ref": "#/components/schemas/VoicePipeline"}}},
+      "VoiceScheduleInput": {"type": "object", "properties": {"audio_stream_index": {"type": "integer", "minimum": 0}}},
+      "ScheduledVoice": {"type": "object", "required": ["job"], "properties": {"job": {"$ref": "#/components/schemas/Job"}}},
+      "VoiceStep": {
+        "type": "object",
+        "required": ["job_id", "step", "status", "input_version", "attempts", "max_attempts", "last_error"],
+        "properties": {
+          "job_id": {"type": "integer", "format": "int64"},
+          "step": {"type": "string"},
+          "status": {"type": "string", "enum": ["pending", "leased", "done", "failed", "retry_wait", "cancelled", "dead"]},
+          "input_version": {"type": "string"},
+          "attempts": {"type": "integer"},
+          "max_attempts": {"type": "integer"},
+          "last_error": {"type": "string", "description": "Code d'erreur expurgé, jamais de détail du fournisseur."}
+        }
+      },
+      "VoiceFingerprint": {
+        "type": "object",
+        "required": ["id", "scope", "start_seconds", "end_seconds", "duration_seconds", "quality", "usable", "unusable_reason", "model", "model_version", "dimensions"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "scope": {"type": "string", "enum": ["speaker", "turn"]},
+          "start_seconds": {"type": "number"},
+          "end_seconds": {"type": "number"},
+          "duration_seconds": {"type": "number"},
+          "quality": {"type": "number", "minimum": 0, "maximum": 1},
+          "usable": {"type": "boolean", "description": "Faux : ne sert ni de référence ni de base de propagation."},
+          "unusable_reason": {"type": "string", "enum": ["", "too_short", "low_quality"]},
+          "model": {"type": "string"},
+          "model_version": {"type": "string"},
+          "dimensions": {"type": "integer"}
+        }
+      },
+      "PersonInput": {"type": "object", "additionalProperties": false, "required": ["display_name"], "properties": {"display_name": {"type": "string", "minLength": 1, "maxLength": 100}}},
+      "PersonRef": {"type": "object", "required": ["id", "display_name"], "properties": {"id": {"type": "integer", "format": "int64"}, "display_name": {"type": "string"}}},
+      "Person": {
+        "type": "object",
+        "required": ["id", "display_name", "user_id", "validated_sample_count", "local_speaker_count", "voice_profile_deleted_at", "created_at"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "display_name": {"type": "string"},
+          "user_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Compte lié, le cas échéant : une Personne n'est jamais un compte."},
+          "validated_sample_count": {"type": "integer", "description": "Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre n'est pas une garantie de qualité d'identification."},
+          "local_speaker_count": {"type": "integer", "description": "Locuteurs locaux validés pour cette Personne."},
+          "voice_profile_deleted_at": {"type": "string", "format": "date-time", "nullable": true, "description": "Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée."},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "PersonMergeInput": {"type": "object", "additionalProperties": false, "required": ["target_person_id"], "properties": {"target_person_id": {"type": "integer", "format": "int64", "minimum": 1, "description": "Personne qui reste ; celle du chemin est absorbée."}}},
+      "PersonSeparationInput": {"type": "object", "additionalProperties": false, "required": ["local_speaker_ids"], "properties": {"local_speaker_ids": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"type": "integer", "format": "int64", "minimum": 1}}}},
+      "PersonCorrectionResult": {"type": "object", "required": ["person", "attributions", "samples", "microphone_rules"], "properties": {"person": {"allOf": [{"$ref": "#/components/schemas/Person"}], "nullable": true, "description": "Personne qui reste (cible de fusion, Personne séparée) ; null après suppression."}, "attributions": {"type": "integer", "description": "Attributions rattachées (fusion) ou retirées (séparation, suppression)."}, "samples": {"type": "integer", "description": "Échantillons vocaux déplacés (fusion) ou effacés des références."}, "microphone_rules": {"type": "integer", "description": "Désignations de piste micro déplacées (fusion) ou supprimées (suppression)."}}},
+      "PersonEvent": {"type": "object", "required": ["id", "action", "person", "target", "attribution_count", "sample_count", "microphone_rule_count", "author", "created_at"], "properties": {"id": {"type": "integer", "format": "int64"}, "action": {"type": "string", "enum": ["merge", "split", "delete"]}, "person": {"$ref": "#/components/schemas/PersonRef"}, "target": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true}, "attribution_count": {"type": "integer"}, "sample_count": {"type": "integer"}, "microphone_rule_count": {"type": "integer"}, "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true}, "created_at": {"type": "string", "format": "date-time"}}},
+      "PersonEventList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PersonEvent"}}}},
+      "PersonAccountInput": {"type": "object", "additionalProperties": false, "required": ["username"], "properties": {"username": {"type": "string", "minLength": 1, "maxLength": 100}}},
+      "VoiceProfileDeletion": {"type": "object", "required": ["samples", "fingerprints", "attributions", "deleted_at"], "properties": {"samples": {"type": "integer", "description": "Échantillons vocaux validés effacés (actifs et retirés)."}, "fingerprints": {"type": "integer", "description": "Empreintes effacées."}, "attributions": {"type": "integer", "description": "Attributions effacées ; les voix correspondantes sont inconnues."}, "deleted_at": {"type": "string", "format": "date-time"}}},
+      "PersonList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Person"}}}},
+      "AttributionAuthor": {"type": "object", "required": ["id", "username"], "properties": {"id": {"type": "integer", "format": "int64", "nullable": true}, "username": {"type": "string", "description": "Nom au moment de la décision."}}},
+      "DecisionLevel": {"type": "string", "enum": ["human", "automatic", "suggestion", "ambiguous", "unknown"], "description": "human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche."},
+      "Attribution": {
+        "type": "object",
+        "required": ["id", "local_speaker_id", "person", "decision_level", "validation_state", "confidence", "origin", "author", "revision", "decided_at", "candidates"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "local_speaker_id": {"type": "integer", "format": "int64"},
+          "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},
+          "decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
+          "validation_state": {"type": "string", "enum": ["validated", "unvalidated"], "description": "validated : validation humaine (fait foi, source d'Échantillon vocal validé)."},
+          "confidence": {"type": "number", "nullable": true, "minimum": 0, "maximum": 1, "description": "Confiance automatique du rapprochement, absente d'une validation humaine."},
+          "origin": {"type": "string", "description": "human (validation), matching (rapprochement en base), puis microphone_track selon les étapes suivantes."},
+          "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true},
+          "revision": {"type": "integer", "minimum": 1},
+          "decided_at": {"type": "string", "format": "date-time"},
+          "candidates": {"type": "array", "items": {"$ref": "#/components/schemas/AttributionCandidate"}, "description": "Personnes entre lesquelles le rapprochement hésite (ambiguë : toutes celles dans la marge) ou alternatives d'une suggestion ; vide pour une validation humaine."}
+        }
+      },
+      "AttributionCandidate": {
+        "type": "object",
+        "required": ["rank", "score", "person"],
+        "properties": {
+          "rank": {"type": "integer", "minimum": 1},
+          "score": {"type": "number", "description": "Similarité cosinus entre l'empreinte du Locuteur local et la meilleure référence de la Personne."},
+          "person": {"$ref": "#/components/schemas/PersonRef"}
+        }
+      },
+      "VoiceGroupMember": {
+        "type": "object",
+        "required": ["local_speaker_id", "clip_id", "clip_name", "label", "speaking_seconds", "excluded"],
+        "properties": {
+          "local_speaker_id": {"type": "integer", "format": "int64", "description": "Extraits écoutables par GET /api/local-speakers/{id}/excerpt."},
+          "clip_id": {"type": "integer", "format": "int64"},
+          "clip_name": {"type": "string"},
+          "label": {"type": "string"},
+          "speaking_seconds": {"type": "number"},
+          "excluded": {"type": "boolean", "description": "Voix exclue de son groupe par un humain ; elle forme un groupe à elle seule."}
+        }
+      },
+      "VoiceGroup": {
+        "type": "object",
+        "required": ["id", "member_count", "clip_count", "proposed", "members"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64", "description": "Plus petite voix visible du groupe."},
+          "member_count": {"type": "integer", "description": "Calculé en base sur les voix visibles."},
+          "clip_count": {"type": "integer", "description": "Clips distincts des voix visibles, calculés en base."},
+          "proposed": {"type": "boolean", "description": "Vrai si le groupe réunit au moins deux voix proches ; jamais une confirmation."},
+          "members": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceGroupMember"}}
+        }
+      },
+      "VoiceGroupList": {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceGroup"}},
+          "total": {"type": "integer", "description": "Nombre de groupes avant pagination."}
+        }
+      },
+      "VoiceGroupNamingInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["local_speaker_ids"],
+        "properties": {
+          "person_id": {"type": "integer", "format": "int64", "minimum": 1},
+          "new_person_name": {"type": "string", "maxLength": 100},
+          "local_speaker_ids": {"type": "array", "minItems": 1, "maxItems": 500, "items": {"type": "integer", "format": "int64", "minimum": 1}, "description": "Exactement les voix visibles du groupe que l'utilisateur a écoutées."}
+        }
+      },
+      "VoiceGroupNaming": {
+        "type": "object",
+        "required": ["person", "validated", "skipped"],
+        "properties": {
+          "person": {"$ref": "#/components/schemas/Person"},
+          "validated": {"type": "array", "items": {"type": "integer", "format": "int64"}},
+          "skipped": {"type": "array", "items": {"type": "integer", "format": "int64"}, "description": "Voix déjà validées par quelqu'un d'autre pendant l'opération."}
+        }
+      },
+      "VoiceGroupExclusion": {
+        "type": "object",
+        "required": ["local_speaker_id", "excluded"],
+        "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "excluded": {"type": "boolean"}}
+      },
+      "VoiceVerificationCase": {
+        "type": "object",
+        "required": ["local_speaker_id", "clip_id", "clip_name", "label", "speaking_seconds", "decision_level", "candidates", "group_id", "group_voice_count", "group_clip_count"],
+        "properties": {
+          "local_speaker_id": {"type": "integer", "format": "int64", "description": "Extrait écoutable par GET /api/local-speakers/{id}/excerpt ; se tranche par POST /api/local-speakers/{id}/validation."},
+          "clip_id": {"type": "integer", "format": "int64"},
+          "clip_name": {"type": "string"},
+          "label": {"type": "string"},
+          "speaking_seconds": {"type": "number"},
+          "decision_level": {"type": "string", "enum": ["unknown", "ambiguous"]},
+          "candidates": {"type": "array", "items": {"$ref": "#/components/schemas/AttributionCandidate"}, "description": "Personnes entre lesquelles une voix ambiguë hésite ; vide pour une voix inconnue."},
+          "group_id": {"type": "integer", "format": "int64", "description": "Groupe proposé de la voix (voir /api/voice-groups), la voix seule si aucun lien."},
+          "group_voice_count": {"type": "integer", "description": "Voix inconnues visibles du groupe, calculé en base."},
+          "group_clip_count": {"type": "integer", "description": "Clips distincts du groupe : la fréquence qui ordonne les cas."}
+        }
+      },
+      "VoiceVerificationCounts": {
+        "type": "object",
+        "required": ["human", "automatic", "suggestion", "ambiguous", "unknown"],
+        "description": "Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base.",
+        "properties": {
+          "human": {"type": "integer"},
+          "automatic": {"type": "integer"},
+          "suggestion": {"type": "integer"},
+          "ambiguous": {"type": "integer"},
+          "unknown": {"type": "integer"}
+        }
+      },
+      "VoiceVerification": {
+        "type": "object",
+        "required": ["items", "total", "counts"],
+        "properties": {
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceVerificationCase"}},
+          "total": {"type": "integer", "description": "Nombre de cas avant pagination."},
+          "counts": {"$ref": "#/components/schemas/VoiceVerificationCounts"}
+        }
+      },
+      "VoiceMatchingSettings": {
+        "type": "object",
+        "required": ["auto_enabled", "automatic_threshold", "suggestion_threshold", "ambiguity_margin", "max_candidates", "precision_threshold", "min_confirmations", "auto_changed_at", "updated_at"],
+        "properties": {
+          "auto_enabled": {"type": "boolean", "description": "Faux par défaut : tant que l'administrateur n'a pas activé l'automatisation, un rapprochement n'est jamais plus qu'une suggestion."},
+          "automatic_threshold": {"type": "number", "minimum": 0, "maximum": 1, "description": "Similarité minimale d'une attribution automatique."},
+          "suggestion_threshold": {"type": "number", "minimum": 0, "maximum": 1, "description": "Similarité minimale d'une suggestion ; en dessous, la voix est inconnue."},
+          "ambiguity_margin": {"type": "number", "minimum": 0, "maximum": 1, "description": "Écart sous lequel deux Personnes sont jugées aussi proches : la voix est ambiguë."},
+          "max_candidates": {"type": "integer", "minimum": 2, "maximum": 20},
+          "precision_threshold": {"type": "number", "minimum": 0, "maximum": 1, "description": "Critère de proposition d'activation : précision mesurée minimale. Valeur de départ configurable, jamais une garantie."},
+          "min_confirmations": {"type": "integer", "minimum": 1, "description": "Critère de proposition d'activation : nombre minimal d'attributions automatiques simulées confirmées par une validation humaine."},
+          "auto_changed_at": {"type": "string", "nullable": true, "format": "date-time", "description": "Dernier changement de l'interrupteur d'automatisation ; null s'il n'a jamais été modifié."},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "VoiceMatchingInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["automatic_threshold", "suggestion_threshold", "ambiguity_margin", "max_candidates"],
+        "properties": {
+          "automatic_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+          "suggestion_threshold": {"type": "number", "minimum": 0, "maximum": 1, "description": "Au plus égal au seuil automatique."},
+          "ambiguity_margin": {"type": "number", "minimum": 0, "maximum": 1},
+          "max_candidates": {"type": "integer", "minimum": 2, "maximum": 20}
+        }
+      },
+      "VoiceMatchingSummary": {
+        "type": "object",
+        "required": ["evaluated", "automatic", "suggestion", "ambiguous", "unknown", "removed"],
+        "properties": {
+          "evaluated": {"type": "integer"}, "automatic": {"type": "integer"}, "suggestion": {"type": "integer"},
+          "ambiguous": {"type": "integer"}, "unknown": {"type": "integer"},
+          "removed": {"type": "integer", "description": "Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle."}
+        }
+      },
+      "VoiceAutomationCriteriaInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["precision_threshold", "min_confirmations"],
+        "properties": {
+          "precision_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+          "min_confirmations": {"type": "integer", "minimum": 1, "maximum": 1000000}
+        }
+      },
+      "VoiceAutomationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["enabled"],
+        "properties": {
+          "enabled": {"type": "boolean"},
+          "confirm_unmet_criteria": {"type": "boolean", "description": "Requis pour activer alors que les critères ne sont pas atteints ; sans effet sinon."}
+        }
+      },
+      "VoiceAutomationResult": {
+        "type": "object",
+        "required": ["settings", "summary"],
+        "properties": {
+          "settings": {"$ref": "#/components/schemas/VoiceMatchingSettings"},
+          "summary": {"$ref": "#/components/schemas/VoiceMatchingSummary"}
+        }
+      },
+      "VoiceAccuracyEvaluation": {
+        "type": "object",
+        "required": ["reference_samples", "test_samples", "excluded_samples", "evaluated_automatic", "confirmed", "precision", "coverage"],
+        "properties": {
+          "reference_samples": {"type": "integer", "description": "Échantillons validés servant de référence pour cette mesure."},
+          "test_samples": {"type": "integer", "description": "Échantillons validés servant de test : leur clip ne contient aucune référence."},
+          "excluded_samples": {"type": "integer", "description": "Échantillons écartés de la mesure car leur clip contient aussi une référence."},
+          "evaluated_automatic": {"type": "integer", "description": "Tests qui auraient été attribués automatiquement."},
+          "confirmed": {"type": "integer", "description": "Confirmations : attributions automatiques simulées qui désignent la Personne validée par un humain."},
+          "precision": {"type": "number", "nullable": true, "description": "confirmed / evaluated_automatic ; null si aucun test n'est automatique."},
+          "coverage": {"type": "number", "nullable": true, "description": "evaluated_automatic / test_samples ; null sans test."}
+        }
+      },
+      "VoiceAccuracyPerson": {
+        "type": "object",
+        "required": ["person", "reference_samples", "test_samples", "automatic_predictions", "confirmed", "precision"],
+        "properties": {
+          "person": {"$ref": "#/components/schemas/PersonRef"},
+          "reference_samples": {"type": "integer"},
+          "test_samples": {"type": "integer"},
+          "automatic_predictions": {"type": "integer", "description": "Tests attribués automatiquement à cette Personne, à raison ou non."},
+          "confirmed": {"type": "integer"},
+          "precision": {"type": "number", "nullable": true}
+        }
+      },
+      "VoiceAccuracyLibrary": {
+        "type": "object",
+        "required": ["speakers_total", "validated", "automatic", "suggestion", "ambiguous", "unknown", "to_verify", "coverage", "microphone_assigned"],
+        "properties": {
+          "speakers_total": {"type": "integer", "description": "Locuteurs locaux diarisés (hors piste micro)."},
+          "validated": {"type": "integer", "description": "Validés par un humain."},
+          "automatic": {"type": "integer", "description": "Attribués automatiquement, ou qui le seraient dès l'activation (suggestion au moins égale au seuil automatique)."},
+          "suggestion": {"type": "integer"},
+          "ambiguous": {"type": "integer"},
+          "unknown": {"type": "integer"},
+          "to_verify": {"type": "integer", "description": "Volume de vérification restant : suggestions, ambigus et inconnus."},
+          "coverage": {"type": "number", "nullable": true, "description": "automatic / locuteurs non validés ; null sans locuteur à attribuer."},
+          "microphone_assigned": {"type": "integer", "description": "Pistes micro attribuées à leur propriétaire : comptées à part, indépendantes de l'interrupteur."}
+        }
+      },
+      "VoiceAutomationEvent": {
+        "type": "object",
+        "required": ["action", "author", "criteria_met", "forced", "measured_precision", "confirmations", "precision_threshold", "min_confirmations", "created_at"],
+        "properties": {
+          "action": {"type": "string", "enum": ["enable", "disable"]},
+          "author": {"type": "string"},
+          "criteria_met": {"type": "boolean"},
+          "forced": {"type": "boolean", "description": "Activation confirmée explicitement malgré des critères non atteints."},
+          "measured_precision": {"type": "number", "nullable": true},
+          "confirmations": {"type": "integer"},
+          "precision_threshold": {"type": "number"},
+          "min_confirmations": {"type": "integer"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "VoiceAccuracy": {
+        "type": "object",
+        "required": ["measured_at", "auto_enabled", "automatic_threshold", "precision_threshold", "min_confirmations", "evaluation", "persons", "library", "criteria", "activation_proposed", "events"],
+        "properties": {
+          "measured_at": {"type": "string", "format": "date-time"},
+          "auto_enabled": {"type": "boolean"},
+          "automatic_threshold": {"type": "number"},
+          "precision_threshold": {"type": "number"},
+          "min_confirmations": {"type": "integer"},
+          "evaluation": {"$ref": "#/components/schemas/VoiceAccuracyEvaluation"},
+          "persons": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceAccuracyPerson"}},
+          "library": {"$ref": "#/components/schemas/VoiceAccuracyLibrary"},
+          "criteria": {"type": "object", "required": ["met", "precision_met", "confirmations_met"], "properties": {"met": {"type": "boolean"}, "precision_met": {"type": "boolean"}, "confirmations_met": {"type": "boolean"}}},
+          "activation_proposed": {"type": "boolean", "description": "Les critères sont atteints et l'automatisation est désactivée : Snitch propose l'activation à l'administrateur."},
+          "events": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceAutomationEvent"}, "description": "Historique des activations et désactivations, du plus récent au plus ancien."}
+        }
+      },
+      "AttributionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "person_id": {"type": "integer", "format": "int64", "minimum": 1},
+          "new_person_name": {"type": "string", "minLength": 1, "maxLength": 100},
+          "expected_person_id": {"type": "integer", "format": "int64", "minimum": 1, "description": "Correction uniquement : Personne actuellement validée telle que vue par l'utilisateur."}
+        },
+        "description": "Exactement un de person_id ou new_person_name."
+      },
+      "AttributionConflict": {"type": "object", "required": ["error"], "properties": {"error": {"type": "string"}, "attribution": {"$ref": "#/components/schemas/Attribution"}}},
+      "AttributionEvent": {
+        "type": "object",
+        "required": ["id", "local_speaker_id", "action", "old_person", "old_decision_level", "new_person", "new_decision_level", "author", "created_at"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "local_speaker_id": {"type": "integer", "format": "int64"},
+          "action": {"type": "string", "description": "validate, correct, match (changement d'une attribution automatique, sans auteur) ; d'autres actions pourront s'ajouter."},
+          "old_person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},
+          "old_decision_level": {"type": "string"},
+          "new_person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},
+          "new_decision_level": {"type": "string"},
+          "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "AttributionHistory": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/AttributionEvent"}}}},
+      "LocalSpeaker": {
+        "type": "object",
+        "required": ["id", "label", "kind", "ordinal", "speaking_seconds", "turn_count", "state", "decision_level", "person", "attribution", "fingerprints"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "label": {"type": "string"},
+          "kind": {"type": "string", "enum": ["diarized", "microphone"], "description": "microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le clip, aucune empreinte)."},
+          "ordinal": {"type": "integer"},
+          "speaking_seconds": {"type": "number"},
+          "turn_count": {"type": "integer"},
+          "state": {"type": "string", "enum": ["unidentified", "identified"], "description": "identified : attribution humaine ou automatique à une Personne. Une suggestion ou une voix ambiguë reste unidentified ; une voix inconnue ne bloque rien."},
+          "decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
+          "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true, "description": "Personne de l'attribution effective (validation humaine prioritaire)."},
+          "attribution": {"allOf": [{"$ref": "#/components/schemas/Attribution"}], "nullable": true},
+          "fingerprints": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceFingerprint"}}
+        }
+      },
+      "ClipVoice": {
+        "type": "object",
+        "required": ["clip_id", "status", "steps", "speakers"],
+        "properties": {
+          "clip_id": {"type": "integer", "format": "int64"},
+          "status": {"type": "string", "enum": ["none", "queued", "running", "done", "failed"]},
+          "audio_stream_index": {"type": "integer", "nullable": true},
+          "steps": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceStep"}},
+          "speakers": {"type": "array", "items": {"$ref": "#/components/schemas/LocalSpeaker"}}
+        }
+      },
+      "WorkerVoiceInput": {
+        "type": "object",
+        "required": ["pipeline_version", "config"],
+        "properties": {
+          "pipeline_version": {"type": "string"},
+          "config": {"$ref": "#/components/schemas/VoicePipeline"},
+          "diarization": {"type": "object", "description": "Étape d'empreintes uniquement : locuteurs et tours à encoder.", "required": ["job_id", "speakers"], "properties": {"job_id": {"type": "integer", "format": "int64"}, "speakers": {"type": "array", "items": {"type": "object", "required": ["label", "turns"], "properties": {"label": {"type": "string"}, "turns": {"type": "array", "items": {"type": "object", "required": ["index", "start", "end"], "properties": {"index": {"type": "integer"}, "start": {"type": "number"}, "end": {"type": "number"}}}}}}}}}
+        }
+      },
       "WorkerResultInput": {
         "type": "object",
         "additionalProperties": false,
@@ -4375,6 +5125,15 @@
           }
         }
       },
+      "ClipPerson": {
+        "type": "object",
+        "required": ["id", "display_name", "decision_level"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "display_name": {"type": "string"},
+          "decision_level": {"allOf": [{"$ref": "#/components/schemas/DecisionLevel"}], "description": "human (validée) ou automatic ; human l’emporte si la Personne a les deux dans le clip."}
+        }
+      },
       "Clip": {
         "type": "object",
         "required": [
@@ -4463,6 +5222,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "persons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClipPerson"
+            },
+            "description": "Personnes identifiées dans le clip (attribution humaine ou automatique), triées par nom."
           },
           "transcription": {
             "$ref": "#/components/schemas/Transcription"
@@ -4606,7 +5372,12 @@
             "items": {
               "$ref": "#/components/schemas/TranscriptWord"
             }
-          }
+          },
+          "local_speaker_id": {"type": "integer", "format": "int64", "description": "Locuteur local dominant du segment ; absent sans diarisation ou sans recouvrement."},
+          "local_speaker_label": {"type": "string"},
+          "local_speaker_decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
+          "local_speaker_person_id": {"type": "integer", "format": "int64", "description": "Personne du Locuteur local, si attribuée."},
+          "local_speaker_person_name": {"type": "string"}
         }
       },
       "Transcription": {
@@ -4690,6 +5461,117 @@
             "type": "integer",
             "minimum": 0
           }
+        }
+      },
+      "MicrophoneTrackRuleInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["person_id"],
+        "properties": {
+          "audio_stream_index": {"type": "integer", "minimum": 0, "description": "Index global FFmpeg d'une piste détectée."},
+          "title": {"type": "string", "minLength": 1, "maxLength": 200, "description": "Titre exact (sans casse) d'une piste détectée."},
+          "person_id": {"type": "integer", "format": "int64", "minimum": 1, "description": "Personne propriétaire du micro."}
+        },
+        "description": "Au moins un de audio_stream_index ou title ; si les deux sont donnés, la piste doit correspondre aux deux."
+      },
+      "MicrophoneTrackClipInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "disabled": {"type": "boolean", "description": "true : ce clip n'a pas de piste micro."},
+          "audio_stream_index": {"type": "integer", "minimum": 0},
+          "person_id": {"type": "integer", "format": "int64", "minimum": 1}
+        },
+        "description": "Soit disabled=true seul, soit audio_stream_index et person_id ensemble."
+      },
+      "MicrophoneDetectedTrack": {
+        "type": "object",
+        "required": ["audio_stream_index", "title", "language", "channels", "channel_layout", "clip_count"],
+        "properties": {
+          "audio_stream_index": {"type": "integer"},
+          "title": {"type": "string"},
+          "language": {"type": "string"},
+          "channels": {"type": "integer"},
+          "channel_layout": {"type": "string"},
+          "clip_count": {"type": "integer", "description": "Nombre de clips prêts de la source portant cette piste."}
+        }
+      },
+      "MicrophoneSourceRuleValue": {
+        "type": "object",
+        "required": ["audio_stream_index", "title", "person", "version", "updated_at"],
+        "properties": {
+          "audio_stream_index": {"type": "integer", "nullable": true},
+          "title": {"type": "string", "nullable": true},
+          "person": {"$ref": "#/components/schemas/PersonRef"},
+          "version": {"type": "integer", "format": "int64"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "MicrophoneSourceRule": {
+        "type": "object",
+        "required": ["source_id", "rule", "detected_tracks", "status_counts"],
+        "properties": {
+          "source_id": {"type": "integer", "format": "int64"},
+          "rule": {"allOf": [{"$ref": "#/components/schemas/MicrophoneSourceRuleValue"}], "nullable": true},
+          "detected_tracks": {"type": "array", "items": {"$ref": "#/components/schemas/MicrophoneDetectedTrack"}},
+          "status_counts": {"type": "object", "additionalProperties": {"type": "integer"}, "description": "Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, owner_profile_deleted, disabled, none). Vide en lecture."}
+        }
+      },
+      "MicrophoneTrackStatus": {
+        "type": "string",
+        "enum": ["none", "designated", "disabled", "track_not_found", "ambiguous_track", "conflicting_sources", "blocked_by_validation", "owner_profile_deleted"],
+        "description": "none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain ; owner_profile_deleted : le propriétaire désigné a supprimé son profil vocal, rien ne lui est attribué."
+      },
+      "MicrophoneTrackItem": {
+        "type": "object",
+        "required": ["index", "title", "language", "channels", "channel_layout", "role"],
+        "properties": {
+          "index": {"type": "integer"},
+          "title": {"type": "string"},
+          "language": {"type": "string"},
+          "channels": {"type": "integer"},
+          "channel_layout": {"type": "string"},
+          "role": {"type": "string", "enum": ["microphone", "candidate", "other"], "description": "other : piste traitée normalement (diarisation)."}
+        }
+      },
+      "MicrophoneSnapshot": {
+        "type": "object",
+        "properties": {
+          "audio_stream_index": {"type": "integer"},
+          "title": {"type": "string"},
+          "disabled": {"type": "boolean"},
+          "person": {"$ref": "#/components/schemas/PersonRef"}
+        },
+        "description": "Désignation telle qu'elle était, avec le nom de la Personne à l'époque."
+      },
+      "MicrophoneTrackEvent": {
+        "type": "object",
+        "required": ["id", "scope", "source_id", "action", "old_rule", "new_rule", "author", "created_at"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "scope": {"type": "string", "enum": ["source", "clip"]},
+          "source_id": {"type": "integer", "format": "int64", "nullable": true},
+          "action": {"type": "string", "enum": ["set", "remove", "disable"]},
+          "old_rule": {"allOf": [{"$ref": "#/components/schemas/MicrophoneSnapshot"}], "nullable": true},
+          "new_rule": {"allOf": [{"$ref": "#/components/schemas/MicrophoneSnapshot"}], "nullable": true},
+          "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "ClipMicrophoneTrack": {
+        "type": "object",
+        "required": ["clip_id", "status", "selection_source", "audio_stream_index", "person", "candidates", "local_speaker_id", "applied", "tracks", "history"],
+        "properties": {
+          "clip_id": {"type": "integer", "format": "int64"},
+          "status": {"$ref": "#/components/schemas/MicrophoneTrackStatus"},
+          "selection_source": {"type": "string", "nullable": true, "enum": ["source_rule", "clip_override"]},
+          "audio_stream_index": {"type": "integer", "nullable": true},
+          "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true},
+          "candidates": {"type": "array", "items": {"type": "integer"}, "description": "Pistes qui correspondent toutes à la règle (ambiguous_track)."},
+          "local_speaker_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Locuteur local de la piste micro, une fois la désignation appliquée."},
+          "applied": {"type": "boolean"},
+          "tracks": {"type": "array", "items": {"$ref": "#/components/schemas/MicrophoneTrackItem"}},
+          "history": {"type": "array", "items": {"$ref": "#/components/schemas/MicrophoneTrackEvent"}, "description": "Changements de règle de la source et remplacements du clip, du plus récent au plus ancien (50 au plus)."}
         }
       },
       "AudioTrackSelection": {
@@ -4820,9 +5702,13 @@
           "match_type",
           "context",
           "matched_text",
-          "timestamp"
+          "timestamp",
+          "person",
+          "decision_level"
         ],
         "properties": {
+          "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true, "description": "Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté."},
+          "decision_level": {"allOf": [{"$ref": "#/components/schemas/DecisionLevel"}], "description": "Niveau de décision tracé de l’attribution effective ; unknown sans attribution ou sans voix détectée."},
           "clip_id": {
             "type": "integer",
             "format": "int64"

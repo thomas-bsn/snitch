@@ -3,6 +3,23 @@ import { createRoot } from "react-dom/client";
 import createClient from "openapi-fetch";
 import type { paths, components } from "./api.gen";
 import "./style.css";
+import { SpeakerBadge, VoicePanel } from "./voice/VoicePanel";
+import {
+  ClipPersons,
+  PersonFilterSelect,
+  ResultSpeaker,
+  applyPersonFilter,
+} from "./voice/PersonFilter";
+import { VoicePipelineCard } from "./voice/VoicePipelineCard";
+import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
+import { PersonsCard } from "./voice/PersonsCard";
+import { MyVoiceCard } from "./voice/MyVoiceCard";
+import { PersonAccountCard } from "./voice/PersonAccountCard";
+import { VoiceAutomationCard } from "./voice/VoiceAutomationCard";
+import { VoiceGroupsCard } from "./voice/VoiceGroupsCard";
+import { VoiceVerificationCard } from "./voice/VoiceVerificationCard";
+import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
+import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
 
 const api = createClient<paths>();
 type Setup = components["schemas"]["Setup"];
@@ -31,6 +48,8 @@ type SearchResult = {
   context: string;
   matched_text: string;
   timestamp: number;
+  person?: { id: number; display_name: string } | null;
+  decision_level?: components["schemas"]["DecisionLevel"];
 };
 const messages: Record<string, string> = {
   unavailable:
@@ -122,6 +141,8 @@ function App() {
     visibility: "",
     status: "",
   });
+  const [searchPerson, setSearchPerson] = useState("");
+  const [clipPerson, setClipPerson] = useState("");
   const [searchPlayback, setSearchPlayback] = useState<SearchResult>();
   const [selectedAudioTracks, setSelectedAudioTracks] = useState<
     Record<number, number>
@@ -253,6 +274,7 @@ function App() {
     const query = new URLSearchParams({ page: String(page), page_size: "12" });
     for (const [key, value] of Object.entries(clipFilters))
       if (value) query.set(key, value);
+    applyPersonFilter(query, clipPerson);
     const response = await fetch(`/api/clips?${query}`, {
       credentials: "same-origin",
     });
@@ -306,6 +328,7 @@ function App() {
     });
     for (const [key, value] of Object.entries(searchFilters))
       if (value) query.set(key, value);
+    applyPersonFilter(query, searchPerson);
     const response = await fetch(`/api/search?${query}`, {
       credentials: "same-origin",
     });
@@ -1006,6 +1029,12 @@ function App() {
               <a className="nav-link active" href="#library">
                 <span aria-hidden="true">▦</span> Bibliothèque
               </a>
+              <a className="nav-link" href="#voice-verification">
+                <span aria-hidden="true">✓</span> Vérifier les voix
+              </a>
+              <a className="nav-link" href="#voice-groups">
+                <span aria-hidden="true">◍</span> Voix inconnues
+              </a>
               <a className="nav-link" href="#uploads">
                 <span aria-hidden="true">⇧</span> Imports
                 {uploads.length > 0 && (
@@ -1276,6 +1305,11 @@ function App() {
                         <option value="missing">Original introuvable</option>
                       </select>
                     </label>
+                    <PersonFilterSelect
+                      label="Personne de la recherche"
+                      value={searchPerson}
+                      onChange={setSearchPerson}
+                    />
                     <button disabled={busy}>Rechercher</button>
                   </form>
                   {searchDegraded && (
@@ -1314,6 +1348,10 @@ function App() {
                             <p>
                               {highlighted(item.context, item.matched_text)}
                             </p>
+                            <ResultSpeaker
+                              person={item.person}
+                              level={item.decision_level}
+                            />
                             <button
                               className="secondary"
                               disabled={item.status !== "ready"}
@@ -1470,6 +1508,11 @@ function App() {
                       }
                     />
                   </label>
+                  <PersonFilterSelect
+                    label="Personne de la bibliothèque"
+                    value={clipPerson}
+                    onChange={setClipPerson}
+                  />
                   <button className="filter-submit" disabled={busy}>
                     Appliquer les filtres
                   </button>
@@ -1551,6 +1594,7 @@ function App() {
                             )}{" "}
                             · {clip.owner}
                           </p>
+                          <ClipPersons persons={clip.persons} />
                           <div className="clip-card-footer">
                             <span className={`clip-state state-${clip.status}`}>
                               {clip.status === "ready"
@@ -1720,6 +1764,17 @@ function App() {
                                           <p
                                             key={`${segment.start}-${segmentIndex}`}
                                           >
+                                            <SpeakerBadge
+                                              label={
+                                                segment.local_speaker_label
+                                              }
+                                              personName={
+                                                segment.local_speaker_person_name
+                                              }
+                                              level={
+                                                segment.local_speaker_decision_level
+                                              }
+                                            />
                                             <button
                                               className="transcript-time"
                                               onClick={() => {
@@ -1752,6 +1807,29 @@ function App() {
                                   </section>
                                 );
                               })()}
+                            {clipDetails[clip.id] && (
+                              <ClipPersons
+                                persons={clipDetails[clip.id].persons}
+                              />
+                            )}
+                            {clipDetails[clip.id] &&
+                              clip.status === "ready" && (
+                                <VoicePanel
+                                  clipId={clip.id}
+                                  isAdmin={session.user.role === "admin"}
+                                  csrf={csrf}
+                                  reloadToken={clipDetails[clip.id]}
+                                />
+                              )}
+                            {clipDetails[clip.id] &&
+                              clip.status === "ready" && (
+                                <MicrophoneClipCard
+                                  clipId={clip.id}
+                                  isAdmin={session.user.role === "admin"}
+                                  csrf={csrf}
+                                  onChanged={() => void loadClipDetail(clip.id)}
+                                />
+                              )}
                             {clipDetails[clip.id] && (
                               <button
                                 className="secondary"
@@ -1786,6 +1864,8 @@ function App() {
                   </button>
                 </div>
               </section>
+              <VoiceVerificationCard csrf={csrf} />
+              <VoiceGroupsCard csrf={csrf} />
               {setup.discord_enabled && (
                 <section className="card" id="settings">
                   <h2>Lier votre identité Discord</h2>
@@ -2052,6 +2132,21 @@ function App() {
                   )}
                 </section>
               )}
+              <PersonsCard csrf={csrf} />
+              <MyVoiceCard csrf={csrf} />
+              {session.user.role === "admin" && (
+                <PersonAccountCard csrf={csrf} />
+              )}
+              {session.user.role === "admin" && (
+                <VoicePipelineCard csrf={csrf} />
+              )}
+              {session.user.role === "admin" && (
+                <VoiceMatchingCard csrf={csrf} />
+              )}
+              <VoiceAutomationCard
+                isAdmin={session.user.role === "admin"}
+                csrf={csrf}
+              />
               {session.user.role === "admin" && (
                 <section className="card" id="vocabulary">
                   <h2>Vocabulaire de transcription</h2>
@@ -2665,6 +2760,10 @@ function App() {
                               </button>
                             </form>
                           </details>
+                          <MicrophoneSourceCard
+                            sourceId={source.id}
+                            csrf={csrf}
+                          />
                           <ul>
                             {source.files.map((file) => (
                               <li

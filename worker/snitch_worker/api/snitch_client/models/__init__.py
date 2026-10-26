@@ -1,5 +1,13 @@
 """ Contains all the data models used in inputs/outputs """
 
+from .attribution import Attribution
+from .attribution_author import AttributionAuthor
+from .attribution_candidate import AttributionCandidate
+from .attribution_conflict import AttributionConflict
+from .attribution_event import AttributionEvent
+from .attribution_history import AttributionHistory
+from .attribution_input import AttributionInput
+from .attribution_validation_state import AttributionValidationState
 from .audio_track_override import AudioTrackOverride
 from .audio_track_rule import AudioTrackRule
 from .audio_track_rule_result import AudioTrackRuleResult
@@ -8,9 +16,15 @@ from .audio_track_selection_status import AudioTrackSelectionStatus
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
 from .bootstrap import Bootstrap
 from .clip import Clip
+from .clip_microphone_track import ClipMicrophoneTrack
+from .clip_microphone_track_selection_source import ClipMicrophoneTrackSelectionSource
 from .clip_page import ClipPage
+from .clip_person import ClipPerson
 from .clip_visibility import ClipVisibility
+from .clip_voice import ClipVoice
+from .clip_voice_status import ClipVoiceStatus
 from .credentials import Credentials
+from .decision_level import DecisionLevel
 from .error import Error
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
@@ -28,7 +42,36 @@ from .job_status import JobStatus
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
+from .list_voice_groups_sort import ListVoiceGroupsSort
+from .list_voice_verification_level import ListVoiceVerificationLevel
+from .local_speaker import LocalSpeaker
+from .local_speaker_kind import LocalSpeakerKind
+from .local_speaker_state import LocalSpeakerState
 from .media_track import MediaTrack
+from .microphone_detected_track import MicrophoneDetectedTrack
+from .microphone_snapshot import MicrophoneSnapshot
+from .microphone_source_rule import MicrophoneSourceRule
+from .microphone_source_rule_status_counts import MicrophoneSourceRuleStatusCounts
+from .microphone_source_rule_value import MicrophoneSourceRuleValue
+from .microphone_track_clip_input import MicrophoneTrackClipInput
+from .microphone_track_event import MicrophoneTrackEvent
+from .microphone_track_event_action import MicrophoneTrackEventAction
+from .microphone_track_event_scope import MicrophoneTrackEventScope
+from .microphone_track_item import MicrophoneTrackItem
+from .microphone_track_item_role import MicrophoneTrackItemRole
+from .microphone_track_rule_input import MicrophoneTrackRuleInput
+from .microphone_track_status import MicrophoneTrackStatus
+from .person import Person
+from .person_account_input import PersonAccountInput
+from .person_correction_result import PersonCorrectionResult
+from .person_event import PersonEvent
+from .person_event_action import PersonEventAction
+from .person_event_list import PersonEventList
+from .person_input import PersonInput
+from .person_list import PersonList
+from .person_merge_input import PersonMergeInput
+from .person_ref import PersonRef
+from .person_separation_input import PersonSeparationInput
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
@@ -37,6 +80,7 @@ from .schedule_transcription_batch_body import ScheduleTranscriptionBatchBody
 from .schedule_transcription_batch_response_200 import ScheduleTranscriptionBatchResponse200
 from .schedule_transcription_batch_response_200_preview import ScheduleTranscriptionBatchResponse200Preview
 from .scheduled_transcription import ScheduledTranscription
+from .scheduled_voice import ScheduledVoice
 from .search_page import SearchPage
 from .search_result import SearchResult
 from .search_result_match_type import SearchResultMatchType
@@ -79,6 +123,40 @@ from .user import User
 from .user_role import UserRole
 from .vocabulary_list import VocabularyList
 from .vocabulary_term_input import VocabularyTermInput
+from .voice_accuracy import VoiceAccuracy
+from .voice_accuracy_criteria import VoiceAccuracyCriteria
+from .voice_accuracy_evaluation import VoiceAccuracyEvaluation
+from .voice_accuracy_library import VoiceAccuracyLibrary
+from .voice_accuracy_person import VoiceAccuracyPerson
+from .voice_automation_criteria_input import VoiceAutomationCriteriaInput
+from .voice_automation_event import VoiceAutomationEvent
+from .voice_automation_event_action import VoiceAutomationEventAction
+from .voice_automation_input import VoiceAutomationInput
+from .voice_automation_result import VoiceAutomationResult
+from .voice_fingerprint import VoiceFingerprint
+from .voice_fingerprint_scope import VoiceFingerprintScope
+from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
+from .voice_group import VoiceGroup
+from .voice_group_exclusion import VoiceGroupExclusion
+from .voice_group_list import VoiceGroupList
+from .voice_group_member import VoiceGroupMember
+from .voice_group_naming import VoiceGroupNaming
+from .voice_group_naming_input import VoiceGroupNamingInput
+from .voice_matching_input import VoiceMatchingInput
+from .voice_matching_settings import VoiceMatchingSettings
+from .voice_matching_summary import VoiceMatchingSummary
+from .voice_pipeline import VoicePipeline
+from .voice_pipeline_fake import VoicePipelineFake
+from .voice_pipeline_provider import VoicePipelineProvider
+from .voice_pipeline_state import VoicePipelineState
+from .voice_profile_deletion import VoiceProfileDeletion
+from .voice_schedule_input import VoiceScheduleInput
+from .voice_step import VoiceStep
+from .voice_step_status import VoiceStepStatus
+from .voice_verification import VoiceVerification
+from .voice_verification_case import VoiceVerificationCase
+from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
+from .voice_verification_counts import VoiceVerificationCounts
 from .worker import Worker
 from .worker_claim import WorkerClaim
 from .worker_failure_input import WorkerFailureInput
@@ -91,8 +169,20 @@ from .worker_registration_input import WorkerRegistrationInput
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 from .worker_vocabulary_term import WorkerVocabularyTerm
+from .worker_voice_input import WorkerVoiceInput
+from .worker_voice_input_diarization import WorkerVoiceInputDiarization
+from .worker_voice_input_diarization_speakers_item import WorkerVoiceInputDiarizationSpeakersItem
+from .worker_voice_input_diarization_speakers_item_turns_item import WorkerVoiceInputDiarizationSpeakersItemTurnsItem
 
 __all__ = (
+    "Attribution",
+    "AttributionAuthor",
+    "AttributionCandidate",
+    "AttributionConflict",
+    "AttributionEvent",
+    "AttributionHistory",
+    "AttributionInput",
+    "AttributionValidationState",
     "AudioTrackOverride",
     "AudioTrackRule",
     "AudioTrackRuleResult",
@@ -101,9 +191,15 @@ __all__ = (
     "BackfillEmbeddingIndexResponse202",
     "Bootstrap",
     "Clip",
+    "ClipMicrophoneTrack",
+    "ClipMicrophoneTrackSelectionSource",
     "ClipPage",
+    "ClipPerson",
     "ClipVisibility",
+    "ClipVoice",
+    "ClipVoiceStatus",
     "Credentials",
+    "DecisionLevel",
     "Error",
     "GetEmbeddingIndexStatusResponse200",
     "HeartbeatWorkerJobResponse200",
@@ -121,12 +217,42 @@ __all__ = (
     "ListClipsStatus",
     "ListClipsVisibility",
     "ListJobsStatus",
+    "ListVoiceGroupsSort",
+    "ListVoiceVerificationLevel",
+    "LocalSpeaker",
+    "LocalSpeakerKind",
+    "LocalSpeakerState",
     "MediaTrack",
+    "MicrophoneDetectedTrack",
+    "MicrophoneSnapshot",
+    "MicrophoneSourceRule",
+    "MicrophoneSourceRuleStatusCounts",
+    "MicrophoneSourceRuleValue",
+    "MicrophoneTrackClipInput",
+    "MicrophoneTrackEvent",
+    "MicrophoneTrackEventAction",
+    "MicrophoneTrackEventScope",
+    "MicrophoneTrackItem",
+    "MicrophoneTrackItemRole",
+    "MicrophoneTrackRuleInput",
+    "MicrophoneTrackStatus",
+    "Person",
+    "PersonAccountInput",
+    "PersonCorrectionResult",
+    "PersonEvent",
+    "PersonEventAction",
+    "PersonEventList",
+    "PersonInput",
+    "PersonList",
+    "PersonMergeInput",
+    "PersonRef",
+    "PersonSeparationInput",
     "PreviewTranscriptionBatchResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",
     "ScanSourceBody",
     "ScheduledTranscription",
+    "ScheduledVoice",
     "ScheduleTranscriptionBatchBody",
     "ScheduleTranscriptionBatchResponse200",
     "ScheduleTranscriptionBatchResponse200Preview",
@@ -172,6 +298,40 @@ __all__ = (
     "UserRole",
     "VocabularyList",
     "VocabularyTermInput",
+    "VoiceAccuracy",
+    "VoiceAccuracyCriteria",
+    "VoiceAccuracyEvaluation",
+    "VoiceAccuracyLibrary",
+    "VoiceAccuracyPerson",
+    "VoiceAutomationCriteriaInput",
+    "VoiceAutomationEvent",
+    "VoiceAutomationEventAction",
+    "VoiceAutomationInput",
+    "VoiceAutomationResult",
+    "VoiceFingerprint",
+    "VoiceFingerprintScope",
+    "VoiceFingerprintUnusableReason",
+    "VoiceGroup",
+    "VoiceGroupExclusion",
+    "VoiceGroupList",
+    "VoiceGroupMember",
+    "VoiceGroupNaming",
+    "VoiceGroupNamingInput",
+    "VoiceMatchingInput",
+    "VoiceMatchingSettings",
+    "VoiceMatchingSummary",
+    "VoicePipeline",
+    "VoicePipelineFake",
+    "VoicePipelineProvider",
+    "VoicePipelineState",
+    "VoiceProfileDeletion",
+    "VoiceScheduleInput",
+    "VoiceStep",
+    "VoiceStepStatus",
+    "VoiceVerification",
+    "VoiceVerificationCase",
+    "VoiceVerificationCaseDecisionLevel",
+    "VoiceVerificationCounts",
     "Worker",
     "WorkerClaim",
     "WorkerFailureInput",
@@ -184,4 +344,8 @@ __all__ = (
     "WorkerResultInput",
     "WorkerResultInputResult",
     "WorkerVocabularyTerm",
+    "WorkerVoiceInput",
+    "WorkerVoiceInputDiarization",
+    "WorkerVoiceInputDiarizationSpeakersItem",
+    "WorkerVoiceInputDiarizationSpeakersItemTurnsItem",
 )

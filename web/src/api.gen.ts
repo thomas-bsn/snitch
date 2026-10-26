@@ -686,6 +686,60 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/sources/{id}/microphone-track": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Règle de piste micro de la source et pistes audio réellement détectées sur ses clips (index, titre, langue), à partir desquelles choisir : aucun titre n'est supposé. */
+    get: operations["getSourceMicrophoneTrack"];
+    /** @description Administrateurs uniquement. Désigne la piste micro de la source (index global et/ou titre exact) et sa Personne propriétaire, puis l'applique aux clips prêts de la source : la piste reçoit directement son propriétaire, sans diarisation. status_counts rapporte, par état, le résultat sur chaque clip. Enregistrer une règle identique la réapplique sans nouvelle version. */
+    put: operations["putSourceMicrophoneTrack"];
+    post?: never;
+    /** @description Administrateurs uniquement. Retire la règle ; les attributions de piste micro sans validation humaine disparaissent, les validations humaines sont conservées. */
+    delete: operations["deleteSourceMicrophoneTrack"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/microphone-track": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés, pour un clip visible. Piste micro désignée (règle de la source ou remplacement du clip), rôle de chaque piste audio, raison explicite quand la désignation ne s'applique pas, et historique des changements. */
+    get: operations["getClipMicrophoneTrack"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/microphone-track": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Remplace la règle de la source pour ce clip : une autre piste et un autre propriétaire, ou disabled=true pour dire qu'il n'y a pas de piste micro. Le changement est historisé. */
+    put: operations["putClipMicrophoneTrack"];
+    post?: never;
+    /** @description Administrateurs uniquement. Retire le remplacement du clip ; la règle de la source s'applique de nouveau. Le changement est historisé. */
+    delete: operations["deleteClipMicrophoneTrack"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/vocabulary": {
     parameters: {
       query?: never;
@@ -715,6 +769,453 @@ export interface paths {
     get: operations["getTranscriptionPipeline"];
     /** @description Enregistre un snapshot immuable et l'active pour les nouvelles tâches. */
     put: operations["updateTranscriptionPipeline"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-pipeline": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Modèle de diarisation et seuils des empreintes ; aucun modèle n'est téléchargé implicitement. */
+    get: operations["getVoicePipeline"];
+    /** @description Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur factice peut s'exécuter sans access_confirmed. */
+    put: operations["updateVoicePipeline"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/voice": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation. */
+    post: operations["scheduleVoice"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/voice": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés, pour les clips que leur visibilité permet de voir. Consultable worker éteint ; les vecteurs ne sont jamais exposés. */
+    get: operations["getClipVoice"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références). */
+    get: operations["listPersons"];
+    put?: never;
+    /** @description Utilisateurs connectés. Une Personne est une identité, jamais un compte. */
+    post: operations["createPerson"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. */
+    get: operations["getPerson"];
+    put?: never;
+    post?: never;
+    /** @description Utilisateurs connectés. Les validations de la Personne sont retirées (les voix redeviennent inconnues), ses Échantillons vocaux effacés des références, les règles de piste micro et surcharges de clip qui la nomment supprimées (avec historique), puis le rapprochement est recalculé sans worker. Clips et empreintes restent. L'historique des voix (action delete_person) et celui des Personnes sont conservés. */
+    delete: operations["deletePerson"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/merge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés. Rattache à la cible les attributions validées (la première validation fait foi, seule la Personne change), les Échantillons vocaux et les désignations de piste micro de la Personne absorbée, qui disparaît ; le rapprochement est recalculé sans worker. Une entrée d'historique (action merge) par voix. */
+    post: operations["mergePerson"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/separation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour des voix de clips visibles (sinon 404). Retire la validation des voix nommées (elles redeviennent inconnues et peuvent être validées de nouveau) et leurs Échantillons vocaux des références ; la Personne est conservée. Historique des voix (action split), rapprochement recalculé. */
+    post: operations["separatePerson"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/person-events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Trace immuable (auteur, date, noms au moment du changement, aucun contenu vocal), y compris pour une Personne qui n'existe plus ; person_id retient aussi les fusions dont elle est la cible. */
+    get: operations["listPersonEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/me/person": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Les clips où cette Personne est identifiée se listent par le filtre person_id de la bibliothèque, qui applique la visibilité du compte. */
+    get: operations["getMyPerson"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/persons/{id}/account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Un compte est lié à une Personne au plus ; une Personne est liée à un compte au plus. */
+    put: operations["linkPersonAccount"];
+    post?: never;
+    /** @description Administrateurs uniquement. Ne supprime ni la Personne ni son profil vocal. */
+    delete: operations["unlinkPersonAccount"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/voice-profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Compte lié à la Personne, ou administrateur (sinon 403). Efface les Échantillons vocaux validés, les empreintes des voix attribuées à la Personne et toutes les attributions à son nom, qui redeviennent inconnues ; les clips, la Personne et les autres Personnes ne sont pas touchés. Un marqueur de retrait sans donnée vocale empêche le rapprochement de reconstituer le profil : validations et corrections vers cette Personne sont refusées (409 voice_profile_deleted) et une piste micro qui la désigne n'est plus attribuée. La suppression est tracée (compteurs, Personne, auteur) sans aucune donnée vocale. */
+    delete: operations["deleteVoiceProfile"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/validation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Passe soit person_id soit new_person_name (Personne créée dans la même transaction). L'arbitrage entre validations concurrentes est une contrainte PostgreSQL ; la perdante ne crée rien. */
+    post: operations["validateLocalSpeaker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/correction": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. expected_person_id (Personne vue par l'utilisateur) est obligatoire pour qu'une correction concurrente n'en écrase pas une autre. */
+    post: operations["correctLocalSpeaker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés, pour un clip visible. Ancienne valeur, nouvelle valeur, auteur et date de chaque validation ou correction ; aucune donnée vocale. */
+    get: operations["getLocalSpeakerHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/excerpt": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés uniquement, et seulement pour les clips que leur visibilité autorise (sinon 404). Découpé à la demande depuis le fichier du clip, sans stockage ; Range pris en charge. */
+    get: operations["getLocalSpeakerExcerpt"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-matching": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés : chacun voit les seuils et si l'attribution automatique est activée (désactivée par défaut : les rapprochements restent des suggestions). */
+    get: operations["getVoiceMatching"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-matching": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. */
+    put: operations["updateVoiceMatching"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-matching/rematch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé. */
+    post: operations["rematchVoices"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-accuracy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Précision globale et par Personne mesurée sur des clips distincts de ceux des références (un échantillon validé est référence ou test, jamais les deux, et aucun test ne partage un clip avec une référence), nombre de confirmations, couverture automatique et volume de vérification restant, calculés depuis la base. Ces valeurs décrivent l'échantillon disponible : aucune n'est une garantie. */
+    get: operations["getVoiceAccuracy"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-automation/criteria": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Seuil de précision et nombre minimal de confirmations qui déclenchent la proposition d'activation. Ils ne basculent jamais l'automatisation d'eux-mêmes ; leurs valeurs de départ ne sont pas des garanties. */
+    put: operations["updateVoiceAutomationCriteria"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-automation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement : seul endpoint qui active ou désactive l'attribution automatique. L'activation sous les critères exige confirm_unmet_criteria. Chaque changement effectif est tracé avec la mesure du moment. La désactivation ramène les attributions automatiques à des suggestions ; aucune référence n'est créée ni modifiée. */
+    put: operations["setVoiceAutomation"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-groups": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Une voix inconnue (non validée par un humain, non attribuée automatiquement) forme un groupe à elle seule tant qu'un lien de proximité proposé ne la joint pas à une autre. Les groupes ne sont jamais confirmés automatiquement. Nombres de voix et de clips calculés en base sur les seuls clips visibles ; tri par nombre de clips. */
+    get: operations["listVoiceGroups"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-groups/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. L'identifiant d'un groupe est celui de sa plus petite voix visible : il change si ses membres changent. 404 si aucune voix du groupe n'est visible. */
+    get: operations["getVoiceGroup"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-groups/{id}/naming": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés. Passe soit person_id soit new_person_name (Personne créée dans la même transaction) et la liste des voix écoutées. Seule action humaine qui confirme un groupe. Une voix validée simultanément par quelqu'un d'autre est ignorée (skipped) et les autres sont validées. Les voix de clips invisibles ne sont jamais nommées. */
+    post: operations["nameVoiceGroup"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/group-exclusion": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. La voix redevient un groupe à elle seule et les rapprochements ultérieurs ne la rejoignent plus à un groupe. */
+    put: operations["excludeVoiceGroupMember"];
+    post?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. */
+    delete: operations["restoreVoiceGroupMember"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-verification": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Vue de vérification : uniquement les voix inconnues ou ambiguës (avec leurs Personnes candidates), sur les clips visibles. Tri par fréquence : clips distincts du groupe proposé de la voix, puis nombre de voix du groupe, puis temps de parole. Trancher un cas est une validation humaine (POST /api/local-speakers/{id}/validation) : cette lecture n'écrit rien. Les compteurs par niveau sont calculés en base. Aucune promesse de qualité n'est dérivée du nombre d'extraits. */
+    get: operations["listVoiceVerification"];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -798,7 +1299,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination. Aucun appel au worker n’est effectué. */
+    /** @description Recherche exacte ou plein texte insensible à la casse et aux accents français, suivie en mode plein texte d’une correspondance approximative pg_trgm pour les mots d’au moins quatre caractères. Le mode hybride fusionne par RRF jusqu’aux 100 meilleurs candidats lexicaux et vectoriels. Les clips privés hors propriétaire et administrateur sont exclus avant calcul du total et pagination ; le filtre Personne (person_id, person_unknown) s’applique aussi avant total et pagination, au segment, dans les trois modes. Chaque résultat porte la Personne identifiée du segment (ou null) et le niveau de décision tracé (unknown sans attribution). Aucun appel au worker n’est effectué. */
     get: operations["searchTranscripts"];
     put?: never;
     post?: never;
@@ -1068,6 +1569,7 @@ export interface components {
       vocabulary: components["schemas"]["WorkerVocabularyTerm"][];
       pipeline?: components["schemas"]["TranscriptionPipeline"];
       pipeline_version?: string;
+      voice?: components["schemas"]["WorkerVoiceInput"];
     };
     TranscriptionPipeline: {
       /** @enum {string} */
@@ -1089,6 +1591,493 @@ export interface components {
     TranscriptionPipelineState: {
       version: string;
       config: components["schemas"]["TranscriptionPipeline"];
+    };
+    VoicePipeline: {
+      /** @enum {string} */
+      provider: "fake" | "pyannote";
+      model: string;
+      model_version: string;
+      /** @description Confirmation explicite par l'administrateur du jeton et des conditions d'accès du modèle. */
+      access_confirmed: boolean;
+      min_fingerprint_seconds: number;
+      min_quality: number;
+      /** @description Réglages du fournisseur factice déterministe, réservés aux tests. */
+      fake?: {
+        speakers: number;
+        dimensions: number;
+      };
+    };
+    VoicePipelineState: {
+      version: string;
+      config: components["schemas"]["VoicePipeline"];
+    };
+    VoiceScheduleInput: {
+      audio_stream_index?: number;
+    };
+    ScheduledVoice: {
+      job: components["schemas"]["Job"];
+    };
+    VoiceStep: {
+      /** Format: int64 */
+      job_id: number;
+      step: string;
+      /** @enum {string} */
+      status:
+        | "pending"
+        | "leased"
+        | "done"
+        | "failed"
+        | "retry_wait"
+        | "cancelled"
+        | "dead";
+      input_version: string;
+      attempts: number;
+      max_attempts: number;
+      /** @description Code d'erreur expurgé, jamais de détail du fournisseur. */
+      last_error: string;
+    };
+    VoiceFingerprint: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      scope: "speaker" | "turn";
+      start_seconds: number;
+      end_seconds: number;
+      duration_seconds: number;
+      quality: number;
+      /** @description Faux : ne sert ni de référence ni de base de propagation. */
+      usable: boolean;
+      /** @enum {string} */
+      unusable_reason: "" | "too_short" | "low_quality";
+      model: string;
+      model_version: string;
+      dimensions: number;
+    };
+    PersonInput: {
+      display_name: string;
+    };
+    PersonRef: {
+      /** Format: int64 */
+      id: number;
+      display_name: string;
+    };
+    Person: {
+      /** Format: int64 */
+      id: number;
+      display_name: string;
+      /**
+       * Format: int64
+       * @description Compte lié, le cas échéant : une Personne n'est jamais un compte.
+       */
+      user_id: number | null;
+      /** @description Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre n'est pas une garantie de qualité d'identification. */
+      validated_sample_count: number;
+      /** @description Locuteurs locaux validés pour cette Personne. */
+      local_speaker_count: number;
+      /**
+       * Format: date-time
+       * @description Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée.
+       */
+      voice_profile_deleted_at: string | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    PersonMergeInput: {
+      /**
+       * Format: int64
+       * @description Personne qui reste ; celle du chemin est absorbée.
+       */
+      target_person_id: number;
+    };
+    PersonSeparationInput: {
+      local_speaker_ids: number[];
+    };
+    PersonCorrectionResult: {
+      /** @description Personne qui reste (cible de fusion, Personne séparée) ; null après suppression. */
+      person: components["schemas"]["Person"] | null;
+      /** @description Attributions rattachées (fusion) ou retirées (séparation, suppression). */
+      attributions: number;
+      /** @description Échantillons vocaux déplacés (fusion) ou effacés des références. */
+      samples: number;
+      /** @description Désignations de piste micro déplacées (fusion) ou supprimées (suppression). */
+      microphone_rules: number;
+    };
+    PersonEvent: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      action: "merge" | "split" | "delete";
+      person: components["schemas"]["PersonRef"];
+      target: components["schemas"]["PersonRef"] | null;
+      attribution_count: number;
+      sample_count: number;
+      microphone_rule_count: number;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    PersonEventList: {
+      items: components["schemas"]["PersonEvent"][];
+    };
+    PersonAccountInput: {
+      username: string;
+    };
+    VoiceProfileDeletion: {
+      /** @description Échantillons vocaux validés effacés (actifs et retirés). */
+      samples: number;
+      /** @description Empreintes effacées. */
+      fingerprints: number;
+      /** @description Attributions effacées ; les voix correspondantes sont inconnues. */
+      attributions: number;
+      /** Format: date-time */
+      deleted_at: string;
+    };
+    PersonList: {
+      items: components["schemas"]["Person"][];
+    };
+    AttributionAuthor: {
+      /** Format: int64 */
+      id: number | null;
+      /** @description Nom au moment de la décision. */
+      username: string;
+    };
+    /**
+     * @description human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
+     * @enum {string}
+     */
+    DecisionLevel:
+      | "human"
+      | "automatic"
+      | "suggestion"
+      | "ambiguous"
+      | "unknown";
+    Attribution: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      local_speaker_id: number;
+      person: components["schemas"]["PersonRef"] | null;
+      decision_level: components["schemas"]["DecisionLevel"];
+      /**
+       * @description validated : validation humaine (fait foi, source d'Échantillon vocal validé).
+       * @enum {string}
+       */
+      validation_state: "validated" | "unvalidated";
+      /** @description Confiance automatique du rapprochement, absente d'une validation humaine. */
+      confidence: number | null;
+      /** @description human (validation), matching (rapprochement en base), puis microphone_track selon les étapes suivantes. */
+      origin: string;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      revision: number;
+      /** Format: date-time */
+      decided_at: string;
+      /** @description Personnes entre lesquelles le rapprochement hésite (ambiguë : toutes celles dans la marge) ou alternatives d'une suggestion ; vide pour une validation humaine. */
+      candidates: components["schemas"]["AttributionCandidate"][];
+    };
+    AttributionCandidate: {
+      rank: number;
+      /** @description Similarité cosinus entre l'empreinte du Locuteur local et la meilleure référence de la Personne. */
+      score: number;
+      person: components["schemas"]["PersonRef"];
+    };
+    VoiceGroupMember: {
+      /**
+       * Format: int64
+       * @description Extraits écoutables par GET /api/local-speakers/{id}/excerpt.
+       */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+      /** @description Voix exclue de son groupe par un humain ; elle forme un groupe à elle seule. */
+      excluded: boolean;
+    };
+    VoiceGroup: {
+      /**
+       * Format: int64
+       * @description Plus petite voix visible du groupe.
+       */
+      id: number;
+      /** @description Calculé en base sur les voix visibles. */
+      member_count: number;
+      /** @description Clips distincts des voix visibles, calculés en base. */
+      clip_count: number;
+      /** @description Vrai si le groupe réunit au moins deux voix proches ; jamais une confirmation. */
+      proposed: boolean;
+      members: components["schemas"]["VoiceGroupMember"][];
+    };
+    VoiceGroupList: {
+      items: components["schemas"]["VoiceGroup"][];
+      /** @description Nombre de groupes avant pagination. */
+      total: number;
+    };
+    VoiceGroupNamingInput: {
+      /** Format: int64 */
+      person_id?: number;
+      new_person_name?: string;
+      /** @description Exactement les voix visibles du groupe que l'utilisateur a écoutées. */
+      local_speaker_ids: number[];
+    };
+    VoiceGroupNaming: {
+      person: components["schemas"]["Person"];
+      validated: number[];
+      /** @description Voix déjà validées par quelqu'un d'autre pendant l'opération. */
+      skipped: number[];
+    };
+    VoiceGroupExclusion: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      excluded: boolean;
+    };
+    VoiceVerificationCase: {
+      /**
+       * Format: int64
+       * @description Extrait écoutable par GET /api/local-speakers/{id}/excerpt ; se tranche par POST /api/local-speakers/{id}/validation.
+       */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+      /** @enum {string} */
+      decision_level: "unknown" | "ambiguous";
+      /** @description Personnes entre lesquelles une voix ambiguë hésite ; vide pour une voix inconnue. */
+      candidates: components["schemas"]["AttributionCandidate"][];
+      /**
+       * Format: int64
+       * @description Groupe proposé de la voix (voir /api/voice-groups), la voix seule si aucun lien.
+       */
+      group_id: number;
+      /** @description Voix inconnues visibles du groupe, calculé en base. */
+      group_voice_count: number;
+      /** @description Clips distincts du groupe : la fréquence qui ordonne les cas. */
+      group_clip_count: number;
+    };
+    /** @description Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base. */
+    VoiceVerificationCounts: {
+      human: number;
+      automatic: number;
+      suggestion: number;
+      ambiguous: number;
+      unknown: number;
+    };
+    VoiceVerification: {
+      items: components["schemas"]["VoiceVerificationCase"][];
+      /** @description Nombre de cas avant pagination. */
+      total: number;
+      counts: components["schemas"]["VoiceVerificationCounts"];
+    };
+    VoiceMatchingSettings: {
+      /** @description Faux par défaut : tant que l'administrateur n'a pas activé l'automatisation, un rapprochement n'est jamais plus qu'une suggestion. */
+      auto_enabled: boolean;
+      /** @description Similarité minimale d'une attribution automatique. */
+      automatic_threshold: number;
+      /** @description Similarité minimale d'une suggestion ; en dessous, la voix est inconnue. */
+      suggestion_threshold: number;
+      /** @description Écart sous lequel deux Personnes sont jugées aussi proches : la voix est ambiguë. */
+      ambiguity_margin: number;
+      max_candidates: number;
+      /** @description Critère de proposition d'activation : précision mesurée minimale. Valeur de départ configurable, jamais une garantie. */
+      precision_threshold: number;
+      /** @description Critère de proposition d'activation : nombre minimal d'attributions automatiques simulées confirmées par une validation humaine. */
+      min_confirmations: number;
+      /**
+       * Format: date-time
+       * @description Dernier changement de l'interrupteur d'automatisation ; null s'il n'a jamais été modifié.
+       */
+      auto_changed_at: string | null;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    VoiceMatchingInput: {
+      automatic_threshold: number;
+      /** @description Au plus égal au seuil automatique. */
+      suggestion_threshold: number;
+      ambiguity_margin: number;
+      max_candidates: number;
+    };
+    VoiceMatchingSummary: {
+      evaluated: number;
+      automatic: number;
+      suggestion: number;
+      ambiguous: number;
+      unknown: number;
+      /** @description Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle. */
+      removed: number;
+    };
+    VoiceAutomationCriteriaInput: {
+      precision_threshold: number;
+      min_confirmations: number;
+    };
+    VoiceAutomationInput: {
+      enabled: boolean;
+      /** @description Requis pour activer alors que les critères ne sont pas atteints ; sans effet sinon. */
+      confirm_unmet_criteria?: boolean;
+    };
+    VoiceAutomationResult: {
+      settings: components["schemas"]["VoiceMatchingSettings"];
+      summary: components["schemas"]["VoiceMatchingSummary"];
+    };
+    VoiceAccuracyEvaluation: {
+      /** @description Échantillons validés servant de référence pour cette mesure. */
+      reference_samples: number;
+      /** @description Échantillons validés servant de test : leur clip ne contient aucune référence. */
+      test_samples: number;
+      /** @description Échantillons écartés de la mesure car leur clip contient aussi une référence. */
+      excluded_samples: number;
+      /** @description Tests qui auraient été attribués automatiquement. */
+      evaluated_automatic: number;
+      /** @description Confirmations : attributions automatiques simulées qui désignent la Personne validée par un humain. */
+      confirmed: number;
+      /** @description confirmed / evaluated_automatic ; null si aucun test n'est automatique. */
+      precision: number | null;
+      /** @description evaluated_automatic / test_samples ; null sans test. */
+      coverage: number | null;
+    };
+    VoiceAccuracyPerson: {
+      person: components["schemas"]["PersonRef"];
+      reference_samples: number;
+      test_samples: number;
+      /** @description Tests attribués automatiquement à cette Personne, à raison ou non. */
+      automatic_predictions: number;
+      confirmed: number;
+      precision: number | null;
+    };
+    VoiceAccuracyLibrary: {
+      /** @description Locuteurs locaux diarisés (hors piste micro). */
+      speakers_total: number;
+      /** @description Validés par un humain. */
+      validated: number;
+      /** @description Attribués automatiquement, ou qui le seraient dès l'activation (suggestion au moins égale au seuil automatique). */
+      automatic: number;
+      suggestion: number;
+      ambiguous: number;
+      unknown: number;
+      /** @description Volume de vérification restant : suggestions, ambigus et inconnus. */
+      to_verify: number;
+      /** @description automatic / locuteurs non validés ; null sans locuteur à attribuer. */
+      coverage: number | null;
+      /** @description Pistes micro attribuées à leur propriétaire : comptées à part, indépendantes de l'interrupteur. */
+      microphone_assigned: number;
+    };
+    VoiceAutomationEvent: {
+      /** @enum {string} */
+      action: "enable" | "disable";
+      author: string;
+      criteria_met: boolean;
+      /** @description Activation confirmée explicitement malgré des critères non atteints. */
+      forced: boolean;
+      measured_precision: number | null;
+      confirmations: number;
+      precision_threshold: number;
+      min_confirmations: number;
+      /** Format: date-time */
+      created_at: string;
+    };
+    VoiceAccuracy: {
+      /** Format: date-time */
+      measured_at: string;
+      auto_enabled: boolean;
+      automatic_threshold: number;
+      precision_threshold: number;
+      min_confirmations: number;
+      evaluation: components["schemas"]["VoiceAccuracyEvaluation"];
+      persons: components["schemas"]["VoiceAccuracyPerson"][];
+      library: components["schemas"]["VoiceAccuracyLibrary"];
+      criteria: {
+        met: boolean;
+        precision_met: boolean;
+        confirmations_met: boolean;
+      };
+      /** @description Les critères sont atteints et l'automatisation est désactivée : Snitch propose l'activation à l'administrateur. */
+      activation_proposed: boolean;
+      /** @description Historique des activations et désactivations, du plus récent au plus ancien. */
+      events: components["schemas"]["VoiceAutomationEvent"][];
+    };
+    /** @description Exactement un de person_id ou new_person_name. */
+    AttributionInput: {
+      /** Format: int64 */
+      person_id?: number;
+      new_person_name?: string;
+      /**
+       * Format: int64
+       * @description Correction uniquement : Personne actuellement validée telle que vue par l'utilisateur.
+       */
+      expected_person_id?: number;
+    };
+    AttributionConflict: {
+      error: string;
+      attribution?: components["schemas"]["Attribution"];
+    };
+    AttributionEvent: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** @description validate, correct, match (changement d'une attribution automatique, sans auteur) ; d'autres actions pourront s'ajouter. */
+      action: string;
+      old_person: components["schemas"]["PersonRef"] | null;
+      old_decision_level: string;
+      new_person: components["schemas"]["PersonRef"] | null;
+      new_decision_level: string;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    AttributionHistory: {
+      items: components["schemas"]["AttributionEvent"][];
+    };
+    LocalSpeaker: {
+      /** Format: int64 */
+      id: number;
+      label: string;
+      /**
+       * @description microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le clip, aucune empreinte).
+       * @enum {string}
+       */
+      kind: "diarized" | "microphone";
+      ordinal: number;
+      speaking_seconds: number;
+      turn_count: number;
+      /**
+       * @description identified : attribution humaine ou automatique à une Personne. Une suggestion ou une voix ambiguë reste unidentified ; une voix inconnue ne bloque rien.
+       * @enum {string}
+       */
+      state: "unidentified" | "identified";
+      decision_level: components["schemas"]["DecisionLevel"];
+      /** @description Personne de l'attribution effective (validation humaine prioritaire). */
+      person: components["schemas"]["PersonRef"] | null;
+      attribution: components["schemas"]["Attribution"] | null;
+      fingerprints: components["schemas"]["VoiceFingerprint"][];
+    };
+    ClipVoice: {
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      status: "none" | "queued" | "running" | "done" | "failed";
+      audio_stream_index?: number | null;
+      steps: components["schemas"]["VoiceStep"][];
+      speakers: components["schemas"]["LocalSpeaker"][];
+    };
+    WorkerVoiceInput: {
+      pipeline_version: string;
+      config: components["schemas"]["VoicePipeline"];
+      /** @description Étape d'empreintes uniquement : locuteurs et tours à encoder. */
+      diarization?: {
+        /** Format: int64 */
+        job_id: number;
+        speakers: {
+          label: string;
+          turns: {
+            index: number;
+            start: number;
+            end: number;
+          }[];
+        }[];
+      };
     };
     WorkerResultInput: {
       input_version: string;
@@ -1160,6 +2149,13 @@ export interface components {
       /** Format: uri */
       url: string;
     };
+    ClipPerson: {
+      /** Format: int64 */
+      id: number;
+      display_name: string;
+      /** @description human (validée) ou automatic ; human l’emporte si la Personne a les deux dans le clip. */
+      decision_level: components["schemas"]["DecisionLevel"];
+    };
     Clip: {
       /** Format: int64 */
       id: number;
@@ -1184,6 +2180,8 @@ export interface components {
       status?: string;
       sources?: string[];
       uploaders: string[];
+      /** @description Personnes identifiées dans le clip (attribution humaine ou automatique), triées par nom. */
+      persons?: components["schemas"]["ClipPerson"][];
       transcription?: components["schemas"]["Transcription"];
       audio_track_selection?: components["schemas"]["AudioTrackSelection"];
     };
@@ -1219,6 +2217,19 @@ export interface components {
       end: number;
       text: string;
       words: components["schemas"]["TranscriptWord"][];
+      /**
+       * Format: int64
+       * @description Locuteur local dominant du segment ; absent sans diarisation ou sans recouvrement.
+       */
+      local_speaker_id?: number;
+      local_speaker_label?: string;
+      local_speaker_decision_level?: components["schemas"]["DecisionLevel"];
+      /**
+       * Format: int64
+       * @description Personne du Locuteur local, si attribuée.
+       */
+      local_speaker_person_id?: number;
+      local_speaker_person_name?: string;
     };
     Transcription: {
       provider: string;
@@ -1242,6 +2253,121 @@ export interface components {
     };
     AudioTrackOverride: {
       audio_stream_index: number;
+    };
+    /** @description Au moins un de audio_stream_index ou title ; si les deux sont donnés, la piste doit correspondre aux deux. */
+    MicrophoneTrackRuleInput: {
+      /** @description Index global FFmpeg d'une piste détectée. */
+      audio_stream_index?: number;
+      /** @description Titre exact (sans casse) d'une piste détectée. */
+      title?: string;
+      /**
+       * Format: int64
+       * @description Personne propriétaire du micro.
+       */
+      person_id: number;
+    };
+    /** @description Soit disabled=true seul, soit audio_stream_index et person_id ensemble. */
+    MicrophoneTrackClipInput: {
+      /** @description true : ce clip n'a pas de piste micro. */
+      disabled?: boolean;
+      audio_stream_index?: number;
+      /** Format: int64 */
+      person_id?: number;
+    };
+    MicrophoneDetectedTrack: {
+      audio_stream_index: number;
+      title: string;
+      language: string;
+      channels: number;
+      channel_layout: string;
+      /** @description Nombre de clips prêts de la source portant cette piste. */
+      clip_count: number;
+    };
+    MicrophoneSourceRuleValue: {
+      audio_stream_index: number | null;
+      title: string | null;
+      person: components["schemas"]["PersonRef"];
+      /** Format: int64 */
+      version: number;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    MicrophoneSourceRule: {
+      /** Format: int64 */
+      source_id: number;
+      rule: components["schemas"]["MicrophoneSourceRuleValue"] | null;
+      detected_tracks: components["schemas"]["MicrophoneDetectedTrack"][];
+      /** @description Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, owner_profile_deleted, disabled, none). Vide en lecture. */
+      status_counts: {
+        [key: string]: number;
+      };
+    };
+    /**
+     * @description none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain ; owner_profile_deleted : le propriétaire désigné a supprimé son profil vocal, rien ne lui est attribué.
+     * @enum {string}
+     */
+    MicrophoneTrackStatus:
+      | "none"
+      | "designated"
+      | "disabled"
+      | "track_not_found"
+      | "ambiguous_track"
+      | "conflicting_sources"
+      | "blocked_by_validation"
+      | "owner_profile_deleted";
+    MicrophoneTrackItem: {
+      index: number;
+      title: string;
+      language: string;
+      channels: number;
+      channel_layout: string;
+      /**
+       * @description other : piste traitée normalement (diarisation).
+       * @enum {string}
+       */
+      role: "microphone" | "candidate" | "other";
+    };
+    /** @description Désignation telle qu'elle était, avec le nom de la Personne à l'époque. */
+    MicrophoneSnapshot: {
+      audio_stream_index?: number;
+      title?: string;
+      disabled?: boolean;
+      person?: components["schemas"]["PersonRef"];
+    };
+    MicrophoneTrackEvent: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      scope: "source" | "clip";
+      /** Format: int64 */
+      source_id: number | null;
+      /** @enum {string} */
+      action: "set" | "remove" | "disable";
+      old_rule: components["schemas"]["MicrophoneSnapshot"] | null;
+      new_rule: components["schemas"]["MicrophoneSnapshot"] | null;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    ClipMicrophoneTrack: {
+      /** Format: int64 */
+      clip_id: number;
+      status: components["schemas"]["MicrophoneTrackStatus"];
+      /** @enum {string|null} */
+      selection_source: "source_rule" | "clip_override" | null;
+      audio_stream_index: number | null;
+      person: components["schemas"]["PersonRef"] | null;
+      /** @description Pistes qui correspondent toutes à la règle (ambiguous_track). */
+      candidates: number[];
+      /**
+       * Format: int64
+       * @description Locuteur local de la piste micro, une fois la désignation appliquée.
+       */
+      local_speaker_id: number | null;
+      applied: boolean;
+      tracks: components["schemas"]["MicrophoneTrackItem"][];
+      /** @description Changements de règle de la source et remplacements du clip, du plus récent au plus ancien (50 au plus). */
+      history: components["schemas"]["MicrophoneTrackEvent"][];
     };
     AudioTrackSelection: {
       /** @enum {string} */
@@ -1271,6 +2397,10 @@ export interface components {
       preferred_spelling: string;
     };
     SearchResult: {
+      /** @description Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté. */
+      person: components["schemas"]["PersonRef"] | null;
+      /** @description Niveau de décision tracé de l’attribution effective ; unknown sans attribution ou sans voix détectée. */
+      decision_level: components["schemas"]["DecisionLevel"];
       /** Format: int64 */
       clip_id: number;
       clip_name: string;
@@ -2725,6 +3855,10 @@ export interface operations {
         owner_id?: number;
         source_id?: number;
         from?: string;
+        /** @description Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown. */
+        person_id?: number;
+        /** @description Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id. */
+        person_unknown?: boolean;
         to?: string;
       };
       header?: never;
@@ -3079,6 +4213,212 @@ export interface operations {
       };
     };
   };
+  getSourceMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Règle et pistes détectées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MicrophoneSourceRule"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putSourceMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MicrophoneTrackRuleInput"];
+      };
+    };
+    responses: {
+      /** @description Règle enregistrée et appliquée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MicrophoneSourceRule"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteSourceMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Règle retirée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MicrophoneSourceRule"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Piste micro du clip */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipMicrophoneTrack"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putClipMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MicrophoneTrackClipInput"];
+      };
+    };
+    responses: {
+      /** @description Piste micro du clip */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipMicrophoneTrack"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteClipMicrophoneTrack: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Piste micro du clip */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipMicrophoneTrack"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   listVocabulary: {
     parameters: {
       query?: never;
@@ -3209,6 +4549,1160 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  getVoicePipeline: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Configuration vocale active */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoicePipelineState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVoicePipeline: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoicePipeline"];
+      };
+    };
+    responses: {
+      /** @description Nouvelle version activée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoicePipelineState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scheduleVoice: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceScheduleInput"];
+      };
+    };
+    responses: {
+      /** @description Étape déjà planifiée pour cette version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledVoice"];
+        };
+      };
+      /** @description Diarisation planifiée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledVoice"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipVoice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Locuteurs locaux et état des étapes vocales */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipVoice"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPersons: {
+    parameters: {
+      query?: {
+        q?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Personnes, par nom */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createPerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonInput"];
+      };
+    };
+    responses: {
+      /** @description Personne créée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getPerson: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Personne */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deletePerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Personne supprimée ; person est null */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonCorrectionResult"];
+        };
+      };
+      /** @description person_linked_account : une Personne liée à un compte n'est pas supprimée ici ; person_has_hidden_voices : un utilisateur non administrateur ne supprime pas une Personne attribuée sur un clip qu'il ne peut pas voir */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  mergePerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonMergeInput"];
+      };
+    };
+    responses: {
+      /** @description Fusion faite ; person est la Personne cible */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonCorrectionResult"];
+        };
+      };
+      /** @description same_person, person_linked_account (la Personne absorbée ne doit pas être liée à un compte), person_has_hidden_voices (un utilisateur non administrateur ne fusionne pas une Personne attribuée sur un clip qu'il ne peut pas voir) ou voice_profile_deleted (l'une des deux a supprimé son profil vocal : l'opt-out n'est ni dissous ni reconstitué) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  separatePerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonSeparationInput"];
+      };
+    };
+    responses: {
+      /** @description Voix séparées ; person est la Personne, conservée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonCorrectionResult"];
+        };
+      };
+      /** @description not_attributed_to_person : une voix n'est pas validée pour cette Personne ; rien n'est changé */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPersonEvents: {
+    parameters: {
+      query?: {
+        person_id?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Corrections de Personnes, les plus récentes d'abord (200 au plus) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonEventList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getMyPerson: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Personne liée au compte connecté */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description no_linked_person : aucune Personne n'est liée à ce compte */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  linkPersonAccount: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonAccountInput"];
+      };
+    };
+    responses: {
+      /** @description Personne liée au compte */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description account_already_linked : ce compte est déjà lié à une autre Personne */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  unlinkPersonAccount: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Lien supprimé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteVoiceProfile: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Profil vocal effacé (idempotent : une seconde suppression renvoie des compteurs à zéro) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceProfileDeletion"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  validateLocalSpeaker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AttributionInput"];
+      };
+    };
+    responses: {
+      /** @description Validation enregistrée : Attribution humaine et Échantillon vocal validé créés, même si une confiance automatique existait */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Attribution"];
+        };
+      };
+      /** @description already_validated : la première validation fait foi ; la réponse contient l'attribution existante et son auteur */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttributionConflict"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  correctLocalSpeaker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AttributionInput"];
+      };
+    };
+    responses: {
+      /** @description Correction enregistrée : ancien échantillon retiré des références, nouveau créé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Attribution"];
+        };
+      };
+      /** @description not_validated, same_person ou attribution_changed (la Personne a changé depuis la lecture ; l'attribution actuelle est renvoyée) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttributionConflict"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getLocalSpeakerHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historique immuable, du plus récent au plus ancien */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttributionHistory"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getLocalSpeakerExcerpt: {
+    parameters: {
+      query?: {
+        /** @description Indice du tour de parole ; par défaut le plus long. */
+        turn?: number;
+      };
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Extrait audio WAV mono de dix secondes au plus */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "audio/wav": string;
+          "application/octet-stream": string;
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceMatching: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglages du rapprochement vocal */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVoiceMatching: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceMatchingInput"];
+      };
+    };
+    responses: {
+      /** @description Seuils enregistrés ; les empreintes déjà stockées sont rapprochées de nouveau */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  rematchVoices: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Rapprochement exécuté sur toute la bibliothèque */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingSummary"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceAccuracy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Précision mesurée, volumes et proposition d'activation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceAccuracy"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVoiceAutomationCriteria: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceAutomationCriteriaInput"];
+      };
+    };
+    responses: {
+      /** @description Critères enregistrés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  setVoiceAutomation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceAutomationInput"];
+      };
+    };
+    responses: {
+      /** @description État de l'automatisation après rapprochement des empreintes déjà stockées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceAutomationResult"];
+        };
+      };
+      /** @description criteria_not_met : les critères ne sont pas atteints et l'activation n'a pas été confirmée explicitement */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceGroups: {
+    parameters: {
+      query?: {
+        /** @description Tri décroissant par nombre de clips (défaut) ou de voix. */
+        sort?: "clips" | "members";
+        /** @description Vrai : uniquement les groupes proposés (au moins deux voix). */
+        proposed?: boolean;
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Groupes de voix inconnues visibles par l'utilisateur */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceGroup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Groupe et ses voix */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroup"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  nameVoiceGroup: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceGroupNamingInput"];
+      };
+    };
+    responses: {
+      /** @description Chaque voix du groupe est validée comme la Personne : attribution humaine, Échantillon vocal validé et historique créés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupNaming"];
+        };
+      };
+      /** @description group_changed : le groupe n'est plus exactement la liste de voix envoyée (voix exclue, validée ou jointe entre-temps) ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  excludeVoiceGroupMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Voix exclue de son groupe (idempotent) ; les autres voix ne sont pas modifiées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupExclusion"];
+        };
+      };
+      /** @description not_unknown : la voix est déjà validée ou attribuée automatiquement, elle n'appartient à aucun groupe */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  restoreVoiceGroupMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Exclusion levée (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupExclusion"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceVerification: {
+    parameters: {
+      query?: {
+        /** @description Ne garder que les voix inconnues ou que les voix ambiguës. */
+        level?: "all" | "unknown" | "ambiguous";
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Cas à vérifier, du plus fréquent au moins fréquent, et compteurs par niveau de décision */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceVerification"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
       };
     };
   };
@@ -3418,6 +5912,10 @@ export interface operations {
         status?: "ready" | "waiting_stability" | "unreadable" | "missing";
         source_id?: number;
         from?: string;
+        /** @description Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown. */
+        person_id?: number;
+        /** @description Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id. */
+        person_unknown?: boolean;
         to?: string;
       };
       header?: never;

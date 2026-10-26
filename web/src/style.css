@@ -199,19 +199,17 @@ button,
   font-size: 12px;
   font-weight: 750;
   text-decoration: none;
-  transition:
-    filter 0.15s,
-    transform 0.15s;
+  transition: filter 0.15s;
 }
+/* No hover transform: a control that moves away from a resting pointer loses its
+   hover, moves back and flickers forever, so it is never "stable" for a click. */
 button:hover,
 .primary-link:hover {
   filter: brightness(1.06);
-  transform: translateY(-1px);
 }
 button:disabled {
   opacity: 0.5;
   cursor: wait;
-  transform: none;
 }
 button.secondary {
   border-color: var(--border);
@@ -541,12 +539,10 @@ pre {
   background: var(--surface-raised);
   box-shadow: 0 4px 15px #00000008;
   transition:
-    transform 0.18s,
     border-color 0.18s,
     box-shadow 0.18s;
 }
 .clip-card:hover {
-  transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   box-shadow: var(--shadow);
 }

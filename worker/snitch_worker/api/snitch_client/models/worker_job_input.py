@@ -16,6 +16,7 @@ if TYPE_CHECKING:
   from ..models.transcription_pipeline import TranscriptionPipeline
   from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem
   from ..models.worker_vocabulary_term import WorkerVocabularyTerm
+  from ..models.worker_voice_input import WorkerVoiceInput
 
 
 
@@ -40,6 +41,7 @@ class WorkerJobInput:
             duration_seconds (float | None | Unset):
             pipeline (TranscriptionPipeline | Unset):
             pipeline_version (str | Unset):
+            voice (WorkerVoiceInput | Unset):
      """
 
     job: Job
@@ -53,6 +55,7 @@ class WorkerJobInput:
     duration_seconds: float | None | Unset = UNSET
     pipeline: TranscriptionPipeline | Unset = UNSET
     pipeline_version: str | Unset = UNSET
+    voice: WorkerVoiceInput | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -64,6 +67,7 @@ class WorkerJobInput:
         from ..models.transcription_pipeline import TranscriptionPipeline # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
+        from ..models.worker_voice_input import WorkerVoiceInput # noqa: PLC0415
         job = self.job.to_dict()
 
         original_name = self.original_name
@@ -102,6 +106,10 @@ class WorkerJobInput:
 
         pipeline_version = self.pipeline_version
 
+        voice: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.voice, Unset):
+            voice = self.voice.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -121,6 +129,8 @@ class WorkerJobInput:
             field_dict["pipeline"] = pipeline
         if pipeline_version is not UNSET:
             field_dict["pipeline_version"] = pipeline_version
+        if voice is not UNSET:
+            field_dict["voice"] = voice
 
         return field_dict
 
@@ -132,6 +142,7 @@ class WorkerJobInput:
         from ..models.transcription_pipeline import TranscriptionPipeline # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
+        from ..models.worker_voice_input import WorkerVoiceInput # noqa: PLC0415
         d = dict(src_dict)
         job = Job.from_dict(d.pop("job"))
 
@@ -190,6 +201,16 @@ class WorkerJobInput:
 
         pipeline_version = d.pop("pipeline_version", UNSET)
 
+        _voice = d.pop("voice", UNSET)
+        voice: WorkerVoiceInput | Unset
+        if isinstance(_voice,  Unset):
+            voice = UNSET
+        else:
+            voice = WorkerVoiceInput.from_dict(_voice)
+
+
+
+
         worker_job_input = cls(
             job=job,
             original_name=original_name,
@@ -202,6 +223,7 @@ class WorkerJobInput:
             duration_seconds=duration_seconds,
             pipeline=pipeline,
             pipeline_version=pipeline_version,
+            voice=voice,
         )
 
 

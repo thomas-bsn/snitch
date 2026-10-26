@@ -3,7 +3,7 @@
 ## Avancement et validation
 
 Avant de reprendre une phase, lire ROADMAP.md et sa spec dans docs/specs/.
-Les phases 0 à 2 sont implémentées et validées ; consulter leurs bilans. La phase 3 est implémentée ; lire sa spec et son bilan avant toute suite.
+Les phases 0 à 2 sont implémentées et validées ; consulter leurs bilans. Les phases 3 et 4 sont implémentées. La phase 5 est implémentée ; lire sa spec et son bilan avant toute suite, et attendre la validation utilisateur avant la phase 6.
 Travailler phase par phase ; après tests verts, README à jour et bilan du réalisé, du restant et des écarts, attendre la validation avant la suivante.
 Utiliser exclusivement des données synthétiques ou des fixtures dédiées avant l'autorisation du benchmark de phase 7 ; aucun scan spontané de la vraie bibliothèque.
 HANDOFF.md conserve des détails des phases futures. Ses mentions d'état, de blocage réseau et d'autorisation d'implémentation sont historiques et obsolètes ; se référer à la roadmap, aux specs et aux instructions actuelles de l'utilisateur.

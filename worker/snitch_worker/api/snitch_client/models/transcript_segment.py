@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.decision_level import DecisionLevel
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -29,12 +31,25 @@ class TranscriptSegment:
             end (float):
             text (str):
             words (list[TranscriptWord]):
+            local_speaker_id (int | Unset): Locuteur local dominant du segment ; absent sans diarisation ou sans
+                recouvrement.
+            local_speaker_label (str | Unset):
+            local_speaker_decision_level (DecisionLevel | Unset): human : validation humaine ; automatic, suggestion,
+                ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé
+                l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
+            local_speaker_person_id (int | Unset): Personne du Locuteur local, si attribuée.
+            local_speaker_person_name (str | Unset):
      """
 
     start: float
     end: float
     text: str
     words: list[TranscriptWord]
+    local_speaker_id: int | Unset = UNSET
+    local_speaker_label: str | Unset = UNSET
+    local_speaker_decision_level: DecisionLevel | Unset = UNSET
+    local_speaker_person_id: int | Unset = UNSET
+    local_speaker_person_name: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -56,6 +71,19 @@ class TranscriptSegment:
 
 
 
+        local_speaker_id = self.local_speaker_id
+
+        local_speaker_label = self.local_speaker_label
+
+        local_speaker_decision_level: str | Unset = UNSET
+        if not isinstance(self.local_speaker_decision_level, Unset):
+            local_speaker_decision_level = self.local_speaker_decision_level.value
+
+
+        local_speaker_person_id = self.local_speaker_person_id
+
+        local_speaker_person_name = self.local_speaker_person_name
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -65,6 +93,16 @@ class TranscriptSegment:
             "text": text,
             "words": words,
         })
+        if local_speaker_id is not UNSET:
+            field_dict["local_speaker_id"] = local_speaker_id
+        if local_speaker_label is not UNSET:
+            field_dict["local_speaker_label"] = local_speaker_label
+        if local_speaker_decision_level is not UNSET:
+            field_dict["local_speaker_decision_level"] = local_speaker_decision_level
+        if local_speaker_person_id is not UNSET:
+            field_dict["local_speaker_person_id"] = local_speaker_person_id
+        if local_speaker_person_name is not UNSET:
+            field_dict["local_speaker_person_name"] = local_speaker_person_name
 
         return field_dict
 
@@ -90,11 +128,34 @@ class TranscriptSegment:
             words.append(words_item)
 
 
+        local_speaker_id = d.pop("local_speaker_id", UNSET)
+
+        local_speaker_label = d.pop("local_speaker_label", UNSET)
+
+        _local_speaker_decision_level = d.pop("local_speaker_decision_level", UNSET)
+        local_speaker_decision_level: DecisionLevel | Unset
+        if isinstance(_local_speaker_decision_level,  Unset):
+            local_speaker_decision_level = UNSET
+        else:
+            local_speaker_decision_level = DecisionLevel(_local_speaker_decision_level)
+
+
+
+
+        local_speaker_person_id = d.pop("local_speaker_person_id", UNSET)
+
+        local_speaker_person_name = d.pop("local_speaker_person_name", UNSET)
+
         transcript_segment = cls(
             start=start,
             end=end,
             text=text,
             words=words,
+            local_speaker_id=local_speaker_id,
+            local_speaker_label=local_speaker_label,
+            local_speaker_decision_level=local_speaker_decision_level,
+            local_speaker_person_id=local_speaker_person_id,
+            local_speaker_person_name=local_speaker_person_name,
         )
 
 

@@ -15,6 +15,7 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.audio_track_selection import AudioTrackSelection
+  from ..models.clip_person import ClipPerson
   from ..models.media_track import MediaTrack
   from ..models.transcription import Transcription
 
@@ -47,6 +48,8 @@ class Clip:
             duration_seconds (float | None | Unset):
             status (str | Unset):
             sources (list[str] | Unset):
+            persons (list[ClipPerson] | Unset): Personnes identifiées dans le clip (attribution humaine ou automatique),
+                triées par nom.
             transcription (Transcription | Unset):
             audio_track_selection (AudioTrackSelection | Unset):
      """
@@ -68,6 +71,7 @@ class Clip:
     duration_seconds: float | None | Unset = UNSET
     status: str | Unset = UNSET
     sources: list[str] | Unset = UNSET
+    persons: list[ClipPerson] | Unset = UNSET
     transcription: Transcription | Unset = UNSET
     audio_track_selection: AudioTrackSelection | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -78,6 +82,7 @@ class Clip:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
+        from ..models.clip_person import ClipPerson # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         id = self.id
@@ -129,6 +134,15 @@ class Clip:
 
 
 
+        persons: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.persons, Unset):
+            persons = []
+            for persons_item_data in self.persons:
+                persons_item = persons_item_data.to_dict()
+                persons.append(persons_item)
+
+
+
         transcription: dict[str, Any] | Unset = UNSET
         if not isinstance(self.transcription, Unset):
             transcription = self.transcription.to_dict()
@@ -162,6 +176,8 @@ class Clip:
             field_dict["status"] = status
         if sources is not UNSET:
             field_dict["sources"] = sources
+        if persons is not UNSET:
+            field_dict["persons"] = persons
         if transcription is not UNSET:
             field_dict["transcription"] = transcription
         if audio_track_selection is not UNSET:
@@ -174,6 +190,7 @@ class Clip:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
+        from ..models.clip_person import ClipPerson # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         d = dict(src_dict)
@@ -238,6 +255,18 @@ class Clip:
         sources = cast(list[str], d.pop("sources", UNSET))
 
 
+        _persons = d.pop("persons", UNSET)
+        persons: list[ClipPerson] | Unset = UNSET
+        if _persons is not UNSET:
+            persons = []
+            for persons_item_data in _persons:
+                persons_item = ClipPerson.from_dict(persons_item_data)
+
+
+
+                persons.append(persons_item)
+
+
         _transcription = d.pop("transcription", UNSET)
         transcription: Transcription | Unset
         if isinstance(_transcription,  Unset):
@@ -276,6 +305,7 @@ class Clip:
             duration_seconds=duration_seconds,
             status=status,
             sources=sources,
+            persons=persons,
             transcription=transcription,
             audio_track_selection=audio_track_selection,
         )

@@ -17,6 +17,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AttributionValidationState.
+const (
+	Unvalidated AttributionValidationState = "unvalidated"
+	Validated   AttributionValidationState = "validated"
+)
+
+// Valid indicates whether the value is a known member of the AttributionValidationState enum.
+func (e AttributionValidationState) Valid() bool {
+	switch e {
+	case Unvalidated:
+		return true
+	case Validated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AudioTrackSelectionStatus.
 const (
 	Selected          AudioTrackSelectionStatus = "selected"
@@ -47,6 +65,78 @@ func (e ClipVisibility) Valid() bool {
 	case ClipVisibilityPrivate:
 		return true
 	case ClipVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipMicrophoneTrackSelectionSource.
+const (
+	ClipOverride ClipMicrophoneTrackSelectionSource = "clip_override"
+	SourceRule   ClipMicrophoneTrackSelectionSource = "source_rule"
+)
+
+// Valid indicates whether the value is a known member of the ClipMicrophoneTrackSelectionSource enum.
+func (e ClipMicrophoneTrackSelectionSource) Valid() bool {
+	switch e {
+	case ClipOverride:
+		return true
+	case SourceRule:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipVoiceStatus.
+const (
+	ClipVoiceStatusDone    ClipVoiceStatus = "done"
+	ClipVoiceStatusFailed  ClipVoiceStatus = "failed"
+	ClipVoiceStatusNone    ClipVoiceStatus = "none"
+	ClipVoiceStatusQueued  ClipVoiceStatus = "queued"
+	ClipVoiceStatusRunning ClipVoiceStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the ClipVoiceStatus enum.
+func (e ClipVoiceStatus) Valid() bool {
+	switch e {
+	case ClipVoiceStatusDone:
+		return true
+	case ClipVoiceStatusFailed:
+		return true
+	case ClipVoiceStatusNone:
+		return true
+	case ClipVoiceStatusQueued:
+		return true
+	case ClipVoiceStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DecisionLevel.
+const (
+	DecisionLevelAmbiguous  DecisionLevel = "ambiguous"
+	DecisionLevelAutomatic  DecisionLevel = "automatic"
+	DecisionLevelHuman      DecisionLevel = "human"
+	DecisionLevelSuggestion DecisionLevel = "suggestion"
+	DecisionLevelUnknown    DecisionLevel = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the DecisionLevel enum.
+func (e DecisionLevel) Valid() bool {
+	switch e {
+	case DecisionLevelAmbiguous:
+		return true
+	case DecisionLevelAutomatic:
+		return true
+	case DecisionLevelHuman:
+		return true
+	case DecisionLevelSuggestion:
+		return true
+	case DecisionLevelUnknown:
 		return true
 	default:
 		return false
@@ -134,6 +224,159 @@ func (e JobEventEvent) Valid() bool {
 	case JobEventEventMarkedDead:
 		return true
 	case JobEventEventRetryScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LocalSpeakerKind.
+const (
+	LocalSpeakerKindDiarized   LocalSpeakerKind = "diarized"
+	LocalSpeakerKindMicrophone LocalSpeakerKind = "microphone"
+)
+
+// Valid indicates whether the value is a known member of the LocalSpeakerKind enum.
+func (e LocalSpeakerKind) Valid() bool {
+	switch e {
+	case LocalSpeakerKindDiarized:
+		return true
+	case LocalSpeakerKindMicrophone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LocalSpeakerState.
+const (
+	Identified   LocalSpeakerState = "identified"
+	Unidentified LocalSpeakerState = "unidentified"
+)
+
+// Valid indicates whether the value is a known member of the LocalSpeakerState enum.
+func (e LocalSpeakerState) Valid() bool {
+	switch e {
+	case Identified:
+		return true
+	case Unidentified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MicrophoneTrackEventAction.
+const (
+	MicrophoneTrackEventActionDisable MicrophoneTrackEventAction = "disable"
+	MicrophoneTrackEventActionRemove  MicrophoneTrackEventAction = "remove"
+	MicrophoneTrackEventActionSet     MicrophoneTrackEventAction = "set"
+)
+
+// Valid indicates whether the value is a known member of the MicrophoneTrackEventAction enum.
+func (e MicrophoneTrackEventAction) Valid() bool {
+	switch e {
+	case MicrophoneTrackEventActionDisable:
+		return true
+	case MicrophoneTrackEventActionRemove:
+		return true
+	case MicrophoneTrackEventActionSet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MicrophoneTrackEventScope.
+const (
+	MicrophoneTrackEventScopeClip   MicrophoneTrackEventScope = "clip"
+	MicrophoneTrackEventScopeSource MicrophoneTrackEventScope = "source"
+)
+
+// Valid indicates whether the value is a known member of the MicrophoneTrackEventScope enum.
+func (e MicrophoneTrackEventScope) Valid() bool {
+	switch e {
+	case MicrophoneTrackEventScopeClip:
+		return true
+	case MicrophoneTrackEventScopeSource:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MicrophoneTrackItemRole.
+const (
+	MicrophoneTrackItemRoleCandidate  MicrophoneTrackItemRole = "candidate"
+	MicrophoneTrackItemRoleMicrophone MicrophoneTrackItemRole = "microphone"
+	MicrophoneTrackItemRoleOther      MicrophoneTrackItemRole = "other"
+)
+
+// Valid indicates whether the value is a known member of the MicrophoneTrackItemRole enum.
+func (e MicrophoneTrackItemRole) Valid() bool {
+	switch e {
+	case MicrophoneTrackItemRoleCandidate:
+		return true
+	case MicrophoneTrackItemRoleMicrophone:
+		return true
+	case MicrophoneTrackItemRoleOther:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MicrophoneTrackStatus.
+const (
+	MicrophoneTrackStatusAmbiguousTrack      MicrophoneTrackStatus = "ambiguous_track"
+	MicrophoneTrackStatusBlockedByValidation MicrophoneTrackStatus = "blocked_by_validation"
+	MicrophoneTrackStatusConflictingSources  MicrophoneTrackStatus = "conflicting_sources"
+	MicrophoneTrackStatusDesignated          MicrophoneTrackStatus = "designated"
+	MicrophoneTrackStatusDisabled            MicrophoneTrackStatus = "disabled"
+	MicrophoneTrackStatusNone                MicrophoneTrackStatus = "none"
+	MicrophoneTrackStatusOwnerProfileDeleted MicrophoneTrackStatus = "owner_profile_deleted"
+	MicrophoneTrackStatusTrackNotFound       MicrophoneTrackStatus = "track_not_found"
+)
+
+// Valid indicates whether the value is a known member of the MicrophoneTrackStatus enum.
+func (e MicrophoneTrackStatus) Valid() bool {
+	switch e {
+	case MicrophoneTrackStatusAmbiguousTrack:
+		return true
+	case MicrophoneTrackStatusBlockedByValidation:
+		return true
+	case MicrophoneTrackStatusConflictingSources:
+		return true
+	case MicrophoneTrackStatusDesignated:
+		return true
+	case MicrophoneTrackStatusDisabled:
+		return true
+	case MicrophoneTrackStatusNone:
+		return true
+	case MicrophoneTrackStatusOwnerProfileDeleted:
+		return true
+	case MicrophoneTrackStatusTrackNotFound:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonEventAction.
+const (
+	Delete PersonEventAction = "delete"
+	Merge  PersonEventAction = "merge"
+	Split  PersonEventAction = "split"
+)
+
+// Valid indicates whether the value is a known member of the PersonEventAction enum.
+func (e PersonEventAction) Valid() bool {
+	switch e {
+	case Delete:
+		return true
+	case Merge:
+		return true
+	case Split:
 		return true
 	default:
 		return false
@@ -404,6 +647,132 @@ func (e UserRole) Valid() bool {
 	}
 }
 
+// Defines values for VoiceAutomationEventAction.
+const (
+	VoiceAutomationEventActionDisable VoiceAutomationEventAction = "disable"
+	VoiceAutomationEventActionEnable  VoiceAutomationEventAction = "enable"
+)
+
+// Valid indicates whether the value is a known member of the VoiceAutomationEventAction enum.
+func (e VoiceAutomationEventAction) Valid() bool {
+	switch e {
+	case VoiceAutomationEventActionDisable:
+		return true
+	case VoiceAutomationEventActionEnable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceFingerprintScope.
+const (
+	Speaker VoiceFingerprintScope = "speaker"
+	Turn    VoiceFingerprintScope = "turn"
+)
+
+// Valid indicates whether the value is a known member of the VoiceFingerprintScope enum.
+func (e VoiceFingerprintScope) Valid() bool {
+	switch e {
+	case Speaker:
+		return true
+	case Turn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceFingerprintUnusableReason.
+const (
+	Empty      VoiceFingerprintUnusableReason = ""
+	LowQuality VoiceFingerprintUnusableReason = "low_quality"
+	TooShort   VoiceFingerprintUnusableReason = "too_short"
+)
+
+// Valid indicates whether the value is a known member of the VoiceFingerprintUnusableReason enum.
+func (e VoiceFingerprintUnusableReason) Valid() bool {
+	switch e {
+	case Empty:
+		return true
+	case LowQuality:
+		return true
+	case TooShort:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoicePipelineProvider.
+const (
+	Fake     VoicePipelineProvider = "fake"
+	Pyannote VoicePipelineProvider = "pyannote"
+)
+
+// Valid indicates whether the value is a known member of the VoicePipelineProvider enum.
+func (e VoicePipelineProvider) Valid() bool {
+	switch e {
+	case Fake:
+		return true
+	case Pyannote:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceStepStatus.
+const (
+	VoiceStepStatusCancelled VoiceStepStatus = "cancelled"
+	VoiceStepStatusDead      VoiceStepStatus = "dead"
+	VoiceStepStatusDone      VoiceStepStatus = "done"
+	VoiceStepStatusFailed    VoiceStepStatus = "failed"
+	VoiceStepStatusLeased    VoiceStepStatus = "leased"
+	VoiceStepStatusPending   VoiceStepStatus = "pending"
+	VoiceStepStatusRetryWait VoiceStepStatus = "retry_wait"
+)
+
+// Valid indicates whether the value is a known member of the VoiceStepStatus enum.
+func (e VoiceStepStatus) Valid() bool {
+	switch e {
+	case VoiceStepStatusCancelled:
+		return true
+	case VoiceStepStatusDead:
+		return true
+	case VoiceStepStatusDone:
+		return true
+	case VoiceStepStatusFailed:
+		return true
+	case VoiceStepStatusLeased:
+		return true
+	case VoiceStepStatusPending:
+		return true
+	case VoiceStepStatusRetryWait:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceVerificationCaseDecisionLevel.
+const (
+	VoiceVerificationCaseDecisionLevelAmbiguous VoiceVerificationCaseDecisionLevel = "ambiguous"
+	VoiceVerificationCaseDecisionLevelUnknown   VoiceVerificationCaseDecisionLevel = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the VoiceVerificationCaseDecisionLevel enum.
+func (e VoiceVerificationCaseDecisionLevel) Valid() bool {
+	switch e {
+	case VoiceVerificationCaseDecisionLevelAmbiguous:
+		return true
+	case VoiceVerificationCaseDecisionLevelUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListJobsParamsStatus.
 const (
 	ListJobsParamsStatusCancelled ListJobsParamsStatus = "cancelled"
@@ -542,6 +911,123 @@ func (e SearchTranscriptsParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for ListVoiceGroupsParamsSort.
+const (
+	Clips   ListVoiceGroupsParamsSort = "clips"
+	Members ListVoiceGroupsParamsSort = "members"
+)
+
+// Valid indicates whether the value is a known member of the ListVoiceGroupsParamsSort enum.
+func (e ListVoiceGroupsParamsSort) Valid() bool {
+	switch e {
+	case Clips:
+		return true
+	case Members:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListVoiceVerificationParamsLevel.
+const (
+	ListVoiceVerificationParamsLevelAll       ListVoiceVerificationParamsLevel = "all"
+	ListVoiceVerificationParamsLevelAmbiguous ListVoiceVerificationParamsLevel = "ambiguous"
+	ListVoiceVerificationParamsLevelUnknown   ListVoiceVerificationParamsLevel = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ListVoiceVerificationParamsLevel enum.
+func (e ListVoiceVerificationParamsLevel) Valid() bool {
+	switch e {
+	case ListVoiceVerificationParamsLevelAll:
+		return true
+	case ListVoiceVerificationParamsLevelAmbiguous:
+		return true
+	case ListVoiceVerificationParamsLevelUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Attribution defines model for Attribution.
+type Attribution struct {
+	Author *AttributionAuthor `json:"author"`
+
+	// Candidates Personnes entre lesquelles le rapprochement hésite (ambiguë : toutes celles dans la marge) ou alternatives d'une suggestion ; vide pour une validation humaine.
+	Candidates []AttributionCandidate `json:"candidates"`
+
+	// Confidence Confiance automatique du rapprochement, absente d'une validation humaine.
+	Confidence *float32  `json:"confidence"`
+	DecidedAt  time.Time `json:"decided_at"`
+
+	// DecisionLevel human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
+	DecisionLevel  DecisionLevel `json:"decision_level"`
+	Id             int64         `json:"id"`
+	LocalSpeakerId int64         `json:"local_speaker_id"`
+
+	// Origin human (validation), matching (rapprochement en base), puis microphone_track selon les étapes suivantes.
+	Origin   string     `json:"origin"`
+	Person   *PersonRef `json:"person"`
+	Revision int        `json:"revision"`
+
+	// ValidationState validated : validation humaine (fait foi, source d'Échantillon vocal validé).
+	ValidationState AttributionValidationState `json:"validation_state"`
+}
+
+// AttributionValidationState validated : validation humaine (fait foi, source d'Échantillon vocal validé).
+type AttributionValidationState string
+
+// AttributionAuthor defines model for AttributionAuthor.
+type AttributionAuthor struct {
+	Id *int64 `json:"id"`
+
+	// Username Nom au moment de la décision.
+	Username string `json:"username"`
+}
+
+// AttributionCandidate defines model for AttributionCandidate.
+type AttributionCandidate struct {
+	Person PersonRef `json:"person"`
+	Rank   int       `json:"rank"`
+
+	// Score Similarité cosinus entre l'empreinte du Locuteur local et la meilleure référence de la Personne.
+	Score float32 `json:"score"`
+}
+
+// AttributionConflict defines model for AttributionConflict.
+type AttributionConflict struct {
+	Attribution *Attribution `json:"attribution,omitempty"`
+	Error       string       `json:"error"`
+}
+
+// AttributionEvent defines model for AttributionEvent.
+type AttributionEvent struct {
+	// Action validate, correct, match (changement d'une attribution automatique, sans auteur) ; d'autres actions pourront s'ajouter.
+	Action           string             `json:"action"`
+	Author           *AttributionAuthor `json:"author"`
+	CreatedAt        time.Time          `json:"created_at"`
+	Id               int64              `json:"id"`
+	LocalSpeakerId   int64              `json:"local_speaker_id"`
+	NewDecisionLevel string             `json:"new_decision_level"`
+	NewPerson        *PersonRef         `json:"new_person"`
+	OldDecisionLevel string             `json:"old_decision_level"`
+	OldPerson        *PersonRef         `json:"old_person"`
+}
+
+// AttributionHistory defines model for AttributionHistory.
+type AttributionHistory struct {
+	Items []AttributionEvent `json:"items"`
+}
+
+// AttributionInput Exactement un de person_id ou new_person_name.
+type AttributionInput struct {
+	// ExpectedPersonId Correction uniquement : Personne actuellement validée telle que vue par l'utilisateur.
+	ExpectedPersonId *int64  `json:"expected_person_id,omitempty"`
+	NewPersonName    *string `json:"new_person_name,omitempty"`
+	PersonId         *int64  `json:"person_id,omitempty"`
+}
+
 // AudioTrackOverride defines model for AudioTrackOverride.
 type AudioTrackOverride struct {
 	AudioStreamIndex int `json:"audio_stream_index"`
@@ -591,20 +1077,48 @@ type Clip struct {
 	OriginalName        string               `json:"original_name"`
 	Owner               string               `json:"owner"`
 	OwnerId             int64                `json:"owner_id"`
-	RecordedAt          time.Time            `json:"recorded_at"`
-	RecordedAtEstimated bool                 `json:"recorded_at_estimated"`
-	SizeBytes           int64                `json:"size_bytes"`
-	Sources             *[]string            `json:"sources,omitempty"`
-	Status              *string              `json:"status,omitempty"`
-	Tracks              []MediaTrack         `json:"tracks"`
-	Transcription       *Transcription       `json:"transcription,omitempty"`
-	Uploaders           []string             `json:"uploaders"`
-	VideoCodec          string               `json:"video_codec"`
-	Visibility          ClipVisibility       `json:"visibility"`
+
+	// Persons Personnes identifiées dans le clip (attribution humaine ou automatique), triées par nom.
+	Persons             *[]ClipPerson  `json:"persons,omitempty"`
+	RecordedAt          time.Time      `json:"recorded_at"`
+	RecordedAtEstimated bool           `json:"recorded_at_estimated"`
+	SizeBytes           int64          `json:"size_bytes"`
+	Sources             *[]string      `json:"sources,omitempty"`
+	Status              *string        `json:"status,omitempty"`
+	Tracks              []MediaTrack   `json:"tracks"`
+	Transcription       *Transcription `json:"transcription,omitempty"`
+	Uploaders           []string       `json:"uploaders"`
+	VideoCodec          string         `json:"video_codec"`
+	Visibility          ClipVisibility `json:"visibility"`
 }
 
 // ClipVisibility defines model for Clip.Visibility.
 type ClipVisibility string
+
+// ClipMicrophoneTrack defines model for ClipMicrophoneTrack.
+type ClipMicrophoneTrack struct {
+	Applied          bool `json:"applied"`
+	AudioStreamIndex *int `json:"audio_stream_index"`
+
+	// Candidates Pistes qui correspondent toutes à la règle (ambiguous_track).
+	Candidates []int `json:"candidates"`
+	ClipId     int64 `json:"clip_id"`
+
+	// History Changements de règle de la source et remplacements du clip, du plus récent au plus ancien (50 au plus).
+	History []MicrophoneTrackEvent `json:"history"`
+
+	// LocalSpeakerId Locuteur local de la piste micro, une fois la désignation appliquée.
+	LocalSpeakerId  *int64                              `json:"local_speaker_id"`
+	Person          *PersonRef                          `json:"person"`
+	SelectionSource *ClipMicrophoneTrackSelectionSource `json:"selection_source"`
+
+	// Status none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain ; owner_profile_deleted : le propriétaire désigné a supprimé son profil vocal, rien ne lui est attribué.
+	Status MicrophoneTrackStatus `json:"status"`
+	Tracks []MicrophoneTrackItem `json:"tracks"`
+}
+
+// ClipMicrophoneTrackSelectionSource defines model for ClipMicrophoneTrack.SelectionSource.
+type ClipMicrophoneTrackSelectionSource string
 
 // ClipPage defines model for ClipPage.
 type ClipPage struct {
@@ -614,11 +1128,34 @@ type ClipPage struct {
 	Total    int    `json:"total"`
 }
 
+// ClipPerson defines model for ClipPerson.
+type ClipPerson struct {
+	// DecisionLevel human (validée) ou automatic ; human l’emporte si la Personne a les deux dans le clip.
+	DecisionLevel DecisionLevel `json:"decision_level"`
+	DisplayName   string        `json:"display_name"`
+	Id            int64         `json:"id"`
+}
+
+// ClipVoice defines model for ClipVoice.
+type ClipVoice struct {
+	AudioStreamIndex *int            `json:"audio_stream_index,omitempty"`
+	ClipId           int64           `json:"clip_id"`
+	Speakers         []LocalSpeaker  `json:"speakers"`
+	Status           ClipVoiceStatus `json:"status"`
+	Steps            []VoiceStep     `json:"steps"`
+}
+
+// ClipVoiceStatus defines model for ClipVoice.Status.
+type ClipVoiceStatus string
+
 // Credentials defines model for Credentials.
 type Credentials struct {
 	Password string `json:"password"`
 	Username string `json:"username"`
 }
+
+// DecisionLevel human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
+type DecisionLevel string
 
 // Error defines model for Error.
 type Error struct {
@@ -701,6 +1238,35 @@ type JobPage struct {
 	Total    int64 `json:"total"`
 }
 
+// LocalSpeaker defines model for LocalSpeaker.
+type LocalSpeaker struct {
+	Attribution *Attribution `json:"attribution"`
+
+	// DecisionLevel human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
+	DecisionLevel DecisionLevel      `json:"decision_level"`
+	Fingerprints  []VoiceFingerprint `json:"fingerprints"`
+	Id            int64              `json:"id"`
+
+	// Kind microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le clip, aucune empreinte).
+	Kind    LocalSpeakerKind `json:"kind"`
+	Label   string           `json:"label"`
+	Ordinal int              `json:"ordinal"`
+
+	// Person Personne de l'attribution effective (validation humaine prioritaire).
+	Person          *PersonRef `json:"person"`
+	SpeakingSeconds float32    `json:"speaking_seconds"`
+
+	// State identified : attribution humaine ou automatique à une Personne. Une suggestion ou une voix ambiguë reste unidentified ; une voix inconnue ne bloque rien.
+	State     LocalSpeakerState `json:"state"`
+	TurnCount int               `json:"turn_count"`
+}
+
+// LocalSpeakerKind microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le clip, aucune empreinte).
+type LocalSpeakerKind string
+
+// LocalSpeakerState identified : attribution humaine ou automatique à une Personne. Une suggestion ou une voix ambiguë reste unidentified ; une voix inconnue ne bloque rien.
+type LocalSpeakerState string
+
 // MediaTrack defines model for MediaTrack.
 type MediaTrack struct {
 	ChannelLayout *string `json:"channel_layout,omitempty"`
@@ -714,6 +1280,189 @@ type MediaTrack struct {
 	Width         *int    `json:"width,omitempty"`
 }
 
+// MicrophoneDetectedTrack defines model for MicrophoneDetectedTrack.
+type MicrophoneDetectedTrack struct {
+	AudioStreamIndex int    `json:"audio_stream_index"`
+	ChannelLayout    string `json:"channel_layout"`
+	Channels         int    `json:"channels"`
+
+	// ClipCount Nombre de clips prêts de la source portant cette piste.
+	ClipCount int    `json:"clip_count"`
+	Language  string `json:"language"`
+	Title     string `json:"title"`
+}
+
+// MicrophoneSnapshot Désignation telle qu'elle était, avec le nom de la Personne à l'époque.
+type MicrophoneSnapshot struct {
+	AudioStreamIndex *int       `json:"audio_stream_index,omitempty"`
+	Disabled         *bool      `json:"disabled,omitempty"`
+	Person           *PersonRef `json:"person,omitempty"`
+	Title            *string    `json:"title,omitempty"`
+}
+
+// MicrophoneSourceRule defines model for MicrophoneSourceRule.
+type MicrophoneSourceRule struct {
+	DetectedTracks []MicrophoneDetectedTrack  `json:"detected_tracks"`
+	Rule           *MicrophoneSourceRuleValue `json:"rule"`
+	SourceId       int64                      `json:"source_id"`
+
+	// StatusCounts Après une écriture : nombre de clips par état de désignation (designated, track_not_found, ambiguous_track, conflicting_sources, blocked_by_validation, owner_profile_deleted, disabled, none). Vide en lecture.
+	StatusCounts map[string]int `json:"status_counts"`
+}
+
+// MicrophoneSourceRuleValue defines model for MicrophoneSourceRuleValue.
+type MicrophoneSourceRuleValue struct {
+	AudioStreamIndex *int      `json:"audio_stream_index"`
+	Person           PersonRef `json:"person"`
+	Title            *string   `json:"title"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	Version          int64     `json:"version"`
+}
+
+// MicrophoneTrackClipInput Soit disabled=true seul, soit audio_stream_index et person_id ensemble.
+type MicrophoneTrackClipInput struct {
+	AudioStreamIndex *int `json:"audio_stream_index,omitempty"`
+
+	// Disabled true : ce clip n'a pas de piste micro.
+	Disabled *bool  `json:"disabled,omitempty"`
+	PersonId *int64 `json:"person_id,omitempty"`
+}
+
+// MicrophoneTrackEvent defines model for MicrophoneTrackEvent.
+type MicrophoneTrackEvent struct {
+	Action    MicrophoneTrackEventAction `json:"action"`
+	Author    *AttributionAuthor         `json:"author"`
+	CreatedAt time.Time                  `json:"created_at"`
+	Id        int64                      `json:"id"`
+	NewRule   *MicrophoneSnapshot        `json:"new_rule"`
+	OldRule   *MicrophoneSnapshot        `json:"old_rule"`
+	Scope     MicrophoneTrackEventScope  `json:"scope"`
+	SourceId  *int64                     `json:"source_id"`
+}
+
+// MicrophoneTrackEventAction defines model for MicrophoneTrackEvent.Action.
+type MicrophoneTrackEventAction string
+
+// MicrophoneTrackEventScope defines model for MicrophoneTrackEvent.Scope.
+type MicrophoneTrackEventScope string
+
+// MicrophoneTrackItem defines model for MicrophoneTrackItem.
+type MicrophoneTrackItem struct {
+	ChannelLayout string `json:"channel_layout"`
+	Channels      int    `json:"channels"`
+	Index         int    `json:"index"`
+	Language      string `json:"language"`
+
+	// Role other : piste traitée normalement (diarisation).
+	Role  MicrophoneTrackItemRole `json:"role"`
+	Title string                  `json:"title"`
+}
+
+// MicrophoneTrackItemRole other : piste traitée normalement (diarisation).
+type MicrophoneTrackItemRole string
+
+// MicrophoneTrackRuleInput Au moins un de audio_stream_index ou title ; si les deux sont donnés, la piste doit correspondre aux deux.
+type MicrophoneTrackRuleInput struct {
+	// AudioStreamIndex Index global FFmpeg d'une piste détectée.
+	AudioStreamIndex *int `json:"audio_stream_index,omitempty"`
+
+	// PersonId Personne propriétaire du micro.
+	PersonId int64 `json:"person_id"`
+
+	// Title Titre exact (sans casse) d'une piste détectée.
+	Title *string `json:"title,omitempty"`
+}
+
+// MicrophoneTrackStatus none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain ; owner_profile_deleted : le propriétaire désigné a supprimé son profil vocal, rien ne lui est attribué.
+type MicrophoneTrackStatus string
+
+// Person defines model for Person.
+type Person struct {
+	CreatedAt   time.Time `json:"created_at"`
+	DisplayName string    `json:"display_name"`
+	Id          int64     `json:"id"`
+
+	// LocalSpeakerCount Locuteurs locaux validés pour cette Personne.
+	LocalSpeakerCount int `json:"local_speaker_count"`
+
+	// UserId Compte lié, le cas échéant : une Personne n'est jamais un compte.
+	UserId *int64 `json:"user_id"`
+
+	// ValidatedSampleCount Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre n'est pas une garantie de qualité d'identification.
+	ValidatedSampleCount int `json:"validated_sample_count"`
+
+	// VoiceProfileDeletedAt Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée.
+	VoiceProfileDeletedAt *time.Time `json:"voice_profile_deleted_at"`
+}
+
+// PersonAccountInput defines model for PersonAccountInput.
+type PersonAccountInput struct {
+	Username string `json:"username"`
+}
+
+// PersonCorrectionResult defines model for PersonCorrectionResult.
+type PersonCorrectionResult struct {
+	// Attributions Attributions rattachées (fusion) ou retirées (séparation, suppression).
+	Attributions int `json:"attributions"`
+
+	// MicrophoneRules Désignations de piste micro déplacées (fusion) ou supprimées (suppression).
+	MicrophoneRules int `json:"microphone_rules"`
+
+	// Person Personne qui reste (cible de fusion, Personne séparée) ; null après suppression.
+	Person *Person `json:"person"`
+
+	// Samples Échantillons vocaux déplacés (fusion) ou effacés des références.
+	Samples int `json:"samples"`
+}
+
+// PersonEvent defines model for PersonEvent.
+type PersonEvent struct {
+	Action              PersonEventAction  `json:"action"`
+	AttributionCount    int                `json:"attribution_count"`
+	Author              *AttributionAuthor `json:"author"`
+	CreatedAt           time.Time          `json:"created_at"`
+	Id                  int64              `json:"id"`
+	MicrophoneRuleCount int                `json:"microphone_rule_count"`
+	Person              PersonRef          `json:"person"`
+	SampleCount         int                `json:"sample_count"`
+	Target              *PersonRef         `json:"target"`
+}
+
+// PersonEventAction defines model for PersonEvent.Action.
+type PersonEventAction string
+
+// PersonEventList defines model for PersonEventList.
+type PersonEventList struct {
+	Items []PersonEvent `json:"items"`
+}
+
+// PersonInput defines model for PersonInput.
+type PersonInput struct {
+	DisplayName string `json:"display_name"`
+}
+
+// PersonList defines model for PersonList.
+type PersonList struct {
+	Items []Person `json:"items"`
+}
+
+// PersonMergeInput defines model for PersonMergeInput.
+type PersonMergeInput struct {
+	// TargetPersonId Personne qui reste ; celle du chemin est absorbée.
+	TargetPersonId int64 `json:"target_person_id"`
+}
+
+// PersonRef defines model for PersonRef.
+type PersonRef struct {
+	DisplayName string `json:"display_name"`
+	Id          int64  `json:"id"`
+}
+
+// PersonSeparationInput defines model for PersonSeparationInput.
+type PersonSeparationInput struct {
+	LocalSpeakerIds []int64 `json:"local_speaker_ids"`
+}
+
 // Redirect defines model for Redirect.
 type Redirect struct {
 	Url string `json:"url"`
@@ -721,6 +1470,11 @@ type Redirect struct {
 
 // ScheduledTranscription defines model for ScheduledTranscription.
 type ScheduledTranscription struct {
+	Job Job `json:"job"`
+}
+
+// ScheduledVoice defines model for ScheduledVoice.
+type ScheduledVoice struct {
 	Job Job `json:"job"`
 }
 
@@ -736,16 +1490,22 @@ type SearchPage struct {
 
 // SearchResult defines model for SearchResult.
 type SearchResult struct {
-	ClipId      int64                  `json:"clip_id"`
-	ClipName    string                 `json:"clip_name"`
-	Context     string                 `json:"context"`
-	MatchType   SearchResultMatchType  `json:"match_type"`
-	MatchedText string                 `json:"matched_text"`
-	RecordedAt  time.Time              `json:"recorded_at"`
-	Sources     []string               `json:"sources"`
-	Status      SearchResultStatus     `json:"status"`
-	Timestamp   float64                `json:"timestamp"`
-	Visibility  SearchResultVisibility `json:"visibility"`
+	ClipId   int64  `json:"clip_id"`
+	ClipName string `json:"clip_name"`
+	Context  string `json:"context"`
+
+	// DecisionLevel Niveau de décision tracé de l’attribution effective ; unknown sans attribution ou sans voix détectée.
+	DecisionLevel DecisionLevel         `json:"decision_level"`
+	MatchType     SearchResultMatchType `json:"match_type"`
+	MatchedText   string                `json:"matched_text"`
+
+	// Person Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté.
+	Person     *PersonRef             `json:"person"`
+	RecordedAt time.Time              `json:"recorded_at"`
+	Sources    []string               `json:"sources"`
+	Status     SearchResultStatus     `json:"status"`
+	Timestamp  float64                `json:"timestamp"`
+	Visibility SearchResultVisibility `json:"visibility"`
 }
 
 // SearchResultMatchType defines model for SearchResult.MatchType.
@@ -861,10 +1621,21 @@ type Status struct {
 
 // TranscriptSegment defines model for TranscriptSegment.
 type TranscriptSegment struct {
-	End   float32          `json:"end"`
-	Start float32          `json:"start"`
-	Text  string           `json:"text"`
-	Words []TranscriptWord `json:"words"`
+	End float32 `json:"end"`
+
+	// LocalSpeakerDecisionLevel human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
+	LocalSpeakerDecisionLevel *DecisionLevel `json:"local_speaker_decision_level,omitempty"`
+
+	// LocalSpeakerId Locuteur local dominant du segment ; absent sans diarisation ou sans recouvrement.
+	LocalSpeakerId    *int64  `json:"local_speaker_id,omitempty"`
+	LocalSpeakerLabel *string `json:"local_speaker_label,omitempty"`
+
+	// LocalSpeakerPersonId Personne du Locuteur local, si attribuée.
+	LocalSpeakerPersonId   *int64           `json:"local_speaker_person_id,omitempty"`
+	LocalSpeakerPersonName *string          `json:"local_speaker_person_name,omitempty"`
+	Start                  float32          `json:"start"`
+	Text                   string           `json:"text"`
+	Words                  []TranscriptWord `json:"words"`
 }
 
 // TranscriptWord defines model for TranscriptWord.
@@ -994,6 +1765,362 @@ type VocabularyTermInput struct {
 	Variants          []string `json:"variants"`
 }
 
+// VoiceAccuracy defines model for VoiceAccuracy.
+type VoiceAccuracy struct {
+	// ActivationProposed Les critères sont atteints et l'automatisation est désactivée : Snitch propose l'activation à l'administrateur.
+	ActivationProposed bool    `json:"activation_proposed"`
+	AutoEnabled        bool    `json:"auto_enabled"`
+	AutomaticThreshold float32 `json:"automatic_threshold"`
+	Criteria           struct {
+		ConfirmationsMet bool `json:"confirmations_met"`
+		Met              bool `json:"met"`
+		PrecisionMet     bool `json:"precision_met"`
+	} `json:"criteria"`
+	Evaluation VoiceAccuracyEvaluation `json:"evaluation"`
+
+	// Events Historique des activations et désactivations, du plus récent au plus ancien.
+	Events             []VoiceAutomationEvent `json:"events"`
+	Library            VoiceAccuracyLibrary   `json:"library"`
+	MeasuredAt         time.Time              `json:"measured_at"`
+	MinConfirmations   int                    `json:"min_confirmations"`
+	Persons            []VoiceAccuracyPerson  `json:"persons"`
+	PrecisionThreshold float32                `json:"precision_threshold"`
+}
+
+// VoiceAccuracyEvaluation defines model for VoiceAccuracyEvaluation.
+type VoiceAccuracyEvaluation struct {
+	// Confirmed Confirmations : attributions automatiques simulées qui désignent la Personne validée par un humain.
+	Confirmed int `json:"confirmed"`
+
+	// Coverage evaluated_automatic / test_samples ; null sans test.
+	Coverage *float32 `json:"coverage"`
+
+	// EvaluatedAutomatic Tests qui auraient été attribués automatiquement.
+	EvaluatedAutomatic int `json:"evaluated_automatic"`
+
+	// ExcludedSamples Échantillons écartés de la mesure car leur clip contient aussi une référence.
+	ExcludedSamples int `json:"excluded_samples"`
+
+	// Precision confirmed / evaluated_automatic ; null si aucun test n'est automatique.
+	Precision *float32 `json:"precision"`
+
+	// ReferenceSamples Échantillons validés servant de référence pour cette mesure.
+	ReferenceSamples int `json:"reference_samples"`
+
+	// TestSamples Échantillons validés servant de test : leur clip ne contient aucune référence.
+	TestSamples int `json:"test_samples"`
+}
+
+// VoiceAccuracyLibrary defines model for VoiceAccuracyLibrary.
+type VoiceAccuracyLibrary struct {
+	Ambiguous int `json:"ambiguous"`
+
+	// Automatic Attribués automatiquement, ou qui le seraient dès l'activation (suggestion au moins égale au seuil automatique).
+	Automatic int `json:"automatic"`
+
+	// Coverage automatic / locuteurs non validés ; null sans locuteur à attribuer.
+	Coverage *float32 `json:"coverage"`
+
+	// MicrophoneAssigned Pistes micro attribuées à leur propriétaire : comptées à part, indépendantes de l'interrupteur.
+	MicrophoneAssigned int `json:"microphone_assigned"`
+
+	// SpeakersTotal Locuteurs locaux diarisés (hors piste micro).
+	SpeakersTotal int `json:"speakers_total"`
+	Suggestion    int `json:"suggestion"`
+
+	// ToVerify Volume de vérification restant : suggestions, ambigus et inconnus.
+	ToVerify int `json:"to_verify"`
+	Unknown  int `json:"unknown"`
+
+	// Validated Validés par un humain.
+	Validated int `json:"validated"`
+}
+
+// VoiceAccuracyPerson defines model for VoiceAccuracyPerson.
+type VoiceAccuracyPerson struct {
+	// AutomaticPredictions Tests attribués automatiquement à cette Personne, à raison ou non.
+	AutomaticPredictions int       `json:"automatic_predictions"`
+	Confirmed            int       `json:"confirmed"`
+	Person               PersonRef `json:"person"`
+	Precision            *float32  `json:"precision"`
+	ReferenceSamples     int       `json:"reference_samples"`
+	TestSamples          int       `json:"test_samples"`
+}
+
+// VoiceAutomationCriteriaInput defines model for VoiceAutomationCriteriaInput.
+type VoiceAutomationCriteriaInput struct {
+	MinConfirmations   int     `json:"min_confirmations"`
+	PrecisionThreshold float32 `json:"precision_threshold"`
+}
+
+// VoiceAutomationEvent defines model for VoiceAutomationEvent.
+type VoiceAutomationEvent struct {
+	Action        VoiceAutomationEventAction `json:"action"`
+	Author        string                     `json:"author"`
+	Confirmations int                        `json:"confirmations"`
+	CreatedAt     time.Time                  `json:"created_at"`
+	CriteriaMet   bool                       `json:"criteria_met"`
+
+	// Forced Activation confirmée explicitement malgré des critères non atteints.
+	Forced             bool     `json:"forced"`
+	MeasuredPrecision  *float32 `json:"measured_precision"`
+	MinConfirmations   int      `json:"min_confirmations"`
+	PrecisionThreshold float32  `json:"precision_threshold"`
+}
+
+// VoiceAutomationEventAction defines model for VoiceAutomationEvent.Action.
+type VoiceAutomationEventAction string
+
+// VoiceAutomationInput defines model for VoiceAutomationInput.
+type VoiceAutomationInput struct {
+	// ConfirmUnmetCriteria Requis pour activer alors que les critères ne sont pas atteints ; sans effet sinon.
+	ConfirmUnmetCriteria *bool `json:"confirm_unmet_criteria,omitempty"`
+	Enabled              bool  `json:"enabled"`
+}
+
+// VoiceAutomationResult defines model for VoiceAutomationResult.
+type VoiceAutomationResult struct {
+	Settings VoiceMatchingSettings `json:"settings"`
+	Summary  VoiceMatchingSummary  `json:"summary"`
+}
+
+// VoiceFingerprint defines model for VoiceFingerprint.
+type VoiceFingerprint struct {
+	Dimensions      int                            `json:"dimensions"`
+	DurationSeconds float32                        `json:"duration_seconds"`
+	EndSeconds      float32                        `json:"end_seconds"`
+	Id              int64                          `json:"id"`
+	Model           string                         `json:"model"`
+	ModelVersion    string                         `json:"model_version"`
+	Quality         float32                        `json:"quality"`
+	Scope           VoiceFingerprintScope          `json:"scope"`
+	StartSeconds    float32                        `json:"start_seconds"`
+	UnusableReason  VoiceFingerprintUnusableReason `json:"unusable_reason"`
+
+	// Usable Faux : ne sert ni de référence ni de base de propagation.
+	Usable bool `json:"usable"`
+}
+
+// VoiceFingerprintScope defines model for VoiceFingerprint.Scope.
+type VoiceFingerprintScope string
+
+// VoiceFingerprintUnusableReason defines model for VoiceFingerprint.UnusableReason.
+type VoiceFingerprintUnusableReason string
+
+// VoiceGroup defines model for VoiceGroup.
+type VoiceGroup struct {
+	// ClipCount Clips distincts des voix visibles, calculés en base.
+	ClipCount int `json:"clip_count"`
+
+	// Id Plus petite voix visible du groupe.
+	Id int64 `json:"id"`
+
+	// MemberCount Calculé en base sur les voix visibles.
+	MemberCount int                `json:"member_count"`
+	Members     []VoiceGroupMember `json:"members"`
+
+	// Proposed Vrai si le groupe réunit au moins deux voix proches ; jamais une confirmation.
+	Proposed bool `json:"proposed"`
+}
+
+// VoiceGroupExclusion defines model for VoiceGroupExclusion.
+type VoiceGroupExclusion struct {
+	Excluded       bool  `json:"excluded"`
+	LocalSpeakerId int64 `json:"local_speaker_id"`
+}
+
+// VoiceGroupList defines model for VoiceGroupList.
+type VoiceGroupList struct {
+	Items []VoiceGroup `json:"items"`
+
+	// Total Nombre de groupes avant pagination.
+	Total int `json:"total"`
+}
+
+// VoiceGroupMember defines model for VoiceGroupMember.
+type VoiceGroupMember struct {
+	ClipId   int64  `json:"clip_id"`
+	ClipName string `json:"clip_name"`
+
+	// Excluded Voix exclue de son groupe par un humain ; elle forme un groupe à elle seule.
+	Excluded bool   `json:"excluded"`
+	Label    string `json:"label"`
+
+	// LocalSpeakerId Extraits écoutables par GET /api/local-speakers/{id}/excerpt.
+	LocalSpeakerId  int64   `json:"local_speaker_id"`
+	SpeakingSeconds float32 `json:"speaking_seconds"`
+}
+
+// VoiceGroupNaming defines model for VoiceGroupNaming.
+type VoiceGroupNaming struct {
+	Person Person `json:"person"`
+
+	// Skipped Voix déjà validées par quelqu'un d'autre pendant l'opération.
+	Skipped   []int64 `json:"skipped"`
+	Validated []int64 `json:"validated"`
+}
+
+// VoiceGroupNamingInput defines model for VoiceGroupNamingInput.
+type VoiceGroupNamingInput struct {
+	// LocalSpeakerIds Exactement les voix visibles du groupe que l'utilisateur a écoutées.
+	LocalSpeakerIds []int64 `json:"local_speaker_ids"`
+	NewPersonName   *string `json:"new_person_name,omitempty"`
+	PersonId        *int64  `json:"person_id,omitempty"`
+}
+
+// VoiceMatchingInput defines model for VoiceMatchingInput.
+type VoiceMatchingInput struct {
+	AmbiguityMargin    float32 `json:"ambiguity_margin"`
+	AutomaticThreshold float32 `json:"automatic_threshold"`
+	MaxCandidates      int     `json:"max_candidates"`
+
+	// SuggestionThreshold Au plus égal au seuil automatique.
+	SuggestionThreshold float32 `json:"suggestion_threshold"`
+}
+
+// VoiceMatchingSettings defines model for VoiceMatchingSettings.
+type VoiceMatchingSettings struct {
+	// AmbiguityMargin Écart sous lequel deux Personnes sont jugées aussi proches : la voix est ambiguë.
+	AmbiguityMargin float32 `json:"ambiguity_margin"`
+
+	// AutoChangedAt Dernier changement de l'interrupteur d'automatisation ; null s'il n'a jamais été modifié.
+	AutoChangedAt *time.Time `json:"auto_changed_at"`
+
+	// AutoEnabled Faux par défaut : tant que l'administrateur n'a pas activé l'automatisation, un rapprochement n'est jamais plus qu'une suggestion.
+	AutoEnabled bool `json:"auto_enabled"`
+
+	// AutomaticThreshold Similarité minimale d'une attribution automatique.
+	AutomaticThreshold float32 `json:"automatic_threshold"`
+	MaxCandidates      int     `json:"max_candidates"`
+
+	// MinConfirmations Critère de proposition d'activation : nombre minimal d'attributions automatiques simulées confirmées par une validation humaine.
+	MinConfirmations int `json:"min_confirmations"`
+
+	// PrecisionThreshold Critère de proposition d'activation : précision mesurée minimale. Valeur de départ configurable, jamais une garantie.
+	PrecisionThreshold float32 `json:"precision_threshold"`
+
+	// SuggestionThreshold Similarité minimale d'une suggestion ; en dessous, la voix est inconnue.
+	SuggestionThreshold float32   `json:"suggestion_threshold"`
+	UpdatedAt           time.Time `json:"updated_at"`
+}
+
+// VoiceMatchingSummary defines model for VoiceMatchingSummary.
+type VoiceMatchingSummary struct {
+	Ambiguous int `json:"ambiguous"`
+	Automatic int `json:"automatic"`
+	Evaluated int `json:"evaluated"`
+
+	// Removed Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle.
+	Removed    int `json:"removed"`
+	Suggestion int `json:"suggestion"`
+	Unknown    int `json:"unknown"`
+}
+
+// VoicePipeline defines model for VoicePipeline.
+type VoicePipeline struct {
+	// AccessConfirmed Confirmation explicite par l'administrateur du jeton et des conditions d'accès du modèle.
+	AccessConfirmed bool `json:"access_confirmed"`
+
+	// Fake Réglages du fournisseur factice déterministe, réservés aux tests.
+	Fake *struct {
+		Dimensions int `json:"dimensions"`
+		Speakers   int `json:"speakers"`
+	} `json:"fake,omitempty"`
+	MinFingerprintSeconds float32               `json:"min_fingerprint_seconds"`
+	MinQuality            float32               `json:"min_quality"`
+	Model                 string                `json:"model"`
+	ModelVersion          string                `json:"model_version"`
+	Provider              VoicePipelineProvider `json:"provider"`
+}
+
+// VoicePipelineProvider defines model for VoicePipeline.Provider.
+type VoicePipelineProvider string
+
+// VoicePipelineState defines model for VoicePipelineState.
+type VoicePipelineState struct {
+	Config  VoicePipeline `json:"config"`
+	Version string        `json:"version"`
+}
+
+// VoiceProfileDeletion defines model for VoiceProfileDeletion.
+type VoiceProfileDeletion struct {
+	// Attributions Attributions effacées ; les voix correspondantes sont inconnues.
+	Attributions int       `json:"attributions"`
+	DeletedAt    time.Time `json:"deleted_at"`
+
+	// Fingerprints Empreintes effacées.
+	Fingerprints int `json:"fingerprints"`
+
+	// Samples Échantillons vocaux validés effacés (actifs et retirés).
+	Samples int `json:"samples"`
+}
+
+// VoiceScheduleInput defines model for VoiceScheduleInput.
+type VoiceScheduleInput struct {
+	AudioStreamIndex *int `json:"audio_stream_index,omitempty"`
+}
+
+// VoiceStep defines model for VoiceStep.
+type VoiceStep struct {
+	Attempts     int    `json:"attempts"`
+	InputVersion string `json:"input_version"`
+	JobId        int64  `json:"job_id"`
+
+	// LastError Code d'erreur expurgé, jamais de détail du fournisseur.
+	LastError   string          `json:"last_error"`
+	MaxAttempts int             `json:"max_attempts"`
+	Status      VoiceStepStatus `json:"status"`
+	Step        string          `json:"step"`
+}
+
+// VoiceStepStatus defines model for VoiceStep.Status.
+type VoiceStepStatus string
+
+// VoiceVerification defines model for VoiceVerification.
+type VoiceVerification struct {
+	// Counts Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base.
+	Counts VoiceVerificationCounts `json:"counts"`
+	Items  []VoiceVerificationCase `json:"items"`
+
+	// Total Nombre de cas avant pagination.
+	Total int `json:"total"`
+}
+
+// VoiceVerificationCase defines model for VoiceVerificationCase.
+type VoiceVerificationCase struct {
+	// Candidates Personnes entre lesquelles une voix ambiguë hésite ; vide pour une voix inconnue.
+	Candidates    []AttributionCandidate             `json:"candidates"`
+	ClipId        int64                              `json:"clip_id"`
+	ClipName      string                             `json:"clip_name"`
+	DecisionLevel VoiceVerificationCaseDecisionLevel `json:"decision_level"`
+
+	// GroupClipCount Clips distincts du groupe : la fréquence qui ordonne les cas.
+	GroupClipCount int `json:"group_clip_count"`
+
+	// GroupId Groupe proposé de la voix (voir /api/voice-groups), la voix seule si aucun lien.
+	GroupId int64 `json:"group_id"`
+
+	// GroupVoiceCount Voix inconnues visibles du groupe, calculé en base.
+	GroupVoiceCount int    `json:"group_voice_count"`
+	Label           string `json:"label"`
+
+	// LocalSpeakerId Extrait écoutable par GET /api/local-speakers/{id}/excerpt ; se tranche par POST /api/local-speakers/{id}/validation.
+	LocalSpeakerId  int64   `json:"local_speaker_id"`
+	SpeakingSeconds float32 `json:"speaking_seconds"`
+}
+
+// VoiceVerificationCaseDecisionLevel defines model for VoiceVerificationCase.DecisionLevel.
+type VoiceVerificationCaseDecisionLevel string
+
+// VoiceVerificationCounts Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base.
+type VoiceVerificationCounts struct {
+	Ambiguous  int `json:"ambiguous"`
+	Automatic  int `json:"automatic"`
+	Human      int `json:"human"`
+	Suggestion int `json:"suggestion"`
+	Unknown    int `json:"unknown"`
+}
+
 // Worker defines model for Worker.
 type Worker struct {
 	Connected           bool       `json:"connected"`
@@ -1030,6 +2157,7 @@ type WorkerJobInput struct {
 	Tracks          []map[string]interface{} `json:"tracks"`
 	VideoCodec      string                   `json:"video_codec"`
 	Vocabulary      []WorkerVocabularyTerm   `json:"vocabulary"`
+	Voice           *WorkerVoiceInput        `json:"voice,omitempty"`
 }
 
 // WorkerPage defines model for WorkerPage.
@@ -1074,6 +2202,25 @@ type WorkerVocabularyTerm struct {
 	Variants          []string `json:"variants"`
 }
 
+// WorkerVoiceInput defines model for WorkerVoiceInput.
+type WorkerVoiceInput struct {
+	Config VoicePipeline `json:"config"`
+
+	// Diarization Étape d'empreintes uniquement : locuteurs et tours à encoder.
+	Diarization *struct {
+		JobId    int64 `json:"job_id"`
+		Speakers []struct {
+			Label string `json:"label"`
+			Turns []struct {
+				End   float32 `json:"end"`
+				Index int     `json:"index"`
+				Start float32 `json:"start"`
+			} `json:"turns"`
+		} `json:"speakers"`
+	} `json:"diarization,omitempty"`
+	PipelineVersion string `json:"pipeline_version"`
+}
+
 // DeleteClipAudioTrackOverrideParams defines parameters for DeleteClipAudioTrackOverride.
 type DeleteClipAudioTrackOverrideParams struct {
 	Origin     string `json:"Origin"`
@@ -1086,8 +2233,26 @@ type PutClipAudioTrackOverrideParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// DeleteClipMicrophoneTrackParams defines parameters for DeleteClipMicrophoneTrack.
+type DeleteClipMicrophoneTrackParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutClipMicrophoneTrackParams defines parameters for PutClipMicrophoneTrack.
+type PutClipMicrophoneTrackParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // ScheduleTranscriptionParams defines parameters for ScheduleTranscription.
 type ScheduleTranscriptionParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ScheduleVoiceParams defines parameters for ScheduleVoice.
+type ScheduleVoiceParams struct {
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -1145,6 +2310,18 @@ type RelaunchJobParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// UnlinkPersonAccountParams defines parameters for UnlinkPersonAccount.
+type UnlinkPersonAccountParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// LinkPersonAccountParams defines parameters for LinkPersonAccount.
+type LinkPersonAccountParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // UpdateSettingsParams defines parameters for UpdateSettings.
 type UpdateSettingsParams struct {
 	// Origin Must equal PUBLIC_URL
@@ -1166,6 +2343,18 @@ type DisableSourceParams struct {
 
 // PutSourceAudioTrackRuleParams defines parameters for PutSourceAudioTrackRule.
 type PutSourceAudioTrackRuleParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeleteSourceMicrophoneTrackParams defines parameters for DeleteSourceMicrophoneTrack.
+type DeleteSourceMicrophoneTrackParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutSourceMicrophoneTrackParams defines parameters for PutSourceMicrophoneTrack.
+type PutSourceMicrophoneTrackParams struct {
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -1235,6 +2424,36 @@ type UpdateVocabularyParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// SetVoiceAutomationParams defines parameters for SetVoiceAutomation.
+type SetVoiceAutomationParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// UpdateVoiceAutomationCriteriaParams defines parameters for UpdateVoiceAutomationCriteria.
+type UpdateVoiceAutomationCriteriaParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// UpdateVoiceMatchingParams defines parameters for UpdateVoiceMatching.
+type UpdateVoiceMatchingParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// RematchVoicesParams defines parameters for RematchVoices.
+type RematchVoicesParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// UpdateVoicePipelineParams defines parameters for UpdateVoicePipeline.
+type UpdateVoicePipelineParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // RegisterWorkerParams defines parameters for RegisterWorker.
 type RegisterWorkerParams struct {
 	Origin     string `json:"Origin"`
@@ -1300,7 +2519,13 @@ type ListClipsParams struct {
 	OwnerId    *int                       `form:"owner_id,omitempty" json:"owner_id,omitempty"`
 	SourceId   *int                       `form:"source_id,omitempty" json:"source_id,omitempty"`
 	From       *openapi_types.Date        `form:"from,omitempty" json:"from,omitempty"`
-	To         *openapi_types.Date        `form:"to,omitempty" json:"to,omitempty"`
+
+	// PersonId Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown.
+	PersonId *int64 `form:"person_id,omitempty" json:"person_id,omitempty"`
+
+	// PersonUnknown Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id.
+	PersonUnknown *bool               `form:"person_unknown,omitempty" json:"person_unknown,omitempty"`
+	To            *openapi_types.Date `form:"to,omitempty" json:"to,omitempty"`
 }
 
 // ListClipsParamsVisibility defines parameters for ListClips.
@@ -1314,6 +2539,76 @@ type GetClipMediaParams struct {
 	Range *string `json:"Range,omitempty"`
 }
 
+// CorrectLocalSpeakerParams defines parameters for CorrectLocalSpeaker.
+type CorrectLocalSpeakerParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// GetLocalSpeakerExcerptParams defines parameters for GetLocalSpeakerExcerpt.
+type GetLocalSpeakerExcerptParams struct {
+	// Turn Indice du tour de parole ; par défaut le plus long.
+	Turn *int `form:"turn,omitempty" json:"turn,omitempty"`
+}
+
+// RestoreVoiceGroupMemberParams defines parameters for RestoreVoiceGroupMember.
+type RestoreVoiceGroupMemberParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ExcludeVoiceGroupMemberParams defines parameters for ExcludeVoiceGroupMember.
+type ExcludeVoiceGroupMemberParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ValidateLocalSpeakerParams defines parameters for ValidateLocalSpeaker.
+type ValidateLocalSpeakerParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ListPersonEventsParams defines parameters for ListPersonEvents.
+type ListPersonEventsParams struct {
+	PersonId *int64 `form:"person_id,omitempty" json:"person_id,omitempty"`
+}
+
+// ListPersonsParams defines parameters for ListPersons.
+type ListPersonsParams struct {
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// CreatePersonParams defines parameters for CreatePerson.
+type CreatePersonParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeletePersonParams defines parameters for DeletePerson.
+type DeletePersonParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// MergePersonParams defines parameters for MergePerson.
+type MergePersonParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// SeparatePersonParams defines parameters for SeparatePerson.
+type SeparatePersonParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeleteVoiceProfileParams defines parameters for DeleteVoiceProfile.
+type DeleteVoiceProfileParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // SearchTranscriptsParams defines parameters for SearchTranscripts.
 type SearchTranscriptsParams struct {
 	Q          string                             `form:"q" json:"q"`
@@ -1324,7 +2619,13 @@ type SearchTranscriptsParams struct {
 	Status     *SearchTranscriptsParamsStatus     `form:"status,omitempty" json:"status,omitempty"`
 	SourceId   *int                               `form:"source_id,omitempty" json:"source_id,omitempty"`
 	From       *openapi_types.Date                `form:"from,omitempty" json:"from,omitempty"`
-	To         *openapi_types.Date                `form:"to,omitempty" json:"to,omitempty"`
+
+	// PersonId Ne garde que les voix identifiées comme cette Personne (attribution humaine ou automatique tracée). Incompatible avec person_unknown.
+	PersonId *int64 `form:"person_id,omitempty" json:"person_id,omitempty"`
+
+	// PersonUnknown Si vrai, ne garde que les voix sans Personne identifiée (non attribuées, suggestion ou ambiguïté). Incompatible avec person_id.
+	PersonUnknown *bool               `form:"person_unknown,omitempty" json:"person_unknown,omitempty"`
+	To            *openapi_types.Date `form:"to,omitempty" json:"to,omitempty"`
 }
 
 // SearchTranscriptsParamsMode defines parameters for SearchTranscripts.
@@ -1373,6 +2674,37 @@ type CompleteUploadParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// ListVoiceGroupsParams defines parameters for ListVoiceGroups.
+type ListVoiceGroupsParams struct {
+	// Sort Tri décroissant par nombre de clips (défaut) ou de voix.
+	Sort *ListVoiceGroupsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Proposed Vrai : uniquement les groupes proposés (au moins deux voix).
+	Proposed *bool `form:"proposed,omitempty" json:"proposed,omitempty"`
+	Page     *int  `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int  `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListVoiceGroupsParamsSort defines parameters for ListVoiceGroups.
+type ListVoiceGroupsParamsSort string
+
+// NameVoiceGroupParams defines parameters for NameVoiceGroup.
+type NameVoiceGroupParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ListVoiceVerificationParams defines parameters for ListVoiceVerification.
+type ListVoiceVerificationParams struct {
+	// Level Ne garder que les voix inconnues ou que les voix ambiguës.
+	Level    *ListVoiceVerificationParamsLevel `form:"level,omitempty" json:"level,omitempty"`
+	Page     *int                              `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int                              `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListVoiceVerificationParamsLevel defines parameters for ListVoiceVerification.
+type ListVoiceVerificationParamsLevel string
+
 // CompleteWorkerJobParams defines parameters for CompleteWorkerJob.
 type CompleteWorkerJobParams struct {
 	XWorkerLeaseToken string `json:"X-Worker-Lease-Token"`
@@ -1401,8 +2733,14 @@ type GetWorkerJobMediaParams struct {
 // PutClipAudioTrackOverrideJSONRequestBody defines body for PutClipAudioTrackOverride for application/json ContentType.
 type PutClipAudioTrackOverrideJSONRequestBody = AudioTrackOverride
 
+// PutClipMicrophoneTrackJSONRequestBody defines body for PutClipMicrophoneTrack for application/json ContentType.
+type PutClipMicrophoneTrackJSONRequestBody = MicrophoneTrackClipInput
+
 // ScheduleTranscriptionJSONRequestBody defines body for ScheduleTranscription for application/json ContentType.
 type ScheduleTranscriptionJSONRequestBody = TranscriptionInput
+
+// ScheduleVoiceJSONRequestBody defines body for ScheduleVoice for application/json ContentType.
+type ScheduleVoiceJSONRequestBody = VoiceScheduleInput
 
 // RebuildEmbeddingIndexJSONRequestBody defines body for RebuildEmbeddingIndex for application/json ContentType.
 type RebuildEmbeddingIndexJSONRequestBody RebuildEmbeddingIndexJSONBody
@@ -1413,6 +2751,9 @@ type UpdateJobControlsJSONRequestBody = JobControlsInput
 // ScheduleJobJSONRequestBody defines body for ScheduleJob for application/json ContentType.
 type ScheduleJobJSONRequestBody = JobInput
 
+// LinkPersonAccountJSONRequestBody defines body for LinkPersonAccount for application/json ContentType.
+type LinkPersonAccountJSONRequestBody = PersonAccountInput
+
 // UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
 type UpdateSettingsJSONRequestBody = SettingsInput
 
@@ -1421,6 +2762,9 @@ type CreateSourceJSONRequestBody = SourceInput
 
 // PutSourceAudioTrackRuleJSONRequestBody defines body for PutSourceAudioTrackRule for application/json ContentType.
 type PutSourceAudioTrackRuleJSONRequestBody = AudioTrackRule
+
+// PutSourceMicrophoneTrackJSONRequestBody defines body for PutSourceMicrophoneTrack for application/json ContentType.
+type PutSourceMicrophoneTrackJSONRequestBody = MicrophoneTrackRuleInput
 
 // ScanSourceJSONRequestBody defines body for ScanSource for application/json ContentType.
 type ScanSourceJSONRequestBody = ScanSourceJSONBody
@@ -1437,6 +2781,18 @@ type CreateVocabularyJSONRequestBody = VocabularyTermInput
 // UpdateVocabularyJSONRequestBody defines body for UpdateVocabulary for application/json ContentType.
 type UpdateVocabularyJSONRequestBody = VocabularyTermInput
 
+// SetVoiceAutomationJSONRequestBody defines body for SetVoiceAutomation for application/json ContentType.
+type SetVoiceAutomationJSONRequestBody = VoiceAutomationInput
+
+// UpdateVoiceAutomationCriteriaJSONRequestBody defines body for UpdateVoiceAutomationCriteria for application/json ContentType.
+type UpdateVoiceAutomationCriteriaJSONRequestBody = VoiceAutomationCriteriaInput
+
+// UpdateVoiceMatchingJSONRequestBody defines body for UpdateVoiceMatching for application/json ContentType.
+type UpdateVoiceMatchingJSONRequestBody = VoiceMatchingInput
+
+// UpdateVoicePipelineJSONRequestBody defines body for UpdateVoicePipeline for application/json ContentType.
+type UpdateVoicePipelineJSONRequestBody = VoicePipeline
+
 // RegisterWorkerJSONRequestBody defines body for RegisterWorker for application/json ContentType.
 type RegisterWorkerJSONRequestBody = WorkerRegistrationInput
 
@@ -1446,11 +2802,29 @@ type LoginJSONRequestBody = Credentials
 // RegisterJSONRequestBody defines body for Register for application/json ContentType.
 type RegisterJSONRequestBody = Credentials
 
+// CorrectLocalSpeakerJSONRequestBody defines body for CorrectLocalSpeaker for application/json ContentType.
+type CorrectLocalSpeakerJSONRequestBody = AttributionInput
+
+// ValidateLocalSpeakerJSONRequestBody defines body for ValidateLocalSpeaker for application/json ContentType.
+type ValidateLocalSpeakerJSONRequestBody = AttributionInput
+
+// CreatePersonJSONRequestBody defines body for CreatePerson for application/json ContentType.
+type CreatePersonJSONRequestBody = PersonInput
+
+// MergePersonJSONRequestBody defines body for MergePerson for application/json ContentType.
+type MergePersonJSONRequestBody = PersonMergeInput
+
+// SeparatePersonJSONRequestBody defines body for SeparatePerson for application/json ContentType.
+type SeparatePersonJSONRequestBody = PersonSeparationInput
+
 // CompleteSetupJSONRequestBody defines body for CompleteSetup for application/json ContentType.
 type CompleteSetupJSONRequestBody = Bootstrap
 
 // CreateUploadJSONRequestBody defines body for CreateUpload for application/json ContentType.
 type CreateUploadJSONRequestBody = UploadInput
+
+// NameVoiceGroupJSONRequestBody defines body for NameVoiceGroup for application/json ContentType.
+type NameVoiceGroupJSONRequestBody = VoiceGroupNamingInput
 
 // CompleteWorkerJobJSONRequestBody defines body for CompleteWorkerJob for application/json ContentType.
 type CompleteWorkerJobJSONRequestBody = WorkerResultInput
@@ -1466,161 +2840,348 @@ type WorkerPulseJSONRequestBody = WorkerPulseInput
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"Wa9G5wUCUc+VGXZ6rtBp77h30Ls6u/r/AwA=",
+	"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",
+	"fbJejaVuKPxNnwY5V+tidDh6OPr45uP/GgA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
