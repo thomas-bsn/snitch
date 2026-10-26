@@ -1,6 +1,6 @@
 # Contribuer
 
-Le code du projet est sous licence MIT ; conserver les copyrights et les licences des dépendances. Lire la roadmap, le glossaire et les ADR avant un changement. Le nom du projet est Snitch ; le nom d’affichage reste configurable.
+Le code du projet est sous licence MIT ; conserver les copyrights et les licences des dépendances. Lire la roadmap, le glossaire et les ADR avant un changement. Le nom du projet est Snitch ; c’est aussi le nom unique de l’interface, sans réglage.
 
 Discuter une proposition dans une issue de `thomas-bsn/snitch`, puis contribuer par une branche et une pull request. Expliquer le comportement modifié et les vérifications effectuées. Voir [développement et tests](docs/development.md). Modifier le contrat avant de régénérer les clients ; inclure tous les artefacts générés et les notices de nouvelles dépendances.
 

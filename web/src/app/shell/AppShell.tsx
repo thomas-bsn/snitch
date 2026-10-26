@@ -3,6 +3,7 @@ import { AddressNotice } from "../components/AddressNotice";
 import { buttonClass } from "../components/buttons";
 import { Brand, Logo } from "../components/Logo";
 import { useI18n } from "../i18n";
+import { SetupBanner } from "../setup/SetupBanner";
 import { AvatarMenu } from "./AvatarMenu";
 import { HeaderSearch } from "./HeaderSearch";
 import { NAV_ENTRIES } from "./navigation";
@@ -69,6 +70,7 @@ export function AppShell() {
           tabIndex={-1}
           className="flex-1 pb-20 outline-none md:pb-0"
         >
+          <SetupBanner />
           {notice && (
             <AddressNotice
               code={notice}

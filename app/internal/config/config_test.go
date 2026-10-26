@@ -144,7 +144,6 @@ func TestRejectInvalidRuntimeConfiguration(t *testing.T) {
 		{"WORKER_IMAGE", "bad image\nname"},
 		{"LISTEN_ADDR", ":invalid"},
 		{"LISTEN_ADDR", ":70000"},
-		{"DISPLAY_NAME", "   "},
 		{"DATABASE_URL", "https://database.example"},
 	} {
 		t.Run(tc.key+"="+tc.value, func(t *testing.T) {
@@ -153,7 +152,6 @@ func TestRejectInvalidRuntimeConfiguration(t *testing.T) {
 			t.Setenv("PUBLIC_URL", "https://receipts.example")
 			t.Setenv("COOKIE_SECURE", "true")
 			t.Setenv("LISTEN_ADDR", ":8080")
-			t.Setenv("DISPLAY_NAME", "Receipts")
 			t.Setenv("EMBEDDINGS_URL", "")
 			t.Setenv(tc.key, tc.value)
 			if _, err := Load(); err == nil {

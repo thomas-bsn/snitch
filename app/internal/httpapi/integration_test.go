@@ -85,7 +85,7 @@ func TestFoundation(t *testing.T) {
 	})
 	reset := func(t *testing.T) {
 		t.Helper()
-		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true`)
+		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -103,7 +103,7 @@ func TestFoundation(t *testing.T) {
 		endpoint := provider.URL
 		provider.Close() // A configured but unreachable service must not block the foundation.
 		for _, endpoint := range []string{"", endpoint} {
-			s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Fixture", EmbeddingsURL: endpoint, EmbeddingsModel: "fixture-only"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+			s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), EmbeddingsURL: endpoint, EmbeddingsModel: "fixture-only"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 			ts := httptest.NewServer(s.Handler())
 			for path, want := range map[string]string{"/api/health/live": `"status":"ok"`, "/api/health/ready": `"status":"degraded"`, "/api/setup": `"initialized":false`} {
 				resp, err := ts.Client().Get(ts.URL + path)
@@ -126,6 +126,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("account preferences", func(t *testing.T) {
 		reset(t)
 		testAccountPreferences(t, pool)
+	})
+	t.Run("setup progress", func(t *testing.T) {
+		reset(t)
+		testSetupProgress(t, pool)
 	})
 	t.Run("public address deduced from the request", func(t *testing.T) {
 		reset(t)
@@ -303,7 +307,7 @@ func TestFoundation(t *testing.T) {
 			t.Fatal(e)
 		}
 		logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Test Receipts", ClipRoots: []string{clipRoot}, ProbePath: "ffprobe", StabilityWindow: time.Hour}, logger)
+		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ClipRoots: []string{clipRoot}, ProbePath: "ffprobe", StabilityWindow: time.Hour}, logger)
 		// High test allowance isolates security tests from test-suite request volume.
 		ts := httptest.NewUnstartedServer(s.Handler())
 		s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
@@ -382,7 +386,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/setup", map[string]string{"code": "wrong", "username": "administrator", "password": "synthetic-password"}, "", 409)
 		call(client, "POST", "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, "", 201)
 		call(client, "POST", "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, "", 409)
-		noRoots := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Test Receipts"}, logger)
+		noRoots := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, logger)
 		noRootsTS := httptest.NewServer(noRoots.Handler())
 		defer noRootsTS.Close()
 		noRootsResponse, e := client.Get(noRootsTS.URL + "/api/admin/sources")
@@ -762,12 +766,15 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "setup-wizard.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
 		if os.Getenv("SNITCH_E2E_SHELL") == "1" {
 			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_WIZARD") == "1" {
+			suites = []string{"setup-wizard.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SOURCES") == "1" {
 			suites = []string{"sources.spec.ts"}
@@ -857,7 +864,7 @@ func TestFoundation(t *testing.T) {
 				if e != nil {
 					t.Fatal(e)
 				}
-				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}
+				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}
 				sourceRoot := ""
 				if suite == "sources.spec.ts" || suite == "microphone.spec.ts" {
 					sourceRoot = t.TempDir()

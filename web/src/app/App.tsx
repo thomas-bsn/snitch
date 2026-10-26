@@ -22,10 +22,10 @@ import {
 } from "./pages/pages";
 import { isAdministrator } from "./roles";
 import { ConnectionLost, Splash } from "./screens/ConnectionLost";
-import { InstallationPending } from "./screens/InstallationPending";
 import { LoginPage } from "./screens/LoginPage";
 import { RegisterPage } from "./screens/RegisterPage";
 import { SessionProvider, useSession } from "./session";
+import { SetupWizard } from "./setup/SetupWizard";
 import { AppShell } from "./shell/AppShell";
 import { ThemeProvider } from "./theme";
 
@@ -67,7 +67,7 @@ function Routing() {
     return <ConnectionLost onRetry={() => void reload()} />;
   }
   if (phase === "loading") return <Splash />;
-  if (setup && !setup.initialized) return <InstallationPending />;
+  if (setup && !setup.initialized) return <SetupWizard />;
 
   return (
     <Routes>
@@ -75,6 +75,9 @@ function Routing() {
       <Route path="login" element={<LoginPage />} />
       <Route path="register" element={<RegisterPage />} />
       <Route element={<RequireSession />}>
+        <Route element={<RequireAdministrator />}>
+          <Route path="setup" element={<SetupWizard />} />
+        </Route>
         <Route element={<AppShell />}>
           <Route path="library" element={<LibraryPage />} />
           <Route path="search" element={<SearchPage />} />

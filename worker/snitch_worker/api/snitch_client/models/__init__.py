@@ -119,6 +119,14 @@ from .settings_input import SettingsInput
 from .settings_master_key_origin import SettingsMasterKeyOrigin
 from .settings_unreadable_secrets_item import SettingsUnreadableSecretsItem
 from .setup import Setup
+from .setup_code_input import SetupCodeInput
+from .setup_progress import SetupProgress
+from .setup_step_input import SetupStepInput
+from .setup_step_input_state import SetupStepInputState
+from .setup_step_input_step import SetupStepInputStep
+from .setup_step_state import SetupStepState
+from .setup_step_state_state import SetupStepStateState
+from .setup_step_state_step import SetupStepStateStep
 from .source import Source
 from .source_file import SourceFile
 from .source_file_status import SourceFileStatus
@@ -331,6 +339,14 @@ __all__ = (
     "SettingsMasterKeyOrigin",
     "SettingsUnreadableSecretsItem",
     "Setup",
+    "SetupCodeInput",
+    "SetupProgress",
+    "SetupStepInput",
+    "SetupStepInputState",
+    "SetupStepInputStep",
+    "SetupStepState",
+    "SetupStepStateState",
+    "SetupStepStateStep",
     "Source",
     "SourceFile",
     "SourceFiles",
