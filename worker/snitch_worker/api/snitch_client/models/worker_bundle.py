@@ -26,7 +26,7 @@ class WorkerBundle:
         Attributes:
             compose (str):
             env (str):
-            insecure_api_url (bool): Vrai si PUBLIC_URL n'est pas en HTTPS : le worker refuse le HTTP.
+            insecure_api_url (bool): Vrai si l'adresse publique n'est pas en HTTPS : le worker refuse le HTTP.
      """
 
     compose: str

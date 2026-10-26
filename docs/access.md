@@ -8,9 +8,23 @@ Si le navigateur ou le serveur s’interrompt **avant** la création, retrouver 
 
 Les mots de passe utilisent Argon2id version 19 : mémoire 32 MiB, trois itérations, parallélisme 1, sel aléatoire de 16 octets et résultat de 32 octets. Les limites de saisie comptent les caractères Unicode côté serveur. Les jetons opaques de session contiennent 32 octets aléatoires ; seul leur SHA-256 est persisté. Une session expire après sept jours fixes, sans prolongation automatique. Déconnexion et expiration rendent le jeton inutilisable, y compris s’il est renvoyé directement à l’API.
 
-Le cookie `snitch_session` utilise `Path=/`, `HttpOnly`, `SameSite=Lax` et une durée maximale de 604800 secondes. `Secure` est activé par défaut ; conserver HTTPS et `COOKIE_SECURE=true` en production. Chaque mutation doit transmettre `Origin` égal à `PUBLIC_URL`. Les mutations authentifiées exigent aussi `X-CSRF-Token`, obtenu avec `GET /api/auth/me`. Les fonctions privées exigent une session approuvée et les routes `/api/admin/…` le rôle administrateur ; masquer un écran n’est jamais la protection d’accès.
+Le cookie `snitch_session` utilise `Path=/`, `HttpOnly`, `SameSite=Lax` et une durée maximale de 604800 secondes. `Secure` est activé automatiquement quand la requête est en HTTPS (voir « Adresse publique » ci-dessous). Chaque mutation doit transmettre un `Origin` égal à l’adresse publique de la requête elle-même (schéma et hôte) ; une origine absente, `null` ou différente est refusée par `403 origin_rejected`. Les mutations authentifiées exigent aussi `X-CSRF-Token`, obtenu avec `GET /api/auth/me`. Les fonctions privées exigent une session approuvée et les routes `/api/admin/…` le rôle administrateur ; masquer un écran n’est jamais la protection d’accès.
 
 L’installation, la connexion et l’inscription partagent une limite par adresse réseau distante : rafale de dix demandes, puis une demande toutes les six secondes ; `429` annonce `Retry-After: 6`. Deux traitements de mots de passe au plus s’exécutent simultanément par processus ; un excès renvoie `429 busy`. Les en-têtes de proxy transmis par le client sont ignorés : derrière un proxy, les clients partageant son adresse partagent actuellement cette limite. Les refus de connexion sont identiques pour compte inexistant, mot de passe incorrect et compte en attente. Les secrets saisis ne sont ni journalisés ni renvoyés.
+
+## Adresse publique
+
+Snitch démarre sans adresse publique renseignée : elle est déduite de chaque requête. Le schéma vient de la connexion (HTTPS si Snitch termine lui-même TLS) et l'hôte de l'en-tête `Host`. Cette adresse sert à la vérification d'origine des mutations, à l'adresse de retour Discord (affichée dans « Accès et Discord » et envoyée à Discord), à l'adresse inscrite dans le fichier de déploiement d'un Worker et au drapeau `Secure` du cookie de session. Un navigateur qui ouvre `https://snitch.exemple.org` ou `http://localhost:8080` voit donc l'adresse qu'il utilise.
+
+**Derrière un mandataire inverse** qui termine HTTPS, Snitch ne voit que la requête HTTP interne. Il honore alors `X-Forwarded-Proto` et `X-Forwarded-Host` (première valeur de la liste), mais **uniquement si l'adresse TCP du pair** (jamais un en-tête) appartient à la liste des mandataires de confiance. Cette liste se règle avec `TRUSTED_PROXIES`, facultatif :
+
+- absent : la boucle locale et les réseaux privés (127.0.0.0/8, ::1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, fc00::/7, fe80::/10), c'est-à-dire un mandataire sur le même hôte ou sur un réseau de conteneurs. Un client venu d'Internet n'est jamais de confiance par défaut ;
+- une liste d'adresses ou de plages (`172.18.0.0/16,203.0.113.7`) : restreint la confiance à ces pairs ;
+- `none` : aucun en-tête de mandataire n'est honoré.
+
+Le mandataire doit écraser (et non transmettre tels quels) les en-têtes `X-Forwarded-Proto` et `X-Forwarded-Host` reçus du client. Les valeurs mal formées (schéma autre que http/https, hôte contenant un chemin ou des caractères inattendus) sont ignorées. Une requête d'un pair non fiable voit ses en-têtes de mandataire ignorés, y compris pour la vérification d'origine : elle n'est jamais plus permissive qu'une requête directe. Le contrôle d'origine compare toujours l'en-tête `Origin` à l'adresse de la requête ; une page tierce ne peut pas poser les en-têtes `X-Forwarded-*` depuis un navigateur.
+
+**Réglage facultatif** `PUBLIC_URL` : fixe l'adresse publique quand la déduction n'est pas fiable (mandataire qui ne transmet pas les en-têtes, accès par plusieurs noms). Il est prioritaire sur toute déduction et sur les en-têtes de mandataire. Les installations existantes qui le renseignent, avec ou sans `COOKIE_SECURE`, gardent exactement leur comportement. La limitation de débit reste fondée sur l'adresse du pair TCP ; elle n'utilise jamais les en-têtes de mandataire.
 
 ## Inscriptions et approbation
 
@@ -25,7 +39,7 @@ Les noms sont uniques sans distinction de casse. Les inscriptions utilisent les 
 Après la création de l’administrateur, « Accès et Discord » permet de continuer sans Discord et de conserver une installation entièrement locale. Seuls les administrateurs peuvent consulter et modifier ces réglages. Pour préparer la connexion :
 
 1. Créer votre propre application dans le [Discord Developer Portal](https://discord.com/developers/applications). Aucun identifiant du propriétaire de ce dépôt n’est nécessaire.
-2. Dans les réglages OAuth2 de cette application, récupérer le **Client ID** et le **Client Secret**, puis ajouter l’URL de retour affichée par Snitch aux redirections autorisées : `PUBLIC_URL/api/auth/discord/callback`, avec l’origine publique exacte de votre installation.
+2. Dans les réglages OAuth2 de cette application, récupérer le **Client ID** et le **Client Secret**, puis ajouter l’URL de retour affichée par Snitch aux redirections autorisées : `<adresse publique>/api/auth/discord/callback`, où l’adresse est celle par laquelle vous ouvrez Snitch (affichée telle quelle dans « Accès et Discord »).
 3. Enregistrer ces deux valeurs dans Snitch. Le premier enregistrement exige un secret ; un identifiant seul ou des champs constitués uniquement d’espaces sont refusés. Le statut configuré confirme la présence des deux valeurs, sans vérifier leur validité auprès de Discord.
 4. Pour une modification ultérieure, laisser le secret vide conserve sa valeur. Un nouveau secret le remplace. « Désactiver Discord » (ou enregistrer un identifiant vide) efface les deux valeurs ; les comptes locaux restent disponibles. Réactiver demandera de saisir à nouveau le secret.
 
@@ -50,8 +64,9 @@ La migration `00002_oauth_session.sql` invalide les anciens parcours OAuth en co
 | `DATABASE_URL` | URL PostgreSQL requise ; conserver les identifiants hors du dépôt. |
 | `MASTER_KEY` | Facultative (32 octets aléatoires en base64). Sans valeur, `serve` génère la clé et la conserve dans `SECRETS_DIR` ; une valeur fournie est prioritaire et n’y est pas recopiée. Mal formée, elle est refusée. |
 | `SECRETS_DIR` | Dossier du volume de secrets, `/data/secrets` par défaut ; `serve` y écrit `master_key` (mode 0600) quand `MASTER_KEY` est absente et refuse de démarrer s’il n’est pas inscriptible. |
-| `PUBLIC_URL` | Origine HTTP(S) publique sans chemin ni identifiants ; `http://localhost:8080` par défaut. |
-| `COOKIE_SECURE` | `true` par défaut, exige HTTPS ; `false` uniquement pour le développement HTTP. |
+| `PUBLIC_URL` | Facultative. Origine HTTP(S) publique sans chemin ni identifiants qui fixe l'adresse publique ; absente, elle est déduite de chaque requête. Prioritaire si fournie. |
+| `COOKIE_SECURE` | Facultative. Absente, le cookie est sécurisé quand l'adresse publique est HTTPS. `true` ou `false` décide seul (`true` exige un `PUBLIC_URL` HTTPS s'il est fourni). |
+| `TRUSTED_PROXIES` | Facultative. Adresses IP ou plages CIDR (séparées par des virgules) dont les en-têtes de mandataire sont honorés ; `none` n'en honore aucun. Par défaut : boucle locale et réseaux privés. |
 | `LISTEN_ADDR` | Adresse et port d'écoute, `:8080` par défaut. `healthcheck` utilise la même variable. |
 | `DISPLAY_NAME` | Nom affiché dans le navigateur, `Snitch` par défaut. |
 | `EMBEDDINGS_URL` | URL HTTP(S) facultative du point d'accès compatible embeddings ; pas d'identifiants ni query string. |

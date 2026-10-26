@@ -123,6 +123,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testLocalAuthentication(t, pool)
 	})
+	t.Run("public address deduced from the request", func(t *testing.T) {
+		reset(t)
+		testPublicAddress(t, pool)
+	})
 	t.Run("registration and approval", func(t *testing.T) {
 		reset(t)
 		testRegistration(t, pool)

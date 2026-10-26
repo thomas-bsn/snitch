@@ -28,6 +28,8 @@ class Settings:
             client_id (str):
             secret_configured (bool): Whether a nonempty secret is stored. The secret itself is never returned.
             registration_approval (bool):
+            callback_url (str): Discord return address to register, built from the public address of the request (or the
+                configured PUBLIC_URL).
             master_key_origin (SettingsMasterKeyOrigin): provided : la clé vient de la variable MASTER_KEY ; generated :
                 l'application l'a générée et la conserve dans son volume de secrets.
             unreadable_secrets (list[SettingsUnreadableSecretsItem]): Réglages chiffrés que la clé maître actuelle ne
@@ -38,6 +40,7 @@ class Settings:
     client_id: str
     secret_configured: bool
     registration_approval: bool
+    callback_url: str
     master_key_origin: SettingsMasterKeyOrigin
     unreadable_secrets: list[SettingsUnreadableSecretsItem]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -52,6 +55,8 @@ class Settings:
         secret_configured = self.secret_configured
 
         registration_approval = self.registration_approval
+
+        callback_url = self.callback_url
 
         master_key_origin = self.master_key_origin.value
 
@@ -69,6 +74,7 @@ class Settings:
             "client_id": client_id,
             "secret_configured": secret_configured,
             "registration_approval": registration_approval,
+            "callback_url": callback_url,
             "master_key_origin": master_key_origin,
             "unreadable_secrets": unreadable_secrets,
         })
@@ -85,6 +91,8 @@ class Settings:
         secret_configured = d.pop("secret_configured")
 
         registration_approval = d.pop("registration_approval")
+
+        callback_url = d.pop("callback_url")
 
         master_key_origin = SettingsMasterKeyOrigin(d.pop("master_key_origin"))
 
@@ -105,6 +113,7 @@ class Settings:
             client_id=client_id,
             secret_configured=secret_configured,
             registration_approval=registration_approval,
+            callback_url=callback_url,
             master_key_origin=master_key_origin,
             unreadable_secrets=unreadable_secrets,
         )

@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -25,9 +26,16 @@ type Config struct {
 	UploadMaxBytes, UploadChunkBytes                                                          int64
 	UploadSessionTTL                                                                          time.Duration
 	MasterKey                                                                                 []byte
-	MasterKeyOrigin                                                                           string
-	Secure                                                                                    bool
-	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL                                      string
+	// MasterKeyOrigin is "provided" (MASTER_KEY) or "generated" (kept in the secrets directory).
+	MasterKeyOrigin string
+	// PublicURL is optional: when empty, the public address is deduced from each request.
+	// Secure forces the Secure attribute of the session cookie on; SecureExplicit records that
+	// COOKIE_SECURE was provided, so that it decides alone. Without it, the cookie is secured
+	// when the request address is HTTPS.
+	Secure, SecureExplicit bool
+	// TrustedProxies lists the peers whose X-Forwarded-Proto and X-Forwarded-Host are honored.
+	TrustedProxies                                       []netip.Prefix
+	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL string
 }
 
 // DefaultSecretsDir is where the deployment mounts the volume that keeps the generated secrets.
@@ -39,7 +47,7 @@ var workerImagePattern = regexp.MustCompile(`^[a-z0-9][A-Za-z0-9._/:@-]*$`)
 
 func Load() (Config, error) {
 	c := Config{
-		DatabaseURL: os.Getenv("DATABASE_URL"), PublicURL: env("PUBLIC_URL", "http://localhost:8080"),
+		DatabaseURL: os.Getenv("DATABASE_URL"), PublicURL: os.Getenv("PUBLIC_URL"),
 		Address: env("LISTEN_ADDR", ":8080"), DisplayName: env("DISPLAY_NAME", "Snitch"),
 		// The application carries no release version, so the default image tag is "latest";
 		// pin WORKER_IMAGE to a published tag or digest to control worker upgrades.
@@ -80,17 +88,27 @@ func Load() (Config, error) {
 	if err != nil {
 		return c, err
 	}
-	c.Secure, err = strconv.ParseBool(env("COOKIE_SECURE", "true"))
+	if value := os.Getenv("COOKIE_SECURE"); value != "" {
+		c.Secure, err = strconv.ParseBool(value)
+		if err != nil {
+			return c, errors.New("invalid COOKIE_SECURE")
+		}
+		c.SecureExplicit = true
+	}
+	// PUBLIC_URL is optional: without it, the public address is deduced from each request.
+	if c.PublicURL != "" {
+		u, e := url.Parse(c.PublicURL)
+		if e != nil || u.Host == "" || u.User != nil || (u.Scheme != "https" && u.Scheme != "http") || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+			return c, errors.New("PUBLIC_URL must be an HTTP(S) origin")
+		}
+		c.PublicURL = strings.ToLower(strings.TrimRight(c.PublicURL, "/"))
+		if c.Secure && u.Scheme != "https" {
+			return c, errors.New("secure cookies require HTTPS PUBLIC_URL")
+		}
+	}
+	c.TrustedProxies, err = trustedProxies(os.Getenv("TRUSTED_PROXIES"))
 	if err != nil {
-		return c, errors.New("invalid COOKIE_SECURE")
-	}
-	u, e := url.Parse(c.PublicURL)
-	if e != nil || u.Host == "" || u.User != nil || (u.Scheme != "https" && u.Scheme != "http") || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
-		return c, errors.New("PUBLIC_URL must be an HTTP(S) origin")
-	}
-	c.PublicURL = strings.TrimRight(c.PublicURL, "/")
-	if c.Secure && u.Scheme != "https" {
-		return c, errors.New("secure cookies require HTTPS PUBLIC_URL")
+		return c, err
 	}
 	if !workerImagePattern.MatchString(c.WorkerImage) {
 		return c, errors.New("WORKER_IMAGE must be a container image reference")
@@ -114,6 +132,45 @@ func Load() (Config, error) {
 		}
 	}
 	return c, nil
+}
+
+// DefaultTrustedProxies are the networks a reverse proxy is normally reached from: the host
+// itself and private networks (a proxy on the same host or on a container network). A client
+// on the public Internet is never trusted by default.
+func DefaultTrustedProxies() []netip.Prefix {
+	var prefixes []netip.Prefix
+	for _, p := range []string{"127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "fc00::/7", "fe80::/10"} {
+		prefixes = append(prefixes, netip.MustParsePrefix(p))
+	}
+	return prefixes
+}
+
+// trustedProxies parses TRUSTED_PROXIES: a comma-separated list of IP addresses or CIDR ranges,
+// or "none" to honor no proxy header. Unset keeps DefaultTrustedProxies.
+func trustedProxies(value string) ([]netip.Prefix, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return DefaultTrustedProxies(), nil
+	}
+	if strings.EqualFold(value, "none") {
+		return nil, nil
+	}
+	var prefixes []netip.Prefix
+	for _, item := range strings.Split(value, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if prefix, err := netip.ParsePrefix(item); err == nil {
+			prefixes = append(prefixes, prefix.Masked())
+		} else if addr, err := netip.ParseAddr(item); err == nil {
+			addr = addr.Unmap()
+			prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
+		} else {
+			return nil, errors.New("TRUSTED_PROXIES must list IP addresses or CIDR ranges, or none")
+		}
+	}
+	return prefixes, nil
 }
 
 func splitRoots(value string) []string {
