@@ -35,6 +35,29 @@ type Job = components["schemas"]["Job"];
 type JobEvent = components["schemas"]["JobEvent"];
 type JobControls = components["schemas"]["JobControls"];
 type Worker = components["schemas"]["Worker"];
+
+type WorkerModel = components["schemas"]["WorkerModel"];
+
+function describeWorkerModel(model?: WorkerModel): string {
+  if (!model) return "non déclaré";
+  return [model.provider, model.model, model.version, model.endpoint]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function describeWorkerModels(worker: Worker): string {
+  const models = worker.models;
+  if (
+    !models ||
+    (!models.transcription && !models.diarization && !models.fingerprint)
+  )
+    return "Modèles : non déclaré";
+  return [
+    `Transcription : ${describeWorkerModel(models.transcription)}`,
+    `Diarisation : ${describeWorkerModel(models.diarization)}`,
+    `Empreinte vocale : ${describeWorkerModel(models.fingerprint)}`,
+  ].join(", ");
+}
 type VocabularyTerm = components["schemas"]["VocabularyTerm"];
 type TranscriptionPipeline = components["schemas"]["TranscriptionPipeline"];
 type SearchResult = {
@@ -2351,6 +2374,7 @@ function App() {
                                 )
                               : "jamais"}
                           </p>
+                          <p className="hint">{describeWorkerModels(worker)}</p>
                           {!worker.revoked_at && (
                             <button
                               className="secondary"

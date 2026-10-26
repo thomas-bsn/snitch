@@ -51,7 +51,21 @@ test("un administrateur crée un worker puis révoque son jeton", async ({
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ capacity: 1 }),
+      body: JSON.stringify({
+        capacity: 1,
+        models: {
+          transcription: {
+            provider: "openai-compatible",
+            model: "large-v3",
+            endpoint: "host.docker.internal:8000",
+          },
+          diarization: {
+            provider: "pyannote",
+            model: "pyannote/speaker-diarization-community-1",
+            version: "4.0.1",
+          },
+        },
+      }),
     });
     if (!pulse.ok) throw new Error("synthetic worker pulse failed");
   });
@@ -60,6 +74,14 @@ test("un administrateur crée un worker puis révoque son jeton", async ({
   await expect(
     page.getByRole("list", { name: "Workers" }).getByText("En ligne"),
   ).toBeVisible();
+  const declared = page
+    .getByRole("list", { name: "Workers" })
+    .getByRole("listitem")
+    .filter({ hasText: "pulse-fixture" });
+  await expect(declared).toContainText(
+    "Transcription : openai-compatible · large-v3 · host.docker.internal:8000, Diarisation : pyannote · pyannote/speaker-diarization-community-1 · 4.0.1, Empreinte vocale : non déclaré",
+  );
+  await expect(worker).toContainText("Modèles : non déclaré");
   await worker.getByRole("button", { name: "Révoquer le jeton" }).click();
   await expect(worker).toContainText("Révoqué");
   await expect(token).toHaveCount(0);

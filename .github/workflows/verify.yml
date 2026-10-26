@@ -43,6 +43,11 @@ jobs:
           docker run --rm snitch-worker:local python -m pip check
           docker run --rm --entrypoint python snitch-worker:local -c "import snitch_worker.runner"
           python scripts/smoke_compose.py snitch-smoke:local
+      - name: Build the GPU worker image (no GPU needed, never pushed)
+        run: |
+          docker system prune -af
+          docker build -f deploy/docker/worker-gpu.Dockerfile -t snitch-worker-gpu:local .
+          docker run --rm snitch-worker-gpu:local python -m pip check
   publish:
     # A reviewed version tag triggers publication only after every check and both builds.
     needs: verify

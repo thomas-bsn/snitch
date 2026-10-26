@@ -12,6 +12,7 @@ SNITCH_E2E=1 bash scripts/test.sh
 docker build -f deploy/docker/app.Dockerfile -t snitch-smoke:local .
 docker build -f deploy/docker/worker.Dockerfile -t snitch-worker:local .
 docker run --rm snitch-worker:local python -m pip check
+docker build -f deploy/docker/worker-gpu.Dockerfile -t snitch-worker-gpu:local .   # image GPU, sans GPU requis (~9 Go)
 python3 scripts/smoke_compose.py snitch-smoke:local
 ```
 
