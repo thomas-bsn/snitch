@@ -221,7 +221,7 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			overlaySegments(value, transcriptJobID, states)
-			if err := s.attachLocalSpeakers(r.Context(), v.ID, value); err != nil {
+			if err := s.attachLocalSpeakers(r.Context(), v.ID, value, states); err != nil {
 				s.internal(w, err)
 				return
 			}

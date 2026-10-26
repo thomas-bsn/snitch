@@ -95,3 +95,14 @@ Chaque résultat porte `corrected` (vrai si `context` est le texte corrigé) ; l
 Suppression : supprimer un clip efface en cascade ses corrections et leur historique (donc ses lignes de l'export) ; le fichier vidéo d'origine n'est jamais touché. Supprimer une Personne ou un profil vocal ne modifie ni les corrections de texte ni leur historique (les corrections de locuteur, elles, retombent sur le locuteur déduit).
 
 Tests : `segment_export_test.go` (sous-test « segment export » de `TestFoundation` : refus 401/403, vide, champs, restauration, pagination, NDJSON, clip privé, suppression de Personne et de profil, suppression du clip, original conservé) et `web/e2e/segment-export.spec.ts` (drapeau `SNITCH_E2E_SEGMENT_EXPORT=1`).
+
+## Corriger le locuteur d'un segment (ticket 54)
+
+`PUT /api/clips/{id}/segments/{index}/speaker` avec `{local_speaker_id, expected_version, reason?, transcription_job_id?}` désigne le Locuteur local d'un segment ; `local_speaker_id: null` revient au locuteur déduit des tours de parole (recouvrement maximal, égalité au plus petit ordinal). Le Locuteur local doit appartenir au même clip et à la même piste audio que la transcription visible, sinon `400 invalid_local_speaker`. Choisir la valeur déjà enregistrée répond `400 speaker_unchanged`. Le contrôle de version est celui du texte (le même compteur `version` couvre texte et locuteur) : `409 segment_conflict` ou `transcription_changed` avec l'état courant.
+
+- Stockage : `segment_corrections.speaker_override_id`, auteur et date ; aucune migration. Un retour à la valeur déduite efface l'override mais conserve la ligne (la version continue). Une correction du texte conserve l'override, et inversement.
+- Historique : une entrée `speaker` immuable (ancienne et nouvelle valeur effectives, étiquettes, id NULL pour « déduit », auteur, date, motif). Elle ne se restaure pas par `restore`.
+- Aucun effet sur les tours de parole, les empreintes, les attributions Locuteur local → Personne, les échantillons vocaux validés ; aucune diarisation relancée ; `reindex_pending` n'est pas positionné (le locuteur ne change pas le vecteur d'un segment).
+- Lecture : `segmentSpeakerJoin` (SQL : recherche et filtre par Personne) et `attachLocalSpeakers` (Go : lecture du clip) appliquent l'override, tant que le Locuteur local existe encore, est du même clip et de la même piste ; sinon la valeur déduite s'applique. La lecture du clip expose `segment.local_speaker_corrected` et `transcription.local_speakers` (choix possibles). Un segment sans locuteur déduit peut recevoir un locuteur désigné.
+- Filtre de la bibliothèque : il lit les voix identifiées du clip (niveau clip) ; désigner un autre Locuteur local du même clip ne change donc pas la liste des clips d'une Personne, seulement les segments filtrés en recherche.
+- Interface : sélecteur « Locuteur du segment N » et bouton « Enregistrer le locuteur du segment N » (`web/src/segments/SegmentSpeaker.tsx`).

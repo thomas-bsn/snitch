@@ -99,6 +99,8 @@ from .segment_history import SegmentHistory
 from .segment_history_entry import SegmentHistoryEntry
 from .segment_history_entry_kind import SegmentHistoryEntryKind
 from .segment_restore_input import SegmentRestoreInput
+from .segment_speaker import SegmentSpeaker
+from .segment_speaker_input import SegmentSpeakerInput
 from .segment_text_input import SegmentTextInput
 from .session import Session
 from .settings import Settings
@@ -117,6 +119,7 @@ from .transcript_segment import TranscriptSegment
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
 from .transcription_input import TranscriptionInput
+from .transcription_local_speakers_item import TranscriptionLocalSpeakersItem
 from .transcription_pipeline import TranscriptionPipeline
 from .transcription_pipeline_preparation import TranscriptionPipelinePreparation
 from .transcription_pipeline_provider import TranscriptionPipelineProvider
@@ -288,6 +291,8 @@ __all__ = (
     "SegmentHistoryEntry",
     "SegmentHistoryEntryKind",
     "SegmentRestoreInput",
+    "SegmentSpeaker",
+    "SegmentSpeakerInput",
     "SegmentTextInput",
     "Session",
     "Settings",
@@ -304,6 +309,7 @@ __all__ = (
     "Status",
     "Transcription",
     "TranscriptionInput",
+    "TranscriptionLocalSpeakersItem",
     "TranscriptionPipeline",
     "TranscriptionPipelinePreparation",
     "TranscriptionPipelineProvider",
