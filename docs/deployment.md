@@ -25,10 +25,16 @@ Un `up` local peut réutiliser le conteneur migrate déjà terminé. Pour une no
 
 ## Publication
 
-Le workflow `Verify and distribute` exécute toutes les vérifications sur PR, main et tags `v*`. Les jobs de publication passent toujours après succès de verify et jamais depuis une PR ou une autre branche :
+Le workflow `Verify and distribute` suit un seul chemin : `verify` → `changes` → `publish-app`, `publish-worker` et `publish-upstream`. `verify` exécute toutes les vérifications sur PR, `main` et tags `v*`. Les jobs de publication passent toujours après son succès et jamais depuis une PR ou une autre branche :
 
-- Push sur `main` (ou `workflow_dispatch` sur `main`, entrée `all` pour tout publier) : le job `changes` compare `github.event.before` à `github.sha` (git seul) et ne publie que ce qui a changé. `publish-app` (`snitch`) si `app/`, `web/`, `contracts/`, `deploy/docker/app.Dockerfile`, `compose.yaml`, `deploy/upstream-images.json`, les licences ffmpeg ou les scripts de build changent ; `publish-worker` (`snitch-worker`, image unique du worker) si `worker/`, `contracts/`, `deploy/docker/worker.Dockerfile`, `scripts/collect_python_notices.py` ou `deploy/licenses/` changent. Un `before` nul, introuvable ou non ancêtre (force-push) publie tout. Tags `latest` et `sha-<commit court>`, cache de couches buildx `type=gha`, espace disque du runner libéré pour l'image worker. `publish-upstream` copie `snitch-postgres` et `snitch-embed` en `latest` par imagetools seulement si `deploy/upstream-images.json` change ou si le tag `latest` n'existe pas encore. Premier lancement : `workflow_dispatch` avec `all`.
-- `publish-release` (tag `v*`) : publie toujours toutes les images avec le tag de version figé (y compris `snitch-worker:<tag>`) ; copie les manifestes amont PostgreSQL/pgvector et Ollama intacts.
+- `changes` (git seul, aucune action tierce) décide quoi publier et sous quels tags.
+  - **Push sur `main`** (ou `workflow_dispatch` sur `main`, entrée `all` pour tout publier) : il compare `github.event.before` à `github.sha` et ne retient que ce qui a changé. Les tags sont `latest` et `sha-<commit court>`. Un `before` nul, introuvable ou non ancêtre (force-push) publie tout.
+  - **Tag `v*`** : il publie toujours tout, sous le tag de version figé (versions cohérentes entre l'application et le worker).
+- `publish-app` (`snitch`) : si `app/`, `web/`, `contracts/`, `deploy/docker/app.Dockerfile`, `compose.yaml`, `deploy/upstream-images.json`, les licences ffmpeg ou les scripts de build changent.
+- `publish-worker` (`snitch-worker`, image unique du worker) : si `worker/`, `contracts/`, `deploy/docker/worker.Dockerfile`, `scripts/collect_python_notices.py` ou `deploy/licenses/` changent. Cache de couches buildx `type=gha`, espace disque du runner libéré pour cette image.
+- `publish-upstream` : copie `snitch-postgres` et `snitch-embed` par imagetools. Sur `main`, seulement si `deploy/upstream-images.json` change ou si le tag `latest` n'existe pas encore ; sur un tag, toujours, sous le tag de version, avec la provenance conservée en artifact.
+
+Premier lancement : `workflow_dispatch` avec `all`.
 
 L'image worker exige un GPU NVIDIA pour des performances raisonnables (`SNITCH_VOICE_DEVICE=cpu` reste possible mais lent, non mesuré). Les licences NVIDIA de l'image worker sont à relire avant de la rendre publique (voir deploy/NOTICES.md). Les actions et bases sont épinglées ; les images applicatives amd64 (cible NAS N100 et PC GPU) partagent le namespace du dépôt, y compris les forks. Le workflow conserve les références amont en artifact ; relever les digests GHCR résultants pour configurer l’installation. Aucun secret packages:write n’est donné aux PR. Cette configuration ne constitue ni un push ni une publication ; aucune exécution distante n’a été observée ici.
 

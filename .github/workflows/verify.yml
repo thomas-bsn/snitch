@@ -52,55 +52,8 @@ jobs:
           docker system prune -af
           docker build -f deploy/docker/worker.Dockerfile -t snitch-worker:local .
           docker run --rm snitch-worker:local python -m pip check
-  publish-release:
-    # A reviewed version tag triggers publication only after every check and the verify builds. Tags always publish every image (consistent pinned versions).
-    needs: verify
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
-      - name: Free runner disk space for the worker image
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          docker system prune -af
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Portable repository image namespace
-        run: echo "IMAGE_ROOT=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
-        with:
-          context: .
-          file: deploy/docker/app.Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ${{ env.IMAGE_ROOT }}:${{ github.ref_name }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
-        with:
-          context: .
-          file: deploy/docker/worker.Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ${{ env.IMAGE_ROOT }}-worker:${{ github.ref_name }}
-      - name: Preserve unchanged upstream layers and notices
-        run: |
-          postgres=$(python3 -c 'import json; print(json.load(open("deploy/upstream-images.json"))["postgres"])')
-          embed=$(python3 -c 'import json; print(json.load(open("deploy/upstream-images.json"))["embed"])')
-          docker buildx imagetools create --tag "$IMAGE_ROOT-postgres:$GITHUB_REF_NAME" "$postgres"
-          docker buildx imagetools create --tag "$IMAGE_ROOT-embed:$GITHUB_REF_NAME" "$embed"
-          cp deploy/upstream-images.json upstream-provenance.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: upstream-provenance-${{ github.ref_name }}
-          path: upstream-provenance.json
   changes:
-    # Decides what a push to main must publish. Pure git: no third-party action (only the
+    # Decides what a push to main or a version tag must publish, and under which tags. Pure git: no third-party action (only the
     # pinned checkout). Any doubt (new branch, unknown or non-ancestor "before" such as after
     # a force-push, manual "all") publishes everything.
     # app    = what goes into deploy/docker/app.Dockerfile: app/, web/, the shared contracts/,
@@ -111,10 +64,14 @@ jobs:
     #          deploy/licenses/** (voice extras) and LICENSE.
     # upstream = deploy/upstream-images.json (postgres/embed copies); the copy job also copies
     #          when a "latest" tag does not exist yet.
+    # A version tag (v*) always publishes every image under that tag (consistent pinned versions);
+    # main publishes "latest" plus an immutable sha-<commit> tag.
     needs: verify
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     outputs:
+      tags: ${{ steps.diff.outputs.tags }}
+      release: ${{ steps.diff.outputs.release }}
       app: ${{ steps.diff.outputs.app }}
       worker: ${{ steps.diff.outputs.worker }}
       upstream: ${{ steps.diff.outputs.upstream }}
@@ -128,9 +85,14 @@ jobs:
           BEFORE: ${{ github.event.before }}
           ALL: ${{ inputs.all }}
           SHA: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -eu
           everything=false
+          release=false
+          tags="latest sha-${SHA::7}"
+          if [ "$REF_TYPE" = tag ]; then everything=true; release=true; tags="$REF_NAME"; fi
           if [ "$EVENT" = workflow_dispatch ]; then
             if [ "$ALL" = true ]; then everything=true; else BEFORE=$(git rev-parse --verify -q "$SHA^" || true); fi
           fi
@@ -149,13 +111,16 @@ jobs:
             if echo "$files" | grep -Eq '^(worker|contracts|deploy/licenses)/|^deploy/docker/worker\.Dockerfile$|^scripts/collect_python_notices\.py$|^LICENSE$'; then worker=true; fi
             if echo "$files" | grep -Eq '^deploy/upstream-images\.json$'; then upstream=true; fi
           fi
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
           echo "app=$app" >> "$GITHUB_OUTPUT"
           echo "worker=$worker" >> "$GITHUB_OUTPUT"
           echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
           echo "everything=$everything app=$app worker=$worker upstream=$upstream"
   publish-app:
-    # Pushes to main (and manual runs on main) publish the moving "latest" image plus an immutable sha tag
-    # after verify, only when the app changed. Never runs for pull requests, other branches or tags.
+    # Publishes the app image after verify, only when the app changed (always for a version tag),
+    # under the tags computed by "changes" (latest + sha on main, the version on a tag).
+    # Never runs for pull requests or other branches.
     needs: [verify, changes]
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-24.04
@@ -170,23 +135,28 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Portable repository image namespace and short commit tag
+      - name: Portable repository image namespace and tags
+        env:
+          TAG_NAMES: ${{ needs.changes.outputs.tags }}
         run: |
-          echo "IMAGE_ROOT=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "IMAGE_ROOT=$IMAGE_ROOT" >> "$GITHUB_ENV"
+          {
+            echo "IMAGE_TAGS<<EOF"
+            for tag in $TAG_NAMES; do echo "$IMAGE_ROOT:$tag"; done
+            echo "EOF"
+          } >> "$GITHUB_ENV"
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
           file: deploy/docker/app.Dockerfile
           platforms: linux/amd64
           push: true
-          tags: |
-            ${{ env.IMAGE_ROOT }}:latest
-            ${{ env.IMAGE_ROOT }}:sha-${{ env.SHORT_SHA }}
+          tags: ${{ env.IMAGE_TAGS }}
           cache-from: type=gha,scope=app
           cache-to: type=gha,scope=app,mode=max
   publish-worker:
-    # Same rules as publish-app, only when the worker changed. The single worker image is large.
+    # Same rules as publish-app, only when the worker changed (always for a version tag). The single worker image is large.
     needs: [verify, changes]
     if: needs.changes.outputs.worker == 'true'
     runs-on: ubuntu-24.04
@@ -206,24 +176,30 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Portable repository image namespace and short commit tag
+      - name: Portable repository image namespace and tags
+        env:
+          TAG_NAMES: ${{ needs.changes.outputs.tags }}
         run: |
-          echo "IMAGE_ROOT=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "IMAGE_ROOT=$IMAGE_ROOT" >> "$GITHUB_ENV"
+          {
+            echo "IMAGE_TAGS<<EOF"
+            for tag in $TAG_NAMES; do echo "$IMAGE_ROOT-worker:$tag"; done
+            echo "EOF"
+          } >> "$GITHUB_ENV"
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
           file: deploy/docker/worker.Dockerfile
           platforms: linux/amd64
           push: true
-          tags: |
-            ${{ env.IMAGE_ROOT }}-worker:latest
-            ${{ env.IMAGE_ROOT }}-worker:sha-${{ env.SHORT_SHA }}
+          tags: ${{ env.IMAGE_TAGS }}
           cache-from: type=gha,scope=worker
           cache-to: type=gha,scope=worker,mode=max
   publish-upstream:
-    # Copies the pinned upstream images unchanged, only when upstream-images.json changed
-    # or the "latest" tag does not exist yet (first publication).
+    # Copies the pinned upstream images unchanged: on main, only when upstream-images.json changed
+    # or the "latest" tag does not exist yet (first publication); for a version tag, always, under
+    # that tag, and the provenance file is kept as a build artifact.
     needs: [verify, changes]
     if: needs.changes.result == 'success'
     runs-on: ubuntu-24.04
@@ -241,13 +217,23 @@ jobs:
       - name: Copy pinned upstream images unchanged
         env:
           UPSTREAM_CHANGED: ${{ needs.changes.outputs.upstream }}
+          RELEASE: ${{ needs.changes.outputs.release }}
+          TAG_NAMES: ${{ needs.changes.outputs.tags }}
         run: |
           IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
           for name in postgres embed; do
             source=$(python3 -c 'import json,sys; print(json.load(open("deploy/upstream-images.json"))[sys.argv[1]])' "$name")
-            if [ "$UPSTREAM_CHANGED" = true ] || ! docker buildx imagetools inspect "$IMAGE_ROOT-$name:latest" >/dev/null 2>&1; then
+            if [ "$RELEASE" = true ]; then
+              docker buildx imagetools create --tag "$IMAGE_ROOT-$name:$TAG_NAMES" "$source"
+            elif [ "$UPSTREAM_CHANGED" = true ] || ! docker buildx imagetools inspect "$IMAGE_ROOT-$name:latest" >/dev/null 2>&1; then
               docker buildx imagetools create --tag "$IMAGE_ROOT-$name:latest" "$source"
             else
               echo "$IMAGE_ROOT-$name:latest already published and unchanged"
             fi
           done
+          cp deploy/upstream-images.json upstream-provenance.json
+      - if: needs.changes.outputs.release == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: upstream-provenance-${{ github.ref_name }}
+          path: upstream-provenance.json
