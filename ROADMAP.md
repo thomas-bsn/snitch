@@ -13,6 +13,7 @@ Snitch indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a dit 
 - Worker vocal réel (complément de la phase 5) : fusionné dans `main` (PR [#46](https://github.com/thomas-bsn/snitch/pull/46)). Fournisseurs pyannote (diarisation) et empreinte vocale, image Docker unique `snitch-worker` pour GPU NVIDIA, compose et `.env` générés à la création d’un worker, téléchargement des modèles au premier démarrage sur opt-in explicite, modèles déclarés visibles dans la page Workers. Voir la [spec](docs/specs/phase-5-real-voice-worker.md) et le [guide](docs/real-voice-worker.md). Le code pyannote réel n’a jamais tourné avec de vrais modèles, un GPU ou un jeton Hugging Face : à valider sur le PC de jeu.
 - Publication des images : à chaque push sur `main`, le workflow publie sur GHCR l’application et/ou le worker selon les fichiers modifiés ; les tags `v*` publient tout. Configurée mais jamais observée avant la première exécution sur `main` : à vérifier. Les images sont privées par défaut ; les licences NVIDIA de l’image worker sont à relire avant de la rendre publique.
 - Phase 6 : implémentée sur `integration/phase-6-corrections` ; validation utilisateur attendue avant la phase 7. Voir le [bilan](docs/phase-6-report.md), la [spec](docs/specs/phase-6.md), l’[ADR 0012](docs/adr/0012-corrections-de-segments.md), l’issue parente [#48](https://github.com/thomas-bsn/snitch/issues/48) et les tickets [#49](https://github.com/thomas-bsn/snitch/issues/49) à [#57](https://github.com/thomas-bsn/snitch/issues/57) (ouverts jusqu’à validation). Données synthétiques uniquement ; la validation de bout en bout de la phase 5 avec de vrais modèles n’a pas eu lieu. Phase 7 : non implémentée.
+- Phase 6 bis (refonte de l’interface et du wizard) : spec publiée en issue parente [#60](https://github.com/thomas-bsn/snitch/issues/60) (`ready-for-agent`), [spec](docs/specs/phase-6bis.md) ; prototype jetable sur `prototype/ui-atelier`. Tickets enfants [#61](https://github.com/thomas-bsn/snitch/issues/61) à [#81](https://github.com/thomas-bsn/snitch/issues/81) créés (le #81, détection des modèles, est à valider). Aucune branche de travail créée. Chantier séparé qui ne touche pas à la phase 7.
 - Aucun média réel traité ni déploiement effectué sur le NAS. Le dépôt public et le suivi des issues existent sur GitHub.
 
 ## Règles de progression
@@ -34,6 +35,7 @@ Aucun scan ni traitement de la vraie bibliothèque avant validation du benchmark
 | **4 — Recherche sémantique** | Embeddings CPU NAS, pgvector, recherche hybride RRF, filtres date/source/état, changement de modèle avec reconstruction ciblée et bascule d'index. | Pertinence sur fixtures, lexical maintenu si embeddings indisponibles, cohérence modèle/version et absence de retraitement vidéo. |
 | **5 — Voix** | Locuteurs locaux, personnes, empreintes et échantillons validés, groupes d'inconnues, validation humaine, historique et confidentialité. | Concurrence des validations, propagation sans PC ni vidéo, ambiguïtés, suppression des données vocales ; activation automatique réservée à l'admin après mesures. |
 | **6 — Corrections** | Édition des transcriptions et attributions, historique et réindexation ciblée. | Une correction ne réindexe que les segments concernés ; auteur et changements sont traçables. |
+| **6 bis — Refonte de l’interface** | Interface à pages bilingue (anglais par défaut, français), responsive, style Atelier ; wizard guidé de bout en bout ; fiche de worker avec informations de machine. | Parcours Playwright existants verts à chaque lot, accessibilité WCAG 2.2 AA contrôlée, wizard et reprise, langue du compte. |
 | **7 — Benchmark et durcissement** | Échantillon représentatif de 200–500 clips après accord, mesures PC/NAS, qualité transcription/voix/recherche, reprise, sécurité et restauration. | Rapport go/no-go validé avant batch réel complet, extrapolation à 1 To avec hypothèses explicites. |
 
 ## Détails à préserver dans les prochaines specs
@@ -93,6 +95,10 @@ Toute correction conserve ancienne valeur, nouvelle valeur, auteur et date. Réi
 
 Livrée : voir le [bilan](docs/phase-6-report.md) et l’[ADR 0012](docs/adr/0012-corrections-de-segments.md) ; tickets : [#49](https://github.com/thomas-bsn/snitch/issues/49) texte d’un segment, [#50](https://github.com/thomas-bsn/snitch/issues/50) historique et restauration, [#51](https://github.com/thomas-bsn/snitch/issues/51) corrections simultanées, [#52](https://github.com/thomas-bsn/snitch/issues/52) recherche du texte corrigé, [#53](https://github.com/thomas-bsn/snitch/issues/53) réindexation du segment, [#54](https://github.com/thomas-bsn/snitch/issues/54) locuteur d’un segment, [#55](https://github.com/thomas-bsn/snitch/issues/55) retranscription d’un clip corrigé, [#56](https://github.com/thomas-bsn/snitch/issues/56) export et suppression avec le clip, [#57](https://github.com/thomas-bsn/snitch/issues/57) clôture.
 
+### Phase 6 bis
+
+Front seulement, sauf des ajouts de backend : progression du wizard, langue du compte, déclaration de machine d’un worker et démarrage sans configuration (mot de passe de la base, clé maître et adresse publique produits ou déduits). Le jeton de worker reste affiché une seule fois. Voir la [spec](docs/specs/phase-6bis.md) pour les lots, les questions ouvertes et les ADR à écrire.
+
 ### Phase 7
 
 Mesurer distributions de temps par étape, clips/heure et concurrence worker 1–4, pics RAM/VRAM/CPU, WER sur références humaines, qualité de diarisation et d'identification, pertinence des requêtes, taille et mémoire des index, latence NAS, erreurs et reprise. Aucun débit ni durée pour 1 To promis avant ces mesures. Tester restauration de la base et des secrets avec la clé conservée séparément. Demucs peut être évalué au benchmark, sans devenir une fonction V1.
@@ -120,6 +126,7 @@ Chatbot, keyframes, analyse visuelle/VLM, résumés et événements de jeu, sép
 - [Spec détaillée de phase 0](docs/specs/phase-0.md)
 - [Spec détaillée de phase 3](docs/specs/phase-3.md) · [Issue GitHub phase 3](https://github.com/thomas-bsn/snitch/issues/19)
 - [Spec détaillée de phase 6](docs/specs/phase-6.md) · [Issue GitHub phase 6](https://github.com/thomas-bsn/snitch/issues/48) · [ADR 0012](docs/adr/0012-corrections-de-segments.md) · [Bilan](docs/phase-6-report.md)
+- [Spec de phase 6 bis (refonte de l’interface)](docs/specs/phase-6bis.md) · [Issue GitHub phase 6 bis](https://github.com/thomas-bsn/snitch/issues/60)
 - [Spec détaillée de phase 5](docs/specs/phase-5.md) · [Issue GitHub phase 5](https://github.com/thomas-bsn/snitch/issues/31) · [ADR 0011](docs/adr/0011-locuteurs-personnes-et-attributions.md)
 - [Spec du worker vocal réel](docs/specs/phase-5-real-voice-worker.md) · [Guide du worker réel](docs/real-voice-worker.md) · [Déploiement et images](docs/deployment.md)
 - [Handoff historique](HANDOFF.md)
