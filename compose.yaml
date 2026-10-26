@@ -45,7 +45,9 @@ services:
     environment:
       DATABASE_URL: postgres://receipts@postgres:5432/receipts?sslmode=disable
       POSTGRES_PASSWORD_FILE: /data/secrets/postgres_password
-      MASTER_KEY: ${MASTER_KEY:?Set MASTER_KEY}
+      # Facultative : sans valeur, l'application génère sa clé maître au premier démarrage et la conserve dans le
+      # volume secrets (écriture réservée à l'application). Une valeur fournie reste prioritaire.
+      MASTER_KEY: ${MASTER_KEY:-}
       PUBLIC_URL: ${PUBLIC_URL:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
@@ -72,7 +74,7 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
-    volumes: [media:/data/media, "secrets:/data/secrets:ro"]
+    volumes: [media:/data/media, "secrets:/data/secrets"]
     x-forgeyard:
       memory: 384
       expose: {port: 8080}

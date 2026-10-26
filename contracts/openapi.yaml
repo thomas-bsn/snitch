@@ -3336,6 +3336,18 @@
         "security": [{"session": []}]
       }
     },
+    "/api/admin/master-key/export": {
+      "post": {
+        "operationId": "exportMasterKey",
+        "description": "Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (provisoirement à tout Administrateur, derrière un contrôle unique côté serveur) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé.",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {
+          "200": {"description": "Clé exportée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MasterKeyExport"}}}},
+          "default": {"description": "Erreur (401 session requise, 403 réservé au Super-administrateur, origine ou CSRF refusés)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/vocabulary/{id}": {
       "put": {
         "operationId": "updateVocabulary",
@@ -4038,7 +4050,9 @@
           "client_id",
           "secret_configured",
           "registration_approval",
-          "callback_url"
+          "callback_url",
+          "master_key_origin",
+          "unreadable_secrets"
         ],
         "properties": {
           "client_id": {
@@ -4054,7 +4068,26 @@
           "callback_url": {
             "type": "string",
             "description": "Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL)."
+          },
+          "master_key_origin": {
+            "type": "string",
+            "enum": ["provided", "generated"],
+            "description": "provided : la clé vient de la variable MASTER_KEY ; generated : l'application l'a générée et la conserve dans son volume de secrets."
+          },
+          "unreadable_secrets": {
+            "type": "array",
+            "items": {"type": "string", "enum": ["discord_client_id", "discord_client_secret"]},
+            "description": "Réglages chiffrés que la clé maître actuelle ne déchiffre plus (clé absente ou différente). Ils sont traités comme non configurés et sont à ressaisir ; l'application démarre quand même."
           }
+        }
+      },
+      "MasterKeyExport": {
+        "type": "object",
+        "required": ["master_key", "origin", "warning"],
+        "properties": {
+          "master_key": {"type": "string", "description": "Clé de 32 octets encodée en base64, utilisable telle quelle comme valeur de MASTER_KEY."},
+          "origin": {"type": "string", "enum": ["provided", "generated"]},
+          "warning": {"type": "string", "enum": ["master_key_not_replayable"], "description": "Code de l'avertissement : cette clé ne se rejoue pas, la perdre rend les secrets chiffrés irrécupérables."}
         }
       },
       "SettingsInput": {

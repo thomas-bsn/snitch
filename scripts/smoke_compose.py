@@ -1,7 +1,7 @@
 """Isolated real deployment acceptance test. No host media, no model downloads.
 Pass a locally built app image. Output contains metrics only, never service logs.
 """
-import base64
+import http.cookiejar
 import json
 import os
 from pathlib import Path
@@ -18,10 +18,10 @@ image = sys.argv[1] if len(sys.argv) > 1 else 'snitch-smoke:local'
 report = {}
 with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
     temp = Path(temp)
-    # No POSTGRES_PASSWORD: the deployment must start without it. An explicit one is tested separately
-    # (existing installations keep working).
-    base_env = {k: v for k, v in os.environ.items() if k != 'POSTGRES_PASSWORD'}
-    env = dict(base_env, SNITCH_IMAGE=image, MASTER_KEY=base64.b64encode(secrets.token_bytes(32)).decode(),
+    # No POSTGRES_PASSWORD and no MASTER_KEY: the deployment must start without them. An explicit password is
+    # tested separately (existing installations keep working).
+    base_env = {k: v for k, v in os.environ.items() if k not in ('POSTGRES_PASSWORD', 'MASTER_KEY')}
+    env = dict(base_env, SNITCH_IMAGE=image,
                PUBLIC_URL='http://127.0.0.1:8080', COOKIE_SECURE='false', DISPLAY_NAME='Synthetic distribution', CLIPS_ROOTS='', EMBEDDINGS_MODEL='')
     explicit_password = 'synthetic:@/?#%+ '+secrets.token_hex(16)
     explicit_env = dict(env, POSTGRES_PASSWORD=explicit_password)
@@ -72,10 +72,31 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
         data = None if payload is None else json.dumps(payload).encode()
         req = urllib.request.Request(base+path, data=data, headers={'Content-Type':'application/json', 'Origin':env['PUBLIC_URL']})
         return urllib.request.urlopen(req, timeout=15)
+    def stored_key(project):
+        return compose(project, 'exec', '-T', 'app', 'cat', '/data/secrets/master_key').stdout
+    def key_fingerprint(project):
+        # Hash only: the key itself is never printed.
+        return compose(project, 'exec', '-T', 'app', 'sha256sum', '/data/secrets/master_key').stdout.split()[0]
+    def login(project, password):
+        # A session of its own, with cookie and CSRF token, to call the administration.
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        base = 'http://'+compose(project, 'port', 'app', '8080').stdout.strip()
+        def call(method, path, payload=None):
+            headers = {'Content-Type':'application/json', 'Origin':env['PUBLIC_URL']}
+            if method != 'GET':
+                headers['X-CSRF-Token'] = csrf[0]
+            data = None if payload is None else json.dumps(payload).encode()
+            return json.load(opener.open(urllib.request.Request(base+path, data=data, method=method, headers=headers), timeout=15))
+        csrf = ['']
+        call('POST', '/api/auth/login', {'username':'synthetic-admin', 'password':password})
+        csrf[0] = call('GET', '/api/auth/me')['csrf_token']
+        return call
     def install(project):
         logs = compose(project, 'logs', '--no-log-prefix', 'app').stdout
         code = next(json.loads(line)['code'] for line in logs.splitlines() if 'one-time installation code' in line)
-        assert api(project, '/api/setup', {'code':code, 'username':'synthetic-admin', 'password':secrets.token_urlsafe(24)}).status == 201
+        password = secrets.token_urlsafe(24)
+        assert api(project, '/api/setup', {'code':code, 'username':'synthetic-admin', 'password':password}).status == 201
+        return password
     def wait_initialized(project):
         for _ in range(60):
             try:
@@ -113,7 +134,13 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
         assert '<html' in api(good, '/').read().decode().lower()
         setup = json.load(api(good, '/api/setup'))
         assert not setup['initialized'] and setup['display_name'] == 'Synthetic distribution'
-        install(good)
+        admin_password = install(good)
+        # No MASTER_KEY given: the application generated its key and keeps it in the secrets volume, which the
+        # database service cannot read (private file) and which is not part of the database.
+        key = stored_key(good).strip()
+        assert len(key) == 44, 'master key not generated'
+        assert compose(good, 'exec', '-T', '-u', 'postgres', 'postgres', 'cat', '/run/snitch-secrets/master_key', check=False).returncode != 0, 'database service can read the master key'
+        key_hash = key_fingerprint(good)
         compose(good, 'stop', 'embed')
         assert api(good, '/api/health/ready').status == 200
         compose(good, 'restart', 'app')
@@ -123,6 +150,7 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
         compose(good, 'down', '--remove-orphans')
         assert up(good).returncode == 0, 'second start failed'
         assert fingerprint(good) == password_fingerprint, 'password changed over a restart'
+        assert key_fingerprint(good) == key_hash, 'master key changed over a restart'
         wait_initialized(good)
         # Public Ollama API is unavailable on host; inspect its model store instead.
         models = compose(good, 'exec', '-T', 'embed', 'sh', '-c', 'find /root/.ollama/models -type f 2>/dev/null || true').stdout
@@ -144,8 +172,27 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
         report['volumes'] = {}
         for name, path in [('postgres','/var/lib/postgresql'), ('embed','/root/.ollama')]:
             report['volumes'][name] = compose(good, 'exec', '-T', name, 'du', '-sk', path).stdout.strip()
+        # Master key: encrypts the secrets, exportable by the administrator, absent from a dump of the database, and
+        # its loss does not prevent the start: the secrets to re-enter are listed.
+        admin = login(good, admin_password)
+        admin('PUT', '/api/admin/settings', {'client_id':'synthetic-app', 'client_secret':'synthetic-discord-secret', 'registration_approval':True})
+        exported = admin('POST', '/api/admin/master-key/export')
+        assert exported['master_key'] == key and exported['warning'] == 'master_key_not_replayable', 'exported key differs from the kept one'
+        dump = compose(good, 'exec', '-T', 'postgres', 'pg_dump', '-U', 'receipts', '-d', 'receipts', '-a').stdout
+        assert key not in dump and 'synthetic-discord-secret' not in dump, 'key or secret readable in a dump of the database'
+        compose(good, 'exec', '-T', 'app', 'rm', '/data/secrets/master_key')
+        compose(good, 'restart', 'app')
+        wait_initialized(good)
+        assert state(good, 'app')['State']['Running'], 'application did not start without its key'
+        admin = login(good, admin_password)
+        settings = admin('GET', '/api/admin/settings')
+        assert settings['unreadable_secrets'] == ['discord_client_id', 'discord_client_secret'] and settings['master_key_origin'] == 'generated', 'unreadable secrets not listed'
+        assert stored_key(good).strip() != key, 'a new key was not generated'
+        admin('PUT', '/api/admin/settings', {'client_id':'synthetic-app', 'client_secret':'synthetic-discord-secret', 'registration_approval':True})
+        assert admin('GET', '/api/admin/settings')['unreadable_secrets'] == [], 're-entering the secrets did not work'
         # The produced password never appears in any service log.
         assert generated not in compose(good, 'logs', '--no-log-prefix').stdout, 'password written to a log'
+        assert key not in compose(good, 'logs', '--no-log-prefix').stdout, 'master key written to a log'
         generated = None
         compose(good, 'stop', 'app')
         assert state(good, 'app')['State']['ExitCode'] == 0, 'SIGTERM did not shut down cleanly'
@@ -168,7 +215,7 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
         assert up(explicit).returncode == 0, 'restart without the variable failed'
         wait_initialized(explicit)
         assert stored_password(explicit) == explicit_password, 'password changed when the variable was removed'
-        print('Compose acceptance passed: fresh install without variables, produced password (enforced, kept over restart, not published, not logged), explicit password (honoured, restart, variable removed), persistence, optional embeddings, clean stop, migration failure gate')
+        print('Compose acceptance passed: fresh install without variables, produced password (enforced, kept over restart, not published, not logged), generated master key (kept over restart, exported, not in the database, loss reported and recoverable), explicit password (honoured, restart, variable removed), persistence, optional embeddings, clean stop, migration failure gate')
         if len(sys.argv) > 2:
             Path(sys.argv[2]).write_text(json.dumps(report, indent=2)+'\n')
     finally:

@@ -8,7 +8,7 @@ La phase 6 (corrections des transcriptions et des locuteurs de segments) est imp
 
 **Prérequis** : Docker Compose v2 sur le NAS ; sur le PC de jeu, un GPU NVIDIA avec le NVIDIA Container Toolkit, un serveur de transcription compatible OpenAI (Whisper) et un compte Hugging Face gratuit.
 
-1. **Snitch (NAS)** : `git clone https://github.com/thomas-bsn/snitch.git && cd snitch && cp .env.example .env`, renseigner `MASTER_KEY` (`openssl rand -base64 32`, à conserver séparément) (le mot de passe de la base est produit seul au premier démarrage ; l'adresse publique n'est pas à renseigner : elle est déduite de la façon dont vous ouvrez Snitch, et `PUBLIC_URL` la fixe si besoin derrière un mandataire, voir docs/access.md), puis `docker compose build app migrate secrets && docker compose up -d`. Lire le code d'installation avec `docker compose logs app`, ouvrir <http://localhost:8080> et créer l'administrateur.
+1. **Snitch (NAS)** : `git clone https://github.com/thomas-bsn/snitch.git && cd snitch && cp .env.example .env`, puis `docker compose build app migrate secrets && docker compose up -d` : aucune variable n'est à renseigner. Le mot de passe de la base et la clé maître de chiffrement sont produits seuls au premier démarrage (exporter la clé depuis l'administration et la conserver séparément de la base, voir [sauvegarde](docs/backups.md)) ; l'adresse publique n'est pas à renseigner : elle est déduite de la façon dont vous ouvrez Snitch, et `PUBLIC_URL` la fixe si besoin derrière un mandataire, voir docs/access.md. Lire le code d'installation avec `docker compose logs app`, ouvrir <http://localhost:8080> et créer l'administrateur.
 2. **Vidéos** : les importer depuis l'interface (transfert reprenable). Rien n'est scanné ni traité sans votre action.
 3. **Embeddings** (facultatif, recherche sémantique) : renseigner dans l'administration l'adresse de votre endpoint d'embeddings compatible OpenAI (Ollama convient).
 4. **Worker (PC de jeu)** : dans la page Workers, créer un worker. L'interface fournit un `compose.yaml` et un `.env` avec l'URL de Snitch et le jeton déjà remplis. Compléter `TRANSCRIPTION_API_URL`, `TRANSCRIPTION_MODEL` et `HF_TOKEN` (après avoir accepté sur Hugging Face les conditions de `pyannote/speaker-diarization-community-1`), puis `docker compose up -d`. Au premier démarrage le worker télécharge ses modèles de voix, puis tourne hors ligne ; `HF_TOKEN` ne sert qu'à ce téléchargement.
@@ -26,10 +26,9 @@ Prérequis : Docker avec Compose v2, Git ; environ 8 Go d’images amont en cach
 git clone https://github.com/thomas-bsn/snitch.git
 cd snitch
 cp .env.example .env
-# Dans .env, renseigner MASTER_KEY avec la commande suivante
-# (le mot de passe de la base n'est pas à choisir : il est produit au premier démarrage) :
-openssl rand -base64 32
-# Conserver cette clé séparément et ne jamais committer .env.
+# Aucune variable n'est obligatoire : le mot de passe de la base et la clé maître de chiffrement sont
+# produits au premier démarrage et conservés dans le volume « secrets ».
+# Ne jamais committer .env.
 docker compose build app migrate secrets
 docker compose up -d
 # Lire localement le code temporaire dans les logs (ne pas les partager) :

@@ -100,7 +100,7 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	admin := ss.User.Role == "admin"
+	admin := isAdministrator(ss.User.Role)
 	visibilityClause := "(c.visibility='shared' OR c.owner_id=$1 OR $2)"
 	args := []any{ss.User.ID, admin, visibility, status, owner, source, from, to, person.PersonID, person.Unknown}
 	filters := "($3='' OR c.visibility=$3) AND ($4='' OR c.id IN (SELECT sf.clip_id FROM source_files sf WHERE sf.status=$4) OR ($4='ready' AND EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id)) OR ($4='missing' AND NOT EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready'))) AND ($5=0 OR c.owner_id=$5) AND ($6=0 OR EXISTS(SELECT 1 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id AND cs.id=$6)) AND ($7='' OR c.recorded_at::date >= $7::date) AND ($8='' OR c.recorded_at::date <= $8::date) AND " + clipPersonPredicate("$9", "$10")
@@ -167,7 +167,7 @@ func (s *Server) authorizedClip(w http.ResponseWriter, r *http.Request) (clipIte
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
  COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb)
- FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, ss.User.Role == "admin").Scan(&v.ID, &v.OwnerID, &v.Owner, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders)
+ FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&v.ID, &v.OwnerID, &v.Owner, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, 404, "clip_not_found")
 		return clipItem{}, false

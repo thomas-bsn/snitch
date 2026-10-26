@@ -1,6 +1,6 @@
 # Installation initiale et secrets
 
-Statut : accepté dans le plan de phase 0.
+Statut : accepté dans le plan de phase 0. Amendé par l'[ADR 0013](0013-demarrage-sans-configuration.md) : la clé maître est désormais générée par l'application et conservée dans son volume `secrets`, au lieu d'être fournie par l'opérateur ; la séparation de la clé et de la base reste.
 
 ## Contexte et décision
 

@@ -1376,6 +1376,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/master-key/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (provisoirement à tout Administrateur, derrière un contrôle unique côté serveur) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé. */
+    post: operations["exportMasterKey"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/vocabulary/{id}": {
     parameters: {
       query?: never;
@@ -1489,6 +1506,24 @@ export interface components {
       registration_approval: boolean;
       /** @description Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL). */
       callback_url: string;
+      /**
+       * @description provided : la clé vient de la variable MASTER_KEY ; generated : l'application l'a générée et la conserve dans son volume de secrets.
+       * @enum {string}
+       */
+      master_key_origin: "provided" | "generated";
+      /** @description Réglages chiffrés que la clé maître actuelle ne déchiffre plus (clé absente ou différente). Ils sont traités comme non configurés et sont à ressaisir ; l'application démarre quand même. */
+      unreadable_secrets: ("discord_client_id" | "discord_client_secret")[];
+    };
+    MasterKeyExport: {
+      /** @description Clé de 32 octets encodée en base64, utilisable telle quelle comme valeur de MASTER_KEY. */
+      master_key: string;
+      /** @enum {string} */
+      origin: "provided" | "generated";
+      /**
+       * @description Code de l'avertissement : cette clé ne se rejoue pas, la perdre rend les secrets chiffrés irrécupérables.
+       * @enum {string}
+       */
+      warning: "master_key_not_replayable";
     };
     SettingsInput: {
       /** @description Required application identifier. Empty disables Discord and removes the stored secret. Whitespace-only values are rejected; saving does not verify credentials with Discord. */
@@ -6441,6 +6476,38 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  exportMasterKey: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Clé exportée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MasterKeyExport"];
+        };
+      };
+      /** @description Erreur (401 session requise, 403 réservé au Super-administrateur, origine ou CSRF refusés) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
       };
     };
   };
