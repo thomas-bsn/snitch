@@ -2362,6 +2362,34 @@
         "description": "Session requise. Les clips privés hors propriétaire/admin sont exclus avant filtres et pagination."
       }
     },
+    "/api/clip-filters": {
+      "get": {
+        "operationId": "listClipFilterOptions",
+        "responses": {
+          "200": {
+            "description": "Sources et propriétaires proposés par les filtres de la Bibliothèque",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipFilterOptions"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Session requise. Ne liste que les Sources et les propriétaires des clips que la visibilité permet à l’appelant de voir : un membre n’apprend l’existence d’aucune Source ni d’aucun compte dont il ne voit aucun clip."
+      }
+    },
     "/api/clips/{id}": {
       "get": {
         "operationId": "getClip",
@@ -5957,6 +5985,84 @@
           },
           "audio_track_selection": {
             "$ref": "#/components/schemas/AudioTrackSelection"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ClipProgress"
+          }
+        }
+      },
+      "ClipStepState": {
+        "type": "string",
+        "enum": [
+          "none",
+          "queued",
+          "running",
+          "done",
+          "failed",
+          "unavailable"
+        ],
+        "description": "État d’une étape du clip : none (rien de planifié), queued (en file), running (en cours), done (terminée), failed (échouée), unavailable (étape non configurée sur cette installation)."
+      },
+      "ClipProgress": {
+        "type": "object",
+        "required": [
+          "transcription",
+          "indexing"
+        ],
+        "properties": {
+          "transcription": {
+            "$ref": "#/components/schemas/ClipStepState"
+          },
+          "indexing": {
+            "$ref": "#/components/schemas/ClipStepState"
+          }
+        },
+        "description": "Avancement du clip pour les étapes que le serveur seul connaît. Les étapes de voix se lisent avec GET /api/clips/{id}/voice. Un clip est toujours importé."
+      },
+      "ClipFilterOptions": {
+        "type": "object",
+        "required": [
+          "sources",
+          "owners"
+        ],
+        "properties": {
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "owners": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "username"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },

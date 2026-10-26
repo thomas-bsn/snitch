@@ -11,16 +11,12 @@ import { ADMIN_TABS } from "./admin/tabs";
 import { WorkersTab } from "./admin/workers/WorkersTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
-import {
-  AccountPage,
-  Forbidden,
-  ImportPage,
-  LibraryPage,
-  NotFound,
-  SearchPage,
-} from "./pages/pages";
+import { Forbidden, ImportPage, NotFound, SearchPage } from "./pages/pages";
 import { isAdministrator } from "./roles";
+import { AccountPage } from "./screens/account/AccountPage";
 import { ConnectionLost, Splash } from "./screens/ConnectionLost";
+import { ClipPage } from "./library/ClipPage";
+import { LibraryPage } from "./library/LibraryPage";
 import { InstallationPending } from "./screens/InstallationPending";
 import { LoginPage } from "./screens/LoginPage";
 import { RegisterPage } from "./screens/RegisterPage";
@@ -80,6 +76,7 @@ function Routing() {
       <Route element={<RequireSession />}>
         <Route element={<AppShell />}>
           <Route path="library" element={<LibraryPage />} />
+          <Route path="clips/:id" element={<ClipPage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="people" element={<PeopleLayout />}>
             <Route index element={<PersonList />} />

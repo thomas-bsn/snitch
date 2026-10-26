@@ -73,6 +73,7 @@ export const fr: Messages = {
     registeredActive: "Compte créé. Vous pouvez vous connecter.",
     pending:
       "Votre inscription Discord attend l’approbation d’un administrateur.",
+    discordLinked: "Votre identité Discord est liée à votre compte.",
     dismiss: "Fermer ce message",
   },
   connection: {
@@ -84,6 +85,55 @@ export const fr: Messages = {
     title: "L’installation n’est pas terminée",
     body: "Snitch n’a pas encore d’administrateur. L’installation guidée n’est pas encore disponible dans cette interface : terminez-la dans l’ancienne interface, avec le code d’installation affiché dans les journaux du serveur.",
     open: "Ouvrir l’ancienne interface",
+  },
+  account: {
+    tabsLabel: "Paramètres du compte",
+    tabs: { profile: "Profil", voice: "Ma voix" },
+    profile: {
+      identityTitle: "Compte",
+      username: "Nom d’utilisateur",
+      role: "Rôle",
+      discordTitle: "Discord",
+      discordBody:
+        "Liez votre identité Discord à ce compte pour pouvoir vous connecter avec Discord. Le lien se fait avec ce compte uniquement, jamais par correspondance de pseudo. Cette action ouvre Discord.",
+      discordLink: "Lier Discord",
+      discordLinking: "Ouverture de Discord…",
+      discordDisabled:
+        "La connexion Discord n’est pas activée sur cette instance. Un administrateur peut l’activer.",
+      preferencesTitle: "Préférences",
+      language: "Langue",
+      languageHint:
+        "Conservée dans votre compte : elle vous suit sur vos autres appareils.",
+      languageSaved: "Langue enregistrée.",
+      languageNotSaved:
+        "Langue changée ici, mais votre compte n’a pas pu la conserver.",
+    },
+    voice: {
+      title: "Ma voix",
+      loading: "Chargement de votre voix…",
+      noPersonTitle: "Pas de profil vocal",
+      noPerson:
+        "Aucune Personne n’est liée à votre compte : Snitch ne détient donc aucun profil vocal à votre nom. Un administrateur lie une Personne à un compte.",
+      identity: "Vous êtes la Personne {name}.",
+      samples:
+        "{count} échantillon(s) vocal(aux) validé(s) servent de référence pour votre voix.",
+      deleted:
+        "Votre profil vocal est supprimé : Snitch ne vous reconnaît plus.",
+      clipsTitle: "Clips où vous êtes identifié(e)",
+      clipsLabel: "Mes clips",
+      noClips: "Aucun clip visible pour vous.",
+      deleteTitle: "Supprimer mon profil vocal",
+      deleteEffects:
+        "Supprimer votre profil vocal efface vos échantillons vocaux validés, vos empreintes vocales et toutes les attributions faites à votre nom. Vos voix redeviennent inconnues et plus personne ne peut vous attribuer une voix ensuite. Vos clips restent en place. Cette action est définitive.",
+      deleteButton: "Supprimer mon profil vocal",
+      confirmTitle: "Supprimer votre profil vocal ?",
+      confirmBody:
+        "Vos échantillons, vos empreintes et vos attributions seront effacés, et vos voix redeviendront inconnues. Vos clips restent en place. Cette action est définitive.",
+      confirm: "Supprimer mon profil vocal",
+      deleting: "Suppression…",
+      keep: "Garder mon profil",
+      done: "Profil vocal supprimé : {samples} échantillon(s), {fingerprints} empreinte(s) et {attributions} attribution(s) effacé(s).",
+    },
   },
   pages: {
     comingSoon:
@@ -130,7 +180,6 @@ export const fr: Messages = {
     lead: "Un Worker est une machine qui transcrit et traite les voix de la bibliothèque.",
     add: "Ajouter un Worker",
     loading: "Chargement des Workers…",
-    loadFailed: "Les Workers n’ont pas pu être chargés.",
     empty:
       "Aucun Worker pour l’instant. Ajoutez votre premier Worker pour commencer à transcrire.",
     open: "Ouvrir {name}",
@@ -260,6 +309,123 @@ export const fr: Messages = {
     },
     dialog: {
       cancel: "Annuler",
+    },
+  },
+  library: {
+    count: "{count} clips",
+    countOne: "1 clip",
+    loading: "Chargement des clips…",
+    retry: "Réessayer",
+    empty: {
+      title: "Aucun clip pour l’instant",
+      body: "Importez vos premières vidéos pour commencer.",
+      action: "Importer des vidéos",
+    },
+    noMatch: {
+      title: "Aucun clip ne correspond à ces filtres",
+      body: "Élargissez ou effacez les filtres pour voir plus de clips.",
+    },
+    filters: {
+      label: "Filtrer les clips",
+      from: "Du",
+      to: "Au",
+      source: "Source",
+      owner: "Propriétaire",
+      person: "Personne",
+      state: "État",
+      any: "Tous",
+      unknownVoices: "Voix inconnues",
+      clear: "Effacer les filtres",
+    },
+    state: {
+      ready: "Prêt",
+      waiting_stability: "En attente du fichier",
+      unreadable: "Illisible",
+      missing: "Absent",
+    },
+    card: {
+      open: "Ouvrir le clip {name}",
+      by: "par {owner}",
+    },
+    pagination: {
+      label: "Pages de la bibliothèque",
+      previous: "Page précédente",
+      next: "Page suivante",
+      position: "Page {page} sur {pages}",
+    },
+  },
+  clip: {
+    back: "Bibliothèque",
+    loading: "Chargement du clip…",
+    videoLabel: "Vidéo du clip",
+    videoFailed: "La vidéo ne peut pas être lue ici.",
+    meta: {
+      owner: "Importé par {owner}",
+      sources: "Source : {sources}",
+      shared: "Partagé",
+      private: "Privé",
+    },
+    progress: {
+      label: "Avancement du clip",
+      imported: "Importé",
+      transcribed: "Transcrit",
+      indexed: "Indexé",
+      voicesProcessed: "Voix traitées",
+      voicesIdentified: "Voix identifiées",
+      partial: "{done} sur {total}",
+      state: {
+        none: "Pas commencé",
+        queued: "En attente",
+        running: "En cours",
+        done: "Terminé",
+        failed: "Échec",
+        unavailable: "Non configuré",
+        partial: "Partiel",
+      },
+    },
+    tabs: {
+      label: "Sections du clip",
+      transcript: "Transcription",
+      voices: "Voix",
+      history: "Historique",
+    },
+    transcript: {
+      empty: "Ce clip n’a pas encore de transcription.",
+      listLabel: "Segments de la transcription",
+      play: "Lire à partir de {time}",
+      textCorrected: "Texte corrigé par {author}",
+      textCorrectedAnon: "Texte corrigé",
+      unknownSpeaker: "Voix inconnue",
+    },
+    speaker: {
+      identified: "Identifié",
+      suggestion: "Suggestion",
+      unknown: "Inconnu",
+      corrected: "Corrigé",
+      automatic: "Automatique",
+    },
+    voices: {
+      empty: "Aucune voix n’a encore été détectée dans ce clip.",
+      listLabel: "Voix du clip",
+      speaking: "{seconds} s de parole, {turns} tours",
+      unidentified: "Non identifiée",
+    },
+    history: {
+      empty: "Aucun segment de ce clip n’a été corrigé.",
+      listLabel: "Segments corrigés",
+      segment: "Segment à {time}",
+      show: "Afficher l’historique",
+      hide: "Masquer l’historique",
+      loading: "Chargement de l’historique…",
+      none: "Aucune modification enregistrée.",
+      original: "Texte d’origine : {text}",
+      by: "{author}, {date}",
+      kindText: "Modification du texte",
+      kindSpeaker: "Changement de locuteur",
+      kindRestore: "Restauration",
+      reason: "Motif : {reason}",
+      before: "Avant",
+      after: "Après",
     },
   },
   people: {

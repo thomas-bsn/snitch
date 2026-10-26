@@ -165,6 +165,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/embeddings", s.protected(true, http.HandlerFunc(s.embeddingStatus)))
 	mux.Handle("POST /api/admin/embeddings/backfill", s.protected(true, http.HandlerFunc(s.backfillEmbeddings)))
 	mux.Handle("POST /api/admin/embeddings/rebuild", s.protected(true, http.HandlerFunc(s.rebuildEmbeddings)))
+	mux.Handle("GET /api/clip-filters", s.protected(false, http.HandlerFunc(s.listClipFilterOptions)))
 	mux.Handle("GET /api/clips/{id}", s.protected(false, http.HandlerFunc(s.getClip)))
 	mux.Handle("POST /api/admin/clips/{id}/transcription", s.protected(true, http.HandlerFunc(s.scheduleTranscription)))
 	mux.Handle("GET /api/admin/transcriptions/batch-preview", s.protected(true, http.HandlerFunc(s.batchTranscriptionPreview)))
@@ -854,6 +855,11 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 			s.oauthInternal(w, r, err)
 			return
 		}
+	}
+	if userID != nil {
+		// A link brings the person back to their account settings, with a confirmation.
+		http.Redirect(w, r, "/account?notice=discord_linked", http.StatusSeeOther)
+		return
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
