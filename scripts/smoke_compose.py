@@ -51,16 +51,18 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
     projects = ['snitch-test-'+secrets.token_hex(5), 'snitch-fail-'+secrets.token_hex(5)]
     try:
         good, bad = projects
-        try:
-            compose(good, 'up', '-d', '--wait', '--wait-timeout', '150')
-        except RuntimeError:
-            # Diagnostic without secrets: service states, and the logs of the services that never print the
-            # one-time installation code (never the app logs).
+        started = compose(good, 'up', '-d', '--wait', '--wait-timeout', '150', check=False)
+        if started.returncode:
+            # Diagnostic without secrets: the tail of the `up` output (pull progress and container events, never
+            # service logs), the service states, and the logs of the services that never print the one-time
+            # installation code (never the app logs).
+            print('--- up (tail)', file=sys.stderr)
+            print('\n'.join((started.stdout + started.stderr).splitlines()[-25:]), file=sys.stderr)
             print(compose(good, 'ps', '-a', '--format', '{{.Service}} {{.State}} {{.Health}} {{.ExitCode}}', check=False).stdout, file=sys.stderr)
             for service in ('postgres', 'migrate', 'embed'):
                 print('--- '+service, file=sys.stderr)
                 print(compose(good, 'logs', '--no-log-prefix', '--tail', '15', service, check=False).stdout, file=sys.stderr)
-            raise
+            raise RuntimeError('Docker operation failed (output withheld to protect bootstrap credentials): compose up')
         assert state(good, 'migrate')['State']['ExitCode'] == 0
         address = compose(good, 'port', 'app', '8080').stdout.strip()
         base = 'http://'+address
