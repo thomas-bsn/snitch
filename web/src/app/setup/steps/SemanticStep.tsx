@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { api, errorCode } from "../../api/client";
-import { useLoaded } from "../../admin/workers/workersApi";
+import { useLoaded } from "../../api/loaded";
 import { ErrorAlert } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { StatusPill } from "../../components/StatusPill";

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import type { components } from "../../api.gen";
 import { api, errorCode, mutation, origin } from "../api/client";
 import { useSession } from "../session";
-import type { Result } from "../admin/workers/workersApi";
+import type { Result } from "../api/loaded";
 
 export type SetupProgress = components["schemas"]["SetupProgress"];
 export type SetupStep = components["schemas"]["SetupStepState"]["step"];

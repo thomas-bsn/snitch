@@ -3,7 +3,7 @@ import { ErrorAlert, StatusNotice } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { Field } from "../../components/Field";
 import { api, errorCode, mutation } from "../../api/client";
-import { useLoaded } from "../../admin/workers/workersApi";
+import { useLoaded } from "../../api/loaded";
 import { useI18n } from "../../i18n";
 import { isSuperAdministrator } from "../../roles";
 import { useSession } from "../../session";
