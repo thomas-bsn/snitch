@@ -8,10 +8,12 @@ Snitch indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a dit 
 - Phase 1 : implémentée et vérifiée localement ; [bilan](docs/phase-1-report.md) disponible. Validation utilisateur de fin de phase reçue.
 - Phase 2 : implémentée, vérifiée et validée ; [bilan](docs/phase-2-report.md) disponible.
 - Phase 3 : implémentée, vérifiée et prête à clôturer ; VAD et profils de pipeline versionnés inclus. Voir le [bilan](docs/phase-3-report.md).
-- Phase 4 : implémentée et fusionnée (`integration/phase-4-semantic-search`). Voir le [bilan](docs/phase-4-report.md), la [spec](docs/specs/phase-4.md), issue parente [#26](https://github.com/thomas-bsn/snitch/issues/26) et tickets #27–#29 (ouverts jusqu’à la validation de bout en bout).
-- Phase 5 : implémentée et vérifiée localement sur `integration/phase-5-voice`, en attente de validation utilisateur avant la phase 6. Voir le [bilan](docs/phase-5-report.md), la [spec](docs/specs/phase-5.md), l’[ADR 0011](docs/adr/0011-locuteurs-personnes-et-attributions.md), l’issue parente [#31](https://github.com/thomas-bsn/snitch/issues/31) et les tickets [#32](https://github.com/thomas-bsn/snitch/issues/32) à [#42](https://github.com/thomas-bsn/snitch/issues/42) (ouverts jusqu’à la validation).
+- Phase 4 : implémentée et fusionnée (`integration/phase-4-semantic-search`). Voir le [bilan](docs/phase-4-report.md), la [spec](docs/specs/phase-4.md), issue parente [#26](https://github.com/thomas-bsn/snitch/issues/26) et tickets #27–#29 (fermés).
+- Phase 5 : implémentée et fusionnée dans `main` (PR [#43](https://github.com/thomas-bsn/snitch/pull/43)). Voir le [bilan](docs/phase-5-report.md), la [spec](docs/specs/phase-5.md), l’[ADR 0011](docs/adr/0011-locuteurs-personnes-et-attributions.md), l’issue parente [#31](https://github.com/thomas-bsn/snitch/issues/31) et les tickets [#32](https://github.com/thomas-bsn/snitch/issues/32) à [#42](https://github.com/thomas-bsn/snitch/issues/42) (fermés). Toute la mécanique voix a été vérifiée avec un fournisseur simulé et des données synthétiques ; aucune voix réelle n’a été traitée. La validation de bout en bout avec de vrais modèles reste à faire avant la phase 6.
+- Worker vocal réel (complément de la phase 5) : fusionné dans `main` (PR [#46](https://github.com/thomas-bsn/snitch/pull/46)). Fournisseurs pyannote (diarisation) et empreinte vocale, image Docker unique `snitch-worker` pour GPU NVIDIA, compose et `.env` générés à la création d’un worker, téléchargement des modèles au premier démarrage sur opt-in explicite, modèles déclarés visibles dans la page Workers. Voir la [spec](docs/specs/phase-5-real-voice-worker.md) et le [guide](docs/real-voice-worker.md). Le code pyannote réel n’a jamais tourné avec de vrais modèles, un GPU ou un jeton Hugging Face : à valider sur le PC de jeu.
+- Publication des images : à chaque push sur `main`, le workflow publie sur GHCR l’application et/ou le worker selon les fichiers modifiés ; les tags `v*` publient tout. Configurée mais jamais observée avant la première exécution sur `main` : à vérifier. Les images sont privées par défaut ; les licences NVIDIA de l’image worker sont à relire avant de la rendre publique.
 - Phases 6 et 7 : non implémentées.
-- Aucun média réel traité, aucun déploiement effectué, aucun code ni image publié. Le dépôt public et le suivi des issues existent sur GitHub.
+- Aucun média réel traité ni déploiement effectué sur le NAS. Le dépôt public et le suivi des issues existent sur GitHub.
 
 ## Règles de progression
 
@@ -116,5 +118,6 @@ Chatbot, keyframes, analyse visuelle/VLM, résumés et événements de jeu, sép
 - [Spec détaillée de phase 0](docs/specs/phase-0.md)
 - [Spec détaillée de phase 3](docs/specs/phase-3.md) · [Issue GitHub phase 3](https://github.com/thomas-bsn/snitch/issues/19)
 - [Spec détaillée de phase 5](docs/specs/phase-5.md) · [Issue GitHub phase 5](https://github.com/thomas-bsn/snitch/issues/31) · [ADR 0011](docs/adr/0011-locuteurs-personnes-et-attributions.md)
+- [Spec du worker vocal réel](docs/specs/phase-5-real-voice-worker.md) · [Guide du worker réel](docs/real-voice-worker.md) · [Déploiement et images](docs/deployment.md)
 - [Handoff historique](HANDOFF.md)
 - [Glossaire métier](GLOSSARY.md)
