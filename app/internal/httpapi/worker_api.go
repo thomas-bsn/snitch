@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -62,18 +64,100 @@ func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{"items": items})
+	var version string
+	var raw []byte
+	if err = s.Pool.QueryRow(r.Context(), `SELECT v.version,v.config FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&version, &raw); err != nil {
+		s.internal(w, err)
+		return
+	}
+	var profile transcriptionPipeline
+	if err = json.Unmarshal(raw, &profile); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{
+		"items":        items,
+		"first_worker": len(items) == 0,
+		"snitch_url":   s.publicOrigin(r),
+		"transcription": map[string]string{
+			"model": profile.Model, "language": profile.Language, "version": version,
+		},
+	})
+}
+
+var (
+	transcriptionLanguagePattern = regexp.MustCompile(`^[a-z]{2,3}$`)
+	transcriptionModelPattern    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,99}$`)
+)
+
+// validWhisperURL accepts an http(s) address without credentials, query or fragment.
+func validWhisperURL(raw string) bool {
+	if len(raw) > 300 || strings.TrimSpace(raw) != raw {
+		return false
+	}
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" && u.User == nil && u.RawQuery == "" && u.Fragment == "" && !strings.ContainsAny(raw, " \t\r\n\"'`$\\")
+}
+
+func (s *Server) workerBundle(r *http.Request, token, whisper string) (workers.Bundle, error) {
+	image := s.Config.WorkerImage
+	if image == "" {
+		image = config.DefaultWorkerImage
+	}
+	return workers.NewBundle(workers.BundleInput{APIURL: s.publicOrigin(r), Token: token, Image: image, WhisperURL: whisper})
 }
 
 func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Name           string `json:"name"`
-		MaxConcurrency int    `json:"max_concurrency"`
+		Name             string `json:"name"`
+		MaxConcurrency   int    `json:"max_concurrency"`
+		TranscriptionURL string `json:"transcription_url"`
+		Transcription    *struct {
+			Model    string `json:"model"`
+			Language string `json:"language"`
+		} `json:"transcription"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	registration, err := s.Workers.Register(r.Context(), workers.Input{Name: input.Name, MaxConcurrency: input.MaxConcurrency})
+	if input.TranscriptionURL != "" && !validWhisperURL(input.TranscriptionURL) {
+		fail(w, http.StatusBadRequest, "invalid_transcription_url")
+		return
+	}
+	var profile *transcriptionPipeline
+	if input.Transcription != nil {
+		model, language := strings.TrimSpace(input.Transcription.Model), strings.TrimSpace(input.Transcription.Language)
+		switch {
+		case model == "":
+			fail(w, http.StatusBadRequest, "transcription_model_required")
+			return
+		case language == "":
+			fail(w, http.StatusBadRequest, "transcription_language_required")
+			return
+		case !transcriptionModelPattern.MatchString(model):
+			fail(w, http.StatusBadRequest, "invalid_transcription_model")
+			return
+		case !transcriptionLanguagePattern.MatchString(language):
+			fail(w, http.StatusBadRequest, "invalid_transcription_language")
+			return
+		}
+		profile = &transcriptionPipeline{Provider: "openai-compatible", Model: model, Language: language, Preparation: "wav-16khz-mono-v1"}
+		profile.VAD.Mode, profile.VAD.Version = "off", "vad-off-v1"
+	}
+	registration, _, err := s.Workers.RegisterWith(r.Context(), workers.Input{Name: input.Name, MaxConcurrency: input.MaxConcurrency}, func(ctx context.Context, tx pgx.Tx, first bool) error {
+		if profile == nil {
+			return nil
+		}
+		if !first {
+			return errProfileAlreadySet
+		}
+		_, err := activatePipeline(ctx, tx, *profile)
+		return err
+	})
+	if errors.Is(err, errProfileAlreadySet) {
+		fail(w, http.StatusConflict, "transcription_profile_already_set")
+		return
+	}
 	if errors.Is(err, workers.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_worker")
 		return
@@ -82,11 +166,50 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	image := s.Config.WorkerImage
-	if image == "" {
-		image = config.DefaultWorkerImage
+	registration.Bundle, err = s.workerBundle(r, registration.Token, input.TranscriptionURL)
+	if err != nil {
+		s.internal(w, err)
+		return
 	}
-	registration.Bundle, err = workers.NewBundle(workers.BundleInput{APIURL: s.publicOrigin(r), Token: registration.Token, Image: image})
+	reply(w, http.StatusCreated, registration)
+}
+
+var errProfileAlreadySet = errors.New("transcription profile already set")
+
+func (s *Server) getWorker(w http.ResponseWriter, r *http.Request) {
+	detail, err := s.Workers.Get(r.Context(), r.PathValue("id"))
+	if errors.Is(err, workers.ErrNotFound) {
+		fail(w, http.StatusNotFound, "worker_not_found")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	// The token is never readable: the deployment file carries a placeholder.
+	bundle, err := s.workerBundle(r, workers.Placeholder, "")
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{
+		"id": detail.ID, "name": detail.Name, "max_concurrency": detail.MaxConcurrency, "reported_concurrency": detail.ReportedConcurrency,
+		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "connected": detail.Connected,
+		"models": detail.Models, "recent_tasks": detail.RecentTasks, "bundle": bundle,
+	})
+}
+
+func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
+	registration, err := s.Workers.RenewToken(r.Context(), r.PathValue("id"))
+	if errors.Is(err, workers.ErrNotFound) {
+		fail(w, http.StatusNotFound, "worker_not_found")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	registration.Bundle, err = s.workerBundle(r, registration.Token, "")
 	if err != nil {
 		s.internal(w, err)
 		return

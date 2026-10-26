@@ -190,17 +190,23 @@ from .voice_verification_counts import VoiceVerificationCounts
 from .worker import Worker
 from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
+from .worker_detail import WorkerDetail
 from .worker_failure_input import WorkerFailureInput
 from .worker_job_input import WorkerJobInput
 from .worker_job_input_tracks_item import WorkerJobInputTracksItem
 from .worker_model import WorkerModel
 from .worker_models import WorkerModels
 from .worker_page import WorkerPage
+from .worker_page_transcription import WorkerPageTranscription
 from .worker_pulse_input import WorkerPulseInput
+from .worker_recent_task import WorkerRecentTask
+from .worker_recent_task_kind import WorkerRecentTaskKind
+from .worker_recent_task_outcome import WorkerRecentTaskOutcome
 from .worker_registration import WorkerRegistration
 from .worker_registration_input import WorkerRegistrationInput
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
+from .worker_transcription_profile import WorkerTranscriptionProfile
 from .worker_vocabulary_term import WorkerVocabularyTerm
 from .worker_voice_input import WorkerVoiceInput
 from .worker_voice_input_diarization import WorkerVoiceInputDiarization
@@ -398,17 +404,23 @@ __all__ = (
     "Worker",
     "WorkerBundle",
     "WorkerClaim",
+    "WorkerDetail",
     "WorkerFailureInput",
     "WorkerJobInput",
     "WorkerJobInputTracksItem",
     "WorkerModel",
     "WorkerModels",
     "WorkerPage",
+    "WorkerPageTranscription",
     "WorkerPulseInput",
+    "WorkerRecentTask",
+    "WorkerRecentTaskKind",
+    "WorkerRecentTaskOutcome",
     "WorkerRegistration",
     "WorkerRegistrationInput",
     "WorkerResultInput",
     "WorkerResultInputResult",
+    "WorkerTranscriptionProfile",
     "WorkerVocabularyTerm",
     "WorkerVoiceInput",
     "WorkerVoiceInputDiarization",

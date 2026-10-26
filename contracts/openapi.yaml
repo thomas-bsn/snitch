@@ -626,6 +626,7 @@
     "/api/admin/settings": {
       "get": {
         "operationId": "getSettings",
+        "description": "Administrateurs et Super-administrateur : lecture de la configuration Discord (sans secret), de l'approbation des inscriptions et de l'état de la clé maître.",
         "responses": {
           "200": {
             "description": "Success",
@@ -652,6 +653,7 @@
       },
       "put": {
         "operationId": "updateSettings",
+        "description": "Réservé au Super-administrateur : configuration Discord et approbation des inscriptions. Un Administrateur reçoit 403 super_administrator_required et rien n'est modifié.",
         "responses": {
           "200": {
             "description": "Success",
@@ -1484,6 +1486,42 @@
       }
     },
     "/api/admin/workers/{id}": {
+      "get": {
+        "operationId": "getWorker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche du worker, sans son jeton",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Worker introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Un worker révoqué reste consultable."
+      },
       "delete": {
         "operationId": "revokeWorker",
         "parameters": [
@@ -1528,6 +1566,60 @@
           }
         },
         "description": "Administrateurs uniquement. L’historique du worker est conservé."
+      }
+    },
+    "/api/admin/workers/{id}/token": {
+      "post": {
+        "operationId": "renewWorkerToken",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Nouveau jeton, montré une seule fois ; l'ancien cesse de fonctionner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerRegistration"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Worker introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Refusé (404) pour un worker révoqué."
       }
     },
     "/api/worker/pulse": {
@@ -3432,7 +3524,7 @@
     "/api/admin/master-key/export": {
       "post": {
         "operationId": "exportMasterKey",
-        "description": "Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (provisoirement à tout Administrateur, derrière un contrôle unique côté serveur) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé.",
+        "description": "Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (un Administrateur reçoit 403 super_administrator_required) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé.",
         "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "responses": {
           "200": {"description": "Clé exportée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MasterKeyExport"}}}},
@@ -4082,9 +4174,11 @@
           "role": {
             "type": "string",
             "enum": [
+              "super_admin",
               "admin",
               "user"
-            ]
+            ],
+            "description": "super_admin : propriétaire de l'installation (compte créé par l'installation, unique, non rétrogradable, non supprimable) ; admin : Administrateur ; user : Utilisateur."
           },
           "approved": {
             "type": "boolean"
@@ -4736,6 +4830,143 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 4
+          },
+          "transcription_url": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Adresse du serveur Whisper de ce worker (http ou https, sans identifiants). Écrite dans le fichier d'environnement généré ; non conservée."
+          },
+          "transcription": {
+            "$ref": "#/components/schemas/WorkerTranscriptionProfile",
+            "description": "Modèle et langue de la bibliothèque : réservés au premier worker, qui crée le profil de transcription (refus transcription_profile_already_set ensuite). Le jeton Hugging Face n'est jamais envoyé à Snitch."
+          }
+        }
+      },
+      "WorkerTranscriptionProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "language"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "language": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}$"
+          }
+        }
+      },
+      "WorkerRecentTask": {
+        "type": "object",
+        "required": [
+          "job_id",
+          "clip_id",
+          "kind",
+          "outcome",
+          "error_code",
+          "at"
+        ],
+        "properties": {
+          "job_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "clip_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "transcription",
+              "diarization",
+              "fingerprint",
+              "other"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "started",
+              "completed",
+              "retry",
+              "failed"
+            ]
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkerDetail": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "max_concurrency",
+          "reported_concurrency",
+          "last_seen_at",
+          "created_at",
+          "revoked_at",
+          "connected",
+          "recent_tasks",
+          "bundle"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "reported_concurrency": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "models": {
+            "$ref": "#/components/schemas/WorkerModels"
+          },
+          "recent_tasks": {
+            "type": "array",
+            "description": "Dernières tâches de ce worker, une ligne par tâche, la plus récente d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/WorkerRecentTask"
+            }
+          },
+          "bundle": {
+            "$ref": "#/components/schemas/WorkerBundle",
+            "description": "Fichiers de déploiement avec un emplacement de jeton (A_RENSEIGNER) : le jeton n'est jamais relisible."
           }
         }
       },
@@ -4816,9 +5047,40 @@
       "WorkerPage": {
         "type": "object",
         "required": [
-          "items"
+          "items",
+          "first_worker",
+          "snitch_url",
+          "transcription"
         ],
         "properties": {
+          "first_worker": {
+            "type": "boolean",
+            "description": "Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de la bibliothèque."
+          },
+          "snitch_url": {
+            "type": "string",
+            "description": "Adresse de Snitch telle que vue par cette requête, écrite dans les fichiers générés."
+          },
+          "transcription": {
+            "type": "object",
+            "description": "Profil de transcription actif de la bibliothèque.",
+            "required": [
+              "model",
+              "language",
+              "version"
+            ],
+            "properties": {
+              "model": {
+                "type": "string"
+              },
+              "language": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            }
+          },
           "items": {
             "type": "array",
             "items": {
