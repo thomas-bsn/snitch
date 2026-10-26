@@ -11,6 +11,7 @@ voice = [
   "torch==2.8.0",
   "torchaudio==2.8.0",
   "torchcodec==0.7.0",
+  "soundfile==0.14.0",
 ]
 
 [build-system]
