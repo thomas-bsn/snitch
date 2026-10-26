@@ -22,6 +22,7 @@ import { RegisterPage } from "./screens/RegisterPage";
 import { SessionProvider, useSession } from "./session";
 import { SetupWizard } from "./setup/SetupWizard";
 import { AppShell } from "./shell/AppShell";
+import { GroupsTab } from "./people/GroupsTab";
 import { PeopleLayout } from "./people/PeopleLayout";
 import { PersonList } from "./people/PersonList";
 import { VerificationTab } from "./people/VerificationTab";
@@ -83,6 +84,7 @@ function Routing() {
           <Route path="people" element={<PeopleLayout />}>
             <Route index element={<PersonList />} />
             <Route path="verification" element={<VerificationTab />} />
+            <Route path="groups" element={<GroupsTab />} />
             <Route path="*" element={<NotFound />} />
           </Route>
           <Route path="import" element={<ImportPage />} />

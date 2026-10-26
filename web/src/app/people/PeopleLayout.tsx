@@ -9,6 +9,7 @@ type PeopleTab = { path: string; label: MessageKey };
 export const PEOPLE_TABS: PeopleTab[] = [
   { path: "", label: "people.tabs.persons" },
   { path: "verification", label: "people.tabs.verification" },
+  { path: "groups", label: "people.tabs.groups" },
 ];
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>

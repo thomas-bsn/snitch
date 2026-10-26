@@ -9,8 +9,8 @@ type ModalProps = {
   /** Accessible name of the close icon. */
   closeLabel: string;
   children: ReactNode;
-  /** A centered window (default) or a panel sliding in from the right. */
-  variant?: "center" | "side";
+  /** A centered window (default), or a panel sliding in from the right (wide for a grid). */
+  variant?: "center" | "side" | "wide";
 };
 
 /**
@@ -25,7 +25,7 @@ export function Modal({
   children,
   variant = "center",
 }: ModalProps) {
-  const side = variant === "side";
+  const side = variant !== "center";
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -40,7 +40,7 @@ export function Modal({
           <Dialog.Popup
             className={
               side
-                ? "flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 text-ink shadow-pop outline-none"
+                ? `flex h-full w-full ${variant === "wide" ? "max-w-3xl" : "max-w-md"} flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 text-ink shadow-pop outline-none`
                 : "flex max-h-full w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-xl border border-line bg-surface p-5 text-ink shadow-pop outline-none"
             }
           >
