@@ -36,8 +36,6 @@ function Placeholder({ title }: { title: MessageKey }) {
   );
 }
 
-export const ImportPage = () => <Placeholder title="pages.import.title" />;
-
 export function SearchPage() {
   const { t } = useI18n();
   const [params] = useSearchParams();

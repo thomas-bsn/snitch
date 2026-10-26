@@ -119,6 +119,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   microphone_track_not_diarized: "La piste du micro n’a pas encore de voix.",
   no_linked_person: "Aucune personne n’est liée à votre compte.",
   not_attributed_to_person: "Cette voix n’est attribuée à aucune personne.",
+  network_failure: "La connexion a été interrompue.",
   not_found: "Cet élément n’existe pas.",
   not_pending: "Cette inscription n’attend pas d’approbation.",
   not_unknown: "Cette voix n’est plus inconnue.",
