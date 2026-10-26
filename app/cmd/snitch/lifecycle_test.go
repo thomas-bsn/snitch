@@ -150,7 +150,7 @@ func TestExecutableLifecycle(t *testing.T) {
 	if body := get("/api/health/ready", 200); !bytes.Contains(body, []byte(`"degraded"`)) {
 		t.Fatalf("missing embeddings should degrade readiness: %s", body)
 	}
-	if body := get("/api/setup", 200); !bytes.Contains(body, []byte(`"initialized":false`)) || !bytes.Contains(body, []byte("Fixture Snitch")) {
+	if body := get("/api/setup", 200); !bytes.Contains(body, []byte(`"initialized":false`)) || bytes.Contains(body, []byte("display_name")) {
 		t.Fatalf("new installation: %s", body)
 	}
 	if body := get("/installation", 200); !bytes.Contains(body, []byte(`<div id="root"`)) {
