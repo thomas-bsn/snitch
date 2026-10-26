@@ -1,6 +1,6 @@
 # Licences de l'image worker GPU (voix)
 
-Ce document complète `deploy/NOTICES.md` pour `deploy/docker/worker-gpu.Dockerfile`. Il est rédigé à partir des fiches officielles lues le 2026-10-26 (PyPI, Hugging Face) ; il n'est pas un avis juridique. Les textes complets des licences des paquets Python installés sont copiés dans l'image sous `/usr/share/licenses/snitch/python` (le build échoue si un paquet n'en fournit aucun).
+Ce document complète `deploy/NOTICES.md` pour `deploy/docker/worker.Dockerfile`. Il est rédigé à partir des fiches officielles lues le 2026-10-26 (PyPI, Hugging Face) ; il n'est pas un avis juridique. Les textes complets des licences des paquets Python installés sont copiés dans l'image sous `/usr/share/licenses/snitch/python` (le build échoue si un paquet n'en fournit aucun).
 
 ## Bibliothèques Python (dans l'image)
 
@@ -15,7 +15,7 @@ Ce document complète `deploy/NOTICES.md` pour `deploy/docker/worker-gpu.Dockerf
 
 ## CUDA, cuDNN et bibliothèques NVIDIA (dans l'image)
 
-Les roues `nvidia-*-cu12` (cuda-runtime, cuda-nvrtc, cuda-cupti, cublas, cufft, curand, cusolver, cusparse, cusparselt, cudnn 9.10.2.21, nccl, nvjitlink, nvtx, cufile) et `triton` sont tirées par torch. PyPI les déclare sous une licence propriétaire NVIDIA (`LicenseRef-NVIDIA-Proprietary`, classifieur « Other/Proprietary »). Ce ne sont donc PAS des composants MIT/BSD et l'image ne doit pas être décrite comme telle. Les conditions exactes (CUDA Toolkit EULA, cuDNN SLA, attribution et liste des composants redistribuables) sont portées par le fichier de licence de chaque roue, copié dans l'image par `collect_python_notices.py` ; le texte copié pour cuDNN est le « LICENSE AGREEMENT FOR NVIDIA SOFTWARE DEVELOPMENT KITS » (accord à accepter, réservé aux adultes ou représentants habilités) ; je n'en ai lu que le début, et je n'ai pas pu vérifier la compatibilité avec une redistribution publique de l'image. Avant toute publication de l'image GPU (le workflow ne la publie pas), relire ces textes et le CUDA Toolkit EULA. Triton est sous licence MIT (à confirmer dans le texte copié).
+Les roues `nvidia-*-cu12` (cuda-runtime, cuda-nvrtc, cuda-cupti, cublas, cufft, curand, cusolver, cusparse, cusparselt, cudnn 9.10.2.21, nccl, nvjitlink, nvtx, cufile) et `triton` sont tirées par torch. PyPI les déclare sous une licence propriétaire NVIDIA (`LicenseRef-NVIDIA-Proprietary`, classifieur « Other/Proprietary »). Ce ne sont donc PAS des composants MIT/BSD et l'image ne doit pas être décrite comme telle. Les conditions exactes (CUDA Toolkit EULA, cuDNN SLA, attribution et liste des composants redistribuables) sont portées par le fichier de licence de chaque roue, copié dans l'image par `collect_python_notices.py` ; le texte copié pour cuDNN est le « LICENSE AGREEMENT FOR NVIDIA SOFTWARE DEVELOPMENT KITS » (accord à accepter, réservé aux adultes ou représentants habilités) ; je n'en ai lu que le début, et je n'ai pas pu vérifier la compatibilité avec une redistribution publique de l'image. Avant toute publication de l'image worker (le workflow ne la publie pas), relire ces textes et le CUDA Toolkit EULA. Triton est sous licence MIT (à confirmer dans le texte copié).
 
 Le pilote NVIDIA et le NVIDIA Container Toolkit ne sont pas dans l'image : ils restent ceux du PC.
 

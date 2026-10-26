@@ -6,14 +6,14 @@ import (
 )
 
 func TestBundleEnvCarriesTheTokenAndPublicURL(t *testing.T) {
-	bundle, err := NewBundle(BundleInput{APIURL: "https://snitch.example.org", Token: "rw_abc-DEF_123", Image: "ghcr.io/thomas-bsn/snitch-worker-gpu:latest"})
+	bundle, err := NewBundle(BundleInput{APIURL: "https://snitch.example.org", Token: "rw_abc-DEF_123", Image: "ghcr.io/thomas-bsn/snitch-worker:latest"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, line := range []string{
 		"SNITCH_API_URL=https://snitch.example.org",
 		"SNITCH_WORKER_TOKEN=rw_abc-DEF_123",
-		"SNITCH_WORKER_IMAGE=ghcr.io/thomas-bsn/snitch-worker-gpu:latest",
+		"SNITCH_WORKER_IMAGE=ghcr.io/thomas-bsn/snitch-worker:latest",
 		"TRANSCRIPTION_API_URL=A_RENSEIGNER",
 		"TRANSCRIPTION_MODEL=A_RENSEIGNER",
 		"HF_TOKEN=A_RENSEIGNER",

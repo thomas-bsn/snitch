@@ -22,7 +22,7 @@ La phase 5 livre toute la mécanique voix (Locuteurs locaux, Personnes, rapproch
 - Un modèle ou une version différente produit des empreintes incompatibles : le nom et la version du modèle d'empreinte sont enregistrés avec chaque empreinte (déjà géré par le contrat de phase 5).
 - La configuration du worker passe par variables d'environnement. Les secrets restent sur le PC. Pas d'interface sur le PC.
 - Contraintes de ressources : 12 Go de VRAM à partager ; les modèles sont chargés une fois et enchaînés, pas en parallèle sans limite.
-- Aucun scan, batch ni média réel (AGENTS.md). Les dépendances sont verrouillées (`runtime.lock`, `uv.lock`) comme le reste du worker ; les licences des nouvelles dépendances et des modèles sont inscrites dans `deploy/NOTICES.md` / `deploy/licenses` selon le mécanisme existant.
+- Aucun scan, batch ni média réel (AGENTS.md). Les dépendances sont verrouillées (`voice-runtime.lock`, `uv.lock` ; `runtime.lock` supprimé depuis) comme le reste du worker ; les licences des nouvelles dépendances et des modèles sont inscrites dans `deploy/NOTICES.md` / `deploy/licenses` selon le mécanisme existant.
 
 ## Hors périmètre
 

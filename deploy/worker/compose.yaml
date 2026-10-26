@@ -1,4 +1,4 @@
-# Worker Snitch avec GPU NVIDIA pour le PC de jeu (voir docs/real-voice-worker.md,
+# Worker Snitch (GPU NVIDIA requis pour des performances raisonnables) pour le PC de jeu (voir docs/real-voice-worker.md,
 # section « Installer sur le PC gamer »). Ce fichier est un exemple autonome : il n'est pas
 # lié au compose.yaml du NAS et n'est pas contrôlé par scripts/check_compose.py.
 #
@@ -15,13 +15,13 @@ services:
   worker:
     build:
       context: ../..
-      dockerfile: deploy/docker/worker-gpu.Dockerfile
+      dockerfile: deploy/docker/worker.Dockerfile
     # Image publiée. IMPORTANT : le worker doit rester compatible avec l'application Snitch ;
-    # épingler une étiquette de version (SNITCH_WORKER_IMAGE=ghcr.io/thomas-bsn/snitch-worker-gpu:vX.Y.Z,
+    # épingler une étiquette de version (SNITCH_WORKER_IMAGE=ghcr.io/thomas-bsn/snitch-worker:vX.Y.Z,
     # la version de Snitch déployée) plutôt que « latest », qui suit la dernière publication.
     # pull_policy: always vérifie et met à jour l'image à chaque « docker compose up ».
-    # Pour construire localement : SNITCH_WORKER_IMAGE=snitch-worker-gpu:local docker compose up --build
-    image: ${SNITCH_WORKER_IMAGE:-ghcr.io/thomas-bsn/snitch-worker-gpu:latest}
+    # Pour construire localement : SNITCH_WORKER_IMAGE=snitch-worker:local docker compose up --build
+    image: ${SNITCH_WORKER_IMAGE:-ghcr.io/thomas-bsn/snitch-worker:latest}
     pull_policy: always
     restart: unless-stopped
     environment:

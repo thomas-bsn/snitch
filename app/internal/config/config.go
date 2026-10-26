@@ -28,7 +28,7 @@ type Config struct {
 	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL                                      string
 }
 
-const DefaultWorkerImage = "ghcr.io/thomas-bsn/snitch-worker-gpu:latest"
+const DefaultWorkerImage = "ghcr.io/thomas-bsn/snitch-worker:latest"
 
 var workerImagePattern = regexp.MustCompile(`^[a-z0-9][A-Za-z0-9._/:@-]*$`)
 

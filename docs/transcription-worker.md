@@ -39,7 +39,7 @@ Le `.env` généré contient :
 
 - `SNITCH_API_URL` : le `PUBLIC_URL` de l’instance. S’il n’est pas en HTTPS, l’interface (champ `insecure_api_url`) et un commentaire du `.env` avertissent que le worker refuse le HTTP.
 - `SNITCH_WORKER_TOKEN` : le jeton qui vient d’être créé, seul secret généré.
-- `SNITCH_WORKER_IMAGE` : la variable `WORKER_IMAGE` de l’application. Par défaut `ghcr.io/thomas-bsn/snitch-worker-gpu:latest` : l’application ne connaît pas de version de publication. Épingler `WORKER_IMAGE` sur un tag ou un digest publié pour maîtriser les mises à jour.
+- `SNITCH_WORKER_IMAGE` : la variable `WORKER_IMAGE` de l’application. Par défaut `ghcr.io/thomas-bsn/snitch-worker:latest` : l’application ne connaît pas de version de publication. Épingler `WORKER_IMAGE` sur un tag ou un digest publié pour maîtriser les mises à jour.
 - `TRANSCRIPTION_API_URL`, `TRANSCRIPTION_MODEL` et `HF_TOKEN` : valeurs `A_RENSEIGNER` à fournir. `HF_TOKEN` ne sert qu’au premier téléchargement des modèles et n’est jamais lu par le worker.
 - `SNITCH_VOICE_DOWNLOAD_ON_START=1` et `SNITCH_VOICE_CONFIRM_TERMS=1` : téléchargement des modèles au premier démarrage.
 
