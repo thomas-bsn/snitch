@@ -139,7 +139,7 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
       adminPage.getByText("Super-administrator", { exact: true }),
     ).toBeVisible();
     await adminPage.getByRole("menuitem", { name: "Administration" }).click();
-    await expect(adminPage).toHaveURL(/\/admin$/);
+    await expect(adminPage).toHaveURL(/\/admin\/workers$/);
     await expect(
       adminPage.getByRole("heading", { name: "Administration" }),
     ).toBeVisible();
