@@ -132,6 +132,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testDiscordSettings(t, pool)
 	})
+	t.Run("master key", func(t *testing.T) {
+		reset(t)
+		testMasterKey(t, pool)
+	})
 	t.Run("folder sources", func(t *testing.T) {
 		reset(t)
 		testFolderSources(t, pool)

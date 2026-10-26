@@ -31,7 +31,7 @@ Après la création de l’administrateur, « Accès et Discord » permet de con
 
 Ces étapes suivent la [documentation OAuth2 officielle de Discord](https://docs.discord.com/developers/topics/oauth2). Enregistrer les réglages ne déclenche aucun appel fournisseur. La connexion ou la liaison ouvre ensuite Discord dans le navigateur ; le serveur échange le code avec Discord puis lit l’identité publique via la seule portée `identify`, sans accès aux messages ni à l’adresse e-mail. Aucun jeton fournisseur n’est renvoyé au frontend ni conservé en base.
 
-Le secret n’est jamais renvoyé au navigateur après saisie, ni écrit dans les logs. L’interface n’en indique que la présence. Les valeurs sont chiffrées en PostgreSQL par AES-256-GCM avec nonce aléatoire et nom du réglage authentifié ; toute altération ou mauvaise clé empêche leur lecture. Conserver `MASTER_KEY` entre redémarrages et la sauvegarder **séparément** de PostgreSQL dans un emplacement sûr. Une restauration utilisable demande la base **et la même clé** ; une nouvelle clé ne déchiffre pas les anciens secrets. Le test complet de restauration reste prévu en phase 7.
+Le secret n’est jamais renvoyé au navigateur après saisie, ni écrit dans les logs. L’interface n’en indique que la présence. Les valeurs sont chiffrées en PostgreSQL par AES-256-GCM avec nonce aléatoire et nom du réglage authentifié ; toute altération ou mauvaise clé empêche leur lecture. La clé maître est générée par l’application au premier démarrage et conservée dans le volume `secrets`, hors de la base ; le Super-administrateur (provisoirement tout Administrateur) l’exporte depuis l’administration pour la conserver **séparément** de PostgreSQL. Une restauration complète demande la base **et la même clé** ; une nouvelle clé ne déchiffre pas les anciens secrets. Une clé absente ou différente n’empêche pas le démarrage : les réglages illisibles sont traités comme non configurés (Discord est alors désactivé, les comptes locaux fonctionnent), l’administration les liste (`unreadable_secrets` dans la réponse des réglages) et les ressaisir suffit. Voir [déploiement](deployment.md#clé-maître) et [sauvegarde](backups.md). Le test complet de restauration reste prévu en phase 7.
 
 ## Connexion et liaison Discord
 
@@ -48,7 +48,8 @@ La migration `00002_oauth_session.sql` invalide les anciens parcours OAuth en co
 | Variable | Usage |
 | --- | --- |
 | `DATABASE_URL` | URL PostgreSQL requise ; conserver les identifiants hors du dépôt. |
-| `MASTER_KEY` | 32 octets aléatoires en base64, requis pour `serve` ; sauvegarder séparément de la base et conserver la même clé entre redémarrages. |
+| `MASTER_KEY` | Facultative (32 octets aléatoires en base64). Sans valeur, `serve` génère la clé et la conserve dans `SECRETS_DIR` ; une valeur fournie est prioritaire et n’y est pas recopiée. Mal formée, elle est refusée. |
+| `SECRETS_DIR` | Dossier du volume de secrets, `/data/secrets` par défaut ; `serve` y écrit `master_key` (mode 0600) quand `MASTER_KEY` est absente et refuse de démarrer s’il n’est pas inscriptible. |
 | `PUBLIC_URL` | Origine HTTP(S) publique sans chemin ni identifiants ; `http://localhost:8080` par défaut. |
 | `COOKIE_SECURE` | `true` par défaut, exige HTTPS ; `false` uniquement pour le développement HTTP. |
 | `LISTEN_ADDR` | Adresse et port d'écoute, `:8080` par défaut. `healthcheck` utilise la même variable. |

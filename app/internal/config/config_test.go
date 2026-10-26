@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/base64"
 	"path/filepath"
 	"testing"
@@ -26,6 +27,28 @@ func TestConfig(t *testing.T) {
 	t.Setenv("MASTER_KEY", "wrong")
 	if _, err := Load(); err == nil {
 		t.Fatal("invalid key accepted")
+	}
+}
+
+func TestConfigNeedsNoMasterKey(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("DATABASE_URL", "postgres://test")
+	t.Setenv("MASTER_KEY", "")
+	t.Setenv("SECRETS_DIR", dir)
+	t.Setenv("PUBLIC_URL", "https://receipts.example")
+	first, err := Load()
+	if err != nil || len(first.MasterKey) != 32 || first.MasterKeyOrigin != "generated" {
+		t.Fatalf("no generated key: %v %q", err, first.MasterKeyOrigin)
+	}
+	second, err := Load()
+	if err != nil || !bytes.Equal(first.MasterKey, second.MasterKey) {
+		t.Fatal("the generated key changed between starts", err)
+	}
+	explicit := bytes.Repeat([]byte{9}, 32)
+	t.Setenv("MASTER_KEY", base64.StdEncoding.EncodeToString(explicit))
+	third, err := Load()
+	if err != nil || !bytes.Equal(third.MasterKey, explicit) || third.MasterKeyOrigin != "provided" {
+		t.Fatal("an explicit key must take precedence", err)
 	}
 }
 

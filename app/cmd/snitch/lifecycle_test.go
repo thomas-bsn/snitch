@@ -192,3 +192,46 @@ func TestExecutableLifecycle(t *testing.T) {
 		}
 	}
 }
+
+// The deployment starts without any MASTER_KEY: the executable produces the key in the secrets directory itself,
+// and refuses (clearly) only when it could not keep what it generated.
+func TestExecutableGeneratesItsMasterKey(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "snitch")
+	if out, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build: %s: %v", out, err)
+	}
+	run := func(secretsDir string) (string, error) {
+		cmd := exec.Command(binary, "serve")
+		// The database is deliberately unreachable: the key is resolved before the first connection.
+		cmd.Env = append(os.Environ(), "DATABASE_URL=postgres://receipts@127.0.0.1:1/receipts?sslmode=disable&connect_timeout=1", "MASTER_KEY=", "SECRETS_DIR="+secretsDir, "PUBLIC_URL=http://localhost:8080", "COOKIE_SECURE=false", "UPLOAD_ROOT="+t.TempDir())
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+	dir := t.TempDir()
+	if _, err := run(dir); err == nil {
+		t.Fatal("an unreachable database must stop the server")
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "master_key"))
+	if err != nil {
+		t.Fatalf("no key generated at the first start: %v", err)
+	}
+	if key, err := base64.StdEncoding.DecodeString(string(raw)); err != nil || len(key) != 32 {
+		t.Fatal("generated key is malformed")
+	}
+	out, _ := run(dir)
+	if strings.Contains(out, string(raw)) {
+		t.Fatal("the key appeared in the output")
+	}
+	again, _ := os.ReadFile(filepath.Join(dir, "master_key"))
+	if string(again) != string(raw) {
+		t.Fatal("the second start replaced the key")
+	}
+	occupied := filepath.Join(t.TempDir(), "occupied")
+	if err := os.WriteFile(occupied, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, err = run(filepath.Join(occupied, "secrets"))
+	if err == nil || !strings.Contains(out, "MASTER_KEY is not set and the secrets directory") {
+		t.Fatalf("a key that cannot be kept must be refused with an explanation: %s", out)
+	}
+}

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/base64"
 	"errors"
 	"net"
 	"net/url"
@@ -11,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"snitch/internal/secrets"
 )
 
 type Config struct {
@@ -24,9 +25,13 @@ type Config struct {
 	UploadMaxBytes, UploadChunkBytes                                                          int64
 	UploadSessionTTL                                                                          time.Duration
 	MasterKey                                                                                 []byte
+	MasterKeyOrigin                                                                           string
 	Secure                                                                                    bool
 	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL                                      string
 }
+
+// DefaultSecretsDir is where the deployment mounts the volume that keeps the generated secrets.
+const DefaultSecretsDir = "/data/secrets"
 
 const DefaultWorkerImage = "ghcr.io/thomas-bsn/snitch-worker:latest"
 
@@ -70,9 +75,10 @@ func Load() (Config, error) {
 	if err != nil || c.UploadSessionTTL < time.Hour || c.UploadSessionTTL > 30*24*time.Hour {
 		return c, errors.New("UPLOAD_SESSION_TTL must be between 1 hour and 30 days")
 	}
-	c.MasterKey, err = base64.StdEncoding.DecodeString(os.Getenv("MASTER_KEY"))
-	if err != nil || len(c.MasterKey) != 32 {
-		return c, errors.New("MASTER_KEY must encode 32 bytes in base64")
+	// MASTER_KEY is optional: without it the application generates a key and keeps it in the secrets directory.
+	c.MasterKey, c.MasterKeyOrigin, err = secrets.ResolveMasterKey(env("SECRETS_DIR", DefaultSecretsDir), os.Getenv("MASTER_KEY"))
+	if err != nil {
+		return c, err
 	}
 	c.Secure, err = strconv.ParseBool(env("COOKIE_SECURE", "true"))
 	if err != nil {
