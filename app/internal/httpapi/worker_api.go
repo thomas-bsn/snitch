@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"snitch/internal/config"
 	"snitch/internal/jobs"
 	"snitch/internal/workers"
 )
@@ -77,6 +78,15 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_worker")
 		return
 	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	image := s.Config.WorkerImage
+	if image == "" {
+		image = config.DefaultWorkerImage
+	}
+	registration.Bundle, err = workers.NewBundle(workers.BundleInput{APIURL: s.Config.PublicURL, Token: registration.Token, Image: image})
 	if err != nil {
 		s.internal(w, err)
 		return

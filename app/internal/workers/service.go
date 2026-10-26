@@ -39,7 +39,8 @@ type Worker struct {
 
 type Registration struct {
 	Worker
-	Token string `json:"token"`
+	Token  string `json:"token"`
+	Bundle Bundle `json:"bundle"`
 }
 
 type Input struct {

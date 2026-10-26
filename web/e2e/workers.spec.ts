@@ -27,6 +27,31 @@ test("un administrateur crée un worker puis révoque son jeton", async ({
     "synthetic-worker",
   );
 
+  const files = page.getByRole("region", { name: "Fichiers du worker" });
+  const env = files.getByLabel("Contenu de .env");
+  const origin = new URL(page.url()).origin;
+  await expect(env).toHaveValue(new RegExp(`SNITCH_API_URL=${origin}\\n`));
+  await expect(env).toHaveValue(/SNITCH_WORKER_TOKEN=rw_[A-Za-z0-9_-]{32,}\n/);
+  await expect(env).toHaveValue(/TRANSCRIPTION_API_URL=A_RENSEIGNER\n/);
+  await expect(env).toHaveValue(/TRANSCRIPTION_MODEL=A_RENSEIGNER\n/);
+  await expect(env).toHaveValue(/HF_TOKEN=A_RENSEIGNER\n/);
+  await expect(env).toHaveValue(/SNITCH_VOICE_DOWNLOAD_ON_START=1\n/);
+  await expect(env).toHaveValue(/SNITCH_VOICE_CONFIRM_TERMS=1\n/);
+  await expect(files.getByLabel("Contenu de compose.yaml")).toHaveValue(
+    /pull_policy: always/,
+  );
+  await expect(files.getByLabel("Contenu de compose.yaml")).not.toHaveValue(
+    /rw_/,
+  );
+  // The test server answers in plain HTTP, which the worker refuses.
+  await expect(files.getByRole("alert")).toContainText("n’est pas en HTTPS");
+  const download = page.waitForEvent("download");
+  await files.getByRole("button", { name: "Télécharger .env" }).click();
+  expect((await download).suggestedFilename()).toBe("snitch-worker.env");
+  await expect(
+    files.getByRole("button", { name: "Copier compose.yaml" }),
+  ).toBeVisible();
+
   const worker = page
     .getByRole("list", { name: "Workers" })
     .getByRole("listitem")
@@ -85,4 +110,5 @@ test("un administrateur crée un worker puis révoque son jeton", async ({
   await worker.getByRole("button", { name: "Révoquer le jeton" }).click();
   await expect(worker).toContainText("Révoqué");
   await expect(token).toHaveCount(0);
+  await expect(files).toHaveCount(0);
 });
