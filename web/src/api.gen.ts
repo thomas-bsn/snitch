@@ -624,6 +624,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clip-filters": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Session requise. Ne liste que les Sources et les propriétaires des clips que la visibilité permet à l’appelant de voir : un membre n’apprend l’existence d’aucune Source ni d’aucun compte dont il ne voit aucun clip. */
+    get: operations["listClipFilterOptions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}": {
     parameters: {
       query?: never;
@@ -2610,6 +2627,35 @@ export interface components {
       persons?: components["schemas"]["ClipPerson"][];
       transcription?: components["schemas"]["Transcription"];
       audio_track_selection?: components["schemas"]["AudioTrackSelection"];
+      progress?: components["schemas"]["ClipProgress"];
+    };
+    /**
+     * @description État d’une étape du clip : none (rien de planifié), queued (en file), running (en cours), done (terminée), failed (échouée), unavailable (étape non configurée sur cette installation).
+     * @enum {string}
+     */
+    ClipStepState:
+      | "none"
+      | "queued"
+      | "running"
+      | "done"
+      | "failed"
+      | "unavailable";
+    /** @description Avancement du clip pour les étapes que le serveur seul connaît. Les étapes de voix se lisent avec GET /api/clips/{id}/voice. Un clip est toujours importé. */
+    ClipProgress: {
+      transcription: components["schemas"]["ClipStepState"];
+      indexing: components["schemas"]["ClipStepState"];
+    };
+    ClipFilterOptions: {
+      sources: {
+        /** Format: int64 */
+        id: number;
+        name: string;
+      }[];
+      owners: {
+        /** Format: int64 */
+        id: number;
+        username: string;
+      }[];
     };
     ClipPage: {
       items: components["schemas"]["Clip"][];
@@ -4501,6 +4547,35 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ClipPage"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listClipFilterOptions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sources et propriétaires proposés par les filtres de la Bibliothèque */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipFilterOptions"];
         };
       };
       /** @description Erreur */
