@@ -195,7 +195,9 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
+    /** @description Administrateurs et Super-administrateur : lecture de la configuration Discord (sans secret), de l'approbation des inscriptions et de l'état de la clé maître. */
     get: operations["getSettings"];
+    /** @description Réservé au Super-administrateur : configuration Discord et approbation des inscriptions. Un Administrateur reçoit 403 super_administrator_required et rien n'est modifié. */
     put: operations["updateSettings"];
     post?: never;
     delete?: never;
@@ -1421,7 +1423,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (provisoirement à tout Administrateur, derrière un contrôle unique côté serveur) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé. */
+    /** @description Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (un Administrateur reçoit 403 super_administrator_required) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé. */
     post: operations["exportMasterKey"];
     delete?: never;
     options?: never;
@@ -1519,8 +1521,11 @@ export interface components {
       /** Format: int64 */
       id: number;
       username: string;
-      /** @enum {string} */
-      role: "admin" | "user";
+      /**
+       * @description super_admin : propriétaire de l'installation (compte créé par l'installation, unique, non rétrogradable, non supprimable) ; admin : Administrateur ; user : Utilisateur.
+       * @enum {string}
+       */
+      role: "super_admin" | "admin" | "user";
       approved: boolean;
       /**
        * @description Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas choisi.

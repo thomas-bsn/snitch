@@ -86,6 +86,7 @@ export const errorsEn = {
   invalid_worker_capabilities: "These worker capabilities are not valid.",
   invalid_worker_capacity: "This worker capacity is not valid.",
   invalid_worker_models: "These worker models are not valid.",
+  super_administrator_required: "Only the Super-administrator can do this.",
   invalid_transcription_language:
     "This language code is not valid (two or three lowercase letters, for example fr).",
   invalid_transcription_model: "This model name is not valid.",

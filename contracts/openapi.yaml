@@ -626,6 +626,7 @@
     "/api/admin/settings": {
       "get": {
         "operationId": "getSettings",
+        "description": "Administrateurs et Super-administrateur : lecture de la configuration Discord (sans secret), de l'approbation des inscriptions et de l'état de la clé maître.",
         "responses": {
           "200": {
             "description": "Success",
@@ -652,6 +653,7 @@
       },
       "put": {
         "operationId": "updateSettings",
+        "description": "Réservé au Super-administrateur : configuration Discord et approbation des inscriptions. Un Administrateur reçoit 403 super_administrator_required et rien n'est modifié.",
         "responses": {
           "200": {
             "description": "Success",
@@ -3513,7 +3515,7 @@
     "/api/admin/master-key/export": {
       "post": {
         "operationId": "exportMasterKey",
-        "description": "Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (provisoirement à tout Administrateur, derrière un contrôle unique côté serveur) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé.",
+        "description": "Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (un Administrateur reçoit 403 super_administrator_required) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé.",
         "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "responses": {
           "200": {"description": "Clé exportée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MasterKeyExport"}}}},
@@ -4163,9 +4165,11 @@
           "role": {
             "type": "string",
             "enum": [
+              "super_admin",
               "admin",
               "user"
-            ]
+            ],
+            "description": "super_admin : propriétaire de l'installation (compte créé par l'installation, unique, non rétrogradable, non supprimable) ; admin : Administrateur ; user : Utilisateur."
           },
           "approved": {
             "type": "boolean"

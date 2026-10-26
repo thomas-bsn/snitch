@@ -34,6 +34,7 @@ export const en = {
     signOut: "Sign out",
   },
   roles: {
+    superAdmin: "Super-administrator",
     admin: "Administrator",
     user: "User",
   },

@@ -5,14 +5,22 @@ import (
 	"net/http"
 )
 
-// isAdministrator is the one place that decides whether a role may use the administration.
-// The Super-administrator role (ticket #82) will be accepted here as well, exactly like Administrator.
-func isAdministrator(role string) bool { return role == "admin" }
+// The roles that decide access, as stored in users.role and exposed by the contract.
+const (
+	roleSuperAdministrator = "super_admin"
+	roleAdministrator      = "admin"
+)
 
-// isSuperAdministrator is the one place that decides who may do what only the owner of the installation does
-// (exporting the master key, later also Discord and the registration policy). Until the role exists, every
-// Administrator qualifies; ticket #82 narrows this single function.
-func isSuperAdministrator(role string) bool { return isAdministrator(role) }
+// isAdministrator is the one place that decides whether a role may use the administration: Administrator
+// and Super-administrator are treated alike for everything that is not reserved to the owner.
+func isAdministrator(role string) bool {
+	return role == roleAdministrator || role == roleSuperAdministrator
+}
+
+// isSuperAdministrator is the one place that decides who may do what only the owner of the installation
+// does: exporting the master key, configuring Discord and setting the registration approval (and, with the
+// member management, handling the accounts of Administrators).
+func isSuperAdministrator(role string) bool { return role == roleSuperAdministrator }
 
 // exportMasterKey hands the master key to the person who must keep it separately from the database.
 // The key is never logged: only the fact and the author are.

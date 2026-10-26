@@ -96,6 +96,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
+  super_administrator_required: "Seul le Super-administrateur peut faire cela.",
   invalid_transcription_language:
     "Ce code de langue n’est pas valide (deux ou trois lettres minuscules, par exemple fr).",
   invalid_transcription_model: "Ce nom de modèle n’est pas valide.",

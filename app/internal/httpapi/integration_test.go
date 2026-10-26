@@ -144,6 +144,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testMasterKey(t, pool)
 	})
+	t.Run("roles", func(t *testing.T) {
+		reset(t)
+		testRoles(t, pool, provider)
+	})
 	t.Run("folder sources", func(t *testing.T) {
 		reset(t)
 		testFolderSources(t, pool)

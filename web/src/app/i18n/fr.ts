@@ -34,6 +34,7 @@ export const fr: Messages = {
     signOut: "Se déconnecter",
   },
   roles: {
+    superAdmin: "Super-administrateur",
     admin: "Administrateur",
     user: "Utilisateur",
   },
