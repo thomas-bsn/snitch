@@ -17,6 +17,12 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
+      - name: Free runner disk space
+        # The compose smoke test pulls the Ollama image (several GB once extracted) after the Go and browser
+        # tests have filled the disk; without this the extraction fails with "no space left on device".
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
         with:
