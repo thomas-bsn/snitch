@@ -12,7 +12,7 @@ Snitch indexera des clips de jeu pour retrouver ce qui a été dit, qui l'a dit 
 - Phase 5 : implémentée et fusionnée dans `main` (PR [#43](https://github.com/thomas-bsn/snitch/pull/43)). Voir le [bilan](docs/phase-5-report.md), la [spec](docs/specs/phase-5.md), l’[ADR 0011](docs/adr/0011-locuteurs-personnes-et-attributions.md), l’issue parente [#31](https://github.com/thomas-bsn/snitch/issues/31) et les tickets [#32](https://github.com/thomas-bsn/snitch/issues/32) à [#42](https://github.com/thomas-bsn/snitch/issues/42) (fermés). Toute la mécanique voix a été vérifiée avec un fournisseur simulé et des données synthétiques ; aucune voix réelle n’a été traitée. La validation de bout en bout avec de vrais modèles reste à faire avant la phase 6.
 - Worker vocal réel (complément de la phase 5) : fusionné dans `main` (PR [#46](https://github.com/thomas-bsn/snitch/pull/46)). Fournisseurs pyannote (diarisation) et empreinte vocale, image Docker unique `snitch-worker` pour GPU NVIDIA, compose et `.env` générés à la création d’un worker, téléchargement des modèles au premier démarrage sur opt-in explicite, modèles déclarés visibles dans la page Workers. Voir la [spec](docs/specs/phase-5-real-voice-worker.md) et le [guide](docs/real-voice-worker.md). Le code pyannote réel n’a jamais tourné avec de vrais modèles, un GPU ou un jeton Hugging Face : à valider sur le PC de jeu.
 - Publication des images : à chaque push sur `main`, le workflow publie sur GHCR l’application et/ou le worker selon les fichiers modifiés ; les tags `v*` publient tout. Configurée mais jamais observée avant la première exécution sur `main` : à vérifier. Les images sont privées par défaut ; les licences NVIDIA de l’image worker sont à relire avant de la rendre publique.
-- Phases 6 et 7 : non implémentées.
+- Phase 6 : spec publiée ([spec](docs/specs/phase-6.md), issue [#48](https://github.com/thomas-bsn/snitch/issues/48)) ; aucun code avant la validation de la phase 5 avec de vrais modèles. Phase 7 : non implémentée.
 - Aucun média réel traité ni déploiement effectué sur le NAS. Le dépôt public et le suivi des issues existent sur GitHub.
 
 ## Règles de progression
@@ -117,6 +117,7 @@ Chatbot, keyframes, analyse visuelle/VLM, résumés et événements de jeu, sép
 
 - [Spec détaillée de phase 0](docs/specs/phase-0.md)
 - [Spec détaillée de phase 3](docs/specs/phase-3.md) · [Issue GitHub phase 3](https://github.com/thomas-bsn/snitch/issues/19)
+- [Spec détaillée de phase 6](docs/specs/phase-6.md) · [Issue GitHub phase 6](https://github.com/thomas-bsn/snitch/issues/48)
 - [Spec détaillée de phase 5](docs/specs/phase-5.md) · [Issue GitHub phase 5](https://github.com/thomas-bsn/snitch/issues/31) · [ADR 0011](docs/adr/0011-locuteurs-personnes-et-attributions.md)
 - [Spec du worker vocal réel](docs/specs/phase-5-real-voice-worker.md) · [Guide du worker réel](docs/real-voice-worker.md) · [Déploiement et images](docs/deployment.md)
 - [Handoff historique](HANDOFF.md)
