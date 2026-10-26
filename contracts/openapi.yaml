@@ -3550,11 +3550,27 @@
             "description": "État de l’index",
             "content": {"application/json": {"schema": {
               "type": "object",
-              "required": ["configured", "provider", "model", "dimensions", "state", "pending", "done", "failed", "reindex_pending", "reindex_failed"],
-              "properties": {"configured": {"type": "boolean"}, "provider": {"type": "string"}, "model": {"type": "string"}, "dimensions": {"type": "integer"}, "state": {"type": "string"}, "error": {"type": "string"}, "pending": {"type": "integer"}, "done": {"type": "integer"}, "failed": {"type": "integer"}, "candidate_model": {"type": "string"}, "candidate_state": {"type": "string"}, "candidate_error": {"type": "string"}, "candidate_total": {"type": "integer"}, "candidate_done": {"type": "integer"}, "candidate_pending": {"type": "integer"}, "candidate_failed": {"type": "integer"}, "reindex_pending": {"type": "integer", "description": "Segments corrigés dont le vecteur n’est pas encore recalculé (actuels, non obsolètes)."}, "reindex_failed": {"type": "integer", "description": "Parmi eux, ceux dont les tentatives sont épuisées : une relance de l’indexation (backfill) leur donne une nouvelle chance."}}
+              "required": ["configured", "provider", "model", "dimensions", "state", "pending", "done", "failed", "indexed_segments", "reindex_pending", "reindex_failed"],
+              "properties": {"configured": {"type": "boolean"}, "provider": {"type": "string"}, "model": {"type": "string"}, "dimensions": {"type": "integer"}, "state": {"type": "string"}, "error": {"type": "string"}, "pending": {"type": "integer"}, "done": {"type": "integer"}, "failed": {"type": "integer"}, "candidate_model": {"type": "string"}, "candidate_state": {"type": "string"}, "candidate_error": {"type": "string"}, "candidate_total": {"type": "integer"}, "candidate_done": {"type": "integer"}, "candidate_pending": {"type": "integer"}, "candidate_failed": {"type": "integer"}, "indexed_segments": {"type": "integer", "description": "Segments de l’index actif."}, "reindex_pending": {"type": "integer", "description": "Segments corrigés dont le vecteur n’est pas encore recalculé (actuels, non obsolètes)."}, "reindex_failed": {"type": "integer", "description": "Parmi eux, ceux dont les tentatives sont épuisées : une relance de l’indexation (backfill) leur donne une nouvelle chance."}}
             }}}
           }
         },
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/embeddings/settings": {
+      "get": {
+        "operationId": "getEmbeddingSettings",
+        "description": "Configuration effective du service d'embeddings, consultable par les Administrateurs.",
+        "responses": {"200": {"description": "Configuration effective", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmbeddingSettings"}}}}},
+        "security": [{"session": []}]
+      },
+      "put": {
+        "operationId": "putEmbeddingSettings",
+        "description": "Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables d'environnement restent prioritaires.",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["url", "model"], "properties": {"url": {"type": "string"}, "model": {"type": "string"}}}}}},
+        "responses": {"200": {"description": "Configuration enregistrée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmbeddingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "security": [{"session": []}]
       }
     },
@@ -4150,6 +4166,7 @@
       }
     },
     "schemas": {
+      "EmbeddingSettings": {"type": "object", "required": ["url", "model", "url_from_environment", "model_from_environment"], "properties": {"url": {"type": "string"}, "model": {"type": "string"}, "url_from_environment": {"type": "boolean"}, "model_from_environment": {"type": "boolean"}}},
       "Error": {
         "type": "object",
         "required": [

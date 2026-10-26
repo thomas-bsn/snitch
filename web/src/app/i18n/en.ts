@@ -150,6 +150,16 @@ export const en = {
       title: "Semantic search",
       lead: "Search by meaning, not only by exact words. Full-text search works without it, and nothing is indexed until you ask.",
       status: "Status",
+      url: "Embeddings service address",
+      model: "Embeddings model",
+      save: "Test and save",
+      saved: "Semantic search settings saved.",
+      environment: "This value is set by the deployment and takes priority.",
+      ownerOnly: "Only the Super-administrator can change these settings.",
+      counts:
+        "Indexed segments: {done} · pending tasks: {pending} · corrected segments awaiting reindexing: {reindex}",
+      candidate: "Building index for {model}: {pending} tasks pending.",
+
       active: "Active · {model}",
       inactive: "Not configured",
       howTo:

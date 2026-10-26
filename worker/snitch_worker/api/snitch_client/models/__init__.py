@@ -36,6 +36,7 @@ from .corrections_to_replace import CorrectionsToReplace
 from .corrections_warning import CorrectionsWarning
 from .credentials import Credentials
 from .decision_level import DecisionLevel
+from .embedding_settings import EmbeddingSettings
 from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
@@ -92,6 +93,7 @@ from .person_separation_input import PersonSeparationInput
 from .person_voice import PersonVoice
 from .person_voice_list import PersonVoiceList
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
+from .put_embedding_settings_body import PutEmbeddingSettingsBody
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
 from .scan_source_body import ScanSourceBody
@@ -263,6 +265,7 @@ __all__ = (
     "CorrectionsWarning",
     "Credentials",
     "DecisionLevel",
+    "EmbeddingSettings",
     "Error",
     "ExportSegmentCorrectionsFormat",
     "GetEmbeddingIndexStatusResponse200",
@@ -319,6 +322,7 @@ __all__ = (
     "PersonVoice",
     "PersonVoiceList",
     "PreviewTranscriptionBatchResponse200",
+    "PutEmbeddingSettingsBody",
     "RebuildEmbeddingIndexBody",
     "Redirect",
     "ScanSourceBody",

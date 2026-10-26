@@ -30,6 +30,9 @@ export const errorsEn = {
     "Discord is unavailable. Try again or use your local account.",
   duplicate_vocabulary_term: "This term already exists.",
   embedding_rebuild_in_progress: "An index rebuild is already running.",
+  invalid_embedding_settings: "Enter a valid service address and model.",
+  embedding_provider_unavailable:
+    "The embeddings service could not be reached or returned an invalid response.",
   embeddings_unconfigured: "Semantic search is not configured.",
   empty_audio_track_rule: "The audio track rule is empty.",
   excerpt_not_found: "This excerpt does not exist.",

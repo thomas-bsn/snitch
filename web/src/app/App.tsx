@@ -8,6 +8,7 @@ import {
 } from "react-router";
 import { AdminLayout, AdminPlaceholder } from "./admin/AdminLayout";
 import { ADMIN_TABS } from "./admin/tabs";
+import { SemanticTab } from "./admin/semantic/SemanticTab";
 import { WorkersTab } from "./admin/workers/WorkersTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
@@ -95,8 +96,11 @@ function Routing() {
             <Route path="admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="workers" replace />} />
               <Route path="workers" element={<WorkersTab />} />
+              <Route path="semantic" element={<SemanticTab />} />
               <Route path="workers/:id" element={<WorkersTab />} />
-              {ADMIN_TABS.filter((tab) => tab.path !== "workers").map((tab) => (
+              {ADMIN_TABS.filter(
+                (tab) => tab.path !== "workers" && tab.path !== "semantic",
+              ).map((tab) => (
                 <Route
                   key={tab.path}
                   path={`${tab.path}/*`}

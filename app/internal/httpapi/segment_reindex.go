@@ -26,13 +26,17 @@ const reindexLease = 2 * time.Minute
 // at most maxReindexAttempts times. Claims use a lease like embedding_tasks, so a
 // consumer that died is replaced when its lease expires.
 func (s *Server) reindexNext(ctx context.Context) error {
-	if s.Config.EmbeddingsURL == "" {
+	settings, err := s.embeddingSettings(ctx)
+	if err != nil {
+		return err
+	}
+	if settings.URL == "" {
 		return nil
 	}
 	var jobID, clipID int64
 	var index, version int
 	var corrected *string
-	err := s.Pool.QueryRow(ctx, `WITH c AS (SELECT transcription_job_id,segment_index FROM segment_corrections
+	err = s.Pool.QueryRow(ctx, `WITH c AS (SELECT transcription_job_id,segment_index FROM segment_corrections
  WHERE reindex_pending AND stale_at IS NULL AND reindex_attempts<$1 AND (reindex_lease_expires_at IS NULL OR reindex_lease_expires_at<now())
  ORDER BY reindex_requested_at,transcription_job_id,segment_index FOR UPDATE SKIP LOCKED LIMIT 1)
  UPDATE segment_corrections sc SET reindex_lease_expires_at=now()+make_interval(secs=>$2),reindex_attempts=sc.reindex_attempts+1

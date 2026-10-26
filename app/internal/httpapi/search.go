@@ -208,7 +208,8 @@ func (s *Server) hybridSearch(w http.ResponseWriter, r *http.Request, q string, 
 		result["degraded"] = true
 		reply(w, rec.Code, result)
 	}
-	if s.Config.EmbeddingsURL == "" || s.Config.EmbeddingsModel == "" {
+	settings, settingsErr := s.embeddingSettings(r.Context())
+	if settingsErr != nil || settings.URL == "" || settings.Model == "" {
 		fallback()
 		return
 	}
