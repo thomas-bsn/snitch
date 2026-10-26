@@ -136,7 +136,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           }
         ],
         "security": [],
@@ -186,7 +186,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           }
         ],
         "security": [],
@@ -236,7 +236,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           }
         ],
         "security": [],
@@ -315,7 +315,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           },
           {
             "in": "header",
@@ -362,7 +362,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           }
         ],
         "security": []
@@ -401,7 +401,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           },
           {
             "in": "header",
@@ -598,7 +598,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           },
           {
             "in": "header",
@@ -696,7 +696,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           },
           {
             "in": "header",
@@ -4037,7 +4037,8 @@
         "required": [
           "client_id",
           "secret_configured",
-          "registration_approval"
+          "registration_approval",
+          "callback_url"
         ],
         "properties": {
           "client_id": {
@@ -4049,6 +4050,10 @@
           },
           "registration_approval": {
             "type": "boolean"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL)."
           }
         }
       },
@@ -4635,7 +4640,7 @@
           },
           "insecure_api_url": {
             "type": "boolean",
-            "description": "Vrai si PUBLIC_URL n'est pas en HTTPS : le worker refuse le HTTP."
+            "description": "Vrai si l'adresse publique n'est pas en HTTPS : le worker refuse le HTTP."
           }
         }
       },

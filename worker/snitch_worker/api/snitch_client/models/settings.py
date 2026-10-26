@@ -25,11 +25,14 @@ class Settings:
             client_id (str):
             secret_configured (bool): Whether a nonempty secret is stored. The secret itself is never returned.
             registration_approval (bool):
+            callback_url (str): Discord return address to register, built from the public address of the request (or the
+                configured PUBLIC_URL).
      """
 
     client_id: str
     secret_configured: bool
     registration_approval: bool
+    callback_url: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -43,6 +46,8 @@ class Settings:
 
         registration_approval = self.registration_approval
 
+        callback_url = self.callback_url
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -50,6 +55,7 @@ class Settings:
             "client_id": client_id,
             "secret_configured": secret_configured,
             "registration_approval": registration_approval,
+            "callback_url": callback_url,
         })
 
         return field_dict
@@ -65,10 +71,13 @@ class Settings:
 
         registration_approval = d.pop("registration_approval")
 
+        callback_url = d.pop("callback_url")
+
         settings = cls(
             client_id=client_id,
             secret_configured=secret_configured,
             registration_approval=registration_approval,
+            callback_url=callback_url,
         )
 
 

@@ -86,7 +86,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 	if image == "" {
 		image = config.DefaultWorkerImage
 	}
-	registration.Bundle, err = workers.NewBundle(workers.BundleInput{APIURL: s.Config.PublicURL, Token: registration.Token, Image: image})
+	registration.Bundle, err = workers.NewBundle(workers.BundleInput{APIURL: s.publicOrigin(r), Token: registration.Token, Image: image})
 	if err != nil {
 		s.internal(w, err)
 		return
