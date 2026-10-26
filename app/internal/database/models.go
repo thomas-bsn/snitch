@@ -526,4 +526,5 @@ type Worker struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	SupportedSteps      []string           `json:"supported_steps"`
 	Models              []byte             `json:"models"`
+	TranscriptionModel  string             `json:"transcription_model"`
 }

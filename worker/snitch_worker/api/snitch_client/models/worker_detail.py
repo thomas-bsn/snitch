@@ -41,6 +41,7 @@ class WorkerDetail:
                 d'abord.
             bundle (WorkerBundle): Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus
                 ensuite. Le .env contient le jeton.
+            transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
             models (WorkerModels | Unset): Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais
                 de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs
                 ressemblant à un secret sont refusées.
@@ -56,6 +57,7 @@ class WorkerDetail:
     connected: bool
     recent_tasks: list[WorkerRecentTask]
     bundle: WorkerBundle
+    transcription_model: str | Unset = UNSET
     models: WorkerModels | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -100,6 +102,8 @@ class WorkerDetail:
 
         bundle = self.bundle.to_dict()
 
+        transcription_model = self.transcription_model
+
         models: dict[str, Any] | Unset = UNSET
         if not isinstance(self.models, Unset):
             models = self.models.to_dict()
@@ -119,6 +123,8 @@ class WorkerDetail:
             "recent_tasks": recent_tasks,
             "bundle": bundle,
         })
+        if transcription_model is not UNSET:
+            field_dict["transcription_model"] = transcription_model
         if models is not UNSET:
             field_dict["models"] = models
 
@@ -198,6 +204,8 @@ class WorkerDetail:
 
 
 
+        transcription_model = d.pop("transcription_model", UNSET)
+
         _models = d.pop("models", UNSET)
         models: WorkerModels | Unset
         if isinstance(_models,  Unset):
@@ -219,6 +227,7 @@ class WorkerDetail:
             connected=connected,
             recent_tasks=recent_tasks,
             bundle=bundle,
+            transcription_model=transcription_model,
             models=models,
         )
 

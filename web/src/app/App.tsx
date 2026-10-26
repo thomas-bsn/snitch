@@ -1,3 +1,6 @@
+import { VoiceTab } from "./admin/voice/VoiceTab";
+import { VocabularyTab } from "./admin/transcription/VocabularyTab";
+import { TranscriptionTab } from "./admin/transcription/TranscriptionTab";
 import {
   BrowserRouter,
   Navigate,
@@ -96,7 +99,18 @@ function Routing() {
               <Route index element={<Navigate to="workers" replace />} />
               <Route path="workers" element={<WorkersTab />} />
               <Route path="workers/:id" element={<WorkersTab />} />
-              {ADMIN_TABS.filter((tab) => tab.path !== "workers").map((tab) => (
+              <Route path="voice" element={<VoiceTab />} />
+              <Route path="transcription" element={<TranscriptionTab />} />
+              <Route
+                path="transcription/vocabulary"
+                element={<VocabularyTab />}
+              />
+              {ADMIN_TABS.filter(
+                (tab) =>
+                  tab.path !== "workers" &&
+                  tab.path !== "transcription" &&
+                  tab.path !== "voice",
+              ).map((tab) => (
                 <Route
                   key={tab.path}
                   path={`${tab.path}/*`}

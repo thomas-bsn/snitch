@@ -154,6 +154,8 @@ from .transcription_pipeline_provider import TranscriptionPipelineProvider
 from .transcription_pipeline_state import TranscriptionPipelineState
 from .transcription_pipeline_vad import TranscriptionPipelineVad
 from .transcription_pipeline_vad_mode import TranscriptionPipelineVadMode
+from .update_worker_transcription_model_body import UpdateWorkerTranscriptionModelBody
+from .update_worker_transcription_model_response_200 import UpdateWorkerTranscriptionModelResponse200
 from .upload import Upload
 from .upload_input import UploadInput
 from .upload_input_visibility import UploadInputVisibility
@@ -381,6 +383,8 @@ __all__ = (
     "TranscriptionPipelineVadMode",
     "TranscriptSegment",
     "TranscriptWord",
+    "UpdateWorkerTranscriptionModelBody",
+    "UpdateWorkerTranscriptionModelResponse200",
     "Upload",
     "UploadInput",
     "UploadInputVisibility",

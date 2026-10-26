@@ -35,6 +35,7 @@ class Worker:
             created_at (datetime.datetime):
             revoked_at (datetime.datetime | None):
             connected (bool):
+            transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
             models (WorkerModels | Unset): Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais
                 de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs
                 ressemblant à un secret sont refusées.
@@ -48,6 +49,7 @@ class Worker:
     created_at: datetime.datetime
     revoked_at: datetime.datetime | None
     connected: bool
+    transcription_model: str | Unset = UNSET
     models: WorkerModels | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -81,6 +83,8 @@ class Worker:
 
         connected = self.connected
 
+        transcription_model = self.transcription_model
+
         models: dict[str, Any] | Unset = UNSET
         if not isinstance(self.models, Unset):
             models = self.models.to_dict()
@@ -98,6 +102,8 @@ class Worker:
             "revoked_at": revoked_at,
             "connected": connected,
         })
+        if transcription_model is not UNSET:
+            field_dict["transcription_model"] = transcription_model
         if models is not UNSET:
             field_dict["models"] = models
 
@@ -160,6 +166,8 @@ class Worker:
 
         connected = d.pop("connected")
 
+        transcription_model = d.pop("transcription_model", UNSET)
+
         _models = d.pop("models", UNSET)
         models: WorkerModels | Unset
         if isinstance(_models,  Unset):
@@ -179,6 +187,7 @@ class Worker:
             created_at=created_at,
             revoked_at=revoked_at,
             connected=connected,
+            transcription_model=transcription_model,
             models=models,
         )
 
