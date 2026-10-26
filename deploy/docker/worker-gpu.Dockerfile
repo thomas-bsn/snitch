@@ -29,6 +29,7 @@ RUN pip install --no-cache-dir --no-deps --no-build-isolation /api && pip check
 RUN ffmpeg -hide_banner -loglevel error -f lavfi -i sine=frequency=440:duration=1 -ac 1 -ar 16000 -c:a pcm_s16le -y /tmp/probe.wav \
  && python -c "import torch, torchaudio, pyannote.audio; assert torch.__version__.startswith('2.8.0') and torch.version.cuda == '12.8', (torch.__version__, torch.version.cuda); w, sr = torchaudio.load('/tmp/probe.wav'); assert sr == 16000 and w.shape[0] == 1" \
  && rm /tmp/probe.wav
+COPY deploy/licenses/voice/extra /licenses-extra
 COPY scripts/collect_python_notices.py /collect_python_notices.py
 RUN python /collect_python_notices.py
 COPY worker/snitch_worker /worker/snitch_worker
