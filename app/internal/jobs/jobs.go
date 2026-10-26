@@ -510,6 +510,11 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 			if _, err = tx.Exec(ctx, `INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT p.id,$1 FROM embedding_profiles p JOIN embedding_index_state s ON s.id=1 WHERE p.id=s.active_profile_id OR p.id=s.candidate_profile_id ON CONFLICT(profile_id,transcription_job_id) DO NOTHING`, id); err != nil {
 				return Job{}, fmt.Errorf("queue transcript embeddings: %w", err)
 			}
+			// The new transcription replaces the visible text: the corrections of the
+			// previous transcription jobs of the clip become obsolete (kept, never reapplied).
+			if _, err = tx.Exec(ctx, `UPDATE segment_corrections SET stale_at=now() WHERE clip_id=$1 AND transcription_job_id<>$2 AND stale_at IS NULL`, job.ClipID, id); err != nil {
+				return Job{}, fmt.Errorf("mark replaced corrections obsolete: %w", err)
+			}
 		}
 		if opts.Project != nil {
 			if err = opts.Project(ctx, tx, job); err != nil {

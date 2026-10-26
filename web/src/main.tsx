@@ -10,6 +10,16 @@ import {
   ResultSpeaker,
   applyPersonFilter,
 } from "./voice/PersonFilter";
+import { SegmentText } from "./segments/SegmentText";
+import {
+  CorrectionsWarningPanel,
+  describeCorrections,
+  replacedCorrections,
+  type CorrectionsToReplace,
+} from "./segments/Retranscription";
+import { SegmentHistory } from "./segments/SegmentHistory";
+import { ObsoleteCorrections } from "./segments/ObsoleteCorrections";
+import { SegmentSpeaker } from "./segments/SegmentSpeaker";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
 import { PersonsCard } from "./voice/PersonsCard";
@@ -81,6 +91,7 @@ type SearchResult = {
   context: string;
   matched_text: string;
   timestamp: number;
+  corrected?: boolean;
   person?: { id: number; display_name: string } | null;
   decision_level?: components["schemas"]["DecisionLevel"];
 };
@@ -209,6 +220,8 @@ function App() {
     candidate_done?: number;
     candidate_pending?: number;
     candidate_failed?: number;
+    reindex_pending?: number;
+    reindex_failed?: number;
   }>();
   const [embeddingModel, setEmbeddingModel] = useState("");
   const [editingTerm, setEditingTerm] = useState<VocabularyTerm>();
@@ -250,6 +263,14 @@ function App() {
     already_queued: number;
     unavailable: number;
     selection_required: number;
+    corrected: number;
+    corrected_segments: number;
+  }>();
+  const [includeCorrected, setIncludeCorrected] = useState(false);
+  const [retranscriptionWarning, setRetranscriptionWarning] = useState<{
+    clipId: number;
+    index: number;
+    corrections: CorrectionsToReplace;
   }>();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(
@@ -325,6 +346,7 @@ function App() {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(clipFilters))
       if (value) query.set(key, value);
+    if (includeCorrected) query.set("include_corrected", "true");
     const response = await fetch(
       `/api/admin/transcriptions/batch-preview?${query}`,
       { credentials: "same-origin" },
@@ -332,10 +354,47 @@ function App() {
     if (!response.ok) throw new Error("Impossible de prévisualiser ce lot.");
     setBatchPreview(await response.json());
   }
+  // Retranscribes a clip. A clip that carries corrections is refused by the server until
+  // the administrator confirms what is replaced (warning panel, then confirm=true).
+  async function retranscribeClip(
+    clipId: number,
+    index: number,
+    confirm: boolean,
+  ) {
+    const query = { confirm_replace_corrections: confirm || undefined };
+    const track = await api.PUT("/api/admin/clips/{id}/audio-track", {
+      params: { path: { id: clipId }, header: csrf, query },
+      body: { audio_stream_index: index },
+    });
+    const trackWarning = replacedCorrections(track.error);
+    if (trackWarning) {
+      setRetranscriptionWarning({ clipId, index, corrections: trackWarning });
+      return;
+    }
+    checked(track);
+    const result = await api.POST("/api/admin/clips/{id}/transcription", {
+      params: { path: { id: clipId }, header: csrf, query },
+      body: {},
+    });
+    const warning = replacedCorrections(result.error);
+    if (warning) {
+      setRetranscriptionWarning({ clipId, index, corrections: warning });
+      return;
+    }
+    const response = checked(result);
+    setRetranscriptionWarning(undefined);
+    setNotice(`Transcription planifiée (tâche ${response.job.id}).`);
+    await refreshJobs(1);
+  }
   async function scheduleBatch() {
     if (
       !batchPreview?.eligible ||
-      !window.confirm(`Planifier ${batchPreview.eligible} transcription(s) ?`)
+      !window.confirm(
+        `Planifier ${batchPreview.eligible} transcription(s) ?` +
+          (includeCorrected && batchPreview.corrected > 0
+            ? ` Les corrections de ${batchPreview.corrected} clip(s) corrigé(s) seront remplacées (conservées dans l’historique, obsolètes).`
+            : ""),
+      )
     )
       return;
     const query = new URLSearchParams();
@@ -347,7 +406,10 @@ function App() {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", ...csrf },
-        body: JSON.stringify({ confirm: true }),
+        body: JSON.stringify({
+          confirm: true,
+          include_corrected: includeCorrected,
+        }),
       },
     );
     if (!response.ok) throw new Error("Impossible de planifier ce lot.");
@@ -584,16 +646,31 @@ function App() {
     const form = event.currentTarget;
     const data = new FormData(form);
     await run(async () => {
-      const result = await api.POST("/api/admin/jobs", {
-        params: { header: csrf },
-        body: {
-          clip_id: Number(data.get("clip_id")),
-          step: String(data.get("step")),
-          input_version: String(data.get("input_version")),
-          priority: Number(data.get("priority")),
-          max_attempts: Number(data.get("max_attempts")),
-        },
-      });
+      const request = (confirm: boolean) =>
+        api.POST("/api/admin/jobs", {
+          params: {
+            header: csrf,
+            query: { confirm_replace_corrections: confirm || undefined },
+          },
+          body: {
+            clip_id: Number(data.get("clip_id")),
+            step: String(data.get("step")),
+            input_version: String(data.get("input_version")),
+            priority: Number(data.get("priority")),
+            max_attempts: Number(data.get("max_attempts")),
+          },
+        });
+      let result = await request(false);
+      const warning = replacedCorrections(result.error);
+      if (warning) {
+        if (
+          !window.confirm(
+            `Cette retranscription remplacerait des corrections humaines : ${describeCorrections(warning)}. Elles resteront dans l’historique, obsolètes. Continuer ?`,
+          )
+        )
+          return;
+        result = await request(true);
+      }
       checked(result);
       form.reset();
       await refreshJobs(1);
@@ -616,11 +693,26 @@ function App() {
   }
   async function relaunchJob(job: Job) {
     await run(async () => {
-      checked(
-        await api.POST("/api/admin/jobs/{id}/retry", {
-          params: { path: { id: job.id }, header: csrf },
-        }),
-      );
+      const request = (confirm: boolean) =>
+        api.POST("/api/admin/jobs/{id}/retry", {
+          params: {
+            path: { id: job.id },
+            header: csrf,
+            query: { confirm_replace_corrections: confirm || undefined },
+          },
+        });
+      let result = await request(false);
+      const warning = replacedCorrections(result.error);
+      if (warning) {
+        if (
+          !window.confirm(
+            `Cette retranscription remplacerait des corrections humaines : ${describeCorrections(warning)}. Elles resteront dans l’historique, obsolètes. Continuer ?`,
+          )
+        )
+          return;
+        result = await request(true);
+      }
+      checked(result);
       await refreshJobs(jobPage);
       setNotice(`Tâche ${job.id} relancée.`);
     });
@@ -1386,6 +1478,14 @@ function App() {
                                     : "Plein texte"}
                             <p>
                               {highlighted(item.context, item.matched_text)}
+                              {item.corrected && (
+                                <>
+                                  {" "}
+                                  <span className="segment-correction-badge">
+                                    Corrigé
+                                  </span>
+                                </>
+                              )}
                             </p>
                             <ResultSpeaker
                               person={item.person}
@@ -1570,6 +1670,18 @@ function App() {
                     >
                       Prévisualiser le lot
                     </button>
+                    <label className="inline-check">
+                      <input
+                        type="checkbox"
+                        checked={includeCorrected}
+                        onChange={(event) => {
+                          setIncludeCorrected(event.target.checked);
+                          setBatchPreview(undefined);
+                        }}
+                      />{" "}
+                      Inclure les clips corrigés (leurs corrections seront
+                      remplacées)
+                    </label>
                     {batchPreview && (
                       <div role="status" className="batch-counts">
                         <p>
@@ -1582,6 +1694,15 @@ function App() {
                           indisponible(s) · {batchPreview.selection_required}{" "}
                           piste(s) à sélectionner
                         </p>
+                        {batchPreview.corrected > 0 && (
+                          <p>
+                            {batchPreview.corrected} clip(s) corrigé(s) (
+                            {batchPreview.corrected_segments} correction(s)){" "}
+                            {includeCorrected
+                              ? "inclus à votre demande : leurs corrections seront remplacées"
+                              : "exclu(s) du lot pour protéger les corrections"}
+                          </p>
+                        )}
                         <button
                           disabled={busy || batchPreview.eligible === 0}
                           onClick={() => void run(scheduleBatch)}
@@ -1745,41 +1866,37 @@ function App() {
                                           throw new Error(
                                             "Sélectionnez explicitement une piste audio.",
                                           );
-                                        checked(
-                                          await api.PUT(
-                                            "/api/admin/clips/{id}/audio-track",
-                                            {
-                                              params: {
-                                                path: { id: clip.id },
-                                                header: csrf,
-                                              },
-                                              body: {
-                                                audio_stream_index: index,
-                                              },
-                                            },
-                                          ),
+                                        await retranscribeClip(
+                                          clip.id,
+                                          index,
+                                          false,
                                         );
-                                        const response = checked(
-                                          await api.POST(
-                                            "/api/admin/clips/{id}/transcription",
-                                            {
-                                              params: {
-                                                path: { id: clip.id },
-                                                header: csrf,
-                                              },
-                                              body: {},
-                                            },
-                                          ),
-                                        );
-                                        setNotice(
-                                          `Transcription planifiée (tâche ${response.job.id}).`,
-                                        );
-                                        await refreshJobs(1);
                                       })
                                     }
                                   >
                                     Transcrire
                                   </button>
+                                  {retranscriptionWarning?.clipId ===
+                                    clip.id && (
+                                    <CorrectionsWarningPanel
+                                      corrections={
+                                        retranscriptionWarning.corrections
+                                      }
+                                      busy={busy}
+                                      onCancel={() =>
+                                        setRetranscriptionWarning(undefined)
+                                      }
+                                      onConfirm={() =>
+                                        void run(() =>
+                                          retranscribeClip(
+                                            clip.id,
+                                            retranscriptionWarning.index,
+                                            true,
+                                          ),
+                                        )
+                                      }
+                                    />
+                                  )}
                                 </div>
                               )}
                             {clipDetails[clip.id]?.transcription &&
@@ -1830,15 +1947,45 @@ function App() {
                                             >
                                               {formatTimecode(segment.start)}
                                             </button>{" "}
-                                            {segment.words.map(
-                                              (word, wordIndex) => (
-                                                <span
-                                                  key={`${word.start}-${wordIndex}`}
-                                                >
-                                                  {word.word}{" "}
-                                                </span>
-                                              ),
-                                            )}
+                                            <SegmentText
+                                              clipId={clip.id}
+                                              jobId={
+                                                transcript.transcription_job_id
+                                              }
+                                              segment={segment}
+                                              csrf={csrf}
+                                              onChanged={() =>
+                                                loadClipDetail(clip.id)
+                                              }
+                                            />
+                                            <SegmentHistory
+                                              clipId={clip.id}
+                                              jobId={
+                                                transcript.transcription_job_id
+                                              }
+                                              index={segment.index}
+                                              version={
+                                                segment.correction_version ?? 0
+                                              }
+                                              csrf={csrf}
+                                              onChanged={() =>
+                                                loadClipDetail(clip.id)
+                                              }
+                                            />
+                                            <SegmentSpeaker
+                                              clipId={clip.id}
+                                              jobId={
+                                                transcript.transcription_job_id
+                                              }
+                                              segment={segment}
+                                              speakers={
+                                                transcript.local_speakers ?? []
+                                              }
+                                              csrf={csrf}
+                                              onChanged={() =>
+                                                loadClipDetail(clip.id)
+                                              }
+                                            />
                                           </p>
                                         ),
                                       )
@@ -1846,6 +1993,15 @@ function App() {
                                   </section>
                                 );
                               })()}
+                            {clipDetails[clip.id] && (
+                              <ObsoleteCorrections
+                                clipId={clip.id}
+                                jobId={
+                                  clipDetails[clip.id].transcription
+                                    ?.transcription_job_id
+                                }
+                              />
+                            )}
                             {clipDetails[clip.id] && (
                               <ClipPersons
                                 persons={clipDetails[clip.id].persons}
@@ -1917,6 +2073,22 @@ function App() {
                   </button>
                 </section>
               )}
+              {session.user.role === "admin" && (
+                <section className="card" aria-label="Export des corrections">
+                  <h2>Export des corrections</h2>
+                  <p>
+                    Segments dont le texte a été corrigé, avec le texte
+                    d’origine, le texte corrigé, l’auteur, la date et la
+                    version. Snitch ne calcule aucun taux d’erreur.
+                  </p>
+                  <a
+                    href="/api/admin/segment-corrections/export?format=ndjson"
+                    download="segment-corrections.ndjson"
+                  >
+                    Télécharger l’export des segments corrigés
+                  </a>
+                </section>
+              )}
               {session.user.role === "admin" && embeddingState && (
                 <section className="card" aria-label="Index sémantique">
                   <h2>Index sémantique</h2>
@@ -1929,6 +2101,13 @@ function App() {
                     État : {embeddingState.state} · {embeddingState.pending} en
                     attente · {embeddingState.done} indexées ·{" "}
                     {embeddingState.failed} en échec
+                  </p>
+                  <p>
+                    Segments corrigés en attente de réindexation :{" "}
+                    {embeddingState.reindex_pending ?? 0}
+                    {embeddingState.reindex_failed
+                      ? ` (dont ${embeddingState.reindex_failed} en échec)`
+                      : ""}
                   </p>
                   {embeddingState.error && (
                     <p role="status">Erreur : {embeddingState.error}</p>

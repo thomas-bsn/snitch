@@ -30,6 +30,8 @@ T = TypeVar("T", bound="SearchResult")
 class SearchResult:
     """
         Attributes:
+            corrected (bool): Vrai si le contexte est le texte corrigé du segment (phase 6) ; la recherche porte toujours
+                sur le texte effectif, jamais sur l’ancien texte remplacé.
             person (None | PersonRef): Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou
                 ambiguïté.
             decision_level (DecisionLevel): human : validation humaine ; automatic, suggestion, ambiguous : issus du
@@ -47,6 +49,7 @@ class SearchResult:
             timestamp (float):
      """
 
+    corrected: bool
     person: None | PersonRef
     decision_level: DecisionLevel
     clip_id: int
@@ -67,6 +70,8 @@ class SearchResult:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.person_ref import PersonRef # noqa: PLC0415
+        corrected = self.corrected
+
         person: dict[str, Any] | None
         if isinstance(self.person, PersonRef):
             person = self.person.to_dict()
@@ -101,6 +106,7 @@ class SearchResult:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "corrected": corrected,
             "person": person,
             "decision_level": decision_level,
             "clip_id": clip_id,
@@ -123,6 +129,8 @@ class SearchResult:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.person_ref import PersonRef # noqa: PLC0415
         d = dict(src_dict)
+        corrected = d.pop("corrected")
+
         def _parse_person(data: object) -> None | PersonRef:
             if data is None:
                 return data
@@ -180,6 +188,7 @@ class SearchResult:
         timestamp = d.pop("timestamp")
 
         search_result = cls(
+            corrected=corrected,
             person=person,
             decision_level=decision_level,
             clip_id=clip_id,

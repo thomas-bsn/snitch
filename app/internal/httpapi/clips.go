@@ -189,16 +189,18 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var transcript json.RawMessage
+	var transcriptJobID int64
+	var states map[int]segmentState
 	if selection.AudioStreamIndex != nil {
 		// Keep the last successful transcript visible while a newer input version
 		// is queued or running. A completed replacement naturally becomes newest.
-		err := s.Pool.QueryRow(r.Context(), `SELECT result FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%' AND status='done' ORDER BY updated_at DESC,id DESC LIMIT 1`, v.ID).Scan(&transcript)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		visible, visibleStates, found, err := s.readVisibleTranscript(r.Context(), v.ID)
+		if err != nil {
 			s.internal(w, err)
 			return
 		}
-		if errors.Is(err, pgx.ErrNoRows) {
-			transcript = nil
+		if found {
+			transcript, transcriptJobID, states = visible.Result, visible.JobID, visibleStates
 		}
 	}
 	persons, personsErr := s.clipPersons(r.Context(), []int64{v.ID})
@@ -214,7 +216,8 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 	if transcript != nil {
 		var value any
 		if json.Unmarshal(transcript, &value) == nil {
-			if err := s.attachLocalSpeakers(r.Context(), v.ID, value); err != nil {
+			overlaySegments(value, transcriptJobID, states)
+			if err := s.attachLocalSpeakers(r.Context(), v.ID, value, states); err != nil {
 				s.internal(w, err)
 				return
 			}

@@ -23,9 +23,12 @@ from .clip_person import ClipPerson
 from .clip_visibility import ClipVisibility
 from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
+from .corrections_to_replace import CorrectionsToReplace
+from .corrections_warning import CorrectionsWarning
 from .credentials import Credentials
 from .decision_level import DecisionLevel
 from .error import Error
+from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
 from .job import Job
@@ -61,6 +64,8 @@ from .microphone_track_item import MicrophoneTrackItem
 from .microphone_track_item_role import MicrophoneTrackItemRole
 from .microphone_track_rule_input import MicrophoneTrackRuleInput
 from .microphone_track_status import MicrophoneTrackStatus
+from .obsolete_correction import ObsoleteCorrection
+from .obsolete_corrections import ObsoleteCorrections
 from .person import Person
 from .person_account_input import PersonAccountInput
 from .person_correction_result import PersonCorrectionResult
@@ -89,6 +94,18 @@ from .search_result_visibility import SearchResultVisibility
 from .search_transcripts_mode import SearchTranscriptsMode
 from .search_transcripts_status import SearchTranscriptsStatus
 from .search_transcripts_visibility import SearchTranscriptsVisibility
+from .segment_conflict import SegmentConflict
+from .segment_conflict_error import SegmentConflictError
+from .segment_correction import SegmentCorrection
+from .segment_correction_export import SegmentCorrectionExport
+from .segment_correction_export_item import SegmentCorrectionExportItem
+from .segment_history import SegmentHistory
+from .segment_history_entry import SegmentHistoryEntry
+from .segment_history_entry_kind import SegmentHistoryEntryKind
+from .segment_restore_input import SegmentRestoreInput
+from .segment_speaker import SegmentSpeaker
+from .segment_speaker_input import SegmentSpeakerInput
+from .segment_text_input import SegmentTextInput
 from .session import Session
 from .settings import Settings
 from .settings_input import SettingsInput
@@ -106,6 +123,7 @@ from .transcript_segment import TranscriptSegment
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
 from .transcription_input import TranscriptionInput
+from .transcription_local_speakers_item import TranscriptionLocalSpeakersItem
 from .transcription_pipeline import TranscriptionPipeline
 from .transcription_pipeline_preparation import TranscriptionPipelinePreparation
 from .transcription_pipeline_provider import TranscriptionPipelineProvider
@@ -201,9 +219,12 @@ __all__ = (
     "ClipVisibility",
     "ClipVoice",
     "ClipVoiceStatus",
+    "CorrectionsToReplace",
+    "CorrectionsWarning",
     "Credentials",
     "DecisionLevel",
     "Error",
+    "ExportSegmentCorrectionsFormat",
     "GetEmbeddingIndexStatusResponse200",
     "HeartbeatWorkerJobResponse200",
     "Job",
@@ -239,6 +260,8 @@ __all__ = (
     "MicrophoneTrackItemRole",
     "MicrophoneTrackRuleInput",
     "MicrophoneTrackStatus",
+    "ObsoleteCorrection",
+    "ObsoleteCorrections",
     "Person",
     "PersonAccountInput",
     "PersonCorrectionResult",
@@ -267,6 +290,18 @@ __all__ = (
     "SearchTranscriptsMode",
     "SearchTranscriptsStatus",
     "SearchTranscriptsVisibility",
+    "SegmentConflict",
+    "SegmentConflictError",
+    "SegmentCorrection",
+    "SegmentCorrectionExport",
+    "SegmentCorrectionExportItem",
+    "SegmentHistory",
+    "SegmentHistoryEntry",
+    "SegmentHistoryEntryKind",
+    "SegmentRestoreInput",
+    "SegmentSpeaker",
+    "SegmentSpeakerInput",
+    "SegmentTextInput",
     "Session",
     "Settings",
     "SettingsInput",
@@ -282,6 +317,7 @@ __all__ = (
     "Status",
     "Transcription",
     "TranscriptionInput",
+    "TranscriptionLocalSpeakersItem",
     "TranscriptionPipeline",
     "TranscriptionPipelinePreparation",
     "TranscriptionPipelineProvider",

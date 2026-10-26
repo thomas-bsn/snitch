@@ -60,7 +60,10 @@ def sync_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[GetEmbeddingIndexStatusResponse200]:
-    """  Administrateurs uniquement. État de l’index actif et file d’indexation.
+    """  Administrateurs uniquement. État de l’index actif et file d’indexation, plus le nombre de segments
+    corrigés en attente de réindexation (reindex_pending, dont reindex_failed aux tentatives épuisées).
+    Une correction est enregistrée même si le fournisseur d’embeddings est indisponible ; seul le
+    vecteur du segment corrigé est recalculé ensuite, pour l’index actif et l’index candidat.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -86,7 +89,10 @@ def sync(
     client: AuthenticatedClient,
 
 ) -> GetEmbeddingIndexStatusResponse200 | None:
-    """  Administrateurs uniquement. État de l’index actif et file d’indexation.
+    """  Administrateurs uniquement. État de l’index actif et file d’indexation, plus le nombre de segments
+    corrigés en attente de réindexation (reindex_pending, dont reindex_failed aux tentatives épuisées).
+    Une correction est enregistrée même si le fournisseur d’embeddings est indisponible ; seul le
+    vecteur du segment corrigé est recalculé ensuite, pour l’index actif et l’index candidat.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -107,7 +113,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[GetEmbeddingIndexStatusResponse200]:
-    """  Administrateurs uniquement. État de l’index actif et file d’indexation.
+    """  Administrateurs uniquement. État de l’index actif et file d’indexation, plus le nombre de segments
+    corrigés en attente de réindexation (reindex_pending, dont reindex_failed aux tentatives épuisées).
+    Une correction est enregistrée même si le fournisseur d’embeddings est indisponible ; seul le
+    vecteur du segment corrigé est recalculé ensuite, pour l’index actif et l’index candidat.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -133,7 +142,10 @@ async def asyncio(
     client: AuthenticatedClient,
 
 ) -> GetEmbeddingIndexStatusResponse200 | None:
-    """  Administrateurs uniquement. État de l’index actif et file d’indexation.
+    """  Administrateurs uniquement. État de l’index actif et file d’indexation, plus le nombre de segments
+    corrigés en attente de réindexation (reindex_pending, dont reindex_failed aux tentatives épuisées).
+    Une correction est enregistrée même si le fournisseur d’embeddings est indisponible ; seul le
+    vecteur du segment corrigé est recalculé ensuite, pour l’index actif et l’index candidat.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

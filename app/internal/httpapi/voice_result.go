@@ -199,6 +199,9 @@ func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result dia
 	if locked {
 		return errDiarizationLocked
 	}
+	if err := dropSpeakerOverrides(ctx, tx, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, job.ClipID, index); err != nil {
+		return fmt.Errorf("record dropped speaker corrections: %w", err)
+	}
 	if _, err := tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='diarized'`, job.ClipID, index); err != nil {
 		return fmt.Errorf("replace local speakers: %w", err)
 	}

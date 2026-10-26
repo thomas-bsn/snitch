@@ -13,6 +13,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.transcript_segment import TranscriptSegment
+  from ..models.transcription_local_speakers_item import TranscriptionLocalSpeakersItem
 
 
 
@@ -32,6 +33,9 @@ class Transcription:
             segments (list[TranscriptSegment]):
             version (str | Unset):
             language (str | Unset):
+            transcription_job_id (int | Unset): Tâche de transcription visible : avec l'index, l'identité d'un segment.
+            local_speakers (list[TranscriptionLocalSpeakersItem] | Unset): Locuteurs locaux de la piste audio, désignables
+                pour un segment ; absent sans diarisation.
      """
 
     provider: str
@@ -40,6 +44,8 @@ class Transcription:
     segments: list[TranscriptSegment]
     version: str | Unset = UNSET
     language: str | Unset = UNSET
+    transcription_job_id: int | Unset = UNSET
+    local_speakers: list[TranscriptionLocalSpeakersItem] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -48,6 +54,7 @@ class Transcription:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.transcript_segment import TranscriptSegment # noqa: PLC0415
+        from ..models.transcription_local_speakers_item import TranscriptionLocalSpeakersItem # noqa: PLC0415
         provider = self.provider
 
         model = self.model
@@ -65,6 +72,17 @@ class Transcription:
 
         language = self.language
 
+        transcription_job_id = self.transcription_job_id
+
+        local_speakers: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.local_speakers, Unset):
+            local_speakers = []
+            for local_speakers_item_data in self.local_speakers:
+                local_speakers_item = local_speakers_item_data.to_dict()
+                local_speakers.append(local_speakers_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -78,6 +96,10 @@ class Transcription:
             field_dict["version"] = version
         if language is not UNSET:
             field_dict["language"] = language
+        if transcription_job_id is not UNSET:
+            field_dict["transcription_job_id"] = transcription_job_id
+        if local_speakers is not UNSET:
+            field_dict["local_speakers"] = local_speakers
 
         return field_dict
 
@@ -86,6 +108,7 @@ class Transcription:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.transcript_segment import TranscriptSegment # noqa: PLC0415
+        from ..models.transcription_local_speakers_item import TranscriptionLocalSpeakersItem # noqa: PLC0415
         d = dict(src_dict)
         provider = d.pop("provider")
 
@@ -107,6 +130,20 @@ class Transcription:
 
         language = d.pop("language", UNSET)
 
+        transcription_job_id = d.pop("transcription_job_id", UNSET)
+
+        _local_speakers = d.pop("local_speakers", UNSET)
+        local_speakers: list[TranscriptionLocalSpeakersItem] | Unset = UNSET
+        if _local_speakers is not UNSET:
+            local_speakers = []
+            for local_speakers_item_data in _local_speakers:
+                local_speakers_item = TranscriptionLocalSpeakersItem.from_dict(local_speakers_item_data)
+
+
+
+                local_speakers.append(local_speakers_item)
+
+
         transcription = cls(
             provider=provider,
             model=model,
@@ -114,6 +151,8 @@ class Transcription:
             segments=segments,
             version=version,
             language=language,
+            transcription_job_id=transcription_job_id,
+            local_speakers=local_speakers,
         )
 
 

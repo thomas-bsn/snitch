@@ -602,6 +602,108 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/segments/{index}/text": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Corrige le texte du segment sans modifier la transcription d'origine, ses débuts, ses fins ni ses mots. expected_version est la version vue par l'appelant (0 pour un segment jamais corrigé). Le texte, la version incrémentée et l'entrée d'historique sont écrits dans une seule transaction. */
+    put: operations["putSegmentText"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/segments/{index}/speaker": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Désigne le Locuteur local d'un segment parmi ceux du même clip et de la même piste audio, ou revient au locuteur déduit des tours de parole (local_speaker_id null). Ne modifie ni les tours de parole, ni les empreintes, ni les attributions aux Personnes, ni les échantillons vocaux, et ne déclenche ni diarisation ni réindexation sémantique. La correction est historisée (type speaker) ; l'affichage du segment, la recherche et le filtre par Personne utilisent le locuteur corrigé. */
+    put: operations["putSegmentSpeaker"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/segments/{index}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés qui peuvent voir le clip. Les entrées sont immuables : ancienne et nouvelle valeur effectives, auteur, date et motif. Seul l'historique du segment de la transcription visible est lu. */
+    get: operations["getSegmentHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/segments/{index}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Restaure le texte d'origine (original=true) ou le texte produit par une entrée antérieure de ce segment (event_id) ; exactement l'un des deux. La restauration est une correction : version incrémentée, segment à réindexer, nouvelle entrée d'historique de type restore ; aucune entrée passée n'est modifiée. Une entrée de locuteur ne se restaure pas ici. */
+    post: operations["restoreSegmentText"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/obsolete-corrections": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés qui peuvent voir le clip. Liste, en lecture seule, les corrections des transcriptions qu'une retranscription a remplacées : elles ne s'appliquent plus jamais et ne se restaurent pas, mais le texte corrigé et l'historique complet restent consultables. */
+    get: operations["listObsoleteCorrections"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/segment-corrections/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Liste les segments dont le texte est corrigé (jamais un segment non corrigé, ni un segment restauré à l'original, ni une correction obsolète d'une ancienne transcription), pour tous les clips, avec le texte d'origine du worker, le texte corrigé, l'auteur, la date et la version, pour préparer la mesure de qualité de la phase 7. Snitch ne calcule aucun taux d'erreur. */
+    get: operations["exportSegmentCorrections"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}/media": {
     parameters: {
       query?: never;
@@ -1230,7 +1332,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs uniquement. État de l’index actif et file d’indexation. */
+    /** @description Administrateurs uniquement. État de l’index actif et file d’indexation, plus le nombre de segments corrigés en attente de réindexation (reindex_pending, dont reindex_failed aux tentatives épuisées). Une correction est enregistrée même si le fournisseur d’embeddings est indisponible ; seul le vecteur du segment corrigé est recalculé ensuite, pour l’index actif et l’index candidat. */
     get: operations["getEmbeddingIndexStatus"];
     put?: never;
     post?: never;
@@ -2033,6 +2135,162 @@ export interface components {
        */
       expected_person_id?: number;
     };
+    SegmentTextInput: {
+      /** @description Nouveau texte (4000 caractères au plus, non vide après suppression des espaces de bord). */
+      text: string;
+      /** @description Version du segment vue par l'appelant ; 0 si jamais corrigé. */
+      expected_version: number;
+      /** @description Motif facultatif (500 caractères au plus). */
+      reason?: string;
+      /**
+       * Format: int64
+       * @description Transcription lue par l'appelant ; refusée (transcription_changed) si le clip a été retranscrit depuis.
+       */
+      transcription_job_id?: number;
+    };
+    SegmentCorrection: {
+      /** Format: int64 */
+      transcription_job_id: number;
+      index: number;
+      /** @description 0 tant que le segment n'a jamais été écrit ; incrémentée à chaque écriture. */
+      version: number;
+      /** @description Texte effectif : le texte corrigé s'il existe, sinon le texte d'origine. */
+      text: string;
+      original_text: string;
+      corrected: boolean;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      /** Format: date-time */
+      corrected_at: string | null;
+    };
+    SegmentConflict: {
+      /** @enum {string} */
+      error: "segment_conflict" | "transcription_changed";
+      current?: components["schemas"]["SegmentCorrection"];
+    };
+    SegmentSpeakerInput: {
+      /**
+       * Format: int64
+       * @description Locuteur local du même clip et de la même piste audio ; null pour revenir au locuteur déduit des tours de parole.
+       */
+      local_speaker_id: number | null;
+      /** @description Version du segment vue par l'appelant ; 0 si jamais écrit. */
+      expected_version: number;
+      /** @description Motif facultatif (500 caractères au plus). */
+      reason?: string;
+      /**
+       * Format: int64
+       * @description Transcription lue par l'appelant ; refusée (transcription_changed) si le clip a été retranscrit depuis.
+       */
+      transcription_job_id?: number;
+    };
+    SegmentSpeaker: {
+      /** Format: int64 */
+      transcription_job_id: number;
+      index: number;
+      version: number;
+      /**
+       * Format: int64
+       * @description Locuteur local effectif du segment (null sans locuteur déduit).
+       */
+      local_speaker_id: number | null;
+      local_speaker_label: string | null;
+      /** @description Vrai si le locuteur est désigné par un utilisateur, faux s'il est déduit. */
+      corrected: boolean;
+    };
+    SegmentRestoreInput: {
+      /** @description Version du segment vue par l'appelant. */
+      expected_version: number;
+      /** @description Vrai pour restaurer le texte d'origine du worker ; exclusif avec event_id. */
+      original?: boolean;
+      /**
+       * Format: int64
+       * @description Entrée d'historique de ce segment dont le nouveau texte est restauré ; exclusif avec original.
+       */
+      event_id?: number;
+      /** @description Motif facultatif (500 caractères au plus). */
+      reason?: string;
+      /** Format: int64 */
+      transcription_job_id?: number;
+    };
+    SegmentHistoryEntry: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      kind: "text" | "speaker" | "restore";
+      /** @description Texte effectif avant l'écriture (texte d'origine s'il n'y avait pas de correction). */
+      old_text: string | null;
+      /** @description Texte effectif après l'écriture. */
+      new_text: string | null;
+      old_corrected: boolean;
+      /** @description Faux si l'écriture a rétabli le texte d'origine. */
+      new_corrected: boolean;
+      old_speaker_label: string;
+      new_speaker_label: string;
+      /** Format: int64 */
+      restored_from_event_id: number | null;
+      restored_to_original: boolean;
+      reason: string;
+      version_before: number;
+      version_after: number;
+      author: components["schemas"]["AttributionAuthor"];
+      /** Format: date-time */
+      created_at: string;
+    };
+    ObsoleteCorrection: {
+      /**
+       * Format: int64
+       * @description Transcription remplacée à laquelle la correction appartenait.
+       */
+      transcription_job_id: number;
+      /** @description Rang du segment dans la transcription remplacée. */
+      index: number;
+      original_text: string;
+      /** @description Dernier texte corrigé ; null si le segment n'avait que des corrections de locuteur ou avait été restauré à l'original. */
+      text: string | null;
+      /** Format: date-time */
+      obsolete_at: string;
+      /** @description Entrées immuables, de la plus récente à la plus ancienne. */
+      history: components["schemas"]["SegmentHistoryEntry"][];
+    };
+    ObsoleteCorrections: {
+      items: components["schemas"]["ObsoleteCorrection"][];
+    };
+    SegmentHistory: {
+      /** Format: int64 */
+      transcription_job_id: number;
+      index: number;
+      original_text: string;
+      current: components["schemas"]["SegmentCorrection"];
+      items: components["schemas"]["SegmentHistoryEntry"][];
+    };
+    SegmentCorrectionExportItem: {
+      /** Format: int64 */
+      clip_id: number;
+      /** Format: int64 */
+      transcription_job_id: number;
+      /** @description Piste audio transcrite (-1 si absente du résultat). */
+      audio_stream_index: number;
+      /** @description Rang du segment dans la transcription. */
+      index: number;
+      /** Format: double */
+      start: number;
+      /** Format: double */
+      end: number;
+      /** @description Texte du worker, jamais modifié. */
+      original_text: string;
+      /** @description Texte corrigé courant. */
+      corrected_text: string;
+      author: components["schemas"]["AttributionAuthor"];
+      /** Format: date-time */
+      corrected_at: string;
+      version: number;
+    };
+    SegmentCorrectionExport: {
+      items: components["schemas"]["SegmentCorrectionExportItem"][];
+      page: number;
+      page_size: number;
+      total: number;
+    };
     AttributionConflict: {
       error: string;
       attribution?: components["schemas"]["Attribution"];
@@ -2255,13 +2513,41 @@ export interface components {
        */
       local_speaker_person_id?: number;
       local_speaker_person_name?: string;
+      /** @description Vrai si local_speaker_id est désigné par un utilisateur (phase 6) plutôt que déduit des tours de parole. */
+      local_speaker_corrected?: boolean;
+      /** @description Rang du segment dans la transcription (identité avec transcription_job_id). */
+      index?: number;
+      /** @description Texte de la transcription automatique, jamais modifié. */
+      original_text?: string;
+      /** @description Vrai si text est un texte corrigé par un utilisateur. */
+      corrected?: boolean;
+      /** @description Version à renvoyer comme expected_version ; 0 si jamais écrit. */
+      correction_version?: number;
+      /** @description Auteur de la correction du texte, si corrigé. */
+      corrected_by?: string;
+      /**
+       * Format: date-time
+       * @description Date de la correction du texte, si corrigé.
+       */
+      corrected_at?: string;
     };
     Transcription: {
       provider: string;
       model: string;
       version?: string;
       language?: string;
+      /**
+       * Format: int64
+       * @description Tâche de transcription visible : avec l'index, l'identité d'un segment.
+       */
+      transcription_job_id?: number;
       audio_stream_index: number;
+      /** @description Locuteurs locaux de la piste audio, désignables pour un segment ; absent sans diarisation. */
+      local_speakers?: {
+        /** Format: int64 */
+        id: number;
+        label: string;
+      }[];
       segments: components["schemas"]["TranscriptSegment"][];
     };
     AudioTrackRule: {
@@ -2272,9 +2558,25 @@ export interface components {
       fallback_audio_stream_index?: number;
     };
     AudioTrackRuleResult: {
+      /** @description Clips corrigés non retranscrits par ce changement de règle : une retranscription explicite avec confirmation est nécessaire. */
+      corrected_clips_skipped: number;
       rule: components["schemas"]["AudioTrackRule"];
       /** Format: int64 */
       version: number;
+    };
+    /** @description Corrections humaines actives de la transcription visible d'un clip, que la retranscription remplacerait (elles resteraient dans l'historique, obsolètes). */
+    CorrectionsToReplace: {
+      /** Format: int64 */
+      transcription_job_id: number;
+      text_segments: number;
+      speaker_segments: number;
+      authors: string[];
+      /** Format: date-time */
+      last_corrected_at: string | null;
+    };
+    CorrectionsWarning: {
+      error: string;
+      corrections?: components["schemas"]["CorrectionsToReplace"];
     };
     AudioTrackOverride: {
       audio_stream_index: number;
@@ -2422,6 +2724,8 @@ export interface components {
       preferred_spelling: string;
     };
     SearchResult: {
+      /** @description Vrai si le contexte est le texte corrigé du segment (phase 6) ; la recherche porte toujours sur le texte effectif, jamais sur l’ancien texte remplacé. */
+      corrected: boolean;
       /** @description Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté. */
       person: components["schemas"]["PersonRef"] | null;
       /** @description Niveau de décision tracé de l’attribution effective ; unknown sans attribution ou sans voix détectée. */
@@ -3219,7 +3523,10 @@ export interface operations {
   };
   scheduleJob: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -3249,6 +3556,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Job"];
+        };
+      };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
         };
       };
       /** @description Error (400 invalid task, 404 clip not found) */
@@ -3295,7 +3611,10 @@ export interface operations {
   };
   relaunchJob: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -3314,6 +3633,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Job"];
+        };
+      };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
         };
       };
       /** @description Tâche introuvable ou non relançable */
@@ -3943,6 +4271,252 @@ export interface operations {
       };
     };
   };
+  putSegmentText: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        /** @description Rang du segment dans la transcription visible du clip. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SegmentTextInput"];
+      };
+    };
+    responses: {
+      /** @description Correction enregistrée ; état courant du segment */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentCorrection"];
+        };
+      };
+      /** @description segment_conflict : la version a changé depuis la lecture (l'état courant et son auteur sont renvoyés) ; transcription_changed : le clip a été retranscrit depuis la lecture */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentConflict"];
+        };
+      };
+      /** @description Erreur (400 invalid_text, text_too_long, invalid_reason, text_unchanged, invalid_request, invalid_segment_index ; 404 clip_not_found, segment_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putSegmentSpeaker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        /** @description Rang du segment dans la transcription visible du clip. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SegmentSpeakerInput"];
+      };
+    };
+    responses: {
+      /** @description Locuteur du segment enregistré ; locuteur effectif après la correction */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentSpeaker"];
+        };
+      };
+      /** @description segment_conflict : la version a changé depuis la lecture ; transcription_changed : le clip a été retranscrit depuis la lecture */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentConflict"];
+        };
+      };
+      /** @description Erreur (400 invalid_request, invalid_local_speaker (Locuteur local absent ou d'un autre clip ou d'une autre piste audio), speaker_unchanged, invalid_reason, invalid_segment_index ; 404 clip_not_found, segment_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getSegmentHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+        /** @description Rang du segment dans la transcription visible du clip. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historique du segment, du plus récent au plus ancien */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentHistory"];
+        };
+      };
+      /** @description Erreur (400 invalid_segment_index, invalid_clip_id ; 404 clip_not_found, segment_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  restoreSegmentText: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        /** @description Rang du segment dans la transcription visible du clip. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SegmentRestoreInput"];
+      };
+    };
+    responses: {
+      /** @description Texte restauré ; état courant du segment */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentCorrection"];
+        };
+      };
+      /** @description segment_conflict ou transcription_changed, comme pour la correction du texte */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentConflict"];
+        };
+      };
+      /** @description Erreur (400 invalid_request, invalid_reason, text_unchanged, event_not_restorable, invalid_segment_index ; 404 clip_not_found, segment_not_found, event_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listObsoleteCorrections: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Corrections obsolètes du clip, avec leur historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ObsoleteCorrections"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  exportSegmentCorrections: {
+    parameters: {
+      query?: {
+        /** @description json (défaut) : une page JSON ; ndjson : tout l'export en un téléchargement, un objet JSON par ligne, sans pagination. */
+        format?: "json" | "ndjson";
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Segments corrigés, par clip, piste audio puis rang */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentCorrectionExport"];
+          "application/x-ndjson": string;
+        };
+      };
+      /** @description Erreur (400 invalid_format, invalid_pagination ; 401 ; 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getClipMedia: {
     parameters: {
       query?: never;
@@ -4083,7 +4657,10 @@ export interface operations {
   };
   scheduleTranscription: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -4115,6 +4692,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
         };
       };
       /** @description Clip non prêt ou piste audio inconnue */
@@ -4168,7 +4754,10 @@ export interface operations {
   };
   putClipAudioTrackOverride: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -4193,6 +4782,15 @@ export interface operations {
           "application/json": components["schemas"]["AudioTrackOverride"];
         };
       };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
+        };
+      };
       /** @description Erreur */
       default: {
         headers: {
@@ -4206,7 +4804,10 @@ export interface operations {
   };
   deleteClipAudioTrackOverride: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -4225,6 +4826,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
         };
       };
       /** @description Erreur */
@@ -5763,6 +6373,10 @@ export interface operations {
             candidate_done?: number;
             candidate_pending?: number;
             candidate_failed?: number;
+            /** @description Segments corrigés dont le vecteur n’est pas encore recalculé (actuels, non obsolètes). */
+            reindex_pending: number;
+            /** @description Parmi eux, ceux dont les tentatives sont épuisées : une relance de l’indexation (backfill) leur donne une nouvelle chance. */
+            reindex_failed: number;
           };
         };
       };
@@ -5972,6 +6586,8 @@ export interface operations {
   previewTranscriptionBatch: {
     parameters: {
       query?: {
+        /** @description Vrai pour inclure dans le lot les clips qui portent des corrections humaines (exclus par défaut). */
+        include_corrected?: boolean;
         visibility?: string;
         status?: string;
         owner_id?: string;
@@ -5992,6 +6608,10 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /** @description Clips autrement éligibles qui portent des corrections ; exclus de eligible sauf demande explicite. */
+            corrected: number;
+            /** @description Corrections actives portées par ces clips. */
+            corrected_segments: number;
             eligible: number;
             already_processed: number;
             already_queued: number;
@@ -6029,6 +6649,8 @@ export interface operations {
       content: {
         "application/json": {
           confirm: boolean;
+          /** @description Demande explicite d'inclure les clips corrigés : leurs corrections seront remplacées (marquées obsolètes) par la nouvelle transcription. */
+          include_corrected?: boolean;
         };
       };
     };
@@ -6041,6 +6663,8 @@ export interface operations {
         content: {
           "application/json": {
             preview: {
+              corrected?: number;
+              corrected_segments?: number;
               eligible?: number;
               already_processed?: number;
               already_queued?: number;

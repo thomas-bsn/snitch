@@ -36,6 +36,13 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Profil vocal** : Les échantillons validés, empreintes et attributions d'une Personne. Son titulaire peut le supprimer ; ses voix redeviennent alors inconnues et ne sont plus rapprochées d'elle.
 
+**Transcription d'origine** : Le texte d'un clip tel que produit par la transcription automatique. Il n'est jamais modifié et sert de référence pour mesurer la qualité.
+
+**Correction** : Le texte, ou le locuteur, qu'un utilisateur donne à un segment à la place de ce que Snitch avait compris. Elle recouvre la transcription d'origine sans la remplacer ; chaque changement garde ancienne valeur, nouvelle valeur, auteur et date, et peut être restauré. Une correction n'est ni une validation vocale ni une attribution.
+_Avoid_ : Modification de la transcription, édition.
+
+**Segment corrigé** : Un segment dont le texte ou le locuteur affiché est une correction humaine. Sa recherche et son affichage utilisent le texte corrigé ; après une retranscription réussie, ses corrections deviennent obsolètes et ne sont pas reprises.
+
 **Administrateur** : Un utilisateur autorisé à configurer l'application et à approuver les inscriptions.
 
 **Inscription en attente** : Une demande d'accès qui nécessite l'approbation d'un administrateur avant connexion.
