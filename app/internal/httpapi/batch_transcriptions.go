@@ -13,16 +13,21 @@ import (
 )
 
 type batchPreview struct {
-	Eligible          int     `json:"eligible"`
-	AlreadyProcessed  int     `json:"already_processed"`
-	AlreadyQueued     int     `json:"already_queued"`
+	Eligible         int `json:"eligible"`
+	AlreadyProcessed int `json:"already_processed"`
+	AlreadyQueued    int `json:"already_queued"`
+	// Corrected counts the otherwise eligible clips that carry active corrections and
+	// CorrectedSegments their corrections; they are excluded from Eligible unless the
+	// request includes them explicitly.
+	Corrected         int     `json:"corrected"`
+	CorrectedSegments int     `json:"corrected_segments"`
 	Unavailable       int     `json:"unavailable"`
 	SelectionRequired int     `json:"selection_required"`
 	ClipIDs           []int64 `json:"-"`
 }
 
 func (s *Server) batchTranscriptionPreview(w http.ResponseWriter, r *http.Request) {
-	preview, err := s.previewTranscriptionBatch(r)
+	preview, err := s.previewTranscriptionBatch(r, r.URL.Query().Get("include_corrected") == "true")
 	if errors.Is(err, jobs.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_filter")
 		return
@@ -37,7 +42,8 @@ func (s *Server) batchTranscriptionPreview(w http.ResponseWriter, r *http.Reques
 
 func (s *Server) batchTranscriptionSchedule(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Confirm bool `json:"confirm"`
+		Confirm          bool `json:"confirm"`
+		IncludeCorrected bool `json:"include_corrected"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -46,7 +52,7 @@ func (s *Server) batchTranscriptionSchedule(w http.ResponseWriter, r *http.Reque
 		fail(w, http.StatusBadRequest, "batch_confirmation_required")
 		return
 	}
-	preview, err := s.previewTranscriptionBatch(r)
+	preview, err := s.previewTranscriptionBatch(r, input.IncludeCorrected)
 	if errors.Is(err, jobs.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_filter")
 		return
@@ -72,7 +78,7 @@ func (s *Server) batchTranscriptionSchedule(w http.ResponseWriter, r *http.Reque
 
 // previewTranscriptionBatch evaluates the same library filters and current track
 // selection used by clip details. Scheduling is a separate, explicit admin POST.
-func (s *Server) previewTranscriptionBatch(r *http.Request) (batchPreview, error) {
+func (s *Server) previewTranscriptionBatch(r *http.Request, includeCorrected bool) (batchPreview, error) {
 	q := r.URL.Query()
 	visibility, status := q.Get("visibility"), q.Get("status")
 	if (visibility != "" && visibility != "private" && visibility != "shared") || (status != "" && status != "ready" && status != "waiting_stability" && status != "unreadable" && status != "missing") {
@@ -103,6 +109,10 @@ func (s *Server) previewTranscriptionBatch(r *http.Request) (batchPreview, error
 		return batchPreview{}, err
 	}
 	defer rows.Close()
+	corrected, err := s.correctedClipSegments(r.Context())
+	if err != nil {
+		return batchPreview{}, err
+	}
 	result := batchPreview{ClipIDs: []int64{}}
 	for rows.Next() {
 		var id int64
@@ -151,6 +161,13 @@ func (s *Server) previewTranscriptionBatch(r *http.Request) (batchPreview, error
 		if queuedCurrent {
 			result.AlreadyQueued++
 			continue
+		}
+		if n := corrected[id]; n > 0 {
+			result.Corrected++
+			result.CorrectedSegments += n
+			if !includeCorrected {
+				continue
+			}
 		}
 		result.Eligible++
 		result.ClipIDs = append(result.ClipIDs, id)

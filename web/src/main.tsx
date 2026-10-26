@@ -11,6 +11,12 @@ import {
   applyPersonFilter,
 } from "./voice/PersonFilter";
 import { SegmentText } from "./segments/SegmentText";
+import {
+  CorrectionsWarningPanel,
+  describeCorrections,
+  replacedCorrections,
+  type CorrectionsToReplace,
+} from "./segments/Retranscription";
 import { SegmentHistory } from "./segments/SegmentHistory";
 import { SegmentSpeaker } from "./segments/SegmentSpeaker";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
@@ -256,6 +262,14 @@ function App() {
     already_queued: number;
     unavailable: number;
     selection_required: number;
+    corrected: number;
+    corrected_segments: number;
+  }>();
+  const [includeCorrected, setIncludeCorrected] = useState(false);
+  const [retranscriptionWarning, setRetranscriptionWarning] = useState<{
+    clipId: number;
+    index: number;
+    corrections: CorrectionsToReplace;
   }>();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(
@@ -331,6 +345,7 @@ function App() {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(clipFilters))
       if (value) query.set(key, value);
+    if (includeCorrected) query.set("include_corrected", "true");
     const response = await fetch(
       `/api/admin/transcriptions/batch-preview?${query}`,
       { credentials: "same-origin" },
@@ -338,10 +353,47 @@ function App() {
     if (!response.ok) throw new Error("Impossible de prévisualiser ce lot.");
     setBatchPreview(await response.json());
   }
+  // Retranscribes a clip. A clip that carries corrections is refused by the server until
+  // the administrator confirms what is replaced (warning panel, then confirm=true).
+  async function retranscribeClip(
+    clipId: number,
+    index: number,
+    confirm: boolean,
+  ) {
+    const query = { confirm_replace_corrections: confirm || undefined };
+    const track = await api.PUT("/api/admin/clips/{id}/audio-track", {
+      params: { path: { id: clipId }, header: csrf, query },
+      body: { audio_stream_index: index },
+    });
+    const trackWarning = replacedCorrections(track.error);
+    if (trackWarning) {
+      setRetranscriptionWarning({ clipId, index, corrections: trackWarning });
+      return;
+    }
+    checked(track);
+    const result = await api.POST("/api/admin/clips/{id}/transcription", {
+      params: { path: { id: clipId }, header: csrf, query },
+      body: {},
+    });
+    const warning = replacedCorrections(result.error);
+    if (warning) {
+      setRetranscriptionWarning({ clipId, index, corrections: warning });
+      return;
+    }
+    const response = checked(result);
+    setRetranscriptionWarning(undefined);
+    setNotice(`Transcription planifiée (tâche ${response.job.id}).`);
+    await refreshJobs(1);
+  }
   async function scheduleBatch() {
     if (
       !batchPreview?.eligible ||
-      !window.confirm(`Planifier ${batchPreview.eligible} transcription(s) ?`)
+      !window.confirm(
+        `Planifier ${batchPreview.eligible} transcription(s) ?` +
+          (includeCorrected && batchPreview.corrected > 0
+            ? ` Les corrections de ${batchPreview.corrected} clip(s) corrigé(s) seront remplacées (conservées dans l’historique, obsolètes).`
+            : ""),
+      )
     )
       return;
     const query = new URLSearchParams();
@@ -353,7 +405,10 @@ function App() {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", ...csrf },
-        body: JSON.stringify({ confirm: true }),
+        body: JSON.stringify({
+          confirm: true,
+          include_corrected: includeCorrected,
+        }),
       },
     );
     if (!response.ok) throw new Error("Impossible de planifier ce lot.");
@@ -590,16 +645,31 @@ function App() {
     const form = event.currentTarget;
     const data = new FormData(form);
     await run(async () => {
-      const result = await api.POST("/api/admin/jobs", {
-        params: { header: csrf },
-        body: {
-          clip_id: Number(data.get("clip_id")),
-          step: String(data.get("step")),
-          input_version: String(data.get("input_version")),
-          priority: Number(data.get("priority")),
-          max_attempts: Number(data.get("max_attempts")),
-        },
-      });
+      const request = (confirm: boolean) =>
+        api.POST("/api/admin/jobs", {
+          params: {
+            header: csrf,
+            query: { confirm_replace_corrections: confirm || undefined },
+          },
+          body: {
+            clip_id: Number(data.get("clip_id")),
+            step: String(data.get("step")),
+            input_version: String(data.get("input_version")),
+            priority: Number(data.get("priority")),
+            max_attempts: Number(data.get("max_attempts")),
+          },
+        });
+      let result = await request(false);
+      const warning = replacedCorrections(result.error);
+      if (warning) {
+        if (
+          !window.confirm(
+            `Cette retranscription remplacerait des corrections humaines : ${describeCorrections(warning)}. Elles resteront dans l’historique, obsolètes. Continuer ?`,
+          )
+        )
+          return;
+        result = await request(true);
+      }
       checked(result);
       form.reset();
       await refreshJobs(1);
@@ -622,11 +692,26 @@ function App() {
   }
   async function relaunchJob(job: Job) {
     await run(async () => {
-      checked(
-        await api.POST("/api/admin/jobs/{id}/retry", {
-          params: { path: { id: job.id }, header: csrf },
-        }),
-      );
+      const request = (confirm: boolean) =>
+        api.POST("/api/admin/jobs/{id}/retry", {
+          params: {
+            path: { id: job.id },
+            header: csrf,
+            query: { confirm_replace_corrections: confirm || undefined },
+          },
+        });
+      let result = await request(false);
+      const warning = replacedCorrections(result.error);
+      if (warning) {
+        if (
+          !window.confirm(
+            `Cette retranscription remplacerait des corrections humaines : ${describeCorrections(warning)}. Elles resteront dans l’historique, obsolètes. Continuer ?`,
+          )
+        )
+          return;
+        result = await request(true);
+      }
+      checked(result);
       await refreshJobs(jobPage);
       setNotice(`Tâche ${job.id} relancée.`);
     });
@@ -1584,6 +1669,18 @@ function App() {
                     >
                       Prévisualiser le lot
                     </button>
+                    <label className="inline-check">
+                      <input
+                        type="checkbox"
+                        checked={includeCorrected}
+                        onChange={(event) => {
+                          setIncludeCorrected(event.target.checked);
+                          setBatchPreview(undefined);
+                        }}
+                      />{" "}
+                      Inclure les clips corrigés (leurs corrections seront
+                      remplacées)
+                    </label>
                     {batchPreview && (
                       <div role="status" className="batch-counts">
                         <p>
@@ -1596,6 +1693,15 @@ function App() {
                           indisponible(s) · {batchPreview.selection_required}{" "}
                           piste(s) à sélectionner
                         </p>
+                        {batchPreview.corrected > 0 && (
+                          <p>
+                            {batchPreview.corrected} clip(s) corrigé(s) (
+                            {batchPreview.corrected_segments} correction(s)){" "}
+                            {includeCorrected
+                              ? "inclus à votre demande : leurs corrections seront remplacées"
+                              : "exclu(s) du lot pour protéger les corrections"}
+                          </p>
+                        )}
                         <button
                           disabled={busy || batchPreview.eligible === 0}
                           onClick={() => void run(scheduleBatch)}
@@ -1759,41 +1865,37 @@ function App() {
                                           throw new Error(
                                             "Sélectionnez explicitement une piste audio.",
                                           );
-                                        checked(
-                                          await api.PUT(
-                                            "/api/admin/clips/{id}/audio-track",
-                                            {
-                                              params: {
-                                                path: { id: clip.id },
-                                                header: csrf,
-                                              },
-                                              body: {
-                                                audio_stream_index: index,
-                                              },
-                                            },
-                                          ),
+                                        await retranscribeClip(
+                                          clip.id,
+                                          index,
+                                          false,
                                         );
-                                        const response = checked(
-                                          await api.POST(
-                                            "/api/admin/clips/{id}/transcription",
-                                            {
-                                              params: {
-                                                path: { id: clip.id },
-                                                header: csrf,
-                                              },
-                                              body: {},
-                                            },
-                                          ),
-                                        );
-                                        setNotice(
-                                          `Transcription planifiée (tâche ${response.job.id}).`,
-                                        );
-                                        await refreshJobs(1);
                                       })
                                     }
                                   >
                                     Transcrire
                                   </button>
+                                  {retranscriptionWarning?.clipId ===
+                                    clip.id && (
+                                    <CorrectionsWarningPanel
+                                      corrections={
+                                        retranscriptionWarning.corrections
+                                      }
+                                      busy={busy}
+                                      onCancel={() =>
+                                        setRetranscriptionWarning(undefined)
+                                      }
+                                      onConfirm={() =>
+                                        void run(() =>
+                                          retranscribeClip(
+                                            clip.id,
+                                            retranscriptionWarning.index,
+                                            true,
+                                          ),
+                                        )
+                                      }
+                                    />
+                                  )}
                                 </div>
                               )}
                             {clipDetails[clip.id]?.transcription &&

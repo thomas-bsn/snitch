@@ -23,6 +23,8 @@ T = TypeVar("T", bound="ScheduleTranscriptionBatchResponse200Preview")
 class ScheduleTranscriptionBatchResponse200Preview:
     """
         Attributes:
+            corrected (int | Unset):
+            corrected_segments (int | Unset):
             eligible (int | Unset):
             already_processed (int | Unset):
             already_queued (int | Unset):
@@ -30,6 +32,8 @@ class ScheduleTranscriptionBatchResponse200Preview:
             selection_required (int | Unset):
      """
 
+    corrected: int | Unset = UNSET
+    corrected_segments: int | Unset = UNSET
     eligible: int | Unset = UNSET
     already_processed: int | Unset = UNSET
     already_queued: int | Unset = UNSET
@@ -42,6 +46,10 @@ class ScheduleTranscriptionBatchResponse200Preview:
 
 
     def to_dict(self) -> dict[str, Any]:
+        corrected = self.corrected
+
+        corrected_segments = self.corrected_segments
+
         eligible = self.eligible
 
         already_processed = self.already_processed
@@ -57,6 +65,10 @@ class ScheduleTranscriptionBatchResponse200Preview:
         field_dict.update(self.additional_properties)
         field_dict.update({
         })
+        if corrected is not UNSET:
+            field_dict["corrected"] = corrected
+        if corrected_segments is not UNSET:
+            field_dict["corrected_segments"] = corrected_segments
         if eligible is not UNSET:
             field_dict["eligible"] = eligible
         if already_processed is not UNSET:
@@ -75,6 +87,10 @@ class ScheduleTranscriptionBatchResponse200Preview:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        corrected = d.pop("corrected", UNSET)
+
+        corrected_segments = d.pop("corrected_segments", UNSET)
+
         eligible = d.pop("eligible", UNSET)
 
         already_processed = d.pop("already_processed", UNSET)
@@ -86,6 +102,8 @@ class ScheduleTranscriptionBatchResponse200Preview:
         selection_required = d.pop("selection_required", UNSET)
 
         schedule_transcription_batch_response_200_preview = cls(
+            corrected=corrected,
+            corrected_segments=corrected_segments,
             eligible=eligible,
             already_processed=already_processed,
             already_queued=already_queued,

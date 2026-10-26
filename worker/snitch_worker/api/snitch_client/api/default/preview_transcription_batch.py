@@ -17,6 +17,7 @@ from typing import cast
 
 def _get_kwargs(
     *,
+    include_corrected: bool | Unset = UNSET,
     visibility: str | Unset = UNSET,
     status: str | Unset = UNSET,
     owner_id: str | Unset = UNSET,
@@ -30,6 +31,8 @@ def _get_kwargs(
 
 
     params: dict[str, Any] = {}
+
+    params["include_corrected"] = include_corrected
 
     params["visibility"] = visibility
 
@@ -86,6 +89,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
+    include_corrected: bool | Unset = UNSET,
     visibility: str | Unset = UNSET,
     status: str | Unset = UNSET,
     owner_id: str | Unset = UNSET,
@@ -96,6 +100,7 @@ def sync_detailed(
 ) -> Response[Error | PreviewTranscriptionBatchResponse200]:
     """
     Args:
+        include_corrected (bool | Unset):
         visibility (str | Unset):
         status (str | Unset):
         owner_id (str | Unset):
@@ -113,7 +118,8 @@ def sync_detailed(
 
 
     kwargs = _get_kwargs(
-        visibility=visibility,
+        include_corrected=include_corrected,
+visibility=visibility,
 status=status,
 owner_id=owner_id,
 source_id=source_id,
@@ -131,6 +137,7 @@ to=to,
 def sync(
     *,
     client: AuthenticatedClient | Client,
+    include_corrected: bool | Unset = UNSET,
     visibility: str | Unset = UNSET,
     status: str | Unset = UNSET,
     owner_id: str | Unset = UNSET,
@@ -141,6 +148,7 @@ def sync(
 ) -> Error | PreviewTranscriptionBatchResponse200 | None:
     """
     Args:
+        include_corrected (bool | Unset):
         visibility (str | Unset):
         status (str | Unset):
         owner_id (str | Unset):
@@ -159,6 +167,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+include_corrected=include_corrected,
 visibility=visibility,
 status=status,
 owner_id=owner_id,
@@ -171,6 +180,7 @@ to=to,
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
+    include_corrected: bool | Unset = UNSET,
     visibility: str | Unset = UNSET,
     status: str | Unset = UNSET,
     owner_id: str | Unset = UNSET,
@@ -181,6 +191,7 @@ async def asyncio_detailed(
 ) -> Response[Error | PreviewTranscriptionBatchResponse200]:
     """
     Args:
+        include_corrected (bool | Unset):
         visibility (str | Unset):
         status (str | Unset):
         owner_id (str | Unset):
@@ -198,7 +209,8 @@ async def asyncio_detailed(
 
 
     kwargs = _get_kwargs(
-        visibility=visibility,
+        include_corrected=include_corrected,
+visibility=visibility,
 status=status,
 owner_id=owner_id,
 source_id=source_id,
@@ -216,6 +228,7 @@ to=to,
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
+    include_corrected: bool | Unset = UNSET,
     visibility: str | Unset = UNSET,
     status: str | Unset = UNSET,
     owner_id: str | Unset = UNSET,
@@ -226,6 +239,7 @@ async def asyncio(
 ) -> Error | PreviewTranscriptionBatchResponse200 | None:
     """
     Args:
+        include_corrected (bool | Unset):
         visibility (str | Unset):
         status (str | Unset):
         owner_id (str | Unset):
@@ -244,6 +258,7 @@ async def asyncio(
 
     return (await asyncio_detailed(
         client=client,
+include_corrected=include_corrected,
 visibility=visibility,
 status=status,
 owner_id=owner_id,

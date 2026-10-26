@@ -25,10 +25,13 @@ T = TypeVar("T", bound="AudioTrackRuleResult")
 class AudioTrackRuleResult:
     """
         Attributes:
+            corrected_clips_skipped (int): Clips corrigés non retranscrits par ce changement de règle : une retranscription
+                explicite avec confirmation est nécessaire.
             rule (AudioTrackRule):
             version (int):
      """
 
+    corrected_clips_skipped: int
     rule: AudioTrackRule
     version: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -39,6 +42,8 @@ class AudioTrackRuleResult:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.audio_track_rule import AudioTrackRule # noqa: PLC0415
+        corrected_clips_skipped = self.corrected_clips_skipped
+
         rule = self.rule.to_dict()
 
         version = self.version
@@ -47,6 +52,7 @@ class AudioTrackRuleResult:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "corrected_clips_skipped": corrected_clips_skipped,
             "rule": rule,
             "version": version,
         })
@@ -59,6 +65,8 @@ class AudioTrackRuleResult:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.audio_track_rule import AudioTrackRule # noqa: PLC0415
         d = dict(src_dict)
+        corrected_clips_skipped = d.pop("corrected_clips_skipped")
+
         rule = AudioTrackRule.from_dict(d.pop("rule"))
 
 
@@ -67,6 +75,7 @@ class AudioTrackRuleResult:
         version = d.pop("version")
 
         audio_track_rule_result = cls(
+            corrected_clips_skipped=corrected_clips_skipped,
             rule=rule,
             version=version,
         )

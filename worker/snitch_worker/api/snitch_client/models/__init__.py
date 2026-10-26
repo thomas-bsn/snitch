@@ -23,6 +23,8 @@ from .clip_person import ClipPerson
 from .clip_visibility import ClipVisibility
 from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
+from .corrections_to_replace import CorrectionsToReplace
+from .corrections_warning import CorrectionsWarning
 from .credentials import Credentials
 from .decision_level import DecisionLevel
 from .error import Error
@@ -215,6 +217,8 @@ __all__ = (
     "ClipVisibility",
     "ClipVoice",
     "ClipVoiceStatus",
+    "CorrectionsToReplace",
+    "CorrectionsWarning",
     "Credentials",
     "DecisionLevel",
     "Error",
