@@ -203,8 +203,9 @@ func (s *Server) Handler() http.Handler {
 			}
 		}()
 		if r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS" && !strings.HasPrefix(r.URL.Path, "/api/worker/") {
-			// Browser mutations require the configured origin, including pre-authentication.
-			if r.Header.Get("Origin") != s.Config.PublicURL {
+			// Browser mutations must come from the address the request itself was made to
+			// (see publicOrigin), including pre-authentication.
+			if origin := r.Header.Get("Origin"); origin == "" || origin != s.publicOrigin(r) {
 				fail(w, 403, "origin_rejected")
 				return
 			}
@@ -280,8 +281,8 @@ func oauthCookie(r *http.Request) (*http.Cookie, error) {
 	return r.Cookie("receipts_oauth")
 }
 
-func (s *Server) cookie(w http.ResponseWriter, name, value string, age int) {
-	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", HttpOnly: true, Secure: s.Config.Secure, SameSite: http.SameSiteLaxMode, MaxAge: age})
+func (s *Server) cookie(w http.ResponseWriter, r *http.Request, name, value string, age int) {
+	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", HttpOnly: true, Secure: s.secureCookies(r), SameSite: http.SameSiteLaxMode, MaxAge: age})
 }
 func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, id int64) error {
 	token, csrf := auth.Token(), auth.Token()
@@ -289,7 +290,7 @@ func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, id int64) 
 	if err != nil {
 		return err
 	}
-	s.cookie(w, "snitch_session", token, 7*86400)
+	s.cookie(w, r, "snitch_session", token, 7*86400)
 	return nil
 }
 func (s *Server) findSession(r *http.Request) (session, error) {
@@ -331,7 +332,7 @@ type rateEntry struct {
 
 func (s *Server) rateLimited(bucket string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Forwarded headers are deliberately ignored until a trusted proxy policy exists.
+		// Rate limiting keys on the TCP peer: forwarded headers are never used for it.
 		host, _, _ := net.SplitHostPort(r.RemoteAddr)
 		now := time.Now()
 		s.rates.Range(func(k, v any) bool {
@@ -525,7 +526,7 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	s.cookie(w, "snitch_session", "", -1)
+	s.cookie(w, r, "snitch_session", "", -1)
 	reply(w, 200, map[string]string{"status": "ok"})
 }
 func (s *Server) pending(w http.ResponseWriter, r *http.Request) {
@@ -572,7 +573,7 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, 200, map[string]any{"client_id": id, "secret_configured": secret != "", "registration_approval": approval})
+	reply(w, 200, map[string]any{"client_id": id, "secret_configured": secret != "", "registration_approval": approval, "callback_url": s.publicOrigin(r) + "/api/auth/discord/callback"})
 }
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	var c DiscordSettings
@@ -680,8 +681,8 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	s.cookie(w, "snitch_oauth", browser, 600)
-	q := url.Values{"client_id": {id}, "response_type": {"code"}, "scope": {"identify"}, "state": {state}, "redirect_uri": {s.Config.PublicURL + "/api/auth/discord/callback"}}
+	s.cookie(w, r, "snitch_oauth", browser, 600)
+	q := url.Values{"client_id": {id}, "response_type": {"code"}, "scope": {"identify"}, "state": {state}, "redirect_uri": {s.publicOrigin(r) + "/api/auth/discord/callback"}}
 	reply(w, 200, map[string]string{"url": s.Config.DiscordAuthorizeURL + "?" + q.Encode()})
 }
 func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
@@ -699,7 +700,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		s.oauthFailure(w, r, 400, "invalid_oauth_state")
 		return
 	}
-	s.cookie(w, "snitch_oauth", "", -1)
+	s.cookie(w, r, "snitch_oauth", "", -1)
 	if userID != nil {
 		ss, e := s.findSession(r)
 		c, _ := sessionCookie(r)
@@ -726,7 +727,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		s.oauthInternal(w, r, err)
 		return
 	}
-	form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {id}, "client_secret": {secret}, "redirect_uri": {s.Config.PublicURL + "/api/auth/discord/callback"}}
+	form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {id}, "client_secret": {secret}, "redirect_uri": {s.publicOrigin(r) + "/api/auth/discord/callback"}}
 	req, err := http.NewRequestWithContext(r.Context(), "POST", s.Config.DiscordTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		s.oauthFailure(w, r, 502, "discord_unavailable")

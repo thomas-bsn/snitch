@@ -1487,6 +1487,8 @@ export interface components {
       /** @description Whether a nonempty secret is stored. The secret itself is never returned. */
       secret_configured: boolean;
       registration_approval: boolean;
+      /** @description Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL). */
+      callback_url: string;
     };
     SettingsInput: {
       /** @description Required application identifier. Empty disables Discord and removes the stored secret. Whitespace-only values are rejected; saving does not verify credentials with Discord. */
@@ -1667,7 +1669,7 @@ export interface components {
     WorkerBundle: {
       compose: string;
       env: string;
-      /** @description Vrai si PUBLIC_URL n'est pas en HTTPS : le worker refuse le HTTP. */
+      /** @description Vrai si l'adresse publique n'est pas en HTTPS : le worker refuse le HTTP. */
       insecure_api_url: boolean;
     };
     WorkerPage: {
@@ -2855,7 +2857,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
       };
       path?: never;
@@ -2891,7 +2893,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
       };
       path?: never;
@@ -2927,7 +2929,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
       };
       path?: never;
@@ -2992,7 +2994,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3025,7 +3027,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
       };
       path?: never;
@@ -3057,7 +3059,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3209,7 +3211,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3275,7 +3277,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
         "X-CSRF-Token": string;
       };

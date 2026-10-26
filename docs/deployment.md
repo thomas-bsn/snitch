@@ -11,7 +11,7 @@ Importer **compose.yaml seul**, jamais compose.override.yaml. Fournir dans les v
 - Les images GHCR créées par Actions sont privées par défaut : régler leur visibilité dans GitHub (Packages), ou configurer sur la plateforme un accès `docker login ghcr.io` avec un jeton `read:packages`. Aucune image de mise à jour n'existe.
 - `POSTGRES_PASSWORD` : mot de passe aléatoire ; les caractères réservés d’URL sont admis, car l’application et la migration passent le mot de passe par `PGPASSWORD`, hors URL.
 - `MASTER_KEY` : 32 octets aléatoires encodés base64 ; conserver la même clé entre redémarrages et la sauvegarder séparément.
-- `PUBLIC_URL=https://<projet>.<domaine>`, `COOKIE_SECURE=true`, `DISPLAY_NAME` facultatif.
+- `PUBLIC_URL`, `COOKIE_SECURE`, `TRUSTED_PROXIES`, `DISPLAY_NAME` : facultatives. L'adresse publique est déduite de chaque requête et le cookie est sécurisé en HTTPS ; le mandataire de la plateforme sur un réseau privé est reconnu par défaut. Renseigner `PUBLIC_URL=https://<projet>.<domaine>` seulement pour fixer l'adresse (voir docs/access.md, « Adresse publique »).
 - `CLIPS_ROOTS` peut rester vide. `EMBEDDINGS_URL` vise par défaut le service privé embed ; aucun modèle n’est préchargé.
 
 Seule app est exposée sur son port HTTP interne 8080. PostgreSQL, migration et embeddings restent privés. Les volumes nommés `database` (PostgreSQL 18 : `/var/lib/postgresql`), `embeddings` et `media` persistent. Les clips provenant de dossiers reste un accès distinct, en lecture seule, via `CLIPS_ROOTS`. Les métadonnées mémoire sont des plafonds proposés : PG 512, app 384, embed 1536, migration transitoire 256 MiB.
