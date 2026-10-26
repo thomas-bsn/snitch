@@ -9,9 +9,7 @@ test("la recherche trouve le texte corrigé d’un segment et plus l’ancien", 
   // The segment "Bien joué !" is corrected through the API, like the reading page does.
   const old = await page.evaluate(async () => {
     const me = await fetch("/api/auth/me").then((response) => response.json());
-    const clips = await fetch("/api/clips").then((response) =>
-      response.json(),
-    );
+    const clips = await fetch("/api/clips").then((response) => response.json());
     const clipID = clips.items[0].id;
     const corrected = await fetch(`/api/clips/${clipID}/segments/0/text`, {
       method: "PUT",
