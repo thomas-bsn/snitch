@@ -86,6 +86,15 @@ export const errorsEn = {
   invalid_worker_capabilities: "These worker capabilities are not valid.",
   invalid_worker_capacity: "This worker capacity is not valid.",
   invalid_worker_models: "These worker models are not valid.",
+  invalid_transcription_language:
+    "This language code is not valid (two or three lowercase letters, for example fr).",
+  invalid_transcription_model: "This model name is not valid.",
+  invalid_transcription_url:
+    "This Whisper address is not valid. Use an http or https address without credentials.",
+  transcription_language_required: "Choose the language of the library.",
+  transcription_model_required: "Enter the model of the library.",
+  transcription_profile_already_set:
+    "The library already has a transcription model. Reload the page.",
   job_not_cancellable: "This task can no longer be cancelled.",
   job_not_dead: "Only dead tasks can be relaunched.",
   job_not_found: "This task does not exist.",

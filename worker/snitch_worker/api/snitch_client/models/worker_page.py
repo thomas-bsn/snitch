@@ -12,6 +12,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.worker import Worker
+  from ..models.worker_page_transcription import WorkerPageTranscription
 
 
 
@@ -25,9 +26,16 @@ T = TypeVar("T", bound="WorkerPage")
 class WorkerPage:
     """
         Attributes:
+            first_worker (bool): Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de
+                la bibliothèque.
+            snitch_url (str): Adresse de Snitch telle que vue par cette requête, écrite dans les fichiers générés.
+            transcription (WorkerPageTranscription): Profil de transcription actif de la bibliothèque.
             items (list[Worker]):
      """
 
+    first_worker: bool
+    snitch_url: str
+    transcription: WorkerPageTranscription
     items: list[Worker]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -37,6 +45,13 @@ class WorkerPage:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.worker import Worker # noqa: PLC0415
+        from ..models.worker_page_transcription import WorkerPageTranscription # noqa: PLC0415
+        first_worker = self.first_worker
+
+        snitch_url = self.snitch_url
+
+        transcription = self.transcription.to_dict()
+
         items = []
         for items_item_data in self.items:
             items_item = items_item_data.to_dict()
@@ -48,6 +63,9 @@ class WorkerPage:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "first_worker": first_worker,
+            "snitch_url": snitch_url,
+            "transcription": transcription,
             "items": items,
         })
 
@@ -58,7 +76,17 @@ class WorkerPage:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.worker import Worker # noqa: PLC0415
+        from ..models.worker_page_transcription import WorkerPageTranscription # noqa: PLC0415
         d = dict(src_dict)
+        first_worker = d.pop("first_worker")
+
+        snitch_url = d.pop("snitch_url")
+
+        transcription = WorkerPageTranscription.from_dict(d.pop("transcription"))
+
+
+
+
         items = []
         _items = d.pop("items")
         for items_item_data in (_items):
@@ -70,6 +98,9 @@ class WorkerPage:
 
 
         worker_page = cls(
+            first_worker=first_worker,
+            snitch_url=snitch_url,
+            transcription=transcription,
             items=items,
         )
 

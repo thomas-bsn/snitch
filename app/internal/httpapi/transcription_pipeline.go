@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type transcriptionPipeline struct {
@@ -74,20 +76,14 @@ func (s *Server) putTranscriptionPipeline(w http.ResponseWriter, r *http.Request
 		p.VAD.Version = "vad-off-v1"
 		p.VAD.Threshold, p.VAD.MinSpeechMs, p.VAD.MinSilenceMs, p.VAD.PaddingMs = 0, 0, 0, 0
 	}
-	raw, _ := json.Marshal(p)
-	hash := sha256.Sum256(raw)
-	version := "pipeline-" + hex.EncodeToString(hash[:12])
 	tx, err := s.Pool.Begin(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
-	if _, err = tx.Exec(r.Context(), `INSERT INTO transcription_pipeline_versions(version,config) VALUES($1,$2) ON CONFLICT(version) DO NOTHING`, version, raw); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if _, err = tx.Exec(r.Context(), `UPDATE transcription_pipeline_active SET version=$1 WHERE id=true`, version); err != nil {
+	version, err := activatePipeline(r.Context(), tx, p)
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -96,4 +92,18 @@ func (s *Server) putTranscriptionPipeline(w http.ResponseWriter, r *http.Request
 		return
 	}
 	reply(w, http.StatusOK, map[string]any{"version": version, "config": p})
+}
+
+// activatePipeline stores a profile as a (possibly existing) immutable version and makes it the active one.
+func activatePipeline(ctx context.Context, tx pgx.Tx, p transcriptionPipeline) (string, error) {
+	raw, _ := json.Marshal(p)
+	hash := sha256.Sum256(raw)
+	version := "pipeline-" + hex.EncodeToString(hash[:12])
+	if _, err := tx.Exec(ctx, `INSERT INTO transcription_pipeline_versions(version,config) VALUES($1,$2) ON CONFLICT(version) DO NOTHING`, version, raw); err != nil {
+		return "", err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transcription_pipeline_active SET version=$1 WHERE id=true`, version); err != nil {
+		return "", err
+	}
+	return version, nil
 }

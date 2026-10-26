@@ -53,16 +53,148 @@ type Service struct{ pool *pgxpool.Pool }
 func New(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
 
 func (s *Service) Register(ctx context.Context, input Input) (Registration, error) {
+	registration, _, err := s.RegisterWith(ctx, input, nil)
+	return registration, err
+}
+
+// RegisterWith creates a worker in one transaction with `before`, which runs first and learns
+// whether this is the first worker ever registered. An error from `before` aborts everything.
+func (s *Service) RegisterWith(ctx context.Context, input Input, before func(ctx context.Context, tx pgx.Tx, first bool) error) (Registration, bool, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	if !namePattern.MatchString(input.Name) || input.MaxConcurrency < 1 || input.MaxConcurrency > 4 {
-		return Registration{}, ErrInvalidInput
+		return Registration{}, false, ErrInvalidInput
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Registration{}, false, fmt.Errorf("begin worker registration: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	// Serialize registrations so that exactly one of two simultaneous requests is the first.
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(7310073)`); err != nil {
+		return Registration{}, false, fmt.Errorf("lock worker registration: %w", err)
+	}
+	var count int
+	if err = tx.QueryRow(ctx, `SELECT count(*) FROM workers`).Scan(&count); err != nil {
+		return Registration{}, false, fmt.Errorf("count workers: %w", err)
+	}
+	first := count == 0
+	if before != nil {
+		if err = before(ctx, tx, first); err != nil {
+			return Registration{}, first, err
+		}
 	}
 	id := "wk_" + auth.Token()[:28]
 	token := "rw_" + auth.Token()
 	var worker Worker
-	err := s.pool.QueryRow(ctx, `INSERT INTO workers(id,name,token_hash,max_concurrency) VALUES($1,$2,$3,$4) RETURNING id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at`, id, input.Name, auth.Hash(token), input.MaxConcurrency).Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt)
+	err = tx.QueryRow(ctx, `INSERT INTO workers(id,name,token_hash,max_concurrency) VALUES($1,$2,$3,$4) RETURNING id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at`, id, input.Name, auth.Hash(token), input.MaxConcurrency).Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt)
 	if err != nil {
-		return Registration{}, fmt.Errorf("register worker: %w", err)
+		return Registration{}, first, fmt.Errorf("register worker: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Registration{}, first, fmt.Errorf("commit worker registration: %w", err)
+	}
+	return Registration{Worker: worker, Token: token}, first, nil
+}
+
+// First reports whether no worker has ever been registered.
+func (s *Service) First(ctx context.Context) (bool, error) {
+	var any bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workers)`).Scan(&any); err != nil {
+		return false, fmt.Errorf("check first worker: %w", err)
+	}
+	return !any, nil
+}
+
+// Task is one recent piece of work a worker did, typed by what it is.
+type Task struct {
+	JobID     int64     `json:"job_id"`
+	ClipID    int64     `json:"clip_id"`
+	Kind      string    `json:"kind"`
+	Outcome   string    `json:"outcome"`
+	ErrorCode string    `json:"error_code"`
+	At        time.Time `json:"at"`
+}
+
+// Detail is one worker with its latest tasks.
+type Detail struct {
+	Worker
+	RecentTasks []Task `json:"recent_tasks"`
+}
+
+// Get returns one worker (revoked ones included) with its ten most recent tasks.
+func (s *Service) Get(ctx context.Context, id string) (Detail, error) {
+	if !validID(id) {
+		return Detail{}, ErrNotFound
+	}
+	var d Detail
+	err := s.pool.QueryRow(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($2 * interval '1 second'),false),models FROM workers WHERE id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Detail{}, ErrNotFound
+	}
+	if err != nil {
+		return Detail{}, fmt.Errorf("read worker: %w", err)
+	}
+	rows, err := s.pool.Query(ctx, `SELECT job_id,clip_id,step,event,error_code,created_at FROM (
+		SELECT DISTINCT ON (e.job_id) e.job_id,j.clip_id,j.step,e.event,e.error_code,e.created_at,e.id
+		FROM job_events e JOIN jobs j ON j.id=e.job_id
+		WHERE e.actor='worker' AND e.actor_id=$1 ORDER BY e.job_id,e.id DESC) latest ORDER BY id DESC LIMIT 10`, id)
+	if err != nil {
+		return Detail{}, fmt.Errorf("read worker tasks: %w", err)
+	}
+	defer rows.Close()
+	d.RecentTasks = []Task{}
+	for rows.Next() {
+		var task Task
+		var step, event string
+		if err = rows.Scan(&task.JobID, &task.ClipID, &step, &event, &task.ErrorCode, &task.At); err != nil {
+			return Detail{}, fmt.Errorf("scan worker task: %w", err)
+		}
+		task.Kind, task.Outcome = taskKind(step), taskOutcome(event)
+		d.RecentTasks = append(d.RecentTasks, task)
+	}
+	if err = rows.Err(); err != nil {
+		return Detail{}, fmt.Errorf("read worker task rows: %w", err)
+	}
+	return d, nil
+}
+
+func taskKind(step string) string {
+	switch {
+	case strings.HasPrefix(step, "transcription."):
+		return "transcription"
+	case strings.HasPrefix(step, "voice.diarization."):
+		return "diarization"
+	case strings.HasPrefix(step, "voice.fingerprint."):
+		return "fingerprint"
+	}
+	return "other"
+}
+
+func taskOutcome(event string) string {
+	switch event {
+	case "completed":
+		return "completed"
+	case "retry_scheduled":
+		return "retry"
+	case "marked_dead":
+		return "failed"
+	}
+	return "started"
+}
+
+// RenewToken replaces the token of an active worker; the old one stops working at once.
+func (s *Service) RenewToken(ctx context.Context, id string) (Registration, error) {
+	if !validID(id) {
+		return Registration{}, ErrNotFound
+	}
+	token := "rw_" + auth.Token()
+	var worker Worker
+	err := s.pool.QueryRow(ctx, `UPDATE workers SET token_hash=$2 WHERE id=$1 AND revoked_at IS NULL RETURNING id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at`, id, auth.Hash(token)).Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Registration{}, ErrNotFound
+	}
+	if err != nil {
+		return Registration{}, fmt.Errorf("renew worker token: %w", err)
 	}
 	return Registration{Worker: worker, Token: token}, nil
 }

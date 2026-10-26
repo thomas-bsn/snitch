@@ -137,6 +137,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/admin/job-controls", s.protected(true, http.HandlerFunc(s.updateJobControls)))
 	mux.Handle("GET /api/admin/workers", s.protected(true, http.HandlerFunc(s.listWorkers)))
 	mux.Handle("POST /api/admin/workers", s.protected(true, http.HandlerFunc(s.registerWorker)))
+	mux.Handle("GET /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.getWorker)))
+	mux.Handle("POST /api/admin/workers/{id}/token", s.protected(true, http.HandlerFunc(s.renewWorkerToken)))
 	mux.Handle("DELETE /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.revokeWorker)))
 	mux.Handle("POST /api/worker/pulse", s.workerOnly(http.HandlerFunc(s.workerPulse)))
 	mux.Handle("POST /api/worker/jobs/claim", s.workerOnly(http.HandlerFunc(s.claimWorkerJob)))

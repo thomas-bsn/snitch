@@ -287,6 +287,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerModels(t, pool)
 	})
+	t.Run("worker administration", func(t *testing.T) {
+		reset(t)
+		testWorkerAdministration(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
 		clipRoot := t.TempDir()
@@ -506,6 +510,11 @@ func TestFoundation(t *testing.T) {
 			t.Fatalf("contract worker registration: %s %v", workerBody, e)
 		}
 		call(client, "GET", "/api/admin/workers", nil, "", 200)
+		call(client, "GET", "/api/admin/workers/"+contractWorker.ID, nil, "", 200)
+		renewedBody := call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/token", nil, me.CSRF, 201)
+		if e = json.Unmarshal(renewedBody, &contractWorker); e != nil || contractWorker.Token == "" {
+			t.Fatalf("contract worker token renewal: %s %v", renewedBody, e)
+		}
 		workerToken = contractWorker.Token
 		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.synthetic"}}, "", 200)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
