@@ -249,6 +249,18 @@ export const fr: Messages = {
       title: "Recherche sémantique",
       lead: "Cherchez par le sens, pas seulement par les mots exacts. La recherche plein texte fonctionne sans, et rien n’est indexé tant que vous ne le demandez pas.",
       status: "État",
+      url: "Adresse du service d’embeddings",
+      model: "Modèle d’embeddings",
+      save: "Tester et enregistrer",
+      saved: "Réglages de la recherche sémantique enregistrés.",
+      environment:
+        "Cette valeur est définie par le déploiement et reste prioritaire.",
+      ownerOnly: "Seul le Super-administrateur peut modifier ces réglages.",
+      counts:
+        "Segments indexés : {done} · tâches en attente : {pending} · segments corrigés à réindexer : {reindex}",
+      candidate:
+        "Construction de l’index pour {model} : {pending} tâches en attente.",
+
       active: "Active · {model}",
       inactive: "Non configurée",
       howTo:

@@ -38,7 +38,11 @@ type indexResult struct {
 }
 
 func (s *Server) ensureEmbeddingProfile(ctx context.Context) error {
-	if s.Config.EmbeddingsURL == "" || s.Config.EmbeddingsModel == "" {
+	settings, err := s.embeddingSettings(ctx)
+	if err != nil {
+		return err
+	}
+	if settings.URL == "" || settings.Model == "" {
 		return nil
 	}
 	tx, err := s.Pool.Begin(ctx)
@@ -54,7 +58,7 @@ func (s *Server) ensureEmbeddingProfile(ctx context.Context) error {
 		return tx.Commit(ctx)
 	}
 	var id int64
-	if err := tx.QueryRow(ctx, `INSERT INTO embedding_profiles(model,state) VALUES($1,'active') RETURNING id`, s.Config.EmbeddingsModel).Scan(&id); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO embedding_profiles(model,state) VALUES($1,'active') RETURNING id`, settings.Model).Scan(&id); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=$1,updated_at=now() WHERE id=1 AND active_profile_id IS NULL`, id); err != nil {
@@ -93,13 +97,17 @@ func (s *Server) embeddingLoop(ctx context.Context) {
 }
 
 func (s *Server) indexNext(ctx context.Context) error {
-	if s.Config.EmbeddingsURL == "" {
+	settings, err := s.embeddingSettings(ctx)
+	if err != nil {
+		return err
+	}
+	if settings.URL == "" {
 		return nil
 	}
 	var taskID, profileID, jobID, clipID int64
 	var model string
 	var raw []byte
-	err := s.Pool.QueryRow(ctx, `WITH candidate AS (SELECT t.id FROM embedding_tasks t JOIN embedding_index_state st ON st.id=1 WHERE (t.state='pending' OR (t.state='leased' AND t.lease_expires_at<now())) AND t.profile_id IN (st.active_profile_id,st.candidate_profile_id) ORDER BY t.id FOR UPDATE OF t SKIP LOCKED LIMIT 1) UPDATE embedding_tasks t SET state='leased',lease_expires_at=now()+interval '2 minutes',attempts=t.attempts+1,updated_at=now() FROM candidate c JOIN jobs j ON j.id=(SELECT transcription_job_id FROM embedding_tasks WHERE id=c.id) JOIN embedding_profiles p ON p.id=(SELECT profile_id FROM embedding_tasks WHERE id=c.id) WHERE t.id=c.id RETURNING t.id,t.profile_id,t.transcription_job_id,j.clip_id,j.result,p.model`).Scan(&taskID, &profileID, &jobID, &clipID, &raw, &model)
+	err = s.Pool.QueryRow(ctx, `WITH candidate AS (SELECT t.id FROM embedding_tasks t JOIN embedding_index_state st ON st.id=1 WHERE (t.state='pending' OR (t.state='leased' AND t.lease_expires_at<now())) AND t.profile_id IN (st.active_profile_id,st.candidate_profile_id) ORDER BY t.id FOR UPDATE OF t SKIP LOCKED LIMIT 1) UPDATE embedding_tasks t SET state='leased',lease_expires_at=now()+interval '2 minutes',attempts=t.attempts+1,updated_at=now() FROM candidate c JOIN jobs j ON j.id=(SELECT transcription_job_id FROM embedding_tasks WHERE id=c.id) JOIN embedding_profiles p ON p.id=(SELECT profile_id FROM embedding_tasks WHERE id=c.id) WHERE t.id=c.id RETURNING t.id,t.profile_id,t.transcription_job_id,j.clip_id,j.result,p.model`).Scan(&taskID, &profileID, &jobID, &clipID, &raw, &model)
 	if err == pgx.ErrNoRows {
 		return s.activateCompleteCandidate(ctx)
 	}
@@ -138,7 +146,7 @@ func (s *Server) indexNext(ctx context.Context) error {
 		inputs[i] = v.Text
 	}
 	body, _ := json.Marshal(embeddingBatch{Model: model, Input: inputs})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Config.EmbeddingsURL, strings.NewReader(string(body)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, settings.URL, strings.NewReader(string(body)))
 	if err != nil {
 		return s.embeddingTaskFailed(ctx, taskID, err)
 	}
@@ -280,8 +288,12 @@ func (s *Server) vectorFor(ctx context.Context, input string) (string, error) {
 // embedOne asks the provider for the vector of one text; it returns the pgvector
 // literal and the dimension.
 func (s *Server) embedOne(ctx context.Context, model, input string) (string, int, error) {
+	settings, err := s.embeddingSettings(ctx)
+	if err != nil {
+		return "", 0, err
+	}
 	body, _ := json.Marshal(embeddingBatch{Model: model, Input: []string{input}})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Config.EmbeddingsURL, strings.NewReader(string(body)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, settings.URL, strings.NewReader(string(body)))
 	if err != nil {
 		return "", 0, err
 	}
@@ -366,13 +378,19 @@ func (s *Server) embeddingStatus(w http.ResponseWriter, r *http.Request) {
 		CandidateDone    int    `json:"candidate_done,omitempty"`
 		CandidatePending int    `json:"candidate_pending,omitempty"`
 		CandidateFailed  int    `json:"candidate_failed,omitempty"`
+		IndexedSegments  int    `json:"indexed_segments"`
 		ReindexPending   int    `json:"reindex_pending"`
 		ReindexFailed    int    `json:"reindex_failed"`
 	}
-	out.Configured = s.Config.EmbeddingsURL != ""
+	settings, err := s.embeddingSettings(r.Context())
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	out.Configured = settings.URL != ""
 	out.Provider = "openai-compatible"
 	out.State = "unconfigured"
-	err := s.Pool.QueryRow(r.Context(), `SELECT COALESCE(p.dimensions,0),COALESCE(p.state,'unconfigured'),count(*) FILTER(WHERE t.state IN ('pending','leased')),count(*) FILTER(WHERE t.state='done'),count(*) FILTER(WHERE t.state='failed'),COALESCE((SELECT error FROM embedding_tasks et WHERE et.profile_id=p.id AND et.state='failed' ORDER BY et.updated_at DESC LIMIT 1),p.error,'') FROM embedding_index_state s LEFT JOIN embedding_profiles p ON p.id=s.active_profile_id LEFT JOIN embedding_tasks t ON t.profile_id=p.id WHERE s.id=1 GROUP BY p.id,p.dimensions,p.state,p.error`).Scan(&out.Dimensions, &out.State, &out.Pending, &out.Done, &out.Failed, &out.Error)
+	err = s.Pool.QueryRow(r.Context(), `SELECT COALESCE(p.dimensions,0),COALESCE(p.state,'unconfigured'),count(*) FILTER(WHERE t.state IN ('pending','leased')),count(*) FILTER(WHERE t.state='done'),count(*) FILTER(WHERE t.state='failed'),COALESCE((SELECT error FROM embedding_tasks et WHERE et.profile_id=p.id AND et.state='failed' ORDER BY et.updated_at DESC LIMIT 1),p.error,'') FROM embedding_index_state s LEFT JOIN embedding_profiles p ON p.id=s.active_profile_id LEFT JOIN embedding_tasks t ON t.profile_id=p.id WHERE s.id=1 GROUP BY p.id,p.dimensions,p.state,p.error`).Scan(&out.Dimensions, &out.State, &out.Pending, &out.Done, &out.Failed, &out.Error)
 	if err != nil && err != pgx.ErrNoRows {
 		s.internal(w, err)
 		return
@@ -382,6 +400,10 @@ func (s *Server) embeddingStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = s.Pool.QueryRow(r.Context(), `SELECT p.model,p.state,count(t.id),count(*) FILTER(WHERE t.state='done'),count(*) FILTER(WHERE t.state IN ('pending','leased')),count(*) FILTER(WHERE t.state='failed'),COALESCE((SELECT error FROM embedding_tasks et WHERE et.profile_id=p.id AND et.state='failed' ORDER BY et.updated_at DESC LIMIT 1),p.error,'') FROM embedding_index_state st JOIN embedding_profiles p ON p.id=st.candidate_profile_id LEFT JOIN embedding_tasks t ON t.profile_id=p.id WHERE st.id=1 GROUP BY p.id,p.model,p.state,p.error`).Scan(&out.CandidateModel, &out.CandidateState, &out.CandidateTotal, &out.CandidateDone, &out.CandidatePending, &out.CandidateFailed, &out.CandidateError); err != nil && err != pgx.ErrNoRows {
+		s.internal(w, err)
+		return
+	}
+	if err = s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM transcript_embeddings e JOIN embedding_index_state st ON e.profile_id=st.active_profile_id WHERE st.id=1`).Scan(&out.IndexedSegments); err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -407,7 +429,12 @@ func (s *Server) backfillEmbeddings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) rebuildEmbeddings(w http.ResponseWriter, r *http.Request) {
-	if s.Config.EmbeddingsURL == "" {
+	settings, err := s.embeddingSettings(r.Context())
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if settings.URL == "" {
 		fail(w, 503, "embeddings_unconfigured")
 		return
 	}

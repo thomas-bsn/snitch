@@ -36,20 +36,22 @@ import (
 )
 
 type Server struct {
-	Pool            *pgxpool.Pool
-	Config          config.Config
-	Log             *slog.Logger
-	Client          *http.Client
-	Store           settings.Store
-	Library         *library.Service
-	Jobs            *jobs.Service
-	Uploads         *uploads.Service
-	Workers         *workers.Service
-	rates           sync.Map
-	embeddingCancel context.CancelFunc
-	embeddingWG     sync.WaitGroup
-	passwordSlots   chan struct{}
-	dummyPassword   string
+	Pool               *pgxpool.Pool
+	Config             config.Config
+	Log                *slog.Logger
+	Client             *http.Client
+	Store              settings.Store
+	Library            *library.Service
+	Jobs               *jobs.Service
+	Uploads            *uploads.Service
+	Workers            *workers.Service
+	rates              sync.Map
+	embeddingCancel    context.CancelFunc
+	embeddingContext   context.Context
+	embeddingStartOnce sync.Once
+	embeddingWG        sync.WaitGroup
+	passwordSlots      chan struct{}
+	dummyPassword      string
 }
 type session struct {
 	User database.GetUserRow
@@ -84,15 +86,27 @@ func (s *Server) Start(ctx context.Context) error {
 		s.Uploads.Close()
 		return fmt.Errorf("start library: %w", err)
 	}
-	if s.Config.EmbeddingsURL != "" {
-		embeddingCtx, cancel := context.WithCancel(ctx)
-		s.embeddingCancel = cancel
-		for worker := 0; worker < 4; worker++ {
-			s.embeddingWG.Add(1)
-			go func() { defer s.embeddingWG.Done(); s.embeddingLoop(embeddingCtx) }()
-		}
+	s.embeddingContext, s.embeddingCancel = context.WithCancel(ctx)
+	settings, err := s.embeddingSettings(ctx)
+	if err != nil {
+		s.Close()
+		return err
+	}
+	if settings.URL != "" {
+		s.startEmbeddingWorkers()
 	}
 	return nil
+}
+func (s *Server) startEmbeddingWorkers() {
+	if s.embeddingContext == nil {
+		return
+	}
+	s.embeddingStartOnce.Do(func() {
+		for worker := 0; worker < 4; worker++ {
+			s.embeddingWG.Add(1)
+			go func() { defer s.embeddingWG.Done(); s.embeddingLoop(s.embeddingContext) }()
+		}
+	})
 }
 func (s *Server) Close() {
 	if s.embeddingCancel != nil {
@@ -166,6 +180,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/uploads/{id}", s.protected(false, http.HandlerFunc(s.cancelUpload)))
 	mux.Handle("GET /api/clips", s.protected(false, http.HandlerFunc(s.listClips)))
 	mux.Handle("GET /api/search", s.protected(false, http.HandlerFunc(s.search)))
+	mux.Handle("GET /api/admin/embeddings/settings", s.protected(true, http.HandlerFunc(s.getEmbeddingSettings)))
+	mux.Handle("PUT /api/admin/embeddings/settings", s.protected(true, http.HandlerFunc(s.putEmbeddingSettings)))
 	mux.Handle("GET /api/admin/embeddings", s.protected(true, http.HandlerFunc(s.embeddingStatus)))
 	mux.Handle("POST /api/admin/embeddings/backfill", s.protected(true, http.HandlerFunc(s.backfillEmbeddings)))
 	mux.Handle("POST /api/admin/embeddings/rebuild", s.protected(true, http.HandlerFunc(s.rebuildEmbeddings)))
@@ -406,15 +422,16 @@ func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 	}
 	status := "degraded"
 	// No model is installed implicitly. The probe checks the provider, never indexes media.
-	model := s.Config.EmbeddingsModel
+	settings, _ := s.embeddingSettings(ctx)
+	model := settings.Model
 	var activeModel string
 	if err := s.Pool.QueryRow(ctx, `SELECT p.model FROM embedding_index_state i JOIN embedding_profiles p ON p.id=i.active_profile_id WHERE i.id=1`).Scan(&activeModel); err == nil && activeModel != "" {
 		model = activeModel
 	}
-	if s.Config.EmbeddingsURL != "" && model != "" {
+	if settings.URL != "" && model != "" {
 		body, _ := json.Marshal(embeddingBatch{Model: model, Input: []string{"health"}})
 		requestBody := strings.NewReader(string(body))
-		req, err := http.NewRequestWithContext(ctx, "POST", s.Config.EmbeddingsURL, requestBody)
+		req, err := http.NewRequestWithContext(ctx, "POST", settings.URL, requestBody)
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
 			resp, e := s.Client.Do(req)

@@ -35,7 +35,11 @@ func (s *Server) clipProgress(ctx context.Context, clipID, visibleJobID int64, h
 		return progress, nil
 	}
 	progress.Transcription = "done"
-	if s.Config.EmbeddingsURL == "" {
+	settings, err := s.embeddingSettings(ctx)
+	if err != nil {
+		return progress, err
+	}
+	if settings.URL == "" {
 		progress.Indexing = "unavailable"
 		return progress, nil
 	}
@@ -48,7 +52,7 @@ func (s *Server) clipProgress(ctx context.Context, clipID, visibleJobID int64, h
 		return progress, nil
 	}
 	var state string
-	err := s.Pool.QueryRow(ctx, `SELECT state FROM embedding_tasks WHERE profile_id=$1 AND transcription_job_id=$2`, *profileID, visibleJobID).Scan(&state)
+	err = s.Pool.QueryRow(ctx, `SELECT state FROM embedding_tasks WHERE profile_id=$1 AND transcription_job_id=$2`, *profileID, visibleJobID).Scan(&state)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return progress, err
 	}

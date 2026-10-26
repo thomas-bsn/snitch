@@ -228,6 +228,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testSegmentRetranscription(t, pool)
 	})
+	t.Run("embedding settings", func(t *testing.T) {
+		reset(t)
+		testEmbeddingSettings(t, pool)
+	})
 	t.Run("segment reindexing", func(t *testing.T) {
 		reset(t)
 		testSegmentReindex(t, pool)
@@ -782,7 +786,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "setup-wizard.spec.ts", "admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts", "admin-workers.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "import.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "legacy-workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "search-screen.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "people.spec.ts", "people-groups.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "setup-wizard.spec.ts", "admin-semantic.spec.ts", "admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts", "admin-workers.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "import.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "legacy-workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "search-screen.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "people.spec.ts", "people-groups.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -791,6 +795,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_ACCOUNT") == "1" {
 			suites = []string{"account-settings.spec.ts", "discord-oauth.spec.ts", "voice-profile.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_SEMANTIC") == "1" {
+			suites = []string{"admin-semantic.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_WIZARD") == "1" {
 			suites = []string{"setup-wizard.spec.ts"}
@@ -897,6 +904,10 @@ func TestFoundation(t *testing.T) {
 				}
 				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}
 				sourceRoot := ""
+				providerURL := ""
+				if suite == "admin-semantic.spec.ts" {
+					providerURL = newReindexProvider(t).srv.URL
+				}
 				if suite == "sources.spec.ts" || suite == "admin-folders.spec.ts" || suite == "microphone.spec.ts" {
 					sourceRoot = t.TempDir()
 					if e = os.WriteFile(filepath.Join(sourceRoot, "browser-fixture.mp4"), []byte("synthetic-browser-video"), 0o400); e != nil {
@@ -933,7 +944,7 @@ func TestFoundation(t *testing.T) {
 				args := []string{"run", "test:e2e", "--", suite}
 				cmd := exec.Command("npm", args...)
 				cmd.Dir = "../../../web"
-				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_UPLOAD_CHUNK=16384")
+				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384")
 				out, e := cmd.CombinedOutput()
 				t.Log(string(out))
 				if e != nil {

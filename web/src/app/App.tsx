@@ -10,6 +10,7 @@ import { AdminLayout, AdminPlaceholder } from "./admin/AdminLayout";
 import { ADMIN_TABS } from "./admin/tabs";
 import { FoldersTab } from "./admin/folders/FoldersTab";
 import { QueueTab } from "./admin/queue/QueueTab";
+import { SemanticTab } from "./admin/semantic/SemanticTab";
 import { WorkersTab } from "./admin/workers/WorkersTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
@@ -99,9 +100,13 @@ function Routing() {
               <Route path="workers" element={<WorkersTab />} />
               <Route path="queue" element={<QueueTab />} />
               <Route path="folders" element={<FoldersTab />} />
+              <Route path="semantic" element={<SemanticTab />} />
               <Route path="workers/:id" element={<WorkersTab />} />
               {ADMIN_TABS.filter(
-                (tab) => !["workers", "queue", "folders"].includes(tab.path),
+                (tab) =>
+                  !["workers", "queue", "folders", "semantic"].includes(
+                    tab.path,
+                  ),
               ).map((tab) => (
                 <Route
                   key={tab.path}
