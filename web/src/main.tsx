@@ -210,6 +210,8 @@ function App() {
     candidate_done?: number;
     candidate_pending?: number;
     candidate_failed?: number;
+    reindex_pending?: number;
+    reindex_failed?: number;
   }>();
   const [embeddingModel, setEmbeddingModel] = useState("");
   const [editingTerm, setEditingTerm] = useState<VocabularyTerm>();
@@ -1932,6 +1934,13 @@ function App() {
                     État : {embeddingState.state} · {embeddingState.pending} en
                     attente · {embeddingState.done} indexées ·{" "}
                     {embeddingState.failed} en échec
+                  </p>
+                  <p>
+                    Segments corrigés en attente de réindexation :{" "}
+                    {embeddingState.reindex_pending ?? 0}
+                    {embeddingState.reindex_failed
+                      ? ` (dont ${embeddingState.reindex_failed} en échec)`
+                      : ""}
                   </p>
                   {embeddingState.error && (
                     <p role="status">Erreur : {embeddingState.error}</p>

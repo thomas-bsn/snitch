@@ -41,3 +41,14 @@ Corps : `text`, `expected_version` (obligatoire, 0 pour un segment jamais corrig
 ## Point d'extension « texte effectif »
 
 `app/internal/httpapi/segment_text.go` est l'unique lecteur du texte effectif : `visibleTranscriptsCTE` et `effectiveSegmentsCTE` (SQL), `visibleTranscription` et `overlaySegments` (Go), `authorizedSegment` (routes). La recherche et la réindexation doivent les utiliser plutôt que lire `jobs.result` directement.
+
+## Réindexation du seul segment corrigé
+
+Une correction de texte n'attend pas le service d'embeddings : elle est enregistrée avec `reindex_pending=true` (colonnes `reindex_*` de `segment_corrections`), puis un consommateur (`reindexNext`, appelé par la boucle d'indexation existante) recalcule le vecteur de **ce segment seul**.
+
+- Le texte embarqué est le texte effectif (la correction, ou l'original après une restauration). Un seul appel fournisseur par profil, une seule entrée.
+- Le vecteur remplace l'ancien sous la même clé `(profil, job de transcription, segment)` : jamais de doublon, les autres lignes de `transcript_embeddings` du clip ne sont pas réécrites. Le profil actif et, pendant une reconstruction, le profil candidat sont mis à jour ; la bascule ne ramène donc pas l'ancien texte.
+- Les tâches d'index par transcription (`indexNext`, remplissage, reconstruction) lisent aussi le texte effectif. Un segment corrigé entre la lecture de son texte et l'écriture de la tâche n'est pas écrasé : l'écriture est ignorée pour ce segment, que sa propre réindexation traite.
+- Fournisseur indisponible : la correction reste enregistrée (la lecture du clip la montre), le segment reste en attente et il est repris sans doublon, avec un délai croissant (30 s, 60 s, ...), au plus 5 tentatives. Le bail (`reindex_lease_expires_at`, 2 minutes) est repris à son expiration si un consommateur a disparu. Une nouvelle correction du segment remet les tentatives à zéro. Une correction d'une transcription qui n'est plus la transcription visible est ignorée.
+- `GET /api/admin/embeddings` expose `reindex_pending` (segments corrigés en attente) et `reindex_failed` (tentatives épuisées) ; l'administration les affiche dans « Index sémantique ». « Indexer les transcriptions existantes » (`POST /api/admin/embeddings/backfill`) redonne leurs tentatives aux segments épuisés.
+- Aucune retranscription ni retraitement de la vidéo n'a lieu.

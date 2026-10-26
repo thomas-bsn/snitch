@@ -30,6 +30,8 @@ type indexSegment struct {
 	End   float64 `json:"end"`
 	Text  string  `json:"text"`
 	Index int     `json:"-"`
+	// Version is the correction version the text was read at (0: never corrected).
+	Version int `json:"-"`
 }
 type indexResult struct {
 	Segments []indexSegment `json:"segments"`
@@ -68,6 +70,9 @@ func (s *Server) embeddingLoop(ctx context.Context) {
 		}
 		started := time.Now()
 		err := s.indexNext(ctx)
+		if reindexErr := s.reindexNext(ctx); err == nil {
+			err = reindexErr
+		}
 		delay := 50*time.Millisecond - time.Since(started)
 		if err != nil {
 			delay = time.Second
@@ -105,8 +110,20 @@ func (s *Server) indexNext(ctx context.Context) error {
 	if err = json.Unmarshal(raw, &transcript); err != nil {
 		return s.embeddingTaskFailed(ctx, taskID, err)
 	}
+	// The index holds the effective text (a correction replaces the original), so a
+	// rebuilt candidate never brings an old text back at the switch.
+	states, err := loadSegmentStates(ctx, s.Pool, jobID)
+	if err != nil {
+		return s.embeddingTaskFailed(ctx, taskID, err)
+	}
 	segments := make([]indexSegment, 0, len(transcript.Segments))
 	for index, seg := range transcript.Segments {
+		if st, found := states[index]; found && st.StaleAt == nil {
+			seg.Version = st.Version
+			if st.Text != nil {
+				seg.Text = *st.Text
+			}
+		}
 		if strings.TrimSpace(seg.Text) != "" {
 			seg.Index = index
 			segments = append(segments, seg)
@@ -178,7 +195,9 @@ func (s *Server) indexNext(ctx context.Context) error {
 			vals[j] = strconv.FormatFloat(float64(v), 'g', -1, 32)
 		}
 		vector := "[" + strings.Join(vals, ",") + "]"
-		if _, err = tx.Exec(ctx, `INSERT INTO transcript_embeddings(profile_id,transcription_job_id,clip_id,segment_index,segment_start,segment_end,text,embedding) VALUES($1,$2,$3,$4,$5,$6,$7,$8::vector) ON CONFLICT(profile_id,transcription_job_id,segment_index) DO UPDATE SET segment_start=EXCLUDED.segment_start,segment_end=EXCLUDED.segment_end,text=EXCLUDED.text,embedding=EXCLUDED.embedding`, profileID, jobID, clipID, seg.Index, seg.Start, seg.End, seg.Text, vector); err != nil {
+		// A segment corrected since its text was read is skipped: its own reindexing
+		// (segment_corrections.reindex_pending) writes the new text.
+		if _, err = tx.Exec(ctx, `INSERT INTO transcript_embeddings(profile_id,transcription_job_id,clip_id,segment_index,segment_start,segment_end,text,embedding) SELECT $1,$2,$3,$4,$5,$6,$7,$8::vector WHERE NOT EXISTS (SELECT 1 FROM segment_corrections sc WHERE sc.transcription_job_id=$2 AND sc.segment_index=$4 AND sc.version<>$9) ON CONFLICT(profile_id,transcription_job_id,segment_index) DO UPDATE SET segment_start=EXCLUDED.segment_start,segment_end=EXCLUDED.segment_end,text=EXCLUDED.text,embedding=EXCLUDED.embedding`, profileID, jobID, clipID, seg.Index, seg.Start, seg.End, seg.Text, vector, seg.Version); err != nil {
 			return err
 		}
 	}
@@ -254,45 +273,52 @@ func (s *Server) vectorFor(ctx context.Context, input string) (string, error) {
 	if err := s.Pool.QueryRow(ctx, `SELECT p.model FROM embedding_index_state s JOIN embedding_profiles p ON p.id=s.active_profile_id WHERE s.id=1`).Scan(&model); err != nil {
 		return "", err
 	}
+	vector, _, err := s.embedOne(ctx, model, input)
+	return vector, err
+}
+
+// embedOne asks the provider for the vector of one text; it returns the pgvector
+// literal and the dimension.
+func (s *Server) embedOne(ctx context.Context, model, input string) (string, int, error) {
 	body, _ := json.Marshal(embeddingBatch{Model: model, Input: []string{input}})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Config.EmbeddingsURL, strings.NewReader(string(body)))
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.Client.Do(req)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("provider status %d", resp.StatusCode)
+		return "", 0, fmt.Errorf("provider status %d", resp.StatusCode)
 	}
 	var result embeddingResponse
 	if err = json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&result); err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if err = orderEmbeddingData(result.Data); err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if len(result.Data) != 1 || len(result.Data[0].Embedding) == 0 || len(result.Data[0].Embedding) > 4000 {
-		return "", fmt.Errorf("invalid embedding response")
+		return "", 0, fmt.Errorf("invalid embedding response")
 	}
 	norm := float64(0)
 	for _, value := range result.Data[0].Embedding {
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
-			return "", fmt.Errorf("invalid embedding value")
+			return "", 0, fmt.Errorf("invalid embedding value")
 		}
 		norm += float64(value) * float64(value)
 	}
 	if norm == 0 {
-		return "", fmt.Errorf("zero embedding vector")
+		return "", 0, fmt.Errorf("zero embedding vector")
 	}
 	vals := make([]string, len(result.Data[0].Embedding))
 	for i, v := range result.Data[0].Embedding {
 		vals[i] = strconv.FormatFloat(float64(v), 'g', -1, 32)
 	}
-	return "[" + strings.Join(vals, ",") + "]", nil
+	return "[" + strings.Join(vals, ",") + "]", len(vals), nil
 }
 
 func orderEmbeddingData(data []embeddingData) error {
@@ -340,6 +366,8 @@ func (s *Server) embeddingStatus(w http.ResponseWriter, r *http.Request) {
 		CandidateDone    int    `json:"candidate_done,omitempty"`
 		CandidatePending int    `json:"candidate_pending,omitempty"`
 		CandidateFailed  int    `json:"candidate_failed,omitempty"`
+		ReindexPending   int    `json:"reindex_pending"`
+		ReindexFailed    int    `json:"reindex_failed"`
 	}
 	out.Configured = s.Config.EmbeddingsURL != ""
 	out.Provider = "openai-compatible"
@@ -357,12 +385,21 @@ func (s *Server) embeddingStatus(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	if err = s.Pool.QueryRow(r.Context(), `SELECT count(*),count(*) FILTER(WHERE reindex_attempts>=$1) FROM segment_corrections WHERE reindex_pending AND stale_at IS NULL`, maxReindexAttempts).Scan(&out.ReindexPending, &out.ReindexFailed); err != nil {
+		s.internal(w, err)
+		return
+	}
 	reply(w, 200, out)
 }
 
 func (s *Server) backfillEmbeddings(w http.ResponseWriter, r *http.Request) {
 	tag, err := s.Pool.Exec(r.Context(), `WITH latest AS (SELECT DISTINCT ON (clip_id) id FROM jobs WHERE status='done' AND step LIKE 'transcription.audio.%' ORDER BY clip_id,updated_at DESC,id DESC) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT p.id,j.id FROM embedding_profiles p JOIN embedding_index_state st ON st.active_profile_id=p.id CROSS JOIN latest j ON CONFLICT(profile_id,transcription_job_id) DO UPDATE SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE embedding_tasks.state='failed'`)
 	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	// Corrected segments whose reindexing ran out of attempts get a new chance.
+	if _, err = s.Pool.Exec(r.Context(), `UPDATE segment_corrections SET reindex_attempts=0,reindex_lease_expires_at=NULL WHERE reindex_pending AND reindex_attempts>=$1`, maxReindexAttempts); err != nil {
 		s.internal(w, err)
 		return
 	}

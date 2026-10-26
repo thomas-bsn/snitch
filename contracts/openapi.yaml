@@ -3149,14 +3149,14 @@
     "/api/admin/embeddings": {
       "get": {
         "operationId": "getEmbeddingIndexStatus",
-        "description": "Administrateurs uniquement. État de l’index actif et file d’indexation.",
+        "description": "Administrateurs uniquement. État de l’index actif et file d’indexation, plus le nombre de segments corrigés en attente de réindexation (reindex_pending, dont reindex_failed aux tentatives épuisées). Une correction est enregistrée même si le fournisseur d’embeddings est indisponible ; seul le vecteur du segment corrigé est recalculé ensuite, pour l’index actif et l’index candidat.",
         "responses": {
           "200": {
             "description": "État de l’index",
             "content": {"application/json": {"schema": {
               "type": "object",
-              "required": ["configured", "provider", "model", "dimensions", "state", "pending", "done", "failed"],
-              "properties": {"configured": {"type": "boolean"}, "provider": {"type": "string"}, "model": {"type": "string"}, "dimensions": {"type": "integer"}, "state": {"type": "string"}, "error": {"type": "string"}, "pending": {"type": "integer"}, "done": {"type": "integer"}, "failed": {"type": "integer"}, "candidate_model": {"type": "string"}, "candidate_state": {"type": "string"}, "candidate_error": {"type": "string"}, "candidate_total": {"type": "integer"}, "candidate_done": {"type": "integer"}, "candidate_pending": {"type": "integer"}, "candidate_failed": {"type": "integer"}}
+              "required": ["configured", "provider", "model", "dimensions", "state", "pending", "done", "failed", "reindex_pending", "reindex_failed"],
+              "properties": {"configured": {"type": "boolean"}, "provider": {"type": "string"}, "model": {"type": "string"}, "dimensions": {"type": "integer"}, "state": {"type": "string"}, "error": {"type": "string"}, "pending": {"type": "integer"}, "done": {"type": "integer"}, "failed": {"type": "integer"}, "candidate_model": {"type": "string"}, "candidate_state": {"type": "string"}, "candidate_error": {"type": "string"}, "candidate_total": {"type": "integer"}, "candidate_done": {"type": "integer"}, "candidate_pending": {"type": "integer"}, "candidate_failed": {"type": "integer"}, "reindex_pending": {"type": "integer", "description": "Segments corrigés dont le vecteur n’est pas encore recalculé (actuels, non obsolètes)."}, "reindex_failed": {"type": "integer", "description": "Parmi eux, ceux dont les tentatives sont épuisées : une relance de l’indexation (backfill) leur donne une nouvelle chance."}}
             }}}
           }
         },

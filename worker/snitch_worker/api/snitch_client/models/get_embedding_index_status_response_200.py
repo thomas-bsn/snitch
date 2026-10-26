@@ -31,6 +31,9 @@ class GetEmbeddingIndexStatusResponse200:
             pending (int):
             done (int):
             failed (int):
+            reindex_pending (int): Segments corrigés dont le vecteur n’est pas encore recalculé (actuels, non obsolètes).
+            reindex_failed (int): Parmi eux, ceux dont les tentatives sont épuisées : une relance de l’indexation (backfill)
+                leur donne une nouvelle chance.
             error (str | Unset):
             candidate_model (str | Unset):
             candidate_state (str | Unset):
@@ -49,6 +52,8 @@ class GetEmbeddingIndexStatusResponse200:
     pending: int
     done: int
     failed: int
+    reindex_pending: int
+    reindex_failed: int
     error: str | Unset = UNSET
     candidate_model: str | Unset = UNSET
     candidate_state: str | Unset = UNSET
@@ -80,6 +85,10 @@ class GetEmbeddingIndexStatusResponse200:
 
         failed = self.failed
 
+        reindex_pending = self.reindex_pending
+
+        reindex_failed = self.reindex_failed
+
         error = self.error
 
         candidate_model = self.candidate_model
@@ -108,6 +117,8 @@ class GetEmbeddingIndexStatusResponse200:
             "pending": pending,
             "done": done,
             "failed": failed,
+            "reindex_pending": reindex_pending,
+            "reindex_failed": reindex_failed,
         })
         if error is not UNSET:
             field_dict["error"] = error
@@ -149,6 +160,10 @@ class GetEmbeddingIndexStatusResponse200:
 
         failed = d.pop("failed")
 
+        reindex_pending = d.pop("reindex_pending")
+
+        reindex_failed = d.pop("reindex_failed")
+
         error = d.pop("error", UNSET)
 
         candidate_model = d.pop("candidate_model", UNSET)
@@ -174,6 +189,8 @@ class GetEmbeddingIndexStatusResponse200:
             pending=pending,
             done=done,
             failed=failed,
+            reindex_pending=reindex_pending,
+            reindex_failed=reindex_failed,
             error=error,
             candidate_model=candidate_model,
             candidate_state=candidate_state,

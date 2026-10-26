@@ -1247,7 +1247,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs uniquement. État de l’index actif et file d’indexation. */
+    /** @description Administrateurs uniquement. État de l’index actif et file d’indexation, plus le nombre de segments corrigés en attente de réindexation (reindex_pending, dont reindex_failed aux tentatives épuisées). Une correction est enregistrée même si le fournisseur d’embeddings est indisponible ; seul le vecteur du segment corrigé est recalculé ensuite, pour l’index actif et l’index candidat. */
     get: operations["getEmbeddingIndexStatus"];
     put?: never;
     post?: never;
@@ -5881,6 +5881,10 @@ export interface operations {
             candidate_done?: number;
             candidate_pending?: number;
             candidate_failed?: number;
+            /** @description Segments corrigés dont le vecteur n’est pas encore recalculé (actuels, non obsolètes). */
+            reindex_pending: number;
+            /** @description Parmi eux, ceux dont les tentatives sont épuisées : une relance de l’indexation (backfill) leur donne une nouvelle chance. */
+            reindex_failed: number;
           };
         };
       };
