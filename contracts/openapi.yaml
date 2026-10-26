@@ -4299,6 +4299,57 @@
           },
           "connected": {
             "type": "boolean"
+          },
+          "models": {
+            "$ref": "#/components/schemas/WorkerModels",
+            "description": "Modèles déclarés par le worker à son dernier pouls, visibles des administrateurs. Un rôle absent est « non déclaré »."
+          }
+        }
+      },
+      "WorkerModels": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs ressemblant à un secret sont refusées.",
+        "properties": {
+          "transcription": {
+            "$ref": "#/components/schemas/WorkerModel"
+          },
+          "diarization": {
+            "$ref": "#/components/schemas/WorkerModel"
+          },
+          "fingerprint": {
+            "$ref": "#/components/schemas/WorkerModel"
+          }
+        }
+      },
+      "WorkerModel": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "model"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$",
+            "maxLength": 128
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$",
+            "maxLength": 128
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$",
+            "maxLength": 64
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Hôte et port seulement (hote:port), jamais de schéma, de chemin, de paramètre ni d’identifiants.",
+            "pattern": "^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(:[0-9]{1,5})?$",
+            "maxLength": 262
           }
         }
       },
@@ -4406,6 +4457,10 @@
               "pattern": "^[a-z][a-z0-9_.-]{0,127}(\\.\\*)?$",
               "maxLength": 130
             }
+          },
+          "models": {
+            "$ref": "#/components/schemas/WorkerModels",
+            "description": "Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer."
           }
         }
       },

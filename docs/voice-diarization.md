@@ -21,6 +21,10 @@ Deux étapes versionnées de la file existante, planifiées uniquement par l'adm
 
 Le fournisseur factice (`fake`) est déterministe et réservé aux tests : N locuteurs (1 à 8) alternent sur des tranches égales de la durée du clip, avec des empreintes déterministes de dimension configurable.
 
+## Modèles déclarés par le worker
+
+Le worker déclare à l'application, à chaque pouls, les modèles vocaux qu'il utilise ; la page Workers les affiche aux administrateurs. Variables d'environnement (toutes facultatives, jamais de secret) : `SNITCH_VOICE_DIARIZATION_PROVIDER`, `_MODEL`, `_VERSION` et `SNITCH_VOICE_FINGERPRINT_PROVIDER`, `_MODEL`, `_VERSION` (fournisseur et modèle requis pour qu'un rôle soit déclaré, version facultative). Sans elles, le rôle est affiché « non déclaré », y compris avec le fournisseur factice. Cette déclaration est informative : le modèle réellement appliqué à une tâche reste celui du pipeline vocal, enregistré avec chaque résultat et chaque empreinte. Détails et règles de validation : [transcription-worker.md](transcription-worker.md#modèles-déclarés).
+
 ## Résultat et reprise
 
 Le worker récupère sa configuration dans l'entrée de la tâche (`voice`) et ne parle qu'à l'API HTTPS avec son jeton limité. Le résultat est validé (modèle et version identiques au snapshot, étiquettes uniques, temps valides, dimensions cohérentes) puis écrit dans la **même transaction** que l'achèvement de la tâche : l'ancien résultat du clip est supprimé puis remplacé, sans doublon à la reprise. Un résultat d'empreintes ne laisse aucun vecteur dans `jobs.result` : la tâche ne garde qu'un résumé (modèle, dimensions, nombre d'empreintes) et un condensé SHA-256 du résultat reçu pour reconnaître une reprise identique (migration 00031, qui nettoie aussi les lignes existantes) ; les vecteurs ne vivent que dans `voice_fingerprints`. Un lease expiré ou une version d'entrée périmée est refusé (`lease_not_owned`), de même qu'un résultat d'empreintes calculé sur une diarisation remplacée (`stale_voice_result`). Une diarisation sans voix est un succès. Une voix inconnue ne bloque jamais l'achèvement.

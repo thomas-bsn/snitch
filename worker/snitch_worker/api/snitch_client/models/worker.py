@@ -8,9 +8,12 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
+if TYPE_CHECKING:
+  from ..models.worker_models import WorkerModels
 
 
 
@@ -32,6 +35,9 @@ class Worker:
             created_at (datetime.datetime):
             revoked_at (datetime.datetime | None):
             connected (bool):
+            models (WorkerModels | Unset): Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais
+                de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs
+                ressemblant à un secret sont refusées.
      """
 
     id: str
@@ -42,6 +48,7 @@ class Worker:
     created_at: datetime.datetime
     revoked_at: datetime.datetime | None
     connected: bool
+    models: WorkerModels | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -49,6 +56,7 @@ class Worker:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.worker_models import WorkerModels # noqa: PLC0415
         id = self.id
 
         name = self.name
@@ -73,6 +81,10 @@ class Worker:
 
         connected = self.connected
 
+        models: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.models, Unset):
+            models = self.models.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -86,6 +98,8 @@ class Worker:
             "revoked_at": revoked_at,
             "connected": connected,
         })
+        if models is not UNSET:
+            field_dict["models"] = models
 
         return field_dict
 
@@ -93,6 +107,7 @@ class Worker:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.worker_models import WorkerModels # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -145,6 +160,16 @@ class Worker:
 
         connected = d.pop("connected")
 
+        _models = d.pop("models", UNSET)
+        models: WorkerModels | Unset
+        if isinstance(_models,  Unset):
+            models = UNSET
+        else:
+            models = WorkerModels.from_dict(_models)
+
+
+
+
         worker = cls(
             id=id,
             name=name,
@@ -154,6 +179,7 @@ class Worker:
             created_at=created_at,
             revoked_at=revoked_at,
             connected=connected,
+            models=models,
         )
 
 

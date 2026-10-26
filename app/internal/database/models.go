@@ -469,4 +469,5 @@ type Worker struct {
 	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	SupportedSteps      []string           `json:"supported_steps"`
+	Models              []byte             `json:"models"`
 }

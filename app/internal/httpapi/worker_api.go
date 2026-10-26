@@ -99,8 +99,9 @@ func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Capacity       int      `json:"capacity"`
-		SupportedSteps []string `json:"supported_steps"`
+		Capacity       int            `json:"capacity"`
+		SupportedSteps []string       `json:"supported_steps"`
+		Models         workers.Models `json:"models"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -110,9 +111,11 @@ func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_worker_capacity")
 		return
 	}
-	if err := s.Workers.Pulse(r.Context(), worker.ID, input.Capacity, input.SupportedSteps); err != nil {
+	if err := s.Workers.Pulse(r.Context(), worker.ID, input.Capacity, input.SupportedSteps, input.Models); err != nil {
 		if errors.Is(err, workers.ErrUnauthorized) {
 			fail(w, http.StatusUnauthorized, "worker_token_invalid")
+		} else if errors.Is(err, workers.ErrInvalidInput) && !input.Models.Valid() {
+			fail(w, http.StatusBadRequest, "invalid_worker_models")
 		} else if errors.Is(err, workers.ErrInvalidInput) {
 			fail(w, http.StatusBadRequest, "invalid_worker_capabilities")
 		} else {
@@ -121,6 +124,7 @@ func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	worker.ReportedConcurrency = input.Capacity
+	worker.Models = input.Models
 	now := time.Now().UTC()
 	worker.LastSeenAt = &now
 	worker.Connected = true
