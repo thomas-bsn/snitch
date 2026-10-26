@@ -18,7 +18,7 @@ image = sys.argv[1] if len(sys.argv) > 1 else 'snitch-smoke:local'
 report = {}
 with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
     temp = Path(temp)
-    env = dict(os.environ, SNITCH_IMAGE=image, POSTGRES_IMAGE=images['postgres'], EMBED_IMAGE=images['embed'],
+    env = dict(os.environ, SNITCH_IMAGE=image,
                POSTGRES_PASSWORD='synthetic:@/?#%+ '+secrets.token_hex(16), MASTER_KEY=base64.b64encode(secrets.token_bytes(32)).decode(),
                PUBLIC_URL='http://127.0.0.1:8080', COOKIE_SECURE='false', DISPLAY_NAME='Synthetic distribution', CLIPS_ROOTS='', EMBEDDINGS_MODEL='')
     override = temp / 'local.yaml'

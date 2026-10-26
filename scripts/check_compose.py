@@ -1,9 +1,23 @@
 """Validate this distribution's Forgeyard contract (not a replacement Forgeyard parser)."""
 from copy import deepcopy
 from pathlib import Path
+import json
 import re
 from ruamel.yaml import YAML
 root = Path(__file__).resolve().parents[1]
+UPSTREAM = json.loads((root/'deploy/upstream-images.json').read_text())
+VARIABLES = {'postgres':'POSTGRES_IMAGE','embed':'EMBED_IMAGE'}
+APP_IMAGE = r'ghcr\.io/[a-z0-9._/-]+(:[A-Za-z0-9._-]+)?(@sha256:[0-9a-f]{64})?|\$\{[A-Z_]+:-ghcr\.io/[a-z0-9._/-]+:[A-Za-z0-9._-]+\}'
+
+def check_image(name, image):
+    assert isinstance(image,str)
+    if name in VARIABLES:
+        # Upstream images: exactly the reference pinned by digest in upstream-images.json, nothing else.
+        pinned = UPSTREAM[name]
+        assert re.search(r'@sha256:[0-9a-f]{64}$',pinned)
+        assert image in (pinned, '${'+VARIABLES[name]+':-'+pinned+'}')
+    else:
+        assert re.fullmatch(APP_IMAGE,image)
 
 def check(d):
     assert set(d) <= {'services','volumes','name','version'} | {k for k in d if k.startswith('x-')}
@@ -16,7 +30,7 @@ def check(d):
     allowed = {'image','command','entrypoint','user','environment','volumes','depends_on','healthcheck','restart','x-forgeyard'}
     for name, s in services.items():
         assert set(s) <= allowed
-        assert isinstance(s.get('image'),str) and re.fullmatch(r'ghcr\.io/[a-z0-9._/-]+(:[A-Za-z0-9._-]+)?(@sha256:[0-9a-f]{64})?|\$\{[A-Z_]+:-ghcr\.io/[a-z0-9._/-]+:[A-Za-z0-9._-]+\}',s['image'])
+        check_image(name,s.get('image'))
         assert isinstance(s.get('environment',{}),dict)
         for key in ('command','entrypoint'):
             assert key not in s or isinstance(s[key],(list,str))
@@ -73,7 +87,13 @@ if __name__=='__main__':
         ('unknown dependency',lambda d:d['services']['app']['depends_on'].update(missing={'condition':'service_started'})),
         ('invalid health',lambda d:d['services']['app']['healthcheck'].update(test=['SHELL','true'])),
         ('image without ghcr default',lambda d:d['services']['app'].update(image='${SNITCH_IMAGE:?Set SNITCH_IMAGE}')),
-        ('foreign registry image',lambda d:d['services']['embed'].update(image='${EMBED_IMAGE:-ollama/ollama:latest}')),
+        ('floating tag without digest',lambda d:d['services']['embed'].update(image='${EMBED_IMAGE:-ollama/ollama:0.40.10}')),
+        ('latest tag',lambda d:d['services']['postgres'].update(image='${POSTGRES_IMAGE:-pgvector/pgvector:latest}')),
+        ('different upstream image',lambda d:d['services']['embed'].update(image='${EMBED_IMAGE:-ollama/ollama:0.40.10@sha256:'+'0'*64+'}')),
+        ('wrong variable name',lambda d:d['services']['postgres'].update(image=d['services']['postgres']['image'].replace('POSTGRES_IMAGE','EMBED_IMAGE'))),
+        ('mirror instead of upstream',lambda d:d['services']['postgres'].update(image='${POSTGRES_IMAGE:-ghcr.io/thomas-bsn/snitch-postgres:latest}')),
+        ('unknown non-ghcr image',lambda d:d['services']['app'].update(image='${SNITCH_IMAGE:-docker.io/library/nginx:latest}')),
+        ('unknown non-ghcr literal',lambda d:d['services']['migrate'].update(image='nginx:latest')),
         ('wrong backup',lambda d:d['services']['postgres']['x-forgeyard'].update(backup={'type':'files'})),
     ]
     for label, mutate in fixtures:
