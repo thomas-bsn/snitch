@@ -4383,7 +4383,8 @@
           "last_seen_at",
           "created_at",
           "revoked_at",
-          "token"
+          "token",
+          "bundle"
         ],
         "properties": {
           "id": {
@@ -4419,6 +4420,30 @@
           "token": {
             "type": "string",
             "minLength": 32
+          },
+          "bundle": {
+            "$ref": "#/components/schemas/WorkerBundle"
+          }
+        }
+      },
+      "WorkerBundle": {
+        "type": "object",
+        "description": "Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton.",
+        "required": [
+          "compose",
+          "env",
+          "insecure_api_url"
+        ],
+        "properties": {
+          "compose": {
+            "type": "string"
+          },
+          "env": {
+            "type": "string"
+          },
+          "insecure_api_url": {
+            "type": "boolean",
+            "description": "Vrai si PUBLIC_URL n'est pas en HTTPS : le worker refuse le HTTP."
           }
         }
       },

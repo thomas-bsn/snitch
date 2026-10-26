@@ -1559,6 +1559,14 @@ export interface components {
       /** Format: date-time */
       revoked_at: string | null;
       token: string;
+      bundle: components["schemas"]["WorkerBundle"];
+    };
+    /** @description Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton. */
+    WorkerBundle: {
+      compose: string;
+      env: string;
+      /** @description Vrai si PUBLIC_URL n'est pas en HTTPS : le worker refuse le HTTP. */
+      insecure_api_url: boolean;
     };
     WorkerPage: {
       items: components["schemas"]["Worker"][];

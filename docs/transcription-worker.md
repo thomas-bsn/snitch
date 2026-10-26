@@ -30,3 +30,17 @@ Les tests utilisent un transcripteur déterministe et des médias synthétiques 
 ## Profil de pipeline et VAD
 
 L’administration expose le profil actif, son identifiant immuable et le mode de détection d’activité vocale. Les versions de piste, vocabulaire, préparation, modèle logique, langue et paramètres VAD forment l’identité des tâches. Le VAD énergie (ou désactivé) renvoie des intervalles relatifs au WAV source ; le worker décale les timestamps des mots et segments avec les mêmes offsets avant enregistrement. Le modèle concret et ses secrets restent configurés sur le worker ; le profil `model` doit correspondre à `TRANSCRIPTION_MODEL`.
+
+## Compose généré à la création d’un worker
+
+Quand un administrateur crée un worker (page Workers), la réponse de `POST /api/admin/workers` contient, en plus du jeton, un objet `bundle` avec le `compose.yaml` et le `.env` du worker GPU. L’interface les affiche avec des boutons Copier et Télécharger. Comme le jeton, ils ne sont générés qu’à la création, jamais stockés ni relus : le `.env` contient le jeton, à ne pas versionner ni partager. Le texte vient d’un gabarit unique côté serveur (`app/internal/workers/bundle.go`, testé) ; le compose est statique et reste cohérent avec `deploy/worker/compose.yaml` (GPU NVIDIA, `extra_hosts`, `pull_policy: always`), mais utilise un volume nommé `snitch-models` en écriture, car les modèles se téléchargent au premier démarrage.
+
+Le `.env` généré contient :
+
+- `SNITCH_API_URL` : le `PUBLIC_URL` de l’instance. S’il n’est pas en HTTPS, l’interface (champ `insecure_api_url`) et un commentaire du `.env` avertissent que le worker refuse le HTTP.
+- `SNITCH_WORKER_TOKEN` : le jeton qui vient d’être créé, seul secret généré.
+- `SNITCH_WORKER_IMAGE` : la variable `WORKER_IMAGE` de l’application. Par défaut `ghcr.io/thomas-bsn/snitch-worker-gpu:latest` : l’application ne connaît pas de version de publication. Épingler `WORKER_IMAGE` sur un tag ou un digest publié pour maîtriser les mises à jour.
+- `TRANSCRIPTION_API_URL`, `TRANSCRIPTION_MODEL` et `HF_TOKEN` : valeurs `A_RENSEIGNER` à fournir. `HF_TOKEN` ne sert qu’au premier téléchargement des modèles et n’est jamais lu par le worker.
+- `SNITCH_VOICE_DOWNLOAD_ON_START=1` et `SNITCH_VOICE_CONFIRM_TERMS=1` : téléchargement des modèles au premier démarrage.
+
+Les valeurs du `.env` sont échappées pour Docker Compose (guillemets doubles, `\`, `\"`, `\$` et retours à la ligne si un caractère n’est pas sûr). Sur le PC : placer les deux fichiers dans un dossier, renseigner les `A_RENSEIGNER`, puis `docker compose up -d`. Un navigateur peut renommer `.env` au téléchargement ; le bouton propose `snitch-worker.env` (à renommer, ou `docker compose --env-file snitch-worker.env up -d`).

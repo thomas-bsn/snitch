@@ -158,6 +158,7 @@ from .voice_verification_case import VoiceVerificationCase
 from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
 from .voice_verification_counts import VoiceVerificationCounts
 from .worker import Worker
+from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
 from .worker_failure_input import WorkerFailureInput
 from .worker_job_input import WorkerJobInput
@@ -335,6 +336,7 @@ __all__ = (
     "VoiceVerificationCaseDecisionLevel",
     "VoiceVerificationCounts",
     "Worker",
+    "WorkerBundle",
     "WorkerClaim",
     "WorkerFailureInput",
     "WorkerJobInput",
