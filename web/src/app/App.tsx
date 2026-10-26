@@ -11,16 +11,11 @@ import { ADMIN_TABS } from "./admin/tabs";
 import { WorkersTab } from "./admin/workers/WorkersTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
-import {
-  AccountPage,
-  Forbidden,
-  ImportPage,
-  NotFound,
-  SearchPage,
-} from "./pages/pages";
+import { AccountPage, Forbidden, NotFound, SearchPage } from "./pages/pages";
 import { isAdministrator } from "./roles";
 import { ConnectionLost, Splash } from "./screens/ConnectionLost";
 import { ClipPage } from "./library/ClipPage";
+import { ImportPage } from "./import/ImportPage";
 import { LibraryPage } from "./library/LibraryPage";
 import { InstallationPending } from "./screens/InstallationPending";
 import { LoginPage } from "./screens/LoginPage";

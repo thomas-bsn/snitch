@@ -35,7 +35,6 @@ function Placeholder({ title }: { title: MessageKey }) {
   );
 }
 
-export const ImportPage = () => <Placeholder title="pages.import.title" />;
 export const AccountPage = () => <Placeholder title="pages.account.title" />;
 
 export function SearchPage() {

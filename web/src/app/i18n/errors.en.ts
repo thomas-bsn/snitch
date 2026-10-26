@@ -109,6 +109,7 @@ export const errorsEn = {
   microphone_track_not_diarized: "The microphone track has no voices yet.",
   no_linked_person: "No person is linked to your account.",
   not_attributed_to_person: "This voice is not attributed to a person.",
+  network_failure: "The connection was interrupted.",
   not_found: "This does not exist.",
   not_pending: "This sign-up is not waiting for approval.",
   not_unknown: "This voice is no longer unknown.",
