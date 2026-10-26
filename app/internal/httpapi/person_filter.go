@@ -63,7 +63,7 @@ func effectiveAttributionOf(ls string) string {
 // correction (phase 6): the speaker step reads the segment_corrections override
 // through them; until then they are ignored.
 func segmentSpeakerJoin(alias, clip, stream, start, end, job, idx string) string {
-	_, _ = job, idx
+	_, _ = job, idx // read by the speaker step; search already passes them
 	overlap := fmt.Sprintf("LEAST(%s,st.end_seconds)-GREATEST(%s,st.start_seconds)", end, start)
 	return fmt.Sprintf(` LEFT JOIN LATERAL (SELECT CASE WHEN eff.decision_level IN %[7]s THEN eff.person_id END person_id,
  CASE WHEN eff.decision_level IN %[7]s THEN p.display_name END person_name,COALESCE(eff.decision_level,'unknown') level

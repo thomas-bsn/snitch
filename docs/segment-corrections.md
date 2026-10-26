@@ -60,3 +60,13 @@ Le contrôle de version du `PUT` garantit qu'une correction ne remplace jamais s
 Interface : en cas de conflit, le formulaire reste ouvert avec le brouillon intact et un bloc « Conflit sur le segment N » indique qui a modifié le segment et quand, ainsi que la version actuelle. « Reprendre ma modification » enregistre le brouillon (éventuellement retouché) par-dessus la version actuelle ; « Abandonner ma modification » ferme le formulaire et jette le brouillon. La transcription affichée est actualisée en arrière-plan.
 
 Tests : `segment_concurrency_test.go` (requêtes simultanées par goroutines sur PostgreSQL réel : un gagnant, conflit avec version et auteur, huit écrivains simultanés, segments différents sans conflit) et `web/e2e/segment-conflicts.spec.ts` (deux utilisateurs, drapeau `SNITCH_E2E_SEGMENT_CORRECTIONS=1`).
+
+## Recherche dans le texte corrigé
+
+Les quatre modes de `GET /api/search` lisent le texte effectif (`eff_segments`), jamais `jobs.result` directement :
+
+- **exact** : les mots d'un segment non corrigé sont ses mots d'origine ; ceux d'un segment corrigé sont découpés dans le texte corrigé (séparation sur les blancs, ponctuation de bord retirée), tous datés au début du segment (les mots ne sont pas réalignés). Les mots d'origine d'un segment corrigé ne produisent donc plus aucun résultat ;
+- **plein texte** et **approximatif** : la sous-chaîne et la similarité trigramme s'appliquent au texte corrigé et à ses mots ;
+- **hybride** : la voie lexicale est la recherche plein texte ci-dessus (rappelée en interne). La voie sémantique lit `transcript_embeddings`, dont le texte et le vecteur datent de l'indexation : le texte affiché est le texte effectif (jointure sur `segment_corrections`), et un segment dont la réindexation est en attente (`reindex_pending`) n'est pas proposé par cette voie, pour ne pas faire remonter l'ancien texte par son ancien vecteur. Il redevient trouvable sémantiquement une fois réindexé (indexation par segment à la charge de la réindexation) ; la voie lexicale le trouve immédiatement.
+
+Chaque résultat porte `corrected` (vrai si `context` est le texte corrigé) ; l'interface affiche alors un badge « Corrigé ». `timestamp` reste le début du mot d'origine (segment non corrigé) ou le début du segment (segment corrigé) : l'ouverture se fait à cet horodatage. Permissions de visibilité, filtres et filtre par Personne s'appliquent avant les comptes et la pagination, comme avant ; le locuteur d'un segment est résolu par `segmentSpeakerJoin`, à qui la recherche passe déjà l'identité du segment (transcription, index).

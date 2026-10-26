@@ -5807,10 +5807,12 @@
           "context",
           "matched_text",
           "timestamp",
+          "corrected",
           "person",
           "decision_level"
         ],
         "properties": {
+          "corrected": {"type": "boolean", "description": "Vrai si le contexte est le texte corrigé du segment (phase 6) ; la recherche porte toujours sur le texte effectif, jamais sur l’ancien texte remplacé."},
           "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true, "description": "Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté."},
           "decision_level": {"allOf": [{"$ref": "#/components/schemas/DecisionLevel"}], "description": "Niveau de décision tracé de l’attribution effective ; unknown sans attribution ou sans voix détectée."},
           "clip_id": {

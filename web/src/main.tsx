@@ -82,6 +82,7 @@ type SearchResult = {
   context: string;
   matched_text: string;
   timestamp: number;
+  corrected?: boolean;
   person?: { id: number; display_name: string } | null;
   decision_level?: components["schemas"]["DecisionLevel"];
 };
@@ -1389,6 +1390,14 @@ function App() {
                                     : "Plein texte"}
                             <p>
                               {highlighted(item.context, item.matched_text)}
+                              {item.corrected && (
+                                <>
+                                  {" "}
+                                  <span className="segment-correction-badge">
+                                    Corrigé
+                                  </span>
+                                </>
+                              )}
                             </p>
                             <ResultSpeaker
                               person={item.person}

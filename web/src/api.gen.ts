@@ -2491,6 +2491,8 @@ export interface components {
       preferred_spelling: string;
     };
     SearchResult: {
+      /** @description Vrai si le contexte est le texte corrigé du segment (phase 6) ; la recherche porte toujours sur le texte effectif, jamais sur l’ancien texte remplacé. */
+      corrected: boolean;
       /** @description Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté. */
       person: components["schemas"]["PersonRef"] | null;
       /** @description Niveau de décision tracé de l’attribution effective ; unknown sans attribution ou sans voix détectée. */
