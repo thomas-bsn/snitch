@@ -18,11 +18,20 @@ image = sys.argv[1] if len(sys.argv) > 1 else 'snitch-smoke:local'
 report = {}
 with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
     temp = Path(temp)
-    env = dict(os.environ, SNITCH_IMAGE=image,
-               POSTGRES_PASSWORD='synthetic:@/?#%+ '+secrets.token_hex(16), MASTER_KEY=base64.b64encode(secrets.token_bytes(32)).decode(),
+    # No POSTGRES_PASSWORD: the deployment must start without it. An explicit one is tested separately
+    # (existing installations keep working).
+    base_env = {k: v for k, v in os.environ.items() if k != 'POSTGRES_PASSWORD'}
+    env = dict(base_env, SNITCH_IMAGE=image, MASTER_KEY=base64.b64encode(secrets.token_bytes(32)).decode(),
                PUBLIC_URL='http://127.0.0.1:8080', COOKIE_SECURE='false', DISPLAY_NAME='Synthetic distribution', CLIPS_ROOTS='', EMBEDDINGS_MODEL='')
+    explicit_password = 'synthetic:@/?#%+ '+secrets.token_hex(16)
+    explicit_env = dict(env, POSTGRES_PASSWORD=explicit_password)
+    # An empty env file keeps a developer's local .env out of the test: the variables above are the only ones.
+    empty_env = temp / 'empty.env'
+    empty_env.write_text('')
     override = temp / 'local.yaml'
     override.write_text('''services:
+  secrets:
+    mem_limit: 64m
   postgres:
     mem_limit: 512m
   migrate:
@@ -35,23 +44,51 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
 ''')
     failure = temp / 'failure.yaml'
     failure.write_text('services:\n  migrate:\n    command: [deliberately-invalid-command]\n')
-    def docker(*args, check=True):
-        result = subprocess.run(['docker', *args], env=env, cwd=root, capture_output=True, text=True)
+    good, bad, explicit = 'snitch-test-'+secrets.token_hex(5), 'snitch-fail-'+secrets.token_hex(5), 'snitch-explicit-'+secrets.token_hex(5)
+    projects = [good, bad, explicit]
+    environments = {good: env, bad: env, explicit: explicit_env}
+    def docker(*args, check=True, environment=env):
+        result = subprocess.run(['docker', *args], env=environment, cwd=root, capture_output=True, text=True)
         if check and result.returncode:
             raise RuntimeError('Docker operation failed (output withheld to protect bootstrap credentials): '+args[0])
         return result
     def compose(project, *args, fail=False, check=True):
-        files = ['-f', str(root/'compose.yaml'), '-f', str(override)]
+        files = ['--env-file', str(empty_env), '-f', str(root/'compose.yaml'), '-f', str(override)]
         if fail:
             files += ['-f', str(failure)]
-        return docker('compose', '-p', project, *files, *args, check=check)
+        return docker('compose', '-p', project, *files, *args, check=check, environment=environments[project])
     def state(project, service):
         identifier = compose(project, 'ps', '-aq', service).stdout.strip()
         return json.loads(docker('inspect', identifier).stdout)[0]
-    projects = ['snitch-test-'+secrets.token_hex(5), 'snitch-fail-'+secrets.token_hex(5)]
+    def up(project):
+        return compose(project, 'up', '-d', '--wait', '--wait-timeout', '150', check=False)
+    def stored_password(project):
+        return compose(project, 'exec', '-T', 'app', 'cat', '/data/secrets/postgres_password').stdout
+    def fingerprint(project):
+        # Hash only: the password itself is never printed.
+        return compose(project, 'exec', '-T', 'app', 'sha256sum', '/data/secrets/postgres_password').stdout.split()[0]
+    def api(project, path, payload=None):
+        base = 'http://'+compose(project, 'port', 'app', '8080').stdout.strip()
+        data = None if payload is None else json.dumps(payload).encode()
+        req = urllib.request.Request(base+path, data=data, headers={'Content-Type':'application/json', 'Origin':env['PUBLIC_URL']})
+        return urllib.request.urlopen(req, timeout=15)
+    def install(project):
+        logs = compose(project, 'logs', '--no-log-prefix', 'app').stdout
+        code = next(json.loads(line)['code'] for line in logs.splitlines() if 'one-time installation code' in line)
+        assert api(project, '/api/setup', {'code':code, 'username':'synthetic-admin', 'password':secrets.token_urlsafe(24)}).status == 201
+    def wait_initialized(project):
+        for _ in range(60):
+            try:
+                assert json.load(api(project, '/api/setup'))['initialized']
+                return
+            except (OSError, AssertionError):
+                time.sleep(1)
+        raise AssertionError('Installation did not persist over restart')
+    def psql(project, password):
+        # Through the service name, not loopback: the image trusts local connections, but not the network ones.
+        return compose(project, 'exec', '-T', '-e', 'PGPASSWORD='+password, 'postgres', 'psql', '-h', 'postgres', '-U', 'receipts', '-d', 'receipts', '-tAc', 'select 1', check=False)
     try:
-        good, bad = projects
-        started = compose(good, 'up', '-d', '--wait', '--wait-timeout', '150', check=False)
+        started = up(good)
         if started.returncode:
             # Diagnostic without secrets: the tail of the `up` output (pull progress and container events, never
             # service logs), the service states, and the logs of the services that never print the one-time
@@ -63,32 +100,30 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
                 print('--- '+service, file=sys.stderr)
                 print(compose(good, 'logs', '--no-log-prefix', '--tail', '15', service, check=False).stdout, file=sys.stderr)
             raise RuntimeError('Docker operation failed (output withheld to protect bootstrap credentials): compose up')
+        assert state(good, 'secrets')['State']['ExitCode'] == 0
         assert state(good, 'migrate')['State']['ExitCode'] == 0
-        address = compose(good, 'port', 'app', '8080').stdout.strip()
-        base = 'http://'+address
-        def request(path, payload=None):
-            data = None if payload is None else json.dumps(payload).encode()
-            req = urllib.request.Request(base+path, data=data, headers={'Content-Type':'application/json', 'Origin':env['PUBLIC_URL']})
-            return urllib.request.urlopen(req, timeout=15)
-        assert '<html' in request('/').read().decode().lower()
-        setup = json.load(request('/api/setup'))
+        # Fresh install without any password variable: the password was produced, and the database enforces it.
+        generated = stored_password(good)
+        assert len(generated) >= 32 and generated == generated.strip(), 'password not produced'
+        assert psql(good, 'wrong-'+generated[:8]).returncode != 0, 'database accepted a wrong password'
+        assert psql(good, generated).stdout.strip() == '1', 'database refused the produced password'
+        # The database is not published to the host, only reachable on the deployment network.
+        assert not state(good, 'postgres')['NetworkSettings']['Ports'].get('5432/tcp'), 'database published to the host'
+        password_fingerprint = fingerprint(good)
+        assert '<html' in api(good, '/').read().decode().lower()
+        setup = json.load(api(good, '/api/setup'))
         assert not setup['initialized'] and setup['display_name'] == 'Synthetic distribution'
-        logs = compose(good, 'logs', '--no-log-prefix', 'app').stdout
-        code = next(json.loads(line)['code'] for line in logs.splitlines() if 'one-time installation code' in line)
-        assert request('/api/setup', {'code':code, 'username':'synthetic-admin', 'password':secrets.token_urlsafe(24)}).status == 201
+        install(good)
         compose(good, 'stop', 'embed')
-        assert request('/api/health/ready').status == 200
+        assert api(good, '/api/health/ready').status == 200
         compose(good, 'restart', 'app')
-        base = 'http://'+compose(good, 'port', 'app', '8080').stdout.strip()
-        for _ in range(60):
-            try:
-                assert json.load(request('/api/setup'))['initialized']
-                break
-            except (OSError, AssertionError):
-                time.sleep(1)
-        else:
-            raise AssertionError('Installation did not persist over restart')
+        wait_initialized(good)
         compose(good, 'start', 'embed')
+        # Second start (containers recreated, volumes kept): same password, same data, installation still done.
+        compose(good, 'down', '--remove-orphans')
+        assert up(good).returncode == 0, 'second start failed'
+        assert fingerprint(good) == password_fingerprint, 'password changed over a restart'
+        wait_initialized(good)
         # Public Ollama API is unavailable on host; inspect its model store instead.
         models = compose(good, 'exec', '-T', 'embed', 'sh', '-c', 'find /root/.ollama/models -type f 2>/dev/null || true').stdout
         assert not models.strip(), 'Unexpected model files'
@@ -109,13 +144,31 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
         report['volumes'] = {}
         for name, path in [('postgres','/var/lib/postgresql'), ('embed','/root/.ollama')]:
             report['volumes'][name] = compose(good, 'exec', '-T', name, 'du', '-sk', path).stdout.strip()
+        # The produced password never appears in any service log.
+        assert generated not in compose(good, 'logs', '--no-log-prefix').stdout, 'password written to a log'
+        generated = None
         compose(good, 'stop', 'app')
         assert state(good, 'app')['State']['ExitCode'] == 0, 'SIGTERM did not shut down cleanly'
         compose(bad, 'up', '-d', '--wait', '--wait-timeout', '90', fail=True, check=False)
         assert state(bad, 'migrate')['State']['ExitCode'] != 0
         assert not state(bad, 'app')['State']['Running'], 'Failed migration allowed API start'
         assert state(bad, 'migrate')['RestartCount'] == 0
-        print('Compose acceptance passed: fresh install, reserved password, persistence, optional embeddings, clean stop, migration failure gate')
+        # Existing installation with an explicit password: honoured, kept over a restart, and still working once
+        # the variable is removed (the password is kept in the volume).
+        assert up(explicit).returncode == 0, 'explicit password start failed'
+        assert stored_password(explicit) == explicit_password, 'explicit password not honoured'
+        assert psql(explicit, explicit_password).stdout.strip() == '1', 'database refused the explicit password'
+        install(explicit)
+        assert up(explicit).returncode == 0
+        compose(explicit, 'down', '--remove-orphans')
+        assert up(explicit).returncode == 0, 'explicit password restart failed'
+        wait_initialized(explicit)
+        compose(explicit, 'down', '--remove-orphans')
+        environments[explicit] = env
+        assert up(explicit).returncode == 0, 'restart without the variable failed'
+        wait_initialized(explicit)
+        assert stored_password(explicit) == explicit_password, 'password changed when the variable was removed'
+        print('Compose acceptance passed: fresh install without variables, produced password (enforced, kept over restart, not published, not logged), explicit password (honoured, restart, variable removed), persistence, optional embeddings, clean stop, migration failure gate')
         if len(sys.argv) > 2:
             Path(sys.argv[2]).write_text(json.dumps(report, indent=2)+'\n')
     finally:
