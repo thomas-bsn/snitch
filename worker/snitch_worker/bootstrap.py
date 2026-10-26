@@ -1,0 +1,183 @@
+"""Explicit, opt-in bootstrap run by the GPU image before the worker.
+
+    python -m snitch_worker.bootstrap
+
+Downloads the voice models into the models volume only when ALL of these hold:
+
+* ``SNITCH_VOICE_DOWNLOAD_ON_START=1`` (explicit opt-in),
+* ``SNITCH_VOICE_CONFIRM_TERMS=1`` (the operator accepted the model terms on Hugging Face),
+* ``HF_TOKEN`` is set,
+* the models are not already present and valid (marker ``.snitch-voice-models.json``).
+
+Whatever happens, the worker then starts: a failed or skipped download only leaves the voice
+steps ``provider_unavailable``. The worker process never receives ``HF_TOKEN`` and always runs
+with ``HF_HUB_OFFLINE=1``. Messages are fixed strings: the token and library error texts are
+never logged. Without the opt-in variables nothing is downloaded.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from typing import Any, Callable, Mapping
+
+from snitch_worker import voice_manifest
+
+DIARIZATION_REPO = "pyannote/speaker-diarization-community-1"
+EMBEDDING_REPO = "pyannote/wespeaker-voxceleb-resnet34-LM"
+REVISION_ENV = "SNITCH_VOICE_MODEL_REVISION"
+LOG_PREFIX = "[snitch-bootstrap] "
+
+Downloader = Callable[..., Any]
+RevisionResolver = Callable[[str, str, str], str]
+
+
+def _truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _cause(error: BaseException) -> str:
+    """A fixed, readable cause. Never includes the exception text (it may echo the token)."""
+    names = {cls.__name__ for cls in type(error).__mro__}
+    status = getattr(getattr(error, "response", None), "status_code", None)
+    if "GatedRepoError" in names or status in (401, 403):
+        return "access refused: check that the token is valid and that the model terms were accepted with the account that owns it"
+    if "RepositoryNotFoundError" in names or status == 404:
+        return "model repository not found or not visible to this token (terms not accepted?)"
+    if names & {"ConnectionError", "Timeout", "TimeoutError", "OfflineModeIsEnabled", "ConnectTimeout", "ReadTimeout", "gaierror"}:
+        return "network unreachable (huggingface.co could not be contacted)"
+    if names & {"PermissionError", "FileNotFoundError", "NotADirectoryError"} or getattr(error, "errno", None) in (1, 13, 30):
+        return "models directory is not writable (mount it read-write for the first download)"
+    if "ImportError" in names or "ModuleNotFoundError" in names:
+        return "huggingface_hub is not installed in this image"
+    return "unexpected error (" + type(error).__name__ + ")"
+
+
+def _paths(environ: Mapping[str, str]) -> tuple[str, str]:
+    diarization = environ.get(voice_manifest.DIARIZATION_PATH_ENV, "").strip() or voice_manifest.DEFAULT_DIARIZATION_PATH
+    embedding = environ.get(voice_manifest.EMBEDDING_PATH_ENV, "").strip() or voice_manifest.DEFAULT_EMBEDDING_PATH
+    return diarization, embedding
+
+
+def _non_empty_dir(path: str) -> bool:
+    try:
+        return os.path.isdir(path) and bool(os.listdir(path))
+    except OSError:
+        return False
+
+
+def models_present(environ: Mapping[str, str]) -> bool:
+    manifest = voice_manifest.read_manifest(environ)
+    if not manifest:
+        return False
+    diarization_path, embedding_path = _paths(environ)
+    pinned = environ.get(REVISION_ENV, "").strip()
+    for key, repo, path in (("diarization", DIARIZATION_REPO, diarization_path), ("embedding", EMBEDDING_REPO, embedding_path)):
+        entry = manifest.get(key)
+        if not isinstance(entry, dict) or entry.get("repo") != repo or not entry.get("revision"):
+            return False
+        if pinned and entry["revision"] != pinned:
+            return False
+        if not _non_empty_dir(path):
+            return False
+    return True
+
+
+def _default_downloader(**kwargs: Any) -> Any:  # pragma: no cover - needs network
+    from huggingface_hub import snapshot_download  # lazy: only an opted-in download needs it
+
+    return snapshot_download(**kwargs)
+
+
+def _default_resolver(repo_id: str, revision: str, token: str) -> str:  # pragma: no cover - needs network
+    from huggingface_hub import HfApi
+
+    sha = HfApi().model_info(repo_id, revision=revision or None, token=token).sha
+    if not sha:
+        raise ValueError("no revision")
+    return sha
+
+
+def run_bootstrap(
+    environ: Mapping[str, str],
+    downloader: Downloader | None = None,
+    resolve_revision: RevisionResolver | None = None,
+    log: Callable[[str], None] | None = None,
+) -> str:
+    """Return a status: disabled, present, terms_not_confirmed, token_missing, downloaded, failed."""
+    token = environ.get("HF_TOKEN", "").strip()
+
+    def say(message: str) -> None:
+        text = LOG_PREFIX + message
+        (log or (lambda line: print(line, file=sys.stderr, flush=True)))(text.replace(token, "***") if token else text)
+
+    if not _truthy(environ.get("SNITCH_VOICE_DOWNLOAD_ON_START")):
+        say("voice model download is off (SNITCH_VOICE_DOWNLOAD_ON_START is not 1): nothing is downloaded")
+        return "disabled"
+    if models_present(environ):
+        say("voice models already present: nothing to download")
+        return "present"
+    if not _truthy(environ.get("SNITCH_VOICE_CONFIRM_TERMS")):
+        say("voice models missing, not downloaded: set SNITCH_VOICE_CONFIRM_TERMS=1 after accepting the model terms on Hugging Face; voice steps stay provider_unavailable")
+        return "terms_not_confirmed"
+    if not token:
+        say("voice models missing, not downloaded: HF_TOKEN is not set; voice steps stay provider_unavailable")
+        return "token_missing"
+
+    # Hugging Face reads its offline switch at import: allow network for this process only.
+    if downloader is None:
+        os.environ["HF_HUB_OFFLINE"] = "0"
+    download = downloader or _default_downloader
+    resolve = resolve_revision or _default_resolver
+    pinned = environ.get(REVISION_ENV, "").strip()
+    diarization_path, embedding_path = _paths(environ)
+    entries: dict[str, dict[str, str]] = {}
+    say("downloading voice models (first start or models changed); this can take a few minutes")
+    for key, repo, target in (("diarization", DIARIZATION_REPO, diarization_path), ("embedding", EMBEDDING_REPO, embedding_path)):
+        try:
+            revision = pinned or resolve(repo, "main", token)
+            download(repo_id=repo, local_dir=target, token=token, revision=revision)
+        except BaseException as error:  # noqa: BLE001 - never let a library message through
+            if isinstance(error, (KeyboardInterrupt, SystemExit)):
+                raise
+            say(f"download of {repo} failed: {_cause(error)}; the worker starts anyway, voice steps stay provider_unavailable")
+            return "failed"
+        entries[key] = {"repo": repo, "revision": revision}
+        say(f"downloaded {repo} at revision {revision}")
+    try:
+        voice_manifest.write_manifest(environ, entries)
+    except OSError as error:
+        say(f"models downloaded but the version marker could not be written: {_cause(error)}")
+        return "failed"
+    say("voice models ready; the worker will run offline")
+    return "downloaded"
+
+
+def worker_environment(environ: Mapping[str, str]) -> dict[str, str]:
+    env = {key: value for key, value in environ.items() if key != "HF_TOKEN"}
+    env["HF_HUB_OFFLINE"] = "1"
+    env["TRANSFORMERS_OFFLINE"] = "1"
+    return env
+
+
+def _exec_worker(env: dict[str, str]) -> None:  # pragma: no cover - replaces the process
+    os.execve(sys.executable, [sys.executable, "-m", "snitch_worker.runner"], env)
+
+
+def main(
+    environ: Mapping[str, str] | None = None,
+    downloader: Downloader | None = None,
+    resolve_revision: RevisionResolver | None = None,
+    exec_worker: Callable[[dict[str, str]], None] | None = None,
+    log: Callable[[str], None] | None = None,
+) -> None:
+    env = dict(os.environ if environ is None else environ)
+    try:
+        run_bootstrap(env, downloader, resolve_revision, log)
+    except Exception as error:  # noqa: BLE001 - the worker must start regardless
+        print(LOG_PREFIX + "bootstrap failed: " + _cause(error) + "; the worker starts anyway", file=sys.stderr, flush=True)
+    (exec_worker or _exec_worker)(worker_environment(env))
+
+
+if __name__ == "__main__":
+    main()

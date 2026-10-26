@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  workflow_dispatch:
+    # Manual run on main only: "all" republishes every image (first publication, or recovery).
+    inputs:
+      all:
+        description: Publish every image regardless of what changed
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -39,12 +46,14 @@ jobs:
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - run: |
           docker build -f deploy/docker/app.Dockerfile -t snitch-smoke:local .
+          python scripts/smoke_compose.py snitch-smoke:local
+      - name: Build the worker image (needs no GPU, never pushed)
+        run: |
+          docker system prune -af
           docker build -f deploy/docker/worker.Dockerfile -t snitch-worker:local .
           docker run --rm snitch-worker:local python -m pip check
-          docker run --rm --entrypoint python snitch-worker:local -c "import snitch_worker.runner"
-          python scripts/smoke_compose.py snitch-smoke:local
   publish:
-    # A reviewed version tag triggers publication only after every check and both builds.
+    # A reviewed version tag triggers publication only after every check and the verify builds. Tags always publish every image (consistent pinned versions).
     needs: verify
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
@@ -54,6 +63,10 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Free runner disk space for the worker image
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker system prune -af
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
@@ -86,3 +99,155 @@ jobs:
         with:
           name: upstream-provenance-${{ github.ref_name }}
           path: upstream-provenance.json
+  changes:
+    # Decides what a push to main must publish. Pure git: no third-party action (only the
+    # pinned checkout). Any doubt (new branch, unknown or non-ancestor "before" such as after
+    # a force-push, manual "all") publishes everything.
+    # app    = what goes into deploy/docker/app.Dockerfile: app/, web/, the shared contracts/,
+    #          the Dockerfile, compose.yaml (image names and tags), upstream-images.json, LICENSE,
+    #          the ffmpeg licenses it copies and the notice/generation scripts it runs.
+    # worker = what goes into deploy/docker/worker.Dockerfile: worker/ (code and locks), the
+    #          shared contracts/ (generated client), the Dockerfile, collect_python_notices.py,
+    #          deploy/licenses/** (voice extras) and LICENSE.
+    # upstream = deploy/upstream-images.json (postgres/embed copies); the copy job also copies
+    #          when a "latest" tag does not exist yet.
+    needs: verify
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    outputs:
+      app: ${{ steps.diff.outputs.app }}
+      worker: ${{ steps.diff.outputs.worker }}
+      upstream: ${{ steps.diff.outputs.upstream }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          ALL: ${{ inputs.all }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          everything=false
+          if [ "$EVENT" = workflow_dispatch ]; then
+            if [ "$ALL" = true ]; then everything=true; else BEFORE=$(git rev-parse --verify -q "$SHA^" || true); fi
+          fi
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = 0000000000000000000000000000000000000000 ] \
+            || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
+            || ! git merge-base --is-ancestor "$BEFORE" "$SHA"; then
+            everything=true
+          fi
+          app=false; worker=false; upstream=false
+          if [ "$everything" = true ]; then
+            app=true; worker=true; upstream=true
+          else
+            files=$(git diff --name-only "$BEFORE" "$SHA")
+            echo "$files"
+            if echo "$files" | grep -Eq '^(app|web|contracts)/|^deploy/docker/app\.Dockerfile$|^compose\.yaml$|^deploy/upstream-images\.json$|^deploy/licenses/ffmpeg/|^LICENSE$|^scripts/(collect_go_notices\.sh|collect_web_notices\.mjs|generate\.sh|normalize_generated_python\.py)$'; then app=true; fi
+            if echo "$files" | grep -Eq '^(worker|contracts|deploy/licenses)/|^deploy/docker/worker\.Dockerfile$|^scripts/collect_python_notices\.py$|^LICENSE$'; then worker=true; fi
+            if echo "$files" | grep -Eq '^deploy/upstream-images\.json$'; then upstream=true; fi
+          fi
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "worker=$worker" >> "$GITHUB_OUTPUT"
+          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
+          echo "everything=$everything app=$app worker=$worker upstream=$upstream"
+  publish-app:
+    # Pushes to main (and manual runs on main) publish the moving "latest" image plus an immutable sha tag
+    # after verify, only when the app changed. Never runs for pull requests, other branches or tags.
+    needs: [verify, changes]
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Portable repository image namespace and short commit tag
+        run: |
+          echo "IMAGE_ROOT=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: deploy/docker/app.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_ROOT }}:latest
+            ${{ env.IMAGE_ROOT }}:sha-${{ env.SHORT_SHA }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,scope=app,mode=max
+  publish-worker:
+    # Same rules as publish-app, only when the worker changed. The single worker image is large.
+    needs: [verify, changes]
+    if: needs.changes.outputs.worker == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Free runner disk space for the worker image
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker system prune -af
+          df -h /
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Portable repository image namespace and short commit tag
+        run: |
+          echo "IMAGE_ROOT=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: deploy/docker/worker.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_ROOT }}-worker:latest
+            ${{ env.IMAGE_ROOT }}-worker:sha-${{ env.SHORT_SHA }}
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,scope=worker,mode=max
+  publish-upstream:
+    # Copies the pinned upstream images unchanged, only when upstream-images.json changed
+    # or the "latest" tag does not exist yet (first publication).
+    needs: [verify, changes]
+    if: needs.changes.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Copy pinned upstream images unchanged
+        env:
+          UPSTREAM_CHANGED: ${{ needs.changes.outputs.upstream }}
+        run: |
+          IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
+          for name in postgres embed; do
+            source=$(python3 -c 'import json,sys; print(json.load(open("deploy/upstream-images.json"))[sys.argv[1]])' "$name")
+            if [ "$UPSTREAM_CHANGED" = true ] || ! docker buildx imagetools inspect "$IMAGE_ROOT-$name:latest" >/dev/null 2>&1; then
+              docker buildx imagetools create --tag "$IMAGE_ROOT-$name:latest" "$source"
+            else
+              echo "$IMAGE_ROOT-$name:latest already published and unchanged"
+            fi
+          done

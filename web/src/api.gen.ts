@@ -1527,6 +1527,21 @@ export interface components {
       /** Format: date-time */
       revoked_at: string | null;
       connected: boolean;
+      /** @description Modèles déclarés par le worker à son dernier pouls, visibles des administrateurs. Un rôle absent est « non déclaré ». */
+      models?: components["schemas"]["WorkerModels"];
+    };
+    /** @description Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs ressemblant à un secret sont refusées. */
+    WorkerModels: {
+      transcription?: components["schemas"]["WorkerModel"];
+      diarization?: components["schemas"]["WorkerModel"];
+      fingerprint?: components["schemas"]["WorkerModel"];
+    };
+    WorkerModel: {
+      provider: string;
+      model: string;
+      version?: string;
+      /** @description Hôte et port seulement (hote:port), jamais de schéma, de chemin, de paramètre ni d’identifiants. */
+      endpoint?: string;
     };
     WorkerRegistrationInput: {
       name: string;
@@ -1544,6 +1559,14 @@ export interface components {
       /** Format: date-time */
       revoked_at: string | null;
       token: string;
+      bundle: components["schemas"]["WorkerBundle"];
+    };
+    /** @description Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton. */
+    WorkerBundle: {
+      compose: string;
+      env: string;
+      /** @description Vrai si PUBLIC_URL n'est pas en HTTPS : le worker refuse le HTTP. */
+      insecure_api_url: boolean;
     };
     WorkerPage: {
       items: components["schemas"]["Worker"][];
@@ -1551,6 +1574,8 @@ export interface components {
     WorkerPulseInput: {
       capacity: number;
       supported_steps: string[];
+      /** @description Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer. */
+      models?: components["schemas"]["WorkerModels"];
     };
     WorkerClaim: {
       job: components["schemas"]["Job"] | null;

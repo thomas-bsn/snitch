@@ -73,6 +73,7 @@ func TestRejectInvalidRuntimeConfiguration(t *testing.T) {
 		{"EMBEDDINGS_URL", "http://user:password@embed:11434/v1/embeddings"},
 		{"EMBEDDINGS_URL", "http://embed:11434/v1/embeddings?token=secret"},
 		{"LISTEN_ADDR", "localhost"},
+		{"WORKER_IMAGE", "bad image\nname"},
 		{"LISTEN_ADDR", ":invalid"},
 		{"LISTEN_ADDR", ":70000"},
 		{"DISPLAY_NAME", "   "},

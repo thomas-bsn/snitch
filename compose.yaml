@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to a published pinned image}
+    image: ${POSTGRES_IMAGE:-ghcr.io/thomas-bsn/snitch-postgres:latest}
     environment:
       POSTGRES_USER: receipts
       POSTGRES_DB: receipts
@@ -17,7 +17,7 @@ services:
       memory: 512
       backup: {type: postgres}
   migrate:
-    image: ${SNITCH_IMAGE:?Set SNITCH_IMAGE to a built or published immutable image}
+    image: ${SNITCH_IMAGE:-ghcr.io/thomas-bsn/snitch:latest}
     command: [migrate]
     environment:
       DATABASE_URL: postgres://receipts@postgres:5432/receipts?sslmode=disable
@@ -27,7 +27,7 @@ services:
     restart: "no"
     x-forgeyard: {memory: 256}
   app:
-    image: ${SNITCH_IMAGE:?Set SNITCH_IMAGE to a built or published immutable image}
+    image: ${SNITCH_IMAGE:-ghcr.io/thomas-bsn/snitch:latest}
     command: [serve]
     environment:
       DATABASE_URL: postgres://receipts@postgres:5432/receipts?sslmode=disable
@@ -36,6 +36,7 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       DISPLAY_NAME: ${DISPLAY_NAME:-Snitch}
+      WORKER_IMAGE: ${WORKER_IMAGE:-}
       CLIPS_ROOTS: ${CLIPS_ROOTS:-}
       FFPROBE_PATH: ${FFPROBE_PATH:-ffprobe}
       CLIP_STABILITY_WINDOW: ${CLIP_STABILITY_WINDOW:-3s}
@@ -62,7 +63,7 @@ services:
       memory: 384
       expose: {port: 8080}
   embed:
-    image: ${EMBED_IMAGE:?Set EMBED_IMAGE to a published pinned image}
+    image: ${EMBED_IMAGE:-ghcr.io/thomas-bsn/snitch-embed:latest}
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
       OLLAMA_MAX_LOADED_MODELS: "1"

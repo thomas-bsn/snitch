@@ -99,8 +99,26 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	if registration.ID == "" || registration.Name != "synthetic-gpu" || !strings.HasPrefix(registration.Token, "rw_") || registration.MaxConcurrency != 1 {
 		t.Fatalf("unexpected worker registration: %+v", registration)
 	}
+	var generated struct {
+		Bundle struct {
+			Compose        string `json:"compose"`
+			Env            string `json:"env"`
+			InsecureAPIURL bool   `json:"insecure_api_url"`
+		} `json:"bundle"`
+	}
+	if err = json.Unmarshal(created, &generated); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{"SNITCH_API_URL=" + ts.URL, "SNITCH_WORKER_TOKEN=" + registration.Token, "SNITCH_WORKER_IMAGE=" + config.DefaultWorkerImage, "SNITCH_VOICE_DOWNLOAD_ON_START=1", "SNITCH_VOICE_CONFIRM_TERMS=1"} {
+		if !strings.Contains("\n"+generated.Bundle.Env+"\n", "\n"+line+"\n") {
+			t.Fatalf("generated .env lacks %q:\n%s", line, generated.Bundle.Env)
+		}
+	}
+	if generated.Bundle.InsecureAPIURL || strings.Contains(generated.Bundle.Compose, registration.Token) || !strings.Contains(generated.Bundle.Compose, "pull_policy: always") {
+		t.Fatalf("unexpected generated bundle: %+v", generated.Bundle)
+	}
 	listed := call(admin, http.MethodGet, "/api/admin/workers", nil, "", "", false, http.StatusOK)
-	if bytes.Contains(listed, []byte(registration.Token)) {
+	if bytes.Contains(listed, []byte("compose")) || bytes.Contains(listed, []byte(registration.Token)) {
 		t.Fatal("worker listing exposed the one-time token")
 	}
 	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", "", false, http.StatusUnauthorized)

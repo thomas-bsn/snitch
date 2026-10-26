@@ -11,6 +11,8 @@ from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
+if TYPE_CHECKING:
+  from ..models.worker_bundle import WorkerBundle
 
 
 
@@ -32,6 +34,8 @@ class WorkerRegistration:
             created_at (datetime.datetime):
             revoked_at (datetime.datetime | None):
             token (str):
+            bundle (WorkerBundle): Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus
+                ensuite. Le .env contient le jeton.
      """
 
     id: str
@@ -42,6 +46,7 @@ class WorkerRegistration:
     created_at: datetime.datetime
     revoked_at: datetime.datetime | None
     token: str
+    bundle: WorkerBundle
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -49,6 +54,7 @@ class WorkerRegistration:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.worker_bundle import WorkerBundle # noqa: PLC0415
         id = self.id
 
         name = self.name
@@ -73,6 +79,8 @@ class WorkerRegistration:
 
         token = self.token
 
+        bundle = self.bundle.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -85,6 +93,7 @@ class WorkerRegistration:
             "created_at": created_at,
             "revoked_at": revoked_at,
             "token": token,
+            "bundle": bundle,
         })
 
         return field_dict
@@ -93,6 +102,7 @@ class WorkerRegistration:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.worker_bundle import WorkerBundle # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -145,6 +155,11 @@ class WorkerRegistration:
 
         token = d.pop("token")
 
+        bundle = WorkerBundle.from_dict(d.pop("bundle"))
+
+
+
+
         worker_registration = cls(
             id=id,
             name=name,
@@ -154,6 +169,7 @@ class WorkerRegistration:
             created_at=created_at,
             revoked_at=revoked_at,
             token=token,
+            bundle=bundle,
         )
 
 

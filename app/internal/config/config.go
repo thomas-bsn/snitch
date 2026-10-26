@@ -7,30 +7,38 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type Config struct {
-	DatabaseURL, PublicURL, Address, DisplayName, EmbeddingsURL, EmbeddingsModel string
-	ClipRoots                                                                    []string
-	ProbePath, FFmpegPath                                                        string
-	StabilityWindow                                                              time.Duration
-	ReconcileInterval                                                            time.Duration
-	ClipExcludePatterns                                                          []string
-	UploadRoot                                                                   string
-	UploadMaxBytes, UploadChunkBytes                                             int64
-	UploadSessionTTL                                                             time.Duration
-	MasterKey                                                                    []byte
-	Secure                                                                       bool
-	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL                         string
+	DatabaseURL, PublicURL, Address, DisplayName, EmbeddingsURL, EmbeddingsModel, WorkerImage string
+	ClipRoots                                                                                 []string
+	ProbePath, FFmpegPath                                                                     string
+	StabilityWindow                                                                           time.Duration
+	ReconcileInterval                                                                         time.Duration
+	ClipExcludePatterns                                                                       []string
+	UploadRoot                                                                                string
+	UploadMaxBytes, UploadChunkBytes                                                          int64
+	UploadSessionTTL                                                                          time.Duration
+	MasterKey                                                                                 []byte
+	Secure                                                                                    bool
+	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL                                      string
 }
+
+const DefaultWorkerImage = "ghcr.io/thomas-bsn/snitch-worker:latest"
+
+var workerImagePattern = regexp.MustCompile(`^[a-z0-9][A-Za-z0-9._/:@-]*$`)
 
 func Load() (Config, error) {
 	c := Config{
 		DatabaseURL: os.Getenv("DATABASE_URL"), PublicURL: env("PUBLIC_URL", "http://localhost:8080"),
 		Address: env("LISTEN_ADDR", ":8080"), DisplayName: env("DISPLAY_NAME", "Snitch"),
+		// The application carries no release version, so the default image tag is "latest";
+		// pin WORKER_IMAGE to a published tag or digest to control worker upgrades.
+		WorkerImage:   env("WORKER_IMAGE", DefaultWorkerImage),
 		EmbeddingsURL: os.Getenv("EMBEDDINGS_URL"), EmbeddingsModel: os.Getenv("EMBEDDINGS_MODEL"),
 		ClipRoots: splitRoots(os.Getenv("CLIPS_ROOTS")), ProbePath: env("FFPROBE_PATH", "ffprobe"), FFmpegPath: env("FFMPEG_PATH", "ffmpeg"),
 		ClipExcludePatterns: splitPatterns(env("CLIP_EXCLUDE_PATTERNS", ".*,*.tmp,*.part,*.partial,*.crdownload,*.download")),
@@ -77,6 +85,9 @@ func Load() (Config, error) {
 	c.PublicURL = strings.TrimRight(c.PublicURL, "/")
 	if c.Secure && u.Scheme != "https" {
 		return c, errors.New("secure cookies require HTTPS PUBLIC_URL")
+	}
+	if !workerImagePattern.MatchString(c.WorkerImage) {
+		return c, errors.New("WORKER_IMAGE must be a container image reference")
 	}
 	db, err := url.Parse(c.DatabaseURL)
 	if err != nil || db.Host == "" || (db.Scheme != "postgres" && db.Scheme != "postgresql") {

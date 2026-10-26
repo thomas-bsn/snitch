@@ -16,7 +16,7 @@ def check(d):
     allowed = {'image','command','entrypoint','user','environment','volumes','depends_on','healthcheck','restart','x-forgeyard'}
     for name, s in services.items():
         assert set(s) <= allowed
-        assert isinstance(s.get('image'),str) and s['image'].startswith(('ghcr.io/','${'))
+        assert isinstance(s.get('image'),str) and re.fullmatch(r'ghcr\.io/[a-z0-9._/-]+(:[A-Za-z0-9._-]+)?(@sha256:[0-9a-f]{64})?|\$\{[A-Z_]+:-ghcr\.io/[a-z0-9._/-]+:[A-Za-z0-9._-]+\}',s['image'])
         assert isinstance(s.get('environment',{}),dict)
         for key in ('command','entrypoint'):
             assert key not in s or isinstance(s[key],(list,str))
@@ -72,6 +72,8 @@ if __name__=='__main__':
         ('no healthcheck',lambda d:d['services']['postgres'].pop('healthcheck')),
         ('unknown dependency',lambda d:d['services']['app']['depends_on'].update(missing={'condition':'service_started'})),
         ('invalid health',lambda d:d['services']['app']['healthcheck'].update(test=['SHELL','true'])),
+        ('image without ghcr default',lambda d:d['services']['app'].update(image='${SNITCH_IMAGE:?Set SNITCH_IMAGE}')),
+        ('foreign registry image',lambda d:d['services']['embed'].update(image='${EMBED_IMAGE:-ollama/ollama:latest}')),
         ('wrong backup',lambda d:d['services']['postgres']['x-forgeyard'].update(backup={'type':'files'})),
     ]
     for label, mutate in fixtures:

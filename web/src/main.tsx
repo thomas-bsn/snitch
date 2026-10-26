@@ -35,6 +35,39 @@ type Job = components["schemas"]["Job"];
 type JobEvent = components["schemas"]["JobEvent"];
 type JobControls = components["schemas"]["JobControls"];
 type Worker = components["schemas"]["Worker"];
+
+type WorkerBundle = components["schemas"]["WorkerBundle"];
+type WorkerModel = components["schemas"]["WorkerModel"];
+
+function downloadTextFile(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function describeWorkerModel(model?: WorkerModel): string {
+  if (!model) return "non déclaré";
+  return [model.provider, model.model, model.version, model.endpoint]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function describeWorkerModels(worker: Worker): string {
+  const models = worker.models;
+  if (
+    !models ||
+    (!models.transcription && !models.diarization && !models.fingerprint)
+  )
+    return "Modèles : non déclaré";
+  return [
+    `Transcription : ${describeWorkerModel(models.transcription)}`,
+    `Diarisation : ${describeWorkerModel(models.diarization)}`,
+    `Empreinte vocale : ${describeWorkerModel(models.fingerprint)}`,
+  ].join(", ");
+}
 type VocabularyTerm = components["schemas"]["VocabularyTerm"];
 type TranscriptionPipeline = components["schemas"]["TranscriptionPipeline"];
 type SearchResult = {
@@ -180,6 +213,9 @@ function App() {
   const [embeddingModel, setEmbeddingModel] = useState("");
   const [editingTerm, setEditingTerm] = useState<VocabularyTerm>();
   const [newWorkerToken, setNewWorkerToken] = useState("");
+  const [newWorkerBundle, setNewWorkerBundle] = useState<WorkerBundle | null>(
+    null,
+  );
   const [jobPage, setJobPage] = useState(1);
   const [jobTotal, setJobTotal] = useState(0);
   const [jobFilters, setJobFilters] = useState({
@@ -268,6 +304,7 @@ function App() {
       setWorkers([]);
       setVocabulary([]);
       setNewWorkerToken("");
+      setNewWorkerBundle(null);
     }
   }
   async function refreshClips(page: number) {
@@ -614,6 +651,7 @@ function App() {
         }),
       );
       setNewWorkerToken(result.token);
+      setNewWorkerBundle(result.bundle);
       form.reset();
       setWorkers(checked(await api.GET("/api/admin/workers")).items);
       setNotice(
@@ -629,6 +667,7 @@ function App() {
         }),
       );
       setNewWorkerToken("");
+      setNewWorkerBundle(null);
       setWorkers(checked(await api.GET("/api/admin/workers")).items);
       setNotice(`Jeton du worker ${worker.name} révoqué.`);
     });
@@ -2330,6 +2369,66 @@ function App() {
                       Jeton à copier maintenant: <code>{newWorkerToken}</code>
                     </p>
                   )}
+                  {newWorkerBundle && (
+                    <section aria-label="Fichiers du worker">
+                      <p className="hint">
+                        Placez ces deux fichiers dans un même dossier du PC
+                        worker, renseignez les valeurs « A_RENSEIGNER » du
+                        fichier .env, puis lancez « docker compose up -d ». Les
+                        navigateurs ne gardent pas toujours le nom .env au
+                        téléchargement (snitch-worker.env) : renommez-le en .env
+                        ou ajoutez --env-file snitch-worker.env à la commande.
+                        Le .env contient le jeton : il ne sera plus affiché
+                        après votre départ de cette page.
+                      </p>
+                      {newWorkerBundle.insecure_api_url && (
+                        <p className="alert error" role="alert">
+                          L’URL publique de Snitch n’est pas en HTTPS : le
+                          worker refuse le HTTP. Passez l’instance en HTTPS
+                          avant de lancer le worker.
+                        </p>
+                      )}
+                      {(
+                        [
+                          ["compose.yaml", newWorkerBundle.compose],
+                          [".env", newWorkerBundle.env],
+                        ] as const
+                      ).map(([name, text]) => (
+                        <div key={name}>
+                          <label>
+                            Contenu de {name}
+                            <textarea
+                              readOnly
+                              rows={name === ".env" ? 16 : 12}
+                              value={text}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              run(async () => {
+                                await navigator.clipboard.writeText(text);
+                                setNotice(`${name} copié.`);
+                              })
+                            }
+                          >
+                            Copier {name}
+                          </button>{" "}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadTextFile(
+                                name === ".env" ? "snitch-worker.env" : name,
+                                text,
+                              )
+                            }
+                          >
+                            Télécharger {name}
+                          </button>
+                        </div>
+                      ))}
+                    </section>
+                  )}
                   {workers.length === 0 ? (
                     <p>Aucun worker enregistré.</p>
                   ) : (
@@ -2351,6 +2450,7 @@ function App() {
                                 )
                               : "jamais"}
                           </p>
+                          <p className="hint">{describeWorkerModels(worker)}</p>
                           {!worker.revoked_at && (
                             <button
                               className="secondary"

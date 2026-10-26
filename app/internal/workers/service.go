@@ -34,11 +34,13 @@ type Worker struct {
 	CreatedAt           time.Time  `json:"created_at"`
 	RevokedAt           *time.Time `json:"revoked_at"`
 	Connected           bool       `json:"connected"`
+	Models              Models     `json:"models"`
 }
 
 type Registration struct {
 	Worker
-	Token string `json:"token"`
+	Token  string `json:"token"`
+	Bundle Bundle `json:"bundle"`
 }
 
 type Input struct {
@@ -66,7 +68,7 @@ func (s *Service) Register(ctx context.Context, input Input) (Registration, erro
 }
 
 func (s *Service) List(ctx context.Context) ([]Worker, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($1 * interval '1 second'),false) FROM workers ORDER BY created_at,id`, int64(ConnectedWindow.Seconds()))
+	rows, err := s.pool.Query(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($1 * interval '1 second'),false),models FROM workers ORDER BY created_at,id`, int64(ConnectedWindow.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("list workers: %w", err)
 	}
@@ -74,7 +76,7 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 	items := []Worker{}
 	for rows.Next() {
 		var worker Worker
-		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected); err != nil {
+		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected, &worker.Models); err != nil {
 			return nil, fmt.Errorf("scan worker: %w", err)
 		}
 		items = append(items, worker)
@@ -129,9 +131,10 @@ func (s *Service) Touch(ctx context.Context, id string, capacity int) error {
 }
 
 // Pulse refreshes worker presence, available capacity, and the step families
-// this running worker can claim. Capabilities are replaced on every pulse.
-func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedSteps []string) error {
-	if capacity < 1 || capacity > 4 || len(supportedSteps) > 64 {
+// this running worker can claim, and the models it declares. Both are replaced
+// on every pulse.
+func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedSteps []string, models Models) error {
+	if capacity < 1 || capacity > 4 || len(supportedSteps) > 64 || !models.Valid() {
 		return ErrInvalidInput
 	}
 	steps := make([]string, 0, len(supportedSteps))
@@ -147,7 +150,7 @@ func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedS
 		steps = append(steps, step)
 	}
 	slices.Sort(steps)
-	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_seen_at=now(),reported_concurrency=$2,supported_steps=$3 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity, steps)
+	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_seen_at=now(),reported_concurrency=$2,supported_steps=$3,models=$4 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity, steps, models)
 	if err != nil {
 		return fmt.Errorf("update worker pulse: %w", err)
 	}

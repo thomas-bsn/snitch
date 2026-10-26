@@ -4299,6 +4299,57 @@
           },
           "connected": {
             "type": "boolean"
+          },
+          "models": {
+            "$ref": "#/components/schemas/WorkerModels",
+            "description": "Modèles déclarés par le worker à son dernier pouls, visibles des administrateurs. Un rôle absent est « non déclaré »."
+          }
+        }
+      },
+      "WorkerModels": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs ressemblant à un secret sont refusées.",
+        "properties": {
+          "transcription": {
+            "$ref": "#/components/schemas/WorkerModel"
+          },
+          "diarization": {
+            "$ref": "#/components/schemas/WorkerModel"
+          },
+          "fingerprint": {
+            "$ref": "#/components/schemas/WorkerModel"
+          }
+        }
+      },
+      "WorkerModel": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "model"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$",
+            "maxLength": 128
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$",
+            "maxLength": 128
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$",
+            "maxLength": 64
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Hôte et port seulement (hote:port), jamais de schéma, de chemin, de paramètre ni d’identifiants.",
+            "pattern": "^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(:[0-9]{1,5})?$",
+            "maxLength": 262
           }
         }
       },
@@ -4332,7 +4383,8 @@
           "last_seen_at",
           "created_at",
           "revoked_at",
-          "token"
+          "token",
+          "bundle"
         ],
         "properties": {
           "id": {
@@ -4368,6 +4420,30 @@
           "token": {
             "type": "string",
             "minLength": 32
+          },
+          "bundle": {
+            "$ref": "#/components/schemas/WorkerBundle"
+          }
+        }
+      },
+      "WorkerBundle": {
+        "type": "object",
+        "description": "Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton.",
+        "required": [
+          "compose",
+          "env",
+          "insecure_api_url"
+        ],
+        "properties": {
+          "compose": {
+            "type": "string"
+          },
+          "env": {
+            "type": "string"
+          },
+          "insecure_api_url": {
+            "type": "boolean",
+            "description": "Vrai si PUBLIC_URL n'est pas en HTTPS : le worker refuse le HTTP."
           }
         }
       },
@@ -4406,6 +4482,10 @@
               "pattern": "^[a-z][a-z0-9_.-]{0,127}(\\.\\*)?$",
               "maxLength": 130
             }
+          },
+          "models": {
+            "$ref": "#/components/schemas/WorkerModels",
+            "description": "Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer."
           }
         }
       },

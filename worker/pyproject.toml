@@ -4,6 +4,16 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = ["snitch-client"]
 
+# Fournisseurs vocaux réels (image worker ; voir docs/real-voice-worker.md).
+[project.optional-dependencies]
+voice = [
+  "pyannote.audio==4.0.7",
+  "torch==2.8.0",
+  "torchaudio==2.8.0",
+  "torchcodec==0.7.0",
+  "soundfile==0.14.0",
+]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

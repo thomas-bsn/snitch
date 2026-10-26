@@ -159,6 +159,7 @@ label {
   font-weight: 650;
 }
 input,
+textarea,
 select {
   width: 100%;
   min-height: 40px;
@@ -171,6 +172,7 @@ select {
   font-size: 13px;
 }
 input:focus-visible,
+textarea:focus-visible,
 select:focus-visible,
 button:focus-visible,
 a:focus-visible,
@@ -1013,4 +1015,8 @@ pre {
   .vocabulary-list .actions {
     flex-wrap: wrap;
   }
+}
+textarea[readonly] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
 }
