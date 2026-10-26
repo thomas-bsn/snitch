@@ -6,6 +6,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.SNITCH_TEST_URL ?? "http://localhost:8080",
     headless: true,
+    actionTimeout: 15000,
   },
   reporter: "list",
 });
