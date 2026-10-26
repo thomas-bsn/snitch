@@ -57,13 +57,11 @@ jobs:
     # pinned checkout). Any doubt (new branch, unknown or non-ancestor "before" such as after
     # a force-push, manual "all") publishes everything.
     # app    = what goes into deploy/docker/app.Dockerfile: app/, web/, the shared contracts/,
-    #          the Dockerfile, compose.yaml (image names and tags), upstream-images.json, LICENSE,
+    #          the Dockerfile, compose.yaml (image names and tags), LICENSE,
     #          the ffmpeg licenses it copies and the notice/generation scripts it runs.
     # worker = what goes into deploy/docker/worker.Dockerfile: worker/ (code and locks), the
     #          shared contracts/ (generated client), the Dockerfile, collect_python_notices.py,
     #          deploy/licenses/** (voice extras) and LICENSE.
-    # upstream = deploy/upstream-images.json (postgres/embed copies); the copy job also copies
-    #          when a "latest" tag does not exist yet.
     # A version tag (v*) always publishes every image under that tag (consistent pinned versions);
     # main publishes "latest" plus an immutable sha-<commit> tag.
     needs: verify
@@ -74,7 +72,6 @@ jobs:
       release: ${{ steps.diff.outputs.release }}
       app: ${{ steps.diff.outputs.app }}
       worker: ${{ steps.diff.outputs.worker }}
-      upstream: ${{ steps.diff.outputs.upstream }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -101,22 +98,20 @@ jobs:
             || ! git merge-base --is-ancestor "$BEFORE" "$SHA"; then
             everything=true
           fi
-          app=false; worker=false; upstream=false
+          app=false; worker=false
           if [ "$everything" = true ]; then
-            app=true; worker=true; upstream=true
+            app=true; worker=true
           else
             files=$(git diff --name-only "$BEFORE" "$SHA")
             echo "$files"
-            if echo "$files" | grep -Eq '^(app|web|contracts)/|^deploy/docker/app\.Dockerfile$|^compose\.yaml$|^deploy/upstream-images\.json$|^deploy/licenses/ffmpeg/|^LICENSE$|^scripts/(collect_go_notices\.sh|collect_web_notices\.mjs|generate\.sh|normalize_generated_python\.py)$'; then app=true; fi
+            if echo "$files" | grep -Eq '^(app|web|contracts)/|^deploy/docker/app\.Dockerfile$|^compose\.yaml$|^deploy/licenses/ffmpeg/|^LICENSE$|^scripts/(collect_go_notices\.sh|collect_web_notices\.mjs|generate\.sh|normalize_generated_python\.py)$'; then app=true; fi
             if echo "$files" | grep -Eq '^(worker|contracts|deploy/licenses)/|^deploy/docker/worker\.Dockerfile$|^scripts/collect_python_notices\.py$|^LICENSE$'; then worker=true; fi
-            if echo "$files" | grep -Eq '^deploy/upstream-images\.json$'; then upstream=true; fi
           fi
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
           echo "release=$release" >> "$GITHUB_OUTPUT"
           echo "app=$app" >> "$GITHUB_OUTPUT"
           echo "worker=$worker" >> "$GITHUB_OUTPUT"
-          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
-          echo "everything=$everything app=$app worker=$worker upstream=$upstream"
+          echo "everything=$everything app=$app worker=$worker"
   publish-app:
     # Publishes the app image after verify, only when the app changed (always for a version tag),
     # under the tags computed by "changes" (latest + sha on main, the version on a tag).
@@ -196,44 +191,3 @@ jobs:
           tags: ${{ env.IMAGE_TAGS }}
           cache-from: type=gha,scope=worker
           cache-to: type=gha,scope=worker,mode=max
-  publish-upstream:
-    # Copies the pinned upstream images unchanged: on main, only when upstream-images.json changed
-    # or the "latest" tag does not exist yet (first publication); for a version tag, always, under
-    # that tag, and the provenance file is kept as a build artifact.
-    needs: [verify, changes]
-    if: needs.changes.result == 'success'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Copy pinned upstream images unchanged
-        env:
-          UPSTREAM_CHANGED: ${{ needs.changes.outputs.upstream }}
-          RELEASE: ${{ needs.changes.outputs.release }}
-          TAG_NAMES: ${{ needs.changes.outputs.tags }}
-        run: |
-          IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
-          for name in postgres embed; do
-            source=$(python3 -c 'import json,sys; print(json.load(open("deploy/upstream-images.json"))[sys.argv[1]])' "$name")
-            if [ "$RELEASE" = true ]; then
-              docker buildx imagetools create --tag "$IMAGE_ROOT-$name:$TAG_NAMES" "$source"
-            elif [ "$UPSTREAM_CHANGED" = true ] || ! docker buildx imagetools inspect "$IMAGE_ROOT-$name:latest" >/dev/null 2>&1; then
-              docker buildx imagetools create --tag "$IMAGE_ROOT-$name:latest" "$source"
-            else
-              echo "$IMAGE_ROOT-$name:latest already published and unchanged"
-            fi
-          done
-          cp deploy/upstream-images.json upstream-provenance.json
-      - if: needs.changes.outputs.release == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: upstream-provenance-${{ github.ref_name }}
-          path: upstream-provenance.json
