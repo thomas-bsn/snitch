@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Explicit, one-off download of the voice models into local directories.
 
-Never called by the worker, the image entry point or the tests. Run it by hand on
+Never called by the worker or the tests (the opt-in ``snitch_worker.bootstrap`` is the
+automatic path, see docs/real-voice-worker.md). Run this one by hand on
 a machine with network access, after accepting the model terms on Hugging Face
 with the account that owns the token. The token is read from the HF_TOKEN
 environment variable only, never from an argument, and is never printed.
@@ -19,8 +20,8 @@ import argparse
 import os
 import sys
 
-DIARIZATION_REPO = "pyannote/speaker-diarization-community-1"
-EMBEDDING_REPO = "pyannote/wespeaker-voxceleb-resnet34-LM"
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+from snitch_worker.bootstrap import DIARIZATION_REPO, EMBEDDING_REPO  # noqa: E402 - one source for the repository names
 
 
 def main(argv: list[str] | None = None, environ: dict[str, str] | None = None, downloader=None) -> int:

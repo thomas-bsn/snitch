@@ -15,7 +15,7 @@ Le fournisseur est celui du snapshot du pipeline vocal (`provider` : `pyannote` 
 | --- | --- |
 | `SNITCH_VOICE_DIARIZATION_MODEL_PATH` | Répertoire local du pipeline de diarisation (contient `config.yaml`) ou chemin du `config.yaml`. Obligatoire. |
 | `SNITCH_VOICE_EMBEDDING_MODEL_PATH` | Chemin local du modèle d'empreinte. Obligatoire. |
-| `SNITCH_VOICE_EMBEDDING_MODEL_VERSION` | Version enregistrée avec chaque empreinte (par exemple la révision Hugging Face téléchargée). Obligatoire : deux versions produisent des empreintes incomparables. |
+| `SNITCH_VOICE_EMBEDDING_MODEL_VERSION` | Version enregistrée avec chaque empreinte (par exemple la révision Hugging Face téléchargée). Obligatoire, mais à défaut de la variable le worker la lit dans le marqueur `.snitch-voice-models.json` écrit par le bootstrap à côté des modèles (le dossier parent du chemin d'empreinte) : deux versions produisent des empreintes incomparables. |
 | `SNITCH_VOICE_EMBEDDING_MODEL_NAME` | Nom enregistré. Défaut `pyannote/wespeaker-voxceleb-resnet34-LM`. |
 | `SNITCH_VOICE_DEVICE` | `auto` (défaut : GPU si disponible, sinon CPU), `cuda` (échoue avec `cuda_unavailable` sans GPU), `cpu`. |
 
@@ -25,7 +25,7 @@ Le nom et la version du modèle de diarisation viennent du snapshot du pipeline 
 
 - Le worker force `HF_HUB_OFFLINE=1` et `TRANSFORMERS_OFFLINE=1` avant de charger une bibliothèque et ne lit jamais `HF_TOKEN`.
 - Chemin absent, bibliothèque ML absente, modèle illisible, mémoire GPU insuffisante : la tâche échoue avec `provider_unavailable` (la file ne conserve que ce code ; tout autre code devient `worker_failed`). Le message est constant, la cause d'origine est supprimée (aucun chemin, jeton ni message de bibliothèque), et seul un code de raison stable est journalisé : `model_path_missing`, `embedding_version_missing`, `device_invalid`, `cuda_unavailable`, `ml_libraries_missing`, `model_load_failed`, `inference_failed`, `result_too_large`, `invalid_embedding`, `audio_missing`, `unknown_provider`.
-- Le seul téléchargement est la commande manuelle `worker/scripts/download_models.py` : elle exige `--confirm-terms` (conditions acceptées sur Hugging Face) et `HF_TOKEN` dans l'environnement, n'affiche jamais le jeton ni les erreurs de bibliothèque, et n'est appelée par aucun autre code. Épingler `--revision` pour que la version enregistrée corresponde au modèle réellement présent.
+- Deux seuls chemins de téléchargement, tous deux explicites : le bootstrap opt-in de démarrage (voir [« On lance et tout se fait seul »](#on-lance-et-tout-se-fait-seul)) et la commande manuelle `worker/scripts/download_models.py`. Sans les variables d'opt-in, le bootstrap ne télécharge rien. Le processus du worker ne reçoit jamais `HF_TOKEN`. La commande manuelle : elle exige `--confirm-terms` (conditions acceptées sur Hugging Face) et `HF_TOKEN` dans l'environnement, n'affiche jamais le jeton ni les erreurs de bibliothèque, et n'est appelée par aucun autre code. Épingler `--revision` pour que la version enregistrée corresponde au modèle réellement présent.
 
 ## Choix du modèle d'empreinte : pyannote plutôt que SpeechBrain
 
@@ -54,6 +54,19 @@ Elles sont dans l'extra `voice` de `worker/pyproject.toml` (absent de l'image CP
 
 Licences : voir `deploy/NOTICES.md` et `deploy/licenses/voice/LICENSES.md` (les roues NVIDIA sont sous licence propriétaire NVIDIA ; les modèles sont en CC-BY-4.0 avec conditions d'accès Hugging Face).
 
+## On lance et tout se fait seul
+
+Parcours « premier `docker compose up` » dans `deploy/worker/` (opt-in explicite ; sans lui, comportement inchangé et aucun téléchargement) :
+
+1. Sur Hugging Face, avec un compte gratuit, ouvrir `pyannote/speaker-diarization-community-1` (accès « gated ») et accepter ses conditions ; faire de même pour le modèle d'empreinte si la page le demande. Créer un jeton en lecture seule.
+2. Dans `.env` : `SNITCH_VOICE_DOWNLOAD_ON_START=1`, `SNITCH_VOICE_CONFIRM_TERMS=1` (vous attestez avoir accepté les conditions), `HF_TOKEN=...`, plus `SNITCH_API_URL`, `SNITCH_WORKER_TOKEN`, `SNITCH_MODELS_DIR`, et la transcription. Laisser `SNITCH_VOICE_EMBEDDING_MODEL_VERSION` vide. Le dossier `SNITCH_MODELS_DIR` doit être inscriptible par l'utilisateur 10001 du conteneur (`chown 10001:10001` ou `chmod 777` sur Linux).
+3. `docker compose up -d`. L'image est tirée (`pull_policy: always`), puis la commande du conteneur exécute `python -m snitch_worker.bootstrap`. Si les trois conditions sont réunies et que les modèles manquent, il télécharge le pipeline de diarisation et le modèle d'empreinte (révision résolue ou épinglée par `SNITCH_VOICE_MODEL_REVISION`) dans `/models`, écrit le marqueur `.snitch-voice-models.json` (dépôts et révisions ; la version d'empreinte en est lue), puis lance le worker avec `HF_HUB_OFFLINE=1` et sans `HF_TOKEN` : le jeton n'existe que dans le processus de bootstrap, qui ne le journalise jamais. Les démarrages suivants constatent que les modèles sont présents et valides (marqueur cohérent, dossiers non vides, révision épinglée identique) et ne font aucun appel réseau, même sans jeton ; le jeton peut alors être retiré de `.env`.
+4. Si le téléchargement est impossible (jeton ou confirmation absents, conditions non acceptées, réseau, dossier non inscriptible), le worker démarre quand même et traite la transcription ; les étapes vocales échouent avec `provider_unavailable`, et le journal du démarrage (`docker compose logs worker`, lignes `[snitch-bootstrap]`) donne la cause sans texte de bibliothèque ni jeton. Corriger puis `docker compose up -d` relance le bootstrap.
+
+Mises à jour : `pull_policy: always` vérifie l'image à chaque `docker compose up`. L'image par défaut est `ghcr.io/thomas-bsn/snitch-worker-gpu:latest` ; pour rester compatible avec l'application, épingler `SNITCH_WORKER_IMAGE=ghcr.io/thomas-bsn/snitch-worker-gpu:vX.Y.Z` (version de Snitch déployée) et la changer avec l'application. Changer `SNITCH_VOICE_MODEL_REVISION` provoque un nouveau téléchargement ; deux versions de modèle produisent des empreintes incomparables.
+
+Le volume de modèles n'est plus monté en lecture seule dans le compose, pour permettre ce premier téléchargement ; le worker, lui, ne fait que lire. Une fois les modèles installés et sans opt-in, `:ro` peut être rajouté. Non vérifié ici : le téléchargement réel (aucun jeton ni réseau Hugging Face), notamment la résolution de révision par `HfApi.model_info`, le droit d'écriture de l'utilisateur 10001 sur un montage hôte et le comportement de `snapshot_download(local_dir=...)` sur un volume déjà partiellement rempli.
+
 ## Installer sur le PC gamer
 
 Cible : un PC Linux (ou Windows avec WSL2 et Docker) avec une carte NVIDIA, par exemple une RTX 4070 (12 Go). Le worker ne publie aucun port et appelle l'API Snitch en HTTPS sortant ; les secrets restent sur ce PC. Les fichiers sont dans `deploy/worker/` (`compose.yaml`, `.env.example`).
@@ -61,17 +74,17 @@ Cible : un PC Linux (ou Windows avec WSL2 et Docker) avec une carte NVIDIA, par 
 1. **Prérequis.** Pilote NVIDIA récent (`nvidia-smi` fonctionne, CUDA 12.8 ou plus), Docker avec Compose v2 et le [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) configuré pour Docker. Vérifier l'accès GPU : `docker run --rm --gpus all ubuntu nvidia-smi`.
 2. **Créer le worker dans l'interface Snitch** (page des workers, administrateur) pour obtenir le jeton, affiché une seule fois. Snitch doit être joignable en HTTPS depuis le PC.
 3. **Préparer `.env`.** `cd deploy/worker && cp .env.example .env`, puis renseigner `SNITCH_API_URL`, `SNITCH_WORKER_TOKEN`, `TRANSCRIPTION_API_URL` et `TRANSCRIPTION_MODEL` (et `TRANSCRIPTION_API_KEY` si besoin), `SNITCH_MODELS_DIR` (dossier du PC qui recevra les modèles) et, après l'étape suivante, `SNITCH_VOICE_EMBEDDING_MODEL_VERSION`. Ne jamais versionner `.env`.
-4. **Télécharger les modèles (une seule fois, explicite).** Créer un compte Hugging Face gratuit, ouvrir les pages de `pyannote/speaker-diarization-community-1` (accès « gated » : accepter les conditions) et de `pyannote/wespeaker-voxceleb-resnet34-LM` (à la lecture de la fiche, aucune restriction affichée ; à vérifier, et accepter les conditions si elles sont demandées), créer un jeton de lecture, puis :
+4. **Télécharger les modèles à la main (alternative au parcours automatique ci-dessus).** Créer un compte Hugging Face gratuit, ouvrir les pages de `pyannote/speaker-diarization-community-1` (accès « gated » : accepter les conditions) et de `pyannote/wespeaker-voxceleb-resnet34-LM` (à la lecture de la fiche, aucune restriction affichée ; à vérifier, et accepter les conditions si elles sont demandées), créer un jeton de lecture, puis :
    ```sh
-   docker compose build
+   SNITCH_WORKER_IMAGE=snitch-worker-gpu:local docker compose build
    mkdir -p "$SNITCH_MODELS_DIR"
    docker run --rm --user "$(id -u):$(id -g)" -e HF_TOKEN -e HF_HUB_OFFLINE=0 \
      -v "$SNITCH_MODELS_DIR:/models" --entrypoint python snitch-worker-gpu:local \
      /worker/scripts/download_models.py --confirm-terms --revision <révision> \
      --diarization-dir /models/diarization --embedding-dir /models/embedding
    ```
-   avec `HF_TOKEN` exporté dans le shell (jamais écrit dans `.env`). L'image force `HF_HUB_OFFLINE=1` ; `-e HF_HUB_OFFLINE=0` n'est donné qu'à cette commande ponctuelle. Noter la révision utilisée : c'est la valeur de `SNITCH_VOICE_EMBEDDING_MODEL_VERSION`. Le conteneur du worker monte ensuite les modèles en lecture seule et n'a jamais besoin du jeton.
-5. **Lancer.** `docker compose up -d --build` dans `deploy/worker`, puis `docker compose logs -f worker`.
+   avec `HF_TOKEN` exporté dans le shell (jamais écrit dans `.env`). L'image force `HF_HUB_OFFLINE=1` ; `-e HF_HUB_OFFLINE=0` n'est donné qu'à cette commande ponctuelle. Noter la révision utilisée : c'est la valeur de `SNITCH_VOICE_EMBEDDING_MODEL_VERSION`. Le worker n'a jamais besoin du jeton (le compose monte le volume en écriture seulement pour le bootstrap ; ajouter `:ro` si vous préparez les modèles à la main).
+5. **Lancer.** `docker compose up -d` (image publiée ; `SNITCH_WORKER_IMAGE=snitch-worker-gpu:local docker compose up -d --build` pour construire localement) dans `deploy/worker`, puis `docker compose logs -f worker`.
 6. **Vérifier dans Snitch.** Le worker apparaît actif sur la page des workers avec ses capacités (`transcription.*`, `voice.*`). Un échec `provider_unavailable` renvoie au code de raison stable des journaux (`model_path_missing`, `cuda_unavailable`, `model_load_failed`...).
 7. **Brancher la transcription (Whisper).** Un serveur compatible `POST /v1/audio/transcriptions` : sur le PC hors Docker, `TRANSCRIPTION_API_URL=http://host.docker.internal:<port>` (le compose ajoute `host.docker.internal:host-gateway`) ; dans un autre projet Compose, activer l'option de réseau partagé du compose et viser le nom du service. Le profil de pipeline de l'interface doit utiliser le même nom de modèle que `TRANSCRIPTION_MODEL`.
 8. **Embeddings de texte (Ollama).** Ils restent côté NAS (`EMBEDDINGS_URL` et `EMBEDDINGS_MODEL` de l'application, voir [déploiement](deployment.md)) et ne passent pas par le worker. Un Ollama sur le PC peut servir de fournisseur si le NAS peut le joindre (réseau privé de votre choix).

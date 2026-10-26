@@ -3,17 +3,26 @@
 # lié au compose.yaml du NAS et n'est pas contrôlé par scripts/check_compose.py.
 #
 #   cp .env.example .env      # puis renseigner le jeton et les chemins (jamais versionné)
-#   docker compose up -d --build
+#   docker compose up -d
 #
 # Le worker ne publie aucun port : il appelle l'API Snitch en HTTPS sortant uniquement.
-# Aucun modèle n'est dans l'image ni téléchargé au démarrage : ils sont lus dans un volume
-# monté en lecture seule, préparé à part par worker/scripts/download_models.py.
+# Aucun modèle n'est dans l'image. Premier démarrage « tout automatique » (opt-in explicite) :
+# avec SNITCH_VOICE_DOWNLOAD_ON_START=1, SNITCH_VOICE_CONFIRM_TERMS=1 et HF_TOKEN, la commande
+# de démarrage (python -m snitch_worker.bootstrap) télécharge les modèles manquants dans le
+# volume, puis lance le worker SANS HF_TOKEN et hors ligne. Sans opt-in, rien n'est téléchargé :
+# les modèles doivent déjà être dans le volume (worker/scripts/download_models.py).
 services:
   worker:
     build:
       context: ../..
       dockerfile: deploy/docker/worker-gpu.Dockerfile
-    image: ${SNITCH_WORKER_IMAGE:-snitch-worker-gpu:local}
+    # Image publiée. IMPORTANT : le worker doit rester compatible avec l'application Snitch ;
+    # épingler une étiquette de version (SNITCH_WORKER_IMAGE=ghcr.io/thomas-bsn/snitch-worker-gpu:vX.Y.Z,
+    # la version de Snitch déployée) plutôt que « latest », qui suit la dernière publication.
+    # pull_policy: always vérifie et met à jour l'image à chaque « docker compose up ».
+    # Pour construire localement : SNITCH_WORKER_IMAGE=snitch-worker-gpu:local docker compose up --build
+    image: ${SNITCH_WORKER_IMAGE:-ghcr.io/thomas-bsn/snitch-worker-gpu:latest}
+    pull_policy: always
     restart: unless-stopped
     environment:
       # Connexion à Snitch (secret dédié à ce worker, créé dans l'interface).
@@ -29,12 +38,23 @@ services:
       # Modèles vocaux : chemins DANS le conteneur, sous le volume monté ci-dessous.
       SNITCH_VOICE_DIARIZATION_MODEL_PATH: ${SNITCH_VOICE_DIARIZATION_MODEL_PATH:-/models/diarization}
       SNITCH_VOICE_EMBEDDING_MODEL_PATH: ${SNITCH_VOICE_EMBEDDING_MODEL_PATH:-/models/embedding}
-      SNITCH_VOICE_EMBEDDING_MODEL_VERSION: ${SNITCH_VOICE_EMBEDDING_MODEL_VERSION:?Renseigner SNITCH_VOICE_EMBEDDING_MODEL_VERSION (révision téléchargée)}
+      # Facultatif : sinon lue du marqueur .snitch-voice-models.json écrit par le bootstrap.
+      SNITCH_VOICE_EMBEDDING_MODEL_VERSION: ${SNITCH_VOICE_EMBEDDING_MODEL_VERSION:-}
       SNITCH_VOICE_EMBEDDING_MODEL_NAME: ${SNITCH_VOICE_EMBEDDING_MODEL_NAME:-pyannote/wespeaker-voxceleb-resnet34-LM}
       SNITCH_VOICE_DEVICE: ${SNITCH_VOICE_DEVICE:-cuda}
+      # Bootstrap de démarrage (opt-in, voir l'en-tête). La version d'empreinte est lue du
+      # marqueur du volume quand SNITCH_VOICE_EMBEDDING_MODEL_VERSION est vide.
+      SNITCH_VOICE_DOWNLOAD_ON_START: ${SNITCH_VOICE_DOWNLOAD_ON_START:-0}
+      SNITCH_VOICE_CONFIRM_TERMS: ${SNITCH_VOICE_CONFIRM_TERMS:-0}
+      SNITCH_VOICE_MODEL_REVISION: ${SNITCH_VOICE_MODEL_REVISION:-}
+      # Jeton Hugging Face : lu par le seul processus de bootstrap, retiré de l'environnement
+      # du worker avant son lancement (le worker reste en HF_HUB_OFFLINE=1). Lecture seule suffit.
+      HF_TOKEN: ${HF_TOKEN:-}
     volumes:
-      # Dossier hôte contenant diarization/ et embedding/, en lecture seule.
-      - ${SNITCH_MODELS_DIR:?Renseigner SNITCH_MODELS_DIR (dossier des modèles sur le PC)}:/models:ro
+      # Dossier hôte contenant diarization/ et embedding/. Inscriptible pour que le premier
+      # démarrage y télécharge les modèles ; le worker, lui, ne fait que les lire. Si les modèles
+      # sont déjà préparés et que l'opt-in est absent, on peut ajouter « :ro ».
+      - ${SNITCH_MODELS_DIR:?Renseigner SNITCH_MODELS_DIR (dossier des modèles sur le PC)}:/models
     # Joindre un Whisper ou un Ollama qui tourne directement sur le PC (hors Docker) :
     # TRANSCRIPTION_API_URL=http://host.docker.internal:8000
     extra_hosts:

@@ -1,6 +1,8 @@
 # Worker avec fournisseurs vocaux réels (pyannote) et GPU NVIDIA. Client HTTPS autonome ;
-# aucun port entrant ni accès PostgreSQL. Aucun modèle n'est inclus ni téléchargé : les
-# modèles viennent d'un volume monté (SNITCH_VOICE_*), voir docs/real-voice-worker.md.
+# aucun port entrant ni accès PostgreSQL. Aucun modèle n'est inclus : ils viennent d'un volume
+# monté (SNITCH_VOICE_*). Le démarrage passe par snitch_worker.bootstrap, qui ne télécharge
+# que sur opt-in explicite (SNITCH_VOICE_DOWNLOAD_ON_START=1, SNITCH_VOICE_CONFIRM_TERMS=1,
+# HF_TOKEN), puis lance le worker sans HF_TOKEN et hors ligne. Voir docs/real-voice-worker.md.
 # CUDA 12.8 et cuDNN 9 viennent des roues PyPI `nvidia-*` dépendantes de torch 2.8.0 : pas
 # d'image de base nvidia/cuda. Le pilote NVIDIA (>= 570 pour CUDA 12.8) et le NVIDIA
 # Container Toolkit restent ceux de l'hôte. L'image CPU reste deploy/docker/worker.Dockerfile.
@@ -36,4 +38,4 @@ COPY worker/snitch_worker /worker/snitch_worker
 COPY worker/scripts/download_models.py /worker/scripts/download_models.py
 COPY LICENSE /usr/share/licenses/snitch/LICENSE
 USER 10001:10001
-CMD ["python", "-m", "snitch_worker.runner"]
+CMD ["python", "-m", "snitch_worker.bootstrap"]

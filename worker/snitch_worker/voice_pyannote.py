@@ -6,8 +6,8 @@ Design constraints (see docs/real-voice-worker.md):
   its tests start without any ML library.
 * No implicit download. Models are read from local paths given by environment
   variables, and Hugging Face offline mode is forced before any library loads. The
-  Hugging Face token is never read here; downloads belong to
-  ``worker/scripts/download_models.py``, an explicit command.
+  Hugging Face token is never read here; downloads belong to the explicit, opt-in
+  ``snitch_worker.bootstrap`` (run before the worker) or ``worker/scripts/download_models.py``.
 * Models are loaded once per process and inference is serialised (shared VRAM).
 * Every failure is raised as ``VoiceProviderUnavailable`` with a stable reason code
   and no library message, path or token (the cause is suppressed).
@@ -19,6 +19,7 @@ import os
 import threading
 from typing import Any, Callable, MutableMapping
 
+from snitch_worker import voice_manifest
 from snitch_worker.voice import (
     VoiceProviderUnavailable,
     diarization_from_turns,
@@ -103,6 +104,8 @@ class PyannoteProvider:
 
     def _embedding_identity(self) -> tuple[str, str]:
         version = self._environ.get(EMBEDDING_VERSION_ENV, "").strip()
+        if not version:  # fall back to the marker written by snitch_worker.bootstrap
+            version = voice_manifest.read_embedding_version(self._environ)
         if not version:
             raise VoiceProviderUnavailable("embedding_version_missing")
         return self._environ.get(EMBEDDING_NAME_ENV, "").strip() or DEFAULT_EMBEDDING_NAME, version
