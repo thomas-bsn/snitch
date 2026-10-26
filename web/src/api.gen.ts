@@ -398,11 +398,29 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** @description Administrateurs uniquement. Un worker révoqué reste consultable. */
+    get: operations["getWorker"];
     put?: never;
     post?: never;
     /** @description Administrateurs uniquement. L’historique du worker est conservé. */
     delete: operations["revokeWorker"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Refusé (404) pour un worker révoqué. */
+    post: operations["renewWorkerToken"];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -1724,6 +1742,45 @@ export interface components {
     WorkerRegistrationInput: {
       name: string;
       max_concurrency: number;
+      /** @description Adresse du serveur Whisper de ce worker (http ou https, sans identifiants). Écrite dans le fichier d'environnement généré ; non conservée. */
+      transcription_url?: string;
+      /** @description Modèle et langue de la bibliothèque : réservés au premier worker, qui crée le profil de transcription (refus transcription_profile_already_set ensuite). Le jeton Hugging Face n'est jamais envoyé à Snitch. */
+      transcription?: components["schemas"]["WorkerTranscriptionProfile"];
+    };
+    WorkerTranscriptionProfile: {
+      model: string;
+      language: string;
+    };
+    WorkerRecentTask: {
+      /** Format: int64 */
+      job_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      kind: "transcription" | "diarization" | "fingerprint" | "other";
+      /** @enum {string} */
+      outcome: "started" | "completed" | "retry" | "failed";
+      error_code: string;
+      /** Format: date-time */
+      at: string;
+    };
+    WorkerDetail: {
+      id: string;
+      name: string;
+      max_concurrency: number;
+      reported_concurrency: number;
+      /** Format: date-time */
+      last_seen_at: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      revoked_at: string | null;
+      connected: boolean;
+      models?: components["schemas"]["WorkerModels"];
+      /** @description Dernières tâches de ce worker, une ligne par tâche, la plus récente d'abord. */
+      recent_tasks: components["schemas"]["WorkerRecentTask"][];
+      /** @description Fichiers de déploiement avec un emplacement de jeton (A_RENSEIGNER) : le jeton n'est jamais relisible. */
+      bundle: components["schemas"]["WorkerBundle"];
     };
     WorkerRegistration: {
       id: string;
@@ -1747,6 +1804,16 @@ export interface components {
       insecure_api_url: boolean;
     };
     WorkerPage: {
+      /** @description Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de la bibliothèque. */
+      first_worker: boolean;
+      /** @description Adresse de Snitch telle que vue par cette requête, écrite dans les fichiers générés. */
+      snitch_url: string;
+      /** @description Profil de transcription actif de la bibliothèque. */
+      transcription: {
+        model: string;
+        language: string;
+        version: string;
+      };
       items: components["schemas"]["Worker"][];
     };
     WorkerPulseInput: {
@@ -3894,6 +3961,37 @@ export interface operations {
       };
     };
   };
+  getWorker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fiche du worker, sans son jeton */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerDetail"];
+        };
+      };
+      /** @description Worker introuvable */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   revokeWorker: {
     parameters: {
       query?: never;
@@ -3916,6 +4014,40 @@ export interface operations {
         content?: never;
       };
       /** @description Worker introuvable ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  renewWorkerToken: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Nouveau jeton, montré une seule fois ; l'ancien cesse de fonctionner */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerRegistration"];
+        };
+      };
+      /** @description Worker introuvable */
       default: {
         headers: {
           [name: string]: unknown;

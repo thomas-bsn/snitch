@@ -96,6 +96,16 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
+  super_administrator_required: "Seul le Super-administrateur peut faire cela.",
+  invalid_transcription_language:
+    "Ce code de langue n’est pas valide (deux ou trois lettres minuscules, par exemple fr).",
+  invalid_transcription_model: "Ce nom de modèle n’est pas valide.",
+  invalid_transcription_url:
+    "Cette adresse Whisper n’est pas valide. Utilisez une adresse http ou https sans identifiants.",
+  transcription_language_required: "Choisissez la langue de la bibliothèque.",
+  transcription_model_required: "Indiquez le modèle de la bibliothèque.",
+  transcription_profile_already_set:
+    "La bibliothèque a déjà un modèle de transcription. Rechargez la page.",
   job_not_cancellable: "Cette tâche ne peut plus être annulée.",
   job_not_dead: "Seules les tâches mortes peuvent être relancées.",
   job_not_found: "Cette tâche n’existe pas.",

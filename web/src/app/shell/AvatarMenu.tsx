@@ -57,6 +57,7 @@ export function AvatarMenu() {
             <Menu.Separator className="my-1.5 h-px bg-line" />
             <Menu.LinkItem
               render={<Link to="/account" />}
+              closeOnClick
               className={itemClass}
             >
               <Settings className="size-4" />
@@ -65,6 +66,7 @@ export function AvatarMenu() {
             {isAdministrator(user) && (
               <Menu.LinkItem
                 render={<Link to="/admin" />}
+                closeOnClick
                 className={itemClass}
               >
                 <ShieldCheck className="size-4" />
