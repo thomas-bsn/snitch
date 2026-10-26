@@ -38,7 +38,7 @@ Non exécutés ici : builds d'images Docker app/worker, smoke Compose et CI dist
 - **Filtre de la bibliothèque par Personne** : il lit les voix identifiées du clip et ne suit pas le locuteur corrigé d'un segment ; seul le filtre de la recherche (niveau segment) le suit.
 - **Voie sémantique et réindexation en attente** : un segment corrigé dont la réindexation est en attente est exclu de la voie sémantique de la recherche hybride (pour ne pas ressortir l'ancien texte par l'ancien vecteur) ; la voie lexicale le trouve tout de suite, et il redevient trouvable sémantiquement une fois réindexé.
 - **Corrections de locuteur et retranscription** : elles sont comptées comme « corrigé » pour la confirmation de retranscription et les lots, mais ce chemin précis n'est pas couvert par un test.
-- **Suppression d'une Personne** : le retour du locuteur corrigé vers le locuteur déduit (`ON DELETE SET NULL`) n'est pas testé.
+- **Suppression d'une Personne** : testée en revue (voir « Corrections de la revue »).
 - **Changement de piste** : il est refusé sur un clip corrigé même si la transcription n'est pas prête, tant que la confirmation explicite n'est pas donnée.
 - **Aucun taux d'erreur** n'est calculé ; seul l'export est fourni.
 - **Playwright** : une spec a été renommée pour éviter une collision de filtre entre fichiers de tests de navigateur.
@@ -46,6 +46,13 @@ Non exécutés ici : builds d'images Docker app/worker, smoke Compose et CI dist
 - **Phase 5** : la validation de bout en bout avec de vrais modèles n'a pas eu lieu (voir la roadmap) ; les tests de la phase 6 n'en dépendent pas, mais l'usage réel oui.
 - **Mots d'un segment corrigé** : datés au début du segment, sans réalignement ; l'ouverture au timestamp y renvoie.
 - **HANDOFF.md** n'a pas été modifié : ses mentions d'état restent historiques (voir AGENTS.md). Les mentions de numéros de ticket des documents de la phase 5 n'ont pas été touchées.
+
+## Corrections de la revue
+
+Corrigé : (1) course locuteur/indexation, avec une `text_version` distincte (migration 00034) que seules les écritures de texte incrémentent ; (3) comparaison du texte d'origine nettoyé (`text_unchanged`) ; (4) corrections obsolètes consultables (`GET /api/clips/{id}/obsolete-corrections`, interface « Corrections obsolètes », test d'intégration, pas de spec Playwright : aucun worker simulé dans ces specs) ; (5) lecture de clip en un instantané `REPEATABLE READ` (pas de test dédié : une course de lecture n'est pas reproductible de façon déterministe) ; (6) une nouvelle diarisation ou une piste microphone qui supprime un locuteur désigné laisse une entrée d'historique, et la suppression d'une Personne est testée.
+Conservé et documenté : (2) version unique texte/locuteur (conflit spurieux possible entre un éditeur de texte et un changement de locuteur) ; (7) correction ajoutée pendant une retranscription confirmée : obsolète à l'achèvement ; (8) segment exclu de la voie sémantique après 5 échecs, déjà visible en administration (`reindex_failed`).
+Code : squelette `correctSegment` commun aux trois écritures, constantes de codes et de types d'entrée, `shared.ts` côté web.
+Écart restant : un refus propre à une écriture (locuteur inconnu, entrée introuvable) est évalué après le contrôle de version, et non avant.
 
 ## À valider
 
