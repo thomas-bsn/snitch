@@ -99,7 +99,13 @@ export function SegmentText({
 
   return (
     <span className="segment-text">
-      <span className="segment-body">{text}</span>
+      <span className="segment-body">
+        {segment.corrected || segment.words.length === 0
+          ? text
+          : segment.words.map((word, wordIndex) => (
+              <span key={`${word.start}-${wordIndex}`}>{word.word} </span>
+            ))}
+      </span>
       {segment.corrected && (
         <span className="segment-corrected">
           {" "}

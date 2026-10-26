@@ -11,7 +11,7 @@ test("un utilisateur corrige le texte d’un segment sans toucher à l’origina
   const transcript = page.getByRole("region", {
     name: "Transcription horodatée",
   });
-  await expect(transcript).toContainText("Bien joué !");
+  await expect(transcript).toContainText("Bien joué");
   await expect(transcript).not.toContainText("Corrigé");
 
   // Cancelling leaves the segment untouched.
@@ -24,7 +24,7 @@ test("un utilisateur corrige le texte d’un segment sans toucher à l’origina
   await transcript
     .getByRole("button", { name: "Abandonner la modification du segment 1" })
     .click();
-  await expect(transcript).toContainText("Bien joué !");
+  await expect(transcript).toContainText("Bien joué");
   await expect(transcript).not.toContainText("Texte abandonné");
 
   // An empty text cannot be saved.
