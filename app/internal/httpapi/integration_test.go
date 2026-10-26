@@ -391,6 +391,8 @@ func TestFoundation(t *testing.T) {
 		call(anon, "GET", "/api/admin/settings", nil, "", 401)
 		call(anon, "GET", "/api/admin/sources", nil, "", 401)
 		call(anon, "POST", "/api/auth/register", creds, "", 409)
+		call(client, "POST", "/api/setup/code", map[string]string{"code": "wrong"}, "", 409) // behavior in the setup progress suite
+		call(client, "POST", "/api/setup/code", map[string]string{"code": code}, "", 200)
 		call(client, "POST", "/api/setup", map[string]string{"code": "wrong", "username": "administrator", "password": "synthetic-password"}, "", 409)
 		call(client, "POST", "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, "", 201)
 		call(client, "POST", "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, "", 409)
@@ -688,6 +690,10 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/auth/me", nil, "", 200)
 		// Segment corrections: contract conformity here, behavior in the segment corrections suite.
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
+		// Setup progress: contract conformity here, behavior in the setup progress suite.
+		call(client, "GET", "/api/admin/setup-progress", nil, "", 200)
+		call(client, "PUT", "/api/admin/setup-progress", map[string]string{"step": "discord", "state": "skipped"}, me.CSRF, 200)
+		call(client, "POST", "/api/admin/setup-progress/dismiss", nil, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/text", map[string]any{"text": "corrigé", "expected_version": 0}, me.CSRF, 404)
 		if _, e = pool.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,status,result) VALUES($1,'transcription.audio.2','contract-transcription','done',$2::jsonb)`, contractClipID, `{"provider":"fixture","model":"m","audio_stream_index":2,"segments":[{"start":0,"end":1,"text":"original","words":[]}]}`); e != nil {
 			t.Fatal(e)
@@ -776,7 +782,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "setup-wizard.spec.ts", "account-settings.spec.ts", "admin-workers.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "import.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "search-screen.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "people.spec.ts", "people-groups.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "setup-wizard.spec.ts", "account-settings.spec.ts", "admin-workers.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "import.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "legacy-workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "search-screen.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "people.spec.ts", "people-groups.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -808,7 +814,7 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"jobs.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_WORKERS") == "1" {
-			suites = []string{"workers.spec.ts"}
+			suites = []string{"legacy-workers.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_CONTROLS") == "1" {
 			suites = []string{"queue-controls.spec.ts"}

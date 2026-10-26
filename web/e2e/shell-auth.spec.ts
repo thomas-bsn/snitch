@@ -160,16 +160,17 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
     await expect(page).toHaveURL(/\/people$/);
 
     const screens = [
-      ["/library", "Library"],
-      ["/people", "People"],
-      ["/import", "Import"],
-      ["/account", "Account settings"],
-      ["/admin", "Administration"],
+      ["/library", "Library", "/library"],
+      ["/people", "People", "/people"],
+      ["/import", "Import", "/import"],
+      ["/account", "Account settings", "/account"],
+      // Administration opens on its first tab.
+      ["/admin", "Administration", "/admin/workers"],
     ] as const;
-    for (const [path, title] of screens) {
+    for (const [path, title, landing] of screens) {
       await page.goto(path);
       await page.reload();
-      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page).toHaveURL(new RegExp(`${landing}$`));
       await expect(
         page.getByRole("heading", { name: title, level: 1 }),
       ).toBeVisible();
