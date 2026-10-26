@@ -16,7 +16,6 @@ import {
   Forbidden,
   ImportPage,
   NotFound,
-  PeoplePage,
   SearchPage,
 } from "./pages/pages";
 import { isAdministrator } from "./roles";
@@ -28,6 +27,9 @@ import { LoginPage } from "./screens/LoginPage";
 import { RegisterPage } from "./screens/RegisterPage";
 import { SessionProvider, useSession } from "./session";
 import { AppShell } from "./shell/AppShell";
+import { PeopleLayout } from "./people/PeopleLayout";
+import { PersonList } from "./people/PersonList";
+import { VerificationTab } from "./people/VerificationTab";
 import { ThemeProvider } from "./theme";
 
 /** Screens that need a signed-in person; others are sent to the sign-in screen. */
@@ -80,7 +82,11 @@ function Routing() {
           <Route path="library" element={<LibraryPage />} />
           <Route path="clips/:id" element={<ClipPage />} />
           <Route path="search" element={<SearchPage />} />
-          <Route path="people" element={<PeoplePage />} />
+          <Route path="people" element={<PeopleLayout />}>
+            <Route index element={<PersonList />} />
+            <Route path="verification" element={<VerificationTab />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
           <Route path="import" element={<ImportPage />} />
           <Route path="account/*" element={<AccountPage />} />
           <Route element={<RequireAdministrator />}>

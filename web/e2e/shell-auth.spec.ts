@@ -136,7 +136,7 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
     await adminPage.goto("/library");
     await adminPage.getByRole("button", { name: "Account menu" }).click();
     await expect(
-      adminPage.getByText("Administrator", { exact: true }),
+      adminPage.getByText("Super-administrator", { exact: true }),
     ).toBeVisible();
     await adminPage.getByRole("menuitem", { name: "Administration" }).click();
     await expect(adminPage).toHaveURL(/\/admin$/);

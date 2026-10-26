@@ -26,6 +26,7 @@ func (s *Server) registerPersonCorrectionRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/persons/{id}/merge", s.protected(false, http.HandlerFunc(s.mergePerson)))
 	mux.Handle("POST /api/persons/{id}/separation", s.protected(false, http.HandlerFunc(s.separatePerson)))
 	mux.Handle("DELETE /api/persons/{id}", s.protected(false, http.HandlerFunc(s.deletePerson)))
+	mux.Handle("GET /api/persons/{id}/voices", s.protected(false, http.HandlerFunc(s.listPersonVoices)))
 	mux.Handle("GET /api/person-events", s.protected(false, http.HandlerFunc(s.listPersonEvents)))
 }
 
