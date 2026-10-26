@@ -25,8 +25,10 @@ RUN pip install --no-cache-dir --no-deps -r /locks/build.lock \
  && pip install --no-cache-dir --no-deps --require-hashes -r /locks/voice-runtime.lock
 COPY worker/snitch_worker/api /api
 RUN pip install --no-cache-dir --no-deps --no-build-isolation /api && pip check
-# Contrôle de construction sans GPU ni modèle : appariement torch/CUDA et imports pyannote. Le WAV préparé est lu par la bibliothèque standard (voice_pyannote.read_pcm16_wav), sans backend torchaudio.
-RUN python -c "import torch, torchaudio, pyannote.audio; assert torch.__version__.startswith('2.8.0') and torch.version.cuda == '12.8', (torch.__version__, torch.version.cuda)"
+# Contrôle de construction sans GPU ni modèle : appariement torch/CUDA et décodage WAV 16 kHz.
+RUN ffmpeg -hide_banner -loglevel error -f lavfi -i sine=frequency=440:duration=1 -ac 1 -ar 16000 -c:a pcm_s16le -y /tmp/probe.wav \
+ && python -c "import torch, torchaudio, pyannote.audio; assert torch.__version__.startswith('2.8.0') and torch.version.cuda == '12.8', (torch.__version__, torch.version.cuda); w, sr = torchaudio.load('/tmp/probe.wav'); assert sr == 16000 and w.shape[0] == 1" \
+ && rm /tmp/probe.wav
 COPY scripts/collect_python_notices.py /collect_python_notices.py
 RUN python /collect_python_notices.py
 COPY worker/snitch_worker /worker/snitch_worker
