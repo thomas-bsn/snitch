@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
-import { useLocation, useSearchParams } from "react-router";
+import { useLocation } from "react-router";
 import { useLoaded } from "../api/loaded";
+import { useAddressParams } from "../api/useAddressParams";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
@@ -44,7 +45,7 @@ function readFilters(params: URLSearchParams): SearchFilters {
 export function SearchPage() {
   const { t, error } = useI18n();
   const location = useLocation();
-  const [params, setParams] = useSearchParams();
+  const { params, update } = useAddressParams();
   useDocumentTitle(t("pages.search.title"));
 
   const filters = useMemo(() => readFilters(params), [params]);
@@ -64,18 +65,18 @@ export function SearchPage() {
   );
 
   function change(patch: Partial<SearchFilters>) {
-    const next = new URLSearchParams(params);
-    for (const [key, value] of Object.entries(patch)) {
-      if (
-        value === "" ||
-        value === 1 ||
-        (key === "mode" && value === "full_text")
-      )
-        next.delete(key);
-      else next.set(key, String(value));
-    }
-    if (!("page" in patch)) next.delete("page");
-    setParams(next);
+    update((next) => {
+      for (const [key, value] of Object.entries(patch)) {
+        if (
+          value === "" ||
+          value === 1 ||
+          (key === "mode" && value === "full_text")
+        )
+          next.delete(key);
+        else next.set(key, String(value));
+      }
+      if (!("page" in patch)) next.delete("page");
+    });
   }
 
   const result =
@@ -102,12 +103,12 @@ export function SearchPage() {
         active={active}
         onSearch={(q) => change({ q })}
         onChange={change}
-        onClear={() => {
-          const next = new URLSearchParams();
-          if (filters.q) next.set("q", filters.q);
-          if (filters.mode !== "full_text") next.set("mode", filters.mode);
-          setParams(next);
-        }}
+        onClear={() =>
+          update((next) => {
+            for (const key of FILTER_KEYS) next.delete(key);
+            next.delete("page");
+          })
+        }
       />
 
       {filters.q === "" && (
