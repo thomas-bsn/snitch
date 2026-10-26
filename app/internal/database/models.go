@@ -212,6 +212,53 @@ type PersonEvent struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
+type SegmentCorrection struct {
+	TranscriptionJobID    int64              `json:"transcription_job_id"`
+	SegmentIndex          int32              `json:"segment_index"`
+	ClipID                int64              `json:"clip_id"`
+	Text                  pgtype.Text        `json:"text"`
+	TextAuthorID          pgtype.Int8        `json:"text_author_id"`
+	TextAuthorUsername    string             `json:"text_author_username"`
+	TextCorrectedAt       pgtype.Timestamptz `json:"text_corrected_at"`
+	SpeakerOverrideID     pgtype.Int8        `json:"speaker_override_id"`
+	SpeakerAuthorID       pgtype.Int8        `json:"speaker_author_id"`
+	SpeakerAuthorUsername string             `json:"speaker_author_username"`
+	SpeakerCorrectedAt    pgtype.Timestamptz `json:"speaker_corrected_at"`
+	Version               int32              `json:"version"`
+	StaleAt               pgtype.Timestamptz `json:"stale_at"`
+	ReindexPending        bool               `json:"reindex_pending"`
+	ReindexRequestedAt    pgtype.Timestamptz `json:"reindex_requested_at"`
+	ReindexAttempts       int32              `json:"reindex_attempts"`
+	ReindexError          string             `json:"reindex_error"`
+	ReindexLeaseExpiresAt pgtype.Timestamptz `json:"reindex_lease_expires_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SegmentCorrectionEvent struct {
+	ID                  int64              `json:"id"`
+	TranscriptionJobID  int64              `json:"transcription_job_id"`
+	SegmentIndex        int32              `json:"segment_index"`
+	ClipID              int64              `json:"clip_id"`
+	Kind                string             `json:"kind"`
+	OldText             pgtype.Text        `json:"old_text"`
+	NewText             pgtype.Text        `json:"new_text"`
+	OldCorrected        bool               `json:"old_corrected"`
+	NewCorrected        bool               `json:"new_corrected"`
+	OldSpeakerID        pgtype.Int8        `json:"old_speaker_id"`
+	OldSpeakerLabel     string             `json:"old_speaker_label"`
+	NewSpeakerID        pgtype.Int8        `json:"new_speaker_id"`
+	NewSpeakerLabel     string             `json:"new_speaker_label"`
+	RestoredFromEventID pgtype.Int8        `json:"restored_from_event_id"`
+	RestoredToOriginal  bool               `json:"restored_to_original"`
+	Reason              string             `json:"reason"`
+	VersionBefore       int32              `json:"version_before"`
+	VersionAfter        int32              `json:"version_after"`
+	AuthorID            pgtype.Int8        `json:"author_id"`
+	AuthorUsername      string             `json:"author_username"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
 type Session struct {
 	TokenHash []byte             `json:"token_hash"`
 	UserID    int64              `json:"user_id"`

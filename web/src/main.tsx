@@ -10,6 +10,7 @@ import {
   ResultSpeaker,
   applyPersonFilter,
 } from "./voice/PersonFilter";
+import { SegmentText } from "./segments/SegmentText";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
 import { PersonsCard } from "./voice/PersonsCard";
@@ -1830,15 +1831,17 @@ function App() {
                                             >
                                               {formatTimecode(segment.start)}
                                             </button>{" "}
-                                            {segment.words.map(
-                                              (word, wordIndex) => (
-                                                <span
-                                                  key={`${word.start}-${wordIndex}`}
-                                                >
-                                                  {word.word}{" "}
-                                                </span>
-                                              ),
-                                            )}
+                                            <SegmentText
+                                              clipId={clip.id}
+                                              jobId={
+                                                transcript.transcription_job_id
+                                              }
+                                              segment={segment}
+                                              csrf={csrf}
+                                              onChanged={() =>
+                                                loadClipDetail(clip.id)
+                                              }
+                                            />
                                           </p>
                                         ),
                                       )

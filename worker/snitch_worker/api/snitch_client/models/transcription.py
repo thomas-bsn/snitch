@@ -32,6 +32,7 @@ class Transcription:
             segments (list[TranscriptSegment]):
             version (str | Unset):
             language (str | Unset):
+            transcription_job_id (int | Unset): Tâche de transcription visible : avec l'index, l'identité d'un segment.
      """
 
     provider: str
@@ -40,6 +41,7 @@ class Transcription:
     segments: list[TranscriptSegment]
     version: str | Unset = UNSET
     language: str | Unset = UNSET
+    transcription_job_id: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -65,6 +67,8 @@ class Transcription:
 
         language = self.language
 
+        transcription_job_id = self.transcription_job_id
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -78,6 +82,8 @@ class Transcription:
             field_dict["version"] = version
         if language is not UNSET:
             field_dict["language"] = language
+        if transcription_job_id is not UNSET:
+            field_dict["transcription_job_id"] = transcription_job_id
 
         return field_dict
 
@@ -107,6 +113,8 @@ class Transcription:
 
         language = d.pop("language", UNSET)
 
+        transcription_job_id = d.pop("transcription_job_id", UNSET)
+
         transcription = cls(
             provider=provider,
             model=model,
@@ -114,6 +122,7 @@ class Transcription:
             segments=segments,
             version=version,
             language=language,
+            transcription_job_id=transcription_job_id,
         )
 
 

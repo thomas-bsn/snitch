@@ -2186,6 +2186,16 @@
         }
       }
     },
+    "/api/clips/{id}/segments/{index}/text": {
+      "put": {
+        "operationId": "putSegmentText",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "path", "name": "index", "required": true, "schema": {"type": "integer", "minimum": 0}, "description": "Rang du segment dans la transcription visible du clip."}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SegmentTextInput"}}}},
+        "responses": {"200": {"description": "Correction enregistrée ; état courant du segment", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SegmentCorrection"}}}}, "409": {"description": "segment_conflict : la version a changé depuis la lecture (l'état courant et son auteur sont renvoyés) ; transcription_changed : le clip a été retranscrit depuis la lecture", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SegmentConflict"}}}}, "default": {"description": "Erreur (400 invalid_text, text_too_long, invalid_reason, text_unchanged, invalid_request, invalid_segment_index ; 404 clip_not_found, segment_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. Corrige le texte du segment sans modifier la transcription d'origine, ses débuts, ses fins ni ses mots. expected_version est la version vue par l'appelant (0 pour un segment jamais corrigé). Le texte, la version incrémentée et l'entrée d'historique sont écrits dans une seule transaction.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/clips/{id}/media": {
       "get": {
         "operationId": "getClipMedia",
@@ -4906,6 +4916,9 @@
         },
         "description": "Exactement un de person_id ou new_person_name."
       },
+      "SegmentTextInput": {"type": "object", "required": ["text", "expected_version"], "additionalProperties": false, "properties": {"text": {"type": "string", "description": "Nouveau texte (4000 caractères au plus, non vide après suppression des espaces de bord)."}, "expected_version": {"type": "integer", "minimum": 0, "description": "Version du segment vue par l'appelant ; 0 si jamais corrigé."}, "reason": {"type": "string", "description": "Motif facultatif (500 caractères au plus)."}, "transcription_job_id": {"type": "integer", "format": "int64", "minimum": 1, "description": "Transcription lue par l'appelant ; refusée (transcription_changed) si le clip a été retranscrit depuis."}}},
+      "SegmentCorrection": {"type": "object", "required": ["transcription_job_id", "index", "version", "text", "original_text", "corrected", "author", "corrected_at"], "properties": {"transcription_job_id": {"type": "integer", "format": "int64"}, "index": {"type": "integer", "minimum": 0}, "version": {"type": "integer", "minimum": 0, "description": "0 tant que le segment n'a jamais été écrit ; incrémentée à chaque écriture."}, "text": {"type": "string", "description": "Texte effectif : le texte corrigé s'il existe, sinon le texte d'origine."}, "original_text": {"type": "string"}, "corrected": {"type": "boolean"}, "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true}, "corrected_at": {"type": "string", "format": "date-time", "nullable": true}}},
+      "SegmentConflict": {"type": "object", "required": ["error"], "properties": {"error": {"type": "string", "enum": ["segment_conflict", "transcription_changed"]}, "current": {"$ref": "#/components/schemas/SegmentCorrection"}}},
       "AttributionConflict": {"type": "object", "required": ["error"], "properties": {"error": {"type": "string"}, "attribution": {"$ref": "#/components/schemas/Attribution"}}},
       "AttributionEvent": {
         "type": "object",
@@ -5457,7 +5470,13 @@
           "local_speaker_label": {"type": "string"},
           "local_speaker_decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
           "local_speaker_person_id": {"type": "integer", "format": "int64", "description": "Personne du Locuteur local, si attribuée."},
-          "local_speaker_person_name": {"type": "string"}
+          "local_speaker_person_name": {"type": "string"},
+          "index": {"type": "integer", "minimum": 0, "description": "Rang du segment dans la transcription (identité avec transcription_job_id)."},
+          "original_text": {"type": "string", "description": "Texte de la transcription automatique, jamais modifié."},
+          "corrected": {"type": "boolean", "description": "Vrai si text est un texte corrigé par un utilisateur."},
+          "correction_version": {"type": "integer", "minimum": 0, "description": "Version à renvoyer comme expected_version ; 0 si jamais écrit."},
+          "corrected_by": {"type": "string", "description": "Auteur de la correction du texte, si corrigé."},
+          "corrected_at": {"type": "string", "format": "date-time", "description": "Date de la correction du texte, si corrigé."}
         }
       },
       "Transcription": {
@@ -5480,6 +5499,11 @@
           },
           "language": {
             "type": "string"
+          },
+          "transcription_job_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tâche de transcription visible : avec l'index, l'identité d'un segment."
           },
           "audio_stream_index": {
             "type": "integer",

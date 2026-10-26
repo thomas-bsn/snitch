@@ -89,6 +89,10 @@ from .search_result_visibility import SearchResultVisibility
 from .search_transcripts_mode import SearchTranscriptsMode
 from .search_transcripts_status import SearchTranscriptsStatus
 from .search_transcripts_visibility import SearchTranscriptsVisibility
+from .segment_conflict import SegmentConflict
+from .segment_conflict_error import SegmentConflictError
+from .segment_correction import SegmentCorrection
+from .segment_text_input import SegmentTextInput
 from .session import Session
 from .settings import Settings
 from .settings_input import SettingsInput
@@ -267,6 +271,10 @@ __all__ = (
     "SearchTranscriptsMode",
     "SearchTranscriptsStatus",
     "SearchTranscriptsVisibility",
+    "SegmentConflict",
+    "SegmentConflictError",
+    "SegmentCorrection",
+    "SegmentTextInput",
     "Session",
     "Settings",
     "SettingsInput",

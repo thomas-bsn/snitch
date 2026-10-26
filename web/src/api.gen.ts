@@ -602,6 +602,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/segments/{index}/text": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Corrige le texte du segment sans modifier la transcription d'origine, ses débuts, ses fins ni ses mots. expected_version est la version vue par l'appelant (0 pour un segment jamais corrigé). Le texte, la version incrémentée et l'entrée d'historique sont écrits dans une seule transaction. */
+    put: operations["putSegmentText"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}/media": {
     parameters: {
       query?: never;
@@ -2033,6 +2050,38 @@ export interface components {
        */
       expected_person_id?: number;
     };
+    SegmentTextInput: {
+      /** @description Nouveau texte (4000 caractères au plus, non vide après suppression des espaces de bord). */
+      text: string;
+      /** @description Version du segment vue par l'appelant ; 0 si jamais corrigé. */
+      expected_version: number;
+      /** @description Motif facultatif (500 caractères au plus). */
+      reason?: string;
+      /**
+       * Format: int64
+       * @description Transcription lue par l'appelant ; refusée (transcription_changed) si le clip a été retranscrit depuis.
+       */
+      transcription_job_id?: number;
+    };
+    SegmentCorrection: {
+      /** Format: int64 */
+      transcription_job_id: number;
+      index: number;
+      /** @description 0 tant que le segment n'a jamais été écrit ; incrémentée à chaque écriture. */
+      version: number;
+      /** @description Texte effectif : le texte corrigé s'il existe, sinon le texte d'origine. */
+      text: string;
+      original_text: string;
+      corrected: boolean;
+      author: components["schemas"]["AttributionAuthor"] | null;
+      /** Format: date-time */
+      corrected_at: string | null;
+    };
+    SegmentConflict: {
+      /** @enum {string} */
+      error: "segment_conflict" | "transcription_changed";
+      current?: components["schemas"]["SegmentCorrection"];
+    };
     AttributionConflict: {
       error: string;
       attribution?: components["schemas"]["Attribution"];
@@ -2255,12 +2304,32 @@ export interface components {
        */
       local_speaker_person_id?: number;
       local_speaker_person_name?: string;
+      /** @description Rang du segment dans la transcription (identité avec transcription_job_id). */
+      index?: number;
+      /** @description Texte de la transcription automatique, jamais modifié. */
+      original_text?: string;
+      /** @description Vrai si text est un texte corrigé par un utilisateur. */
+      corrected?: boolean;
+      /** @description Version à renvoyer comme expected_version ; 0 si jamais écrit. */
+      correction_version?: number;
+      /** @description Auteur de la correction du texte, si corrigé. */
+      corrected_by?: string;
+      /**
+       * Format: date-time
+       * @description Date de la correction du texte, si corrigé.
+       */
+      corrected_at?: string;
     };
     Transcription: {
       provider: string;
       model: string;
       version?: string;
       language?: string;
+      /**
+       * Format: int64
+       * @description Tâche de transcription visible : avec l'index, l'identité d'un segment.
+       */
+      transcription_job_id?: number;
       audio_stream_index: number;
       segments: components["schemas"]["TranscriptSegment"][];
     };
@@ -3933,6 +4002,55 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putSegmentText: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        /** @description Rang du segment dans la transcription visible du clip. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SegmentTextInput"];
+      };
+    };
+    responses: {
+      /** @description Correction enregistrée ; état courant du segment */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentCorrection"];
+        };
+      };
+      /** @description segment_conflict : la version a changé depuis la lecture (l'état courant et son auteur sont renvoyés) ; transcription_changed : le clip a été retranscrit depuis la lecture */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentConflict"];
+        };
+      };
+      /** @description Erreur (400 invalid_text, text_too_long, invalid_reason, text_unchanged, invalid_request, invalid_segment_index ; 404 clip_not_found, segment_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

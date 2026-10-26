@@ -57,8 +57,13 @@ func effectiveAttributionOf(ls string) string {
 // the voice that speaks most over it (same rule as attachLocalSpeakers: maximal
 // overlap, ties to the lowest ordinal). The alias exposes person_id and person_name
 // (NULL unless identified) and level ('unknown' when nothing is attributed).
-// Callers pass SQL expressions for the clip id, audio stream, segment start and end.
-func segmentSpeakerJoin(alias, clip, stream, start, end string) string {
+// Callers pass SQL expressions for the clip id, audio stream, segment start and end,
+// and for the segment identity (transcription job id and segment index; NULL when the
+// caller does not know it yet). job and idx are the hook of the segment speaker
+// correction (phase 6): the speaker step reads the segment_corrections override
+// through them; until then they are ignored.
+func segmentSpeakerJoin(alias, clip, stream, start, end, job, idx string) string {
+	_, _ = job, idx
 	overlap := fmt.Sprintf("LEAST(%s,st.end_seconds)-GREATEST(%s,st.start_seconds)", end, start)
 	return fmt.Sprintf(` LEFT JOIN LATERAL (SELECT CASE WHEN eff.decision_level IN %[7]s THEN eff.person_id END person_id,
  CASE WHEN eff.decision_level IN %[7]s THEN p.display_name END person_name,COALESCE(eff.decision_level,'unknown') level

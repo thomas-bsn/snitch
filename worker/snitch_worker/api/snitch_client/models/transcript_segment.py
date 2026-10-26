@@ -11,6 +11,7 @@ from ..types import UNSET, Unset
 from ..models.decision_level import DecisionLevel
 from ..types import UNSET, Unset
 from typing import cast
+import datetime
 
 if TYPE_CHECKING:
   from ..models.transcript_word import TranscriptWord
@@ -39,6 +40,12 @@ class TranscriptSegment:
                 l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
             local_speaker_person_id (int | Unset): Personne du Locuteur local, si attribuée.
             local_speaker_person_name (str | Unset):
+            index (int | Unset): Rang du segment dans la transcription (identité avec transcription_job_id).
+            original_text (str | Unset): Texte de la transcription automatique, jamais modifié.
+            corrected (bool | Unset): Vrai si text est un texte corrigé par un utilisateur.
+            correction_version (int | Unset): Version à renvoyer comme expected_version ; 0 si jamais écrit.
+            corrected_by (str | Unset): Auteur de la correction du texte, si corrigé.
+            corrected_at (datetime.datetime | Unset): Date de la correction du texte, si corrigé.
      """
 
     start: float
@@ -50,6 +57,12 @@ class TranscriptSegment:
     local_speaker_decision_level: DecisionLevel | Unset = UNSET
     local_speaker_person_id: int | Unset = UNSET
     local_speaker_person_name: str | Unset = UNSET
+    index: int | Unset = UNSET
+    original_text: str | Unset = UNSET
+    corrected: bool | Unset = UNSET
+    correction_version: int | Unset = UNSET
+    corrected_by: str | Unset = UNSET
+    corrected_at: datetime.datetime | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -84,6 +97,20 @@ class TranscriptSegment:
 
         local_speaker_person_name = self.local_speaker_person_name
 
+        index = self.index
+
+        original_text = self.original_text
+
+        corrected = self.corrected
+
+        correction_version = self.correction_version
+
+        corrected_by = self.corrected_by
+
+        corrected_at: str | Unset = UNSET
+        if not isinstance(self.corrected_at, Unset):
+            corrected_at = self.corrected_at.isoformat()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -103,6 +130,18 @@ class TranscriptSegment:
             field_dict["local_speaker_person_id"] = local_speaker_person_id
         if local_speaker_person_name is not UNSET:
             field_dict["local_speaker_person_name"] = local_speaker_person_name
+        if index is not UNSET:
+            field_dict["index"] = index
+        if original_text is not UNSET:
+            field_dict["original_text"] = original_text
+        if corrected is not UNSET:
+            field_dict["corrected"] = corrected
+        if correction_version is not UNSET:
+            field_dict["correction_version"] = correction_version
+        if corrected_by is not UNSET:
+            field_dict["corrected_by"] = corrected_by
+        if corrected_at is not UNSET:
+            field_dict["corrected_at"] = corrected_at
 
         return field_dict
 
@@ -146,6 +185,26 @@ class TranscriptSegment:
 
         local_speaker_person_name = d.pop("local_speaker_person_name", UNSET)
 
+        index = d.pop("index", UNSET)
+
+        original_text = d.pop("original_text", UNSET)
+
+        corrected = d.pop("corrected", UNSET)
+
+        correction_version = d.pop("correction_version", UNSET)
+
+        corrected_by = d.pop("corrected_by", UNSET)
+
+        _corrected_at = d.pop("corrected_at", UNSET)
+        corrected_at: datetime.datetime | Unset
+        if isinstance(_corrected_at,  Unset):
+            corrected_at = UNSET
+        else:
+            corrected_at = datetime.datetime.fromisoformat(_corrected_at)
+
+
+
+
         transcript_segment = cls(
             start=start,
             end=end,
@@ -156,6 +215,12 @@ class TranscriptSegment:
             local_speaker_decision_level=local_speaker_decision_level,
             local_speaker_person_id=local_speaker_person_id,
             local_speaker_person_name=local_speaker_person_name,
+            index=index,
+            original_text=original_text,
+            corrected=corrected,
+            correction_version=correction_version,
+            corrected_by=corrected_by,
+            corrected_at=corrected_at,
         )
 
 
