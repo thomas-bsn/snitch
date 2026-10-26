@@ -1,6 +1,6 @@
 # Worker vocal réel : fournisseurs pyannote (diarisation et empreintes)
 
-Complément de la phase 5 ([spec](specs/phase-5-real-voice-worker.md)), points 1 et 2. Le packaging Docker et le verrouillage des dépendances sont traités à part ; ce document décrit le code du worker, sa configuration et ses limites.
+Complément de la phase 5 ([spec](specs/phase-5-real-voice-worker.md)), points 1 et 2. Le point 3 (image GPU, verrouillage, exemple Compose) est décrit dans [Installer sur le PC gamer](#installer-sur-le-pc-gamer) ; ce document décrit aussi le code du worker, sa configuration et ses limites.
 
 ## Sélection du fournisseur
 
@@ -48,17 +48,46 @@ Mêmes champs que le fournisseur factice, validés par l'API :
 
 Les modèles sont chargés une fois par processus (mémoire) et l'inférence est sérialisée par un verrou : avec une capacité supérieure à 1, les tâches vocales ne se disputent pas les 12 Go de VRAM.
 
-## Dépendances Python requises (à verrouiller par le packaging)
+## Dépendances Python (verrouillées)
 
-Non ajoutées à `pyproject.toml`, `uv.lock` ni `runtime.lock` par ce changement. Versions à vérifier au verrouillage (compatibilité de `torch` avec CUDA de l'image à confirmer) :
+Elles sont dans l'extra `voice` de `worker/pyproject.toml` (absent de l'image CPU `worker.Dockerfile` et de `runtime.lock`, qui restent inchangés) : `pyannote.audio==4.0.7` (série 4, requise par `community-1` ; PyPI : `torch>=2.8.0`, `torchaudio>=2.8.0`, `torchcodec>=0.7.0`), `torch==2.8.0`, `torchaudio==2.8.0`, `torchcodec==0.7.0` (couple torchcodec 0.7 / torch 2.8 de la matrice de compatibilité de torchcodec ; à reconfirmer). `worker/uv.lock` les résout ; `worker/voice-runtime.lock` en est l'export complet avec empreintes SHA-256 (`cd worker && uv export --extra voice --no-dev --no-emit-project --no-emit-package snitch-client --format requirements-txt -o voice-runtime.lock`), installé avec `--require-hashes` par `deploy/docker/worker-gpu.Dockerfile`. Les roues PyPI de torch 2.8.0 pour Linux x86_64 sont liées à CUDA 12.8 et tirent cuDNN 9.10 et les bibliothèques CUDA par des paquets `nvidia-*-cu12` : l'image reste une base `python:3.12-slim` épinglée par condensé, sans image `nvidia/cuda`. Le pilote de l'hôte doit gérer CUDA 12.8 (série 570 ou plus récente d'après la documentation NVIDIA ; à confirmer avec `nvidia-smi`). `huggingface_hub` (résolu en 2.3.0) n'est utilisé que par `download_models.py`.
 
-- `pyannote.audio` : 4.x (le pipeline `community-1` requiert la série 4 ; version testée à ma connaissance : 4.0.x). Elle tire notamment `torch`, `torchaudio`, `pyannote.core`, `huggingface_hub`, `lightning`.
-- `torch` et `torchaudio` : versions appariées, compatibles avec `pyannote.audio` 4.x (série 2.8.x à ma connaissance) et la version CUDA de l'image.
-- `huggingface_hub` (déjà une dépendance de pyannote ; utilisée seulement par `download_models.py`, à ne pas lancer dans l'image de production si elle n'a pas de réseau).
-- `ffmpeg` : déjà requis par la transcription.
-- SpeechBrain : non requis.
+Licences : voir `deploy/NOTICES.md` et `deploy/licenses/voice/LICENSES.md` (les roues NVIDIA sont sous licence propriétaire NVIDIA ; les modèles sont en CC-BY-4.0 avec conditions d'accès Hugging Face).
 
-Licences à inscrire dans `deploy/NOTICES.md` / `deploy/licenses` : `pyannote.audio` (MIT), pyannote `community-1` et `wespeaker-voxceleb-resnet34-LM` (conditions d'accès Hugging Face, licences des modèles à relire), torch (BSD-3), WeSpeaker/VoxCeleb pour les poids (vérifier).
+## Installer sur le PC gamer
+
+Cible : un PC Linux (ou Windows avec WSL2 et Docker) avec une carte NVIDIA, par exemple une RTX 4070 (12 Go). Le worker ne publie aucun port et appelle l'API Snitch en HTTPS sortant ; les secrets restent sur ce PC. Les fichiers sont dans `deploy/worker/` (`compose.yaml`, `.env.example`).
+
+1. **Prérequis.** Pilote NVIDIA récent (`nvidia-smi` fonctionne, CUDA 12.8 ou plus), Docker avec Compose v2 et le [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) configuré pour Docker. Vérifier l'accès GPU : `docker run --rm --gpus all ubuntu nvidia-smi`.
+2. **Créer le worker dans l'interface Snitch** (page des workers, administrateur) pour obtenir le jeton, affiché une seule fois. Snitch doit être joignable en HTTPS depuis le PC.
+3. **Préparer `.env`.** `cd deploy/worker && cp .env.example .env`, puis renseigner `SNITCH_API_URL`, `SNITCH_WORKER_TOKEN`, `TRANSCRIPTION_API_URL` et `TRANSCRIPTION_MODEL` (et `TRANSCRIPTION_API_KEY` si besoin), `SNITCH_MODELS_DIR` (dossier du PC qui recevra les modèles) et, après l'étape suivante, `SNITCH_VOICE_EMBEDDING_MODEL_VERSION`. Ne jamais versionner `.env`.
+4. **Télécharger les modèles (une seule fois, explicite).** Créer un compte Hugging Face gratuit, ouvrir les pages de `pyannote/speaker-diarization-community-1` (accès « gated » : accepter les conditions) et de `pyannote/wespeaker-voxceleb-resnet34-LM` (à la lecture de la fiche, aucune restriction affichée ; à vérifier, et accepter les conditions si elles sont demandées), créer un jeton de lecture, puis :
+   ```sh
+   docker compose build
+   mkdir -p "$SNITCH_MODELS_DIR"
+   docker run --rm --user "$(id -u):$(id -g)" -e HF_TOKEN -e HF_HUB_OFFLINE=0 \
+     -v "$SNITCH_MODELS_DIR:/models" --entrypoint python snitch-worker-gpu:local \
+     /worker/scripts/download_models.py --confirm-terms --revision <révision> \
+     --diarization-dir /models/diarization --embedding-dir /models/embedding
+   ```
+   avec `HF_TOKEN` exporté dans le shell (jamais écrit dans `.env`). L'image force `HF_HUB_OFFLINE=1` ; `-e HF_HUB_OFFLINE=0` n'est donné qu'à cette commande ponctuelle. Noter la révision utilisée : c'est la valeur de `SNITCH_VOICE_EMBEDDING_MODEL_VERSION`. Le conteneur du worker monte ensuite les modèles en lecture seule et n'a jamais besoin du jeton.
+5. **Lancer.** `docker compose up -d --build` dans `deploy/worker`, puis `docker compose logs -f worker`.
+6. **Vérifier dans Snitch.** Le worker apparaît actif sur la page des workers avec ses capacités (`transcription.*`, `voice.*`). Un échec `provider_unavailable` renvoie au code de raison stable des journaux (`model_path_missing`, `cuda_unavailable`, `model_load_failed`...).
+7. **Brancher la transcription (Whisper).** Un serveur compatible `POST /v1/audio/transcriptions` : sur le PC hors Docker, `TRANSCRIPTION_API_URL=http://host.docker.internal:<port>` (le compose ajoute `host.docker.internal:host-gateway`) ; dans un autre projet Compose, activer l'option de réseau partagé du compose et viser le nom du service. Le profil de pipeline de l'interface doit utiliser le même nom de modèle que `TRANSCRIPTION_MODEL`.
+8. **Embeddings de texte (Ollama).** Ils restent côté NAS (`EMBEDDINGS_URL` et `EMBEDDINGS_MODEL` de l'application, voir [déploiement](deployment.md)) et ne passent pas par le worker. Un Ollama sur le PC peut servir de fournisseur si le NAS peut le joindre (réseau privé de votre choix).
+9. **Configurer le pipeline vocal** dans l'interface (fournisseur `pyannote`, modèle `pyannote/speaker-diarization-community-1`, version téléchargée) et confirmer `access_confirmed` : c'est la confirmation explicite par l'administrateur que les conditions ont été acceptées.
+
+### VRAM : 12 Go partagés
+
+Un Ollama chargé avec un gros modèle peut occuper l'essentiel des 12 Go. Garder `SNITCH_WORKER_CAPACITY=1`, ne pas faire tourner en même temps une transcription Whisper sur GPU, la diarisation et un grand modèle Ollama (`OLLAMA_KEEP_ALIVE` court, ou arrêter Ollama pendant les traitements vocaux). Une mémoire insuffisante fait échouer la tâche avec `provider_unavailable` (relançable). `SNITCH_VOICE_DEVICE=cpu` est un repli très lent. La consommation réelle n'a pas été mesurée (aucun GPU ici).
+
+### Test avec 10 vidéos
+
+Importer 10 vidéos choisies par vous par l'interface d'import de Snitch (aucun scan de dossier), les transcrire, puis lancer « Diariser les voix » clip par clip. AGENTS.md interdit tout média réel avant l'autorisation du benchmark de la phase 7 : cette autorisation relève de l'utilisateur, jamais d'un agent ni de la CI. Relever durée, VRAM (`nvidia-smi`) et erreurs ; ce n'est pas le benchmark de la phase 7.
+
+### Vérifié et non vérifié
+
+Construit et contrôlé sans GPU (voir le Dockerfile) : installation avec empreintes, `pip check`, import de torch/torchaudio/pyannote.audio, `torch.version.cuda == 12.8`, décodage WAV 16 kHz par torchaudio. Non vérifié : tout accès GPU réel, `nvidia-smi` dans le conteneur, chargement des modèles, la commande de téléchargement ci-dessus, la compatibilité de `huggingface_hub` 2.3.0 avec pyannote.audio 4.0.7 au chargement local, l'hôte Windows/WSL2.
 
 ## Limite : jamais exécuté de bout en bout ici
 

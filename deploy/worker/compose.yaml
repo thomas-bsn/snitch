@@ -1,0 +1,60 @@
+# Worker Snitch avec GPU NVIDIA pour le PC de jeu (voir docs/real-voice-worker.md,
+# section « Installer sur le PC gamer »). Ce fichier est un exemple autonome : il n'est pas
+# lié au compose.yaml du NAS et n'est pas contrôlé par scripts/check_compose.py.
+#
+#   cp .env.example .env      # puis renseigner le jeton et les chemins (jamais versionné)
+#   docker compose up -d --build
+#
+# Le worker ne publie aucun port : il appelle l'API Snitch en HTTPS sortant uniquement.
+# Aucun modèle n'est dans l'image ni téléchargé au démarrage : ils sont lus dans un volume
+# monté en lecture seule, préparé à part par worker/scripts/download_models.py.
+services:
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/worker-gpu.Dockerfile
+    image: ${SNITCH_WORKER_IMAGE:-snitch-worker-gpu:local}
+    restart: unless-stopped
+    environment:
+      # Connexion à Snitch (secret dédié à ce worker, créé dans l'interface).
+      SNITCH_API_URL: ${SNITCH_API_URL:?Renseigner SNITCH_API_URL (HTTPS) dans .env}
+      SNITCH_WORKER_TOKEN: ${SNITCH_WORKER_TOKEN:?Renseigner SNITCH_WORKER_TOKEN dans .env}
+      SNITCH_WORKER_CA_BUNDLE: ${SNITCH_WORKER_CA_BUNDLE:-}
+      # Tâches simultanées (1 à 4) ; 1 recommandé pour garder la VRAM disponible.
+      SNITCH_WORKER_CAPACITY: ${SNITCH_WORKER_CAPACITY:-1}
+      # Fournisseur de transcription compatible OpenAI (Whisper local par exemple).
+      TRANSCRIPTION_API_URL: ${TRANSCRIPTION_API_URL:-}
+      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-}
+      TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-}
+      # Modèles vocaux : chemins DANS le conteneur, sous le volume monté ci-dessous.
+      SNITCH_VOICE_DIARIZATION_MODEL_PATH: ${SNITCH_VOICE_DIARIZATION_MODEL_PATH:-/models/diarization}
+      SNITCH_VOICE_EMBEDDING_MODEL_PATH: ${SNITCH_VOICE_EMBEDDING_MODEL_PATH:-/models/embedding}
+      SNITCH_VOICE_EMBEDDING_MODEL_VERSION: ${SNITCH_VOICE_EMBEDDING_MODEL_VERSION:?Renseigner SNITCH_VOICE_EMBEDDING_MODEL_VERSION (révision téléchargée)}
+      SNITCH_VOICE_EMBEDDING_MODEL_NAME: ${SNITCH_VOICE_EMBEDDING_MODEL_NAME:-pyannote/wespeaker-voxceleb-resnet34-LM}
+      SNITCH_VOICE_DEVICE: ${SNITCH_VOICE_DEVICE:-cuda}
+    volumes:
+      # Dossier hôte contenant diarization/ et embedding/, en lecture seule.
+      - ${SNITCH_MODELS_DIR:?Renseigner SNITCH_MODELS_DIR (dossier des modèles sur le PC)}:/models:ro
+    # Joindre un Whisper ou un Ollama qui tourne directement sur le PC (hors Docker) :
+    # TRANSCRIPTION_API_URL=http://host.docker.internal:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Accès GPU, comme un Ollama en Docker (NVIDIA Container Toolkit requis sur l'hôte).
+    # Variante équivalente avec un Compose récent : « gpus: all ».
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # Les modèles se partagent les 12 Go de VRAM de la RTX 4070 avec un éventuel Ollama :
+    # laisser la capacité du worker à 1 (voir le guide) ; limiter la mémoire système si besoin.
+    # mem_limit: 8g
+    # Option : réseau Compose partagé avec un Ollama/Whisper lancé par un autre projet.
+    # Décommenter ici ET en bas, puis viser le nom du service : http://ollama:11434
+    # networks: [default, partage]
+# networks:
+#   partage:
+#     external: true
+#     name: ${SHARED_NETWORK:-ollama_default}
