@@ -694,7 +694,7 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-retranscription.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-replace-corrections.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
 		}
@@ -771,7 +771,7 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"segment-history.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEGMENT_RETRANSCRIPTION") == "1" {
-			suites = []string{"segment-retranscription.spec.ts"}
+			suites = []string{"segment-replace-corrections.spec.ts"}
 		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
@@ -793,7 +793,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" || suite == "voice-groups.spec.ts" || suite == "automation.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-retranscription.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" || suite == "voice-groups.spec.ts" || suite == "automation.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -802,7 +802,7 @@ func TestFoundation(t *testing.T) {
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "matching.spec.ts" || suite == "automation.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "voice-groups.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-retranscription.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "matching.spec.ts" || suite == "automation.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "voice-groups.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
