@@ -6,7 +6,8 @@ Les médias importés sont stockés dans le volume nommé `media`, séparé de P
 
 Importer **compose.yaml seul**, jamais compose.override.yaml. Fournir dans les variables chiffrées du projet :
 
-- `SNITCH_IMAGE`, `POSTGRES_IMAGE`, `EMBED_IMAGE` : références publiées immuables, idéalement `ghcr.io/<propriétaire>/<dépôt>[-postgres|-embed]@sha256:…`. Les forks utilisent leur propre namespace.
+- `SNITCH_IMAGE`, `POSTGRES_IMAGE`, `EMBED_IMAGE` : facultatives. Par défaut `ghcr.io/thomas-bsn/snitch:latest`, `snitch-postgres:latest` et `snitch-embed:latest`, mises à jour à chaque push sur `main` ; « Redéployer » retire `latest` et relance migrate puis app (même modèle que pingme). Pour figer une version, définir `ghcr.io/<propriétaire>/<dépôt>[-postgres|-embed]:vX.Y.Z` ou `@sha256:…`. Les forks utilisent leur propre namespace et doivent définir ces variables.
+- Les images GHCR créées par Actions sont privées par défaut : régler leur visibilité dans GitHub (Packages), ou configurer sur la plateforme un accès `docker login ghcr.io` avec un jeton `read:packages`. Aucune image de mise à jour n'existe.
 - `POSTGRES_PASSWORD` : mot de passe aléatoire ; les caractères réservés d’URL sont admis, car l’application et la migration passent le mot de passe par `PGPASSWORD`, hors URL.
 - `MASTER_KEY` : 32 octets aléatoires encodés base64 ; conserver la même clé entre redémarrages et la sauvegarder séparément.
 - `PUBLIC_URL=https://<projet>.<domaine>`, `COOKIE_SECURE=true`, `DISPLAY_NAME` facultatif.
@@ -22,8 +23,13 @@ Le README utilise compose.yaml + l’override automatique. L’override autorise
 
 Un `up` local peut réutiliser le conteneur migrate déjà terminé. Pour une nouvelle version : arrêter app, construire/télécharger les images, exécuter `docker compose run --rm migrate`, puis `docker compose up -d app` uniquement après succès. Pour rejouer l’ordonnancement complet : `docker compose up -d --force-recreate` ; il conserve les volumes. Sauvegarder avant une mise à jour. SIGTERM laisse dix secondes aux requêtes avant fermeture des connexions.
 
-## Publication ultérieure
+## Publication
 
-Le workflow `Verify and distribute` exécute les contrôles sur PR, main et tags `v*`. Seul un push de tag version, après succès du job verify, publie app/worker et copie les manifestes amont PostgreSQL/pgvector et Ollama intacts. Les actions et bases sont épinglées ; les images applicatives amd64 (cible NAS N100 et PC GPU) partagent le namespace du dépôt, y compris les forks. Le workflow conserve les références amont en artifact ; relever les digests GHCR résultants pour configurer l’installation. Aucun secret packages:write n’est donné aux PR. Cette configuration ne constitue ni un push ni une publication ; aucune exécution distante n’a été observée ici.
+Le workflow `Verify and distribute` exécute les contrôles sur PR, main et tags `v*`. Deux jobs publient, toujours après succès de verify et jamais depuis une PR ou une autre branche :
+
+- `publish-main` (push sur `main`) : construit et publie `snitch`, `snitch-worker` et `snitch-worker-gpu` avec les tags `latest` et `sha-<commit court>` (cache de couches buildx `type=gha`, espace disque du runner libéré pour l'image GPU), et copie `snitch-postgres` et `snitch-embed` en `latest` par imagetools.
+- `publish` (tag `v*`) : mêmes images, avec le tag de version figé (y compris `snitch-worker-gpu:<tag>`) ; copie les manifestes amont PostgreSQL/pgvector et Ollama intacts.
+
+Les licences NVIDIA de l'image GPU sont à relire avant de la rendre publique (voir deploy/NOTICES.md). Les actions et bases sont épinglées ; les images applicatives amd64 (cible NAS N100 et PC GPU) partagent le namespace du dépôt, y compris les forks. Le workflow conserve les références amont en artifact ; relever les digests GHCR résultants pour configurer l’installation. Aucun secret packages:write n’est donné aux PR. Cette configuration ne constitue ni un push ni une publication ; aucune exécution distante n’a été observée ici.
 
 Le volume nommé `media` contient les originaux importés ; une sauvegarde PostgreSQL ne contient ni ces vidéos ni les clés qui les désignent. Sauvegardez le volume séparément (ou les originaux dédiés), avec une rétention et une destination adaptées. La bibliothèque conserve ses métadonnées et l’historique des sources lorsqu’un original devient indisponible, mais la lecture exige qu’au moins une copie existe toujours. Les dossiers surveillés restent des originaux externes montés en lecture seule et leur sauvegarde dépend de leur stockage d’origine.
