@@ -12,7 +12,7 @@ import threading
 import wave
 import struct
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Protocol
+from typing import Any, Mapping, Protocol
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -29,7 +29,7 @@ from snitch_client.models.worker_pulse_input import WorkerPulseInput
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
-from snitch_worker.voice import is_voice_step, process_voice_step
+from snitch_worker.voice import ensure_provider_ready, is_voice_step, process_voice_step, requires_audio
 
 
 def fake_provider(step: str) -> dict[str, Any]:
@@ -144,6 +144,16 @@ def prepare_audio(media_path: str, wav_path: str, stream_index: int) -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
+
+
+def download_media(client: AuthenticatedClient, task_input: Any, lease_token: str, destination: str) -> None:
+    media_url = task_input.media_url
+    if media_url.startswith("/"):
+        media_url = urljoin(client._base_url, media_url)
+    with client.get_httpx_client().stream("GET", media_url, headers={"X-Worker-Lease-Token": lease_token}) as media:
+        media.raise_for_status()
+        with open(destination, "wb") as output:
+            output.writelines(media.iter_bytes())
 
 
 def configured_transcriber(model: str = "") -> OpenAICompatibleTranscriber:
@@ -277,6 +287,7 @@ def run_once(
     heartbeat_interval: float = 45.0,
     stop: threading.Event | None = None,
     transcriber: Transcriber | None = None,
+    voice_providers: Mapping[str, Any] | None = None,
 ) -> bool:
     """Process at most one leased task. Return False when the queue is empty."""
     if heartbeat_interval <= 0:
@@ -325,20 +336,12 @@ def run_once(
         if job.step.startswith("fixture."):
             result = fake_provider(job.step)
         elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
-            media_url = task_input.media_url
-            if media_url.startswith("/"):
-                media_url = urljoin(client._base_url, media_url)
             with tempfile.TemporaryDirectory(
                 prefix="snitch-transcription-"
             ) as temporary:
                 original = os.path.join(temporary, "original.media")
                 wav_path = os.path.join(temporary, "prepared.wav")
-                with client.get_httpx_client().stream(
-                    "GET", media_url, headers={"X-Worker-Lease-Token": lease_token}
-                ) as media:
-                    media.raise_for_status()
-                    with open(original, "wb") as output:
-                        output.writelines(media.iter_bytes())
+                download_media(client, task_input, lease_token, original)
                 stream_index = int(job.step.rsplit(".", 1)[1])
                 prepare_audio(original, wav_path, stream_index)
                 pipeline_value = getattr(task_input, "pipeline", None)
@@ -354,7 +357,19 @@ def run_once(
             voice_value = getattr(task_input, "voice", None)
             voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
             duration = getattr(task_input, "duration_seconds", None)
-            result = process_voice_step(job.step, voice_input, duration if isinstance(duration, (int, float)) else None)
+            duration = duration if isinstance(duration, (int, float)) else None
+            voice_config = voice_input.get("config") or {}
+            if requires_audio(voice_config):
+                # Fail on a missing model path before downloading any media.
+                ensure_provider_ready(voice_input, voice_providers)
+                with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
+                    original = os.path.join(temporary, "original.media")
+                    wav_path = os.path.join(temporary, "prepared.wav")
+                    download_media(client, task_input, lease_token, original)
+                    prepare_audio(original, wav_path, int(job.step.rsplit(".", 1)[1]))
+                    result = process_voice_step(job.step, voice_input, duration, wav_path, voice_providers)
+            else:
+                result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
         else:
             raise ValueError("unsupported worker step")
         heartbeat_stop.set()
