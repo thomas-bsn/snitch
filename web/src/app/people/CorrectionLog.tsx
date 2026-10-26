@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
-import { fetchPersonEvents, useLoaded } from "./peopleApi";
+import { fetchPersonEvents } from "./peopleApi";
 
 function Events() {
   const { t, language } = useI18n();

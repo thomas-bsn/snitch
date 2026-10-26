@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useId, useState, type ReactNode } from "react";
 import { Link } from "react-router";
+import { useLoaded } from "../../api/loaded";
 import { ErrorAlert } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -9,12 +10,7 @@ import { useDocumentTitle } from "../../components/useDocumentTitle";
 import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
 import { DeploymentFiles } from "./DeploymentFiles";
-import {
-  fetchWorker,
-  useLoaded,
-  useWorkerActions,
-  type WorkerBundle,
-} from "./workersApi";
+import { fetchWorker, useWorkerActions, type WorkerBundle } from "./workersApi";
 import { ROLES, declaredModelText, workerStatus } from "./workerView";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

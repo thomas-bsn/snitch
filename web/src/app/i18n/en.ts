@@ -239,7 +239,7 @@ export const en = {
     comingSoon:
       "This screen is being rebuilt. The previous interface still offers it in the meantime.",
     library: { title: "Library" },
-    search: { title: "Search", queryLabel: "Searching for “{query}”." },
+    search: { title: "Search" },
     people: { title: "People" },
     import: { title: "Import" },
     account: { title: "Account settings" },
@@ -490,8 +490,66 @@ export const en = {
       position: "Page {page} of {pages}",
     },
   },
+  search: {
+    prompt:
+      "Type a word or a phrase to find the moment it was said. Each result opens the video at that timecode.",
+    loading: "Searching…",
+    results: "Passages found",
+    count: "{count} results",
+    countOne: "1 result",
+    modeUsed: "Mode: {mode}",
+    degraded:
+      "Semantic search is unavailable: the results come from full-text search.",
+    none: {
+      title: "Nothing found",
+      body: "Try another word, a looser mode or fewer filters.",
+    },
+    form: {
+      label: "Search by quote",
+      query: "What was said",
+      placeholder: "e.g. hello everyone",
+      submit: "Search",
+    },
+    modes: {
+      label: "Search mode",
+      full_text: {
+        name: "Full text",
+        hint: "Finds the words in any form, ignoring case and accents, and close spellings of longer words.",
+      },
+      exact: {
+        name: "Exact",
+        hint: "Finds only the exact word or phrase, ignoring case and accents.",
+      },
+      hybrid: {
+        name: "Hybrid",
+        hint: "Combines the words with their meaning; needs the semantic index, otherwise falls back to full text.",
+      },
+    },
+    matches: {
+      exact: "Exact match",
+      full_text: "Full-text match",
+      approximate: "Approximate match",
+      hybrid: "Hybrid match",
+      semantic: "Semantic match",
+    },
+    filters: {
+      label: "Filter the results",
+      visibility: "Visibility",
+      shared: "Shared",
+      private: "Private",
+    },
+    result: {
+      open: "Open {clip} at {time}",
+      unknownSpeaker: "Unknown speaker",
+      corrected: "Corrected",
+      private: "Private",
+      unavailable: "Clip unavailable",
+    },
+    pagination: { label: "Pages of the results" },
+  },
   clip: {
     back: "Library",
+    backToSearch: "Search results",
     loading: "Loading the clip…",
     videoLabel: "Video of the clip",
     videoFailed: "The video cannot be played here.",

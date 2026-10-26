@@ -1,16 +1,12 @@
 import { useCallback, useState } from "react";
+import { useLoaded } from "../api/loaded";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import { tintOf } from "./ExcerptThumb";
 import { GroupPanel } from "./GroupPanel";
 import { useFailureText } from "./failureText";
-import {
-  fetchPersons,
-  fetchVoiceGroups,
-  useLoaded,
-  type VoiceGroup,
-} from "./peopleApi";
+import { fetchPersons, fetchVoiceGroups, type VoiceGroup } from "./peopleApi";
 
 const PAGE_SIZE = 10;
 const PREVIEW = 4;

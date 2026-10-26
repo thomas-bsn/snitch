@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -7,7 +8,6 @@ import { useFailureText } from "./failureText";
 import {
   excerptUrl,
   fetchPersonVoices,
-  useLoaded,
   usePersonActions,
   type Person,
   type PersonVoice,

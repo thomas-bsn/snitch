@@ -192,7 +192,9 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/search\?q=hello%20world$/);
     await page.reload();
-    await expect(page.getByText("Searching for “hello world”.")).toBeVisible();
+    await expect(
+      page.getByRole("searchbox", { name: "What was said" }),
+    ).toHaveValue("hello world");
 
     // The Import button is always there.
     await page

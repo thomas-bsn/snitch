@@ -1,5 +1,5 @@
-import { useId, type ReactNode } from "react";
 import { buttonClass } from "../components/buttons";
+import { DateField, Select } from "../components/FilterFields";
 import { useI18n } from "../i18n";
 import {
   CLIP_STATES,
@@ -7,64 +7,6 @@ import {
   type LibraryFilters as Filters,
   type Person,
 } from "./libraryApi";
-
-const control =
-  "h-11 w-full min-w-0 rounded-lg border border-line-strong bg-surface px-2.5 text-ink md:h-9";
-
-function Select({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: ReactNode;
-}) {
-  const id = useId();
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-mute">
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={control}
-      >
-        {children}
-      </select>
-    </div>
-  );
-}
-
-function DateField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-mute">
-        {label}
-      </label>
-      <input
-        id={id}
-        type="date"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={control}
-      />
-    </div>
-  );
-}
 
 /** The five filters of the library (date, Source, owner, Person, state), kept in the address. */
 export function LibraryFilters({

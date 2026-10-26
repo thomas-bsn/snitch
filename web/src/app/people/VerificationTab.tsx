@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useLoaded } from "../api/loaded";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
@@ -9,7 +10,6 @@ import { LevelBadge } from "./LevelBadge";
 import {
   fetchPersons,
   fetchVerification,
-  useLoaded,
   type VerificationCase,
   type VerificationFilter,
 } from "./peopleApi";

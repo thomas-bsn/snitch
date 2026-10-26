@@ -1,6 +1,6 @@
 import type { components } from "../../api.gen";
-import type { Result } from "../admin/workers/workersApi";
 import { api, errorCode } from "../api/client";
+import type { Result } from "../api/loaded";
 
 export type Clip = components["schemas"]["Clip"];
 export type ClipPage = components["schemas"]["ClipPage"];

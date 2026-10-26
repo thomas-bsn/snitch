@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import { Fragment, useState } from "react";
+import { useLoaded } from "../api/loaded";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -9,12 +10,7 @@ import { CorrectionLog } from "./CorrectionLog";
 import { useFailureText } from "./failureText";
 import { MergeDialog, NewPersonDialog } from "./PersonDialogs";
 import { PersonVoices } from "./PersonVoices";
-import {
-  fetchPersons,
-  useLoaded,
-  usePersonActions,
-  type Person,
-} from "./peopleApi";
+import { fetchPersons, usePersonActions, type Person } from "./peopleApi";
 
 const smallButton = `${buttonClass("secondary")} md:h-8 px-3`;
 

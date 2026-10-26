@@ -240,7 +240,7 @@ export const fr: Messages = {
     comingSoon:
       "Cet écran est en cours de refonte. L’ancienne interface le propose en attendant.",
     library: { title: "Bibliothèque" },
-    search: { title: "Recherche", queryLabel: "Recherche de « {query} »." },
+    search: { title: "Recherche" },
     people: { title: "Personnes" },
     import: { title: "Importer" },
     account: { title: "Paramètres du compte" },
@@ -494,8 +494,66 @@ export const fr: Messages = {
       position: "Page {page} sur {pages}",
     },
   },
+  search: {
+    prompt:
+      "Saisissez un mot ou une phrase pour retrouver le moment où elle a été dite. Chaque résultat ouvre la vidéo à ce timecode.",
+    loading: "Recherche en cours…",
+    results: "Passages trouvés",
+    count: "{count} résultats",
+    countOne: "1 résultat",
+    modeUsed: "Mode : {mode}",
+    degraded:
+      "La recherche sémantique est indisponible : les résultats viennent de la recherche plein texte.",
+    none: {
+      title: "Rien trouvé",
+      body: "Essayez un autre mot, un mode plus souple ou moins de filtres.",
+    },
+    form: {
+      label: "Recherche par citation",
+      query: "Ce qui a été dit",
+      placeholder: "ex. bonjour tout le monde",
+      submit: "Rechercher",
+    },
+    modes: {
+      label: "Mode de recherche",
+      full_text: {
+        name: "Plein texte",
+        hint: "Trouve les mots sous toutes leurs formes, sans tenir compte de la casse ni des accents, et les orthographes proches des mots longs.",
+      },
+      exact: {
+        name: "Exact",
+        hint: "Ne trouve que le mot ou la phrase exacts, sans tenir compte de la casse ni des accents.",
+      },
+      hybrid: {
+        name: "Hybride",
+        hint: "Combine les mots et leur sens ; demande l’index sémantique, sinon retombe sur le plein texte.",
+      },
+    },
+    matches: {
+      exact: "Correspondance exacte",
+      full_text: "Correspondance plein texte",
+      approximate: "Correspondance approximative",
+      hybrid: "Correspondance hybride",
+      semantic: "Correspondance sémantique",
+    },
+    filters: {
+      label: "Filtrer les résultats",
+      visibility: "Visibilité",
+      shared: "Partagé",
+      private: "Privé",
+    },
+    result: {
+      open: "Ouvrir {clip} à {time}",
+      unknownSpeaker: "Locuteur inconnu",
+      corrected: "Corrigé",
+      private: "Privé",
+      unavailable: "Clip indisponible",
+    },
+    pagination: { label: "Pages des résultats" },
+  },
   clip: {
     back: "Bibliothèque",
+    backToSearch: "Résultats de recherche",
     loading: "Chargement du clip…",
     videoLabel: "Vidéo du clip",
     videoFailed: "La vidéo ne peut pas être lue ici.",

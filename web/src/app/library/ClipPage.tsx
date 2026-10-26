@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router";
 import { useFormatDate } from "../admin/format";
-import { useLoaded } from "../admin/workers/workersApi";
+import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
@@ -78,7 +78,7 @@ function ClipView({ clip }: { clip: Clip }) {
           className="inline-flex min-h-11 items-center gap-1.5 text-mute hover:text-ink md:min-h-8"
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
-          {t("clip.back")}
+          {t(back.startsWith("/search") ? "clip.backToSearch" : "clip.back")}
         </Link>
         <ClipStatePill status={clip.status} />
       </div>

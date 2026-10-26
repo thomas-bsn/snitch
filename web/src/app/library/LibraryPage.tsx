@@ -1,6 +1,6 @@
 import { Link, useLocation, useSearchParams } from "react-router";
 import { useCallback, useMemo } from "react";
-import { useLoaded } from "../admin/workers/workersApi";
+import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
