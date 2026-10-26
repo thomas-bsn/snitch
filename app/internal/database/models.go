@@ -110,6 +110,7 @@ type Installation struct {
 	BootstrapHash        []byte             `json:"bootstrap_hash"`
 	BootstrapExpires     pgtype.Timestamptz `json:"bootstrap_expires"`
 	RegistrationApproval bool               `json:"registration_approval"`
+	SetupBannerDismissed bool               `json:"setup_banner_dismissed"`
 }
 
 type Job struct {
@@ -270,6 +271,12 @@ type Session struct {
 type Setting struct {
 	Key   string `json:"key"`
 	Value []byte `json:"value"`
+}
+
+type SetupStep struct {
+	Step      string             `json:"step"`
+	State     string             `json:"state"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type SourceAudioTrackRule struct {

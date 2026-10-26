@@ -81,10 +81,111 @@ export const fr: Messages = {
     body: "Le serveur ne répond pas. Vérifiez qu’il fonctionne, puis réessayez.",
     retry: "Réessayer",
   },
-  installation: {
-    title: "L’installation n’est pas terminée",
-    body: "Snitch n’a pas encore d’administrateur. L’installation guidée n’est pas encore disponible dans cette interface : terminez-la dans l’ancienne interface, avec le code d’installation affiché dans les journaux du serveur.",
-    open: "Ouvrir l’ancienne interface",
+  setup: {
+    title: "Configurer Snitch",
+    lead: "Créez d’abord le compte Super-administrateur. Le reste est facultatif, et rien ne démarre sans votre accord.",
+    stepOf: "Étape {step} sur {total}",
+    stepsLabel: "Étapes de la configuration",
+    steps: {
+      code: "Code d’installation",
+      admin: "Super-administrateur",
+      discord: "Discord",
+      semantic: "Recherche sémantique",
+      worker: "Premier Worker",
+      import: "Import de vidéos",
+      summary: "Récapitulatif",
+    },
+    tags: {
+      optional: "Facultatif",
+      skipped: "Passée",
+      done: "Faite",
+      todo: "À faire",
+    },
+    where: {
+      discord: "Administration, Utilisateurs et accès",
+      semantic: "Administration, Index sémantique",
+      worker: "Administration, Workers",
+      import: "la page Importer",
+    },
+    back: "Retour",
+    continue: "Continuer",
+    skip: "Passer pour l’instant",
+    saveContinue: "Enregistrer et continuer",
+    saving: "Enregistrement…",
+    code: {
+      title: "Saisissez le code d’installation",
+      lead: "Il prouve que vous gérez le serveur. Le code n’est jamais affiché dans cette interface.",
+      where: "Lisez-le dans les journaux du serveur",
+      whereHint:
+        "Lancez cette commande et copiez le code de la ligne qui donne l’adresse et le code. Il est valable 15 minutes et ne sert qu’une fois.",
+      label: "Code d’installation",
+      invalid:
+        "Ce code est faux ou a expiré. Relisez les journaux et copiez le code de la dernière ligne. Si 15 minutes sont passées, redémarrez l’application (docker compose restart app) pour en obtenir un nouveau.",
+      checking: "Vérification…",
+    },
+    admin: {
+      title: "Créez le Super-administrateur",
+      lead: "Ce compte est le propriétaire de l’installation : il ne peut être ni rétrogradé, ni supprimé, ni fermé. Vous pourrez ajouter d’autres administrateurs plus tard.",
+      confirm: "Confirmer le mot de passe",
+      mismatch: "Les deux mots de passe ne correspondent pas.",
+      submit: "Créer le compte",
+      submitting: "Création…",
+      codeLost:
+        "Le code d’installation n’est plus valide. Revenez en arrière, relisez les journaux et saisissez le nouveau code : ce que vous avez saisi ici est conservé.",
+    },
+    discord: {
+      title: "Connexion avec Discord",
+      lead: "Permettez la connexion avec Discord. Vous utilisez votre propre application Discord : rien n’est partagé avec personne. Les comptes locaux fonctionnent dans tous les cas.",
+      appId: "Identifiant de l’application",
+      secret: "Secret de l’application",
+      secretHint: "Conservé chiffré. Il n’est plus jamais affiché.",
+      secretKept: "Laissez vide pour garder le secret actuel.",
+      returnUrl: "Adresse de retour à enregistrer dans Discord",
+      returnUrlHint:
+        "Ajoutez cette adresse aux redirections de votre application Discord.",
+      already: "Discord est déjà configuré.",
+      ownerOnly:
+        "Seul le Super-administrateur peut configurer Discord. Passez cette étape et demandez-lui de le faire depuis l’administration.",
+    },
+    semantic: {
+      title: "Recherche sémantique",
+      lead: "Cherchez par le sens, pas seulement par les mots exacts. La recherche plein texte fonctionne sans, et rien n’est indexé tant que vous ne le demandez pas.",
+      status: "État",
+      active: "Active · {model}",
+      inactive: "Non configurée",
+      howTo:
+        "Le service d’embeddings fait partie du déploiement, mais son modèle se choisit dans les variables du déploiement. Pour l’activer, indiquez le modèle, rendez-le disponible, puis redémarrez l’application.",
+      howToHint:
+        "Remplacez le modèle par celui de votre choix. Vous pouvez aussi le faire plus tard.",
+    },
+    worker: {
+      title: "Créez votre premier Worker",
+      lead: "Un Worker transcrit les clips et analyse les voix sur votre propre machine. Indiquez son serveur Whisper et votre jeton Hugging Face : Snitch prépare ses fichiers de déploiement.",
+    },
+    import: {
+      title: "Importez vos premières vidéos",
+      lead: "Envoyez des clips depuis le navigateur ; un transfert interrompu peut être repris.",
+      nothing:
+        "Rien n’est scanné ni traité sans votre demande. L’assistant vous conduit seulement à la page Importer.",
+      open: "Ouvrir la page Importer",
+    },
+    summary: {
+      title: "Récapitulatif",
+      lead: "Voici où en est l’installation. Ce que vous avez passé peut être terminé plus tard.",
+      leadDone: "Tout est configuré.",
+      caption: "État de chaque étape de la configuration",
+      finishIn: "À terminer dans {where}",
+      banner:
+        "Un bandeau « Finir la configuration » vous rappellera ce qui reste, jusqu’à ce que vous le fermiez.",
+      open: "Ouvrir la bibliothèque",
+    },
+    banner: {
+      label: "Configuration",
+      title: "Finir la configuration",
+      body: "Des étapes facultatives restent à faire ({count}). Reprenez là où vous vous étiez arrêté.",
+      resume: "Reprendre la configuration",
+      dismiss: "Masquer ce bandeau définitivement",
+    },
   },
   account: {
     tabsLabel: "Paramètres du compte",

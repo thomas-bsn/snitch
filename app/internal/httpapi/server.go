@@ -108,6 +108,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/health/ready", s.ready)
 	mux.HandleFunc("GET /api/setup", s.setupStatus)
 	mux.Handle("POST /api/setup", s.limited(http.HandlerFunc(s.bootstrap)))
+	mux.Handle("POST /api/setup/code", s.rateLimited("setup-code", http.HandlerFunc(s.checkSetupCode)))
+	mux.Handle("GET /api/admin/setup-progress", s.protected(true, http.HandlerFunc(s.getSetupProgress)))
+	mux.Handle("PUT /api/admin/setup-progress", s.protected(true, http.HandlerFunc(s.putSetupStep)))
+	mux.Handle("POST /api/admin/setup-progress/dismiss", s.protected(true, http.HandlerFunc(s.dismissSetupBanner)))
 	mux.Handle("POST /api/auth/login", s.limited(http.HandlerFunc(s.login)))
 	mux.Handle("POST /api/auth/register", s.limited(http.HandlerFunc(s.register)))
 	mux.Handle("GET /api/auth/me", s.protected(false, http.HandlerFunc(s.me)))
@@ -440,7 +444,7 @@ func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, 200, map[string]any{"initialized": initialized, "display_name": s.Config.DisplayName, "discord_enabled": id != "" && secret != "", "phase": 0, "deferred_steps": []string{"Dossiers : phase 1", "Worker : phase 2", "Embeddings : phase 4", "Hugging Face : phase 5"}})
+	reply(w, 200, map[string]any{"initialized": initialized, "discord_enabled": id != "" && secret != "", "phase": 0, "deferred_steps": []string{"Dossiers : phase 1", "Worker : phase 2", "Embeddings : phase 4", "Hugging Face : phase 5"}})
 }
 func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request) {
 	var c struct {

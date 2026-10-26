@@ -180,7 +180,7 @@ func newVoiceHarnessClips(t *testing.T, pool *pgxpool.Pool, clips int) *voiceHar
 		t.Fatal(err)
 	}
 	ffmpegPath, ffmpegLog := syntheticFFmpegFixture(t)
-	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Snitch", ProbePath: syntheticProbeFixture(t), FFmpegPath: ffmpegPath, ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ProbePath: syntheticProbeFixture(t), FFmpegPath: ffmpegPath, ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	if err = api.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}

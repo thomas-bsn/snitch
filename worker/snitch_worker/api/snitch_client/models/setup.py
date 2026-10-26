@@ -24,7 +24,6 @@ class Setup:
     """
         Attributes:
             initialized (bool):
-            display_name (str):
             discord_enabled (bool): True only when both the Discord application identifier and its authenticated encrypted
                 secret are available.
             phase (int):
@@ -32,7 +31,6 @@ class Setup:
      """
 
     initialized: bool
-    display_name: str
     discord_enabled: bool
     phase: int
     deferred_steps: list[str]
@@ -44,8 +42,6 @@ class Setup:
 
     def to_dict(self) -> dict[str, Any]:
         initialized = self.initialized
-
-        display_name = self.display_name
 
         discord_enabled = self.discord_enabled
 
@@ -60,7 +56,6 @@ class Setup:
         field_dict.update(self.additional_properties)
         field_dict.update({
             "initialized": initialized,
-            "display_name": display_name,
             "discord_enabled": discord_enabled,
             "phase": phase,
             "deferred_steps": deferred_steps,
@@ -75,8 +70,6 @@ class Setup:
         d = dict(src_dict)
         initialized = d.pop("initialized")
 
-        display_name = d.pop("display_name")
-
         discord_enabled = d.pop("discord_enabled")
 
         phase = d.pop("phase")
@@ -86,7 +79,6 @@ class Setup:
 
         setup = cls(
             initialized=initialized,
-            display_name=display_name,
             discord_enabled=discord_enabled,
             phase=phase,
             deferred_steps=deferred_steps,

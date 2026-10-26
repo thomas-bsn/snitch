@@ -44,6 +44,16 @@ type SessionContextValue = {
   ) => Promise<Outcome<"active" | "pending">>;
   logout: () => Promise<void>;
   /**
+  /**
+   * Creates the first account (the Super-administrator) with the installation code. It opens
+   * the session on the server but does not reload: the wizard reloads once it has moved on.
+   */
+  completeSetup: (
+    code: string,
+    username: string,
+    password: string,
+  ) => Promise<Outcome>;
+  /**
    * Applies a language here and, when signed in, remembers it in the account. Answers
    * whether the account kept it (false: only this browser did).
    */
@@ -195,6 +205,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     await reload();
   }, [csrfToken, reload]);
 
+  const completeSetup = useCallback(
+    async (
+      code: string,
+      username: string,
+      password: string,
+    ): Promise<Outcome> => {
+      try {
+        const result = await api.POST("/api/setup", {
+          params: { header: origin() },
+          body: { code, username, password },
+        });
+        if (result.error)
+          return { ok: false, code: errorCode(result.error) ?? "unavailable" };
+        return { ok: true };
+      } catch {
+        return { ok: false, code: "unavailable" };
+      }
+    },
+    [],
+  );
+
   const startDiscord = useCallback(async (): Promise<Outcome> => {
     try {
       const result = await api.POST("/api/auth/discord/start", {
@@ -233,6 +264,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      completeSetup,
       chooseLanguage,
       startDiscord,
       linkDiscord,
@@ -246,6 +278,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      completeSetup,
       chooseLanguage,
       startDiscord,
       linkDiscord,

@@ -80,10 +80,111 @@ export const en = {
     body: "The server did not answer. Check that it is running, then try again.",
     retry: "Try again",
   },
-  installation: {
-    title: "Installation is not finished",
-    body: "Snitch has no administrator yet. The guided installation is not available in this interface yet: finish it in the previous interface, with the installation code printed in the server logs.",
-    open: "Open the previous interface",
+  setup: {
+    title: "Set up Snitch",
+    lead: "Create the Super-administrator account first. Everything else is optional, and nothing starts without your say-so.",
+    stepOf: "Step {step} of {total}",
+    stepsLabel: "Setup steps",
+    steps: {
+      code: "Installation code",
+      admin: "Super-administrator",
+      discord: "Discord",
+      semantic: "Semantic search",
+      worker: "First Worker",
+      import: "Import videos",
+      summary: "Summary",
+    },
+    tags: {
+      optional: "Optional",
+      skipped: "Skipped",
+      done: "Done",
+      todo: "To do",
+    },
+    where: {
+      discord: "Administration, Users and access",
+      semantic: "Administration, Semantic index",
+      worker: "Administration, Workers",
+      import: "the Import page",
+    },
+    back: "Back",
+    continue: "Continue",
+    skip: "Skip for now",
+    saveContinue: "Save and continue",
+    saving: "Saving…",
+    code: {
+      title: "Enter the installation code",
+      lead: "This proves you run the server. The code is never shown in this interface.",
+      where: "Read it in the server logs",
+      whereHint:
+        "Run this command and copy the code from the line that gives the address and the code. It is valid for 15 minutes and works once.",
+      label: "Installation code",
+      invalid:
+        "This code is wrong or has expired. Read the logs again and copy the code of the latest line. If 15 minutes have passed, restart the application (docker compose restart app) to get a new one.",
+      checking: "Checking…",
+    },
+    admin: {
+      title: "Create the Super-administrator",
+      lead: "This account owns the installation: it cannot be demoted, deleted or closed. You can add other administrators later.",
+      confirm: "Confirm the password",
+      mismatch: "The two passwords do not match.",
+      submit: "Create the account",
+      submitting: "Creating…",
+      codeLost:
+        "The installation code is no longer valid. Go back, read the logs again and enter the new code: what you typed here is kept.",
+    },
+    discord: {
+      title: "Sign in with Discord",
+      lead: "Let members sign in with Discord. You use your own Discord application: nothing is shared with anyone else. Local accounts keep working either way.",
+      appId: "Application ID",
+      secret: "Application secret",
+      secretHint: "Stored encrypted. It is never shown again.",
+      secretKept: "Leave empty to keep the current secret.",
+      returnUrl: "Return address to register in Discord",
+      returnUrlHint:
+        "Add this address to the redirects of your Discord application.",
+      already: "Discord is already configured.",
+      ownerOnly:
+        "Only the Super-administrator can configure Discord. Skip this step, and ask them to do it from the administration.",
+    },
+    semantic: {
+      title: "Semantic search",
+      lead: "Search by meaning, not only by exact words. Full-text search works without it, and nothing is indexed until you ask.",
+      status: "Status",
+      active: "Active · {model}",
+      inactive: "Not configured",
+      howTo:
+        "The embeddings service is part of the deployment, but its model is chosen in the deployment variables. To enable it, set the model, make it available, then restart the application.",
+      howToHint:
+        "Replace the model with the one you prefer. You can also do this later.",
+    },
+    worker: {
+      title: "Create your first Worker",
+      lead: "A Worker transcribes clips and analyzes voices on your own machine. Give its Whisper server and your Hugging Face token: Snitch prepares its deployment files.",
+    },
+    import: {
+      title: "Import your first videos",
+      lead: "Send clips from the browser; an interrupted transfer can be resumed.",
+      nothing:
+        "Nothing is scanned or processed unless you ask. The wizard only takes you to the Import page.",
+      open: "Open the Import page",
+    },
+    summary: {
+      title: "Summary",
+      lead: "Here is where the installation stands. What you skipped can be finished later.",
+      leadDone: "Everything is configured.",
+      caption: "State of each setup step",
+      finishIn: "Finish it in {where}",
+      banner:
+        "A “Finish the setup” banner will remind you of what is left until you close it.",
+      open: "Open the library",
+    },
+    banner: {
+      label: "Setup",
+      title: "Finish the setup",
+      body: "Optional steps are still to do ({count}). Resume where you left off.",
+      resume: "Resume the setup",
+      dismiss: "Hide this banner for good",
+    },
   },
   account: {
     tabsLabel: "Account settings",

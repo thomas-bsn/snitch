@@ -139,7 +139,13 @@ func run() error {
 		return fmt.Errorf("database unavailable or migrations missing")
 	}
 	if code != "" {
-		slog.Warn("one-time installation code", "code", code, "expires_in_minutes", 15)
+		// One readable line to copy from: the address to open and the code to enter.
+		address := c.PublicURL
+		if address == "" {
+			_, port, _ := net.SplitHostPort(c.Address)
+			address = "http://localhost:" + port
+		}
+		slog.Warn("one-time installation code: open "+address+" and enter "+code+" (valid 15 minutes, works once)", "code", code, "url", address, "expires_in_minutes", 15)
 	}
 	// Expired transient rows do not accumulate during normal service operation.
 	go func() {

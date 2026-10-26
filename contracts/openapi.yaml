@@ -153,6 +153,39 @@
         "description": "Crée le premier administrateur avec nom personnel (3–64 caractères Unicode), mot de passe (12–256) et code temporaire des logs. Code valide 15 minutes, usage unique ; erreur 409 setup_closed_or_invalid_code si incorrect, expiré, rejoué ou installation terminée. Entrée absente/invalide : 400. Une seule demande concurrente réussit. Ouvre une session de sept jours."
       }
     },
+    "/api/setup/code": {
+      "post": {
+        "operationId": "checkSetupCode",
+        "description": "Vérifie, sans l'utiliser, le code d'installation saisi : 200 s'il est correct et valide, 409 setup_closed_or_invalid_code s'il est faux, expiré ou si l'installation est terminée. Le code reste utilisable une fois, par la création du premier compte. Limité par adresse distante comme les autres entrées publiques.",
+        "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Status"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}],
+        "security": [],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupCodeInput"}}}}
+      }
+    },
+    "/api/admin/setup-progress": {
+      "get": {
+        "operationId": "getSetupProgress",
+        "description": "Administrateurs et Super-administrateur : progression de l'installation guidée. L'état de chaque étape facultative reflète la configuration réelle (faite si elle est configurée, passée si la personne l'a traversée sans la configurer, à faire sinon).",
+        "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupProgress"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "parameters": []
+      },
+      "put": {
+        "operationId": "recordSetupStep",
+        "description": "Administrateurs et Super-administrateur : note qu'une étape facultative a été traversée (done) ou passée (skipped). Renvoie la progression.",
+        "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupProgress"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupStepInput"}}}}
+      }
+    },
+    "/api/admin/setup-progress/dismiss": {
+      "post": {
+        "operationId": "dismissSetupBanner",
+        "description": "Administrateurs et Super-administrateur : ferme définitivement le bandeau « Finir la configuration ». Renvoie la progression.",
+        "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupProgress"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}]
+      }
+    },
     "/api/auth/login": {
       "post": {
         "operationId": "login",
@@ -4275,7 +4308,6 @@
         "type": "object",
         "required": [
           "initialized",
-          "display_name",
           "discord_enabled",
           "phase",
           "deferred_steps"
@@ -4283,9 +4315,6 @@
         "properties": {
           "initialized": {
             "type": "boolean"
-          },
-          "display_name": {
-            "type": "string"
           },
           "discord_enabled": {
             "type": "boolean",
@@ -4300,6 +4329,37 @@
               "type": "string"
             }
           }
+        }
+      },
+      "SetupCodeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code"],
+        "properties": {"code": {"type": "string", "maxLength": 256}}
+      },
+      "SetupStepInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "state"],
+        "properties": {
+          "step": {"type": "string", "enum": ["discord", "semantic_search", "worker", "import"]},
+          "state": {"type": "string", "enum": ["done", "skipped"]}
+        }
+      },
+      "SetupStepState": {
+        "type": "object",
+        "required": ["step", "state"],
+        "properties": {
+          "step": {"type": "string", "enum": ["discord", "semantic_search", "worker", "import"]},
+          "state": {"type": "string", "enum": ["done", "skipped", "todo"]}
+        }
+      },
+      "SetupProgress": {
+        "type": "object",
+        "required": ["steps", "dismissed"],
+        "properties": {
+          "steps": {"type": "array", "items": {"$ref": "#/components/schemas/SetupStepState"}},
+          "dismissed": {"type": "boolean", "description": "Le bandeau « Finir la configuration » a été fermé définitivement."}
         }
       },
       "Settings": {

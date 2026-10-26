@@ -53,6 +53,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/setup/code": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Vérifie, sans l'utiliser, le code d'installation saisi : 200 s'il est correct et valide, 409 setup_closed_or_invalid_code s'il est faux, expiré ou si l'installation est terminée. Le code reste utilisable une fois, par la création du premier compte. Limité par adresse distante comme les autres entrées publiques. */
+    post: operations["checkSetupCode"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/setup-progress": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs et Super-administrateur : progression de l'installation guidée. L'état de chaque étape facultative reflète la configuration réelle (faite si elle est configurée, passée si la personne l'a traversée sans la configurer, à faire sinon). */
+    get: operations["getSetupProgress"];
+    /** @description Administrateurs et Super-administrateur : note qu'une étape facultative a été traversée (done) ou passée (skipped). Renvoie la progression. */
+    put: operations["recordSetupStep"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/setup-progress/dismiss": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs et Super-administrateur : ferme définitivement le bandeau « Finir la configuration ». Renvoie la progression. */
+    post: operations["dismissSetupBanner"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/login": {
     parameters: {
       query?: never;
@@ -1584,11 +1636,30 @@ export interface components {
     };
     Setup: {
       initialized: boolean;
-      display_name: string;
       /** @description True only when both the Discord application identifier and its authenticated encrypted secret are available. */
       discord_enabled: boolean;
       phase: number;
       deferred_steps: string[];
+    };
+    SetupCodeInput: {
+      code: string;
+    };
+    SetupStepInput: {
+      /** @enum {string} */
+      step: "discord" | "semantic_search" | "worker" | "import";
+      /** @enum {string} */
+      state: "done" | "skipped";
+    };
+    SetupStepState: {
+      /** @enum {string} */
+      step: "discord" | "semantic_search" | "worker" | "import";
+      /** @enum {string} */
+      state: "done" | "skipped" | "todo";
+    };
+    SetupProgress: {
+      steps: components["schemas"]["SetupStepState"][];
+      /** @description Le bandeau « Finir la configuration » a été fermé définitivement. */
+      dismissed: boolean;
     };
     Settings: {
       client_id: string;
@@ -3095,6 +3166,141 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  checkSetupCode: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetupCodeInput"];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getSetupProgress: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SetupProgress"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  recordSetupStep: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetupStepInput"];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SetupProgress"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  dismissSetupBanner: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SetupProgress"];
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

@@ -26,7 +26,7 @@ func testPublicAddress(t *testing.T, pool *pgxpool.Pool) {
 	ctx := context.Background()
 	loopback := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")}
 	base := func(mutate func(*config.Config)) config.Config {
-		c := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Fixture", UploadRoot: t.TempDir()}
+		c := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}
 		if mutate != nil {
 			mutate(&c)
 		}
