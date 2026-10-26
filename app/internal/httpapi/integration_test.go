@@ -196,6 +196,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonCorrections(t, pool)
 	})
+	t.Run("person voices", func(t *testing.T) {
+		reset(t)
+		testPersonVoices(t, pool)
+	})
 	t.Run("person filter", func(t *testing.T) {
 		reset(t)
 		testPersonFilter(t, pool)
