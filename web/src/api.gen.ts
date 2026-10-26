@@ -2341,9 +2341,25 @@ export interface components {
       fallback_audio_stream_index?: number;
     };
     AudioTrackRuleResult: {
+      /** @description Clips corrigés non retranscrits par ce changement de règle : une retranscription explicite avec confirmation est nécessaire. */
+      corrected_clips_skipped: number;
       rule: components["schemas"]["AudioTrackRule"];
       /** Format: int64 */
       version: number;
+    };
+    /** @description Corrections humaines actives de la transcription visible d'un clip, que la retranscription remplacerait (elles resteraient dans l'historique, obsolètes). */
+    CorrectionsToReplace: {
+      /** Format: int64 */
+      transcription_job_id: number;
+      text_segments: number;
+      speaker_segments: number;
+      authors: string[];
+      /** Format: date-time */
+      last_corrected_at: string | null;
+    };
+    CorrectionsWarning: {
+      error: string;
+      corrections?: components["schemas"]["CorrectionsToReplace"];
     };
     AudioTrackOverride: {
       audio_stream_index: number;
@@ -3288,7 +3304,10 @@ export interface operations {
   };
   scheduleJob: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -3318,6 +3337,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Job"];
+        };
+      };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
         };
       };
       /** @description Error (400 invalid task, 404 clip not found) */
@@ -3364,7 +3392,10 @@ export interface operations {
   };
   relaunchJob: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -3383,6 +3414,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Job"];
+        };
+      };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
         };
       };
       /** @description Tâche introuvable ou non relançable */
@@ -4201,7 +4241,10 @@ export interface operations {
   };
   scheduleTranscription: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -4233,6 +4276,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
         };
       };
       /** @description Clip non prêt ou piste audio inconnue */
@@ -4286,7 +4338,10 @@ export interface operations {
   };
   putClipAudioTrackOverride: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -4311,6 +4366,15 @@ export interface operations {
           "application/json": components["schemas"]["AudioTrackOverride"];
         };
       };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
+        };
+      };
       /** @description Erreur */
       default: {
         headers: {
@@ -4324,7 +4388,10 @@ export interface operations {
   };
   deleteClipAudioTrackOverride: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -4343,6 +4410,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
         };
       };
       /** @description Erreur */
@@ -6094,6 +6170,8 @@ export interface operations {
   previewTranscriptionBatch: {
     parameters: {
       query?: {
+        /** @description Vrai pour inclure dans le lot les clips qui portent des corrections humaines (exclus par défaut). */
+        include_corrected?: boolean;
         visibility?: string;
         status?: string;
         owner_id?: string;
@@ -6114,6 +6192,10 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /** @description Clips autrement éligibles qui portent des corrections ; exclus de eligible sauf demande explicite. */
+            corrected: number;
+            /** @description Corrections actives portées par ces clips. */
+            corrected_segments: number;
             eligible: number;
             already_processed: number;
             already_queued: number;
@@ -6151,6 +6233,8 @@ export interface operations {
       content: {
         "application/json": {
           confirm: boolean;
+          /** @description Demande explicite d'inclure les clips corrigés : leurs corrections seront remplacées (marquées obsolètes) par la nouvelle transcription. */
+          include_corrected?: boolean;
         };
       };
     };
@@ -6163,6 +6247,8 @@ export interface operations {
         content: {
           "application/json": {
             preview: {
+              corrected?: number;
+              corrected_segments?: number;
               eligible?: number;
               already_processed?: number;
               already_queued?: number;

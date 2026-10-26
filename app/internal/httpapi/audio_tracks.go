@@ -82,21 +82,39 @@ func (s *Server) putSourceAudioRule(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	s.reprocessSource(r.Context(), id)
-	reply(w, 200, map[string]any{"rule": rule, "version": version})
+	skipped := s.reprocessSource(r.Context(), id)
+	reply(w, 200, map[string]any{"rule": rule, "version": version, "corrected_clips_skipped": skipped})
 }
-func (s *Server) reprocessSource(ctx context.Context, sourceID int64) {
+
+// reprocessSource retranscribes the ready clips of a source after a rule change. A clip
+// that carries human corrections is skipped, never retranscribed silently: the administrator
+// retranscribes it explicitly (confirmation). It returns the number of clips skipped.
+func (s *Server) reprocessSource(ctx context.Context, sourceID int64) int {
 	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT sf.clip_id FROM source_files sf WHERE sf.source_id=$1 AND sf.clip_id IS NOT NULL AND sf.status='ready'`, sourceID)
 	if err != nil {
-		return
+		return 0
 	}
-	defer rows.Close()
+	var ids []int64
 	for rows.Next() {
 		var id int64
 		if rows.Scan(&id) == nil {
-			_, _, _ = s.scheduleResolvedTranscription(ctx, id, nil, false)
+			ids = append(ids, id)
 		}
 	}
+	rows.Close()
+	corrected, err := s.correctedClipSegments(ctx)
+	if err != nil {
+		return 0
+	}
+	skipped := 0
+	for _, id := range ids {
+		if corrected[id] > 0 {
+			skipped++
+			continue
+		}
+		_, _, _ = s.scheduleResolvedTranscription(ctx, id, nil, false)
+	}
+	return skipped
 }
 func (s *Server) putClipAudioTrack(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -123,6 +141,9 @@ func (s *Server) putClipAudioTrack(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "audio_stream_not_found")
 		return
 	}
+	if !s.correctionsGuard(w, r, id) {
+		return
+	}
 	_, err = s.Pool.Exec(r.Context(), `INSERT INTO clip_audio_track_overrides(clip_id,audio_stream_index) VALUES($1,$2) ON CONFLICT(clip_id) DO UPDATE SET audio_stream_index=EXCLUDED.audio_stream_index,version=clip_audio_track_overrides.version+1,updated_at=now()`, id, input.AudioStreamIndex)
 	if err != nil {
 		s.internal(w, err)
@@ -135,6 +156,9 @@ func (s *Server) deleteClipAudioTrack(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id < 1 {
 		fail(w, 400, "invalid_clip_id")
+		return
+	}
+	if !s.correctionsGuard(w, r, id) {
 		return
 	}
 	if _, err = s.Pool.Exec(r.Context(), `DELETE FROM clip_audio_track_overrides WHERE clip_id=$1`, id); err != nil {

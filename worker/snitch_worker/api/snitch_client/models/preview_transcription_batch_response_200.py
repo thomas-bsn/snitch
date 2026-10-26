@@ -22,6 +22,9 @@ T = TypeVar("T", bound="PreviewTranscriptionBatchResponse200")
 class PreviewTranscriptionBatchResponse200:
     """
         Attributes:
+            corrected (int): Clips autrement éligibles qui portent des corrections ; exclus de eligible sauf demande
+                explicite.
+            corrected_segments (int): Corrections actives portées par ces clips.
             eligible (int):
             already_processed (int):
             already_queued (int):
@@ -29,6 +32,8 @@ class PreviewTranscriptionBatchResponse200:
             selection_required (int):
      """
 
+    corrected: int
+    corrected_segments: int
     eligible: int
     already_processed: int
     already_queued: int
@@ -41,6 +46,10 @@ class PreviewTranscriptionBatchResponse200:
 
 
     def to_dict(self) -> dict[str, Any]:
+        corrected = self.corrected
+
+        corrected_segments = self.corrected_segments
+
         eligible = self.eligible
 
         already_processed = self.already_processed
@@ -55,6 +64,8 @@ class PreviewTranscriptionBatchResponse200:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "corrected": corrected,
+            "corrected_segments": corrected_segments,
             "eligible": eligible,
             "already_processed": already_processed,
             "already_queued": already_queued,
@@ -69,6 +80,10 @@ class PreviewTranscriptionBatchResponse200:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        corrected = d.pop("corrected")
+
+        corrected_segments = d.pop("corrected_segments")
+
         eligible = d.pop("eligible")
 
         already_processed = d.pop("already_processed")
@@ -80,6 +95,8 @@ class PreviewTranscriptionBatchResponse200:
         selection_required = d.pop("selection_required")
 
         preview_transcription_batch_response_200 = cls(
+            corrected=corrected,
+            corrected_segments=corrected_segments,
             eligible=eligible,
             already_processed=already_processed,
             already_queued=already_queued,

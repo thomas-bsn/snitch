@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 
 
 
@@ -23,9 +24,12 @@ class ScheduleTranscriptionBatchBody:
     """
         Attributes:
             confirm (bool):
+            include_corrected (bool | Unset): Demande explicite d'inclure les clips corrigés : leurs corrections seront
+                remplacées (marquées obsolètes) par la nouvelle transcription.
      """
 
     confirm: bool
+    include_corrected: bool | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -35,12 +39,16 @@ class ScheduleTranscriptionBatchBody:
     def to_dict(self) -> dict[str, Any]:
         confirm = self.confirm
 
+        include_corrected = self.include_corrected
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "confirm": confirm,
         })
+        if include_corrected is not UNSET:
+            field_dict["include_corrected"] = include_corrected
 
         return field_dict
 
@@ -51,8 +59,11 @@ class ScheduleTranscriptionBatchBody:
         d = dict(src_dict)
         confirm = d.pop("confirm")
 
+        include_corrected = d.pop("include_corrected", UNSET)
+
         schedule_transcription_batch_body = cls(
             confirm=confirm,
+            include_corrected=include_corrected,
         )
 
 

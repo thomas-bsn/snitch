@@ -1073,6 +1073,15 @@
         "operationId": "scheduleJob",
         "parameters": [
           {
+            "in": "query",
+            "name": "confirm_replace_corrections",
+            "required": false,
+            "description": "Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "in": "header",
             "name": "Origin",
             "required": true,
@@ -1100,6 +1109,16 @@
           }
         },
         "responses": {
+          "409": {
+            "description": "La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionsWarning"
+                }
+              }
+            }
+          },
           "201": {
             "description": "Tâche planifiée",
             "content": {
@@ -1179,6 +1198,15 @@
         "operationId": "relaunchJob",
         "parameters": [
           {
+            "in": "query",
+            "name": "confirm_replace_corrections",
+            "required": false,
+            "description": "Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -1206,6 +1234,16 @@
           }
         ],
         "responses": {
+          "409": {
+            "description": "La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionsWarning"
+                }
+              }
+            }
+          },
           "200": {
             "description": "Tâche dead remise en attente avec nouvel essai",
             "content": {
@@ -2451,6 +2489,15 @@
         "operationId": "scheduleTranscription",
         "parameters": [
           {
+            "in": "query",
+            "name": "confirm_replace_corrections",
+            "required": false,
+            "description": "Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -2488,6 +2535,16 @@
           }
         },
         "responses": {
+          "409": {
+            "description": "La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionsWarning"
+                }
+              }
+            }
+          },
           "201": {
             "description": "Transcription planifiée",
             "content": {
@@ -2592,6 +2649,15 @@
         "operationId": "putClipAudioTrackOverride",
         "parameters": [
           {
+            "in": "query",
+            "name": "confirm_replace_corrections",
+            "required": false,
+            "description": "Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -2629,6 +2695,16 @@
           }
         },
         "responses": {
+          "409": {
+            "description": "La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionsWarning"
+                }
+              }
+            }
+          },
           "200": {
             "description": "Dérogation enregistrée",
             "content": {
@@ -2654,6 +2730,15 @@
       "delete": {
         "operationId": "deleteClipAudioTrackOverride",
         "parameters": [
+          {
+            "in": "query",
+            "name": "confirm_replace_corrections",
+            "required": false,
+            "description": "Vrai pour confirmer explicitement le remplacement des corrections humaines du clip par la retranscription. Sans lui, une retranscription d'un clip corrigé est refusée (409 corrections_would_be_replaced).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
           {
             "in": "path",
             "name": "id",
@@ -2682,6 +2767,16 @@
           }
         ],
         "responses": {
+          "409": {
+            "description": "La retranscription remplacerait des corrections humaines (corrections_would_be_replaced) ; autres conflits d'état de l'opération",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionsWarning"
+                }
+              }
+            }
+          },
           "200": {
             "description": "Dérogation retirée",
             "content": {
@@ -3465,6 +3560,15 @@
         "operationId": "previewTranscriptionBatch",
         "parameters": [
           {
+            "name": "include_corrected",
+            "in": "query",
+            "required": false,
+            "description": "Vrai pour inclure dans le lot les clips qui portent des corrections humaines (exclus par défaut).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "visibility",
             "in": "query",
             "required": false,
@@ -3525,9 +3629,21 @@
                     "already_processed",
                     "already_queued",
                     "unavailable",
-                    "selection_required"
+                    "selection_required",
+                    "corrected",
+                    "corrected_segments"
                   ],
                   "properties": {
+                    "corrected": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Clips autrement éligibles qui portent des corrections ; exclus de eligible sauf demande explicite."
+                    },
+                    "corrected_segments": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Corrections actives portées par ces clips."
+                    },
                     "eligible": {
                       "type": "integer",
                       "minimum": 0
@@ -3631,6 +3747,10 @@
                 "properties": {
                   "confirm": {
                     "type": "boolean"
+                  },
+                  "include_corrected": {
+                    "type": "boolean",
+                    "description": "Demande explicite d'inclure les clips corrigés : leurs corrections seront remplacées (marquées obsolètes) par la nouvelle transcription."
                   }
                 }
               }
@@ -3652,6 +3772,14 @@
                     "preview": {
                       "type": "object",
                       "properties": {
+                        "corrected": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "corrected_segments": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
                         "eligible": {
                           "type": "integer",
                           "minimum": 0
@@ -5543,15 +5671,71 @@
         "type": "object",
         "required": [
           "rule",
-          "version"
+          "version",
+          "corrected_clips_skipped"
         ],
         "properties": {
+          "corrected_clips_skipped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Clips corrigés non retranscrits par ce changement de règle : une retranscription explicite avec confirmation est nécessaire."
+          },
           "rule": {
             "$ref": "#/components/schemas/AudioTrackRule"
           },
           "version": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "CorrectionsToReplace": {
+        "type": "object",
+        "description": "Corrections humaines actives de la transcription visible d'un clip, que la retranscription remplacerait (elles resteraient dans l'historique, obsolètes).",
+        "required": [
+          "transcription_job_id",
+          "text_segments",
+          "speaker_segments",
+          "authors",
+          "last_corrected_at"
+        ],
+        "properties": {
+          "transcription_job_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "text_segments": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "speaker_segments": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "last_corrected_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "CorrectionsWarning": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "corrections": {
+            "$ref": "#/components/schemas/CorrectionsToReplace"
           }
         }
       },

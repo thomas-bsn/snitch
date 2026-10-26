@@ -39,6 +39,11 @@ func (s *Server) relaunchJob(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	var clipID int64
+	var step, status string
+	if s.Pool.QueryRow(r.Context(), `SELECT clip_id,step,status FROM jobs WHERE id=$1`, id).Scan(&clipID, &step, &status) == nil && status == "dead" && isTranscriptionStep(step) && !s.correctionsGuard(w, r, clipID) {
+		return
+	}
 	ss := r.Context().Value(sessionKey{}).(session)
 	job, err := s.Jobs.Relaunch(r.Context(), id, ss.User.ID)
 	if errors.Is(err, jobs.ErrJobNotFound) {
