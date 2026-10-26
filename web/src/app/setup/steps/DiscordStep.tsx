@@ -33,6 +33,7 @@ export function DiscordStep({ onDone, skip }: StepProps) {
   const [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
+  const [saved, setSaved] = useState(false);
   const owner = user !== null && isSuperAdministrator(user);
 
   const header = (
@@ -59,7 +60,8 @@ export function DiscordStep({ onDone, skip }: StepProps) {
       </div>
     );
   const settings = state.value;
-  const configured = settings.client_id !== "" && settings.secret_configured;
+  const configured =
+    saved || (settings.client_id !== "" && settings.secret_configured);
   const id = clientId ?? settings.client_id;
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -80,6 +82,7 @@ export function DiscordStep({ onDone, skip }: StepProps) {
         return;
       }
       setSecret("");
+      setSaved(true);
       await onDone();
     } catch {
       setFailure("unavailable");

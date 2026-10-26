@@ -112,6 +112,7 @@ export const fr: Messages = {
     skip: "Passer pour l’instant",
     saveContinue: "Enregistrer et continuer",
     saving: "Enregistrement…",
+    completed: "Cette étape est terminée. Elle ne sera pas rejouée.",
     code: {
       title: "Saisissez le code d’installation",
       lead: "Il prouve que vous gérez le serveur. Le code n’est jamais affiché dans cette interface.",
@@ -166,8 +167,7 @@ export const fr: Messages = {
       title: "Importez vos premières vidéos",
       lead: "Envoyez des clips depuis le navigateur ; un transfert interrompu peut être repris.",
       nothing:
-        "Rien n’est scanné ni traité sans votre demande. L’assistant vous conduit seulement à la page Importer.",
-      open: "Ouvrir la page Importer",
+        "Rien n’est scanné ni traité sans votre demande. Vous pourrez importer des vidéos plus tard depuis la page Importer.",
     },
     summary: {
       title: "Récapitulatif",
