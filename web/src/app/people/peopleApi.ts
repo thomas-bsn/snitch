@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
 import type { components } from "../../api.gen";
 import { api, errorCode, mutation } from "../api/client";
+import type { Result } from "../api/loaded";
 import { useSession } from "../session";
 
 export type Person = components["schemas"]["Person"];
@@ -18,8 +18,6 @@ export type VerificationFilter = "all" | "unknown" | "ambiguous";
 /** The person a case is settled for: an existing one, or a new one by name. */
 export type Choice = { personId: number } | { newName: string };
 
-export type Result<T> = { ok: true; value: T } | { ok: false; code: string };
-
 const failure = (error: unknown): { ok: false; code: string } => ({
   ok: false,
   code: errorCode(error) ?? "unknown",
@@ -32,32 +30,6 @@ async function guard<T>(call: () => Promise<Result<T>>): Promise<Result<T>> {
   } catch {
     return { ok: false, code: "unknown" };
   }
-}
-
-/** Loads something from the server, with a way to load it again quietly. */
-export function useLoaded<T>(load: () => Promise<Result<T>>) {
-  const [state, setState] = useState<
-    | { status: "loading" }
-    | { status: "failed"; code: string }
-    | { status: "ready"; value: T }
-  >({ status: "loading" });
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    let current = true;
-    void load().then((result) => {
-      if (!current) return;
-      setState(
-        result.ok
-          ? { status: "ready", value: result.value }
-          : { status: "failed", code: result.code },
-      );
-    });
-    return () => {
-      current = false;
-    };
-  }, [load, version]);
-  const reload = useCallback(() => setVersion((n) => n + 1), []);
-  return { state, reload };
 }
 
 export const fetchPersons = () =>

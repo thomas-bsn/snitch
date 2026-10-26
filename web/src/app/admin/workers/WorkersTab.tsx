@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
+import { useLoaded } from "../../api/loaded";
 import { ErrorAlert } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { StatusPill } from "../../components/StatusPill";
@@ -8,7 +9,7 @@ import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
 import { WorkerCreateForm } from "./WorkerCreateForm";
 import { WorkerDetailPage } from "./WorkerDetailPage";
-import { fetchWorkers, useLoaded, type Worker } from "./workersApi";
+import { fetchWorkers, type Worker } from "./workersApi";
 import { workerModelSummary, workerStatus } from "./workerView";
 
 /** The Workers tab of the administration: the list, the creation form and a Worker's page. */

@@ -6,6 +6,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { useLoaded } from "../../api/loaded";
 import { ErrorAlert, StatusNotice } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -15,7 +16,6 @@ import { DeploymentFiles } from "./DeploymentFiles";
 import { placeholdersLeft, withHuggingFaceToken } from "./envFile";
 import {
   fetchWorkers,
-  useLoaded,
   useWorkerActions,
   type WorkerRegistration,
 } from "./workersApi";

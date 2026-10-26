@@ -11,13 +11,7 @@ import { ADMIN_TABS } from "./admin/tabs";
 import { WorkersTab } from "./admin/workers/WorkersTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
-import {
-  AccountPage,
-  Forbidden,
-  ImportPage,
-  NotFound,
-  SearchPage,
-} from "./pages/pages";
+import { AccountPage, Forbidden, ImportPage, NotFound } from "./pages/pages";
 import { isAdministrator } from "./roles";
 import { ConnectionLost, Splash } from "./screens/ConnectionLost";
 import { ClipPage } from "./library/ClipPage";
@@ -30,6 +24,7 @@ import { AppShell } from "./shell/AppShell";
 import { PeopleLayout } from "./people/PeopleLayout";
 import { PersonList } from "./people/PersonList";
 import { VerificationTab } from "./people/VerificationTab";
+import { SearchPage } from "./search/SearchPage";
 import { ThemeProvider } from "./theme";
 
 /** Screens that need a signed-in person; others are sent to the sign-in screen. */

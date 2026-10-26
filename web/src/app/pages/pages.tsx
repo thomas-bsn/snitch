@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from "react-router";
+import { Link } from "react-router";
 import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
@@ -37,25 +37,6 @@ function Placeholder({ title }: { title: MessageKey }) {
 
 export const ImportPage = () => <Placeholder title="pages.import.title" />;
 export const AccountPage = () => <Placeholder title="pages.account.title" />;
-
-export function SearchPage() {
-  const { t } = useI18n();
-  const [params] = useSearchParams();
-  const query = params.get("q");
-  return (
-    <Page title={t("pages.search.title")}>
-      {query && (
-        <p className="text-mute">{t("pages.search.queryLabel", { query })}</p>
-      )}
-      <p className="max-w-xl text-mute">{t("pages.comingSoon")}</p>
-      <div>
-        <a href="/legacy/" className={buttonClass("secondary")}>
-          {t("app.previousInterface")}
-        </a>
-      </div>
-    </Page>
-  );
-}
 
 export function Forbidden() {
   const { t } = useI18n();

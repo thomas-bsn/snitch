@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback, useId, useState } from "react";
-import { useLoaded } from "../admin/workers/workersApi";
+import { useLoaded } from "../api/loaded";
 import { useFormatDate } from "../admin/format";
 import { ErrorAlert } from "../components/Alert";
 import { useI18n } from "../i18n";
