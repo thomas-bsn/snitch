@@ -64,6 +64,8 @@ from .microphone_track_item import MicrophoneTrackItem
 from .microphone_track_item_role import MicrophoneTrackItemRole
 from .microphone_track_rule_input import MicrophoneTrackRuleInput
 from .microphone_track_status import MicrophoneTrackStatus
+from .obsolete_correction import ObsoleteCorrection
+from .obsolete_corrections import ObsoleteCorrections
 from .person import Person
 from .person_account_input import PersonAccountInput
 from .person_correction_result import PersonCorrectionResult
@@ -258,6 +260,8 @@ __all__ = (
     "MicrophoneTrackItemRole",
     "MicrophoneTrackRuleInput",
     "MicrophoneTrackStatus",
+    "ObsoleteCorrection",
+    "ObsoleteCorrections",
     "Person",
     "PersonAccountInput",
     "PersonCorrectionResult",

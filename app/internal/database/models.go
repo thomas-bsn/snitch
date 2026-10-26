@@ -233,6 +233,7 @@ type SegmentCorrection struct {
 	ReindexLeaseExpiresAt pgtype.Timestamptz `json:"reindex_lease_expires_at"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	TextVersion           int32              `json:"text_version"`
 }
 
 type SegmentCorrectionEvent struct {

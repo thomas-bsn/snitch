@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import createClient from "openapi-fetch";
 import type { paths, components } from "../api.gen";
-import { segmentErrorMessage } from "./SegmentText";
+import { segmentErrorMessage, type CsrfHeaders } from "./shared";
 import "./segment-speaker.css";
 
 // Speaker of one transcript segment (phase 6): the user designates which Local speaker
@@ -12,15 +12,6 @@ type TranscriptSegment = components["schemas"]["TranscriptSegment"];
 type LocalSpeakerChoice = NonNullable<
   components["schemas"]["Transcription"]["local_speakers"]
 >[number];
-type CsrfHeaders = { "X-CSRF-Token": string; Origin: string };
-
-const speakerMessages: Record<string, string> = {
-  invalid_local_speaker:
-    "Ce locuteur n’appartient pas à ce clip. Actualisez la transcription.",
-  speaker_unchanged: "Le locuteur n’a pas changé.",
-  segment_conflict:
-    "Ce segment a été modifié depuis votre lecture. La transcription a été actualisée.",
-};
 
 export function SegmentSpeaker({
   clipId,
@@ -67,9 +58,7 @@ export function SegmentSpeaker({
       );
       if (result.error) {
         const failure = result.error as { error: string };
-        setMessage(
-          speakerMessages[failure.error] ?? segmentErrorMessage(failure.error),
-        );
+        setMessage(segmentErrorMessage(failure.error));
         if (failure.error === "segment_conflict") await onChanged();
         return;
       }

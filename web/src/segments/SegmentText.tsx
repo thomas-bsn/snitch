@@ -1,38 +1,18 @@
 import React, { useState } from "react";
 import createClient from "openapi-fetch";
 import type { paths, components } from "../api.gen";
+import { segmentErrorMessage, type CsrfHeaders } from "./shared";
 import "./segments.css";
 
-// Text of one transcript segment with its correction (phase 6). It lives in its own
-// file so later phase 6 screens (history, speaker) extend it without touching main.tsx.
+// Text of one transcript segment with its correction (phase 6).
 const segmentApi = createClient<paths>();
 type TranscriptSegment = components["schemas"]["TranscriptSegment"];
-type CsrfHeaders = { "X-CSRF-Token": string; Origin: string };
-
-export const maxSegmentTextLength = 4000;
-
-const segmentMessages: Record<string, string> = {
-  invalid_text: "Le texte ne peut pas être vide.",
-  text_too_long: `Le texte est trop long (${maxSegmentTextLength} caractères au plus).`,
-  invalid_reason: "Le motif est trop long (500 caractères au plus).",
-  text_unchanged: "Le texte n’a pas changé.",
-  segment_not_found: "Ce segment n’existe plus.",
-  clip_not_found: "Ce clip n’est plus visible.",
-  csrf_rejected: "Session expirée. Rechargez la page.",
-  transcription_changed:
-    "Le clip a été retranscrit depuis votre lecture. Actualisez la transcription.",
-};
-
 type SegmentConflictState = {
   version: number;
   text: string;
   author: string;
   correctedAt: string;
 };
-
-export function segmentErrorMessage(code: string): string {
-  return segmentMessages[code] ?? "La correction a échoué. Réessayez.";
-}
 
 function formatDate(value: string | undefined): string {
   if (!value) return "";

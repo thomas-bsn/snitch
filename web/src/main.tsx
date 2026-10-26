@@ -18,6 +18,7 @@ import {
   type CorrectionsToReplace,
 } from "./segments/Retranscription";
 import { SegmentHistory } from "./segments/SegmentHistory";
+import { ObsoleteCorrections } from "./segments/ObsoleteCorrections";
 import { SegmentSpeaker } from "./segments/SegmentSpeaker";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
@@ -1992,6 +1993,15 @@ function App() {
                                   </section>
                                 );
                               })()}
+                            {clipDetails[clip.id] && (
+                              <ObsoleteCorrections
+                                clipId={clip.id}
+                                jobId={
+                                  clipDetails[clip.id].transcription
+                                    ?.transcription_job_id
+                                }
+                              />
+                            )}
                             {clipDetails[clip.id] && (
                               <ClipPersons
                                 persons={clipDetails[clip.id].persons}

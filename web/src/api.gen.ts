@@ -670,6 +670,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/obsolete-corrections": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés qui peuvent voir le clip. Liste, en lecture seule, les corrections des transcriptions qu'une retranscription a remplacées : elles ne s'appliquent plus jamais et ne se restaurent pas, mais le texte corrigé et l'historique complet restent consultables. */
+    get: operations["listObsoleteCorrections"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/segment-corrections/export": {
     parameters: {
       query?: never;
@@ -2218,6 +2235,25 @@ export interface components {
       author: components["schemas"]["AttributionAuthor"];
       /** Format: date-time */
       created_at: string;
+    };
+    ObsoleteCorrection: {
+      /**
+       * Format: int64
+       * @description Transcription remplacée à laquelle la correction appartenait.
+       */
+      transcription_job_id: number;
+      /** @description Rang du segment dans la transcription remplacée. */
+      index: number;
+      original_text: string;
+      /** @description Dernier texte corrigé ; null si le segment n'avait que des corrections de locuteur ou avait été restauré à l'original. */
+      text: string | null;
+      /** Format: date-time */
+      obsolete_at: string;
+      /** @description Entrées immuables, de la plus récente à la plus ancienne. */
+      history: components["schemas"]["SegmentHistoryEntry"][];
+    };
+    ObsoleteCorrections: {
+      items: components["schemas"]["ObsoleteCorrection"][];
     };
     SegmentHistory: {
       /** Format: int64 */
@@ -4405,6 +4441,37 @@ export interface operations {
         };
       };
       /** @description Erreur (400 invalid_request, invalid_reason, text_unchanged, event_not_restorable, invalid_segment_index ; 404 clip_not_found, segment_not_found, event_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listObsoleteCorrections: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Corrections obsolètes du clip, avec leur historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ObsoleteCorrections"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 404 clip_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

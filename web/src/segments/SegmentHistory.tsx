@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import createClient from "openapi-fetch";
 import type { paths, components } from "../api.gen";
-import { segmentErrorMessage } from "./SegmentText";
+import { segmentErrorMessage, type CsrfHeaders } from "./shared";
 import "./segment-history.css";
 
 // History of one transcript segment and restoration of the original text or of a past
@@ -9,19 +9,11 @@ import "./segment-history.css";
 const historyApi = createClient<paths>();
 type SegmentHistoryData = components["schemas"]["SegmentHistory"];
 type HistoryEntry = components["schemas"]["SegmentHistoryEntry"];
-type CsrfHeaders = { "X-CSRF-Token": string; Origin: string };
 
 const kindLabels: Record<HistoryEntry["kind"], string> = {
   text: "Correction",
   speaker: "Locuteur",
   restore: "Restauration",
-};
-
-const historyMessages: Record<string, string> = {
-  event_not_found: "Cette entrée d’historique n’existe plus.",
-  event_not_restorable: "Cette entrée ne contient pas de texte à restaurer.",
-  segment_conflict:
-    "Ce segment a été modifié depuis votre lecture. L’historique a été actualisé.",
 };
 
 function formatDate(value: string): string {
@@ -96,7 +88,7 @@ export function SegmentHistory({
       );
       if (result.error) {
         const code = (result.error as { error: string }).error;
-        setMessage(historyMessages[code] ?? segmentErrorMessage(code));
+        setMessage(segmentErrorMessage(code));
         await load();
         await onChanged();
         return;
