@@ -22,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
     # tested separately (existing installations keep working).
     base_env = {k: v for k, v in os.environ.items() if k not in ('POSTGRES_PASSWORD', 'MASTER_KEY')}
     env = dict(base_env, SNITCH_IMAGE=image,
-               PUBLIC_URL='http://127.0.0.1:8080', COOKIE_SECURE='false', DISPLAY_NAME='Synthetic distribution', CLIPS_ROOTS='', EMBEDDINGS_MODEL='')
+               PUBLIC_URL='http://127.0.0.1:8080', COOKIE_SECURE='false', CLIPS_ROOTS='', EMBEDDINGS_MODEL='')
     explicit_password = 'synthetic:@/?#%+ '+secrets.token_hex(16)
     explicit_env = dict(env, POSTGRES_PASSWORD=explicit_password)
     # An empty env file keeps a developer's local .env out of the test: the variables above are the only ones.
@@ -133,7 +133,7 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
         password_fingerprint = fingerprint(good)
         assert '<html' in api(good, '/').read().decode().lower()
         setup = json.load(api(good, '/api/setup'))
-        assert not setup['initialized'] and setup['display_name'] == 'Synthetic distribution'
+        assert not setup['initialized'] and 'display_name' not in setup
         admin_password = install(good)
         # No MASTER_KEY given: the application generated its key and keeps it in the secrets volume, which the
         # database service cannot read (private file) and which is not part of the database.

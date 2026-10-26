@@ -301,7 +301,7 @@ function App() {
   async function refresh() {
     const state = checked(await api.GET("/api/setup"));
     setSetup(state);
-    document.title = state.display_name;
+    document.title = "Snitch";
     const me = await api.GET("/api/auth/me");
     setSession(me.data);
     if (me.data) {
@@ -1047,7 +1047,7 @@ function App() {
         <span className="brand-mark">R</span>
         <div>
           <p className="eyebrow">VOTRE MÉMOIRE DE JEU</p>
-          <h1>{setup?.display_name ?? "Snitch"}</h1>
+          <h1>Snitch</h1>
         </div>
       </header>
       {error && (
@@ -1155,7 +1155,7 @@ function App() {
                 aria-label="Snitch, bibliothèque"
               >
                 <span className="brand-mark">R</span>
-                <span>{setup.display_name}</span>
+                <span>Snitch</span>
               </a>
               <p className="nav-label">Espace</p>
               <a className="nav-link active" href="#library">

@@ -16,16 +16,16 @@ import (
 )
 
 type Config struct {
-	DatabaseURL, PublicURL, Address, DisplayName, EmbeddingsURL, EmbeddingsModel, WorkerImage string
-	ClipRoots                                                                                 []string
-	ProbePath, FFmpegPath                                                                     string
-	StabilityWindow                                                                           time.Duration
-	ReconcileInterval                                                                         time.Duration
-	ClipExcludePatterns                                                                       []string
-	UploadRoot                                                                                string
-	UploadMaxBytes, UploadChunkBytes                                                          int64
-	UploadSessionTTL                                                                          time.Duration
-	MasterKey                                                                                 []byte
+	DatabaseURL, PublicURL, Address, EmbeddingsURL, EmbeddingsModel, WorkerImage string
+	ClipRoots                                                                    []string
+	ProbePath, FFmpegPath                                                        string
+	StabilityWindow                                                              time.Duration
+	ReconcileInterval                                                            time.Duration
+	ClipExcludePatterns                                                          []string
+	UploadRoot                                                                   string
+	UploadMaxBytes, UploadChunkBytes                                             int64
+	UploadSessionTTL                                                             time.Duration
+	MasterKey                                                                    []byte
 	// MasterKeyOrigin is "provided" (MASTER_KEY) or "generated" (kept in the secrets directory).
 	MasterKeyOrigin string
 	// PublicURL is optional: when empty, the public address is deduced from each request.
@@ -48,7 +48,7 @@ var workerImagePattern = regexp.MustCompile(`^[a-z0-9][A-Za-z0-9._/:@-]*$`)
 func Load() (Config, error) {
 	c := Config{
 		DatabaseURL: os.Getenv("DATABASE_URL"), PublicURL: os.Getenv("PUBLIC_URL"),
-		Address: env("LISTEN_ADDR", ":8080"), DisplayName: env("DISPLAY_NAME", "Snitch"),
+		Address: env("LISTEN_ADDR", ":8080"),
 		// The application carries no release version, so the default image tag is "latest";
 		// pin WORKER_IMAGE to a published tag or digest to control worker upgrades.
 		WorkerImage:   env("WORKER_IMAGE", DefaultWorkerImage),
@@ -116,9 +116,6 @@ func Load() (Config, error) {
 	db, err := url.Parse(c.DatabaseURL)
 	if err != nil || db.Host == "" || (db.Scheme != "postgres" && db.Scheme != "postgresql") {
 		return c, errors.New("DATABASE_URL must be a PostgreSQL URL")
-	}
-	if strings.TrimSpace(c.DisplayName) == "" {
-		return c, errors.New("DISPLAY_NAME must not be blank")
 	}
 	_, port, err := net.SplitHostPort(c.Address)
 	n, portErr := strconv.Atoi(port)

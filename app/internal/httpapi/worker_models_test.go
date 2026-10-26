@@ -45,7 +45,7 @@ func testWorkerModels(t *testing.T, pool *pgxpool.Pool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	ts := httptest.NewTLSServer(server.Handler())
 	defer ts.Close()
 	server.Config.PublicURL = ts.URL

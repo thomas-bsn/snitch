@@ -69,7 +69,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	api := New(pool, config.Config{
-		MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Snitch",
+		MasterKey: bytes.Repeat([]byte{1}, 32),
 		ProbePath: syntheticProbeFixture(t), ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024,
 		UploadChunkBytes: 1024, UploadSessionTTL: time.Hour, EmbeddingsURL: embeddings.URL, EmbeddingsModel: "fixture-embedding-v1",
 	}, slog.New(slog.NewJSONHandler(io.Discard, nil)))

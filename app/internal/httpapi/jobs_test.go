@@ -30,7 +30,7 @@ func testJobQueue(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	mediaRoot := t.TempDir()
-	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts", UploadRoot: mediaRoot}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: mediaRoot}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	newTestServer := func() *httptest.Server {
 		ts := httptest.NewUnstartedServer(server.Handler())
 		server.Config.PublicURL = "http://" + ts.Listener.Addr().String()
@@ -182,7 +182,7 @@ func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts", UploadRoot: t.TempDir()}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	ts := httptest.NewTLSServer(server.Handler())
 	defer ts.Close()
 	server.Config.PublicURL = ts.URL

@@ -4,7 +4,8 @@ import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import type { MessageKey } from "../i18n/messages";
 
-function Page({
+/** The frame of a screen: its title as the page heading, then its content. */
+export function Page({
   title,
   children,
 }: {
@@ -34,8 +35,6 @@ function Placeholder({ title }: { title: MessageKey }) {
     </Page>
   );
 }
-
-export const AccountPage = () => <Placeholder title="pages.account.title" />;
 
 export function SearchPage() {
   const { t } = useI18n();
