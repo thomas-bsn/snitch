@@ -14,6 +14,7 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.worker_bundle import WorkerBundle
+  from ..models.worker_machine import WorkerMachine
   from ..models.worker_models import WorkerModels
   from ..models.worker_recent_task import WorkerRecentTask
 
@@ -41,6 +42,9 @@ class WorkerDetail:
                 d'abord.
             bundle (WorkerBundle): Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus
                 ensuite. Le .env contient le jeton.
+            machine (WorkerMachine | Unset): Informations non secrètes déclarées par le Worker ; le système est celui du
+                conteneur.
+            remote_address (str | Unset): Adresse IP de connexion observée par Snitch, sans port.
             models (WorkerModels | Unset): Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais
                 de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs
                 ressemblant à un secret sont refusées.
@@ -56,6 +60,8 @@ class WorkerDetail:
     connected: bool
     recent_tasks: list[WorkerRecentTask]
     bundle: WorkerBundle
+    machine: WorkerMachine | Unset = UNSET
+    remote_address: str | Unset = UNSET
     models: WorkerModels | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -65,6 +71,7 @@ class WorkerDetail:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.worker_bundle import WorkerBundle # noqa: PLC0415
+        from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
         id = self.id
@@ -100,6 +107,12 @@ class WorkerDetail:
 
         bundle = self.bundle.to_dict()
 
+        machine: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.machine, Unset):
+            machine = self.machine.to_dict()
+
+        remote_address = self.remote_address
+
         models: dict[str, Any] | Unset = UNSET
         if not isinstance(self.models, Unset):
             models = self.models.to_dict()
@@ -119,6 +132,10 @@ class WorkerDetail:
             "recent_tasks": recent_tasks,
             "bundle": bundle,
         })
+        if machine is not UNSET:
+            field_dict["machine"] = machine
+        if remote_address is not UNSET:
+            field_dict["remote_address"] = remote_address
         if models is not UNSET:
             field_dict["models"] = models
 
@@ -129,6 +146,7 @@ class WorkerDetail:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.worker_bundle import WorkerBundle # noqa: PLC0415
+        from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
         d = dict(src_dict)
@@ -198,6 +216,18 @@ class WorkerDetail:
 
 
 
+        _machine = d.pop("machine", UNSET)
+        machine: WorkerMachine | Unset
+        if isinstance(_machine,  Unset):
+            machine = UNSET
+        else:
+            machine = WorkerMachine.from_dict(_machine)
+
+
+
+
+        remote_address = d.pop("remote_address", UNSET)
+
         _models = d.pop("models", UNSET)
         models: WorkerModels | Unset
         if isinstance(_models,  Unset):
@@ -219,6 +249,8 @@ class WorkerDetail:
             connected=connected,
             recent_tasks=recent_tasks,
             bundle=bundle,
+            machine=machine,
+            remote_address=remote_address,
             models=models,
         )
 

@@ -2,6 +2,7 @@
 // HTTP handlers). An unknown code falls back to a generic message that shows the code.
 
 export const errorsEn = {
+  invalid_worker_machine: "The Worker machine declaration is invalid.",
   account_already_linked: "This account is already linked to a person.",
   audio_selection_required: "Choose which audio track to use first.",
   audio_stream_not_found: "This audio track does not exist in the clip.",

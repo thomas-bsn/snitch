@@ -276,6 +276,20 @@ export const en = {
     },
   },
   workers: {
+    machine: {
+      title: "Machine",
+      name: "Machine name",
+      system: "Container system",
+      processor: "Processor",
+      memory: "Memory",
+      gpu: "GPU",
+      gpuMemory: "GPU memory",
+      driver: "GPU driver",
+      version: "Worker version",
+      address: "Address seen by Snitch",
+      systemHint:
+        "System and default hostname describe the container, not necessarily its host.",
+    },
     title: "Workers",
     lead: "A Worker is a machine that transcribes and processes voices for the library.",
     add: "Add a Worker",
