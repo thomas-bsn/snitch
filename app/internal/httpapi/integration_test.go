@@ -127,6 +127,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAccountPreferences(t, pool)
 	})
+	t.Run("public address deduced from the request", func(t *testing.T) {
+		reset(t)
+		testPublicAddress(t, pool)
+	})
 	t.Run("registration and approval", func(t *testing.T) {
 		reset(t)
 		testRegistration(t, pool)
@@ -135,6 +139,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("Discord settings", func(t *testing.T) {
 		reset(t)
 		testDiscordSettings(t, pool)
+	})
+	t.Run("master key", func(t *testing.T) {
+		reset(t)
+		testMasterKey(t, pool)
 	})
 	t.Run("folder sources", func(t *testing.T) {
 		reset(t)
@@ -664,6 +672,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/segments/0/restore", map[string]any{"original": true, "expected_version": 0}, me.CSRF, 409)
 		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/segments/0/restore", map[string]any{"original": true, "expected_version": 1, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/segment-corrections/export", nil, "", 200)
+		call(client, "POST", "/api/admin/master-key/export", nil, me.CSRF, 200) // behavior in the master key suite
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/9/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 0}, me.CSRF, 404)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 2, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)

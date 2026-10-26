@@ -1,6 +1,11 @@
 # Développement uniquement. Forgeyard importe compose.yaml seul.
 # Les images PostgreSQL et Ollama viennent des défauts de compose.yaml (épinglés par digest).
 services:
+  secrets:
+    build:
+      context: .
+      dockerfile: deploy/docker/app.Dockerfile
+    mem_limit: 64m
   postgres:
     ports: ["127.0.0.1:55432:5432"]
     mem_limit: 512m

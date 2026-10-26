@@ -2200,8 +2200,8 @@ function App() {
                     redirections autorisées.
                   </p>
                   <p className="hint">
-                    URL de retour à renseigner dans Discord : {location.origin}
-                    /api/auth/discord/callback
+                    URL de retour à renseigner dans Discord :{" "}
+                    {settings.callback_url}
                   </p>
                   <p className="hint">
                     Enregistrer ces réglages ne contacte pas Discord. Une

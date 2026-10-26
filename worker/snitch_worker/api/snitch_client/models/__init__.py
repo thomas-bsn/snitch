@@ -54,6 +54,9 @@ from .list_voice_verification_level import ListVoiceVerificationLevel
 from .local_speaker import LocalSpeaker
 from .local_speaker_kind import LocalSpeakerKind
 from .local_speaker_state import LocalSpeakerState
+from .master_key_export import MasterKeyExport
+from .master_key_export_origin import MasterKeyExportOrigin
+from .master_key_export_warning import MasterKeyExportWarning
 from .media_track import MediaTrack
 from .microphone_detected_track import MicrophoneDetectedTrack
 from .microphone_snapshot import MicrophoneSnapshot
@@ -113,6 +116,8 @@ from .segment_text_input import SegmentTextInput
 from .session import Session
 from .settings import Settings
 from .settings_input import SettingsInput
+from .settings_master_key_origin import SettingsMasterKeyOrigin
+from .settings_unreadable_secrets_item import SettingsUnreadableSecretsItem
 from .setup import Setup
 from .source import Source
 from .source_file import SourceFile
@@ -255,6 +260,9 @@ __all__ = (
     "LocalSpeaker",
     "LocalSpeakerKind",
     "LocalSpeakerState",
+    "MasterKeyExport",
+    "MasterKeyExportOrigin",
+    "MasterKeyExportWarning",
     "MediaTrack",
     "MicrophoneDetectedTrack",
     "MicrophoneSnapshot",
@@ -314,6 +322,8 @@ __all__ = (
     "Session",
     "Settings",
     "SettingsInput",
+    "SettingsMasterKeyOrigin",
+    "SettingsUnreadableSecretsItem",
     "Setup",
     "Source",
     "SourceFile",

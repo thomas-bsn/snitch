@@ -8,13 +8,6 @@ import (
 // supportedLanguages lists the interface languages an account can choose.
 var supportedLanguages = []string{"en", "fr"}
 
-// isAdministrator is the single place deciding whether a role may use the administration
-// features. Every "is an administrator" check goes through it so that adding the
-// super-administrator role later changes one function only.
-func isAdministrator(role string) bool {
-	return role == "admin"
-}
-
 type accountPreferences struct {
 	Language *string `json:"language"`
 }

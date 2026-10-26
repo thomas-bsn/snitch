@@ -29,7 +29,7 @@ Contraintes qui pèsent sur le choix :
 
 **Erreurs du serveur traduites à partir de leurs codes.** Le serveur renvoie déjà des codes stables (`{"error":"…"}`). Un inventaire a été tiré des gestionnaires HTTP (123 codes, dont ceux des retours Discord) ; `errors.en.ts` et `errors.fr.ts` donnent le texte de chacun, et un code inconnu retombe sur un message générique qui affiche le code. `scripts/check_error_codes.py`, lancé par la CI, échoue si un code du serveur n'a pas ses deux textes.
 
-**Un seul endroit pour « est administrateur ».** `isAdministrator` (front, `roles.ts`) et `isAdministrator` (Go, `account.go`) traitent l'Administrateur et le futur Super-administrateur de la même façon ; tous les anciens contrôles `role == "admin"` y passent. Le ticket des rôles n'aura que ces deux fonctions à étendre.
+**Un seul endroit pour « est administrateur ».** `isAdministrator` (front, `roles.ts`) et `isAdministrator` (Go, `master_key.go`) traitent l'Administrateur et le futur Super-administrateur de la même façon ; tous les anciens contrôles `role == "admin"` y passent. Le ticket des rôles n'aura que ces deux fonctions à étendre.
 
 **Serveur injoignable.** Toute requête sans réponse exploitable (échec réseau, page de passerelle qui n'est pas du JSON de l'API) marque le serveur injoignable ; la coque affiche alors un message et un bouton « Réessayer » qui recharge l'installation et la session. Une réponse portant un code d'erreur n'est pas une panne : elle est traduite là où elle arrive.
 
