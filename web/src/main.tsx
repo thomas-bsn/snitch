@@ -11,6 +11,7 @@ import {
   applyPersonFilter,
 } from "./voice/PersonFilter";
 import { SegmentText } from "./segments/SegmentText";
+import { SegmentHistory } from "./segments/SegmentHistory";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
 import { PersonsCard } from "./voice/PersonsCard";
@@ -1837,6 +1838,20 @@ function App() {
                                                 transcript.transcription_job_id
                                               }
                                               segment={segment}
+                                              csrf={csrf}
+                                              onChanged={() =>
+                                                loadClipDetail(clip.id)
+                                              }
+                                            />
+                                            <SegmentHistory
+                                              clipId={clip.id}
+                                              jobId={
+                                                transcript.transcription_job_id
+                                              }
+                                              index={segment.index}
+                                              version={
+                                                segment.correction_version ?? 0
+                                              }
                                               csrf={csrf}
                                               onChanged={() =>
                                                 loadClipDetail(clip.id)

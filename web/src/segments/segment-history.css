@@ -1,0 +1,22 @@
+.segment-history {
+  display: inline;
+}
+.segment-history-panel {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+.segment-history-reason {
+  display: grid;
+  gap: 0.25rem;
+}
+.segment-history-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.segment-history-text {
+  display: block;
+  font-size: 0.9em;
+}
