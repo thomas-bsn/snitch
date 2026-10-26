@@ -136,7 +136,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           }
         ],
         "security": [],
@@ -151,6 +151,39 @@
           }
         },
         "description": "Crée le premier administrateur avec nom personnel (3–64 caractères Unicode), mot de passe (12–256) et code temporaire des logs. Code valide 15 minutes, usage unique ; erreur 409 setup_closed_or_invalid_code si incorrect, expiré, rejoué ou installation terminée. Entrée absente/invalide : 400. Une seule demande concurrente réussit. Ouvre une session de sept jours."
+      }
+    },
+    "/api/setup/code": {
+      "post": {
+        "operationId": "checkSetupCode",
+        "description": "Vérifie, sans l'utiliser, le code d'installation saisi : 200 s'il est correct et valide, 409 setup_closed_or_invalid_code s'il est faux, expiré ou si l'installation est terminée. Le code reste utilisable une fois, par la création du premier compte. Limité par adresse distante comme les autres entrées publiques.",
+        "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Status"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}],
+        "security": [],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupCodeInput"}}}}
+      }
+    },
+    "/api/admin/setup-progress": {
+      "get": {
+        "operationId": "getSetupProgress",
+        "description": "Administrateurs et Super-administrateur : progression de l'installation guidée. L'état de chaque étape facultative reflète la configuration réelle (faite si elle est configurée, passée si la personne l'a traversée sans la configurer, à faire sinon).",
+        "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupProgress"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "parameters": []
+      },
+      "put": {
+        "operationId": "recordSetupStep",
+        "description": "Administrateurs et Super-administrateur : note qu'une étape facultative a été traversée (done) ou passée (skipped). Renvoie la progression.",
+        "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupProgress"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupStepInput"}}}}
+      }
+    },
+    "/api/admin/setup-progress/dismiss": {
+      "post": {
+        "operationId": "dismissSetupBanner",
+        "description": "Administrateurs et Super-administrateur : ferme définitivement le bandeau « Finir la configuration ». Renvoie la progression.",
+        "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupProgress"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}]
       }
     },
     "/api/auth/login": {
@@ -186,7 +219,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           }
         ],
         "security": [],
@@ -236,7 +269,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           }
         ],
         "security": [],
@@ -315,7 +348,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           },
           {
             "in": "header",
@@ -327,6 +360,90 @@
           }
         ],
         "description": "Révoque la session courante en base et efface le cookie. Exige session active, même origine et X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur CSRF : 403 csrf_rejected."
+      }
+    },
+    "/api/account/preferences": {
+      "get": {
+        "operationId": "getAccountPreferences",
+        "responses": {
+          "200": {
+            "description": "Préférences du compte connecté",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferences"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (401 session required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "description": "Retourne les préférences du compte connecté. La langue vaut null tant que la personne n'a pas fait de choix ; l'interface applique alors la langue mémorisée par le navigateur, puis l'anglais."
+      },
+      "put": {
+        "operationId": "updateAccountPreferences",
+        "responses": {
+          "200": {
+            "description": "Préférences enregistrées",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferences"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal PUBLIC_URL"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPreferencesInput"
+              }
+            }
+          }
+        },
+        "description": "Enregistre la langue d'interface du compte connecté (en ou fr). Toute autre valeur est refusée avec 400 invalid_language ; propriétés supplémentaires ou absence de langue : 400 invalid_request. Exige session active, même origine et X-CSRF-Token."
       }
     },
     "/api/auth/discord/start": {
@@ -362,7 +479,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           }
         ],
         "security": []
@@ -401,7 +518,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           },
           {
             "in": "header",
@@ -542,6 +659,7 @@
     "/api/admin/settings": {
       "get": {
         "operationId": "getSettings",
+        "description": "Administrateurs et Super-administrateur : lecture de la configuration Discord (sans secret), de l'approbation des inscriptions et de l'état de la clé maître.",
         "responses": {
           "200": {
             "description": "Success",
@@ -568,6 +686,7 @@
       },
       "put": {
         "operationId": "updateSettings",
+        "description": "Réservé au Super-administrateur : configuration Discord et approbation des inscriptions. Un Administrateur reçoit 403 super_administrator_required et rien n'est modifié.",
         "responses": {
           "200": {
             "description": "Success",
@@ -598,7 +717,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           },
           {
             "in": "header",
@@ -696,7 +815,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
           },
           {
             "in": "header",
@@ -1400,6 +1519,42 @@
       }
     },
     "/api/admin/workers/{id}": {
+      "get": {
+        "operationId": "getWorker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche du worker, sans son jeton",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Worker introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Un worker révoqué reste consultable."
+      },
       "delete": {
         "operationId": "revokeWorker",
         "parameters": [
@@ -1444,6 +1599,60 @@
           }
         },
         "description": "Administrateurs uniquement. L’historique du worker est conservé."
+      }
+    },
+    "/api/admin/workers/{id}/token": {
+      "post": {
+        "operationId": "renewWorkerToken",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Nouveau jeton, montré une seule fois ; l'ancien cesse de fonctionner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerRegistration"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Worker introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Refusé (404) pour un worker révoqué."
       }
     },
     "/api/worker/pulse": {
@@ -2184,6 +2393,34 @@
           }
         },
         "description": "Session requise. Les clips privés hors propriétaire/admin sont exclus avant filtres et pagination."
+      }
+    },
+    "/api/clip-filters": {
+      "get": {
+        "operationId": "listClipFilterOptions",
+        "responses": {
+          "200": {
+            "description": "Sources et propriétaires proposés par les filtres de la Bibliothèque",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipFilterOptions"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Session requise. Ne liste que les Sources et les propriétaires des clips que la visibilité permet à l’appelant de voir : un membre n’apprend l’existence d’aucune Source ni d’aucun compte dont il ne voit aucun clip."
       }
     },
     "/api/clips/{id}": {
@@ -3106,6 +3343,15 @@
         "security": [{"session": []}]
       }
     },
+    "/api/persons/{id}/voices": {
+      "get": {
+        "operationId": "listPersonVoices",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Voix validées pour cette Personne, sur les clips visibles (500 au plus)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonVoiceList"}}}}, "404": {"description": "person_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Les voix qu'une séparation peut nommer (POST /api/persons/{id}/separation) : validation humaine, clip visible pour l'appelant. Extraits écoutables par GET /api/local-speakers/{id}/excerpt. Cette lecture n'écrit rien.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/person-events": {
       "get": {
         "operationId": "listPersonEvents",
@@ -3333,6 +3579,18 @@
         "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["model"], "properties": {"model": {"type": "string", "minLength": 1, "maxLength": 128}}}}}},
         "responses": {"202": {"description": "Rebuild queued"}, "409": {"description": "A rebuild is already running"}},
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/master-key/export": {
+      "post": {
+        "operationId": "exportMasterKey",
+        "description": "Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (un Administrateur reçoit 403 super_administrator_required) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé.",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {
+          "200": {"description": "Clé exportée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MasterKeyExport"}}}},
+          "default": {"description": "Erreur (401 session requise, 403 réservé au Super-administrateur, origine ou CSRF refusés)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
         "security": [{"session": []}]
       }
     },
@@ -3977,12 +4235,57 @@
           "role": {
             "type": "string",
             "enum": [
+              "super_admin",
               "admin",
               "user"
-            ]
+            ],
+            "description": "super_admin : propriétaire de l'installation (compte créé par l'installation, unique, non rétrogradable, non supprimable) ; admin : Administrateur ; user : Utilisateur."
           },
           "approved": {
             "type": "boolean"
+          },
+          "language": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "description": "Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas choisi."
+          }
+        }
+      },
+      "AccountPreferences": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "language"
+        ],
+        "properties": {
+          "language": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "description": "Langue d'interface du compte ; null tant qu'aucun choix n'a été fait."
+          }
+        }
+      },
+      "AccountPreferencesInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "language"
+        ],
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "fr"
+            ]
           }
         }
       },
@@ -4005,7 +4308,6 @@
         "type": "object",
         "required": [
           "initialized",
-          "display_name",
           "discord_enabled",
           "phase",
           "deferred_steps"
@@ -4013,9 +4315,6 @@
         "properties": {
           "initialized": {
             "type": "boolean"
-          },
-          "display_name": {
-            "type": "string"
           },
           "discord_enabled": {
             "type": "boolean",
@@ -4032,12 +4331,46 @@
           }
         }
       },
+      "SetupCodeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code"],
+        "properties": {"code": {"type": "string", "maxLength": 256}}
+      },
+      "SetupStepInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "state"],
+        "properties": {
+          "step": {"type": "string", "enum": ["discord", "semantic_search", "worker", "import"]},
+          "state": {"type": "string", "enum": ["done", "skipped"]}
+        }
+      },
+      "SetupStepState": {
+        "type": "object",
+        "required": ["step", "state"],
+        "properties": {
+          "step": {"type": "string", "enum": ["discord", "semantic_search", "worker", "import"]},
+          "state": {"type": "string", "enum": ["done", "skipped", "todo"]}
+        }
+      },
+      "SetupProgress": {
+        "type": "object",
+        "required": ["steps", "dismissed"],
+        "properties": {
+          "steps": {"type": "array", "items": {"$ref": "#/components/schemas/SetupStepState"}},
+          "dismissed": {"type": "boolean", "description": "Le bandeau « Finir la configuration » a été fermé définitivement."}
+        }
+      },
       "Settings": {
         "type": "object",
         "required": [
           "client_id",
           "secret_configured",
-          "registration_approval"
+          "registration_approval",
+          "callback_url",
+          "master_key_origin",
+          "unreadable_secrets"
         ],
         "properties": {
           "client_id": {
@@ -4049,7 +4382,30 @@
           },
           "registration_approval": {
             "type": "boolean"
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL)."
+          },
+          "master_key_origin": {
+            "type": "string",
+            "enum": ["provided", "generated"],
+            "description": "provided : la clé vient de la variable MASTER_KEY ; generated : l'application l'a générée et la conserve dans son volume de secrets."
+          },
+          "unreadable_secrets": {
+            "type": "array",
+            "items": {"type": "string", "enum": ["discord_client_id", "discord_client_secret"]},
+            "description": "Réglages chiffrés que la clé maître actuelle ne déchiffre plus (clé absente ou différente). Ils sont traités comme non configurés et sont à ressaisir ; l'application démarre quand même."
           }
+        }
+      },
+      "MasterKeyExport": {
+        "type": "object",
+        "required": ["master_key", "origin", "warning"],
+        "properties": {
+          "master_key": {"type": "string", "description": "Clé de 32 octets encodée en base64, utilisable telle quelle comme valeur de MASTER_KEY."},
+          "origin": {"type": "string", "enum": ["provided", "generated"]},
+          "warning": {"type": "string", "enum": ["master_key_not_replayable"], "description": "Code de l'avertissement : cette clé ne se rejoue pas, la perdre rend les secrets chiffrés irrécupérables."}
         }
       },
       "SettingsInput": {
@@ -4562,6 +4918,143 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 4
+          },
+          "transcription_url": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Adresse du serveur Whisper de ce worker (http ou https, sans identifiants). Écrite dans le fichier d'environnement généré ; non conservée."
+          },
+          "transcription": {
+            "$ref": "#/components/schemas/WorkerTranscriptionProfile",
+            "description": "Modèle et langue de la bibliothèque : réservés au premier worker, qui crée le profil de transcription (refus transcription_profile_already_set ensuite). Le jeton Hugging Face n'est jamais envoyé à Snitch."
+          }
+        }
+      },
+      "WorkerTranscriptionProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "language"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "language": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}$"
+          }
+        }
+      },
+      "WorkerRecentTask": {
+        "type": "object",
+        "required": [
+          "job_id",
+          "clip_id",
+          "kind",
+          "outcome",
+          "error_code",
+          "at"
+        ],
+        "properties": {
+          "job_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "clip_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "transcription",
+              "diarization",
+              "fingerprint",
+              "other"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "started",
+              "completed",
+              "retry",
+              "failed"
+            ]
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkerDetail": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "max_concurrency",
+          "reported_concurrency",
+          "last_seen_at",
+          "created_at",
+          "revoked_at",
+          "connected",
+          "recent_tasks",
+          "bundle"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "reported_concurrency": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "models": {
+            "$ref": "#/components/schemas/WorkerModels"
+          },
+          "recent_tasks": {
+            "type": "array",
+            "description": "Dernières tâches de ce worker, une ligne par tâche, la plus récente d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/WorkerRecentTask"
+            }
+          },
+          "bundle": {
+            "$ref": "#/components/schemas/WorkerBundle",
+            "description": "Fichiers de déploiement avec un emplacement de jeton (A_RENSEIGNER) : le jeton n'est jamais relisible."
           }
         }
       },
@@ -4635,16 +5128,47 @@
           },
           "insecure_api_url": {
             "type": "boolean",
-            "description": "Vrai si PUBLIC_URL n'est pas en HTTPS : le worker refuse le HTTP."
+            "description": "Vrai si l'adresse publique n'est pas en HTTPS : le worker refuse le HTTP."
           }
         }
       },
       "WorkerPage": {
         "type": "object",
         "required": [
-          "items"
+          "items",
+          "first_worker",
+          "snitch_url",
+          "transcription"
         ],
         "properties": {
+          "first_worker": {
+            "type": "boolean",
+            "description": "Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de la bibliothèque."
+          },
+          "snitch_url": {
+            "type": "string",
+            "description": "Adresse de Snitch telle que vue par cette requête, écrite dans les fichiers générés."
+          },
+          "transcription": {
+            "type": "object",
+            "description": "Profil de transcription actif de la bibliothèque.",
+            "required": [
+              "model",
+              "language",
+              "version"
+            ],
+            "properties": {
+              "model": {
+                "type": "string"
+              },
+              "language": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            }
+          },
           "items": {
             "type": "array",
             "items": {
@@ -4831,6 +5355,8 @@
       "PersonSeparationInput": {"type": "object", "additionalProperties": false, "required": ["local_speaker_ids"], "properties": {"local_speaker_ids": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"type": "integer", "format": "int64", "minimum": 1}}}},
       "PersonCorrectionResult": {"type": "object", "required": ["person", "attributions", "samples", "microphone_rules"], "properties": {"person": {"allOf": [{"$ref": "#/components/schemas/Person"}], "nullable": true, "description": "Personne qui reste (cible de fusion, Personne séparée) ; null après suppression."}, "attributions": {"type": "integer", "description": "Attributions rattachées (fusion) ou retirées (séparation, suppression)."}, "samples": {"type": "integer", "description": "Échantillons vocaux déplacés (fusion) ou effacés des références."}, "microphone_rules": {"type": "integer", "description": "Désignations de piste micro déplacées (fusion) ou supprimées (suppression)."}}},
       "PersonEvent": {"type": "object", "required": ["id", "action", "person", "target", "attribution_count", "sample_count", "microphone_rule_count", "author", "created_at"], "properties": {"id": {"type": "integer", "format": "int64"}, "action": {"type": "string", "enum": ["merge", "split", "delete"]}, "person": {"$ref": "#/components/schemas/PersonRef"}, "target": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true}, "attribution_count": {"type": "integer"}, "sample_count": {"type": "integer"}, "microphone_rule_count": {"type": "integer"}, "author": {"allOf": [{"$ref": "#/components/schemas/AttributionAuthor"}], "nullable": true}, "created_at": {"type": "string", "format": "date-time"}}},
+      "PersonVoice": {"type": "object", "required": ["local_speaker_id", "clip_id", "clip_name", "label", "speaking_seconds"], "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "clip_id": {"type": "integer", "format": "int64"}, "clip_name": {"type": "string"}, "label": {"type": "string"}, "speaking_seconds": {"type": "number"}}},
+      "PersonVoiceList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PersonVoice"}}}},
       "PersonEventList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PersonEvent"}}}},
       "PersonAccountInput": {"type": "object", "additionalProperties": false, "required": ["username"], "properties": {"username": {"type": "string", "minLength": 1, "maxLength": 100}}},
       "VoiceProfileDeletion": {"type": "object", "required": ["samples", "fingerprints", "attributions", "deleted_at"], "properties": {"samples": {"type": "integer", "description": "Échantillons vocaux validés effacés (actifs et retirés)."}, "fingerprints": {"type": "integer", "description": "Empreintes effacées."}, "attributions": {"type": "integer", "description": "Attributions effacées ; les voix correspondantes sont inconnues."}, "deleted_at": {"type": "string", "format": "date-time"}}},
@@ -5519,6 +6045,84 @@
           },
           "audio_track_selection": {
             "$ref": "#/components/schemas/AudioTrackSelection"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ClipProgress"
+          }
+        }
+      },
+      "ClipStepState": {
+        "type": "string",
+        "enum": [
+          "none",
+          "queued",
+          "running",
+          "done",
+          "failed",
+          "unavailable"
+        ],
+        "description": "État d’une étape du clip : none (rien de planifié), queued (en file), running (en cours), done (terminée), failed (échouée), unavailable (étape non configurée sur cette installation)."
+      },
+      "ClipProgress": {
+        "type": "object",
+        "required": [
+          "transcription",
+          "indexing"
+        ],
+        "properties": {
+          "transcription": {
+            "$ref": "#/components/schemas/ClipStepState"
+          },
+          "indexing": {
+            "$ref": "#/components/schemas/ClipStepState"
+          }
+        },
+        "description": "Avancement du clip pour les étapes que le serveur seul connaît. Les étapes de voix se lisent avec GET /api/clips/{id}/voice. Un clip est toujours importé."
+      },
+      "ClipFilterOptions": {
+        "type": "object",
+        "required": [
+          "sources",
+          "owners"
+        ],
+        "properties": {
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "owners": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "username"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },

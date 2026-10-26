@@ -110,6 +110,7 @@ type Installation struct {
 	BootstrapHash        []byte             `json:"bootstrap_hash"`
 	BootstrapExpires     pgtype.Timestamptz `json:"bootstrap_expires"`
 	RegistrationApproval bool               `json:"registration_approval"`
+	SetupBannerDismissed bool               `json:"setup_banner_dismissed"`
 }
 
 type Job struct {
@@ -272,6 +273,12 @@ type Setting struct {
 	Value []byte `json:"value"`
 }
 
+type SetupStep struct {
+	Step      string             `json:"step"`
+	State     string             `json:"state"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type SourceAudioTrackRule struct {
 	SourceID  int64              `json:"source_id"`
 	Rule      []byte             `json:"rule"`
@@ -403,6 +410,7 @@ type User struct {
 	Approved     bool               `json:"approved"`
 	DiscordID    pgtype.Text        `json:"discord_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Language     pgtype.Text        `json:"language"`
 }
 
 type VoiceAutomationEvent struct {

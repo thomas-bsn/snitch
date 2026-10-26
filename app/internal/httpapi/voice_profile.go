@@ -163,7 +163,7 @@ func (s *Server) eraseVoiceProfile(ctx context.Context, personID int64, ss sessi
 	} else if err != nil {
 		return out, nil, 0, "", err
 	}
-	if ss.User.Role != "admin" && (linked == nil || *linked != ss.User.ID) {
+	if !isAdministrator(ss.User.Role) && (linked == nil || *linked != ss.User.ID) {
 		return out, nil, http.StatusForbidden, "forbidden", nil
 	}
 	// Voices whose effective attribution (human validation first) is this Person: their

@@ -21,6 +21,7 @@ import (
 	"github.com/pressly/goose/v3/database"
 	"snitch/internal/config"
 	"snitch/internal/httpapi"
+	"snitch/internal/secrets"
 	"snitch/internal/setup"
 	"snitch/migrations"
 )
@@ -46,7 +47,7 @@ func run() error {
 		return nil
 	}
 	if len(os.Args) != 2 {
-		return fmt.Errorf("usage: snitch serve|migrate|healthcheck|probe-smoke <video> <no-video>")
+		return fmt.Errorf("usage: snitch serve|migrate|init-secrets|healthcheck|probe-smoke <video> <no-video>")
 	}
 	if os.Args[1] == "healthcheck" {
 		client := http.Client{Timeout: 3 * time.Second}
@@ -71,8 +72,27 @@ func run() error {
 		}
 		return nil
 	}
+	if os.Args[1] == "init-secrets" {
+		// Runs before the database starts: produces (or keeps) the password the database and the application share.
+		dir := os.Getenv("SECRETS_DIR")
+		if dir == "" {
+			dir = "/data/secrets"
+		}
+		return secrets.EnsurePostgresPassword(dir, os.Getenv("POSTGRES_PASSWORD"))
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if os.Args[1] != "migrate" && os.Args[1] != "serve" {
+		return fmt.Errorf("unknown command")
+	}
+	// The deployment keeps the database password in a file; without it, PGPASSWORD (explicit setups) applies.
+	if file := os.Getenv("POSTGRES_PASSWORD_FILE"); file != "" {
+		password, err := secrets.ReadPostgresPassword(file)
+		if err != nil {
+			return err
+		}
+		os.Setenv("PGPASSWORD", password)
+	}
 	if os.Args[1] == "migrate" {
 		// This command deliberately needs only DATABASE_URL, not the encryption key.
 		db, err := goose.OpenDBWithDriver("pgx", os.Getenv("DATABASE_URL"))
@@ -119,7 +139,13 @@ func run() error {
 		return fmt.Errorf("database unavailable or migrations missing")
 	}
 	if code != "" {
-		slog.Warn("one-time installation code", "code", code, "expires_in_minutes", 15)
+		// One readable line to copy from: the address to open and the code to enter.
+		address := c.PublicURL
+		if address == "" {
+			_, port, _ := net.SplitHostPort(c.Address)
+			address = "http://localhost:" + port
+		}
+		slog.Warn("one-time installation code: open "+address+" and enter "+code+" (valid 15 minutes, works once)", "code", code, "url", address, "expires_in_minutes", 15)
 	}
 	// Expired transient rows do not accumulate during normal service operation.
 	go func() {

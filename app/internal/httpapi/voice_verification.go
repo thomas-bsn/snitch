@@ -35,7 +35,7 @@ func (s *Server) registerVoiceVerificationRoutes(mux *http.ServeMux) {
 
 func (s *Server) voiceVerification(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	admin := ss.User.Role == "admin"
+	admin := isAdministrator(ss.User.Role)
 	query := r.URL.Query()
 	level := query.Get("level")
 	switch level {

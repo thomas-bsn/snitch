@@ -1,35 +1,36 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import createClient from "openapi-fetch";
-import type { paths, components } from "./api.gen";
+import type { paths, components } from "../api.gen";
 import "./style.css";
-import { SpeakerBadge, VoicePanel } from "./voice/VoicePanel";
+import { SpeakerBadge, VoicePanel } from "../voice/VoicePanel";
 import {
   ClipPersons,
   PersonFilterSelect,
   ResultSpeaker,
   applyPersonFilter,
-} from "./voice/PersonFilter";
-import { SegmentText } from "./segments/SegmentText";
+} from "../voice/PersonFilter";
+import { SegmentText } from "../segments/SegmentText";
 import {
   CorrectionsWarningPanel,
   describeCorrections,
   replacedCorrections,
   type CorrectionsToReplace,
-} from "./segments/Retranscription";
-import { SegmentHistory } from "./segments/SegmentHistory";
-import { ObsoleteCorrections } from "./segments/ObsoleteCorrections";
-import { SegmentSpeaker } from "./segments/SegmentSpeaker";
-import { VoicePipelineCard } from "./voice/VoicePipelineCard";
-import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
-import { PersonsCard } from "./voice/PersonsCard";
-import { MyVoiceCard } from "./voice/MyVoiceCard";
-import { PersonAccountCard } from "./voice/PersonAccountCard";
-import { VoiceAutomationCard } from "./voice/VoiceAutomationCard";
-import { VoiceGroupsCard } from "./voice/VoiceGroupsCard";
-import { VoiceVerificationCard } from "./voice/VoiceVerificationCard";
-import { MicrophoneClipCard } from "./voice/MicrophoneClipCard";
-import { MicrophoneSourceCard } from "./voice/MicrophoneSourceCard";
+} from "../segments/Retranscription";
+import { SegmentHistory } from "../segments/SegmentHistory";
+import { ObsoleteCorrections } from "../segments/ObsoleteCorrections";
+import { SegmentSpeaker } from "../segments/SegmentSpeaker";
+import { VoicePipelineCard } from "../voice/VoicePipelineCard";
+import { VoiceMatchingCard } from "../voice/VoiceMatchingCard";
+import { PersonsCard } from "../voice/PersonsCard";
+import { MyVoiceCard } from "../voice/MyVoiceCard";
+import { PersonAccountCard } from "../voice/PersonAccountCard";
+import { VoiceAutomationCard } from "../voice/VoiceAutomationCard";
+import { VoiceGroupsCard } from "../voice/VoiceGroupsCard";
+import { VoiceVerificationCard } from "../voice/VoiceVerificationCard";
+import { MicrophoneClipCard } from "../voice/MicrophoneClipCard";
+import { MicrophoneSourceCard } from "../voice/MicrophoneSourceCard";
+import { isAdministrator, isSuperAdministrator } from "../app/roles";
 
 const api = createClient<paths>();
 type Setup = components["schemas"]["Setup"];
@@ -300,14 +301,14 @@ function App() {
   async function refresh() {
     const state = checked(await api.GET("/api/setup"));
     setSetup(state);
-    document.title = state.display_name;
+    document.title = "Snitch";
     const me = await api.GET("/api/auth/me");
     setSession(me.data);
     if (me.data) {
       await refreshUploads();
       await refreshClips(1);
     }
-    if (me.data?.user.role === "admin") {
+    if (me.data && isAdministrator(me.data.user)) {
       setSettings(checked(await api.GET("/api/admin/settings")));
       await refreshVocabulary();
       await refreshPipeline();
@@ -456,7 +457,7 @@ function App() {
     if (response.ok) setEmbeddingState(await response.json());
   }
   useEffect(() => {
-    if (session?.user.role !== "admin") return;
+    if (!session || !isAdministrator(session.user)) return;
     const timer = window.setInterval(() => {
       void refreshEmbeddings();
     }, 5000);
@@ -1046,7 +1047,7 @@ function App() {
         <span className="brand-mark">R</span>
         <div>
           <p className="eyebrow">VOTRE MÉMOIRE DE JEU</p>
-          <h1>{setup?.display_name ?? "Snitch"}</h1>
+          <h1>Snitch</h1>
         </div>
       </header>
       {error && (
@@ -1154,7 +1155,7 @@ function App() {
                 aria-label="Snitch, bibliothèque"
               >
                 <span className="brand-mark">R</span>
-                <span>{setup.display_name}</span>
+                <span>Snitch</span>
               </a>
               <p className="nav-label">Espace</p>
               <a className="nav-link active" href="#library">
@@ -1172,7 +1173,7 @@ function App() {
                   <span className="nav-count">{uploads.length}</span>
                 )}
               </a>
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <>
                   <p className="nav-label">Administration</p>
                   <a className="nav-link" href="#job-queue">
@@ -1196,9 +1197,11 @@ function App() {
                 <span className="user-copy">
                   <strong>{session.user.username}</strong>
                   <small>
-                    {session.user.role === "admin"
-                      ? "Administrateur"
-                      : "Membre"}
+                    {isSuperAdministrator(session.user)
+                      ? "Super-administrateur"
+                      : isAdministrator(session.user)
+                        ? "Administrateur"
+                        : "Membre"}
                   </small>
                 </span>
               </div>
@@ -1656,7 +1659,7 @@ function App() {
                     Appliquer les filtres
                   </button>
                 </form>
-                {session.user.role === "admin" && (
+                {isAdministrator(session.user) && (
                   <section className="card" aria-label="Planification par lot">
                     <h3>Planifier les transcriptions visibles</h3>
                     <p className="hint">
@@ -1808,7 +1811,7 @@ function App() {
                                 </p>
                               )}
                             {clip.status === "ready" &&
-                              session.user.role === "admin" &&
+                              isAdministrator(session.user) &&
                               clip.tracks.some(
                                 (track) => track.type === "audio",
                               ) && (
@@ -2011,7 +2014,7 @@ function App() {
                               clip.status === "ready" && (
                                 <VoicePanel
                                   clipId={clip.id}
-                                  isAdmin={session.user.role === "admin"}
+                                  isAdmin={isAdministrator(session.user)}
                                   csrf={csrf}
                                   reloadToken={clipDetails[clip.id]}
                                 />
@@ -2020,7 +2023,7 @@ function App() {
                               clip.status === "ready" && (
                                 <MicrophoneClipCard
                                   clipId={clip.id}
-                                  isAdmin={session.user.role === "admin"}
+                                  isAdmin={isAdministrator(session.user)}
                                   csrf={csrf}
                                   onChanged={() => void loadClipDetail(clip.id)}
                                 />
@@ -2073,7 +2076,7 @@ function App() {
                   </button>
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <section className="card" aria-label="Export des corrections">
                   <h2>Export des corrections</h2>
                   <p>
@@ -2089,7 +2092,7 @@ function App() {
                   </a>
                 </section>
               )}
-              {session.user.role === "admin" && embeddingState && (
+              {isAdministrator(session.user) && embeddingState && (
                 <section className="card" aria-label="Index sémantique">
                   <h2>Index sémantique</h2>
                   <p>
@@ -2172,7 +2175,7 @@ function App() {
                   )}
                 </section>
               )}
-              {session.user.role === "admin" && settings && (
+              {isSuperAdministrator(session.user) && settings && (
                 <section className="card">
                   <h2>Accès et Discord</h2>
                   <p>
@@ -2200,8 +2203,8 @@ function App() {
                     redirections autorisées.
                   </p>
                   <p className="hint">
-                    URL de retour à renseigner dans Discord : {location.origin}
-                    /api/auth/discord/callback
+                    URL de retour à renseigner dans Discord :{" "}
+                    {settings.callback_url}
                   </p>
                   <p className="hint">
                     Enregistrer ces réglages ne contacte pas Discord. Une
@@ -2262,7 +2265,7 @@ function App() {
                   </form>
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <section className="card" id="transcription-pipeline">
                   <h2>Pipeline de transcription</h2>
                   {pipeline && (
@@ -2352,20 +2355,20 @@ function App() {
               )}
               <PersonsCard csrf={csrf} />
               <MyVoiceCard csrf={csrf} />
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <PersonAccountCard csrf={csrf} />
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <VoicePipelineCard csrf={csrf} />
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <VoiceMatchingCard csrf={csrf} />
               )}
               <VoiceAutomationCard
-                isAdmin={session.user.role === "admin"}
+                isAdmin={isAdministrator(session.user)}
                 csrf={csrf}
               />
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <section className="card" id="vocabulary">
                   <h2>Vocabulaire de transcription</h2>
                   <p className="hint">
@@ -2462,7 +2465,7 @@ function App() {
                   {vocabulary.length === 0 && <p>Aucun terme enregistré.</p>}
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <section
                   className="card"
                   aria-label="Contrôle de la file"
@@ -2513,7 +2516,7 @@ function App() {
                   </form>
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <section className="card" id="workers">
                   <h2>Workers</h2>
                   <p className="hint">
@@ -2645,7 +2648,7 @@ function App() {
                   )}
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <section className="card" id="members">
                   <h2>Inscriptions en attente ({pending.length})</h2>
                   {pending.length === 0 ? (
@@ -2682,7 +2685,7 @@ function App() {
                   )}
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <section className="card" id="job-queue">
                   <h2>File de tâches ({jobTotal})</h2>
                   <p className="hint">
@@ -2877,7 +2880,7 @@ function App() {
                   </div>
                 </section>
               )}
-              {session.user.role === "admin" && (
+              {isAdministrator(session.user) && (
                 <section className="card" id="sources">
                   <h2>Sources dossier</h2>
                   {allowedRoots.length === 0 ? (

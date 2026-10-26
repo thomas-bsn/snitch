@@ -53,6 +53,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/setup/code": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Vérifie, sans l'utiliser, le code d'installation saisi : 200 s'il est correct et valide, 409 setup_closed_or_invalid_code s'il est faux, expiré ou si l'installation est terminée. Le code reste utilisable une fois, par la création du premier compte. Limité par adresse distante comme les autres entrées publiques. */
+    post: operations["checkSetupCode"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/setup-progress": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs et Super-administrateur : progression de l'installation guidée. L'état de chaque étape facultative reflète la configuration réelle (faite si elle est configurée, passée si la personne l'a traversée sans la configurer, à faire sinon). */
+    get: operations["getSetupProgress"];
+    /** @description Administrateurs et Super-administrateur : note qu'une étape facultative a été traversée (done) ou passée (skipped). Renvoie la progression. */
+    put: operations["recordSetupStep"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/setup-progress/dismiss": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs et Super-administrateur : ferme définitivement le bandeau « Finir la configuration ». Renvoie la progression. */
+    post: operations["dismissSetupBanner"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/login": {
     parameters: {
       query?: never;
@@ -121,6 +173,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/preferences": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Retourne les préférences du compte connecté. La langue vaut null tant que la personne n'a pas fait de choix ; l'interface applique alors la langue mémorisée par le navigateur, puis l'anglais. */
+    get: operations["getAccountPreferences"];
+    /** @description Enregistre la langue d'interface du compte connecté (en ou fr). Toute autre valeur est refusée avec 400 invalid_language ; propriétés supplémentaires ou absence de langue : 400 invalid_request. Exige session active, même origine et X-CSRF-Token. */
+    put: operations["updateAccountPreferences"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/discord/start": {
     parameters: {
       query?: never;
@@ -177,7 +247,9 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
+    /** @description Administrateurs et Super-administrateur : lecture de la configuration Discord (sans secret), de l'approbation des inscriptions et de l'état de la clé maître. */
     get: operations["getSettings"];
+    /** @description Réservé au Super-administrateur : configuration Discord et approbation des inscriptions. Un Administrateur reçoit 403 super_administrator_required et rien n'est modifié. */
     put: operations["updateSettings"];
     post?: never;
     delete?: never;
@@ -378,11 +450,29 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** @description Administrateurs uniquement. Un worker révoqué reste consultable. */
+    get: operations["getWorker"];
     put?: never;
     post?: never;
     /** @description Administrateurs uniquement. L’historique du worker est conservé. */
     delete: operations["revokeWorker"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Refusé (404) pour un worker révoqué. */
+    post: operations["renewWorkerToken"];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -578,6 +668,23 @@ export interface paths {
     };
     /** @description Session requise. Les clips privés hors propriétaire/admin sont exclus avant filtres et pagination. */
     get: operations["listClips"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clip-filters": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Session requise. Ne liste que les Sources et les propriétaires des clips que la visibilité permet à l’appelant de voir : un membre n’apprend l’existence d’aucune Source ni d’aucun compte dont il ne voit aucun clip. */
+    get: operations["listClipFilterOptions"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1000,6 +1107,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/persons/{id}/voices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Les voix qu'une séparation peut nommer (POST /api/persons/{id}/separation) : validation humaine, clip visible pour l'appelant. Extraits écoutables par GET /api/local-speakers/{id}/excerpt. Cette lecture n'écrit rien. */
+    get: operations["listPersonVoices"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/person-events": {
     parameters: {
       query?: never;
@@ -1376,6 +1500,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/master-key/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément de la base. Réservé au Super-administrateur (un Administrateur reçoit 403 super_administrator_required) ; session, origine et jeton CSRF requis ; chaque export est tracé sans la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de l'avertissement à présenter à côté de la clé. */
+    post: operations["exportMasterKey"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/vocabulary/{id}": {
     parameters: {
       query?: never;
@@ -1466,9 +1607,28 @@ export interface components {
       /** Format: int64 */
       id: number;
       username: string;
-      /** @enum {string} */
-      role: "admin" | "user";
+      /**
+       * @description super_admin : propriétaire de l'installation (compte créé par l'installation, unique, non rétrogradable, non supprimable) ; admin : Administrateur ; user : Utilisateur.
+       * @enum {string}
+       */
+      role: "super_admin" | "admin" | "user";
       approved: boolean;
+      /**
+       * @description Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas choisi.
+       * @enum {string|null}
+       */
+      language?: "en" | "fr" | null;
+    };
+    AccountPreferences: {
+      /**
+       * @description Langue d'interface du compte ; null tant qu'aucun choix n'a été fait.
+       * @enum {string|null}
+       */
+      language: "en" | "fr" | null;
+    };
+    AccountPreferencesInput: {
+      /** @enum {string} */
+      language: "en" | "fr";
     };
     Session: {
       user: components["schemas"]["User"];
@@ -1476,17 +1636,56 @@ export interface components {
     };
     Setup: {
       initialized: boolean;
-      display_name: string;
       /** @description True only when both the Discord application identifier and its authenticated encrypted secret are available. */
       discord_enabled: boolean;
       phase: number;
       deferred_steps: string[];
+    };
+    SetupCodeInput: {
+      code: string;
+    };
+    SetupStepInput: {
+      /** @enum {string} */
+      step: "discord" | "semantic_search" | "worker" | "import";
+      /** @enum {string} */
+      state: "done" | "skipped";
+    };
+    SetupStepState: {
+      /** @enum {string} */
+      step: "discord" | "semantic_search" | "worker" | "import";
+      /** @enum {string} */
+      state: "done" | "skipped" | "todo";
+    };
+    SetupProgress: {
+      steps: components["schemas"]["SetupStepState"][];
+      /** @description Le bandeau « Finir la configuration » a été fermé définitivement. */
+      dismissed: boolean;
     };
     Settings: {
       client_id: string;
       /** @description Whether a nonempty secret is stored. The secret itself is never returned. */
       secret_configured: boolean;
       registration_approval: boolean;
+      /** @description Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL). */
+      callback_url: string;
+      /**
+       * @description provided : la clé vient de la variable MASTER_KEY ; generated : l'application l'a générée et la conserve dans son volume de secrets.
+       * @enum {string}
+       */
+      master_key_origin: "provided" | "generated";
+      /** @description Réglages chiffrés que la clé maître actuelle ne déchiffre plus (clé absente ou différente). Ils sont traités comme non configurés et sont à ressaisir ; l'application démarre quand même. */
+      unreadable_secrets: ("discord_client_id" | "discord_client_secret")[];
+    };
+    MasterKeyExport: {
+      /** @description Clé de 32 octets encodée en base64, utilisable telle quelle comme valeur de MASTER_KEY. */
+      master_key: string;
+      /** @enum {string} */
+      origin: "provided" | "generated";
+      /**
+       * @description Code de l'avertissement : cette clé ne se rejoue pas, la perdre rend les secrets chiffrés irrécupérables.
+       * @enum {string}
+       */
+      warning: "master_key_not_replayable";
     };
     SettingsInput: {
       /** @description Required application identifier. Empty disables Discord and removes the stored secret. Whitespace-only values are rejected; saving does not verify credentials with Discord. */
@@ -1648,6 +1847,45 @@ export interface components {
     WorkerRegistrationInput: {
       name: string;
       max_concurrency: number;
+      /** @description Adresse du serveur Whisper de ce worker (http ou https, sans identifiants). Écrite dans le fichier d'environnement généré ; non conservée. */
+      transcription_url?: string;
+      /** @description Modèle et langue de la bibliothèque : réservés au premier worker, qui crée le profil de transcription (refus transcription_profile_already_set ensuite). Le jeton Hugging Face n'est jamais envoyé à Snitch. */
+      transcription?: components["schemas"]["WorkerTranscriptionProfile"];
+    };
+    WorkerTranscriptionProfile: {
+      model: string;
+      language: string;
+    };
+    WorkerRecentTask: {
+      /** Format: int64 */
+      job_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      kind: "transcription" | "diarization" | "fingerprint" | "other";
+      /** @enum {string} */
+      outcome: "started" | "completed" | "retry" | "failed";
+      error_code: string;
+      /** Format: date-time */
+      at: string;
+    };
+    WorkerDetail: {
+      id: string;
+      name: string;
+      max_concurrency: number;
+      reported_concurrency: number;
+      /** Format: date-time */
+      last_seen_at: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      revoked_at: string | null;
+      connected: boolean;
+      models?: components["schemas"]["WorkerModels"];
+      /** @description Dernières tâches de ce worker, une ligne par tâche, la plus récente d'abord. */
+      recent_tasks: components["schemas"]["WorkerRecentTask"][];
+      /** @description Fichiers de déploiement avec un emplacement de jeton (A_RENSEIGNER) : le jeton n'est jamais relisible. */
+      bundle: components["schemas"]["WorkerBundle"];
     };
     WorkerRegistration: {
       id: string;
@@ -1667,10 +1905,20 @@ export interface components {
     WorkerBundle: {
       compose: string;
       env: string;
-      /** @description Vrai si PUBLIC_URL n'est pas en HTTPS : le worker refuse le HTTP. */
+      /** @description Vrai si l'adresse publique n'est pas en HTTPS : le worker refuse le HTTP. */
       insecure_api_url: boolean;
     };
     WorkerPage: {
+      /** @description Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de la bibliothèque. */
+      first_worker: boolean;
+      /** @description Adresse de Snitch telle que vue par cette requête, écrite dans les fichiers générés. */
+      snitch_url: string;
+      /** @description Profil de transcription actif de la bibliothèque. */
+      transcription: {
+        model: string;
+        language: string;
+        version: string;
+      };
       items: components["schemas"]["Worker"][];
     };
     WorkerPulseInput: {
@@ -1842,6 +2090,18 @@ export interface components {
       author: components["schemas"]["AttributionAuthor"] | null;
       /** Format: date-time */
       created_at: string;
+    };
+    PersonVoice: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+    };
+    PersonVoiceList: {
+      items: components["schemas"]["PersonVoice"][];
     };
     PersonEventList: {
       items: components["schemas"]["PersonEvent"][];
@@ -2467,6 +2727,35 @@ export interface components {
       persons?: components["schemas"]["ClipPerson"][];
       transcription?: components["schemas"]["Transcription"];
       audio_track_selection?: components["schemas"]["AudioTrackSelection"];
+      progress?: components["schemas"]["ClipProgress"];
+    };
+    /**
+     * @description État d’une étape du clip : none (rien de planifié), queued (en file), running (en cours), done (terminée), failed (échouée), unavailable (étape non configurée sur cette installation).
+     * @enum {string}
+     */
+    ClipStepState:
+      | "none"
+      | "queued"
+      | "running"
+      | "done"
+      | "failed"
+      | "unavailable";
+    /** @description Avancement du clip pour les étapes que le serveur seul connaît. Les étapes de voix se lisent avec GET /api/clips/{id}/voice. Un clip est toujours importé. */
+    ClipProgress: {
+      transcription: components["schemas"]["ClipStepState"];
+      indexing: components["schemas"]["ClipStepState"];
+    };
+    ClipFilterOptions: {
+      sources: {
+        /** Format: int64 */
+        id: number;
+        name: string;
+      }[];
+      owners: {
+        /** Format: int64 */
+        id: number;
+        username: string;
+      }[];
     };
     ClipPage: {
       items: components["schemas"]["Clip"][];
@@ -2855,7 +3144,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
       };
       path?: never;
@@ -2887,11 +3176,146 @@ export interface operations {
       };
     };
   };
+  checkSetupCode: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetupCodeInput"];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getSetupProgress: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SetupProgress"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  recordSetupStep: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetupStepInput"];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SetupProgress"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  dismissSetupBanner: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SetupProgress"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   login: {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
       };
       path?: never;
@@ -2927,7 +3351,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
       };
       path?: never;
@@ -2992,7 +3416,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3021,11 +3445,77 @@ export interface operations {
       };
     };
   };
-  startDiscord: {
+  getAccountPreferences: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Préférences du compte connecté */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountPreferences"];
+        };
+      };
+      /** @description Error (401 session required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateAccountPreferences: {
     parameters: {
       query?: never;
       header: {
         /** @description Must equal PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountPreferencesInput"];
+      };
+    };
+    responses: {
+      /** @description Préférences enregistrées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountPreferences"];
+        };
+      };
+      /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startDiscord: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
       };
       path?: never;
@@ -3057,7 +3547,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3209,7 +3699,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3275,7 +3765,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3752,6 +4242,37 @@ export interface operations {
       };
     };
   };
+  getWorker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fiche du worker, sans son jeton */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerDetail"];
+        };
+      };
+      /** @description Worker introuvable */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   revokeWorker: {
     parameters: {
       query?: never;
@@ -3774,6 +4295,40 @@ export interface operations {
         content?: never;
       };
       /** @description Worker introuvable ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  renewWorkerToken: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Nouveau jeton, montré une seule fois ; l'ancien cesse de fonctionner */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerRegistration"];
+        };
+      };
+      /** @description Worker introuvable */
       default: {
         headers: {
           [name: string]: unknown;
@@ -4227,6 +4782,35 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ClipPage"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listClipFilterOptions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sources et propriétaires proposés par les filtres de la Bibliothèque */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipFilterOptions"];
         };
       };
       /** @description Erreur */
@@ -5565,6 +6149,46 @@ export interface operations {
       };
     };
   };
+  listPersonVoices: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Voix validées pour cette Personne, sur les clips visibles (500 au plus) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonVoiceList"];
+        };
+      };
+      /** @description person_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   listPersonEvents: {
     parameters: {
       query?: {
@@ -6439,6 +7063,38 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  exportMasterKey: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Clé exportée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MasterKeyExport"];
+        };
+      };
+      /** @description Erreur (401 session requise, 403 réservé au Super-administrateur, origine ou CSRF refusés) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
       };
     };
   };

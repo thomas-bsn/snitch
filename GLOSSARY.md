@@ -43,7 +43,9 @@ _Avoid_ : Modification de la transcription, édition.
 
 **Segment corrigé** : Un segment dont le texte ou le locuteur affiché est une correction humaine. Sa recherche et son affichage utilisent le texte corrigé ; après une retranscription réussie, ses corrections deviennent obsolètes et ne sont pas reprises.
 
-**Administrateur** : Un utilisateur autorisé à configurer l'application et à approuver les inscriptions.
+**Super-administrateur** : Le propriétaire de l'installation : le compte créé par le wizard d'installation. Il est unique, ne peut être ni rétrogradé, ni supprimé, ni fermer son compte. Seul lui exporte la clé maître, configure Discord, règle l'approbation des inscriptions et gère les comptes d'Administrateurs.
+
+**Administrateur** : Un utilisateur autorisé à exploiter l'application (Workers, dossiers, file de tâches, transcription, voix) et à approuver les inscriptions. Il n'a pas accès aux réglages réservés au Super-administrateur.
 
 **Inscription en attente** : Une demande d'accès qui nécessite l'approbation d'un administrateur avant connexion.
 

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("recherche exacte française, filtres et lecture du passage", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/legacy/");
   await page
     .getByLabel("Code d’installation")
     .fill(process.env.SNITCH_TEST_CODE!);

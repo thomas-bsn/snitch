@@ -85,7 +85,7 @@ func TestFoundation(t *testing.T) {
 	})
 	reset := func(t *testing.T) {
 		t.Helper()
-		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true`)
+		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -103,7 +103,7 @@ func TestFoundation(t *testing.T) {
 		endpoint := provider.URL
 		provider.Close() // A configured but unreachable service must not block the foundation.
 		for _, endpoint := range []string{"", endpoint} {
-			s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Fixture", EmbeddingsURL: endpoint, EmbeddingsModel: "fixture-only"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+			s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), EmbeddingsURL: endpoint, EmbeddingsModel: "fixture-only"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 			ts := httptest.NewServer(s.Handler())
 			for path, want := range map[string]string{"/api/health/live": `"status":"ok"`, "/api/health/ready": `"status":"degraded"`, "/api/setup": `"initialized":false`} {
 				resp, err := ts.Client().Get(ts.URL + path)
@@ -123,6 +123,18 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testLocalAuthentication(t, pool)
 	})
+	t.Run("account preferences", func(t *testing.T) {
+		reset(t)
+		testAccountPreferences(t, pool)
+	})
+	t.Run("setup progress", func(t *testing.T) {
+		reset(t)
+		testSetupProgress(t, pool)
+	})
+	t.Run("public address deduced from the request", func(t *testing.T) {
+		reset(t)
+		testPublicAddress(t, pool)
+	})
 	t.Run("registration and approval", func(t *testing.T) {
 		reset(t)
 		testRegistration(t, pool)
@@ -131,6 +143,14 @@ func TestFoundation(t *testing.T) {
 	t.Run("Discord settings", func(t *testing.T) {
 		reset(t)
 		testDiscordSettings(t, pool)
+	})
+	t.Run("master key", func(t *testing.T) {
+		reset(t)
+		testMasterKey(t, pool)
+	})
+	t.Run("roles", func(t *testing.T) {
+		reset(t)
+		testRoles(t, pool, provider)
 	})
 	t.Run("folder sources", func(t *testing.T) {
 		reset(t)
@@ -147,6 +167,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("clip library", func(t *testing.T) {
 		reset(t)
 		testClipLibrary(t, pool)
+	})
+	t.Run("clip progress and filter options", func(t *testing.T) {
+		reset(t)
+		testClipProgress(t, pool)
 	})
 	t.Run("transcription pipeline", func(t *testing.T) {
 		reset(t)
@@ -183,6 +207,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("person corrections", func(t *testing.T) {
 		reset(t)
 		testPersonCorrections(t, pool)
+	})
+	t.Run("person voices", func(t *testing.T) {
+		reset(t)
+		testPersonVoices(t, pool)
 	})
 	t.Run("person filter", func(t *testing.T) {
 		reset(t)
@@ -275,6 +303,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerModels(t, pool)
 	})
+	t.Run("worker administration", func(t *testing.T) {
+		reset(t)
+		testWorkerAdministration(t, pool)
+	})
 	t.Run("HTTP contract and permissions", func(t *testing.T) {
 		reset(t)
 		clipRoot := t.TempDir()
@@ -283,7 +315,7 @@ func TestFoundation(t *testing.T) {
 			t.Fatal(e)
 		}
 		logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Test Receipts", ClipRoots: []string{clipRoot}, ProbePath: "ffprobe", StabilityWindow: time.Hour}, logger)
+		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ClipRoots: []string{clipRoot}, ProbePath: "ffprobe", StabilityWindow: time.Hour}, logger)
 		// High test allowance isolates security tests from test-suite request volume.
 		ts := httptest.NewUnstartedServer(s.Handler())
 		s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
@@ -359,10 +391,12 @@ func TestFoundation(t *testing.T) {
 		call(anon, "GET", "/api/admin/settings", nil, "", 401)
 		call(anon, "GET", "/api/admin/sources", nil, "", 401)
 		call(anon, "POST", "/api/auth/register", creds, "", 409)
+		call(client, "POST", "/api/setup/code", map[string]string{"code": "wrong"}, "", 409) // behavior in the setup progress suite
+		call(client, "POST", "/api/setup/code", map[string]string{"code": code}, "", 200)
 		call(client, "POST", "/api/setup", map[string]string{"code": "wrong", "username": "administrator", "password": "synthetic-password"}, "", 409)
 		call(client, "POST", "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, "", 201)
 		call(client, "POST", "/api/setup", map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"}, "", 409)
-		noRoots := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Test Receipts"}, logger)
+		noRoots := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, logger)
 		noRootsTS := httptest.NewServer(noRoots.Handler())
 		defer noRootsTS.Close()
 		noRootsResponse, e := client.Get(noRootsTS.URL + "/api/admin/sources")
@@ -384,6 +418,9 @@ func TestFoundation(t *testing.T) {
 			CSRF string `json:"csrf_token"`
 		}
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
+		// Account language (behavior in the account preferences suite).
+		call(client, "GET", "/api/account/preferences", nil, "", 200)
+		call(client, "PUT", "/api/account/preferences", map[string]any{"language": "fr"}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/job-controls", nil, "", 200)
 		call(client, "PUT", "/api/admin/job-controls", map[string]any{"paused": false, "max_concurrency": 2}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/embeddings", nil, "", 200)
@@ -421,6 +458,8 @@ func TestFoundation(t *testing.T) {
 		json.Unmarshal(call(client, "POST", "/api/persons", map[string]any{"display_name": "Contract person"}, me.CSRF, 201), &contractPerson)
 		call(client, "GET", "/api/persons?q=contract", nil, "", 200)
 		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID), nil, "", 200)
+		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID)+"/voices", nil, "", 200)
+		call(client, "GET", "/api/clip-filters", nil, "", 200)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"person_id": contractPerson.ID}, me.CSRF, 201)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"new_person_name": "Late"}, me.CSRF, 409)
 		call(client, "POST", speakerPath+"/correction", map[string]any{"new_person_name": "Corrected", "expected_person_id": contractPerson.ID}, me.CSRF, 200)
@@ -491,6 +530,11 @@ func TestFoundation(t *testing.T) {
 			t.Fatalf("contract worker registration: %s %v", workerBody, e)
 		}
 		call(client, "GET", "/api/admin/workers", nil, "", 200)
+		call(client, "GET", "/api/admin/workers/"+contractWorker.ID, nil, "", 200)
+		renewedBody := call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/token", nil, me.CSRF, 201)
+		if e = json.Unmarshal(renewedBody, &contractWorker); e != nil || contractWorker.Token == "" {
+			t.Fatalf("contract worker token renewal: %s %v", renewedBody, e)
+		}
 		workerToken = contractWorker.Token
 		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.synthetic"}}, "", 200)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
@@ -646,6 +690,10 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/auth/me", nil, "", 200)
 		// Segment corrections: contract conformity here, behavior in the segment corrections suite.
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
+		// Setup progress: contract conformity here, behavior in the setup progress suite.
+		call(client, "GET", "/api/admin/setup-progress", nil, "", 200)
+		call(client, "PUT", "/api/admin/setup-progress", map[string]string{"step": "discord", "state": "skipped"}, me.CSRF, 200)
+		call(client, "POST", "/api/admin/setup-progress/dismiss", nil, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/text", map[string]any{"text": "corrigé", "expected_version": 0}, me.CSRF, 404)
 		if _, e = pool.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,status,result) VALUES($1,'transcription.audio.2','contract-transcription','done',$2::jsonb)`, contractClipID, `{"provider":"fixture","model":"m","audio_stream_index":2,"segments":[{"start":0,"end":1,"text":"original","words":[]}]}`); e != nil {
 			t.Fatal(e)
@@ -657,6 +705,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/segments/0/restore", map[string]any{"original": true, "expected_version": 0}, me.CSRF, 409)
 		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/segments/0/restore", map[string]any{"original": true, "expected_version": 1, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/segment-corrections/export", nil, "", 200)
+		call(client, "POST", "/api/admin/master-key/export", nil, me.CSRF, 200) // behavior in the master key suite
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/9/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 0}, me.CSRF, 404)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 2, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
@@ -708,11 +757,43 @@ func TestFoundation(t *testing.T) {
 		if !bytes.Contains(html, []byte("<div id=\"root\"")) {
 			t.Fatal("embedded SPA missing")
 		}
+		// Every screen address returns the application, and the old interface keeps its own address.
+		for _, path := range []string{"/library", "/search", "/people", "/import", "/login", "/admin/workers", "/clips/12", "/account/settings"} {
+			resp, e = client.Get(ts.URL + path)
+			if e != nil {
+				t.Fatal(e)
+			}
+			deep, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode != 200 || !bytes.Equal(deep, html) {
+				t.Fatalf("screen address %s does not return the application: %d", path, resp.StatusCode)
+			}
+		}
+		for _, path := range []string{"/legacy/", "/legacy/anything"} {
+			resp, e = client.Get(ts.URL + path)
+			if e != nil {
+				t.Fatal(e)
+			}
+			old, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode != 200 || !bytes.Contains(old, []byte("<div id=\"root\"")) || bytes.Equal(old, html) {
+				t.Fatalf("old interface missing at %s: %d", path, resp.StatusCode)
+			}
+		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
+		suites := []string{"foundation.spec.ts", "local-auth.spec.ts", "registration.spec.ts", "shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "setup-wizard.spec.ts", "account-settings.spec.ts", "admin-workers.spec.ts", "discord-settings.spec.ts", "discord-oauth.spec.ts", "sources.spec.ts", "uploads.spec.ts", "import.spec.ts", "library.spec.ts", "jobs.spec.ts", "queue-controls.spec.ts", "legacy-workers.spec.ts", "transcription.spec.ts", "batch-transcriptions.spec.ts", "search.spec.ts", "search-screen.spec.ts", "vocabulary.spec.ts", "voice.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "microphone.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-profile.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "people.spec.ts", "people-groups.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = suites[:1]
+		}
+		if os.Getenv("SNITCH_E2E_SHELL") == "1" {
+			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_ACCOUNT") == "1" {
+			suites = []string{"account-settings.spec.ts", "discord-oauth.spec.ts", "voice-profile.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_WIZARD") == "1" {
+			suites = []string{"setup-wizard.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SOURCES") == "1" {
 			suites = []string{"sources.spec.ts"}
@@ -720,14 +801,20 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_UPLOADS") == "1" {
 			suites = []string{"uploads.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_IMPORT") == "1" {
+			suites = []string{"import.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_LIBRARY") == "1" {
 			suites = []string{"library.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_SEARCH_SCREEN") == "1" {
+			suites = []string{"search-screen.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_JOBS") == "1" {
 			suites = []string{"jobs.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_WORKERS") == "1" {
-			suites = []string{"workers.spec.ts"}
+			suites = []string{"legacy-workers.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_CONTROLS") == "1" {
 			suites = []string{"queue-controls.spec.ts"}
@@ -771,6 +858,12 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_VOICE_VERIFICATION") == "1" {
 			suites = []string{"voice-verification.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_PEOPLE") == "1" {
+			suites = []string{"people.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_PEOPLE_GROUPS") == "1" {
+			suites = []string{"people-groups.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_PERSON_CORRECTIONS") == "1" {
 			suites = []string{"person-corrections.spec.ts", "segment-corrections.spec.ts"}
 		}
@@ -802,7 +895,7 @@ func TestFoundation(t *testing.T) {
 				if e != nil {
 					t.Fatal(e)
 				}
-				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts"}
+				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}
 				sourceRoot := ""
 				if suite == "sources.spec.ts" || suite == "microphone.spec.ts" {
 					sourceRoot = t.TempDir()
@@ -815,7 +908,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" || suite == "voice-groups.spec.ts" || suite == "automation.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-speaker.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
+				if suite == "uploads.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" || suite == "voice-groups.spec.ts" || suite == "automation.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "people.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-speaker.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -824,13 +917,13 @@ func TestFoundation(t *testing.T) {
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "sources.spec.ts" || suite == "matching.spec.ts" || suite == "automation.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "library.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "voice-groups.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-speaker.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
+				if suite == "sources.spec.ts" || suite == "matching.spec.ts" || suite == "automation.spec.ts" || suite == "microphone.spec.ts" || suite == "uploads.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "jobs.spec.ts" || suite == "transcription.spec.ts" || suite == "batch-transcriptions.spec.ts" || suite == "search.spec.ts" || suite == "voice.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "voice-groups.spec.ts" || suite == "voice-profile.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "people.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-speaker.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
 					defer s.Close()
 				}
-				if suite == "discord-oauth.spec.ts" {
+				if suite == "discord-oauth.spec.ts" || suite == "account-settings.spec.ts" {
 					browserDiscord(t, s)
 				}
 				ts := httptest.NewUnstartedServer(s.Handler())

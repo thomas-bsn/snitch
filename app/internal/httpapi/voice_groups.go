@@ -190,7 +190,7 @@ func (s *Server) listVoiceGroups(w http.ResponseWriter, r *http.Request) {
 		f.limit = n
 	}
 	f.offset = (page - 1) * f.limit
-	groups, total, err := s.loadVoiceGroups(r.Context(), s.Pool, ss.User.ID, ss.User.Role == "admin", f)
+	groups, total, err := s.loadVoiceGroups(r.Context(), s.Pool, ss.User.ID, isAdministrator(ss.User.Role), f)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -204,7 +204,7 @@ func (s *Server) getVoiceGroup(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	groups, _, err := s.loadVoiceGroups(r.Context(), s.Pool, ss.User.ID, ss.User.Role == "admin", voiceGroupFilter{limit: 1, id: id})
+	groups, _, err := s.loadVoiceGroups(r.Context(), s.Pool, ss.User.ID, isAdministrator(ss.User.Role), voiceGroupFilter{limit: 1, id: id})
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -305,7 +305,7 @@ func (s *Server) nameVoiceGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	groups, _, err := s.loadVoiceGroups(ctx, tx, ss.User.ID, ss.User.Role == "admin", voiceGroupFilter{limit: 1, id: groupID})
+	groups, _, err := s.loadVoiceGroups(ctx, tx, ss.User.ID, isAdministrator(ss.User.Role), voiceGroupFilter{limit: 1, id: groupID})
 	if err != nil {
 		s.internal(w, err)
 		return

@@ -8,7 +8,7 @@ export async function prepareDiarizedClip(
   page: Page,
   options: { secondFingerprintEnd?: number } = {},
 ): Promise<void> {
-  await page.goto("/");
+  await page.goto("/legacy/");
   await page
     .getByLabel("Code d’installation")
     .fill(process.env.SNITCH_TEST_CODE!);

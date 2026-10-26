@@ -1,0 +1,277 @@
+import { ArrowLeft } from "lucide-react";
+import { useCallback, useId, useState, type ReactNode } from "react";
+import { Link } from "react-router";
+import { useLoaded } from "../../api/loaded";
+import { ErrorAlert } from "../../components/Alert";
+import { buttonClass } from "../../components/buttons";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { StatusPill } from "../../components/StatusPill";
+import { useDocumentTitle } from "../../components/useDocumentTitle";
+import { useI18n } from "../../i18n";
+import { useFormatDate } from "../format";
+import { DeploymentFiles } from "./DeploymentFiles";
+import { fetchWorker, useWorkerActions, type WorkerBundle } from "./workersApi";
+import { ROLES, declaredModelText, workerStatus } from "./workerView";
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section
+      aria-labelledby={id}
+      className="flex flex-col gap-3 rounded-xl border border-line p-4"
+    >
+      <h3 id={id} className="text-base font-semibold">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function Facts({ children }: { children: ReactNode }) {
+  return (
+    <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5">
+      {children}
+    </dl>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-mute">{label}</dt>
+      <dd className="m-0 break-words">{children}</dd>
+    </>
+  );
+}
+
+/** The page of one Worker: state, activity, declared models, deployment files, token, revocation. */
+export function WorkerDetailPage({ id }: { id: string }) {
+  const { t, error } = useI18n();
+  const formatDate = useFormatDate();
+  const actions = useWorkerActions();
+  const load = useCallback(() => fetchWorker(id), [id]);
+  const { state, reload } = useLoaded(load);
+  const [confirm, setConfirm] = useState<"token" | "revoke" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string>();
+  // Shown once: the files of a freshly generated token, dropped when the page is left.
+  const [fresh, setFresh] = useState<WorkerBundle>();
+  useDocumentTitle(
+    state.status === "ready" ? state.value.name : t("workers.title"),
+  );
+
+  const back = (
+    <Link
+      to="/admin/workers"
+      className="inline-flex min-h-11 items-center gap-1.5 text-accent-ink hover:underline md:min-h-0"
+    >
+      <ArrowLeft className="size-4" />
+      {t("workers.detail.back")}
+    </Link>
+  );
+
+  if (state.status === "loading") {
+    return <p role="status">{t("workers.loading")}</p>;
+  }
+  if (state.status === "failed") {
+    return (
+      <div className="flex flex-col gap-3">
+        {back}
+        <ErrorAlert>
+          {state.code === "worker_not_found"
+            ? t("workers.detail.notFound")
+            : error(state.code)}
+        </ErrorAlert>
+      </div>
+    );
+  }
+  const worker = state.value;
+  const { tone, label } = workerStatus(worker);
+  const revoked = worker.revoked_at !== null;
+
+  async function renew() {
+    setBusy(true);
+    setFailure(undefined);
+    const result = await actions.renewToken(id);
+    setBusy(false);
+    setConfirm(null);
+    if (result.ok) setFresh(result.value.bundle);
+    else setFailure(result.code);
+  }
+
+  async function revoke() {
+    setBusy(true);
+    setFailure(undefined);
+    const result = await actions.revoke(id);
+    setBusy(false);
+    setConfirm(null);
+    if (result.ok) {
+      setFresh(undefined);
+      reload();
+    } else setFailure(result.code);
+  }
+
+  const bundle = fresh ?? worker.bundle;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {back}
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold">{worker.name}</h2>
+        <StatusPill tone={tone}>{t(label)}</StatusPill>
+      </div>
+      {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
+      {revoked && worker.revoked_at && (
+        <p
+          role="status"
+          className="rounded-lg bg-bad-bg px-3 py-2.5 text-bad-fg"
+        >
+          {t("workers.detail.revokedNotice", {
+            date: formatDate(worker.revoked_at),
+          })}
+        </p>
+      )}
+
+      <Section title={t("workers.detail.activity")}>
+        <Facts>
+          <Fact label={t("workers.detail.lastPulse")}>
+            {worker.last_seen_at
+              ? formatDate(worker.last_seen_at)
+              : t("workers.never")}
+          </Fact>
+          <Fact label={t("workers.detail.concurrency")}>
+            {t("workers.detail.concurrencyValue", {
+              count: worker.max_concurrency,
+            })}
+          </Fact>
+          <Fact label={t("workers.detail.created")}>
+            {formatDate(worker.created_at)}
+          </Fact>
+        </Facts>
+      </Section>
+
+      <Section title={t("workers.detail.recentTasks")}>
+        {worker.recent_tasks.length === 0 ? (
+          <p className="text-mute">{t("workers.detail.noTasks")}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[28rem] border-collapse text-left">
+              <thead className="text-xs text-mute">
+                <tr>
+                  <th scope="col" className="py-1.5 pr-3 font-medium">
+                    {t("workers.detail.taskColumns.kind")}
+                  </th>
+                  <th scope="col" className="py-1.5 pr-3 font-medium">
+                    {t("workers.detail.taskColumns.clip")}
+                  </th>
+                  <th scope="col" className="py-1.5 pr-3 font-medium">
+                    {t("workers.detail.taskColumns.outcome")}
+                  </th>
+                  <th scope="col" className="py-1.5 font-medium">
+                    {t("workers.detail.taskColumns.when")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {worker.recent_tasks.map((task) => (
+                  <tr key={task.job_id} className="border-t border-line">
+                    <th scope="row" className="py-2 pr-3 font-medium">
+                      {t(`workers.detail.taskKinds.${task.kind}`)}
+                    </th>
+                    <td className="py-2 pr-3 text-mute">#{task.clip_id}</td>
+                    <td className="py-2 pr-3">
+                      {t(`workers.detail.outcomes.${task.outcome}`)}
+                      {task.error_code && (
+                        <span className="ml-1.5 text-mute">
+                          ({task.error_code})
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 text-mute">{formatDate(task.at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
+      <Section title={t("workers.detail.models")}>
+        <Facts>
+          {ROLES.map((role) => (
+            <Fact key={role} label={t(`workers.models.${role}`)}>
+              {declaredModelText(worker.models, role) ??
+                t("workers.notDeclared")}
+            </Fact>
+          ))}
+        </Facts>
+      </Section>
+
+      {!revoked && (
+        <Section title={t("workers.detail.deployment")}>
+          <p className="text-mute">{t("workers.detail.deploymentLead")}</p>
+          {fresh ? (
+            <p
+              role="status"
+              className="rounded-lg bg-warn-bg px-3 py-2.5 text-warn-fg"
+            >
+              {t("workers.detail.newToken")}
+            </p>
+          ) : (
+            <p className="text-mute">{t("workers.detail.tokenHidden")}</p>
+          )}
+          <DeploymentFiles env={bundle.env} compose={bundle.compose} />
+          <div>
+            <button
+              type="button"
+              className={buttonClass("secondary")}
+              onClick={() => setConfirm("token")}
+            >
+              {t("workers.detail.regenerate")}
+            </button>
+          </div>
+        </Section>
+      )}
+
+      {!revoked && (
+        <Section title={t("workers.detail.revoke")}>
+          <p className="text-mute">{t("workers.detail.revokeBody")}</p>
+          <div>
+            <button
+              type="button"
+              className={buttonClass("danger")}
+              onClick={() => setConfirm("revoke")}
+            >
+              {t("workers.detail.revokeButton")}
+            </button>
+          </div>
+        </Section>
+      )}
+
+      <ConfirmDialog
+        open={confirm === "token"}
+        onOpenChange={(open) => !open && setConfirm(null)}
+        title={t("workers.detail.regenerateTitle")}
+        cancelLabel={t("workers.dialog.cancel")}
+        confirmLabel={t("workers.detail.regenerateConfirm")}
+        onConfirm={() => void renew()}
+        busy={busy}
+      >
+        <p>{t("workers.detail.regenerateBody")}</p>
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={confirm === "revoke"}
+        onOpenChange={(open) => !open && setConfirm(null)}
+        title={t("workers.detail.revokeTitle", { name: worker.name })}
+        cancelLabel={t("workers.dialog.cancel")}
+        confirmLabel={t("workers.detail.revokeConfirm")}
+        onConfirm={() => void revoke()}
+        danger
+        busy={busy}
+      >
+        <p>{t("workers.detail.revokeConfirmBody")}</p>
+      </ConfirmDialog>
+    </div>
+  );
+}

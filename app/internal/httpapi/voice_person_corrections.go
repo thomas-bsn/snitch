@@ -26,6 +26,7 @@ func (s *Server) registerPersonCorrectionRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/persons/{id}/merge", s.protected(false, http.HandlerFunc(s.mergePerson)))
 	mux.Handle("POST /api/persons/{id}/separation", s.protected(false, http.HandlerFunc(s.separatePerson)))
 	mux.Handle("DELETE /api/persons/{id}", s.protected(false, http.HandlerFunc(s.deletePerson)))
+	mux.Handle("GET /api/persons/{id}/voices", s.protected(false, http.HandlerFunc(s.listPersonVoices)))
 	mux.Handle("GET /api/person-events", s.protected(false, http.HandlerFunc(s.listPersonEvents)))
 }
 
@@ -231,7 +232,7 @@ func (s *Server) mergePerson(w http.ResponseWriter, r *http.Request) {
 // same visibility rule.
 func (s *Server) refuseHiddenVoices(ctx context.Context, w http.ResponseWriter, r *http.Request, tx pgx.Tx, personID int64) bool {
 	ss := r.Context().Value(sessionKey{}).(session)
-	if ss.User.Role == "admin" {
+	if isAdministrator(ss.User.Role) {
 		return false
 	}
 	var hidden bool
@@ -361,7 +362,7 @@ func (s *Server) separatePerson(w http.ResponseWriter, r *http.Request) {
 	author := s.authorOf(r)
 	ctx := r.Context()
 	var visible int
-	if err := s.Pool.QueryRow(ctx, `SELECT count(*) FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=ANY($1) AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, speakerIDs, ss.User.ID, ss.User.Role == "admin").Scan(&visible); err != nil {
+	if err := s.Pool.QueryRow(ctx, `SELECT count(*) FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=ANY($1) AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, speakerIDs, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&visible); err != nil {
 		s.internal(w, err)
 		return
 	}

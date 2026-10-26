@@ -1,70 +1,313 @@
-import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+import {
+  SEGMENTS,
+  correctSpeaker,
+  correctText,
+  nameVoice,
+  transcribeAndDiarize,
+  uploadClip,
+} from "./library-fixture";
+import {
+  ADMIN,
+  MEMBER,
+  createApprovedMember,
+  installAdministrator,
+  sessionFor,
+} from "./shell-fixture";
 
-test("un membre filtre la bibliothèque et lit une plage d’un clip partagé ou privé", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await page
-    .getByLabel("Code d’installation")
-    .fill(process.env.SNITCH_TEST_CODE!);
-  await page.getByLabel("Nom d’utilisateur").fill("administrator");
-  await page
-    .getByLabel("Mot de passe", { exact: true })
-    .fill("synthetic-password-123");
-  await page.getByRole("button", { name: "Créer l’administrateur" }).click();
+// Journeys of the library and of the page of a clip, in the new interface, on a synthetic
+// library built through the API (a few bytes per video, a simulated worker).
 
-  await page.getByLabel("Fichier vidéo").setInputFiles({
-    name: "synthetic-shared.mp4",
-    mimeType: "video/mp4",
-    buffer: Buffer.from("synthetic-browser-video-content"),
-  });
-  await page.getByRole("button", { name: "Envoyer la vidéo" }).click();
-  await expect(page.getByRole("status")).toContainText(
-    "a été vérifiée et ajoutée",
+const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+async function expectNoViolations(page: Page) {
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(TAGS)
+    .analyze();
+  expect(
+    violations.map(
+      (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(" | ")}`,
+    ),
+  ).toEqual([]);
+}
+
+const noOverflow = (page: Page) =>
+  page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth,
   );
-  await expect(
-    page.getByText("synthetic-shared.mp4", { exact: true }),
-  ).toBeVisible();
-  await page.getByText("Détails et lecture", { exact: true }).click();
-  const range = await page.evaluate(async () => {
-    const video = document.querySelector("video")!;
-    const response = await fetch(video.src, {
-      headers: { Range: "bytes=2-6" },
-    });
-    return {
-      status: response.status,
-      range: response.headers.get("Content-Range"),
-      bytes: await response.arrayBuffer().then((b) => b.byteLength),
-    };
-  });
-  expect(range).toEqual({ status: 206, range: "bytes 2-6/31", bytes: 5 });
 
-  await page.locator("#uploads form select").selectOption("private");
-  await page.getByLabel("Fichier vidéo").setInputFiles({
-    name: "synthetic-private.mp4",
-    mimeType: "video/mp4",
-    buffer: Buffer.from("synthetic-private-video-content"),
+test.describe.serial("bibliothèque et page d'un clip", () => {
+  let sharedId = 0;
+  let privateId = 0;
+
+  test.beforeAll(installAdministrator);
+
+  test("une bibliothèque vide invite à importer", async ({ browser }) => {
+    const context = await browser.newContext({
+      storageState: await sessionFor(ADMIN),
+    });
+    const page = await context.newPage();
+    await page.goto("/library");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Library" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "No clips yet" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Import videos" }).click();
+    await expect(page).toHaveURL(/\/import$/);
+    await context.close();
   });
-  await page.getByRole("button", { name: "Envoyer la vidéo" }).click();
-  await expect(
-    page.getByText("synthetic-private.mp4", { exact: true }),
-  ).toBeVisible();
-  await page.locator("#library > form select").first().selectOption("shared");
-  const filteredClipsResponse = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return (
-      url.pathname === "/api/clips" &&
-      url.searchParams.get("visibility") === "shared"
-    );
+
+  test.describe("avec des clips", () => {
+    test.beforeAll(async () => {
+      sharedId = await uploadClip("synthetic-shared.mp4", "shared");
+      privateId = await uploadClip("synthetic-private.mp4", "private");
+      const [first] = await transcribeAndDiarize(sharedId);
+      await nameVoice(first, "Alice");
+      await correctText(sharedId, 0, "Bien joué, Alice !", "nom");
+      await correctSpeaker(sharedId, 1, first);
+      await createApprovedMember();
+    });
+
+    test("la grille, les filtres et les visibilités", async ({ browser }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto("/library");
+      await expect(page.getByText("2 clips", { exact: true })).toBeVisible();
+      const card = (name: string) =>
+        page.getByRole("link", { name: `Open the clip ${name}` });
+      await expect(card("synthetic-shared.mp4")).toBeVisible();
+      await expect(card("synthetic-private.mp4")).toBeVisible();
+      // A state has a label (and a symbol), not only a color.
+      await expect(
+        page.locator("article").getByText("Ready", { exact: true }),
+      ).toHaveCount(2);
+
+      // A filter lives in the address and narrows the grid.
+      await page.getByLabel("Person").selectOption({ label: "Alice" });
+      await expect(page).toHaveURL(/person=\d+/);
+      await expect(card("synthetic-shared.mp4")).toBeVisible();
+      await expect(card("synthetic-private.mp4")).toHaveCount(0);
+      await expect(page.getByText("1 clip", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Clear the filters" }).click();
+      await expect(card("synthetic-private.mp4")).toBeVisible();
+
+      await page.getByLabel("Owner").selectOption({ label: "administrator" });
+      await expect(card("synthetic-private.mp4")).toBeVisible();
+      await page.getByLabel("State").selectOption({ label: "Missing" });
+      await expect(
+        page.getByRole("heading", {
+          name: "No clip matches these filters",
+        }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Clear the filters" }).click();
+
+      await page.getByLabel("From").fill("2099-01-01");
+      await expect(
+        page.getByRole("heading", { name: "No clip matches these filters" }),
+      ).toBeVisible();
+      await context.close();
+    });
+
+    test("un membre ne voit que les clips partagés", async ({ browser }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(MEMBER),
+      });
+      const page = await context.newPage();
+      await page.goto("/library");
+      await expect(
+        page.getByRole("link", { name: "Open the clip synthetic-shared.mp4" }),
+      ).toBeVisible();
+      await expect(page.getByText("1 clip", { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("link", {
+          name: "Open the clip synthetic-private.mp4",
+        }),
+      ).toHaveCount(0);
+      await page.goto(`/clips/${privateId}`);
+      await expect(page.getByRole("alert")).toContainText(
+        "does not exist or is not visible",
+      );
+      await context.close();
+    });
+
+    test("la page d'un clip lit la transcription et garde le moment", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto("/library");
+      await page
+        .getByRole("link", { name: "Open the clip synthetic-shared.mp4" })
+        .click();
+      await expect(page).toHaveURL(new RegExp(`/clips/${sharedId}$`));
+      await expect(
+        page.getByRole("heading", { level: 1, name: "synthetic-shared.mp4" }),
+      ).toBeVisible();
+      await expect(page.locator("video")).toHaveAttribute(
+        "src",
+        `/api/clips/${sharedId}/media`,
+      );
+
+      // Each segment carries its speaker and how settled it is.
+      const segments = page
+        .getByRole("list", { name: "Transcript segments" })
+        .getByRole("listitem");
+      await expect(segments).toHaveCount(SEGMENTS.length);
+      await expect(segments.nth(0)).toContainText("Bien joué, Alice !");
+      await expect(segments.nth(0)).toContainText("Alice");
+      await expect(segments.nth(0)).toContainText("Identified");
+      await expect(segments.nth(0)).toContainText("Text corrected by");
+      await expect(segments.nth(1)).toContainText("Corrected");
+      // The second voice only looks like Alice: a suggestion, not an identification.
+      await expect(segments.nth(2)).toContainText("Suggestion");
+
+      // The progress banner follows the real state of the clip.
+      const progress = page.getByRole("list", { name: "Progress of the clip" });
+      const step = (name: string) =>
+        progress.getByRole("listitem").filter({ hasText: name });
+      await expect(step("Imported")).toContainText("Done");
+      await expect(step("Transcribed")).toContainText("Done");
+      await expect(step("Indexed")).toContainText("Not set up");
+      await expect(step("Voices processed")).toContainText("Done");
+      await expect(step("Voices identified")).toContainText("1 of 2");
+
+      // Playing from a segment keeps the moment in the address.
+      await segments
+        .nth(1)
+        .getByRole("button", { name: "Play from 0:02" })
+        .click();
+      await expect(page).toHaveURL(/[?&]t=2(&|$)/);
+
+      // An address with a moment opens the clip there.
+      await page.goto(`/clips/${sharedId}?t=3`);
+      await expect(segments.nth(1)).toHaveAttribute("aria-current", "true");
+      await page.goto(`/clips/${sharedId}?t=2`);
+      await expect(segments.nth(0)).toHaveAttribute("aria-current", "true");
+
+      // Voices and history are read here too.
+      await page.getByRole("tab", { name: "Voices" }).click();
+      const voices = page.getByRole("list", { name: "Voices of the clip" });
+      await expect(voices).toContainText("Alice");
+      await expect(voices).toContainText("SPEAKER_01");
+      await page.getByRole("tab", { name: "History" }).click();
+      const corrected = page.getByRole("list", { name: "Corrected segments" });
+      await expect(corrected.getByRole("listitem")).toHaveCount(2);
+      await corrected
+        .getByRole("button", { name: /Show the history/ })
+        .first()
+        .click();
+      await expect(corrected).toContainText("Text change");
+      await expect(corrected).toContainText("Reason: nom");
+      await expect(corrected).toContainText("Bien joué !");
+
+      // Back to the library.
+      await page
+        .getByRole("link", { name: "Library", exact: true })
+        .first()
+        .click();
+      await expect(page).toHaveURL(/\/library/);
+      await context.close();
+    });
+
+    test("un clip sans transcription le dit dans le bandeau", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto(`/clips/${privateId}`);
+      const progress = page.getByRole("list", { name: "Progress of the clip" });
+      await expect(
+        progress.getByRole("listitem").filter({ hasText: "Transcribed" }),
+      ).toContainText("Not started");
+      await expect(
+        page.getByText("This clip has no transcript yet."),
+      ).toBeVisible();
+      await context.close();
+    });
+
+    for (const theme of ["light", "dark"] as const) {
+      test(`accessibilité de la bibliothèque et du clip, thème ${theme}`, async ({
+        browser,
+      }) => {
+        const context = await browser.newContext({
+          storageState: await sessionFor(ADMIN),
+        });
+        await context.addInitScript((value) => {
+          localStorage.setItem("snitch-ui-theme", value);
+        }, theme);
+        const page = await context.newPage();
+        await page.goto("/library");
+        await expect(
+          page.getByRole("link", {
+            name: "Open the clip synthetic-shared.mp4",
+          }),
+        ).toBeVisible();
+        await expectNoViolations(page);
+        await page.goto(`/clips/${sharedId}`);
+        await expect(
+          page.getByRole("list", { name: "Transcript segments" }),
+        ).toBeVisible();
+        await expectNoViolations(page);
+        for (const tab of ["Voices", "History"]) {
+          await page.getByRole("tab", { name: tab }).click();
+          await expectNoViolations(page);
+        }
+        await context.close();
+      });
+    }
+
+    test("téléphone : la grille et la page du clip tiennent à 390 pixels", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+        viewport: { width: 390, height: 780 },
+      });
+      const page = await context.newPage();
+      await page.goto("/library");
+      await expect(
+        page.getByRole("link", { name: "Open the clip synthetic-shared.mp4" }),
+      ).toBeVisible();
+      expect(await noOverflow(page)).toBe(true);
+      await expectNoViolations(page);
+      await page.goto(`/clips/${sharedId}`);
+      await expect(
+        page.getByRole("list", { name: "Transcript segments" }),
+      ).toBeVisible();
+      expect(await noOverflow(page)).toBe(true);
+      await expectNoViolations(page);
+      await context.close();
+    });
+
+    test("la pagination parcourt plus de douze clips", async ({ browser }) => {
+      for (let i = 1; i <= 11; i++) {
+        await uploadClip(`synthetic-bulk-${i}.mp4`, "shared");
+      }
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto("/library");
+      await expect(page.getByText("13 clips", { exact: true })).toBeVisible();
+      const grid = page.getByRole("link", { name: /^Open the clip / });
+      await expect(grid).toHaveCount(12);
+      await expect(page.getByText("Page 1 of 2")).toBeVisible();
+      await page.getByRole("button", { name: "Next page" }).click();
+      await expect(page).toHaveURL(/page=2/);
+      await expect(grid).toHaveCount(1);
+      await expect(page.getByText("Page 2 of 2")).toBeVisible();
+      await page.getByRole("button", { name: "Previous page" }).click();
+      await expect(grid).toHaveCount(12);
+      await context.close();
+    });
   });
-  await page
-    .locator("#library > form")
-    .evaluate((form) => (form as HTMLFormElement).requestSubmit());
-  expect((await filteredClipsResponse).status()).toBe(200);
-  await expect(
-    page.getByText("synthetic-private.mp4", { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByText("synthetic-shared.mp4", { exact: true }),
-  ).toBeVisible();
 });

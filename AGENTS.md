@@ -5,6 +5,7 @@
 Avant de reprendre une phase, lire ROADMAP.md et sa spec dans docs/specs/.
 Les phases 0 à 2 sont implémentées et validées ; consulter leurs bilans. Les phases 3 à 5 sont implémentées. La phase 6 est implémentée ; lire sa spec, l'ADR 0012 et son bilan avant toute suite, et attendre la validation utilisateur avant la phase 7.
 Travailler phase par phase ; après tests verts, README à jour et bilan du réalisé, du restant et des écarts, attendre la validation avant la suivante.
+La phase 6 bis (refonte de l'interface et du wizard) est spécifiée, pas encore implémentée : lire docs/specs/phase-6bis.md, l'issue parente #60 et ses tickets #61 à #81 (blocages indiqués dans chaque ticket), travailler sur la branche integration/phase-6bis-ui-refonte. Le prototype jetable est sur la branche prototype/ui-atelier : référence visuelle uniquement, à ne jamais fusionner ni copier tel quel. Elle ne remplace pas la phase 7, qui garde son autorisation propre.
 Utiliser exclusivement des données synthétiques ou des fixtures dédiées avant l'autorisation du benchmark de phase 7 ; aucun scan spontané de la vraie bibliothèque.
 HANDOFF.md conserve des détails des phases futures. Ses mentions d'état, de blocage réseau et d'autorisation d'implémentation sont historiques et obsolètes ; se référer à la roadmap, aux specs et aux instructions actuelles de l'utilisateur.
 

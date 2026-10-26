@@ -1,0 +1,163 @@
+// Messages des codes d’erreur stables renvoyés par le serveur. Les clés doivent être
+// exactement celles de errors.en.ts (le compilateur le vérifie).
+
+import type { errorsEn } from "./errors.en";
+
+export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  account_already_linked: "Ce compte est déjà lié à une personne.",
+  audio_selection_required: "Choisissez d’abord la piste audio à utiliser.",
+  audio_stream_not_found: "Cette piste audio n’existe pas dans le clip.",
+  audio_track_selection_required:
+    "Choisissez d’abord la piste audio à utiliser.",
+  batch_confirmation_required: "Confirmez le lot avant de le lancer.",
+  busy: "Le serveur est occupé. Réessayez dans quelques secondes.",
+  chunk_too_large: "Cette partie du fichier est trop grande.",
+  clip_not_found: "Ce clip n’existe pas ou ne vous est pas visible.",
+  clip_not_ready: "Ce clip n’est pas encore prêt.",
+  corrections_would_be_replaced:
+    "Cette action remplacerait des corrections déjà faites.",
+  criteria_not_met:
+    "Les conditions pour l’activer ne sont pas encore remplies.",
+  csrf_rejected: "Votre session a expiré. Rechargez la page.",
+  database_unavailable:
+    "La base de données est indisponible. Réessayez dans un instant.",
+  diarization_locked: "Les voix de ce clip sont verrouillées.",
+  discord_already_linked:
+    "Cette identité Discord est déjà liée. L’association existante est conservée.",
+  discord_credentials_invalid:
+    "L’identifiant et le secret Discord ne peuvent pas contenir uniquement des espaces.",
+  discord_denied:
+    "Connexion Discord annulée. Vous pouvez vous connecter avec votre compte local.",
+  discord_not_configured: "La connexion Discord n’est pas configurée.",
+  discord_secret_required:
+    "Saisissez le secret de votre application Discord pour activer la connexion.",
+  discord_unavailable:
+    "Discord est indisponible. Réessayez ou utilisez votre compte local.",
+  duplicate_vocabulary_term: "Ce terme existe déjà.",
+  embedding_rebuild_in_progress:
+    "Une reconstruction de l’index est déjà en cours.",
+  embeddings_unconfigured: "La recherche sémantique n’est pas configurée.",
+  empty_audio_track_rule: "La règle de piste audio est vide.",
+  excerpt_not_found: "Cet extrait n’existe pas.",
+  excerpt_unavailable: "Cet extrait ne peut pas être produit pour le moment.",
+  forbidden: "Vous n’avez pas accès à cette fonction.",
+  group_changed: "Ce groupe a changé entre-temps. Rechargez puis réessayez.",
+  internal_error: "Une erreur inattendue est survenue sur le serveur.",
+  invalid_account: "Ce compte ne convient pas pour cette action.",
+  invalid_audio_stream: "Cette piste audio n’est pas valide.",
+  invalid_audio_track_rule: "Cette règle de piste audio n’est pas valide.",
+  invalid_clip_id: "Cet identifiant de clip n’est pas valide.",
+  invalid_content_range: "Cette partie du fichier n’est pas valide.",
+  invalid_credentials_format:
+    "Un nom de 3 à 64 caractères et un mot de passe de 12 à 256 caractères sont requis.",
+  invalid_credentials_or_pending:
+    "Identifiants incorrects ou inscription en attente d’approbation.",
+  invalid_embedding_model: "Ce modèle d’embeddings n’est pas valide.",
+  invalid_filter: "Un des filtres n’est pas valide.",
+  invalid_format: "Ce format n’est pas valide.",
+  invalid_id: "Cet identifiant n’est pas valide.",
+  invalid_job: "Cette tâche n’est pas valide.",
+  invalid_job_controls: "Ces réglages de la file ne sont pas valides.",
+  invalid_job_error: "Cette erreur de tâche n’est pas valide.",
+  invalid_job_filter: "Un des filtres de tâches n’est pas valide.",
+  invalid_job_id: "Cet identifiant de tâche n’est pas valide.",
+  invalid_job_result: "Ce résultat de tâche n’est pas valide.",
+  invalid_language: "Cette langue n’est pas prise en charge.",
+  invalid_microphone_override: "Ce choix de micro n’est pas valide.",
+  invalid_microphone_rule: "Cette règle de micro n’est pas valide.",
+  invalid_mode: "Ce mode de recherche n’est pas valide.",
+  invalid_oauth_state:
+    "Le retour Discord est invalide ou expiré. Recommencez la connexion.",
+  invalid_page: "Ce numéro de page n’est pas valide.",
+  invalid_pagination: "Cette pagination n’est pas valide.",
+  invalid_person: "Cette personne n’est pas valide.",
+  invalid_person_id: "Cet identifiant de personne n’est pas valide.",
+  invalid_query: "Cette recherche n’est pas valide.",
+  invalid_request: "La demande n’est pas valide.",
+  invalid_sort: "Cet ordre de tri n’est pas valide.",
+  invalid_source_id: "Cet identifiant de dossier n’est pas valide.",
+  invalid_transcription_pipeline:
+    "Ces réglages de transcription ne sont pas valides.",
+  invalid_transcription_result:
+    "Ce résultat de transcription n’est pas valide.",
+  invalid_turn: "Ce tour de parole n’est pas valide.",
+  invalid_upload: "Cet envoi n’est pas valide.",
+  invalid_video: "Ce fichier n’est pas une vidéo lisible.",
+  invalid_vocabulary_id: "Cet identifiant de vocabulaire n’est pas valide.",
+  invalid_vocabulary_term: "Ce terme de vocabulaire n’est pas valide.",
+  invalid_voice_automation:
+    "Ces réglages d’automatisation ne sont pas valides.",
+  invalid_voice_criteria: "Ces critères ne sont pas valides.",
+  invalid_voice_matching: "Ces réglages de rapprochement ne sont pas valides.",
+  invalid_voice_pipeline:
+    "Ces réglages du traitement vocal ne sont pas valides.",
+  invalid_voice_result: "Ce résultat vocal n’est pas valide.",
+  invalid_worker: "Ce Worker n’est pas valide.",
+  invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
+  invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
+  invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
+  super_administrator_required: "Seul le Super-administrateur peut faire cela.",
+  invalid_transcription_language:
+    "Ce code de langue n’est pas valide (deux ou trois lettres minuscules, par exemple fr).",
+  invalid_transcription_model: "Ce nom de modèle n’est pas valide.",
+  invalid_transcription_url:
+    "Cette adresse Whisper n’est pas valide. Utilisez une adresse http ou https sans identifiants.",
+  transcription_language_required: "Choisissez la langue de la bibliothèque.",
+  transcription_model_required: "Indiquez le modèle de la bibliothèque.",
+  transcription_profile_already_set:
+    "La bibliothèque a déjà un modèle de transcription. Rechargez la page.",
+  job_not_cancellable: "Cette tâche ne peut plus être annulée.",
+  job_not_dead: "Seules les tâches mortes peuvent être relancées.",
+  job_not_found: "Cette tâche n’existe pas.",
+  json_required: "La demande doit être envoyée en JSON.",
+  lease_not_owned: "Cette tâche n’est plus attribuée à ce Worker.",
+  link_session_required:
+    "La session à l’origine de la liaison a expiré ou changé. Recommencez depuis votre compte.",
+  local_speaker_not_found: "Cette voix n’existe pas.",
+  media_not_found: "Ce fichier média n’est pas disponible.",
+  method_not_allowed: "Cette action n’est pas autorisée ici.",
+  microphone_track_not_diarized: "La piste du micro n’a pas encore de voix.",
+  no_linked_person: "Aucune personne n’est liée à votre compte.",
+  not_attributed_to_person: "Cette voix n’est attribuée à aucune personne.",
+  network_failure: "La connexion a été interrompue.",
+  not_found: "Cet élément n’existe pas.",
+  not_pending: "Cette inscription n’attend pas d’approbation.",
+  not_unknown: "Cette voix n’est plus inconnue.",
+  not_validated: "Cette voix n’a pas été validée.",
+  origin_rejected: "Cette requête vient d’une adresse inattendue.",
+  person_has_hidden_voices: "Cette personne a encore des voix masquées.",
+  person_linked_account: "Cette personne est liée à un compte.",
+  person_not_found: "Cette personne n’existe pas.",
+  rate_limited: "Trop de tentatives. Patientez quelques secondes.",
+  same_person: "Il s’agit déjà de la même personne.",
+  segment_not_found: "Ce segment n’existe pas.",
+  session_required: "Connectez-vous pour continuer.",
+  setup_closed_or_invalid_code:
+    "Installation déjà terminée, ou code invalide ou expiré.",
+  setup_required: "L’installation n’est pas encore terminée.",
+  source_already_exists: "Ce dossier est déjà surveillé.",
+  source_not_found: "Ce dossier n’existe pas.",
+  source_path_outside_allowed_roots:
+    "Ce dossier est en dehors des racines autorisées.",
+  source_path_unavailable: "Ce dossier n’est pas lisible.",
+  source_roots_unconfigured: "Aucun dossier n’est autorisé sur ce serveur.",
+  stale_voice_result: "Ce résultat vocal est périmé.",
+  transcription_required: "Ce clip doit d’abord être transcrit.",
+  unauthorized: "Connectez-vous pour continuer.",
+  unavailable:
+    "Le service est temporairement indisponible. Réessayez dans un instant.",
+  upload_conflict: "Cet envoi a changé entre-temps.",
+  upload_expired: "Cet envoi a expiré. Recommencez-le.",
+  upload_too_large: "Ce fichier est trop volumineux.",
+  user_not_found: "Cet utilisateur n’existe pas.",
+  username_unavailable: "Ce nom est déjà utilisé.",
+  vocabulary_term_not_found: "Ce terme de vocabulaire n’existe pas.",
+  voice_group_not_found: "Ce groupe de voix n’existe pas.",
+  voice_locked_by_validation: "Cette voix est verrouillée par une validation.",
+  voice_model_access_unconfirmed:
+    "L’accès aux modèles de voix n’a pas été confirmé.",
+  voice_profile_deleted: "Ce profil vocal a été supprimé.",
+  worker_not_found: "Ce Worker n’existe pas.",
+  worker_token_invalid: "Ce jeton de Worker n’est pas valide.",
+  worker_token_required: "Un jeton de Worker est requis.",
+};

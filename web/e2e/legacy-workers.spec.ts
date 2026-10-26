@@ -1,17 +1,16 @@
 import { expect, test } from "@playwright/test";
+import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 
+// Previous interface, kept under /legacy/. The administrator is installed and signed in
+// through the API (the installation wizard replaced the old form). This file is not named
+// workers.spec.ts: Playwright filters by substring, so it would also run admin-workers.spec.ts.
 test("un administrateur crée un worker puis révoque son jeton", async ({
   page,
+  context,
 }) => {
-  await page.goto("/");
-  await page
-    .getByLabel("Code d’installation")
-    .fill(process.env.SNITCH_TEST_CODE!);
-  await page.getByLabel("Nom d’utilisateur").fill("administrator");
-  await page
-    .getByLabel("Mot de passe", { exact: true })
-    .fill("synthetic-password-123");
-  await page.getByRole("button", { name: "Créer l’administrateur" }).click();
+  await installAdministrator();
+  await context.addCookies((await sessionFor(ADMIN)).cookies);
+  await page.goto("/legacy/");
 
   await page.getByLabel("Nom du worker").fill("synthetic-worker");
   await page.getByLabel("Concurrence maximale").fill("2");
@@ -33,7 +32,7 @@ test("un administrateur crée un worker puis révoque son jeton", async ({
   await expect(env).toHaveValue(new RegExp(`SNITCH_API_URL=${origin}\\n`));
   await expect(env).toHaveValue(/SNITCH_WORKER_TOKEN=rw_[A-Za-z0-9_-]{32,}\n/);
   await expect(env).toHaveValue(/TRANSCRIPTION_API_URL=A_RENSEIGNER\n/);
-  await expect(env).toHaveValue(/TRANSCRIPTION_MODEL=A_RENSEIGNER\n/);
+  await expect(env).not.toHaveValue(/\nTRANSCRIPTION_MODEL=/);
   await expect(env).toHaveValue(/HF_TOKEN=A_RENSEIGNER\n/);
   await expect(env).toHaveValue(/SNITCH_VOICE_DOWNLOAD_ON_START=1\n/);
   await expect(env).toHaveValue(/SNITCH_VOICE_CONFIRM_TERMS=1\n/);

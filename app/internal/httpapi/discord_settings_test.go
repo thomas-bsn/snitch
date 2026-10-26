@@ -169,7 +169,7 @@ func testDiscordSettings(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatal("failed update replaced secret", err)
 		}
 	})
-	t.Run("failed authenticated decryption is refused by the settings API", func(t *testing.T) {
+	t.Run("failed authenticated decryption is reported as a secret to re-enter, never served", func(t *testing.T) {
 		for _, damage := range []string{"tamper", "wrong key"} {
 			call(t, "PUT", "/api/admin/settings", `{"client_id":"synthetic-app","client_secret":"fixture-discord-secret","registration_approval":true}`, session.CSRF, 200)
 			var encrypted []byte
@@ -188,8 +188,11 @@ func testDiscordSettings(t *testing.T, pool *pgxpool.Pool) {
 			if _, err := pool.Exec(context.Background(), `UPDATE settings SET value=$1 WHERE key='discord_client_secret'`, encrypted); err != nil {
 				t.Fatal(err)
 			}
-			call(t, "GET", "/api/admin/settings", "", "", 503)
-			call(t, "PUT", "/api/admin/settings", `{"client_id":"updated-app","registration_approval":true}`, session.CSRF, 503)
+			body := call(t, "GET", "/api/admin/settings", "", "", 200)
+			if !bytes.Contains(body, []byte(`"secret_configured":false`)) || !bytes.Contains(body, []byte(`"discord_client_secret"`)) {
+				t.Fatalf("%s: damaged secret not reported: %s", damage, body)
+			}
+			call(t, "PUT", "/api/admin/settings", `{"client_id":"updated-app","registration_approval":true}`, session.CSRF, 400)
 			call(t, "PUT", "/api/admin/settings", `{"client_id":"","registration_approval":true}`, session.CSRF, 200)
 		}
 	})
