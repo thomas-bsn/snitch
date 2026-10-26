@@ -70,7 +70,8 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
   ).toMatchObject({ user: { role: "user", username: "discord_123456" } });
   // Linking an identity that belongs to another account keeps the existing link, and the
   // refusal is shown in the new interface where the server sends the browser back.
-  await page.getByRole("button", { name: "Lier Discord", exact: true }).click();
+  await page.goto("/account");
+  await page.getByRole("button", { name: "Link Discord", exact: true }).click();
   await page
     .getByRole("link", { name: "Autoriser 123456", exact: true })
     .click();
@@ -78,14 +79,14 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
   await expect(
     page.getByRole("button", { name: "Account menu" }),
   ).toBeVisible();
-  await page.goto("/legacy/");
-  await page.getByRole("button", { name: "Lier Discord", exact: true }).click();
+  await page.goto("/account");
+  await page.getByRole("button", { name: "Link Discord", exact: true }).click();
   await page
     .getByRole("link", { name: "Autoriser 654321", exact: true })
     .click();
-  await expect(
-    page.getByRole("button", { name: "Account menu" }),
-  ).toBeVisible();
+  await expect(page.getByRole("status")).toContainText(
+    "Your Discord identity is linked",
+  );
   await page.goto("/legacy/");
   await page
     .getByRole("button", { name: "Se déconnecter", exact: true })
@@ -100,7 +101,7 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
   ).toBeVisible();
   expect(
     await (await page.request.get(origin + "/api/auth/me")).json(),
-  ).toMatchObject({ user: { role: "admin", username: "administrator" } });
+  ).toMatchObject({ user: { role: "super_admin", username: "administrator" } });
   await visitor.goto(origin + "/?notice=unavailable");
   await expect(visitor.getByRole("status")).toContainText(
     "temporarily unavailable",

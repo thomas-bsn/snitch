@@ -21,6 +21,8 @@ type Bundle struct {
 
 type BundleInput struct {
 	APIURL, Token, Image string
+	// WhisperURL is the address of this worker's Whisper server, when the administrator gave it.
+	WhisperURL string
 }
 
 // composeFile is static on purpose: every variable part lives in the .env file, so no value
@@ -40,7 +42,7 @@ services:
       SNITCH_WORKER_CA_BUNDLE: ${SNITCH_WORKER_CA_BUNDLE:-}
       SNITCH_WORKER_CAPACITY: ${SNITCH_WORKER_CAPACITY:-1}
       TRANSCRIPTION_API_URL: ${TRANSCRIPTION_API_URL:?Renseigner TRANSCRIPTION_API_URL dans .env}
-      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:?Renseigner TRANSCRIPTION_MODEL dans .env}
+      TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-}
       TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-}
       SNITCH_VOICE_DIARIZATION_MODEL_PATH: ${SNITCH_VOICE_DIARIZATION_MODEL_PATH:-/models/diarization}
       SNITCH_VOICE_EMBEDDING_MODEL_PATH: ${SNITCH_VOICE_EMBEDDING_MODEL_PATH:-/models/embedding}
@@ -81,12 +83,13 @@ SNITCH_API_URL={{v .APIURL}}
 SNITCH_WORKER_TOKEN={{v .Token}}
 SNITCH_WORKER_IMAGE={{v .Image}}
 
-# --- Transcription : à renseigner ---
+# --- Transcription ---
 # Serveur compatible POST /v1/audio/transcriptions, par exemple un Whisper lancé sur le PC :
 # http://host.docker.internal:8000
-TRANSCRIPTION_API_URL={{v .Placeholder}}
-# Nom de modèle reconnu par ce serveur.
-TRANSCRIPTION_MODEL={{v .Placeholder}}
+TRANSCRIPTION_API_URL={{v .Whisper}}
+# Facultatif : le nom que CE serveur donne au modèle de la bibliothèque, seulement s'il diffère.
+# Par défaut, le worker utilise le modèle de la bibliothèque, réglé dans Snitch.
+# TRANSCRIPTION_MODEL=
 # Clé bearer, facultative.
 # TRANSCRIPTION_API_KEY=
 
@@ -121,11 +124,15 @@ func NewBundle(input BundleInput) (Bundle, error) {
 		return Bundle{}, errors.New("worker bundle needs an API URL, a token and an image")
 	}
 	insecure := !strings.HasPrefix(strings.ToLower(input.APIURL), "https://")
+	whisper := input.WhisperURL
+	if whisper == "" {
+		whisper = Placeholder
+	}
 	var env strings.Builder
 	data := struct {
-		APIURL, Token, Image, Placeholder string
-		Insecure                          bool
-	}{input.APIURL, input.Token, input.Image, Placeholder, insecure}
+		APIURL, Token, Image, Placeholder, Whisper string
+		Insecure                                   bool
+	}{input.APIURL, input.Token, input.Image, Placeholder, whisper, insecure}
 	if err := envFile.Execute(&env, data); err != nil {
 		return Bundle{}, err
 	}

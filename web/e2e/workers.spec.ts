@@ -33,7 +33,7 @@ test("un administrateur crée un worker puis révoque son jeton", async ({
   await expect(env).toHaveValue(new RegExp(`SNITCH_API_URL=${origin}\\n`));
   await expect(env).toHaveValue(/SNITCH_WORKER_TOKEN=rw_[A-Za-z0-9_-]{32,}\n/);
   await expect(env).toHaveValue(/TRANSCRIPTION_API_URL=A_RENSEIGNER\n/);
-  await expect(env).toHaveValue(/TRANSCRIPTION_MODEL=A_RENSEIGNER\n/);
+  await expect(env).not.toHaveValue(/\nTRANSCRIPTION_MODEL=/);
   await expect(env).toHaveValue(/HF_TOKEN=A_RENSEIGNER\n/);
   await expect(env).toHaveValue(/SNITCH_VOICE_DOWNLOAD_ON_START=1\n/);
   await expect(env).toHaveValue(/SNITCH_VOICE_CONFIRM_TERMS=1\n/);

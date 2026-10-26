@@ -76,7 +76,7 @@ test.describe.serial("paramètres du compte", () => {
     await tabs.getByRole("tab", { name: "My voice" }).click();
     await expect(page).toHaveURL(/\/account\/voice$/);
     await expect(
-      page.getByRole("heading", { level: 2, name: "My voice" }),
+      page.getByRole("heading", { level: 2, name: "My voice", exact: true }),
     ).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(/\/account$/);
@@ -213,7 +213,9 @@ test.describe.serial("paramètres du compte", () => {
     const visitorContext = await browser.newContext();
     const visitor = await visitorContext.newPage();
     await visitor.goto("/login");
-    await visitor.getByRole("button", { name: "Continue with Discord" }).click();
+    await visitor
+      .getByRole("button", { name: "Continue with Discord" })
+      .click();
     await visitor
       .getByRole("link", { name: "Autoriser 654321", exact: true })
       .click();
@@ -222,9 +224,7 @@ test.describe.serial("paramètres du compte", () => {
     ).toBeVisible();
     expect(
       await (
-        await visitor.request.get(
-          process.env.SNITCH_TEST_URL! + "/api/auth/me",
-        )
+        await visitor.request.get(process.env.SNITCH_TEST_URL! + "/api/auth/me")
       ).json(),
     ).toMatchObject({ user: { username: MEMBER.username } });
     await visitorContext.close();

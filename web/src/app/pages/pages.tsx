@@ -37,9 +37,7 @@ function Placeholder({ title }: { title: MessageKey }) {
 }
 
 export const LibraryPage = () => <Placeholder title="pages.library.title" />;
-export const PeoplePage = () => <Placeholder title="pages.people.title" />;
 export const ImportPage = () => <Placeholder title="pages.import.title" />;
-export const AdminPage = () => <Placeholder title="pages.admin.title" />;
 
 export function SearchPage() {
   const { t } = useI18n();
