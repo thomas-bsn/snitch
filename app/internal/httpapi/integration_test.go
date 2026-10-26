@@ -452,6 +452,8 @@ func TestFoundation(t *testing.T) {
 		json.Unmarshal(call(client, "POST", "/api/persons", map[string]any{"display_name": "Contract person"}, me.CSRF, 201), &contractPerson)
 		call(client, "GET", "/api/persons?q=contract", nil, "", 200)
 		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID), nil, "", 200)
+		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID)+"/voices", nil, "", 200)
+		call(client, "GET", "/api/clip-filters", nil, "", 200)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"person_id": contractPerson.ID}, me.CSRF, 201)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"new_person_name": "Late"}, me.CSRF, 409)
 		call(client, "POST", speakerPath+"/correction", map[string]any{"new_person_name": "Corrected", "expected_person_id": contractPerson.ID}, me.CSRF, 200)
