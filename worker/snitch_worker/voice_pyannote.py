@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import threading
+import wave
 from typing import Any, Callable, MutableMapping
 
 from snitch_worker.voice import (
@@ -45,6 +46,27 @@ def _probe_device() -> str:
         raise VoiceProviderUnavailable("ml_libraries_missing") from None
 
 
+def read_pcm16_wav(path: str) -> tuple[bytes, int, int]:
+    """Read the prepared 16-bit PCM WAV with the standard library.
+
+    The worker prepares the audio itself with ffmpeg (mono, 16 kHz, pcm_s16le), so no
+    torchaudio/torchcodec decoding backend is needed. Returns raw frames, sample
+    rate and channel count; anything but 16-bit PCM is refused.
+    """
+    with wave.open(path, "rb") as handle:
+        if handle.getsampwidth() != 2:
+            raise ValueError("prepared audio must be 16-bit PCM")
+        return handle.readframes(handle.getnframes()), handle.getframerate(), handle.getnchannels()
+
+
+def _waveform(path: str) -> dict[str, Any]:  # pragma: no cover - needs torch
+    import torch
+
+    frames, sample_rate, channels = read_pcm16_wav(path)
+    samples = torch.frombuffer(bytearray(frames), dtype=torch.int16).to(torch.float32) / 32768.0
+    return {"waveform": samples.reshape(-1, channels).t().contiguous(), "sample_rate": sample_rate}
+
+
 def _load_pipeline(path: str, device: str) -> Callable[[str], Any]:  # pragma: no cover - needs models
     import torch
     from pyannote.audio import Pipeline
@@ -52,20 +74,22 @@ def _load_pipeline(path: str, device: str) -> Callable[[str], Any]:  # pragma: n
     config = os.path.join(path, "config.yaml") if os.path.isdir(path) else path
     pipeline = Pipeline.from_pretrained(config)
     pipeline.to(torch.device(device))
-    return pipeline
+
+    def run(audio_path: str) -> Any:
+        return pipeline(_waveform(audio_path))  # decoded here, not by pyannote
+
+    return run
 
 
 def _load_embedder(path: str, device: str) -> Callable[[str], Callable[[float, float], Any]]:  # pragma: no cover - needs models
     import torch
-    import torchaudio
     from pyannote.audio import Inference, Model
     from pyannote.core import Segment
 
     inference = Inference(Model.from_pretrained(path), window="whole", device=torch.device(device))
 
     def open_audio(audio_path: str) -> Callable[[float, float], Any]:
-        waveform, sample_rate = torchaudio.load(audio_path)  # decoded once per task
-        audio = {"waveform": waveform, "sample_rate": sample_rate}
+        audio = _waveform(audio_path)  # decoded once per task
 
         def embed(start: float, end: float) -> Any:
             return inference.crop(audio, Segment(start, end)).reshape(-1).tolist()

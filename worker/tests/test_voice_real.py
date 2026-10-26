@@ -400,3 +400,39 @@ class DownloadScriptTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReadPcm16WavTests(unittest.TestCase):
+    def test_reads_the_prepared_wav_without_any_audio_backend(self):
+        import os
+        import tempfile
+        import wave
+
+        from snitch_worker.voice_pyannote import read_pcm16_wav
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "prepared.wav")
+            with wave.open(path, "wb") as handle:
+                handle.setnchannels(1)
+                handle.setsampwidth(2)
+                handle.setframerate(16000)
+                handle.writeframes(b"\x00\x01" * 16000)
+            frames, rate, channels = read_pcm16_wav(path)
+        self.assertEqual((rate, channels, len(frames)), (16000, 1, 32000))
+
+    def test_refuses_audio_that_is_not_16_bit_pcm(self):
+        import os
+        import tempfile
+        import wave
+
+        from snitch_worker.voice_pyannote import read_pcm16_wav
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "eight-bit.wav")
+            with wave.open(path, "wb") as handle:
+                handle.setnchannels(1)
+                handle.setsampwidth(1)
+                handle.setframerate(16000)
+                handle.writeframes(b"\x00" * 100)
+            with self.assertRaises(ValueError):
+                read_pcm16_wav(path)
