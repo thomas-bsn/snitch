@@ -213,6 +213,12 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 		clipPeople = []clipPerson{}
 	}
 	response := map[string]any{"persons": clipPeople, "audio_track_selection": selection, "id": v.ID, "owner_id": v.OwnerID, "owner": v.Owner, "visibility": v.Visibility, "original_name": v.OriginalName, "size_bytes": v.SizeBytes, "discovered_at": v.DiscoveredAt, "recorded_at": v.RecordedAt, "recorded_at_estimated": v.RecordedAtEstimated, "duration_seconds": v.DurationSeconds, "format_name": v.FormatName, "video_codec": v.VideoCodec, "audio_codec": v.AudioCodec, "tracks": v.Tracks, "status": v.Status, "sources": v.Sources, "uploaders": v.Uploaders}
+	progress, progressErr := s.clipProgress(r.Context(), v.ID, transcriptJobID, transcript != nil)
+	if progressErr != nil {
+		s.internal(w, progressErr)
+		return
+	}
+	response["progress"] = progress
 	if transcript != nil {
 		var value any
 		if json.Unmarshal(transcript, &value) == nil {

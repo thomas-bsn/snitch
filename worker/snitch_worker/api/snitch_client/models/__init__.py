@@ -20,10 +20,15 @@ from .audio_track_selection_status import AudioTrackSelectionStatus
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
 from .bootstrap import Bootstrap
 from .clip import Clip
+from .clip_filter_options import ClipFilterOptions
+from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
+from .clip_filter_options_sources_item import ClipFilterOptionsSourcesItem
 from .clip_microphone_track import ClipMicrophoneTrack
 from .clip_microphone_track_selection_source import ClipMicrophoneTrackSelectionSource
 from .clip_page import ClipPage
 from .clip_person import ClipPerson
+from .clip_progress import ClipProgress
+from .clip_step_state import ClipStepState
 from .clip_visibility import ClipVisibility
 from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
@@ -84,6 +89,8 @@ from .person_list import PersonList
 from .person_merge_input import PersonMergeInput
 from .person_ref import PersonRef
 from .person_separation_input import PersonSeparationInput
+from .person_voice import PersonVoice
+from .person_voice_list import PersonVoiceList
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
@@ -240,10 +247,15 @@ __all__ = (
     "BackfillEmbeddingIndexResponse202",
     "Bootstrap",
     "Clip",
+    "ClipFilterOptions",
+    "ClipFilterOptionsOwnersItem",
+    "ClipFilterOptionsSourcesItem",
     "ClipMicrophoneTrack",
     "ClipMicrophoneTrackSelectionSource",
     "ClipPage",
     "ClipPerson",
+    "ClipProgress",
+    "ClipStepState",
     "ClipVisibility",
     "ClipVoice",
     "ClipVoiceStatus",
@@ -304,6 +316,8 @@ __all__ = (
     "PersonMergeInput",
     "PersonRef",
     "PersonSeparationInput",
+    "PersonVoice",
+    "PersonVoiceList",
     "PreviewTranscriptionBatchResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",

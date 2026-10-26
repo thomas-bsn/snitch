@@ -676,6 +676,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clip-filters": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Session requise. Ne liste que les Sources et les propriétaires des clips que la visibilité permet à l’appelant de voir : un membre n’apprend l’existence d’aucune Source ni d’aucun compte dont il ne voit aucun clip. */
+    get: operations["listClipFilterOptions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}": {
     parameters: {
       query?: never;
@@ -1084,6 +1101,23 @@ export interface paths {
     put?: never;
     /** @description Utilisateurs connectés, pour des voix de clips visibles (sinon 404). Retire la validation des voix nommées (elles redeviennent inconnues et peuvent être validées de nouveau) et leurs Échantillons vocaux des références ; la Personne est conservée. Historique des voix (action split), rapprochement recalculé. */
     post: operations["separatePerson"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/voices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Les voix qu'une séparation peut nommer (POST /api/persons/{id}/separation) : validation humaine, clip visible pour l'appelant. Extraits écoutables par GET /api/local-speakers/{id}/excerpt. Cette lecture n'écrit rien. */
+    get: operations["listPersonVoices"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2057,6 +2091,18 @@ export interface components {
       /** Format: date-time */
       created_at: string;
     };
+    PersonVoice: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+    };
+    PersonVoiceList: {
+      items: components["schemas"]["PersonVoice"][];
+    };
     PersonEventList: {
       items: components["schemas"]["PersonEvent"][];
     };
@@ -2681,6 +2727,35 @@ export interface components {
       persons?: components["schemas"]["ClipPerson"][];
       transcription?: components["schemas"]["Transcription"];
       audio_track_selection?: components["schemas"]["AudioTrackSelection"];
+      progress?: components["schemas"]["ClipProgress"];
+    };
+    /**
+     * @description État d’une étape du clip : none (rien de planifié), queued (en file), running (en cours), done (terminée), failed (échouée), unavailable (étape non configurée sur cette installation).
+     * @enum {string}
+     */
+    ClipStepState:
+      | "none"
+      | "queued"
+      | "running"
+      | "done"
+      | "failed"
+      | "unavailable";
+    /** @description Avancement du clip pour les étapes que le serveur seul connaît. Les étapes de voix se lisent avec GET /api/clips/{id}/voice. Un clip est toujours importé. */
+    ClipProgress: {
+      transcription: components["schemas"]["ClipStepState"];
+      indexing: components["schemas"]["ClipStepState"];
+    };
+    ClipFilterOptions: {
+      sources: {
+        /** Format: int64 */
+        id: number;
+        name: string;
+      }[];
+      owners: {
+        /** Format: int64 */
+        id: number;
+        username: string;
+      }[];
     };
     ClipPage: {
       items: components["schemas"]["Clip"][];
@@ -4720,6 +4795,35 @@ export interface operations {
       };
     };
   };
+  listClipFilterOptions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sources et propriétaires proposés par les filtres de la Bibliothèque */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipFilterOptions"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getClip: {
     parameters: {
       query?: never;
@@ -6027,6 +6131,46 @@ export interface operations {
       };
       /** @description not_attributed_to_person : une voix n'est pas validée pour cette Personne ; rien n'est changé */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPersonVoices: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Voix validées pour cette Personne, sur les clips visibles (500 au plus) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonVoiceList"];
+        };
+      };
+      /** @description person_not_found */
+      404: {
         headers: {
           [name: string]: unknown;
         };

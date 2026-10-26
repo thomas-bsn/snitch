@@ -16,6 +16,7 @@ import datetime
 if TYPE_CHECKING:
   from ..models.audio_track_selection import AudioTrackSelection
   from ..models.clip_person import ClipPerson
+  from ..models.clip_progress import ClipProgress
   from ..models.media_track import MediaTrack
   from ..models.transcription import Transcription
 
@@ -52,6 +53,8 @@ class Clip:
                 triées par nom.
             transcription (Transcription | Unset):
             audio_track_selection (AudioTrackSelection | Unset):
+            progress (ClipProgress | Unset): Avancement du clip pour les étapes que le serveur seul connaît. Les étapes de
+                voix se lisent avec GET /api/clips/{id}/voice. Un clip est toujours importé.
      """
 
     id: int
@@ -74,6 +77,7 @@ class Clip:
     persons: list[ClipPerson] | Unset = UNSET
     transcription: Transcription | Unset = UNSET
     audio_track_selection: AudioTrackSelection | Unset = UNSET
+    progress: ClipProgress | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -83,6 +87,7 @@ class Clip:
     def to_dict(self) -> dict[str, Any]:
         from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
         from ..models.clip_person import ClipPerson # noqa: PLC0415
+        from ..models.clip_progress import ClipProgress # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         id = self.id
@@ -151,6 +156,10 @@ class Clip:
         if not isinstance(self.audio_track_selection, Unset):
             audio_track_selection = self.audio_track_selection.to_dict()
 
+        progress: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.progress, Unset):
+            progress = self.progress.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -182,6 +191,8 @@ class Clip:
             field_dict["transcription"] = transcription
         if audio_track_selection is not UNSET:
             field_dict["audio_track_selection"] = audio_track_selection
+        if progress is not UNSET:
+            field_dict["progress"] = progress
 
         return field_dict
 
@@ -191,6 +202,7 @@ class Clip:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
         from ..models.clip_person import ClipPerson # noqa: PLC0415
+        from ..models.clip_progress import ClipProgress # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         d = dict(src_dict)
@@ -287,6 +299,16 @@ class Clip:
 
 
 
+        _progress = d.pop("progress", UNSET)
+        progress: ClipProgress | Unset
+        if isinstance(_progress,  Unset):
+            progress = UNSET
+        else:
+            progress = ClipProgress.from_dict(_progress)
+
+
+
+
         clip = cls(
             id=id,
             owner_id=owner_id,
@@ -308,6 +330,7 @@ class Clip:
             persons=persons,
             transcription=transcription,
             audio_track_selection=audio_track_selection,
+            progress=progress,
         )
 
 
