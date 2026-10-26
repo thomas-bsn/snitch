@@ -3,9 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -15,6 +13,7 @@ import (
 func (s *Server) registerSegmentHistoryRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/clips/{id}/segments/{index}/history", s.protected(false, http.HandlerFunc(s.getSegmentHistory)))
 	mux.Handle("POST /api/clips/{id}/segments/{index}/restore", s.protected(false, http.HandlerFunc(s.restoreSegmentText)))
+	mux.Handle("GET /api/clips/{id}/obsolete-corrections", s.protected(false, http.HandlerFunc(s.getObsoleteCorrections)))
 }
 
 // segmentHistoryEntry is the contract shape of one immutable history entry.
@@ -36,6 +35,15 @@ type segmentHistoryEntry struct {
 	CreatedAt          time.Time `json:"created_at"`
 }
 
+// historyColumns are the columns of segment_correction_events read as a segmentHistoryEntry.
+const historyColumns = `e.id,e.kind,e.old_text,e.new_text,e.old_corrected,e.new_corrected,e.old_speaker_label,e.new_speaker_label,e.restored_from_event_id,e.restored_to_original,e.reason,e.version_before,e.version_after,e.author_id,e.author_username,e.created_at`
+
+func scanHistoryEntry(row pgx.Row) (segmentHistoryEntry, error) {
+	var e segmentHistoryEntry
+	err := row.Scan(&e.ID, &e.Kind, &e.OldText, &e.NewText, &e.OldCorrected, &e.NewCorrected, &e.OldSpeakerLabel, &e.NewSpeakerLabel, &e.RestoredFromEvent, &e.RestoredToOriginal, &e.Reason, &e.VersionBefore, &e.VersionAfter, &e.Author.ID, &e.Author.Username, &e.CreatedAt)
+	return e, err
+}
+
 type segmentHistoryView struct {
 	TranscriptionJobID int64                 `json:"transcription_job_id"`
 	Index              int                   `json:"index"`
@@ -52,8 +60,7 @@ func (s *Server) getSegmentHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	rows, err := s.Pool.Query(ctx, `SELECT id,kind,old_text,new_text,old_corrected,new_corrected,old_speaker_label,new_speaker_label,restored_from_event_id,restored_to_original,reason,version_before,version_after,author_id,author_username,created_at
- FROM segment_correction_events WHERE transcription_job_id=$1 AND segment_index=$2 ORDER BY id DESC`, ref.JobID, ref.Index)
+	rows, err := s.Pool.Query(ctx, `SELECT `+historyColumns+` FROM segment_correction_events e WHERE e.transcription_job_id=$1 AND e.segment_index=$2 ORDER BY e.id DESC`, ref.JobID, ref.Index)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -61,8 +68,8 @@ func (s *Server) getSegmentHistory(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 	items := []segmentHistoryEntry{}
 	for rows.Next() {
-		var e segmentHistoryEntry
-		if err = rows.Scan(&e.ID, &e.Kind, &e.OldText, &e.NewText, &e.OldCorrected, &e.NewCorrected, &e.OldSpeakerLabel, &e.NewSpeakerLabel, &e.RestoredFromEvent, &e.RestoredToOriginal, &e.Reason, &e.VersionBefore, &e.VersionAfter, &e.Author.ID, &e.Author.Username, &e.CreatedAt); err != nil {
+		e, err := scanHistoryEntry(rows)
+		if err != nil {
 			s.internal(w, err)
 			return
 		}
@@ -73,6 +80,74 @@ func (s *Server) getSegmentHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, http.StatusOK, segmentHistoryView{TranscriptionJobID: ref.JobID, Index: ref.Index, OriginalText: ref.OriginalText, Current: *s.currentSegmentView(ctx, ref), Items: items})
+}
+
+// obsoleteCorrection is a segment whose correction was replaced by a retranscription:
+// the text of the replaced transcription and its history, read-only.
+type obsoleteCorrection struct {
+	TranscriptionJobID int64                 `json:"transcription_job_id"`
+	Index              int                   `json:"index"`
+	OriginalText       string                `json:"original_text"`
+	Text               *string               `json:"text"`
+	ObsoleteAt         time.Time             `json:"obsolete_at"`
+	History            []segmentHistoryEntry `json:"history"`
+}
+
+// getObsoleteCorrections lists the corrections of the transcriptions a retranscription
+// replaced (segment_corrections.stale_at set), with their history, for whoever can see
+// the clip. They are never applied again and cannot be restored; they stay readable.
+func (s *Server) getObsoleteCorrections(w http.ResponseWriter, r *http.Request) {
+	clip, ok := s.authorizedClip(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	rows, err := s.Pool.Query(ctx, `SELECT sc.transcription_job_id,sc.segment_index,COALESCE(j.result->'segments'->sc.segment_index->>'text',''),sc.text,sc.stale_at
+ FROM segment_corrections sc JOIN jobs j ON j.id=sc.transcription_job_id WHERE sc.clip_id=$1 AND sc.stale_at IS NOT NULL ORDER BY sc.transcription_job_id DESC,sc.segment_index`, clip.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer rows.Close()
+	items := []obsoleteCorrection{}
+	position := map[[2]int64]int{}
+	for rows.Next() {
+		o := obsoleteCorrection{History: []segmentHistoryEntry{}}
+		if err = rows.Scan(&o.TranscriptionJobID, &o.Index, &o.OriginalText, &o.Text, &o.ObsoleteAt); err != nil {
+			s.internal(w, err)
+			return
+		}
+		position[[2]int64{o.TranscriptionJobID, int64(o.Index)}] = len(items)
+		items = append(items, o)
+	}
+	if err = rows.Err(); err != nil {
+		s.internal(w, err)
+		return
+	}
+	events, err := s.Pool.Query(ctx, `SELECT e.transcription_job_id,e.segment_index,`+historyColumns+` FROM segment_correction_events e JOIN segment_corrections sc ON sc.transcription_job_id=e.transcription_job_id AND sc.segment_index=e.segment_index
+ WHERE sc.clip_id=$1 AND sc.stale_at IS NOT NULL ORDER BY e.id DESC`, clip.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer events.Close()
+	for events.Next() {
+		var job int64
+		var index int
+		var e segmentHistoryEntry
+		if err = events.Scan(&job, &index, &e.ID, &e.Kind, &e.OldText, &e.NewText, &e.OldCorrected, &e.NewCorrected, &e.OldSpeakerLabel, &e.NewSpeakerLabel, &e.RestoredFromEvent, &e.RestoredToOriginal, &e.Reason, &e.VersionBefore, &e.VersionAfter, &e.Author.ID, &e.Author.Username, &e.CreatedAt); err != nil {
+			s.internal(w, err)
+			return
+		}
+		if at, found := position[[2]int64{job, int64(index)}]; found {
+			items[at].History = append(items[at].History, e)
+		}
+	}
+	if err = events.Err(); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"items": items})
 }
 
 type segmentRestoreInput struct {
@@ -101,118 +176,56 @@ func (s *Server) restoreSegmentText(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.ExpectedVersion == nil || *input.ExpectedVersion < 0 || (input.EventID == nil) == !input.Original ||
-		(input.EventID != nil && *input.EventID < 1) || (input.TranscriptionJobID != nil && *input.TranscriptionJobID < 1) {
-		fail(w, http.StatusBadRequest, "invalid_request")
+	if (input.EventID == nil) == !input.Original || (input.EventID != nil && *input.EventID < 1) {
+		fail(w, http.StatusBadRequest, codeInvalidRequest)
 		return
 	}
-	reason := strings.TrimSpace(input.Reason)
-	if utf8.RuneCountInString(reason) > maxCorrectionReasonRu || strings.ContainsRune(reason, 0) {
-		fail(w, http.StatusBadRequest, "invalid_reason")
+	env, ok := parseEnvelope(w, input.ExpectedVersion, input.Reason, input.TranscriptionJobID)
+	if !ok {
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	defer tx.Rollback(ctx)
-	ref, found, err := s.resolveSegment(ctx, tx, clip, index)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if !found {
-		fail(w, http.StatusNotFound, "segment_not_found")
-		return
-	}
-	if input.TranscriptionJobID != nil && *input.TranscriptionJobID != ref.JobID {
-		tx.Rollback(ctx)
-		s.segmentConflict(w, r, ref, "transcription_changed")
-		return
-	}
-	// The target: the original text, or what a past entry of this very segment produced.
-	// A speaker entry carries no text decision and cannot be restored here.
-	target, toOriginal := ref.OriginalText, input.Original
-	var fromEvent *int64
-	if input.EventID != nil {
-		var kind string
-		var newText *string
-		var newCorrected bool
-		err = tx.QueryRow(ctx, `SELECT kind,new_text,new_corrected FROM segment_correction_events WHERE id=$1 AND transcription_job_id=$2 AND segment_index=$3`, *input.EventID, ref.JobID, ref.Index).Scan(&kind, &newText, &newCorrected)
-		if errors.Is(err, pgx.ErrNoRows) {
-			fail(w, http.StatusNotFound, "event_not_found")
-			return
+	s.correctSegment(w, r, clip, index, env, func(l lockedSegment) (segmentChange, *refusal, error) {
+		ctx, ref := r.Context(), l.Ref
+		// The target: the original text, or what a past entry of this very segment produced.
+		// A speaker entry carries no text decision and cannot be restored here.
+		target, toOriginal := ref.OriginalText, input.Original
+		var fromEvent *int64
+		if input.EventID != nil {
+			var kind string
+			var newText *string
+			var newCorrected bool
+			err := l.Tx.QueryRow(ctx, `SELECT kind,new_text,new_corrected FROM segment_correction_events WHERE id=$1 AND transcription_job_id=$2 AND segment_index=$3`, *input.EventID, ref.JobID, ref.Index).Scan(&kind, &newText, &newCorrected)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return segmentChange{}, &refusal{http.StatusNotFound, codeEventNotFound}, nil
+			}
+			if err != nil {
+				return segmentChange{}, nil, err
+			}
+			if kind == eventSpeaker || newText == nil {
+				return segmentChange{}, &refusal{http.StatusBadRequest, codeEventNotRestorable}, nil
+			}
+			fromEvent, toOriginal = input.EventID, !newCorrected
+			if newCorrected {
+				target = *newText
+			}
 		}
-		if err != nil {
-			s.internal(w, err)
-			return
+		oldText, oldCorrected := l.effectiveText()
+		if (toOriginal && !oldCorrected) || (!toOriginal && oldCorrected && target == oldText) {
+			return segmentChange{}, &refusal{http.StatusBadRequest, codeTextUnchanged}, nil
 		}
-		if kind == "speaker" || newText == nil {
-			fail(w, http.StatusBadRequest, "event_not_restorable")
-			return
+		// Restoring the original clears the correction (text NULL) and its author.
+		var newText, authorName any = nil, ""
+		var authorID any
+		if !toOriginal {
+			newText, authorID, authorName = target, ss.User.ID, ss.User.Username
 		}
-		fromEvent, toOriginal = input.EventID, !newCorrected
-		if newCorrected {
-			target = *newText
-		}
-	}
-	current, err := scanSegmentState(tx.QueryRow(ctx, `SELECT `+segmentStateColumns+` FROM segment_corrections WHERE transcription_job_id=$1 AND segment_index=$2 FOR UPDATE`, ref.JobID, ref.Index))
-	exists := err == nil
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		s.internal(w, err)
-		return
-	}
-	version, oldText, oldCorrected := 0, ref.OriginalText, false
-	if exists {
-		version = current.Version
-		if current.Text != nil {
-			oldText, oldCorrected = *current.Text, true
-		}
-	}
-	if *input.ExpectedVersion != version {
-		tx.Rollback(ctx)
-		s.segmentConflict(w, r, ref, "segment_conflict")
-		return
-	}
-	if (toOriginal && !oldCorrected) || (!toOriginal && oldCorrected && target == oldText) {
-		fail(w, http.StatusBadRequest, "text_unchanged")
-		return
-	}
-	// Restoring the original clears the correction (text NULL) and its author.
-	var newText, authorName any = nil, ""
-	var authorID any
-	if !toOriginal {
-		newText, authorID, authorName = target, ss.User.ID, ss.User.Username
-	}
-	var written segmentState
-	if exists {
-		written, err = scanSegmentState(tx.QueryRow(ctx, `UPDATE segment_corrections SET text=$3::text,text_author_id=$4,text_author_username=$5,text_corrected_at=CASE WHEN $3::text IS NULL THEN NULL ELSE now() END,version=version+1,
- reindex_pending=true,reindex_requested_at=now(),reindex_attempts=0,reindex_error='',reindex_lease_expires_at=NULL,updated_at=now()
- WHERE transcription_job_id=$1 AND segment_index=$2 AND version=$6 RETURNING `+segmentStateColumns, ref.JobID, ref.Index, newText, authorID, authorName, version))
-	} else {
-		written, err = scanSegmentState(tx.QueryRow(ctx, `INSERT INTO segment_corrections(transcription_job_id,segment_index,clip_id,text,text_author_id,text_author_username,text_corrected_at,reindex_pending,reindex_requested_at)
- VALUES($1,$2,$3,$4::text,$5,$6,CASE WHEN $4::text IS NULL THEN NULL ELSE now() END,true,now()) ON CONFLICT (transcription_job_id,segment_index) DO NOTHING RETURNING `+segmentStateColumns, ref.JobID, ref.Index, ref.Clip.ID, newText, authorID, authorName))
-	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		tx.Rollback(ctx)
-		s.segmentConflict(w, r, ref, "segment_conflict")
-		return
-	}
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO segment_correction_events(transcription_job_id,segment_index,clip_id,kind,old_text,new_text,old_corrected,new_corrected,restored_from_event_id,restored_to_original,reason,version_before,version_after,author_id,author_username)
- VALUES($1,$2,$3,'restore',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`, ref.JobID, ref.Index, ref.Clip.ID, oldText, target, oldCorrected, !toOriginal, fromEvent, toOriginal, reason, version, written.Version, ss.User.ID, ss.User.Username); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if err = tx.Commit(ctx); err != nil {
-		s.internal(w, err)
-		return
-	}
-	reply(w, http.StatusOK, newSegmentCorrectionView(ref, &written))
+		return segmentChange{
+			Set:  append([]assignment{{"text", "$4::text", ""}, {"text_author_id", "$5", ""}, {"text_author_username", "$6", ""}, {"text_corrected_at", "CASE WHEN $4::text IS NULL THEN NULL ELSE now() END", ""}}, reindexSet...),
+			Args: []any{newText, authorID, authorName},
+			Event: segmentEvent{Kind: eventRestore, OldText: oldText, NewText: target, OldCorrected: oldCorrected, NewCorrected: !toOriginal,
+				RestoredFromEvent: fromEvent, RestoredToOriginal: toOriginal},
+			View: func(written segmentState) any { return newSegmentCorrectionView(ref, &written) },
+		}, nil, nil
+	})
 }

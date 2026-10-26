@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
-	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -50,12 +48,28 @@ func deducedSpeaker(ctx context.Context, q queryer, clipID int64, stream int, st
 	return id, label, err == nil, err
 }
 
+// dropSpeakerOverrides runs before Local speakers are deleted (a new diarization, the
+// designation of a microphone track): the segments that designate one of them return
+// to their deduced speaker, and each loss is recorded in the history (author
+// "system", version incremented) instead of vanishing through the foreign key's
+// ON DELETE SET NULL. condition selects the Local speakers (alias ls, placeholders
+// from $1).
+func dropSpeakerOverrides(ctx context.Context, q queryer, condition string, args ...any) error {
+	_, err := q.Exec(ctx, `WITH dropped AS (
+ UPDATE segment_corrections sc SET speaker_override_id=NULL,speaker_author_id=NULL,speaker_author_username='',speaker_corrected_at=NULL,version=sc.version+1,updated_at=now()
+ FROM local_speakers ls WHERE ls.id=sc.speaker_override_id AND `+condition+`
+ RETURNING sc.transcription_job_id job,sc.segment_index idx,sc.clip_id,sc.version,sc.text,ls.id speaker_id,ls.label)
+INSERT INTO segment_correction_events(transcription_job_id,segment_index,clip_id,kind,old_text,new_text,old_corrected,new_corrected,old_speaker_id,old_speaker_label,new_speaker_id,new_speaker_label,reason,version_before,version_after,author_id,author_username)
+SELECT d.job,d.idx,d.clip_id,'`+eventSpeaker+`',COALESCE(d.text,j.result->'segments'->d.idx->>'text',''),COALESCE(d.text,j.result->'segments'->d.idx->>'text',''),d.text IS NOT NULL,d.text IS NOT NULL,d.speaker_id,d.label,NULL,'',
+ 'Locuteur supprimé par une nouvelle diarisation ou la désignation d''une piste microphone',d.version-1,d.version,NULL,'system'
+FROM dropped d JOIN jobs j ON j.id=d.job`, args...)
+	return err
+}
+
 // putSegmentSpeaker designates the Local speaker of a segment of the visible
-// transcription, or returns to the deduced one. Same optimistic-concurrency skeleton as
-// putSegmentText: the row is locked, the version compared, and the override, the
-// incremented version and the history entry are written in one transaction. Speaker
-// turns, fingerprints, attributions and voice samples are never touched, and the
-// segment is not marked for reindexing (the speaker does not change its embedding).
+// transcription, or returns to the deduced one (correctSegment). Speaker turns,
+// fingerprints, attributions and voice samples are never touched, and the segment is
+// not marked for reindexing (the speaker does not change its embedding).
 func (s *Server) putSegmentSpeaker(w http.ResponseWriter, r *http.Request) {
 	clip, ok := s.authorizedClip(w, r)
 	if !ok {
@@ -70,143 +84,85 @@ func (s *Server) putSegmentSpeaker(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	if len(input.LocalSpeakerID) == 0 || input.ExpectedVersion == nil || *input.ExpectedVersion < 0 || (input.TranscriptionJobID != nil && *input.TranscriptionJobID < 1) {
-		fail(w, http.StatusBadRequest, "invalid_request")
+	if len(input.LocalSpeakerID) == 0 {
+		fail(w, http.StatusBadRequest, codeInvalidRequest)
 		return
 	}
 	var target *int64
 	if !bytes.Equal(bytes.TrimSpace(input.LocalSpeakerID), []byte("null")) {
 		var id int64
 		if err := json.Unmarshal(input.LocalSpeakerID, &id); err != nil || id < 1 {
-			fail(w, http.StatusBadRequest, "invalid_request")
+			fail(w, http.StatusBadRequest, codeInvalidRequest)
 			return
 		}
 		target = &id
 	}
-	reason := strings.TrimSpace(input.Reason)
-	if utf8.RuneCountInString(reason) > maxCorrectionReasonRu || strings.ContainsRune(reason, 0) {
-		fail(w, http.StatusBadRequest, "invalid_reason")
+	env, ok := parseEnvelope(w, input.ExpectedVersion, input.Reason, input.TranscriptionJobID)
+	if !ok {
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	defer tx.Rollback(ctx)
-	ref, found, err := s.resolveSegment(ctx, tx, clip, index)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if !found {
-		fail(w, http.StatusNotFound, "segment_not_found")
-		return
-	}
-	if input.TranscriptionJobID != nil && *input.TranscriptionJobID != ref.JobID {
-		tx.Rollback(ctx)
-		s.segmentConflict(w, r, ref, "transcription_changed")
-		return
-	}
-	// The designated voice must be a Local speaker of this clip and audio stream.
-	newLabel := ""
-	if target != nil {
-		err = tx.QueryRow(ctx, `SELECT label FROM local_speakers WHERE id=$1 AND clip_id=$2 AND audio_stream_index=$3`, *target, ref.Clip.ID, ref.Stream).Scan(&newLabel)
-		if errors.Is(err, pgx.ErrNoRows) {
-			fail(w, http.StatusBadRequest, "invalid_local_speaker")
-			return
+	s.correctSegment(w, r, clip, index, env, func(l lockedSegment) (segmentChange, *refusal, error) {
+		ctx, tx, ref := r.Context(), l.Tx, l.Ref
+		// The designated voice must be a Local speaker of this clip and audio stream.
+		newLabel := ""
+		if target != nil {
+			err := tx.QueryRow(ctx, `SELECT label FROM local_speakers WHERE id=$1 AND clip_id=$2 AND audio_stream_index=$3`, *target, ref.Clip.ID, ref.Stream).Scan(&newLabel)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return segmentChange{}, &refusal{http.StatusBadRequest, codeInvalidLocalSpeaker}, nil
+			}
+			if err != nil {
+				return segmentChange{}, nil, err
+			}
 		}
+		var oldOverride *int64
+		if l.Exists {
+			oldOverride = l.Current.SpeakerOverrideID
+		}
+		if (target == nil && oldOverride == nil) || (target != nil && oldOverride != nil && *target == *oldOverride) {
+			return segmentChange{}, &refusal{http.StatusBadRequest, codeSpeakerUnchanged}, nil
+		}
+		// Effective speakers before and after, for the history (id NULL = deduced).
+		var start, end float64
+		if err := tx.QueryRow(ctx, `SELECT COALESCE((result->'segments'->$2::int->>'start')::double precision,0),COALESCE((result->'segments'->$2::int->>'end')::double precision,(result->'segments'->$2::int->>'start')::double precision,0) FROM jobs WHERE id=$1`, ref.JobID, ref.Index).Scan(&start, &end); err != nil {
+			return segmentChange{}, nil, err
+		}
+		deducedID, deducedLabel, deducedFound, err := deducedSpeaker(ctx, tx, ref.Clip.ID, ref.Stream, start, end)
 		if err != nil {
-			s.internal(w, err)
-			return
+			return segmentChange{}, nil, err
 		}
-	}
-	current, err := scanSegmentState(tx.QueryRow(ctx, `SELECT `+segmentStateColumns+` FROM segment_corrections WHERE transcription_job_id=$1 AND segment_index=$2 FOR UPDATE`, ref.JobID, ref.Index))
-	exists := err == nil
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		s.internal(w, err)
-		return
-	}
-	version := 0
-	var oldOverride *int64
-	text, textCorrected := ref.OriginalText, false
-	if exists {
-		version, oldOverride = current.Version, current.SpeakerOverrideID
-		if current.Text != nil {
-			text, textCorrected = *current.Text, true
+		oldLabel := ""
+		if oldOverride != nil {
+			if err = tx.QueryRow(ctx, `SELECT label FROM local_speakers WHERE id=$1`, *oldOverride).Scan(&oldLabel); err != nil {
+				return segmentChange{}, nil, err
+			}
+		} else if deducedFound {
+			oldLabel = deducedLabel
 		}
-	}
-	if *input.ExpectedVersion != version {
-		tx.Rollback(ctx)
-		s.segmentConflict(w, r, ref, "segment_conflict")
-		return
-	}
-	if (target == nil && oldOverride == nil) || (target != nil && oldOverride != nil && *target == *oldOverride) {
-		fail(w, http.StatusBadRequest, "speaker_unchanged")
-		return
-	}
-	// Effective speakers before and after, for the history (id NULL = deduced).
-	var start, end float64
-	if err = tx.QueryRow(ctx, `SELECT COALESCE((result->'segments'->$2::int->>'start')::double precision,0),COALESCE((result->'segments'->$2::int->>'end')::double precision,(result->'segments'->$2::int->>'start')::double precision,0) FROM jobs WHERE id=$1`, ref.JobID, ref.Index).Scan(&start, &end); err != nil {
-		s.internal(w, err)
-		return
-	}
-	deducedID, deducedLabel, deducedFound, err := deducedSpeaker(ctx, tx, ref.Clip.ID, ref.Stream, start, end)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	oldLabel := ""
-	if oldOverride != nil {
-		if err = tx.QueryRow(ctx, `SELECT label FROM local_speakers WHERE id=$1`, *oldOverride).Scan(&oldLabel); err != nil {
-			s.internal(w, err)
-			return
+		if target == nil && deducedFound {
+			newLabel = deducedLabel
 		}
-	} else if deducedFound {
-		oldLabel = deducedLabel
-	}
-	if target == nil && deducedFound {
-		newLabel = deducedLabel
-	}
-	var written segmentState
-	switch {
-	case exists && target == nil:
-		written, err = scanSegmentState(tx.QueryRow(ctx, `UPDATE segment_corrections SET speaker_override_id=NULL,speaker_author_id=NULL,speaker_author_username='',speaker_corrected_at=NULL,version=version+1,updated_at=now()
- WHERE transcription_job_id=$1 AND segment_index=$2 AND version=$3 RETURNING `+segmentStateColumns, ref.JobID, ref.Index, version))
-	case exists:
-		written, err = scanSegmentState(tx.QueryRow(ctx, `UPDATE segment_corrections SET speaker_override_id=$4,speaker_author_id=$5,speaker_author_username=$6,speaker_corrected_at=now(),version=version+1,updated_at=now()
- WHERE transcription_job_id=$1 AND segment_index=$2 AND version=$3 RETURNING `+segmentStateColumns, ref.JobID, ref.Index, version, *target, ss.User.ID, ss.User.Username))
-	default:
-		written, err = scanSegmentState(tx.QueryRow(ctx, `INSERT INTO segment_corrections(transcription_job_id,segment_index,clip_id,speaker_override_id,speaker_author_id,speaker_author_username,speaker_corrected_at)
- VALUES($1,$2,$3,$4,$5,$6,now()) ON CONFLICT (transcription_job_id,segment_index) DO NOTHING RETURNING `+segmentStateColumns, ref.JobID, ref.Index, ref.Clip.ID, *target, ss.User.ID, ss.User.Username))
-	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		// A concurrent writer won between the check and the write.
-		tx.Rollback(ctx)
-		s.segmentConflict(w, r, ref, "segment_conflict")
-		return
-	}
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO segment_correction_events(transcription_job_id,segment_index,clip_id,kind,old_text,new_text,old_corrected,new_corrected,old_speaker_id,old_speaker_label,new_speaker_id,new_speaker_label,reason,version_before,version_after,author_id,author_username)
- VALUES($1,$2,$3,'speaker',$4,$4,$5,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`, ref.JobID, ref.Index, ref.Clip.ID, text, textCorrected, oldOverride, oldLabel, target, newLabel, reason, version, written.Version, ss.User.ID, ss.User.Username); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if err = tx.Commit(ctx); err != nil {
-		s.internal(w, err)
-		return
-	}
-	view := segmentSpeakerView{TranscriptionJobID: ref.JobID, Index: ref.Index, Version: written.Version, Corrected: target != nil}
-	switch {
-	case target != nil:
-		view.LocalSpeakerID, view.LocalSpeakerLabel = target, &newLabel
-	case deducedFound:
-		view.LocalSpeakerID, view.LocalSpeakerLabel = &deducedID, &deducedLabel
-	}
-	reply(w, http.StatusOK, view)
+		text, textCorrected := l.effectiveText()
+		change := segmentChange{
+			Event: segmentEvent{Kind: eventSpeaker, OldText: text, NewText: text, OldCorrected: textCorrected, NewCorrected: textCorrected,
+				OldSpeakerID: oldOverride, OldSpeakerLabel: oldLabel, NewSpeakerID: target, NewSpeakerLabel: newLabel},
+			View: func(written segmentState) any {
+				view := segmentSpeakerView{TranscriptionJobID: ref.JobID, Index: ref.Index, Version: written.Version, Corrected: target != nil}
+				switch {
+				case target != nil:
+					view.LocalSpeakerID, view.LocalSpeakerLabel = target, &newLabel
+				case deducedFound:
+					view.LocalSpeakerID, view.LocalSpeakerLabel = &deducedID, &deducedLabel
+				}
+				return view
+			},
+		}
+		if target == nil {
+			change.Set = []assignment{{"speaker_override_id", "NULL", ""}, {"speaker_author_id", "NULL", ""}, {"speaker_author_username", "''", ""}, {"speaker_corrected_at", "NULL", ""}}
+		} else {
+			change.Set = []assignment{{"speaker_override_id", "$4", ""}, {"speaker_author_id", "$5", ""}, {"speaker_author_username", "$6", ""}, {"speaker_corrected_at", "now()", ""}}
+			change.Args = []any{*target, ss.User.ID, ss.User.Username}
+		}
+		return change, nil, nil
+	})
 }

@@ -19,7 +19,7 @@ import (
 // search, embeddings) goes through one of:
 //
 //   - visibleTranscriptsCTE + effectiveSegmentsCTE: SQL fragments for set-based reads
-//     (search, #52; reindexing, #53);
+//     (search, reindexing);
 //   - Server.visibleTranscription + overlaySegments: Go reading of one clip (getClip);
 //   - Server.authorizedSegment: resolution of one segment for the correction routes.
 //
@@ -49,7 +49,7 @@ func visibleTranscriptsCTE(clipFilter string) string {
 // original segment JSON, words included), seg_start, seg_end, original_text, text
 // (effective text: the correction when there is one and it is not obsolete), corrected,
 // version (0 without correction), author_id, author_username, corrected_at,
-// speaker_override_id (reserved for the speaker step; NULL = deduced speaker).
+// speaker_override_id (NULL = deduced speaker).
 // Word timestamps stay those of the original words: the corrected text is not realigned.
 func effectiveSegmentsCTE() string {
 	return `eff_segments AS (SELECT t.clip_id,t.job_id,COALESCE((t.result->>'audio_stream_index')::int,-1) stream,(s.ord-1)::int idx,s.seg,
@@ -64,6 +64,7 @@ func effectiveSegmentsCTE() string {
 type segmentState struct {
 	Index             int
 	Version           int
+	TextVersion       int // moves with the text only (indexing compares it)
 	Text              *string
 	AuthorID          *int64
 	AuthorUsername    string
@@ -72,11 +73,11 @@ type segmentState struct {
 	StaleAt           *time.Time
 }
 
-const segmentStateColumns = `segment_index,version,text,text_author_id,text_author_username,text_corrected_at,speaker_override_id,stale_at`
+const segmentStateColumns = `segment_index,version,text,text_author_id,text_author_username,text_corrected_at,speaker_override_id,stale_at,text_version`
 
 func scanSegmentState(row pgx.Row) (segmentState, error) {
 	var st segmentState
-	err := row.Scan(&st.Index, &st.Version, &st.Text, &st.AuthorID, &st.AuthorUsername, &st.CorrectedAt, &st.SpeakerOverrideID, &st.StaleAt)
+	err := row.Scan(&st.Index, &st.Version, &st.Text, &st.AuthorID, &st.AuthorUsername, &st.CorrectedAt, &st.SpeakerOverrideID, &st.StaleAt, &st.TextVersion)
 	return st, err
 }
 
@@ -113,6 +114,27 @@ func (s *Server) visibleTranscription(ctx context.Context, q queryer, clipID int
 		return visibleTranscript{}, false, nil
 	}
 	return v, err == nil, err
+}
+
+// readVisibleTranscript reads the visible transcription of a clip together with the
+// correction rows of that very job, in one REPEATABLE READ snapshot: the text and the
+// corrections shown never come from two different moments (a retranscription or a
+// correction landing between two plain queries).
+func (s *Server) readVisibleTranscript(ctx context.Context, clipID int64) (visibleTranscript, map[int]segmentState, bool, error) {
+	tx, err := s.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return visibleTranscript{}, nil, false, err
+	}
+	defer tx.Rollback(ctx)
+	visible, found, err := s.visibleTranscription(ctx, tx, clipID)
+	if err != nil || !found {
+		return visibleTranscript{}, nil, false, err
+	}
+	states, err := loadSegmentStates(ctx, tx, visible.JobID)
+	if err != nil {
+		return visibleTranscript{}, nil, false, err
+	}
+	return visible, states, true, nil
 }
 
 // overlaySegments decorates the transcription object of a clip reading in place: the

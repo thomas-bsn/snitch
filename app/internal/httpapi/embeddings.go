@@ -30,7 +30,7 @@ type indexSegment struct {
 	End   float64 `json:"end"`
 	Text  string  `json:"text"`
 	Index int     `json:"-"`
-	// Version is the correction version the text was read at (0: never corrected).
+	// Version is the text version the text was read at (0: never corrected).
 	Version int `json:"-"`
 }
 type indexResult struct {
@@ -119,7 +119,7 @@ func (s *Server) indexNext(ctx context.Context) error {
 	segments := make([]indexSegment, 0, len(transcript.Segments))
 	for index, seg := range transcript.Segments {
 		if st, found := states[index]; found && st.StaleAt == nil {
-			seg.Version = st.Version
+			seg.Version = st.TextVersion
 			if st.Text != nil {
 				seg.Text = *st.Text
 			}
@@ -195,9 +195,9 @@ func (s *Server) indexNext(ctx context.Context) error {
 			vals[j] = strconv.FormatFloat(float64(v), 'g', -1, 32)
 		}
 		vector := "[" + strings.Join(vals, ",") + "]"
-		// A segment corrected since its text was read is skipped: its own reindexing
+		// A segment whose text was corrected since it was read is skipped (a speaker correction does not count): its own reindexing
 		// (segment_corrections.reindex_pending) writes the new text.
-		if _, err = tx.Exec(ctx, `INSERT INTO transcript_embeddings(profile_id,transcription_job_id,clip_id,segment_index,segment_start,segment_end,text,embedding) SELECT $1,$2,$3,$4,$5,$6,$7,$8::vector WHERE NOT EXISTS (SELECT 1 FROM segment_corrections sc WHERE sc.transcription_job_id=$2 AND sc.segment_index=$4 AND sc.version<>$9) ON CONFLICT(profile_id,transcription_job_id,segment_index) DO UPDATE SET segment_start=EXCLUDED.segment_start,segment_end=EXCLUDED.segment_end,text=EXCLUDED.text,embedding=EXCLUDED.embedding`, profileID, jobID, clipID, seg.Index, seg.Start, seg.End, seg.Text, vector, seg.Version); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO transcript_embeddings(profile_id,transcription_job_id,clip_id,segment_index,segment_start,segment_end,text,embedding) SELECT $1,$2,$3,$4,$5,$6,$7,$8::vector WHERE NOT EXISTS (SELECT 1 FROM segment_corrections sc WHERE sc.transcription_job_id=$2 AND sc.segment_index=$4 AND sc.text_version<>$9) ON CONFLICT(profile_id,transcription_job_id,segment_index) DO UPDATE SET segment_start=EXCLUDED.segment_start,segment_end=EXCLUDED.segment_end,text=EXCLUDED.text,embedding=EXCLUDED.embedding`, profileID, jobID, clipID, seg.Index, seg.Start, seg.End, seg.Text, vector, seg.Version); err != nil {
 			return err
 		}
 	}

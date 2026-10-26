@@ -224,6 +224,9 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testSegmentSpeaker(t, pool)
 	})
+	t.Run("segment review fixes", func(t *testing.T) {
+		testSegmentReviewFixes(t, pool, reset)
+	})
 	t.Run("voice vectors not persisted in jobs", func(t *testing.T) {
 		reset(t)
 		testVoiceVectorsNeverPersistedInJobs(t, pool)

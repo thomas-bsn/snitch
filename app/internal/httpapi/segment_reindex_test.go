@@ -20,6 +20,7 @@ type reindexProvider struct {
 	mu    sync.Mutex
 	down  bool
 	calls [][]string
+	hook  func() // runs inside a request, before the answer (a concurrent write)
 	srv   *httptest.Server
 }
 
@@ -36,11 +37,15 @@ func newReindexProvider(t *testing.T) *reindexProvider {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&in)
 		p.mu.Lock()
-		down := p.down
+		down, hook := p.down, p.hook
+		p.hook = nil
 		if !down {
 			p.calls = append(p.calls, in.Input)
 		}
 		p.mu.Unlock()
+		if hook != nil {
+			hook()
+		}
 		if down {
 			http.Error(w, "synthetic outage", http.StatusServiceUnavailable)
 			return

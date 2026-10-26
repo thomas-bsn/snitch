@@ -37,7 +37,7 @@ func (s *Server) reindexNext(ctx context.Context) error {
  ORDER BY reindex_requested_at,transcription_job_id,segment_index FOR UPDATE SKIP LOCKED LIMIT 1)
  UPDATE segment_corrections sc SET reindex_lease_expires_at=now()+make_interval(secs=>$2),reindex_attempts=sc.reindex_attempts+1
  FROM c WHERE sc.transcription_job_id=c.transcription_job_id AND sc.segment_index=c.segment_index
- RETURNING sc.transcription_job_id,sc.segment_index,sc.clip_id,sc.version,sc.text`, maxReindexAttempts, reindexLease.Seconds()).Scan(&jobID, &index, &clipID, &version, &corrected)
+ RETURNING sc.transcription_job_id,sc.segment_index,sc.clip_id,sc.text_version,sc.text`, maxReindexAttempts, reindexLease.Seconds()).Scan(&jobID, &index, &clipID, &version, &corrected)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
@@ -45,7 +45,7 @@ func (s *Server) reindexNext(ctx context.Context) error {
 		return err
 	}
 	done := func() error {
-		_, err := s.Pool.Exec(ctx, `UPDATE segment_corrections SET reindex_pending=false,reindex_error='',reindex_lease_expires_at=NULL WHERE transcription_job_id=$1 AND segment_index=$2 AND version=$3`, jobID, index, version)
+		_, err := s.Pool.Exec(ctx, `UPDATE segment_corrections SET reindex_pending=false,reindex_error='',reindex_lease_expires_at=NULL WHERE transcription_job_id=$1 AND segment_index=$2 AND text_version=$3`, jobID, index, version)
 		return err
 	}
 	// A correction of a transcription that is no longer the visible one is obsolete.
@@ -124,8 +124,8 @@ func (s *Server) reindexNext(ctx context.Context) error {
 			return s.reindexFailed(ctx, jobID, index, version, err)
 		}
 	}
-	// A correction made meanwhile (higher version) keeps the segment pending.
-	if _, err = tx.Exec(ctx, `UPDATE segment_corrections SET reindex_pending=false,reindex_error='',reindex_lease_expires_at=NULL WHERE transcription_job_id=$1 AND segment_index=$2 AND version=$3`, jobID, index, version); err != nil {
+	// A text correction made meanwhile (higher text version) keeps the segment pending.
+	if _, err = tx.Exec(ctx, `UPDATE segment_corrections SET reindex_pending=false,reindex_error='',reindex_lease_expires_at=NULL WHERE transcription_job_id=$1 AND segment_index=$2 AND text_version=$3`, jobID, index, version); err != nil {
 		return s.reindexFailed(ctx, jobID, index, version, err)
 	}
 	return tx.Commit(ctx)
@@ -134,7 +134,7 @@ func (s *Server) reindexNext(ctx context.Context) error {
 // reindexFailed records the failure and delays the next attempt (the lease column
 // doubles as "not before"): 30 s, 60 s, 90 s... A newer correction resets the delay.
 func (s *Server) reindexFailed(ctx context.Context, jobID int64, index, version int, cause error) error {
-	_, err := s.Pool.Exec(ctx, `UPDATE segment_corrections SET reindex_error=left($4,240),reindex_lease_expires_at=now()+make_interval(secs=>30*reindex_attempts) WHERE transcription_job_id=$1 AND segment_index=$2 AND version=$3 AND reindex_pending`, jobID, index, version, cause.Error())
+	_, err := s.Pool.Exec(ctx, `UPDATE segment_corrections SET reindex_error=left($4,240),reindex_lease_expires_at=now()+make_interval(secs=>30*reindex_attempts) WHERE transcription_job_id=$1 AND segment_index=$2 AND text_version=$3 AND reindex_pending`, jobID, index, version, cause.Error())
 	if err != nil {
 		return err
 	}

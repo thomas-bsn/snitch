@@ -190,16 +190,17 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 	}
 	var transcript json.RawMessage
 	var transcriptJobID int64
+	var states map[int]segmentState
 	if selection.AudioStreamIndex != nil {
 		// Keep the last successful transcript visible while a newer input version
 		// is queued or running. A completed replacement naturally becomes newest.
-		visible, found, err := s.visibleTranscription(r.Context(), s.Pool, v.ID)
+		visible, visibleStates, found, err := s.readVisibleTranscript(r.Context(), v.ID)
 		if err != nil {
 			s.internal(w, err)
 			return
 		}
 		if found {
-			transcript, transcriptJobID = visible.Result, visible.JobID
+			transcript, transcriptJobID, states = visible.Result, visible.JobID, visibleStates
 		}
 	}
 	persons, personsErr := s.clipPersons(r.Context(), []int64{v.ID})
@@ -215,11 +216,6 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 	if transcript != nil {
 		var value any
 		if json.Unmarshal(transcript, &value) == nil {
-			states, err := loadSegmentStates(r.Context(), s.Pool, transcriptJobID)
-			if err != nil {
-				s.internal(w, err)
-				return
-			}
 			overlaySegments(value, transcriptJobID, states)
 			if err := s.attachLocalSpeakers(r.Context(), v.ID, value, states); err != nil {
 				s.internal(w, err)
