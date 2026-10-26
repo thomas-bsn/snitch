@@ -23,6 +23,13 @@ const segmentMessages: Record<string, string> = {
     "Le clip a été retranscrit depuis votre lecture. Actualisez la transcription.",
 };
 
+type SegmentConflictState = {
+  version: number;
+  text: string;
+  author: string;
+  correctedAt: string;
+};
+
 export function segmentErrorMessage(code: string): string {
   return segmentMessages[code] ?? "La correction a échoué. Réessayez.";
 }
@@ -53,6 +60,9 @@ export function SegmentText({
   const [busy, setBusy] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [message, setMessage] = useState("");
+  // Set when another correction won the race: the draft is kept, the version it must
+  // now replace is the one returned by the server.
+  const [conflict, setConflict] = useState<SegmentConflictState | null>(null);
   const text = segment.text;
   const label = index === undefined ? "" : String(index + 1);
 
@@ -67,7 +77,8 @@ export function SegmentText({
           params: { path: { id: clipId, index }, header: csrf },
           body: {
             text: draft,
-            expected_version: segment.correction_version ?? 0,
+            expected_version:
+              conflict?.version ?? segment.correction_version ?? 0,
             reason: reason.trim() || undefined,
             transcription_job_id: jobId,
           },
@@ -76,17 +87,23 @@ export function SegmentText({
       if (result.error) {
         const failure = result.error as {
           error: string;
-          current?: { text: string; author?: { username: string } | null };
+          current?: components["schemas"]["SegmentCorrection"];
         };
-        setMessage(
-          failure.error === "segment_conflict" && failure.current
-            ? `Ce segment a été modifié par ${failure.current.author?.username ?? "un autre utilisateur"} depuis votre lecture. Version actuelle : « ${failure.current.text} ». Actualisez la transcription avant de recommencer.`
-            : segmentErrorMessage(failure.error),
-        );
-        if (failure.error === "segment_conflict") await onChanged();
+        if (failure.error === "segment_conflict" && failure.current) {
+          setConflict({
+            version: failure.current.version,
+            text: failure.current.text,
+            author: failure.current.author?.username ?? "un autre utilisateur",
+            correctedAt: formatDate(failure.current.corrected_at ?? undefined),
+          });
+          await onChanged();
+          return;
+        }
+        setMessage(segmentErrorMessage(failure.error));
         return;
       }
       setEditing(false);
+      setConflict(null);
       setReason("");
       setMessage("Correction enregistrée.");
       await onChanged();
@@ -137,6 +154,7 @@ export function SegmentText({
           onClick={() => {
             setDraft(text);
             setMessage("");
+            setConflict(null);
             setEditing(true);
           }}
         >
@@ -167,6 +185,44 @@ export function SegmentText({
               onChange={(event) => setReason(event.target.value)}
             />
           </label>
+          {conflict && (
+            <span
+              className="segment-conflict"
+              role="group"
+              aria-label={`Conflit sur le segment ${label}`}
+            >
+              <span>
+                Ce segment a été modifié par {conflict.author}
+                {conflict.correctedAt ? ` le ${conflict.correctedAt}` : ""}{" "}
+                depuis votre lecture. Votre modification n’a pas été
+                enregistrée.
+              </span>
+              <span>Version actuelle : « {conflict.text} »</span>
+              <span className="segment-edit-actions">
+                <button
+                  type="button"
+                  aria-label={`Reprendre ma modification du segment ${label}`}
+                  disabled={busy}
+                  onClick={() => setConflict(null)}
+                >
+                  Reprendre ma modification
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  aria-label={`Abandonner ma modification du segment ${label}`}
+                  disabled={busy}
+                  onClick={() => {
+                    setEditing(false);
+                    setConflict(null);
+                    setMessage("");
+                  }}
+                >
+                  Abandonner ma modification
+                </button>
+              </span>
+            </span>
+          )}
           <span className="segment-edit-actions">
             <button
               type="submit"
@@ -182,6 +238,7 @@ export function SegmentText({
               disabled={busy}
               onClick={() => {
                 setEditing(false);
+                setConflict(null);
                 setMessage("");
               }}
             >

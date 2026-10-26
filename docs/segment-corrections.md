@@ -52,3 +52,11 @@ Une correction de texte n'attend pas le service d'embeddings : elle est enregist
 - Fournisseur indisponible : la correction reste enregistrée (la lecture du clip la montre), le segment reste en attente et il est repris sans doublon, avec un délai croissant (30 s, 60 s, ...), au plus 5 tentatives. Le bail (`reindex_lease_expires_at`, 2 minutes) est repris à son expiration si un consommateur a disparu. Une nouvelle correction du segment remet les tentatives à zéro. Une correction d'une transcription qui n'est plus la transcription visible est ignorée.
 - `GET /api/admin/embeddings` expose `reindex_pending` (segments corrigés en attente) et `reindex_failed` (tentatives épuisées) ; l'administration les affiche dans « Index sémantique ». « Indexer les transcriptions existantes » (`POST /api/admin/embeddings/backfill`) redonne leurs tentatives aux segments épuisés.
 - Aucune retranscription ni retraitement de la vidéo n'a lieu.
+
+## Corrections simultanées (ticket 51)
+
+Le contrôle de version du `PUT` garantit qu'une correction ne remplace jamais silencieusement une autre : la ligne du segment est verrouillée (`FOR UPDATE`), et pour un segment jamais corrigé l'insertion `ON CONFLICT DO NOTHING` désigne le perdant. De deux corrections parties de la même version, une seule aboutit ; l'autre reçoit `409 segment_conflict` avec la version courante (`current` : texte, version, auteur, date) et rien n'est écrit pour elle. Chaque correction acceptée laisse une entrée d'historique : la correction gagnante n'est donc jamais perdue. Deux segments différents ne se bloquent pas et ne se contredisent pas.
+
+Interface : en cas de conflit, le formulaire reste ouvert avec le brouillon intact et un bloc « Conflit sur le segment N » indique qui a modifié le segment et quand, ainsi que la version actuelle. « Reprendre ma modification » enregistre le brouillon (éventuellement retouché) par-dessus la version actuelle ; « Abandonner ma modification » ferme le formulaire et jette le brouillon. La transcription affichée est actualisée en arrière-plan.
+
+Tests : `segment_concurrency_test.go` (requêtes simultanées par goroutines sur PostgreSQL réel : un gagnant, conflit avec version et auteur, huit écrivains simultanés, segments différents sans conflit) et `web/e2e/segment-conflicts.spec.ts` (deux utilisateurs, drapeau `SNITCH_E2E_SEGMENT_CORRECTIONS=1`).

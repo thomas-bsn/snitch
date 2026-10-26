@@ -43,3 +43,10 @@
   display: block;
   font-size: 0.85em;
 }
+.segment-conflict {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+}
