@@ -84,6 +84,8 @@ from .person_list import PersonList
 from .person_merge_input import PersonMergeInput
 from .person_ref import PersonRef
 from .person_separation_input import PersonSeparationInput
+from .person_voice import PersonVoice
+from .person_voice_list import PersonVoiceList
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
@@ -296,6 +298,8 @@ __all__ = (
     "PersonMergeInput",
     "PersonRef",
     "PersonSeparationInput",
+    "PersonVoice",
+    "PersonVoiceList",
     "PreviewTranscriptionBatchResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",

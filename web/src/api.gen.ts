@@ -1038,6 +1038,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/persons/{id}/voices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Les voix qu'une séparation peut nommer (POST /api/persons/{id}/separation) : validation humaine, clip visible pour l'appelant. Extraits écoutables par GET /api/local-speakers/{id}/excerpt. Cette lecture n'écrit rien. */
+    get: operations["listPersonVoices"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/person-events": {
     parameters: {
       query?: never;
@@ -1985,6 +2002,18 @@ export interface components {
       author: components["schemas"]["AttributionAuthor"] | null;
       /** Format: date-time */
       created_at: string;
+    };
+    PersonVoice: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+    };
+    PersonVoiceList: {
+      items: components["schemas"]["PersonVoice"][];
     };
     PersonEventList: {
       items: components["schemas"]["PersonEvent"][];
@@ -5821,6 +5850,46 @@ export interface operations {
       };
       /** @description not_attributed_to_person : une voix n'est pas validée pour cette Personne ; rien n'est changé */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPersonVoices: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Voix validées pour cette Personne, sur les clips visibles (500 au plus) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonVoiceList"];
+        };
+      };
+      /** @description person_not_found */
+      404: {
         headers: {
           [name: string]: unknown;
         };
