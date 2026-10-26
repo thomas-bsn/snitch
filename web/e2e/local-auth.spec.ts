@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("installer sans Discord, refuser un code invalide et retrouver sa session", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/legacy/");
   await page.getByLabel("Code d’installation").fill("incorrect-code");
   await page.getByLabel("Nom d’utilisateur").fill("administrator");
   await page

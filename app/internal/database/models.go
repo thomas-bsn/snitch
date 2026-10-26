@@ -403,6 +403,7 @@ type User struct {
 	Approved     bool               `json:"approved"`
 	DiscordID    pgtype.Text        `json:"discord_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Language     pgtype.Text        `json:"language"`
 }
 
 type VoiceAutomationEvent struct {

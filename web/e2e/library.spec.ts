@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("un membre filtre la bibliothèque et lit une plage d’un clip partagé ou privé", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/legacy/");
   await page
     .getByLabel("Code d’installation")
     .fill(process.env.SNITCH_TEST_CODE!);

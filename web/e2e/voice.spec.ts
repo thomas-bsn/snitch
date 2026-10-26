@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("admin diarise un clip transcrit et lit le Locuteur local de chaque segment", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/legacy/");
   await page
     .getByLabel("Code d’installation")
     .fill(process.env.SNITCH_TEST_CODE!);

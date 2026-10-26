@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("admin choisit une piste globale, planifie puis ouvre la vidéo au timestamp transcrit", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/legacy/");
   await page
     .getByLabel("Code d’installation")
     .fill(process.env.SNITCH_TEST_CODE!);

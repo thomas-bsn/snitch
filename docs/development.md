@@ -9,6 +9,7 @@ npm --prefix web run build
 SNITCH_E2E=1 bash scripts/test.sh
 .venv/bin/python scripts/check_generated.py
 .venv/bin/python scripts/check_compose.py
+.venv/bin/python scripts/check_error_codes.py   # chaque code d'erreur du serveur a son texte en anglais et en français
 docker build -f deploy/docker/app.Dockerfile -t snitch-smoke:local .
 docker build -f deploy/docker/worker.Dockerfile -t snitch-worker:local .
 docker run --rm snitch-worker:local python -m pip check   # image unique du worker, sans GPU requis pour la construire (~9 Go)
@@ -18,6 +19,8 @@ python3 scripts/smoke_compose.py snitch-smoke:local
 `test -z "$(gofmt -l app)"` vérifie le format Go. Le script lance `go test -race -tags integration ./... -count=1` avec le socket du contexte Docker actif. Les tests utilisent PostgreSQL/pgvector réel via Testcontainers et des données synthétiques ; les parcours navigateur utilisent la vraie API avec Discord simulé, sans compte externe. Aucun scan de bibliothèque n’existe. Ne pas lancer simultanément gros builds et tests sur une VM de 2 Go.
 
 Construire le frontend avec `npm --prefix web run build` avant les tests navigateur : le serveur Go embarque `app/ui/dist` à la compilation et `scripts/test.sh` ne reconstruit pas ces fichiers. Sinon les tests peuvent exercer une ancienne version de la SPA. Le test complet exécute onze suites navigateur.
+
+Le frontend a deux points d'entrée Vite : la nouvelle interface (`web/index.html`, code sous `web/src/app/`, seule à charger Tailwind et les jetons de design) et l'ancienne (`web/legacy/index.html`, servie sous `/legacy/`, avec sa feuille de style globale), voir l'[ADR 0013](adr/0014-refonte-du-front.md). Les parcours navigateur des écrans pas encore reconstruits ouvrent `/legacy/` ; ceux de la nouvelle coque (`shell-*.spec.ts`) installent l'instance et ouvrent les sessions par l'API puis testent l'écran, avec un contrôle d'accessibilité axe. Pour une instance d'essai à la main (parallèle aux autres), `docker compose -p snitch-<nom>` avec des ports hôte libres, puis `SNITCH_TEST_URL` pour Playwright.
 
 Le contrat source `contracts/openapi.yaml` génère Go/TypeScript/Python et sqlc avec `bash scripts/generate.sh`. `check_generated.py` compare les octets avant/après. Le build Vite remplace `app/ui/dist` ; préserver son fichier suivi `.gitkeep` avant commit. Les sorties compilées restent ignorées.
 

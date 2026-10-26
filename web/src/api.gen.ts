@@ -121,6 +121,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/preferences": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Retourne les préférences du compte connecté. La langue vaut null tant que la personne n'a pas fait de choix ; l'interface applique alors la langue mémorisée par le navigateur, puis l'anglais. */
+    get: operations["getAccountPreferences"];
+    /** @description Enregistre la langue d'interface du compte connecté (en ou fr). Toute autre valeur est refusée avec 400 invalid_language ; propriétés supplémentaires ou absence de langue : 400 invalid_request. Exige session active, même origine et X-CSRF-Token. */
+    put: operations["updateAccountPreferences"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/discord/start": {
     parameters: {
       query?: never;
@@ -1491,6 +1509,22 @@ export interface components {
        */
       role: "super_admin" | "admin" | "user";
       approved: boolean;
+      /**
+       * @description Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas choisi.
+       * @enum {string|null}
+       */
+      language?: "en" | "fr" | null;
+    };
+    AccountPreferences: {
+      /**
+       * @description Langue d'interface du compte ; null tant qu'aucun choix n'a été fait.
+       * @enum {string|null}
+       */
+      language: "en" | "fr" | null;
+    };
+    AccountPreferencesInput: {
+      /** @enum {string} */
+      language: "en" | "fr";
     };
     Session: {
       user: components["schemas"]["User"];
@@ -3053,6 +3087,72 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAccountPreferences: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Préférences du compte connecté */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountPreferences"];
+        };
+      };
+      /** @description Error (401 session required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateAccountPreferences: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountPreferencesInput"];
+      };
+    };
+    responses: {
+      /** @description Préférences enregistrées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountPreferences"];
+        };
+      };
+      /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
       default: {
         headers: {
           [name: string]: unknown;

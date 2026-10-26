@@ -8,7 +8,9 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.user_language import UserLanguage
 from ..models.user_role import UserRole
+from ..types import UNSET, Unset
 
 
 
@@ -28,12 +30,15 @@ class User:
             role (UserRole): super_admin : propriétaire de l'installation (compte créé par l'installation, unique, non
                 rétrogradable, non supprimable) ; admin : Administrateur ; user : Utilisateur.
             approved (bool):
+            language (UserLanguage | Unset): Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas
+                choisi.
      """
 
     id: int
     username: str
     role: UserRole
     approved: bool
+    language: UserLanguage | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -49,6 +54,11 @@ class User:
 
         approved = self.approved
 
+        language: str | Unset = UNSET
+        if not isinstance(self.language, Unset):
+            language = self.language.value
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -58,6 +68,8 @@ class User:
             "role": role,
             "approved": approved,
         })
+        if language is not UNSET:
+            field_dict["language"] = language
 
         return field_dict
 
@@ -77,11 +89,22 @@ class User:
 
         approved = d.pop("approved")
 
+        _language = d.pop("language", UNSET)
+        language: UserLanguage | Unset
+        if isinstance(_language,  Unset):
+            language = UNSET
+        else:
+            language = UserLanguage(_language)
+
+
+
+
         user = cls(
             id=id,
             username=username,
             role=role,
             approved=approved,
+            language=language,
         )
 
 
