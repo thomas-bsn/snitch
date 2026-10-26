@@ -108,7 +108,7 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	admin := ss.User.Role == "admin"
+	admin := isAdministrator(ss.User.Role)
 	if mode == "hybrid" {
 		s.hybridSearch(w, r, q, page, size, visibility, status, sourceID, from, to, admin, person)
 		return

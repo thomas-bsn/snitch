@@ -1,5 +1,5 @@
 -- name: GetUser :one
-SELECT id, username, role, approved FROM users WHERE id = $1;
+SELECT id, username, role, approved, language FROM users WHERE id = $1;
 
 -- name: ListPending :many
 SELECT id, username, role, approved FROM users WHERE NOT approved ORDER BY id;

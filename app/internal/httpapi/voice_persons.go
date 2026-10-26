@@ -265,7 +265,7 @@ func (s *Server) authorizedSpeaker(w http.ResponseWriter, r *http.Request) (spea
 		return speakerRef{}, false
 	}
 	ref := speakerRef{ID: id}
-	err := s.Pool.QueryRow(r.Context(), `SELECT ls.clip_id,ls.audio_stream_index,ls.label FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, ss.User.Role == "admin").Scan(&ref.ClipID, &ref.Index, &ref.Label)
+	err := s.Pool.QueryRow(r.Context(), `SELECT ls.clip_id,ls.audio_stream_index,ls.label FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&ref.ClipID, &ref.Index, &ref.Label)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "local_speaker_not_found")
 		return speakerRef{}, false

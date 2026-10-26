@@ -329,6 +329,90 @@
         "description": "Révoque la session courante en base et efface le cookie. Exige session active, même origine et X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur CSRF : 403 csrf_rejected."
       }
     },
+    "/api/account/preferences": {
+      "get": {
+        "operationId": "getAccountPreferences",
+        "responses": {
+          "200": {
+            "description": "Préférences du compte connecté",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferences"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (401 session required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "description": "Retourne les préférences du compte connecté. La langue vaut null tant que la personne n'a pas fait de choix ; l'interface applique alors la langue mémorisée par le navigateur, puis l'anglais."
+      },
+      "put": {
+        "operationId": "updateAccountPreferences",
+        "responses": {
+          "200": {
+            "description": "Préférences enregistrées",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferences"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal PUBLIC_URL"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPreferencesInput"
+              }
+            }
+          }
+        },
+        "description": "Enregistre la langue d'interface du compte connecté (en ou fr). Toute autre valeur est refusée avec 400 invalid_language ; propriétés supplémentaires ou absence de langue : 400 invalid_request. Exige session active, même origine et X-CSRF-Token."
+      }
+    },
     "/api/auth/discord/start": {
       "post": {
         "operationId": "startDiscord",
@@ -3983,6 +4067,49 @@
           },
           "approved": {
             "type": "boolean"
+          },
+          "language": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "description": "Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas choisi."
+          }
+        }
+      },
+      "AccountPreferences": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "language"
+        ],
+        "properties": {
+          "language": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "description": "Langue d'interface du compte ; null tant qu'aucun choix n'a été fait."
+          }
+        }
+      },
+      "AccountPreferencesInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "language"
+        ],
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "fr"
+            ]
           }
         }
       },

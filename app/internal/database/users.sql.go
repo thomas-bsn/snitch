@@ -7,6 +7,8 @@ package database
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const approveUser = `-- name: ApproveUser :execrows
@@ -22,14 +24,15 @@ func (q *Queries) ApproveUser(ctx context.Context, id int64) (int64, error) {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, role, approved FROM users WHERE id = $1
+SELECT id, username, role, approved, language FROM users WHERE id = $1
 `
 
 type GetUserRow struct {
-	ID       int64  `json:"id"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
-	Approved bool   `json:"approved"`
+	ID       int64       `json:"id"`
+	Username string      `json:"username"`
+	Role     string      `json:"role"`
+	Approved bool        `json:"approved"`
+	Language pgtype.Text `json:"language"`
 }
 
 func (q *Queries) GetUser(ctx context.Context, id int64) (GetUserRow, error) {
@@ -40,6 +43,7 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (GetUserRow, error) {
 		&i.Username,
 		&i.Role,
 		&i.Approved,
+		&i.Language,
 	)
 	return i, err
 }
