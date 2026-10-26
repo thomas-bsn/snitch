@@ -2215,6 +2215,22 @@
         "security": [{"session": []}]
       }
     },
+    "/api/admin/segment-corrections/export": {
+      "get": {
+        "operationId": "exportSegmentCorrections",
+        "parameters": [
+          {"in": "query", "name": "format", "required": false, "schema": {"type": "string", "enum": ["json", "ndjson"], "default": "json"}, "description": "json (défaut) : une page JSON ; ndjson : tout l'export en un téléchargement, un objet JSON par ligne, sans pagination."},
+          {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}},
+          {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 100}}
+        ],
+        "responses": {
+          "200": {"description": "Segments corrigés, par clip, piste audio puis rang", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SegmentCorrectionExport"}}, "application/x-ndjson": {"schema": {"type": "string", "description": "Un objet SegmentCorrectionExportItem par ligne."}}}},
+          "default": {"description": "Erreur (400 invalid_format, invalid_pagination ; 401 ; 403)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "description": "Administrateurs uniquement. Liste les segments dont le texte est corrigé (jamais un segment non corrigé, ni un segment restauré à l'original, ni une correction obsolète d'une ancienne transcription), pour tous les clips, avec le texte d'origine du worker, le texte corrigé, l'auteur, la date et la version, pour préparer la mesure de qualité de la phase 7. Snitch ne calcule aucun taux d'erreur.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/clips/{id}/media": {
       "get": {
         "operationId": "getClipMedia",
@@ -4941,6 +4957,8 @@
       "SegmentRestoreInput": {"type": "object", "required": ["expected_version"], "additionalProperties": false, "properties": {"expected_version": {"type": "integer", "minimum": 0, "description": "Version du segment vue par l'appelant."}, "original": {"type": "boolean", "description": "Vrai pour restaurer le texte d'origine du worker ; exclusif avec event_id."}, "event_id": {"type": "integer", "format": "int64", "minimum": 1, "description": "Entrée d'historique de ce segment dont le nouveau texte est restauré ; exclusif avec original."}, "reason": {"type": "string", "description": "Motif facultatif (500 caractères au plus)."}, "transcription_job_id": {"type": "integer", "format": "int64", "minimum": 1}}},
       "SegmentHistoryEntry": {"type": "object", "required": ["id", "kind", "old_text", "new_text", "old_corrected", "new_corrected", "old_speaker_label", "new_speaker_label", "restored_from_event_id", "restored_to_original", "reason", "version_before", "version_after", "author", "created_at"], "properties": {"id": {"type": "integer", "format": "int64"}, "kind": {"type": "string", "enum": ["text", "speaker", "restore"]}, "old_text": {"type": "string", "nullable": true, "description": "Texte effectif avant l'écriture (texte d'origine s'il n'y avait pas de correction)."}, "new_text": {"type": "string", "nullable": true, "description": "Texte effectif après l'écriture."}, "old_corrected": {"type": "boolean"}, "new_corrected": {"type": "boolean", "description": "Faux si l'écriture a rétabli le texte d'origine."}, "old_speaker_label": {"type": "string"}, "new_speaker_label": {"type": "string"}, "restored_from_event_id": {"type": "integer", "format": "int64", "nullable": true}, "restored_to_original": {"type": "boolean"}, "reason": {"type": "string"}, "version_before": {"type": "integer", "minimum": 0}, "version_after": {"type": "integer", "minimum": 1}, "author": {"$ref": "#/components/schemas/AttributionAuthor"}, "created_at": {"type": "string", "format": "date-time"}}},
       "SegmentHistory": {"type": "object", "required": ["transcription_job_id", "index", "original_text", "current", "items"], "properties": {"transcription_job_id": {"type": "integer", "format": "int64"}, "index": {"type": "integer", "minimum": 0}, "original_text": {"type": "string"}, "current": {"$ref": "#/components/schemas/SegmentCorrection"}, "items": {"type": "array", "items": {"$ref": "#/components/schemas/SegmentHistoryEntry"}}}},
+      "SegmentCorrectionExportItem": {"type": "object", "required": ["clip_id", "transcription_job_id", "audio_stream_index", "index", "start", "end", "original_text", "corrected_text", "author", "corrected_at", "version"], "properties": {"clip_id": {"type": "integer", "format": "int64"}, "transcription_job_id": {"type": "integer", "format": "int64"}, "audio_stream_index": {"type": "integer", "description": "Piste audio transcrite (-1 si absente du résultat)."}, "index": {"type": "integer", "minimum": 0, "description": "Rang du segment dans la transcription."}, "start": {"type": "number", "format": "double"}, "end": {"type": "number", "format": "double"}, "original_text": {"type": "string", "description": "Texte du worker, jamais modifié."}, "corrected_text": {"type": "string", "description": "Texte corrigé courant."}, "author": {"$ref": "#/components/schemas/AttributionAuthor"}, "corrected_at": {"type": "string", "format": "date-time"}, "version": {"type": "integer", "minimum": 1}}},
+      "SegmentCorrectionExport": {"type": "object", "required": ["items", "page", "page_size", "total"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/SegmentCorrectionExportItem"}}, "page": {"type": "integer"}, "page_size": {"type": "integer"}, "total": {"type": "integer"}}},
       "AttributionConflict": {"type": "object", "required": ["error"], "properties": {"error": {"type": "string"}, "attribution": {"$ref": "#/components/schemas/Attribution"}}},
       "AttributionEvent": {
         "type": "object",

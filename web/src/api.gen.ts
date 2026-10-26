@@ -653,6 +653,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/segment-corrections/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Liste les segments dont le texte est corrigé (jamais un segment non corrigé, ni un segment restauré à l'original, ni une correction obsolète d'une ancienne transcription), pour tous les clips, avec le texte d'origine du worker, le texte corrigé, l'auteur, la date et la version, pour préparer la mesure de qualité de la phase 7. Snitch ne calcule aucun taux d'erreur. */
+    get: operations["exportSegmentCorrections"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}/media": {
     parameters: {
       query?: never;
@@ -2162,6 +2179,34 @@ export interface components {
       original_text: string;
       current: components["schemas"]["SegmentCorrection"];
       items: components["schemas"]["SegmentHistoryEntry"][];
+    };
+    SegmentCorrectionExportItem: {
+      /** Format: int64 */
+      clip_id: number;
+      /** Format: int64 */
+      transcription_job_id: number;
+      /** @description Piste audio transcrite (-1 si absente du résultat). */
+      audio_stream_index: number;
+      /** @description Rang du segment dans la transcription. */
+      index: number;
+      /** Format: double */
+      start: number;
+      /** Format: double */
+      end: number;
+      /** @description Texte du worker, jamais modifié. */
+      original_text: string;
+      /** @description Texte corrigé courant. */
+      corrected_text: string;
+      author: components["schemas"]["AttributionAuthor"];
+      /** Format: date-time */
+      corrected_at: string;
+      version: number;
+    };
+    SegmentCorrectionExport: {
+      items: components["schemas"]["SegmentCorrectionExportItem"][];
+      page: number;
+      page_size: number;
+      total: number;
     };
     AttributionConflict: {
       error: string;
@@ -4216,6 +4261,41 @@ export interface operations {
         };
       };
       /** @description Erreur (400 invalid_request, invalid_reason, text_unchanged, event_not_restorable, invalid_segment_index ; 404 clip_not_found, segment_not_found, event_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  exportSegmentCorrections: {
+    parameters: {
+      query?: {
+        /** @description json (défaut) : une page JSON ; ndjson : tout l'export en un téléchargement, un objet JSON par ligne, sans pagination. */
+        format?: "json" | "ndjson";
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Segments corrigés, par clip, piste audio puis rang */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentCorrectionExport"];
+          "application/x-ndjson": string;
+        };
+      };
+      /** @description Erreur (400 invalid_format, invalid_pagination ; 401 ; 403) */
       default: {
         headers: {
           [name: string]: unknown;

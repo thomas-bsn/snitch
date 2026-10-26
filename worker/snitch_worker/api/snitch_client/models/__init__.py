@@ -26,6 +26,7 @@ from .clip_voice_status import ClipVoiceStatus
 from .credentials import Credentials
 from .decision_level import DecisionLevel
 from .error import Error
+from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
 from .job import Job
@@ -92,6 +93,8 @@ from .search_transcripts_visibility import SearchTranscriptsVisibility
 from .segment_conflict import SegmentConflict
 from .segment_conflict_error import SegmentConflictError
 from .segment_correction import SegmentCorrection
+from .segment_correction_export import SegmentCorrectionExport
+from .segment_correction_export_item import SegmentCorrectionExportItem
 from .segment_history import SegmentHistory
 from .segment_history_entry import SegmentHistoryEntry
 from .segment_history_entry_kind import SegmentHistoryEntryKind
@@ -212,6 +215,7 @@ __all__ = (
     "Credentials",
     "DecisionLevel",
     "Error",
+    "ExportSegmentCorrectionsFormat",
     "GetEmbeddingIndexStatusResponse200",
     "HeartbeatWorkerJobResponse200",
     "Job",
@@ -278,6 +282,8 @@ __all__ = (
     "SegmentConflict",
     "SegmentConflictError",
     "SegmentCorrection",
+    "SegmentCorrectionExport",
+    "SegmentCorrectionExportItem",
     "SegmentHistory",
     "SegmentHistoryEntry",
     "SegmentHistoryEntryKind",

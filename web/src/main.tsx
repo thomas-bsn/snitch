@@ -1946,6 +1946,22 @@ function App() {
                   </button>
                 </section>
               )}
+              {session.user.role === "admin" && (
+                <section className="card" aria-label="Export des corrections">
+                  <h2>Export des corrections</h2>
+                  <p>
+                    Segments dont le texte a été corrigé, avec le texte
+                    d’origine, le texte corrigé, l’auteur, la date et la
+                    version. Snitch ne calcule aucun taux d’erreur.
+                  </p>
+                  <a
+                    href="/api/admin/segment-corrections/export?format=ndjson"
+                    download="segment-corrections.ndjson"
+                  >
+                    Télécharger l’export des segments corrigés
+                  </a>
+                </section>
+              )}
               {session.user.role === "admin" && embeddingState && (
                 <section className="card" aria-label="Index sémantique">
                   <h2>Index sémantique</h2>
