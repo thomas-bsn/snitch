@@ -125,7 +125,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/vocabulary", s.protected(true, http.HandlerFunc(s.createVocabulary)))
 	mux.Handle("PUT /api/admin/vocabulary/{id}", s.protected(true, http.HandlerFunc(s.updateVocabulary)))
 	mux.Handle("DELETE /api/admin/vocabulary/{id}", s.protected(true, http.HandlerFunc(s.deleteVocabulary)))
-	mux.Handle("PUT /api/admin/settings", s.protected(true, http.HandlerFunc(s.putSettings)))
+	mux.Handle("PUT /api/admin/settings", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.putSettings)))
 	mux.Handle("GET /api/admin/users", s.protected(true, http.HandlerFunc(s.pending)))
 	mux.Handle("POST /api/admin/users/{id}/approve", s.protected(true, http.HandlerFunc(s.approve)))
 	mux.Handle("GET /api/admin/jobs", s.protected(true, http.HandlerFunc(s.listJobs)))
@@ -321,7 +321,8 @@ func (s *Server) protected(admin bool, next http.Handler) http.Handler {
 	return s.protectedFor(nil, next)
 }
 
-// protectedFor requires a session and, when allowed is not nil, a role it accepts.
+// protectedFor requires a session and, when allowed is not nil, a role it accepts. An Administrator refused
+// by a rule that only the Super-administrator satisfies is told so explicitly (super_administrator_required).
 func (s *Server) protectedFor(allowed func(role string) bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ss, err := s.findSession(r)
@@ -334,7 +335,11 @@ func (s *Server) protectedFor(allowed func(role string) bool, next http.Handler)
 			return
 		}
 		if allowed != nil && !allowed(ss.User.Role) {
-			fail(w, 403, "forbidden")
+			if isAdministrator(ss.User.Role) {
+				fail(w, 403, "super_administrator_required")
+			} else {
+				fail(w, 403, "forbidden")
+			}
 			return
 		}
 		if r.Method != "GET" && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(ss.CSRF)) != 1 {

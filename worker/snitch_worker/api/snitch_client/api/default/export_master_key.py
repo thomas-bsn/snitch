@@ -75,8 +75,8 @@ def sync_detailed(
 
 ) -> Response[Error | MasterKeyExport]:
     """  Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément
-    de la base. Réservé au Super-administrateur (provisoirement à tout Administrateur, derrière un
-    contrôle unique côté serveur) ; session, origine et jeton CSRF requis ; chaque export est tracé sans
+    de la base. Réservé au Super-administrateur (un Administrateur reçoit 403
+    super_administrator_required) ; session, origine et jeton CSRF requis ; chaque export est tracé sans
     la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre
     clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de
     l'avertissement à présenter à côté de la clé.
@@ -114,8 +114,8 @@ def sync(
 
 ) -> Error | MasterKeyExport | None:
     """  Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément
-    de la base. Réservé au Super-administrateur (provisoirement à tout Administrateur, derrière un
-    contrôle unique côté serveur) ; session, origine et jeton CSRF requis ; chaque export est tracé sans
+    de la base. Réservé au Super-administrateur (un Administrateur reçoit 403
+    super_administrator_required) ; session, origine et jeton CSRF requis ; chaque export est tracé sans
     la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre
     clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de
     l'avertissement à présenter à côté de la clé.
@@ -148,8 +148,8 @@ async def asyncio_detailed(
 
 ) -> Response[Error | MasterKeyExport]:
     """  Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément
-    de la base. Réservé au Super-administrateur (provisoirement à tout Administrateur, derrière un
-    contrôle unique côté serveur) ; session, origine et jeton CSRF requis ; chaque export est tracé sans
+    de la base. Réservé au Super-administrateur (un Administrateur reçoit 403
+    super_administrator_required) ; session, origine et jeton CSRF requis ; chaque export est tracé sans
     la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre
     clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de
     l'avertissement à présenter à côté de la clé.
@@ -187,8 +187,8 @@ async def asyncio(
 
 ) -> Error | MasterKeyExport | None:
     """  Retourne la clé maître de chiffrement des secrets (base64, 32 octets) pour la conserver séparément
-    de la base. Réservé au Super-administrateur (provisoirement à tout Administrateur, derrière un
-    contrôle unique côté serveur) ; session, origine et jeton CSRF requis ; chaque export est tracé sans
+    de la base. Réservé au Super-administrateur (un Administrateur reçoit 403
+    super_administrator_required) ; session, origine et jeton CSRF requis ; chaque export est tracé sans
     la clé. La clé ne se rejoue pas : elle ne permet pas de relire des secrets chiffrés avec une autre
     clé, et une nouvelle clé ne récupère pas les anciens secrets. Le champ warning porte le code de
     l'avertissement à présenter à côté de la clé.
