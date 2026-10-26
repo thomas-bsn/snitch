@@ -12,7 +12,7 @@ Snitch est un socle open source MIT pour une bibliothèque de clips de jeu. Il p
 4. **Worker (PC de jeu)** : dans la page Workers, créer un worker. L'interface fournit un `compose.yaml` et un `.env` avec l'URL de Snitch et le jeton déjà remplis. Compléter `TRANSCRIPTION_API_URL`, `TRANSCRIPTION_MODEL` et `HF_TOKEN` (après avoir accepté sur Hugging Face les conditions de `pyannote/speaker-diarization-community-1`), puis `docker compose up -d`. Au premier démarrage le worker télécharge ses modèles de voix, puis tourne hors ligne ; `HF_TOKEN` ne sert qu'à ce téléchargement.
 5. **Traitement** : quand le worker apparaît dans Snitch, planifier la transcription des clips, puis le traitement vocal (après avoir confirmé l'accès au modèle dans l'administration). Rien ne démarre tout seul.
 
-> L'image `ghcr.io/thomas-bsn/snitch-worker-gpu` n'est pas encore publiée. En attendant, utiliser `deploy/worker/compose.yaml` (il construit l'image, environ 12 Go) avec l'URL et le jeton du worker créé. Détails : [installer sur le PC de jeu](docs/real-voice-worker.md#installer-sur-le-pc-gamer). Les identifications de voix n'ont été testées qu'avec un fournisseur simulé.
+> L'image `ghcr.io/thomas-bsn/snitch-worker-gpu` n'est pas encore publiée. En attendant, utiliser `deploy/worker/compose.yaml` (il construit l'image, environ 12 Go) avec l'URL et le jeton du worker créé. Détails : [installer sur le PC de jeu](docs/real-voice-worker.md#installer-sur-le-pc-gamer). Le code vocal réel (pyannote) n'a pas encore tourné avec de vrais modèles : à valider sur le PC de jeu avec une première vidéo.
 
 ## Essayer localement
 
