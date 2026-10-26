@@ -22,8 +22,8 @@ def check_image(name, image):
 def check(d):
     assert set(d) <= {'services','volumes','name','version'} | {k for k in d if k.startswith('x-')}
     services, volumes = d['services'], d['volumes']
-    assert set(services) == {'postgres','migrate','app','embed'}
-    assert set(volumes) == {'database','embeddings','media'}
+    assert set(services) == {'secrets','postgres','migrate','app','embed'}
+    assert set(volumes) == {'database','embeddings','media','secrets'}
     assert all(re.fullmatch('[a-z0-9-]{1,32}', n) for n in services)
     assert all(v is None or v == {} for v in volumes.values())
     exposed = []
@@ -68,6 +68,32 @@ def check(d):
     assert services['app']['depends_on']=={'postgres':{'condition':'service_healthy'},'migrate':{'condition':'service_completed_successfully'}}
     assert services['postgres']['x-forgeyard']['backup']=={'type':'postgres'}
     assert 'media:/data/media' in services['app'].get('volumes', [])
+    check_database_password(services)
+
+def check_database_password(services):
+    """The database password is produced by the `secrets` job, kept in its volume, read from a file by the
+    database, the migration and the application, never required as a variable and never in the compose."""
+    job = services['secrets']
+    assert job['restart']=='no' and job['command']==['init-secrets']
+    assert job['volumes']==['secrets:/data/secrets']
+    # An explicit value stays optional and takes precedence (existing installations).
+    assert job['environment']=={'POSTGRES_PASSWORD':'${POSTGRES_PASSWORD:-}'}
+    pg = services['postgres']
+    assert pg['depends_on']=={'secrets':{'condition':'service_completed_successfully'}}
+    assert pg['environment']['POSTGRES_PASSWORD_FILE']=='/run/snitch-secrets/postgres_password'
+    assert 'secrets:/run/snitch-secrets:ro' in pg['volumes'] and 'database:/var/lib/postgresql' in pg['volumes']
+    for name in ('migrate','app'):
+        env = services[name]['environment']
+        assert env['POSTGRES_PASSWORD_FILE']=='/data/secrets/postgres_password'
+        assert 'secrets:/data/secrets:ro' in services[name]['volumes']
+    for name, s in services.items():
+        for key, value in s.get('environment',{}).items():
+            assert key!='PGPASSWORD', 'password passed through a variable instead of the file'
+            if name!='secrets':
+                assert key!='POSTGRES_PASSWORD', 'password passed as a variable instead of the file'
+            assert 'POSTGRES_PASSWORD:?' not in str(value), 'the database password must not be mandatory'
+    # The database is reachable only on the deployment network: `ports` is rejected for every service.
+    assert all('ports' not in s for s in services.values())
 
 if __name__=='__main__':
     raw = YAML(typ='safe').load((root/'compose.yaml').read_text())
@@ -94,6 +120,14 @@ if __name__=='__main__':
         ('mirror instead of upstream',lambda d:d['services']['postgres'].update(image='${POSTGRES_IMAGE:-ghcr.io/thomas-bsn/snitch-postgres:latest}')),
         ('unknown non-ghcr image',lambda d:d['services']['app'].update(image='${SNITCH_IMAGE:-docker.io/library/nginx:latest}')),
         ('unknown non-ghcr literal',lambda d:d['services']['migrate'].update(image='nginx:latest')),
+        ('database published to the host',lambda d:d['services']['postgres'].update(ports=['5432:5432'])),
+        ('mandatory database password',lambda d:d['services']['secrets']['environment'].update(POSTGRES_PASSWORD='${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}')),
+        ('password in the database environment',lambda d:d['services']['postgres']['environment'].update(POSTGRES_PASSWORD='literal')),
+        ('password passed by variable to the app',lambda d:d['services']['app']['environment'].update(PGPASSWORD='${POSTGRES_PASSWORD:-}')),
+        ('password file not read by migrate',lambda d:d['services']['migrate']['environment'].pop('POSTGRES_PASSWORD_FILE')),
+        ('database not gated by secrets',lambda d:d['services']['postgres'].pop('depends_on')),
+        ('secrets volume writable for database',lambda d:d['services']['postgres'].update(volumes=['database:/var/lib/postgresql','secrets:/run/snitch-secrets'])),
+        ('looping secrets job',lambda d:d['services']['secrets'].update(restart='always')),
         ('wrong backup',lambda d:d['services']['postgres']['x-forgeyard'].update(backup={'type':'files'})),
     ]
     for label, mutate in fixtures:
