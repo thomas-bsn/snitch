@@ -2,7 +2,11 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import createClient from "openapi-fetch";
 import type { paths, components } from "./api.gen";
-import "./style.css";
+import { AtelierPrototype } from "./prototype-atelier/AtelierPrototype";
+import {
+  PrototypeSwitcher,
+  currentVariant,
+} from "./prototype-atelier/PrototypeSwitcher";
 import { SpeakerBadge, VoicePanel } from "./voice/VoicePanel";
 import {
   ClipPersons,
@@ -3104,4 +3108,12 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+// PROTOTYPE: ?variant=atelier swaps the whole UI. Throwaway.
+// The legacy stylesheet leaks into the new UI (global button/input/label rules), so only load it for the legacy variant.
+if (currentVariant() !== "atelier") await import("./style.css");
+createRoot(document.getElementById("root")!).render(
+  <>
+    {currentVariant() === "atelier" ? <AtelierPrototype /> : <App />}
+    <PrototypeSwitcher />
+  </>,
+);
