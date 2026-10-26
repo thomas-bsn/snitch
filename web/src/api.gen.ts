@@ -443,6 +443,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/{id}/transcription-model": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Un nom vide revient au modèle du profil. */
+    put: operations["updateWorkerTranscriptionModel"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/workers/{id}": {
     parameters: {
       query?: never;
@@ -1841,6 +1858,8 @@ export interface components {
       items: components["schemas"]["JobEvent"][];
     };
     Worker: {
+      /** @description Nom facultatif du modèle propre au Worker. */
+      transcription_model?: string;
       id: string;
       name: string;
       max_concurrency: number;
@@ -1894,6 +1913,8 @@ export interface components {
       at: string;
     };
     WorkerDetail: {
+      /** @description Nom facultatif du modèle propre au Worker. */
+      transcription_model?: string;
       id: string;
       name: string;
       max_concurrency: number;
@@ -1956,6 +1977,8 @@ export interface components {
       lease_token: string;
     };
     WorkerJobInput: {
+      /** @description Nom facultatif du modèle propre au Worker. */
+      transcription_model?: string;
       job: components["schemas"]["Job"];
       original_name: string;
       /** Format: int64 */
@@ -4256,6 +4279,48 @@ export interface operations {
         };
       };
       /** @description Erreur de validation ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateWorkerTranscriptionModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          model: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Nom enregistré */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            model: string;
+          };
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

@@ -35,6 +35,7 @@ type Worker struct {
 	RevokedAt           *time.Time `json:"revoked_at"`
 	Connected           bool       `json:"connected"`
 	Models              Models     `json:"models"`
+	TranscriptionModel  string     `json:"transcription_model"`
 }
 
 type Registration struct {
@@ -127,7 +128,7 @@ func (s *Service) Get(ctx context.Context, id string) (Detail, error) {
 		return Detail{}, ErrNotFound
 	}
 	var d Detail
-	err := s.pool.QueryRow(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($2 * interval '1 second'),false),models FROM workers WHERE id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models)
+	err := s.pool.QueryRow(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($2 * interval '1 second'),false),models,transcription_model FROM workers WHERE id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models, &d.TranscriptionModel)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrNotFound
 	}
@@ -200,7 +201,7 @@ func (s *Service) RenewToken(ctx context.Context, id string) (Registration, erro
 }
 
 func (s *Service) List(ctx context.Context) ([]Worker, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($1 * interval '1 second'),false),models FROM workers ORDER BY created_at,id`, int64(ConnectedWindow.Seconds()))
+	rows, err := s.pool.Query(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($1 * interval '1 second'),false),models,transcription_model FROM workers ORDER BY created_at,id`, int64(ConnectedWindow.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("list workers: %w", err)
 	}
@@ -208,7 +209,7 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 	items := []Worker{}
 	for rows.Next() {
 		var worker Worker
-		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected, &worker.Models); err != nil {
+		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected, &worker.Models, &worker.TranscriptionModel); err != nil {
 			return nil, fmt.Errorf("scan worker: %w", err)
 		}
 		items = append(items, worker)

@@ -38,6 +38,7 @@ class WorkerJobInput:
             tracks (list[WorkerJobInputTracksItem]):
             media_url (str):
             vocabulary (list[WorkerVocabularyTerm]):
+            transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
             duration_seconds (float | None | Unset):
             pipeline (TranscriptionPipeline | Unset):
             pipeline_version (str | Unset):
@@ -52,6 +53,7 @@ class WorkerJobInput:
     tracks: list[WorkerJobInputTracksItem]
     media_url: str
     vocabulary: list[WorkerVocabularyTerm]
+    transcription_model: str | Unset = UNSET
     duration_seconds: float | None | Unset = UNSET
     pipeline: TranscriptionPipeline | Unset = UNSET
     pipeline_version: str | Unset = UNSET
@@ -94,6 +96,8 @@ class WorkerJobInput:
 
 
 
+        transcription_model = self.transcription_model
+
         duration_seconds: float | None | Unset
         if isinstance(self.duration_seconds, Unset):
             duration_seconds = UNSET
@@ -123,6 +127,8 @@ class WorkerJobInput:
             "media_url": media_url,
             "vocabulary": vocabulary,
         })
+        if transcription_model is not UNSET:
+            field_dict["transcription_model"] = transcription_model
         if duration_seconds is not UNSET:
             field_dict["duration_seconds"] = duration_seconds
         if pipeline is not UNSET:
@@ -179,6 +185,8 @@ class WorkerJobInput:
             vocabulary.append(vocabulary_item)
 
 
+        transcription_model = d.pop("transcription_model", UNSET)
+
         def _parse_duration_seconds(data: object) -> float | None | Unset:
             if data is None:
                 return data
@@ -220,6 +228,7 @@ class WorkerJobInput:
             tracks=tracks,
             media_url=media_url,
             vocabulary=vocabulary,
+            transcription_model=transcription_model,
             duration_seconds=duration_seconds,
             pipeline=pipeline,
             pipeline_version=pipeline_version,

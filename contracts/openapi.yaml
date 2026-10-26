@@ -1518,6 +1518,7 @@
         "description": "Administrateurs uniquement."
       }
     },
+    "/api/admin/workers/{id}/transcription-model": {"put": {"operationId": "updateWorkerTranscriptionModel", "description": "Administrateurs uniquement. Un nom vide revient au modèle du profil.", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["model"], "properties": {"model": {"type": "string", "maxLength": 100}}}}}}, "responses": {"200": {"description": "Nom enregistré", "content": {"application/json": {"schema": {"type": "object", "required": ["model"], "properties": {"model": {"type": "string"}}}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/admin/workers/{id}": {
       "get": {
         "operationId": "getWorker",
@@ -4832,6 +4833,7 @@
           "connected"
         ],
         "properties": {
+          "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "id": {
             "type": "string"
           },
@@ -5026,6 +5028,7 @@
           "bundle"
         ],
         "properties": {
+          "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "id": {
             "type": "string"
           },
@@ -5255,6 +5258,7 @@
           "vocabulary"
         ],
         "properties": {
+          "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "job": {
             "$ref": "#/components/schemas/Job"
           },
