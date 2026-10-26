@@ -11,12 +11,7 @@ import { ADMIN_TABS } from "./admin/tabs";
 import { WorkersTab } from "./admin/workers/WorkersTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
-import {
-  Forbidden,
-  ImportPage,
-  NotFound,
-  SearchPage,
-} from "./pages/pages";
+import { Forbidden, ImportPage, NotFound, SearchPage } from "./pages/pages";
 import { isAdministrator } from "./roles";
 import { AccountPage } from "./screens/account/AccountPage";
 import { ConnectionLost, Splash } from "./screens/ConnectionLost";

@@ -75,7 +75,9 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
   await page
     .getByRole("link", { name: "Autoriser 123456", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText("already linked");
+  await expect(
+    page.getByRole("status").filter({ hasText: "already linked" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Account menu" }),
   ).toBeVisible();
@@ -84,9 +86,11 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
   await page
     .getByRole("link", { name: "Autoriser 654321", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText(
-    "Your Discord identity is linked",
-  );
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Your Discord identity is linked" }),
+  ).toBeVisible();
   await page.goto("/legacy/");
   await page
     .getByRole("button", { name: "Se déconnecter", exact: true })
@@ -103,8 +107,8 @@ test("Discord simulé : attente, approbation, reconnexion, liaison et conflit sa
     await (await page.request.get(origin + "/api/auth/me")).json(),
   ).toMatchObject({ user: { role: "super_admin", username: "administrator" } });
   await visitor.goto(origin + "/?notice=unavailable");
-  await expect(visitor.getByRole("status")).toContainText(
-    "temporarily unavailable",
-  );
+  await expect(
+    visitor.getByRole("status").filter({ hasText: "temporarily unavailable" }),
+  ).toBeVisible();
   await visitorContext.close();
 });

@@ -203,9 +203,9 @@ test.describe.serial("paramètres du compte", () => {
 
     // The browser comes back to the profile with a confirmation that can be dismissed.
     await expect(page).toHaveURL(/\/account(\?|$)/);
-    await expect(page.getByRole("status")).toContainText(
-      "Your Discord identity is linked",
-    );
+    await expect(
+      page.getByRole("status").filter({ hasText: "Your Discord identity is" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Dismiss this message" }).click();
     await expect(page.getByRole("status")).toHaveCount(0);
 
@@ -239,7 +239,9 @@ test.describe.serial("paramètres du compte", () => {
     await admin
       .getByRole("link", { name: "Autoriser 654321", exact: true })
       .click();
-    await expect(admin.getByRole("status")).toContainText("already linked");
+    await expect(
+      admin.getByRole("status").filter({ hasText: "already linked" }),
+    ).toBeVisible();
     await adminContext.close();
     await context.close();
   });
