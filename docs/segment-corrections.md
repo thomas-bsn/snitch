@@ -41,3 +41,11 @@ Corps : `text`, `expected_version` (obligatoire, 0 pour un segment jamais corrig
 ## Point d'extension « texte effectif »
 
 `app/internal/httpapi/segment_text.go` est l'unique lecteur du texte effectif : `visibleTranscriptsCTE` et `effectiveSegmentsCTE` (SQL), `visibleTranscription` et `overlaySegments` (Go), `authorizedSegment` (routes). La recherche et la réindexation doivent les utiliser plutôt que lire `jobs.result` directement.
+
+## Corrections simultanées (ticket 51)
+
+Le contrôle de version du `PUT` garantit qu'une correction ne remplace jamais silencieusement une autre : la ligne du segment est verrouillée (`FOR UPDATE`), et pour un segment jamais corrigé l'insertion `ON CONFLICT DO NOTHING` désigne le perdant. De deux corrections parties de la même version, une seule aboutit ; l'autre reçoit `409 segment_conflict` avec la version courante (`current` : texte, version, auteur, date) et rien n'est écrit pour elle. Chaque correction acceptée laisse une entrée d'historique : la correction gagnante n'est donc jamais perdue. Deux segments différents ne se bloquent pas et ne se contredisent pas.
+
+Interface : en cas de conflit, le formulaire reste ouvert avec le brouillon intact et un bloc « Conflit sur le segment N » indique qui a modifié le segment et quand, ainsi que la version actuelle. « Reprendre ma modification » enregistre le brouillon (éventuellement retouché) par-dessus la version actuelle ; « Abandonner ma modification » ferme le formulaire et jette le brouillon. La transcription affichée est actualisée en arrière-plan.
+
+Tests : `segment_concurrency_test.go` (requêtes simultanées par goroutines sur PostgreSQL réel : un gagnant, conflit avec version et auteur, huit écrivains simultanés, segments différents sans conflit) et `web/e2e/segment-conflicts.spec.ts` (deux utilisateurs, drapeau `SNITCH_E2E_SEGMENT_CORRECTIONS=1`).
