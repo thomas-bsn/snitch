@@ -111,6 +111,7 @@ export const en = {
     skip: "Skip for now",
     saveContinue: "Save and continue",
     saving: "Saving…",
+    completed: "This step is complete. It will not be repeated.",
     code: {
       title: "Enter the installation code",
       lead: "This proves you run the server. The code is never shown in this interface.",
@@ -165,8 +166,7 @@ export const en = {
       title: "Import your first videos",
       lead: "Send clips from the browser; an interrupted transfer can be resumed.",
       nothing:
-        "Nothing is scanned or processed unless you ask. The wizard only takes you to the Import page.",
-      open: "Open the Import page",
+        "Nothing is scanned or processed unless you ask. You can import videos later from the Import page.",
     },
     summary: {
       title: "Summary",

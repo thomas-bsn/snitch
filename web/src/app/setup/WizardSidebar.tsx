@@ -15,9 +15,13 @@ export type Standing = "done" | "skipped" | "current" | "todo";
 export function WizardSidebar({
   standing,
   optional,
+  available,
+  onSelect,
 }: {
   standing: Record<StepId, Standing>;
   optional: ReadonlySet<StepId>;
+  available: ReadonlySet<StepId>;
+  onSelect: (id: StepId) => void;
 }) {
   const { t } = useI18n();
   return (
@@ -61,7 +65,17 @@ export function WizardSidebar({
                   index + 1
                 )}
               </span>
-              <span className="flex-1">{t(STEP_LABELS[id])}</span>
+              {available.has(id) && state !== "current" ? (
+                <button
+                  type="button"
+                  className="flex-1 text-left underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-accent-solid"
+                  onClick={() => onSelect(id)}
+                >
+                  {t(STEP_LABELS[id])}
+                </button>
+              ) : (
+                <span className="flex-1">{t(STEP_LABELS[id])}</span>
+              )}
               <StandingTag state={state} optional={optional.has(id)} />
             </li>
           );
