@@ -80,7 +80,9 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | Status]:
-    """
+    """  Réservé au Super-administrateur : configuration Discord et approbation des inscriptions. Un
+    Administrateur reçoit 403 super_administrator_required et rien n'est modifié.
+
     Args:
         origin (str):
         x_csrf_token (str):
@@ -116,7 +118,9 @@ def sync(
     x_csrf_token: str,
 
 ) -> Error | Status | None:
-    """
+    """  Réservé au Super-administrateur : configuration Discord et approbation des inscriptions. Un
+    Administrateur reçoit 403 super_administrator_required et rien n'est modifié.
+
     Args:
         origin (str):
         x_csrf_token (str):
@@ -147,7 +151,9 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | Status]:
-    """
+    """  Réservé au Super-administrateur : configuration Discord et approbation des inscriptions. Un
+    Administrateur reçoit 403 super_administrator_required et rien n'est modifié.
+
     Args:
         origin (str):
         x_csrf_token (str):
@@ -183,7 +189,9 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> Error | Status | None:
-    """
+    """  Réservé au Super-administrateur : configuration Discord et approbation des inscriptions. Un
+    Administrateur reçoit 403 super_administrator_required et rien n'est modifié.
+
     Args:
         origin (str):
         x_csrf_token (str):

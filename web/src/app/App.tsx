@@ -6,11 +6,13 @@ import {
   Routes,
   useLocation,
 } from "react-router";
+import { AdminLayout, AdminPlaceholder } from "./admin/AdminLayout";
+import { ADMIN_TABS } from "./admin/tabs";
+import { WorkersTab } from "./admin/workers/WorkersTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
 import {
   AccountPage,
-  AdminPage,
   Forbidden,
   ImportPage,
   LibraryPage,
@@ -80,7 +82,19 @@ function Routing() {
           <Route path="import" element={<ImportPage />} />
           <Route path="account/*" element={<AccountPage />} />
           <Route element={<RequireAdministrator />}>
-            <Route path="admin/*" element={<AdminPage />} />
+            <Route path="admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="workers" replace />} />
+              <Route path="workers" element={<WorkersTab />} />
+              <Route path="workers/:id" element={<WorkersTab />} />
+              {ADMIN_TABS.filter((tab) => tab.path !== "workers").map((tab) => (
+                <Route
+                  key={tab.path}
+                  path={`${tab.path}/*`}
+                  element={<AdminPlaceholder />}
+                />
+              ))}
+              <Route path="*" element={<NotFound />} />
+            </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
         </Route>
