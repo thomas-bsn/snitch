@@ -41,3 +41,13 @@ Corps : `text`, `expected_version` (obligatoire, 0 pour un segment jamais corrig
 ## Point d'extension « texte effectif »
 
 `app/internal/httpapi/segment_text.go` est l'unique lecteur du texte effectif : `visibleTranscriptsCTE` et `effectiveSegmentsCTE` (SQL), `visibleTranscription` et `overlaySegments` (Go), `authorizedSegment` (routes). La recherche et la réindexation doivent les utiliser plutôt que lire `jobs.result` directement.
+
+## Recherche dans le texte corrigé
+
+Les quatre modes de `GET /api/search` lisent le texte effectif (`eff_segments`), jamais `jobs.result` directement :
+
+- **exact** : les mots d'un segment non corrigé sont ses mots d'origine ; ceux d'un segment corrigé sont découpés dans le texte corrigé (séparation sur les blancs, ponctuation de bord retirée), tous datés au début du segment (les mots ne sont pas réalignés). Les mots d'origine d'un segment corrigé ne produisent donc plus aucun résultat ;
+- **plein texte** et **approximatif** : la sous-chaîne et la similarité trigramme s'appliquent au texte corrigé et à ses mots ;
+- **hybride** : la voie lexicale est la recherche plein texte ci-dessus (rappelée en interne). La voie sémantique lit `transcript_embeddings`, dont le texte et le vecteur datent de l'indexation : le texte affiché est le texte effectif (jointure sur `segment_corrections`), et un segment dont la réindexation est en attente (`reindex_pending`) n'est pas proposé par cette voie, pour ne pas faire remonter l'ancien texte par son ancien vecteur. Il redevient trouvable sémantiquement une fois réindexé (indexation par segment à la charge de la réindexation) ; la voie lexicale le trouve immédiatement.
+
+Chaque résultat porte `corrected` (vrai si `context` est le texte corrigé) ; l'interface affiche alors un badge « Corrigé ». `timestamp` reste le début du mot d'origine (segment non corrigé) ou le début du segment (segment corrigé) : l'ouverture se fait à cet horodatage. Permissions de visibilité, filtres et filtre par Personne s'appliquent avant les comptes et la pagination, comme avant ; le locuteur d'un segment est résolu par `segmentSpeakerJoin`, à qui la recherche passe déjà l'identité du segment (transcription, index).
