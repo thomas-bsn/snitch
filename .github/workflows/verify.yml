@@ -14,12 +14,10 @@ on:
 permissions:
   contents: read
 jobs:
-  verify:
+  check:
     runs-on: ubuntu-24.04
     steps:
       - name: Free runner disk space
-        # The compose smoke test pulls the Ollama image (several GB once extracted) after the Go and browser
-        # tests have filled the disk; without this the extraction fails with "no space left on device".
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           df -h /
@@ -50,6 +48,16 @@ jobs:
           .venv/bin/python scripts/check_compose.py
           .venv/bin/python scripts/check_error_codes.py
           SNITCH_E2E=1 bash scripts/test.sh
+  build:
+    needs: check
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - run: |
           docker build -f deploy/docker/app.Dockerfile -t snitch-smoke:local .
@@ -71,7 +79,7 @@ jobs:
     #          deploy/licenses/** (voice extras) and LICENSE.
     # A version tag (v*) always publishes every image under that tag (consistent pinned versions);
     # main publishes "latest" plus an immutable sha-<commit> tag.
-    needs: verify
+    needs: build
     if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     outputs:
@@ -120,10 +128,10 @@ jobs:
           echo "worker=$worker" >> "$GITHUB_OUTPUT"
           echo "everything=$everything app=$app worker=$worker"
   publish-app:
-    # Publishes the app image after verify, only when the app changed (always for a version tag),
+    # Publishes the app image after build, only when the app changed (always for a version tag),
     # under the tags computed by "changes" (latest + sha on main, the version on a tag).
     # Never runs for pull requests or other branches.
-    needs: [verify, changes]
+    needs: [build, changes]
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-24.04
     permissions:
@@ -159,7 +167,7 @@ jobs:
           cache-to: type=gha,scope=app,mode=max
   publish-worker:
     # Same rules as publish-app, only when the worker changed (always for a version tag). The single worker image is large.
-    needs: [verify, changes]
+    needs: [build, changes]
     if: needs.changes.outputs.worker == 'true'
     runs-on: ubuntu-24.04
     permissions:
