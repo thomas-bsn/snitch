@@ -12,6 +12,10 @@ const tints = [
   "bg-linear-to-br from-fuchsia-200 to-violet-100 dark:from-fuchsia-900 dark:to-violet-900",
 ];
 
+/** The tint of a voice's tile. */
+export const tintOf = (localSpeakerId: number) =>
+  tints[localSpeakerId % tints.length];
+
 /** The thumbnail of a case: a button that opens its excerpt. */
 export function ExcerptThumb({
   item,
@@ -29,7 +33,7 @@ export function ExcerptThumb({
         label: item.label,
         clip: item.clip_name,
       })}
-      className={`relative flex size-16 shrink-0 items-center justify-center rounded-lg ${tints[item.local_speaker_id % tints.length]} text-ink`}
+      className={`relative flex size-16 shrink-0 items-center justify-center rounded-lg ${tintOf(item.local_speaker_id)} text-ink`}
     >
       <Play className="size-5" aria-hidden="true" />
     </button>
