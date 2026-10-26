@@ -398,6 +398,11 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	identity.Store("666666")
 	call(locals[winner], "GET", start(locals[winner], true), "", "", 409)
 	identity.Store("777777")
+	// Linking the identity it already owns succeeds and returns to the account settings.
+	relinked, _ := call(locals[winner], "GET", start(locals[winner], true), "", "", 303)
+	if relinked.Header.Get("Location") != "/account?notice=discord_linked" {
+		t.Fatalf("link return: %s", relinked.Header.Get("Location"))
+	}
 	call(reconnect, "GET", start(reconnect, false), "", "", 303)
 	s.Config.DiscordTokenURL = ":invalid-provider-url"
 	unavailable := client()

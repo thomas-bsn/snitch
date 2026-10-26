@@ -848,6 +848,11 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if userID != nil {
+		// A link brings the person back to their account settings, with a confirmation.
+		http.Redirect(w, r, "/account?notice=discord_linked", http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 

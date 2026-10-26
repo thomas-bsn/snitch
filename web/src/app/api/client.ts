@@ -5,6 +5,9 @@ import { markUnreachable } from "./connection";
 export type Session = components["schemas"]["Session"];
 export type User = components["schemas"]["User"];
 export type Setup = components["schemas"]["Setup"];
+export type Person = components["schemas"]["Person"];
+export type VoiceProfileDeletion =
+  components["schemas"]["VoiceProfileDeletion"];
 
 /**
  * A request with no usable answer (network failure, or a gateway page that is not the

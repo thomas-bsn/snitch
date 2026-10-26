@@ -9,7 +9,6 @@ import {
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
 import {
-  AccountPage,
   AdminPage,
   Forbidden,
   ImportPage,
@@ -19,6 +18,7 @@ import {
   SearchPage,
 } from "./pages/pages";
 import { isAdministrator } from "./roles";
+import { AccountPage } from "./screens/account/AccountPage";
 import { ConnectionLost, Splash } from "./screens/ConnectionLost";
 import { InstallationPending } from "./screens/InstallationPending";
 import { LoginPage } from "./screens/LoginPage";

@@ -17,6 +17,7 @@ export function AddressNotice({
   const { t, error } = useI18n();
   if (code === "pending")
     return <StatusNotice>{t("notices.pending")}</StatusNotice>;
+  const confirmation = code === "discord_linked";
   if (!onDismiss) {
     return code === "discord_denied" ? (
       <StatusNotice>{error(code)}</StatusNotice>
@@ -29,7 +30,9 @@ export function AddressNotice({
       role="status"
       className="mx-4 mt-4 flex items-start gap-3 rounded-lg bg-accent-soft px-3 py-2.5 text-accent-ink md:mx-7"
     >
-      <p className="flex-1">{error(code)}</p>
+      <p className="flex-1">
+        {confirmation ? t("notices.discordLinked") : error(code)}
+      </p>
       <button
         type="button"
         onClick={onDismiss}
