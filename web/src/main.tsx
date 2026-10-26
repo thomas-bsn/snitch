@@ -12,6 +12,7 @@ import {
 } from "./voice/PersonFilter";
 import { SegmentText } from "./segments/SegmentText";
 import { SegmentHistory } from "./segments/SegmentHistory";
+import { SegmentSpeaker } from "./segments/SegmentSpeaker";
 import { VoicePipelineCard } from "./voice/VoicePipelineCard";
 import { VoiceMatchingCard } from "./voice/VoiceMatchingCard";
 import { PersonsCard } from "./voice/PersonsCard";
@@ -1862,6 +1863,20 @@ function App() {
                                               index={segment.index}
                                               version={
                                                 segment.correction_version ?? 0
+                                              }
+                                              csrf={csrf}
+                                              onChanged={() =>
+                                                loadClipDetail(clip.id)
+                                              }
+                                            />
+                                            <SegmentSpeaker
+                                              clipId={clip.id}
+                                              jobId={
+                                                transcript.transcription_job_id
+                                              }
+                                              segment={segment}
+                                              speakers={
+                                                transcript.local_speakers ?? []
                                               }
                                               csrf={csrf}
                                               onChanged={() =>

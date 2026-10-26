@@ -619,6 +619,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/segments/{index}/speaker": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Désigne le Locuteur local d'un segment parmi ceux du même clip et de la même piste audio, ou revient au locuteur déduit des tours de parole (local_speaker_id null). Ne modifie ni les tours de parole, ni les empreintes, ni les attributions aux Personnes, ni les échantillons vocaux, et ne déclenche ni diarisation ni réindexation sémantique. La correction est historisée (type speaker) ; l'affichage du segment, la recherche et le filtre par Personne utilisent le locuteur corrigé. */
+    put: operations["putSegmentSpeaker"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}/segments/{index}/history": {
     parameters: {
       query?: never;
@@ -2116,6 +2133,36 @@ export interface components {
       error: "segment_conflict" | "transcription_changed";
       current?: components["schemas"]["SegmentCorrection"];
     };
+    SegmentSpeakerInput: {
+      /**
+       * Format: int64
+       * @description Locuteur local du même clip et de la même piste audio ; null pour revenir au locuteur déduit des tours de parole.
+       */
+      local_speaker_id: number | null;
+      /** @description Version du segment vue par l'appelant ; 0 si jamais écrit. */
+      expected_version: number;
+      /** @description Motif facultatif (500 caractères au plus). */
+      reason?: string;
+      /**
+       * Format: int64
+       * @description Transcription lue par l'appelant ; refusée (transcription_changed) si le clip a été retranscrit depuis.
+       */
+      transcription_job_id?: number;
+    };
+    SegmentSpeaker: {
+      /** Format: int64 */
+      transcription_job_id: number;
+      index: number;
+      version: number;
+      /**
+       * Format: int64
+       * @description Locuteur local effectif du segment (null sans locuteur déduit).
+       */
+      local_speaker_id: number | null;
+      local_speaker_label: string | null;
+      /** @description Vrai si le locuteur est désigné par un utilisateur, faux s'il est déduit. */
+      corrected: boolean;
+    };
     SegmentRestoreInput: {
       /** @description Version du segment vue par l'appelant. */
       expected_version: number;
@@ -2385,6 +2432,8 @@ export interface components {
        */
       local_speaker_person_id?: number;
       local_speaker_person_name?: string;
+      /** @description Vrai si local_speaker_id est désigné par un utilisateur (phase 6) plutôt que déduit des tours de parole. */
+      local_speaker_corrected?: boolean;
       /** @description Rang du segment dans la transcription (identité avec transcription_job_id). */
       index?: number;
       /** @description Texte de la transcription automatique, jamais modifié. */
@@ -2412,6 +2461,12 @@ export interface components {
        */
       transcription_job_id?: number;
       audio_stream_index: number;
+      /** @description Locuteurs locaux de la piste audio, désignables pour un segment ; absent sans diarisation. */
+      local_speakers?: {
+        /** Format: int64 */
+        id: number;
+        label: string;
+      }[];
       segments: components["schemas"]["TranscriptSegment"][];
     };
     AudioTrackRule: {
@@ -4134,6 +4189,55 @@ export interface operations {
         };
       };
       /** @description Erreur (400 invalid_text, text_too_long, invalid_reason, text_unchanged, invalid_request, invalid_segment_index ; 404 clip_not_found, segment_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putSegmentSpeaker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        /** @description Rang du segment dans la transcription visible du clip. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SegmentSpeakerInput"];
+      };
+    };
+    responses: {
+      /** @description Locuteur du segment enregistré ; locuteur effectif après la correction */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentSpeaker"];
+        };
+      };
+      /** @description segment_conflict : la version a changé depuis la lecture ; transcription_changed : le clip a été retranscrit depuis la lecture */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SegmentConflict"];
+        };
+      };
+      /** @description Erreur (400 invalid_request, invalid_local_speaker (Locuteur local absent ou d'un autre clip ou d'une autre piste audio), speaker_unchanged, invalid_reason, invalid_segment_index ; 404 clip_not_found, segment_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

@@ -40,6 +40,8 @@ class TranscriptSegment:
                 l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
             local_speaker_person_id (int | Unset): Personne du Locuteur local, si attribuée.
             local_speaker_person_name (str | Unset):
+            local_speaker_corrected (bool | Unset): Vrai si local_speaker_id est désigné par un utilisateur (phase 6) plutôt
+                que déduit des tours de parole.
             index (int | Unset): Rang du segment dans la transcription (identité avec transcription_job_id).
             original_text (str | Unset): Texte de la transcription automatique, jamais modifié.
             corrected (bool | Unset): Vrai si text est un texte corrigé par un utilisateur.
@@ -57,6 +59,7 @@ class TranscriptSegment:
     local_speaker_decision_level: DecisionLevel | Unset = UNSET
     local_speaker_person_id: int | Unset = UNSET
     local_speaker_person_name: str | Unset = UNSET
+    local_speaker_corrected: bool | Unset = UNSET
     index: int | Unset = UNSET
     original_text: str | Unset = UNSET
     corrected: bool | Unset = UNSET
@@ -97,6 +100,8 @@ class TranscriptSegment:
 
         local_speaker_person_name = self.local_speaker_person_name
 
+        local_speaker_corrected = self.local_speaker_corrected
+
         index = self.index
 
         original_text = self.original_text
@@ -130,6 +135,8 @@ class TranscriptSegment:
             field_dict["local_speaker_person_id"] = local_speaker_person_id
         if local_speaker_person_name is not UNSET:
             field_dict["local_speaker_person_name"] = local_speaker_person_name
+        if local_speaker_corrected is not UNSET:
+            field_dict["local_speaker_corrected"] = local_speaker_corrected
         if index is not UNSET:
             field_dict["index"] = index
         if original_text is not UNSET:
@@ -185,6 +192,8 @@ class TranscriptSegment:
 
         local_speaker_person_name = d.pop("local_speaker_person_name", UNSET)
 
+        local_speaker_corrected = d.pop("local_speaker_corrected", UNSET)
+
         index = d.pop("index", UNSET)
 
         original_text = d.pop("original_text", UNSET)
@@ -215,6 +224,7 @@ class TranscriptSegment:
             local_speaker_decision_level=local_speaker_decision_level,
             local_speaker_person_id=local_speaker_person_id,
             local_speaker_person_name=local_speaker_person_name,
+            local_speaker_corrected=local_speaker_corrected,
             index=index,
             original_text=original_text,
             corrected=corrected,

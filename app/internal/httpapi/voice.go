@@ -420,9 +420,12 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, view)
 }
 
-// attachLocalSpeakers labels each transcript segment with the local speaker whose
-// turns overlap it most. Segments without overlap stay unlabeled.
-func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcript any) error {
+// attachLocalSpeakers labels each transcript segment with its local speaker: the one a
+// user designated for the segment (phase 6; states carries the overrides), otherwise
+// the one whose turns overlap it most. Segments without either stay unlabeled. It also
+// lists the local speakers of the audio stream (transcription.local_speakers) so a
+// reader can offer them as the choice of a correction.
+func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcript any, states map[int]segmentState) error {
 	object, ok := transcript.(map[string]any)
 	if !ok {
 		return nil
@@ -432,6 +435,27 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 	if !indexOK || !isList || len(segments) == 0 {
 		return nil
 	}
+	roster, err := s.Pool.Query(ctx, `SELECT id,label FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 ORDER BY ordinal,id`, clipID, int(index))
+	if err != nil {
+		return err
+	}
+	speakerLabels := map[int64]string{}
+	speakerList := []map[string]any{}
+	for roster.Next() {
+		var id int64
+		var label string
+		if err = roster.Scan(&id, &label); err != nil {
+			roster.Close()
+			return err
+		}
+		speakerLabels[id] = label
+		speakerList = append(speakerList, map[string]any{"id": id, "label": label})
+	}
+	roster.Close()
+	if err = roster.Err(); err != nil || len(speakerList) == 0 {
+		return err
+	}
+	object["local_speakers"] = speakerList
 	rows, err := s.Pool.Query(ctx, `SELECT ls.id,ls.label,st.start_seconds,st.end_seconds FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 ORDER BY ls.ordinal,st.turn_index`, clipID, int(index))
 	if err != nil {
 		return err
@@ -450,14 +474,14 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 		}
 		turns = append(turns, t)
 	}
-	if err = rows.Err(); err != nil || len(turns) == 0 {
+	if err = rows.Err(); err != nil {
 		return err
 	}
 	attributions, err := s.effectiveAttributions(ctx, clipID)
 	if err != nil {
 		return err
 	}
-	for _, raw := range segments {
+	for position, raw := range segments {
 		segment, isMap := raw.(map[string]any)
 		if !isMap {
 			continue
@@ -479,13 +503,25 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 				labels[t.id] = t.label
 			}
 		}
-		if len(order) == 0 {
+		sort.SliceStable(order, func(i, j int) bool { return overlap[order[i]] > overlap[order[j]] })
+		var speakerID int64
+		var speakerLabel string
+		if len(order) > 0 {
+			speakerID, speakerLabel = order[0], labels[order[0]]
+		}
+		segment["local_speaker_corrected"] = false
+		if st, found := states[position]; found && st.StaleAt == nil && st.SpeakerOverrideID != nil {
+			if label, known := speakerLabels[*st.SpeakerOverrideID]; known {
+				speakerID, speakerLabel = *st.SpeakerOverrideID, label
+				segment["local_speaker_corrected"] = true
+			}
+		}
+		if speakerID == 0 {
 			continue
 		}
-		sort.SliceStable(order, func(i, j int) bool { return overlap[order[i]] > overlap[order[j]] })
-		segment["local_speaker_id"], segment["local_speaker_label"] = order[0], labels[order[0]]
+		segment["local_speaker_id"], segment["local_speaker_label"] = speakerID, speakerLabel
 		segment["local_speaker_decision_level"] = LevelUnknown
-		if a, found := attributions[order[0]]; found {
+		if a, found := attributions[speakerID]; found {
 			segment["local_speaker_decision_level"] = a.DecisionLevel
 			if a.Person != nil {
 				segment["local_speaker_person_id"], segment["local_speaker_person_name"] = a.Person.ID, a.Person.DisplayName
