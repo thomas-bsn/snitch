@@ -15,8 +15,12 @@ test("une Personne liée à son compte voit ses clips et supprime son profil voc
   await first.getByRole("button", { name: "Valider", exact: true }).click();
   await expect(first.getByText("Validation enregistrée.")).toBeVisible();
 
-  // Without a link the account has no voice card; an administrator links it.
-  await expect(page.getByRole("region", { name: "Ma voix" })).toHaveCount(0);
+  // Without a link the account has no voice profile; an administrator links it.
+  await page.goto("/account/voice");
+  await expect(page.getByRole("main")).toContainText(
+    "No person is linked to your account",
+  );
+  await page.goto("/legacy/");
   const accounts = page.locator("#person-accounts");
   await accounts.scrollIntoViewIfNeeded();
   await accounts
@@ -29,29 +33,40 @@ test("une Personne liée à son compte voit ses clips et supprime son profil voc
   await accounts.getByRole("button", { name: "Lier au compte" }).click();
   await expect(accounts.getByText("est liée au compte")).toBeVisible();
 
-  await page.reload();
-  const mine = page.getByRole("region", { name: "Ma voix" });
+  // The voice card is now in the account settings of the new interface.
+  await page.goto("/account/voice");
+  const mine = page.getByRole("main");
   await expect(mine).toContainText("Alice Synthétique");
-  await expect(mine).toContainText("1 échantillon(s) vocal(aux) validé(s)");
-  await expect(mine.getByRole("list", { name: "Mes clips" })).toContainText(
+  await expect(mine).toContainText("1 validated voice sample(s)");
+  await expect(mine.getByRole("list", { name: "My clips" })).toContainText(
     "synthetic-voices.mp4",
   );
 
-  // The deletion asks for a confirmation, then erases the profile.
-  await mine
-    .getByRole("button", { name: "Supprimer mon profil vocal" })
+  // The deletion explains its effects, asks for a confirmation, then erases the profile.
+  await expect(mine).toContainText("erases your validated voice samples");
+  await mine.getByRole("button", { name: "Delete my voice profile" }).click();
+  const dialog = page.getByRole("alertdialog", {
+    name: "Delete your voice profile?",
+  });
+  await dialog.getByRole("button", { name: "Keep my profile" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(mine).toContainText("1 validated voice sample(s)");
+  await mine.getByRole("button", { name: "Delete my voice profile" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete my voice profile" })
     .click();
-  await mine.getByRole("button", { name: "Garder mon profil" }).click();
-  await expect(mine).toContainText("1 échantillon(s) vocal(aux) validé(s)");
-  await mine
-    .getByRole("button", { name: "Supprimer mon profil vocal" })
-    .click();
-  await mine.getByRole("button", { name: "Confirmer la suppression" }).click();
-  await expect(mine).toContainText("Profil vocal supprimé");
-  await expect(mine).toContainText("Snitch ne vous reconnaît plus");
-  await expect(mine).toContainText("Aucun clip visible pour vous.");
+  await expect(mine.getByRole("status")).toContainText(
+    "1 sample(s), 1 fingerprint(s) and 1 attribution(s) erased",
+  );
+  await expect(mine).toContainText("Snitch no longer recognizes you");
+  await expect(mine).toContainText("No clip visible to you.");
+  await expect(
+    mine.getByRole("button", { name: "Delete my voice profile" }),
+  ).toHaveCount(0);
 
   // The voice is unknown again and the Person can no longer receive validations.
+  await page.goto("/legacy/");
   await page.getByText("Détails et lecture", { exact: true }).click();
   await page
     .getByRole("button", { name: "Actualiser la transcription" })

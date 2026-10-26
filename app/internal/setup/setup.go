@@ -50,3 +50,17 @@ func Complete(ctx context.Context, p *pgxpool.Pool, code, username, password str
 	}
 	return id, tx.Commit(ctx)
 }
+
+// CheckCode reports whether the code is right and still valid, without using it up.
+func CheckCode(ctx context.Context, p *pgxpool.Pool, code string) error {
+	var initialized bool
+	var h []byte
+	var expires *time.Time
+	if err := p.QueryRow(ctx, `SELECT initialized,bootstrap_hash,bootstrap_expires FROM installation WHERE id=1`).Scan(&initialized, &h, &expires); err != nil {
+		return err
+	}
+	if initialized || expires == nil || !expires.After(time.Now()) || subtle.ConstantTimeCompare(h, auth.Hash(code)) != 1 {
+		return ErrClosed
+	}
+	return nil
+}

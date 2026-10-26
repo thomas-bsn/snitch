@@ -47,7 +47,7 @@ func TestExecutableLifecycle(t *testing.T) {
 	}
 	address := listener.Addr().String()
 	listener.Close()
-	env := []string{"DATABASE_URL=" + dsn, "MASTER_KEY=" + base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)), "PUBLIC_URL=http://" + address, "COOKIE_SECURE=false", "LISTEN_ADDR=" + address, "DISPLAY_NAME=Fixture Snitch", "UPLOAD_ROOT=" + t.TempDir()}
+	env := []string{"DATABASE_URL=" + dsn, "MASTER_KEY=" + base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)), "PUBLIC_URL=http://" + address, "COOKIE_SECURE=false", "LISTEN_ADDR=" + address, "UPLOAD_ROOT=" + t.TempDir()}
 	command := func(arg string) *exec.Cmd {
 		cmd := exec.Command(binary, arg)
 		cmd.Env = append(os.Environ(), env...)
@@ -150,7 +150,7 @@ func TestExecutableLifecycle(t *testing.T) {
 	if body := get("/api/health/ready", 200); !bytes.Contains(body, []byte(`"degraded"`)) {
 		t.Fatalf("missing embeddings should degrade readiness: %s", body)
 	}
-	if body := get("/api/setup", 200); !bytes.Contains(body, []byte(`"initialized":false`)) || !bytes.Contains(body, []byte("Fixture Snitch")) {
+	if body := get("/api/setup", 200); !bytes.Contains(body, []byte(`"initialized":false`)) || bytes.Contains(body, []byte("display_name")) {
 		t.Fatalf("new installation: %s", body)
 	}
 	if body := get("/installation", 200); !bytes.Contains(body, []byte(`<div id="root"`)) {

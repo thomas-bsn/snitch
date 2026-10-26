@@ -73,6 +73,7 @@ export const fr: Messages = {
     registeredActive: "Compte créé. Vous pouvez vous connecter.",
     pending:
       "Votre inscription Discord attend l’approbation d’un administrateur.",
+    discordLinked: "Votre identité Discord est liée à votre compte.",
     dismiss: "Fermer ce message",
   },
   connection: {
@@ -80,10 +81,160 @@ export const fr: Messages = {
     body: "Le serveur ne répond pas. Vérifiez qu’il fonctionne, puis réessayez.",
     retry: "Réessayer",
   },
-  installation: {
-    title: "L’installation n’est pas terminée",
-    body: "Snitch n’a pas encore d’administrateur. L’installation guidée n’est pas encore disponible dans cette interface : terminez-la dans l’ancienne interface, avec le code d’installation affiché dans les journaux du serveur.",
-    open: "Ouvrir l’ancienne interface",
+  setup: {
+    title: "Configurer Snitch",
+    lead: "Créez d’abord le compte Super-administrateur. Le reste est facultatif, et rien ne démarre sans votre accord.",
+    stepOf: "Étape {step} sur {total}",
+    stepsLabel: "Étapes de la configuration",
+    steps: {
+      code: "Code d’installation",
+      admin: "Super-administrateur",
+      discord: "Discord",
+      semantic: "Recherche sémantique",
+      worker: "Premier Worker",
+      import: "Import de vidéos",
+      summary: "Récapitulatif",
+    },
+    tags: {
+      optional: "Facultatif",
+      skipped: "Passée",
+      done: "Faite",
+      todo: "À faire",
+    },
+    where: {
+      discord: "Administration, Utilisateurs et accès",
+      semantic: "Administration, Index sémantique",
+      worker: "Administration, Workers",
+      import: "la page Importer",
+    },
+    back: "Retour",
+    continue: "Continuer",
+    skip: "Passer pour l’instant",
+    saveContinue: "Enregistrer et continuer",
+    saving: "Enregistrement…",
+    code: {
+      title: "Saisissez le code d’installation",
+      lead: "Il prouve que vous gérez le serveur. Le code n’est jamais affiché dans cette interface.",
+      where: "Lisez-le dans les journaux du serveur",
+      whereHint:
+        "Lancez cette commande et copiez le code de la ligne qui donne l’adresse et le code. Il est valable 15 minutes et ne sert qu’une fois.",
+      label: "Code d’installation",
+      invalid:
+        "Ce code est faux ou a expiré. Relisez les journaux et copiez le code de la dernière ligne. Si 15 minutes sont passées, redémarrez l’application (docker compose restart app) pour en obtenir un nouveau.",
+      checking: "Vérification…",
+    },
+    admin: {
+      title: "Créez le Super-administrateur",
+      lead: "Ce compte est le propriétaire de l’installation : il ne peut être ni rétrogradé, ni supprimé, ni fermé. Vous pourrez ajouter d’autres administrateurs plus tard.",
+      confirm: "Confirmer le mot de passe",
+      mismatch: "Les deux mots de passe ne correspondent pas.",
+      submit: "Créer le compte",
+      submitting: "Création…",
+      codeLost:
+        "Le code d’installation n’est plus valide. Revenez en arrière, relisez les journaux et saisissez le nouveau code : ce que vous avez saisi ici est conservé.",
+    },
+    discord: {
+      title: "Connexion avec Discord",
+      lead: "Permettez la connexion avec Discord. Vous utilisez votre propre application Discord : rien n’est partagé avec personne. Les comptes locaux fonctionnent dans tous les cas.",
+      appId: "Identifiant de l’application",
+      secret: "Secret de l’application",
+      secretHint: "Conservé chiffré. Il n’est plus jamais affiché.",
+      secretKept: "Laissez vide pour garder le secret actuel.",
+      returnUrl: "Adresse de retour à enregistrer dans Discord",
+      returnUrlHint:
+        "Ajoutez cette adresse aux redirections de votre application Discord.",
+      already: "Discord est déjà configuré.",
+      ownerOnly:
+        "Seul le Super-administrateur peut configurer Discord. Passez cette étape et demandez-lui de le faire depuis l’administration.",
+    },
+    semantic: {
+      title: "Recherche sémantique",
+      lead: "Cherchez par le sens, pas seulement par les mots exacts. La recherche plein texte fonctionne sans, et rien n’est indexé tant que vous ne le demandez pas.",
+      status: "État",
+      active: "Active · {model}",
+      inactive: "Non configurée",
+      howTo:
+        "Le service d’embeddings fait partie du déploiement, mais son modèle se choisit dans les variables du déploiement. Pour l’activer, indiquez le modèle, rendez-le disponible, puis redémarrez l’application.",
+      howToHint:
+        "Remplacez le modèle par celui de votre choix. Vous pouvez aussi le faire plus tard.",
+    },
+    worker: {
+      title: "Créez votre premier Worker",
+      lead: "Un Worker transcrit les clips et analyse les voix sur votre propre machine. Indiquez son serveur Whisper et votre jeton Hugging Face : Snitch prépare ses fichiers de déploiement.",
+    },
+    import: {
+      title: "Importez vos premières vidéos",
+      lead: "Envoyez des clips depuis le navigateur ; un transfert interrompu peut être repris.",
+      nothing:
+        "Rien n’est scanné ni traité sans votre demande. L’assistant vous conduit seulement à la page Importer.",
+      open: "Ouvrir la page Importer",
+    },
+    summary: {
+      title: "Récapitulatif",
+      lead: "Voici où en est l’installation. Ce que vous avez passé peut être terminé plus tard.",
+      leadDone: "Tout est configuré.",
+      caption: "État de chaque étape de la configuration",
+      finishIn: "À terminer dans {where}",
+      banner:
+        "Un bandeau « Finir la configuration » vous rappellera ce qui reste, jusqu’à ce que vous le fermiez.",
+      open: "Ouvrir la bibliothèque",
+    },
+    banner: {
+      label: "Configuration",
+      title: "Finir la configuration",
+      body: "Des étapes facultatives restent à faire ({count}). Reprenez là où vous vous étiez arrêté.",
+      resume: "Reprendre la configuration",
+      dismiss: "Masquer ce bandeau définitivement",
+    },
+  },
+  account: {
+    tabsLabel: "Paramètres du compte",
+    tabs: { profile: "Profil", voice: "Ma voix" },
+    profile: {
+      identityTitle: "Compte",
+      username: "Nom d’utilisateur",
+      role: "Rôle",
+      discordTitle: "Discord",
+      discordBody:
+        "Liez votre identité Discord à ce compte pour pouvoir vous connecter avec Discord. Le lien se fait avec ce compte uniquement, jamais par correspondance de pseudo. Cette action ouvre Discord.",
+      discordLink: "Lier Discord",
+      discordLinking: "Ouverture de Discord…",
+      discordDisabled:
+        "La connexion Discord n’est pas activée sur cette instance. Un administrateur peut l’activer.",
+      preferencesTitle: "Préférences",
+      language: "Langue",
+      languageHint:
+        "Conservée dans votre compte : elle vous suit sur vos autres appareils.",
+      languageSaved: "Langue enregistrée.",
+      languageNotSaved:
+        "Langue changée ici, mais votre compte n’a pas pu la conserver.",
+    },
+    voice: {
+      title: "Ma voix",
+      loading: "Chargement de votre voix…",
+      noPersonTitle: "Pas de profil vocal",
+      noPerson:
+        "Aucune Personne n’est liée à votre compte : Snitch ne détient donc aucun profil vocal à votre nom. Un administrateur lie une Personne à un compte.",
+      identity: "Vous êtes la Personne {name}.",
+      samples:
+        "{count} échantillon(s) vocal(aux) validé(s) servent de référence pour votre voix.",
+      deleted:
+        "Votre profil vocal est supprimé : Snitch ne vous reconnaît plus.",
+      clipsTitle: "Clips où vous êtes identifié(e)",
+      clipsLabel: "Mes clips",
+      noClips: "Aucun clip visible pour vous.",
+      deleteTitle: "Supprimer mon profil vocal",
+      deleteEffects:
+        "Supprimer votre profil vocal efface vos échantillons vocaux validés, vos empreintes vocales et toutes les attributions faites à votre nom. Vos voix redeviennent inconnues et plus personne ne peut vous attribuer une voix ensuite. Vos clips restent en place. Cette action est définitive.",
+      deleteButton: "Supprimer mon profil vocal",
+      confirmTitle: "Supprimer votre profil vocal ?",
+      confirmBody:
+        "Vos échantillons, vos empreintes et vos attributions seront effacés, et vos voix redeviendront inconnues. Vos clips restent en place. Cette action est définitive.",
+      confirm: "Supprimer mon profil vocal",
+      deleting: "Suppression…",
+      keep: "Garder mon profil",
+      done: "Profil vocal supprimé : {samples} échantillon(s), {fingerprints} empreinte(s) et {attributions} attribution(s) effacé(s).",
+    },
   },
   pages: {
     comingSoon:
@@ -439,7 +590,11 @@ export const fr: Messages = {
   people: {
     lead: "Nommez les voix qu’entend Snitch. Une confirmation humaine passe toujours en premier.",
     tabsLabel: "Sections des Personnes",
-    tabs: { persons: "Personnes", verification: "Vérification" },
+    tabs: {
+      persons: "Personnes",
+      verification: "Vérification",
+      groups: "Groupes de voix",
+    },
     loading: "Chargement…",
     persons: {
       new: "Nouvelle Personne",
@@ -557,6 +712,49 @@ export const fr: Messages = {
       skip: "Passer pour l’instant",
       confirm: "Confirmer",
       saving: "Enregistrement…",
+    },
+    groups: {
+      lead: "Des voix qui se ressemblent, repérées dans plusieurs clips. Snitch ne fait que proposer : aucun groupe n’est jamais confirmé automatiquement et rien n’est attribué tant que vous ne l’avez pas nommé.",
+      never: "Jamais confirmé automatiquement",
+      listLabel: "Groupes de voix inconnues",
+      empty: "Plus aucun groupe à nommer.",
+      loadFailed: "Les groupes n’ont pas pu être chargés.",
+      title: "Groupe de {count} voix proches",
+      heardIn: "Entendu dans {clips} clip(s) : {names}",
+      preview: "Voix du groupe",
+      open: "Écouter et nommer",
+      openFor:
+        "Écouter et nommer le groupe de {count} voix, d’abord entendu dans {clip}",
+      pageStatus: "Page {page} sur {pages}",
+      previous: "Plus fréquents",
+      next: "Moins fréquents",
+    },
+    group: {
+      title: "Est-ce une seule personne ?",
+      selected: "{kept} voix retenues sur {total}",
+      lead: "Écoutez les extraits côte à côte. Écartez toute voix qui est quelqu’un d’autre : les autres restent ensemble. Écarter une voix est enregistré tout de suite.",
+      close: "Fermer",
+      voices: "Voix du groupe",
+      excerpt: "Extrait de {label} dans {clip}",
+      speech: "{seconds} s de parole",
+      leaveOut: "Pas cette personne",
+      leaveOutFor: "Pas cette personne : écarter {label} ({clip}) du groupe",
+      putBack: "Remettre",
+      putBackFor: "Remettre {label} ({clip}) dans le groupe",
+      out: "Écartée",
+      who: "Qui est-ce ?",
+      searchLabel: "Chercher une Personne",
+      searchPlaceholder: "Chercher une Personne…",
+      noMatch: "Aucun résultat.",
+      someoneNew: "Quelqu’un de nouveau",
+      newName: "Nom de la nouvelle Personne",
+      notNow: "Pas maintenant",
+      nameNone: "Nommer ces voix",
+      name: "Nommer {count} voix comme {person}",
+      saved: "Enregistré : {count} voix sont maintenant {person}.",
+      savedLeftOut:
+        "Enregistré : {count} voix sont maintenant {person}. {out} écartée(s).",
+      savedSkipped: "{skipped} déjà confirmée(s) par quelqu’un d’autre.",
     },
     levels: {
       human: "Validé par un humain",

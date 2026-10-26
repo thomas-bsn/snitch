@@ -2,7 +2,7 @@
 
 ## Installation et sessions locales
 
-Le code d’installation apparaît dans le log JSON `one-time installation code` (champ `expires_in_minutes: 15`) au démarrage de `serve`. Il est utilisable une fois pendant 15 minutes ; ni la page ni l’API publique ne le renvoient. Aucun administrateur ni mot de passe par défaut n’est précréé. Une seule création réussit même si deux demandes arrivent ensemble. Après réussite, l’installation reste fermée après redémarrage ; utiliser ensuite « Se connecter » avec les identifiants personnels et « Se déconnecter » pour révoquer la session courante.
+Le code d’installation apparaît dans le log JSON au démarrage de `serve`, sur une ligne lisible dont le message donne l’adresse à ouvrir et le code (`one-time installation code: open <adresse> and enter <code> …`), avec aussi les champs `code`, `url` et `expires_in_minutes: 15`. L’adresse est `PUBLIC_URL` si elle est fournie, sinon `http://localhost:<port d’écoute>`. L’écran d’accueil de l’assistant indique la commande `docker compose logs app` mais n’affiche jamais le code ; `POST /api/setup/code` le vérifie dès sa saisie (200, ou `409 setup_closed_or_invalid_code` s’il est faux, expiré ou si l’installation est terminée) sans le consommer, avec la limite par adresse des entrées publiques. Il est utilisable une fois pendant 15 minutes ; ni la page ni l’API publique ne le renvoient. Aucun administrateur ni mot de passe par défaut n’est précréé. Une seule création réussit même si deux demandes arrivent ensemble. Après réussite, l’installation reste fermée après redémarrage ; utiliser ensuite « Se connecter » avec les identifiants personnels et « Se déconnecter » pour révoquer la session courante.
 
 Si le navigateur ou le serveur s’interrompt **avant** la création, retrouver le code dans les logs du premier démarrage : un redémarrage conserve tout code encore valide et ne le réaffiche pas. Si ce code a été perdu ou a expiré, attendre son expiration puis redémarrer `serve` : un nouveau code est émis tant que l’installation n’est pas terminée. Le précédent est alors refusé. Une interruption **après** création ne rouvre jamais le wizard ; se reconnecter avec le compte créé. Aucun changement SQL manuel n’est nécessaire.
 
@@ -68,7 +68,6 @@ La migration `00002_oauth_session.sql` invalide les anciens parcours OAuth en co
 | `COOKIE_SECURE` | Facultative. Absente, le cookie est sécurisé quand l'adresse publique est HTTPS. `true` ou `false` décide seul (`true` exige un `PUBLIC_URL` HTTPS s'il est fourni). |
 | `TRUSTED_PROXIES` | Facultative. Adresses IP ou plages CIDR (séparées par des virgules) dont les en-têtes de mandataire sont honorés ; `none` n'en honore aucun. Par défaut : boucle locale et réseaux privés. |
 | `LISTEN_ADDR` | Adresse et port d'écoute, `:8080` par défaut. `healthcheck` utilise la même variable. |
-| `DISPLAY_NAME` | Nom affiché dans le navigateur, `Snitch` par défaut. |
 | `EMBEDDINGS_URL` | URL HTTP(S) facultative du point d'accès compatible embeddings ; pas d'identifiants ni query string. |
 | `EMBEDDINGS_MODEL` | Modèle déjà disponible chez le fournisseur ; aucun téléchargement implicite. Vide : pas d'appel au fournisseur. |
 
@@ -78,7 +77,8 @@ L’exemple [.env.example](../.env.example) prépare les variables du déploieme
 
 - `GET /api/health/live` : processus vivant, HTTP 200, `{"status":"ok"}`.
 - `GET /api/health/ready` : schéma accessible, HTTP 200 ; `degraded` si embeddings absents ou injoignables, `ok` si leur sonde réussit. Une base inaccessible donne HTTP 503 avec `database_unavailable`.
-- `GET /api/setup` : état d'installation, nom d'affichage et phases reportées ; aucun secret d'installation.
+- `GET /api/setup` : état d'installation, Discord activé et phases reportées ; aucun secret d'installation. Il n'y a plus de nom d'instance : « Snitch » est le nom unique, et `DISPLAY_NAME` est ignorée si une installation existante la fournit encore.
+- `GET /api/admin/setup-progress` (Administrateurs) : progression de l'installation guidée. Chaque étape facultative (`discord`, `semantic_search`, `worker`, `import`) est `done` si elle est réellement configurée, `skipped` si la personne l'a traversée sans la configurer, `todo` sinon ; `dismissed` indique que le bandeau « Finir la configuration » est fermé. `PUT` (`step`, `state` `done` ou `skipped`) note le passage ; `POST /api/admin/setup-progress/dismiss` ferme le bandeau pour de bon. Une installation existante à la mise à jour n'a pas de bandeau.
 - `./bin/snitch healthcheck` : sortie 0 si l'API est prête, y compris en mode dégradé.
 
 Les logs de l'application sont du JSON avec erreurs génériques, sans URL PostgreSQL, clé maître ni corps de requête. Le pool est limité à six connexions. SIGTERM laisse jusqu'à dix secondes aux requêtes en cours avant la fermeture du pool.

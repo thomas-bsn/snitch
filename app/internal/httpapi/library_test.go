@@ -35,7 +35,7 @@ func testClipLibrary(t *testing.T, pool *pgxpool.Pool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts", ClipRoots: []string{clipRoot}, StabilityWindow: 0, UploadRoot: t.TempDir(), ProbePath: syntheticProbeFixture(t), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ClipRoots: []string{clipRoot}, StabilityWindow: 0, UploadRoot: t.TempDir(), ProbePath: syntheticProbeFixture(t), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	if err := api.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}

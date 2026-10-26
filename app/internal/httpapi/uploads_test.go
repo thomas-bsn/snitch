@@ -34,7 +34,7 @@ func testResumableUploads(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	api := New(pool, config.Config{
-		MasterKey: bytes.Repeat([]byte{1}, 32), DisplayName: "Receipts",
+		MasterKey: bytes.Repeat([]byte{1}, 32),
 		ProbePath: probe, UploadRoot: uploadRoot, UploadMaxBytes: 128, UploadChunkBytes: 16 * 1024,
 		UploadSessionTTL: time.Hour,
 	}, slog.New(slog.NewJSONHandler(io.Discard, nil)))

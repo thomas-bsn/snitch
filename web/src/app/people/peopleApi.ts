@@ -12,6 +12,9 @@ export type Verification = components["schemas"]["VoiceVerification"];
 export type VerificationCase = components["schemas"]["VoiceVerificationCase"];
 export type VerificationCounts =
   components["schemas"]["VoiceVerificationCounts"];
+export type VoiceGroup = components["schemas"]["VoiceGroup"];
+export type VoiceGroupMember = components["schemas"]["VoiceGroupMember"];
+export type VoiceGroupNaming = components["schemas"]["VoiceGroupNaming"];
 export type DecisionLevel = components["schemas"]["DecisionLevel"];
 export type VerificationFilter = "all" | "unknown" | "ambiguous";
 
@@ -60,6 +63,17 @@ export const fetchVerification = (
   guard(async () => {
     const { data, error } = await api.GET("/api/voice-verification", {
       params: { query: { level, page, page_size: pageSize } },
+    });
+    return data ? { ok: true, value: data } : failure(error);
+  });
+
+/** The proposed groups of unknown voices (two voices or more), most frequent first. */
+export const fetchVoiceGroups = (page: number, pageSize: number) =>
+  guard(async () => {
+    const { data, error } = await api.GET("/api/voice-groups", {
+      params: {
+        query: { proposed: true, sort: "clips", page, page_size: pageSize },
+      },
     });
     return data ? { ok: true, value: data } : failure(error);
   });
@@ -126,6 +140,50 @@ export function usePersonActions() {
         return existing
           ? { ok: false, code: `already_validated:${existing}` }
           : failure(error);
+      }),
+  };
+}
+
+/** Leaving a voice out of its group, putting it back, naming what is left. */
+export function useVoiceGroupActions() {
+  const { session } = useSession();
+  const header = mutation(session?.csrf_token);
+  return {
+    exclude: (localSpeakerId: number) =>
+      guard<true>(async () => {
+        const { data, error } = await api.PUT(
+          "/api/local-speakers/{id}/group-exclusion",
+          { params: { path: { id: localSpeakerId }, header } },
+        );
+        return data ? { ok: true, value: true } : failure(error);
+      }),
+    restore: (localSpeakerId: number) =>
+      guard<true>(async () => {
+        const { data, error } = await api.DELETE(
+          "/api/local-speakers/{id}/group-exclusion",
+          { params: { path: { id: localSpeakerId }, header } },
+        );
+        return data ? { ok: true, value: true } : failure(error);
+      }),
+    /**
+     * Names exactly the voices that were listened to. The server refuses, and writes
+     * nothing, when the group is no longer exactly that set.
+     */
+    name: (groupId: number, localSpeakerIds: number[], choice: Choice) =>
+      guard<VoiceGroupNaming>(async () => {
+        const { data, error } = await api.POST(
+          "/api/voice-groups/{id}/naming",
+          {
+            params: { path: { id: groupId }, header },
+            body: {
+              local_speaker_ids: localSpeakerIds,
+              ...("personId" in choice
+                ? { person_id: choice.personId }
+                : { new_person_name: choice.newName }),
+            },
+          },
+        );
+        return data ? { ok: true, value: data } : failure(error);
       }),
   };
 }
