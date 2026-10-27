@@ -10,9 +10,10 @@ L’ancienne application `/legacy/` et ses ressources ont été retirées. Les r
 
 - `npm --prefix web run lint` et `npm --prefix web run build` passent. Vite signale un chunk JavaScript de 711 Ko après minification.
 - `bash scripts/generate.sh`, `scripts/check_generated.py`, `scripts/check_error_codes.py`, `go vet -tags integration ./...` et `gofmt` passent.
-- Les tests E2E d’accessibilité ciblés passent : 5 contrôles axe, sans violation, débordement horizontal ni cible tactile visible sous 44 px.
-- Le test E2E de retranscription corrigé passe seul.
-- La suite intégrale `go test -timeout 20m -race -tags integration ./... -count=1 -v` échoue encore dans des specs E2E conservées après le retrait de l’ancienne interface : certaines cherchent des libellés ou ancres de l’ancien écran (par exemple `Actualiser la transcription` ou `#voice-groups`), et `library.spec.ts` attend une suggestion alors que la fixture affiche une voix inconnue. Les tests Go et les autres specs rapportées passent. Ces E2E restants doivent être réalignés avant de considérer la suite complète verte.
+- `SNITCH_E2E=1 bash scripts/test.sh` passe : les tests Go et les parcours Playwright terminent en 349,9 secondes.
+- Les contrôles axe-core ciblés passent : 5 contrôles, sans violation, débordement horizontal ni cible tactile visible sous 44 px.
+
+La suite démarre PostgreSQL/pgvector avec Testcontainers, remet la base à l’état de fixtures avant chaque scénario HTTP, puis lance les fichiers Playwright sélectionnés contre l’API locale et la SPA embarquée. Les parcours utilisent des clips, comptes, Workers et fournisseurs synthétiques. Les E2E retirés étaient des doublons qui visaient l’ancienne interface ; leurs parcours sont exercés par `people.spec.ts`, `people-groups.spec.ts`, `clip-corrections.spec.ts` et `admin-voice.spec.ts`. La réindexation, la recherche après correction et l’export gardent leurs propres scénarios ciblés.
 
 ## Restant et écarts
 

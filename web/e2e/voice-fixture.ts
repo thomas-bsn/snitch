@@ -6,7 +6,7 @@ import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 export async function prepareDiarizedClip(
   page: Page,
   options: { secondFingerprintEnd?: number } = {},
-): Promise<void> {
+): Promise<number> {
   await installAdministrator();
   const clipId = await uploadClip("synthetic-voices.mp4", "shared");
   await transcribeAndDiarize(clipId, options);
@@ -15,4 +15,5 @@ export async function prepareDiarizedClip(
   await expect(
     page.getByRole("heading", { name: "synthetic-voices.mp4" }),
   ).toBeVisible();
+  return clipId;
 }

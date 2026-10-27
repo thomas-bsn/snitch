@@ -788,7 +788,16 @@ func TestFoundation(t *testing.T) {
 		}
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts", "admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts", "admin-workers.spec.ts", "import.spec.ts", "clip-corrections.spec.ts", "library.spec.ts", "search-screen.spec.ts", "persons.spec.ts", "person-filter.spec.ts", "matching.spec.ts", "voice-groups.spec.ts", "automation.spec.ts", "voice-verification.spec.ts", "person-corrections.spec.ts", "people.spec.ts", "people-groups.spec.ts", "segment-corrections.spec.ts", "segment-reindex.spec.ts", "segment-conflicts.spec.ts", "search-corrections.spec.ts", "segment-history.spec.ts", "segment-export.spec.ts", "segment-speaker.spec.ts", "segment-replace-corrections.spec.ts"}
+		suites := []string{
+			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts",
+			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
+			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts",
+			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
+			"admin-workers.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
+			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
+			"people-groups.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
+			"segment-export.spec.ts",
+		}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = []string{"setup-wizard.spec.ts"}
 		}
@@ -847,28 +856,28 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"people.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PERSONS") == "1" {
-			suites = []string{"persons.spec.ts"}
+			suites = []string{"people.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_MATCHING") == "1" {
-			suites = []string{"matching.spec.ts"}
+			suites = []string{"admin-voice.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_VOICE_PROFILE") == "1" {
 			suites = []string{"account-settings.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_AUTOMATION") == "1" {
-			suites = []string{"automation.spec.ts"}
+			suites = []string{"admin-voice.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_MICROPHONE") == "1" {
 			suites = []string{"people.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PERSON_FILTER") == "1" {
-			suites = []string{"person-filter.spec.ts"}
+			suites = []string{"search-screen.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_VOICE_GROUPS") == "1" {
-			suites = []string{"voice-groups.spec.ts"}
+			suites = []string{"people-groups.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_VOICE_VERIFICATION") == "1" {
-			suites = []string{"voice-verification.spec.ts"}
+			suites = []string{"people.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PEOPLE") == "1" {
 			suites = []string{"people.spec.ts"}
@@ -877,10 +886,10 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"people-groups.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PERSON_CORRECTIONS") == "1" {
-			suites = []string{"person-corrections.spec.ts", "segment-corrections.spec.ts"}
+			suites = []string{"people.spec.ts", "clip-corrections.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEGMENT_CORRECTIONS") == "1" {
-			suites = []string{"segment-corrections.spec.ts", "segment-conflicts.spec.ts"}
+			suites = []string{"clip-corrections.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEGMENT_REINDEX") == "1" {
 			suites = []string{"segment-reindex.spec.ts"}
@@ -889,16 +898,16 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"search-corrections.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEGMENT_HISTORY") == "1" {
-			suites = []string{"segment-history.spec.ts"}
+			suites = []string{"clip-corrections.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEGMENT_EXPORT") == "1" {
 			suites = []string{"segment-export.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEGMENT_SPEAKER") == "1" {
-			suites = []string{"segment-speaker.spec.ts"}
+			suites = []string{"clip-corrections.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEGMENT_RETRANSCRIPTION") == "1" {
-			suites = []string{"segment-replace-corrections.spec.ts"}
+			suites = []string{"clip-corrections.spec.ts", "segment-replace-corrections.spec.ts"}
 		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
@@ -910,7 +919,7 @@ func TestFoundation(t *testing.T) {
 				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}
 				sourceRoot := ""
 				providerURL := ""
-				if suite == "admin-semantic.spec.ts" {
+				if suite == "admin-semantic.spec.ts" || suite == "segment-reindex.spec.ts" {
 					providerURL = newReindexProvider(t).srv.URL
 				}
 				if suite == "admin-folders.spec.ts" || suite == "people.spec.ts" {
@@ -924,7 +933,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "matching.spec.ts" || suite == "voice-groups.spec.ts" || suite == "automation.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-speaker.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
+				if suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -933,7 +942,7 @@ func TestFoundation(t *testing.T) {
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "matching.spec.ts" || suite == "automation.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "persons.spec.ts" || suite == "person-filter.spec.ts" || suite == "voice-groups.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "voice-verification.spec.ts" || suite == "person-corrections.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-corrections.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "segment-conflicts.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-history.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-speaker.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
+				if suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
