@@ -494,6 +494,20 @@ export const fr: Messages = {
     },
   },
   workers: {
+    machine: {
+      title: "Machine",
+      name: "Nom de la machine",
+      system: "Système du conteneur",
+      processor: "Processeur",
+      memory: "Mémoire",
+      gpu: "GPU",
+      gpuMemory: "Mémoire GPU",
+      driver: "Pilote GPU",
+      version: "Version du Worker",
+      address: "Adresse vue par Snitch",
+      systemHint:
+        "Le système et le nom par défaut décrivent le conteneur, pas nécessairement son hôte.",
+    },
     title: "Workers",
     lead: "Un Worker est une machine qui transcrit et traite les voix de la bibliothèque.",
     add: "Ajouter un Worker",

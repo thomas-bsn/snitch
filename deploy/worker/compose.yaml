@@ -31,6 +31,7 @@ services:
       SNITCH_WORKER_CA_BUNDLE: ${SNITCH_WORKER_CA_BUNDLE:-}
       # Tâches simultanées (1 à 4) ; 1 recommandé pour garder la VRAM disponible.
       SNITCH_WORKER_CAPACITY: ${SNITCH_WORKER_CAPACITY:-1}
+      SNITCH_WORKER_MACHINE_NAME: ${SNITCH_WORKER_MACHINE_NAME:-}
       # Fournisseur de transcription compatible OpenAI (Whisper local par exemple).
       TRANSCRIPTION_API_URL: ${TRANSCRIPTION_API_URL:-}
       TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-}

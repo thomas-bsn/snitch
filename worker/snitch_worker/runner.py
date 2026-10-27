@@ -30,6 +30,7 @@ from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
 from snitch_worker.declared_models import declared_models
+from snitch_worker.declared_machine import declared_machine
 from snitch_worker.voice import ensure_provider_ready, is_voice_step, process_voice_step, requires_audio
 
 
@@ -302,6 +303,7 @@ def run_once(
                 capacity=capacity,
                 supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
                 models=declared_models(os.environ),
+                machine=declared_machine(),
             ),
         ),
         "pulse",

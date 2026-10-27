@@ -4,6 +4,7 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  invalid_worker_machine: "La déclaration de machine du Worker est invalide.",
   account_already_linked: "Ce compte est déjà lié à une personne.",
   audio_selection_required: "Choisissez d’abord la piste audio à utiliser.",
   audio_stream_not_found: "Cette piste audio n’existe pas dans le clip.",

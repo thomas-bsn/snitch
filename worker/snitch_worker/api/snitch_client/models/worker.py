@@ -13,6 +13,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
+  from ..models.worker_machine import WorkerMachine
   from ..models.worker_models import WorkerModels
 
 
@@ -36,6 +37,9 @@ class Worker:
             revoked_at (datetime.datetime | None):
             connected (bool):
             transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
+            machine (WorkerMachine | Unset): Informations non secrètes déclarées par le Worker ; le système est celui du
+                conteneur.
+            remote_address (str | Unset): Adresse IP de connexion observée par Snitch, sans port.
             models (WorkerModels | Unset): Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais
                 de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs
                 ressemblant à un secret sont refusées.
@@ -50,6 +54,8 @@ class Worker:
     revoked_at: datetime.datetime | None
     connected: bool
     transcription_model: str | Unset = UNSET
+    machine: WorkerMachine | Unset = UNSET
+    remote_address: str | Unset = UNSET
     models: WorkerModels | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -58,6 +64,7 @@ class Worker:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         id = self.id
 
@@ -85,6 +92,12 @@ class Worker:
 
         transcription_model = self.transcription_model
 
+        machine: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.machine, Unset):
+            machine = self.machine.to_dict()
+
+        remote_address = self.remote_address
+
         models: dict[str, Any] | Unset = UNSET
         if not isinstance(self.models, Unset):
             models = self.models.to_dict()
@@ -104,6 +117,10 @@ class Worker:
         })
         if transcription_model is not UNSET:
             field_dict["transcription_model"] = transcription_model
+        if machine is not UNSET:
+            field_dict["machine"] = machine
+        if remote_address is not UNSET:
+            field_dict["remote_address"] = remote_address
         if models is not UNSET:
             field_dict["models"] = models
 
@@ -113,6 +130,7 @@ class Worker:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
@@ -168,6 +186,18 @@ class Worker:
 
         transcription_model = d.pop("transcription_model", UNSET)
 
+        _machine = d.pop("machine", UNSET)
+        machine: WorkerMachine | Unset
+        if isinstance(_machine,  Unset):
+            machine = UNSET
+        else:
+            machine = WorkerMachine.from_dict(_machine)
+
+
+
+
+        remote_address = d.pop("remote_address", UNSET)
+
         _models = d.pop("models", UNSET)
         models: WorkerModels | Unset
         if isinstance(_models,  Unset):
@@ -188,6 +218,8 @@ class Worker:
             revoked_at=revoked_at,
             connected=connected,
             transcription_model=transcription_model,
+            machine=machine,
+            remote_address=remote_address,
             models=models,
         )
 

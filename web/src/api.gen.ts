@@ -1857,9 +1857,25 @@ export interface components {
     JobHistory: {
       items: components["schemas"]["JobEvent"][];
     };
+    /** @description Informations non secrètes déclarées par le Worker ; le système est celui du conteneur. */
+    WorkerMachine: {
+      name?: string;
+      system?: string;
+      processor?: string;
+      gpu_name?: string;
+      gpu_driver?: string;
+      worker_version?: string;
+      /** Format: int64 */
+      memory_bytes?: number;
+      /** Format: int64 */
+      gpu_memory_bytes?: number;
+    };
     Worker: {
       /** @description Nom facultatif du modèle propre au Worker. */
       transcription_model?: string;
+      machine?: components["schemas"]["WorkerMachine"];
+      /** @description Adresse IP de connexion observée par Snitch, sans port. */
+      remote_address?: string;
       id: string;
       name: string;
       max_concurrency: number;
@@ -1915,6 +1931,9 @@ export interface components {
     WorkerDetail: {
       /** @description Nom facultatif du modèle propre au Worker. */
       transcription_model?: string;
+      machine?: components["schemas"]["WorkerMachine"];
+      /** @description Adresse IP de connexion observée par Snitch, sans port. */
+      remote_address?: string;
       id: string;
       name: string;
       max_concurrency: number;
@@ -1967,6 +1986,7 @@ export interface components {
       items: components["schemas"]["Worker"][];
     };
     WorkerPulseInput: {
+      machine?: components["schemas"]["WorkerMachine"];
       capacity: number;
       supported_steps: string[];
       /** @description Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer. */

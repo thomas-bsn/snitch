@@ -4820,6 +4820,7 @@
           }
         }
       },
+      "WorkerMachine": {"type": "object", "additionalProperties": false, "description": "Informations non secrètes déclarées par le Worker ; le système est celui du conteneur.", "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "system": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "processor": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "gpu_name": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "gpu_driver": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "worker_version": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "memory_bytes": {"type": "integer", "format": "int64", "minimum": 1, "maximum": 109951162777600}, "gpu_memory_bytes": {"type": "integer", "format": "int64", "minimum": 1, "maximum": 109951162777600}}},
       "Worker": {
         "type": "object",
         "required": [
@@ -4834,6 +4835,9 @@
         ],
         "properties": {
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
+          "machine": {"$ref": "#/components/schemas/WorkerMachine"},
+          "remote_address": {"type": "string", "description": "Adresse IP de connexion observée par Snitch, sans port."},
+
           "id": {
             "type": "string"
           },
@@ -5029,6 +5033,9 @@
         ],
         "properties": {
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
+          "machine": {"$ref": "#/components/schemas/WorkerMachine"},
+          "remote_address": {"type": "string", "description": "Adresse IP de connexion observée par Snitch, sans port."},
+
           "id": {
             "type": "string"
           },
@@ -5205,6 +5212,8 @@
           "supported_steps"
         ],
         "properties": {
+          "machine": {"$ref": "#/components/schemas/WorkerMachine"},
+
           "capacity": {
             "type": "integer",
             "minimum": 1,

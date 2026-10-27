@@ -115,6 +115,19 @@ class FakeProviderTests(unittest.TestCase):
         self.assertEqual(peak_active, capacity)
         self.assertEqual(calls, capacity, "worker claimed more jobs after shutdown")
 
+    def test_pulse_declares_configured_machine_name_without_secrets(self):
+        with (patch.dict(os.environ, {"SNITCH_WORKER_MACHINE_NAME": "Gaming PC"}),
+              patch.object(runner, "pulse", return_value=object()) as pulse,
+              patch("snitch_worker.declared_machine._hardware", return_value={"processor": "Fixture CPU", "memory_bytes": 8589934592, "gpu_name": "Fixture GPU", "gpu_memory_bytes": 4294967296, "gpu_driver": "555.1"}),
+              patch.object(runner, "claim_job", return_value=SimpleNamespace(job=None))):
+            self.assertFalse(runner.run_once(object(), capacity=1))
+        machine = pulse.call_args.kwargs["body"].to_dict()["machine"]
+        self.assertEqual(machine["name"], "Gaming PC")
+        self.assertEqual(machine["worker_version"], "0.1.0")
+        self.assertEqual(machine["gpu_name"], "Fixture GPU")
+        self.assertEqual(machine["memory_bytes"], 8589934592)
+        self.assertNotIn("HF_TOKEN", str(machine))
+
     def test_returns_deterministic_fixture_metadata_only(self):
         self.assertEqual(
             runner.fake_provider("fixture.echo"),
