@@ -215,6 +215,50 @@ export const fr: Messages = {
     disabledEvent: "Désactivation",
     forcedEvent: "Critères non atteints",
   },
+  members: {
+    title: "Membres",
+    columns: {
+      name: "Nom",
+      role: "Rôle",
+      joined: "Arrivée",
+      clips: "Clips",
+      actions: "Actions",
+    },
+    changeRole: "Changer le rôle",
+    delete: "Supprimer le membre",
+    roleTitle: "Changer le rôle ?",
+    deleteTitle: "Supprimer ce membre ?",
+    cancel: "Annuler",
+    confirm: "Confirmer",
+    deleteConfirm: "Supprimer",
+    promote:
+      "Nommer {name} Administrateur ? Il pourra gérer les Workers, dossiers, traitements et inscriptions.",
+    demote: "Rendre {name} Utilisateur ? Il perdra l’accès à l’administration.",
+    deleteBody:
+      "Supprimer {name} ? Son compte et ses sessions sont désactivés. Ses clips et l’historique des corrections sont conservés.",
+    hide: "Masquer ses clips",
+    signups: "Inscriptions",
+    saved: "Modifications enregistrées.",
+    approve: "Approuver {name}",
+    noPending: "Aucune inscription en attente.",
+    accessSettings: "Paramètres des inscriptions et Discord",
+    ownerOnly: "Seul le Super-administrateur peut modifier ces réglages.",
+    requireApproval: "Exiger une approbation des inscriptions",
+    discordId: "Identifiant de l’application Discord",
+    discordSecret: "Secret de l’application Discord",
+    secretKept: "Laissez vide pour conserver le secret actuel.",
+    callback: "Adresse de retour Discord",
+    unreadable: "Secrets à ressaisir : {names}",
+    saveSettings: "Enregistrer les réglages",
+    exports: "Exports",
+    exportHint:
+      "Télécharger les segments actuellement corrigés au format NDJSON.",
+    exportSegments: "Télécharger les segments corrigés",
+    masterKey: "Clé maître",
+    masterWarning:
+      "Conservez cette clé séparément de la sauvegarde de la base. Elle ne récupère pas les secrets chiffrés avec une autre clé.",
+    exportKey: "Exporter la clé maître",
+  },
   nav: {
     label: "Navigation principale",
     library: "Bibliothèque",
@@ -456,7 +500,9 @@ export const fr: Messages = {
   pages: {
     comingSoon:
       "Cet écran est en cours de refonte. L’ancienne interface le propose en attendant.",
-    library: { title: "Bibliothèque" },
+    library: {
+      title: "Bibliothèque",
+    },
     search: { title: "Recherche" },
     people: { title: "Personnes" },
     import: { title: "Importer" },
@@ -683,6 +729,7 @@ export const fr: Messages = {
     doneAnnouncement: "« {name} » a été vérifiée et ajoutée à la bibliothèque.",
   },
   library: {
+    deletedOwner: "Utilisateur supprimé",
     count: "{count} clips",
     countOne: "1 clip",
     loading: "Chargement des clips…",

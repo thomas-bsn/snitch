@@ -2,6 +2,10 @@
 // HTTP handlers). An unknown code falls back to a generic message that shows the code.
 
 export const errorsEn = {
+  member_protected: "This member cannot be modified.",
+  member_not_found: "The member was not found.",
+  invalid_role: "This role is invalid.",
+
   invalid_worker_machine: "The Worker machine declaration is invalid.",
   account_already_linked: "This account is already linked to a person.",
   audio_selection_required: "Choose which audio track to use first.",

@@ -36,6 +36,7 @@ from .corrections_to_replace import CorrectionsToReplace
 from .corrections_warning import CorrectionsWarning
 from .credentials import Credentials
 from .decision_level import DecisionLevel
+from .delete_member_body import DeleteMemberBody
 from .embedding_settings import EmbeddingSettings
 from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
@@ -55,6 +56,7 @@ from .job_status import JobStatus
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
+from .list_members_response_200 import ListMembersResponse200
 from .list_voice_groups_sort import ListVoiceGroupsSort
 from .list_voice_verification_level import ListVoiceVerificationLevel
 from .local_speaker import LocalSpeaker
@@ -64,6 +66,8 @@ from .master_key_export import MasterKeyExport
 from .master_key_export_origin import MasterKeyExportOrigin
 from .master_key_export_warning import MasterKeyExportWarning
 from .media_track import MediaTrack
+from .member import Member
+from .member_role import MemberRole
 from .microphone_detected_track import MicrophoneDetectedTrack
 from .microphone_snapshot import MicrophoneSnapshot
 from .microphone_source_rule import MicrophoneSourceRule
@@ -156,6 +160,8 @@ from .transcription_pipeline_provider import TranscriptionPipelineProvider
 from .transcription_pipeline_state import TranscriptionPipelineState
 from .transcription_pipeline_vad import TranscriptionPipelineVad
 from .transcription_pipeline_vad_mode import TranscriptionPipelineVadMode
+from .update_member_role_body import UpdateMemberRoleBody
+from .update_member_role_body_role import UpdateMemberRoleBodyRole
 from .update_worker_transcription_model_body import UpdateWorkerTranscriptionModelBody
 from .update_worker_transcription_model_response_200 import UpdateWorkerTranscriptionModelResponse200
 from .upload import Upload
@@ -268,6 +274,7 @@ __all__ = (
     "CorrectionsWarning",
     "Credentials",
     "DecisionLevel",
+    "DeleteMemberBody",
     "EmbeddingSettings",
     "Error",
     "ExportSegmentCorrectionsFormat",
@@ -287,6 +294,7 @@ __all__ = (
     "ListClipsStatus",
     "ListClipsVisibility",
     "ListJobsStatus",
+    "ListMembersResponse200",
     "ListVoiceGroupsSort",
     "ListVoiceVerificationLevel",
     "LocalSpeaker",
@@ -296,6 +304,8 @@ __all__ = (
     "MasterKeyExportOrigin",
     "MasterKeyExportWarning",
     "MediaTrack",
+    "Member",
+    "MemberRole",
     "MicrophoneDetectedTrack",
     "MicrophoneSnapshot",
     "MicrophoneSourceRule",
@@ -388,6 +398,8 @@ __all__ = (
     "TranscriptionPipelineVadMode",
     "TranscriptSegment",
     "TranscriptWord",
+    "UpdateMemberRoleBody",
+    "UpdateMemberRoleBodyRole",
     "UpdateWorkerTranscriptionModelBody",
     "UpdateWorkerTranscriptionModelResponse200",
     "Upload",

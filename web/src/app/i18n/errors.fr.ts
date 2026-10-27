@@ -4,6 +4,10 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  member_protected: "Ce membre ne peut pas être modifié.",
+  member_not_found: "Ce membre est introuvable.",
+  invalid_role: "Ce rôle est invalide.",
+
   invalid_worker_machine: "La déclaration de machine du Worker est invalide.",
   account_already_linked: "Ce compte est déjà lié à une personne.",
   audio_selection_required: "Choisissez d’abord la piste audio à utiliser.",

@@ -98,7 +98,11 @@ function ClipView({ clip }: { clip: Clip }) {
             </h1>
             <p className="mt-1 mb-0 text-mute">
               {[
-                t("clip.meta.owner", { owner: clip.owner }),
+                t("clip.meta.owner", {
+                  owner: clip.owner_deleted
+                    ? t("library.deletedOwner")
+                    : clip.owner,
+                }),
                 date,
                 typeof clip.duration_seconds === "number"
                   ? formatTimecode(clip.duration_seconds)

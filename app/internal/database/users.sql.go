@@ -12,7 +12,7 @@ import (
 )
 
 const approveUser = `-- name: ApproveUser :execrows
-UPDATE users SET approved = true WHERE id = $1 AND NOT approved
+UPDATE users SET approved = true WHERE id = $1 AND NOT approved AND deleted_at IS NULL
 `
 
 func (q *Queries) ApproveUser(ctx context.Context, id int64) (int64, error) {
@@ -49,7 +49,7 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (GetUserRow, error) {
 }
 
 const listPending = `-- name: ListPending :many
-SELECT id, username, role, approved FROM users WHERE NOT approved ORDER BY id
+SELECT id, username, role, approved FROM users WHERE NOT approved AND deleted_at IS NULL ORDER BY id
 `
 
 type ListPendingRow struct {
