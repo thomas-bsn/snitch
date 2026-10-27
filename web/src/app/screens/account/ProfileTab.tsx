@@ -3,6 +3,7 @@ import { roleLabelKey } from "../../roles";
 import { useSession } from "../../session";
 import { DiscordLink } from "./DiscordLink";
 import { LanguagePreference } from "./LanguagePreference";
+import { CloseAccount } from "./CloseAccount";
 import { Section } from "./Section";
 
 /** The "Profile" tab: who you are, the Discord link and the language. */
@@ -23,6 +24,7 @@ export function ProfileTab() {
       <Section title={t("account.profile.discordTitle")}>
         <DiscordLink />
       </Section>
+      <CloseAccount />
       <Section title={t("account.profile.preferencesTitle")}>
         <LanguagePreference />
       </Section>

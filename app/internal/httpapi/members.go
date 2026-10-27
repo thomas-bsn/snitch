@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -129,18 +130,8 @@ func (s *Server) changeMember(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPut {
 		_, err = tx.Exec(r.Context(), `UPDATE users SET role=$2 WHERE id=$1`, id, role)
 	} else {
-		if hide {
-			_, err = tx.Exec(r.Context(), `UPDATE clips SET visibility='private' WHERE owner_id=$1`, id)
-		}
-		if err == nil {
-			_, err = tx.Exec(r.Context(), `UPDATE users SET username='Utilisateur supprimé',password_hash=NULL,discord_id=NULL,approved=false,role='user',deleted_at=now() WHERE id=$1`, id)
-		}
-		if err == nil {
-			_, err = tx.Exec(r.Context(), `DELETE FROM sessions WHERE user_id=$1`, id)
-		}
-		if err == nil {
-			_, err = tx.Exec(r.Context(), `DELETE FROM oauth_states WHERE user_id=$1`, id)
-		}
+		err = retireMember(r.Context(), tx, id, hide)
+
 	}
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		s.internal(w, err)
@@ -150,5 +141,58 @@ func (s *Server) changeMember(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	reply(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// retireMember keeps ownership and correction history while invalidating credentials and sessions.
+func retireMember(ctx context.Context, tx pgx.Tx, id int64, hide bool) error {
+	if hide {
+		if _, err := tx.Exec(ctx, `UPDATE clips SET visibility='private' WHERE owner_id=$1`, id); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(ctx, `UPDATE users SET username='Utilisateur supprimé',password_hash=NULL,discord_id=NULL,approved=false,role='user',deleted_at=now() WHERE id=$1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1`, id); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `DELETE FROM oauth_states WHERE user_id=$1`, id)
+	return err
+}
+
+func (s *Server) closeAccount(w http.ResponseWriter, r *http.Request) {
+	ss := r.Context().Value(sessionKey{}).(session)
+	tx, err := s.Pool.Begin(r.Context())
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	var role string
+	var approved bool
+	var deleted bool
+	err = tx.QueryRow(r.Context(), `SELECT role,approved,deleted_at IS NOT NULL FROM users WHERE id=$1 FOR UPDATE`, ss.User.ID).Scan(&role, &approved, &deleted)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !approved || deleted {
+		fail(w, 401, "unauthorized")
+		return
+	}
+	if isSuperAdministrator(role) {
+		fail(w, 403, "member_protected")
+		return
+	}
+	if err = retireMember(r.Context(), tx, ss.User.ID, true); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		s.internal(w, err)
+		return
+	}
+	s.cookie(w, r, "snitch_session", "", -1)
 	reply(w, http.StatusOK, map[string]string{"status": "ok"})
 }

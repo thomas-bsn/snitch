@@ -254,6 +254,18 @@ export const en = {
       "Keep this key separately from the database backup. It cannot recover secrets encrypted with a different key.",
     exportKey: "Export master key",
   },
+  closeAccount: {
+    title: "Delete my account",
+    explanation:
+      "Your sessions will end and your clips will become private. Clips, corrections and their history remain. Deleting your voice profile is a separate action.",
+    protected: "The Super-administrator cannot close this account.",
+    open: "Delete my account",
+    cancel: "Cancel",
+    confirm: "Delete account",
+    confirmHint:
+      "This action disables your account and cannot be undone from this interface.",
+    type: "Type delete or supprimer",
+  },
   nav: {
     label: "Main navigation",
     library: "Library",

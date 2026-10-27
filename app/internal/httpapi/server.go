@@ -130,6 +130,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/auth/register", s.limited(http.HandlerFunc(s.register)))
 	mux.Handle("GET /api/auth/me", s.protected(false, http.HandlerFunc(s.me)))
 	mux.Handle("POST /api/auth/logout", s.protected(false, http.HandlerFunc(s.logout)))
+	mux.Handle("DELETE /api/account", s.protected(false, http.HandlerFunc(s.closeAccount)))
 	mux.Handle("GET /api/account/preferences", s.protected(false, http.HandlerFunc(s.getAccountPreferences)))
 	mux.Handle("PUT /api/account/preferences", s.protected(false, http.HandlerFunc(s.putAccountPreferences)))
 	mux.Handle("POST /api/auth/discord/start", s.rateLimited("discord", http.HandlerFunc(s.discordStart)))
