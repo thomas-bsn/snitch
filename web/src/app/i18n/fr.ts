@@ -8,7 +8,6 @@ export const fr: Messages = {
     name: "Snitch",
     skipToContent: "Aller au contenu",
     loading: "Chargement…",
-    previousInterface: "Ancienne interface",
   },
   queue: {
     filterStatus: "Filtrer par état",
@@ -541,8 +540,7 @@ export const fr: Messages = {
     },
   },
   pages: {
-    comingSoon:
-      "Cet écran est en cours de refonte. L’ancienne interface le propose en attendant.",
+    comingSoon: "Cet écran est indisponible.",
     library: {
       title: "Bibliothèque",
     },

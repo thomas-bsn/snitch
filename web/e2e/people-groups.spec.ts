@@ -5,7 +5,7 @@ import { prepareDiarizedClip } from "./voice-fixture";
 // The Voice groups section of the People screen: close unknown voices proposed together,
 // the panel to listen side by side, leave a voice out and put it back, and the one action
 // that names what is kept. The two close synthetic voices of the shared fixture form the
-// group; the instance is installed through the previous interface.
+// group; the instance is installed through the guided setup.
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 

@@ -8,7 +8,6 @@ export const en = {
     name: "Snitch",
     skipToContent: "Skip to content",
     loading: "Loading…",
-    previousInterface: "Previous interface",
   },
   queue: {
     filterStatus: "Filter by status",
@@ -533,8 +532,7 @@ export const en = {
     },
   },
   pages: {
-    comingSoon:
-      "This screen is being rebuilt. The previous interface still offers it in the meantime.",
+    comingSoon: "This screen is unavailable.",
     library: {
       title: "Library",
     },

@@ -8,8 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "generate": "openapi-typescript ../contracts/openapi.yaml -o src/api.gen.ts && prettier --write src/api.gen.ts",
     "test:e2e": "playwright test",
-    "format": "prettier --write src e2e legacy public *.ts *.json index.html",
-    "lint": "prettier --check src e2e legacy public *.ts *.json index.html"
+    "format": "prettier --write src e2e public *.ts *.json index.html",
+    "lint": "prettier --check src e2e public *.ts *.json index.html"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

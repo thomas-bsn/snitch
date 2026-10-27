@@ -1,6 +1,6 @@
 # Refonte du front : routeur, dépendances, internationalisation et transition
 
-Statut : accepté pour la phase 6 bis (lot 1). Précise la section « Dépendances » et « Internationalisation » de la [spécification](../specs/phase-6bis.md) ; ne modifie ni le contrat HTTP ni les décisions métier des phases précédentes.
+Statut : accepté pour la phase 6 bis. La décision initiale à deux interfaces a pris fin avec le ticket #78 ; l’interface historique et ses styles globaux ont été retirés. Le reste de cet ADR décrit les choix conservés pour la nouvelle interface.
 
 ## Contexte
 
@@ -15,7 +15,7 @@ Contraintes qui pèsent sur le choix :
 
 ## Décision
 
-**Deux points d'entrée, une seule application servie.** Vite construit deux pages : la nouvelle interface (`index.html`, adresse racine) et l'ancienne (`legacy/index.html`, servie sous `/legacy/`). Les deux ne partagent aucun module qui porte du CSS : la feuille de style globale, déplacée avec le code de l'ancienne interface, n'est chargée que par la page `/legacy/`. Le code neuf vit sous `web/src/app/` et n'importe jamais l'ancien. À la fin de la phase, supprimer `legacy/`, `web/src/legacy/`, `web/src/voice/` et `web/src/segments/` (réécrits) suffit. Le serveur renvoie la coque de la nouvelle interface pour toute adresse inconnue (qui n'est ni `/api/` ni un fichier embarqué) et la coque de l'ancienne pour toute adresse sous `/legacy/`.
+**Un point d'entrée.** Vite construit `index.html`, servi par le binaire Go embarqué. L'interface vit sous `web/src/app/`, sans feuille de style globale ciblant les éléments natifs. Les URL inconnues (hors `/api/` et fichiers embarqués) renvoient la coque de cette application.
 
 **Routeur : `react-router` en mode déclaratif (`BrowserRouter`).** Adresses propres (`/library`, `/search?q=…`, `/admin/…`), historique du navigateur, redirection vers l'écran demandé après la connexion, paramètres d'adresse pour les filtres et pour le moment lu d'un clip. Pas de routage par hash : il empêcherait le serveur de distinguer les écrans et casserait les liens partagés.
 
@@ -33,7 +33,7 @@ Contraintes qui pèsent sur le choix :
 
 **Serveur injoignable.** Toute requête sans réponse exploitable (échec réseau, page de passerelle qui n'est pas du JSON de l'API) marque le serveur injoignable ; la coque affiche alors un message et un bouton « Réessayer » qui recharge l'installation et la session. Une réponse portant un code d'erreur n'est pas une panne : elle est traduite là où elle arrive.
 
-**Transition.** Les retours du serveur vers l'adresse racine (Discord) atterrissent dans la nouvelle interface, qui affiche leur message. Tant que l'installation guidée n'existe pas dans la nouvelle interface (lot 2), une instance sans administrateur renvoie vers `/legacy/`. Les parcours navigateur des phases précédentes tournent sur `/legacy/` jusqu'à ce que chaque écran soit reconstruit ; les nouveaux parcours (connexion, langue, thème, adresses, accessibilité) tournent sur la nouvelle interface.
+**Transition terminée.** Les retours du serveur vers l'adresse racine (Discord) atterrissent dans la nouvelle interface, qui affiche leur message. L'installation guidée et les écrans de la phase 6 bis sont accessibles depuis la même application.
 
 ## Alternatives écartées
 
@@ -52,9 +52,9 @@ Contraintes qui pèsent sur le choix :
 ## Conséquences
 
 - Les dépendances sont épinglées une à une (versions exactes dans `web/package.json`, fichier de verrouillage commité). Elles entrent dans l'image : `@base-ui/*` et Floating UI, `react-router`, `lucide-react` (ISC), `@fontsource-variable/inter` (SIL OFL 1.1, police livrée avec son texte de licence). Tailwind, son plugin Vite et `@axe-core/playwright` sont des outils de construction et de test. `deploy/NOTICES.md` est à jour ; la construction de l'image échoue toujours si une dépendance n'a pas de texte de licence (vérifié pour les 22 paquets d'exécution).
-- Le paquet de la nouvelle interface pèse environ 230 Ko (70 Ko compressés), plus les sous-ensembles de la police qui ne sont chargés que si une page en a besoin.
+- Le bundle JavaScript unique pèse environ 711 Ko (214 Ko compressés) ; la feuille de style pèse 38 Ko (8 Ko compressés). La police Inter est livrée en sous-ensembles chargés selon les caractères affichés.
 - Les navigateurs ne voient que des fichiers ; le serveur renvoie la coque pour toute adresse inconnue : une faute de frappe dans une adresse affiche l'écran « Page introuvable » de l'application, pas une erreur du serveur.
 - Les parcours navigateur n'utilisent la nouvelle interface qu'avec une installation faite par l'API (le code d'installation reste lu dans les journaux), les sessions étant ouvertes par l'API : le plafond de dix connexions en rafale du serveur est respecté.
 - Un contrôle d'accessibilité automatique (axe, règles WCAG 2.2 AA) tourne sur chaque écran de la coque, en thème clair et sombre et à 390 pixels.
 - Chaque lot suivant ajoute ses textes aux deux catalogues ; ajouter une langue consiste à ajouter un fichier du même type et son code à `LANGUAGES` et à la contrainte de la base.
-- Tant que l'ancienne interface existe, deux jeux de composants cohabitent : c'est voulu et borné par la fin de la phase. Elle n'est plus modifiée sauf pour garder les parcours existants verts.
+- La phase 6 bis terminée, l'application ne contient plus qu'une interface et une feuille de style, partagées par tous les écrans.

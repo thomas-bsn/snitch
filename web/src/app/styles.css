@@ -1,6 +1,4 @@
-/* Design tokens of the "Atelier" direction and the Tailwind setup of the new interface.
-   Only the new interface loads this file: the old interface keeps its own global
-   stylesheet, whose rules on native elements would distort every component here. */
+/* Design tokens of the "Atelier" direction and the Tailwind setup of the application. */
 @import "tailwindcss";
 @import "@fontsource-variable/inter/wght.css";
 
