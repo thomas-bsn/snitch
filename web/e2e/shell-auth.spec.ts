@@ -209,13 +209,12 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
       page.getByRole("heading", { name: "Page not found" }),
     ).toBeVisible();
 
-    // The previous interface stays reachable under its own address.
+    // A retired legacy URL serves the same single interface as the root URL.
     const visitor = await browser.newContext();
     const old = await visitor.newPage();
     await old.goto("/legacy/");
-    await expect(
-      old.getByRole("heading", { name: "Retrouver votre espace" }),
-    ).toBeVisible();
+    await expect(old.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    expect(new URL(old.url()).pathname).toBe("/login");
     await visitor.close();
   });
 

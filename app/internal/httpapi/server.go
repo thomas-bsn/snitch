@@ -222,12 +222,8 @@ func (s *Server) Handler() http.Handler {
 			path = "index.html"
 		}
 		if _, err := fs.Stat(embedded, path); err != nil {
-			// Unknown paths return an application shell, never a 404: each screen has its own
-			// address. The old interface keeps a separate shell under /legacy during the transition.
+			// Unknown paths return the application shell: each screen has its own address.
 			r.URL.Path = "/"
-			if path == "legacy" || strings.HasPrefix(path, "legacy/") {
-				r.URL.Path = "/legacy/"
-			}
 		}
 		files.ServeHTTP(w, r)
 	})

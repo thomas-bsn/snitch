@@ -1,5 +1,4 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import { ADMIN_TABS } from "./tabs";
@@ -37,6 +36,7 @@ export function AdminLayout() {
       <h1 className="text-[22px] font-semibold">{t("admin.title")}</h1>
       <nav
         aria-label={t("admin.tabsLabel")}
+        tabIndex={0}
         className="-mx-4 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0"
       >
         <ul className="m-0 flex list-none gap-1 p-0">
@@ -82,11 +82,6 @@ export function AdminPlaceholder() {
   return (
     <div className="flex flex-col gap-3">
       <p className="max-w-xl text-mute">{t("pages.comingSoon")}</p>
-      <div>
-        <a href="/legacy/" className={buttonClass("secondary")}>
-          {t("app.previousInterface")}
-        </a>
-      </div>
     </div>
   );
 }
