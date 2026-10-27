@@ -201,7 +201,12 @@ export function TranscriptionTab() {
       </form>
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">{t("transAdmin.workers")}</h2>
-        <div className="overflow-x-auto">
+        <div
+          role="region"
+          tabIndex={0}
+          aria-label={t("transAdmin.workers")}
+          className="overflow-x-auto"
+        >
           <table className="w-full min-w-[38rem] text-left">
             <thead>
               <tr>

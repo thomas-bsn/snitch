@@ -129,7 +129,7 @@ export function VocabularyTab() {
           value={preferred}
           onChange={(event) => setPreferred(event.target.value)}
         />
-        <label className="flex items-center gap-2">
+        <label className="flex min-h-11 items-center gap-2">
           <input
             type="checkbox"
             checked={active}

@@ -364,7 +364,12 @@ export function VoiceTab() {
           </li>
         </ul>
         {accuracy.persons.length > 0 && (
-          <div className="overflow-x-auto">
+          <div
+            role="region"
+            tabIndex={0}
+            aria-label={t("voiceAdmin.perPerson")}
+            className="overflow-x-auto"
+          >
             <table className="w-full min-w-[36rem] text-left">
               <caption className="text-left font-medium">
                 {t("voiceAdmin.perPerson")}
