@@ -4,7 +4,7 @@ import { prepareDiarizedClip } from "./voice-fixture";
 
 // The People screen of the new interface: the list of Persons with its corrections, and the
 // Verification of unknown voices. The clip, its two close synthetic voices and the session
-// come from the shared fixture (the instance is installed through the previous interface);
+// come from the shared fixture (the instance is installed through the guided setup);
 // everything under test goes through the new screens.
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];

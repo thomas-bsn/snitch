@@ -95,6 +95,17 @@ func testWorkerModels(t *testing.T, pool *pgxpool.Pool) {
 	if err = json.Unmarshal(call(admin, http.MethodPost, "/api/admin/workers", map[string]any{"name": "synthetic-models", "max_concurrency": 1}, me.CSRF, "", http.StatusCreated), &registration); err != nil {
 		t.Fatal(err)
 	}
+	// Machine declarations are optional and visible only in the administrator's detail.
+	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "machine": map[string]any{"name": "gaming-pc", "processor": "Synthetic CPU", "memory_bytes": 17179869184, "gpu_name": "Synthetic GPU", "gpu_memory_bytes": 12884901888, "gpu_driver": "555.1", "worker_version": "1.2.3"}}, "", registration.Token, http.StatusOK)
+	detail := call(admin, http.MethodGet, "/api/admin/workers/"+registration.ID, nil, "", "", http.StatusOK)
+	if !bytes.Contains(detail, []byte(`"name":"gaming-pc"`)) || !bytes.Contains(detail, []byte(`"processor":"Synthetic CPU"`)) || !bytes.Contains(detail, []byte(`"memory_bytes":17179869184`)) || !bytes.Contains(detail, []byte(`"gpu_name":"Synthetic GPU"`)) {
+		t.Fatalf("machine details missing: %s", detail)
+	}
+	call(anon, http.MethodGet, "/api/admin/workers/"+registration.ID, nil, "", registration.Token, http.StatusUnauthorized)
+	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "machine": map[string]any{"name": "<script>"}}, "", registration.Token, http.StatusBadRequest)
+	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "machine": map[string]any{"memory_bytes": 0}}, "", registration.Token, http.StatusBadRequest)
+	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "machine": map[string]any{"name": ""}}, "", registration.Token, http.StatusBadRequest)
+	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1}, "", registration.Token, http.StatusOK)
 	listModels := func() declaredModels {
 		t.Helper()
 		var page struct {

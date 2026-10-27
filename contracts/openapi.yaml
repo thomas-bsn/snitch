@@ -362,6 +362,9 @@
         "description": "Révoque la session courante en base et efface le cookie. Exige session active, même origine et X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur CSRF : 403 csrf_rejected."
       }
     },
+    "/api/account": {
+      "delete": {"operationId":"closeAccount","description":"Désactive son compte, coupe ses sessions et rend ses clips privés sans les supprimer. Le Super-administrateur est protégé.","parameters":[{"in":"header","name":"Origin","required":true,"schema":{"type":"string"}},{"in":"header","name":"X-CSRF-Token","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"Compte fermé","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Status"}}}},"default":{"description":"Erreur","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}},"security":[{"session":[]}]}
+    },
     "/api/account/preferences": {
       "get": {
         "operationId": "getAccountPreferences",
@@ -739,6 +742,15 @@
           }
         }
       }
+    },
+    "/api/admin/members": {
+      "get": {"operationId":"listMembers","description":"Administrateurs : membres actifs, rôle, arrivée et nombre de clips.","responses":{"200":{"description":"Membres","content":{"application/json":{"schema":{"type":"object","required":["items"],"properties":{"items":{"type":"array","items":{"$ref":"#/components/schemas/Member"}}}}}}},"default":{"description":"Erreur","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}},"security":[{"session":[]}]}
+    },
+    "/api/admin/members/{id}/role": {
+      "put": {"operationId":"updateMemberRole","description":"Le Super-administrateur gère les rôles ; les comptes protégés ne sont pas modifiables.","parameters":[{"in":"path","name":"id","required":true,"schema":{"type":"integer","format":"int64"}},{"in":"header","name":"Origin","required":true,"schema":{"type":"string"}},{"in":"header","name":"X-CSRF-Token","required":true,"schema":{"type":"string"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["role"],"properties":{"role":{"type":"string","enum":["user","admin"]}}}}}},"responses":{"200":{"description":"Rôle enregistré","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Status"}}}},"default":{"description":"Erreur","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}},"security":[{"session":[]}]}
+    },
+    "/api/admin/members/{id}": {
+      "delete": {"operationId":"deleteMember","description":"Désactive un compte et conserve ses clips ; le masquage les rend privés.","parameters":[{"in":"path","name":"id","required":true,"schema":{"type":"integer","format":"int64"}},{"in":"header","name":"Origin","required":true,"schema":{"type":"string"}},{"in":"header","name":"X-CSRF-Token","required":true,"schema":{"type":"string"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["hide_clips"],"properties":{"hide_clips":{"type":"boolean"}}}}}},"responses":{"200":{"description":"Compte supprimé","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Status"}}}},"default":{"description":"Erreur","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}},"security":[{"session":[]}]}
     },
     "/api/admin/users": {
       "get": {
@@ -1518,6 +1530,7 @@
         "description": "Administrateurs uniquement."
       }
     },
+    "/api/admin/workers/{id}/transcription-model": {"put": {"operationId": "updateWorkerTranscriptionModel", "description": "Administrateurs uniquement. Un nom vide revient au modèle du profil.", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["model"], "properties": {"model": {"type": "string", "maxLength": 100}}}}}}, "responses": {"200": {"description": "Nom enregistré", "content": {"application/json": {"schema": {"type": "object", "required": ["model"], "properties": {"model": {"type": "string"}}}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/admin/workers/{id}": {
       "get": {
         "operationId": "getWorker",
@@ -3550,11 +3563,27 @@
             "description": "État de l’index",
             "content": {"application/json": {"schema": {
               "type": "object",
-              "required": ["configured", "provider", "model", "dimensions", "state", "pending", "done", "failed", "reindex_pending", "reindex_failed"],
-              "properties": {"configured": {"type": "boolean"}, "provider": {"type": "string"}, "model": {"type": "string"}, "dimensions": {"type": "integer"}, "state": {"type": "string"}, "error": {"type": "string"}, "pending": {"type": "integer"}, "done": {"type": "integer"}, "failed": {"type": "integer"}, "candidate_model": {"type": "string"}, "candidate_state": {"type": "string"}, "candidate_error": {"type": "string"}, "candidate_total": {"type": "integer"}, "candidate_done": {"type": "integer"}, "candidate_pending": {"type": "integer"}, "candidate_failed": {"type": "integer"}, "reindex_pending": {"type": "integer", "description": "Segments corrigés dont le vecteur n’est pas encore recalculé (actuels, non obsolètes)."}, "reindex_failed": {"type": "integer", "description": "Parmi eux, ceux dont les tentatives sont épuisées : une relance de l’indexation (backfill) leur donne une nouvelle chance."}}
+              "required": ["configured", "provider", "model", "dimensions", "state", "pending", "done", "failed", "indexed_segments", "reindex_pending", "reindex_failed"],
+              "properties": {"configured": {"type": "boolean"}, "provider": {"type": "string"}, "model": {"type": "string"}, "dimensions": {"type": "integer"}, "state": {"type": "string"}, "error": {"type": "string"}, "pending": {"type": "integer"}, "done": {"type": "integer"}, "failed": {"type": "integer"}, "candidate_model": {"type": "string"}, "candidate_state": {"type": "string"}, "candidate_error": {"type": "string"}, "candidate_total": {"type": "integer"}, "candidate_done": {"type": "integer"}, "candidate_pending": {"type": "integer"}, "candidate_failed": {"type": "integer"}, "indexed_segments": {"type": "integer", "description": "Segments de l’index actif."}, "reindex_pending": {"type": "integer", "description": "Segments corrigés dont le vecteur n’est pas encore recalculé (actuels, non obsolètes)."}, "reindex_failed": {"type": "integer", "description": "Parmi eux, ceux dont les tentatives sont épuisées : une relance de l’indexation (backfill) leur donne une nouvelle chance."}}
             }}}
           }
         },
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/embeddings/settings": {
+      "get": {
+        "operationId": "getEmbeddingSettings",
+        "description": "Configuration effective du service d'embeddings, consultable par les Administrateurs.",
+        "responses": {"200": {"description": "Configuration effective", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmbeddingSettings"}}}}},
+        "security": [{"session": []}]
+      },
+      "put": {
+        "operationId": "putEmbeddingSettings",
+        "description": "Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables d'environnement restent prioritaires.",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["url", "model"], "properties": {"url": {"type": "string"}, "model": {"type": "string"}}}}}},
+        "responses": {"200": {"description": "Configuration enregistrée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmbeddingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "security": [{"session": []}]
       }
     },
@@ -4150,6 +4179,7 @@
       }
     },
     "schemas": {
+      "EmbeddingSettings": {"type": "object", "required": ["url", "model", "url_from_environment", "model_from_environment"], "properties": {"url": {"type": "string"}, "model": {"type": "string"}, "url_from_environment": {"type": "boolean"}, "model_from_environment": {"type": "boolean"}}},
       "Error": {
         "type": "object",
         "required": [
@@ -4802,6 +4832,8 @@
           }
         }
       },
+      "Member": {"type":"object","required":["id","username","role","created_at","clip_count"],"properties":{"id":{"type":"integer","format":"int64"},"username":{"type":"string"},"role":{"type":"string","enum":["user","admin","super_admin"]},"created_at":{"type":"string","format":"date-time"},"clip_count":{"type":"integer","format":"int64"}}},
+      "WorkerMachine": {"type": "object", "additionalProperties": false, "description": "Informations non secrètes déclarées par le Worker ; le système est celui du conteneur.", "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "system": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "processor": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "gpu_name": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "gpu_driver": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "worker_version": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "memory_bytes": {"type": "integer", "format": "int64", "minimum": 1, "maximum": 109951162777600}, "gpu_memory_bytes": {"type": "integer", "format": "int64", "minimum": 1, "maximum": 109951162777600}}},
       "Worker": {
         "type": "object",
         "required": [
@@ -4815,6 +4847,10 @@
           "connected"
         ],
         "properties": {
+          "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
+          "machine": {"$ref": "#/components/schemas/WorkerMachine"},
+          "remote_address": {"type": "string", "description": "Adresse IP de connexion observée par Snitch, sans port."},
+
           "id": {
             "type": "string"
           },
@@ -5009,6 +5045,10 @@
           "bundle"
         ],
         "properties": {
+          "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
+          "machine": {"$ref": "#/components/schemas/WorkerMachine"},
+          "remote_address": {"type": "string", "description": "Adresse IP de connexion observée par Snitch, sans port."},
+
           "id": {
             "type": "string"
           },
@@ -5185,6 +5225,8 @@
           "supported_steps"
         ],
         "properties": {
+          "machine": {"$ref": "#/components/schemas/WorkerMachine"},
+
           "capacity": {
             "type": "integer",
             "minimum": 1,
@@ -5238,6 +5280,7 @@
           "vocabulary"
         ],
         "properties": {
+          "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "job": {
             "$ref": "#/components/schemas/Job"
           },
@@ -5971,6 +6014,7 @@
             "type": "integer",
             "format": "int64"
           },
+          "owner_deleted": {"type": "boolean", "description": "Le compte propriétaire a été supprimé."},
           "owner": {
             "type": "string"
           },

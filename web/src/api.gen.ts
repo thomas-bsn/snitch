@@ -173,6 +173,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Désactive son compte, coupe ses sessions et rend ses clips privés sans les supprimer. Le Super-administrateur est protégé. */
+    delete: operations["closeAccount"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/preferences": {
     parameters: {
       query?: never;
@@ -253,6 +270,57 @@ export interface paths {
     put: operations["updateSettings"];
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs : membres actifs, rôle, arrivée et nombre de clips. */
+    get: operations["listMembers"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}/role": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Le Super-administrateur gère les rôles ; les comptes protégés ne sont pas modifiables. */
+    put: operations["updateMemberRole"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Désactive un compte et conserve ses clips ; le masquage les rend privés. */
+    delete: operations["deleteMember"];
     options?: never;
     head?: never;
     patch?: never;
@@ -437,6 +505,23 @@ export interface paths {
     put?: never;
     /** @description Administrateurs uniquement. */
     post: operations["registerWorker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/transcription-model": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Un nom vide revient au modèle du profil. */
+    put: operations["updateWorkerTranscriptionModel"];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1466,6 +1551,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/embeddings/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Configuration effective du service d'embeddings, consultable par les Administrateurs. */
+    get: operations["getEmbeddingSettings"];
+    /** @description Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables d'environnement restent prioritaires. */
+    put: operations["putEmbeddingSettings"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings/backfill": {
     parameters: {
       query?: never;
@@ -1588,6 +1691,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    EmbeddingSettings: {
+      url: string;
+      model: string;
+      url_from_environment: boolean;
+      model_from_environment: boolean;
+    };
     Error: {
       error: string;
     };
@@ -1816,7 +1925,36 @@ export interface components {
     JobHistory: {
       items: components["schemas"]["JobEvent"][];
     };
+    Member: {
+      /** Format: int64 */
+      id: number;
+      username: string;
+      /** @enum {string} */
+      role: "user" | "admin" | "super_admin";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: int64 */
+      clip_count: number;
+    };
+    /** @description Informations non secrètes déclarées par le Worker ; le système est celui du conteneur. */
+    WorkerMachine: {
+      name?: string;
+      system?: string;
+      processor?: string;
+      gpu_name?: string;
+      gpu_driver?: string;
+      worker_version?: string;
+      /** Format: int64 */
+      memory_bytes?: number;
+      /** Format: int64 */
+      gpu_memory_bytes?: number;
+    };
     Worker: {
+      /** @description Nom facultatif du modèle propre au Worker. */
+      transcription_model?: string;
+      machine?: components["schemas"]["WorkerMachine"];
+      /** @description Adresse IP de connexion observée par Snitch, sans port. */
+      remote_address?: string;
       id: string;
       name: string;
       max_concurrency: number;
@@ -1870,6 +2008,11 @@ export interface components {
       at: string;
     };
     WorkerDetail: {
+      /** @description Nom facultatif du modèle propre au Worker. */
+      transcription_model?: string;
+      machine?: components["schemas"]["WorkerMachine"];
+      /** @description Adresse IP de connexion observée par Snitch, sans port. */
+      remote_address?: string;
       id: string;
       name: string;
       max_concurrency: number;
@@ -1922,6 +2065,7 @@ export interface components {
       items: components["schemas"]["Worker"][];
     };
     WorkerPulseInput: {
+      machine?: components["schemas"]["WorkerMachine"];
       capacity: number;
       supported_steps: string[];
       /** @description Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer. */
@@ -1932,6 +2076,8 @@ export interface components {
       lease_token: string;
     };
     WorkerJobInput: {
+      /** @description Nom facultatif du modèle propre au Worker. */
+      transcription_model?: string;
       job: components["schemas"]["Job"];
       original_name: string;
       /** Format: int64 */
@@ -2704,6 +2850,8 @@ export interface components {
       id: number;
       /** Format: int64 */
       owner_id: number;
+      /** @description Le compte propriétaire a été supprimé. */
+      owner_deleted?: boolean;
       owner: string;
       /** @enum {string} */
       visibility: "private" | "shared";
@@ -3445,6 +3593,38 @@ export interface operations {
       };
     };
   };
+  closeAccount: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Compte fermé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getAccountPreferences: {
     parameters: {
       query?: never;
@@ -3722,6 +3902,118 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listMembers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Membres */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["Member"][];
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateMemberRole: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          role: "user" | "admin";
+        };
+      };
+    };
+    responses: {
+      /** @description Rôle enregistré */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          hide_clips: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Compte supprimé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;
@@ -4232,6 +4524,48 @@ export interface operations {
         };
       };
       /** @description Erreur de validation ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateWorkerTranscriptionModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          model: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Nom enregistré */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            model: string;
+          };
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;
@@ -6997,11 +7331,72 @@ export interface operations {
             candidate_done?: number;
             candidate_pending?: number;
             candidate_failed?: number;
+            /** @description Segments de l’index actif. */
+            indexed_segments: number;
             /** @description Segments corrigés dont le vecteur n’est pas encore recalculé (actuels, non obsolètes). */
             reindex_pending: number;
             /** @description Parmi eux, ceux dont les tentatives sont épuisées : une relance de l’indexation (backfill) leur donne une nouvelle chance. */
             reindex_failed: number;
           };
+        };
+      };
+    };
+  };
+  getEmbeddingSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Configuration effective */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EmbeddingSettings"];
+        };
+      };
+    };
+  };
+  putEmbeddingSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          url: string;
+          model: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Configuration enregistrée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EmbeddingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
     };

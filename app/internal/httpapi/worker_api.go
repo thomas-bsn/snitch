@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -195,8 +196,32 @@ func (s *Server) getWorker(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, map[string]any{
 		"id": detail.ID, "name": detail.Name, "max_concurrency": detail.MaxConcurrency, "reported_concurrency": detail.ReportedConcurrency,
 		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "connected": detail.Connected,
-		"models": detail.Models, "recent_tasks": detail.RecentTasks, "bundle": bundle,
+		"models": detail.Models, "transcription_model": detail.TranscriptionModel, "machine": detail.Machine, "remote_address": detail.RemoteAddress, "recent_tasks": detail.RecentTasks, "bundle": bundle,
 	})
+}
+
+func (s *Server) putWorkerTranscriptionModel(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Model string `json:"model"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	input.Model = strings.TrimSpace(input.Model)
+	if input.Model != "" && !transcriptionModelPattern.MatchString(input.Model) {
+		fail(w, http.StatusBadRequest, "invalid_transcription_model")
+		return
+	}
+	result, err := s.Pool.Exec(r.Context(), `UPDATE workers SET transcription_model=$2 WHERE id=$1`, r.PathValue("id"), input.Model)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if result.RowsAffected() == 0 {
+		fail(w, http.StatusNotFound, "worker_not_found")
+		return
+	}
+	reply(w, http.StatusOK, map[string]string{"model": input.Model})
 }
 
 func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
@@ -232,9 +257,10 @@ func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Capacity       int            `json:"capacity"`
-		SupportedSteps []string       `json:"supported_steps"`
-		Models         workers.Models `json:"models"`
+		Capacity       int             `json:"capacity"`
+		SupportedSteps []string        `json:"supported_steps"`
+		Models         workers.Models  `json:"models"`
+		Machine        workers.Machine `json:"machine"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -244,9 +270,15 @@ func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_worker_capacity")
 		return
 	}
-	if err := s.Workers.Pulse(r.Context(), worker.ID, input.Capacity, input.SupportedSteps, input.Models); err != nil {
+	remote, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if net.ParseIP(remote) == nil {
+		remote = ""
+	}
+	if err := s.Workers.Pulse(r.Context(), worker.ID, input.Capacity, input.SupportedSteps, input.Models, input.Machine, remote); err != nil {
 		if errors.Is(err, workers.ErrUnauthorized) {
 			fail(w, http.StatusUnauthorized, "worker_token_invalid")
+		} else if errors.Is(err, workers.ErrInvalidInput) && !input.Machine.Valid() {
+			fail(w, http.StatusBadRequest, "invalid_worker_machine")
 		} else if errors.Is(err, workers.ErrInvalidInput) && !input.Models.Valid() {
 			fail(w, http.StatusBadRequest, "invalid_worker_models")
 		} else if errors.Is(err, workers.ErrInvalidInput) {

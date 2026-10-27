@@ -4,6 +4,11 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  member_protected: "Ce membre ne peut pas être modifié.",
+  member_not_found: "Ce membre est introuvable.",
+  invalid_role: "Ce rôle est invalide.",
+
+  invalid_worker_machine: "La déclaration de machine du Worker est invalide.",
   account_already_linked: "Ce compte est déjà lié à une personne.",
   audio_selection_required: "Choisissez d’abord la piste audio à utiliser.",
   audio_stream_not_found: "Cette piste audio n’existe pas dans le clip.",
@@ -36,6 +41,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   duplicate_vocabulary_term: "Ce terme existe déjà.",
   embedding_rebuild_in_progress:
     "Une reconstruction de l’index est déjà en cours.",
+  invalid_embedding_settings:
+    "Indiquez une adresse de service et un modèle valides.",
+  embedding_provider_unavailable:
+    "Le service d’embeddings est inaccessible ou sa réponse est invalide.",
   embeddings_unconfigured: "La recherche sémantique n’est pas configurée.",
   empty_audio_track_rule: "La règle de piste audio est vide.",
   excerpt_not_found: "Cet extrait n’existe pas.",

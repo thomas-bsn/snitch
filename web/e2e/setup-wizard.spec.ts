@@ -113,6 +113,19 @@ test.describe.serial("assistant d'installation", () => {
     await expect(
       page.getByLabel("Return address to register in Discord"),
     ).toHaveValue(`${process.env.SNITCH_TEST_URL}/api/auth/discord/callback`);
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
+      page.getByText("This step is complete. It will not be repeated."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Create the account" }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
+      page.getByText("This step is complete. It will not be repeated."),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expectNoViolations(page);
     await page.getByLabel("Application ID").fill("123456789012345678");
     await page.getByLabel("Application secret").fill("synthetic-secret");
@@ -120,6 +133,11 @@ test.describe.serial("assistant d'installation", () => {
     await expect(
       page.getByRole("heading", { name: "Semantic search" }),
     ).toBeVisible();
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(page.getByLabel("Application ID")).toHaveValue(
+      "123456789012345678",
+    );
+    await page.getByRole("button", { name: "Save and continue" }).click();
     await expectNoViolations(page);
 
     // The tab is closed here: the next steps are still to do.
@@ -158,6 +176,17 @@ test.describe.serial("assistant d'installation", () => {
     await page.getByLabel("Whisper model name").fill("whisper-large-v3");
     await page.getByRole("main").getByLabel("Language").selectOption("fr");
     await page.getByLabel("Hugging Face token").fill(HF_TOKEN);
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Semantic search" }),
+    ).toBeVisible();
+    await page
+      .getByRole("list", { name: "Setup steps" })
+      .getByRole("button", { name: "First Worker" })
+      .focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByLabel("Worker name")).toHaveValue("gaming-pc");
+    await expect(page.getByLabel("Hugging Face token")).toHaveValue(HF_TOKEN);
     await page.getByRole("button", { name: "Create the Worker" }).click();
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toContainText("whisper-large-v3 · fr");
@@ -177,6 +206,17 @@ test.describe.serial("assistant d'installation", () => {
     await expect(
       page.getByText("Nothing is scanned or processed"),
     ).toBeVisible();
+    await expect(page.getByRole("link", { name: /open.*import/i })).toHaveCount(
+      0,
+    );
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
+      page.getByText("This step is complete. It will not be repeated."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Create the Worker" }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expectNoViolations(page);
     await page.getByRole("button", { name: "Skip for now" }).click();
 

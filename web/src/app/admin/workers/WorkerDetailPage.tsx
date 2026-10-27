@@ -155,7 +155,12 @@ export function WorkerDetailPage({ id }: { id: string }) {
         {worker.recent_tasks.length === 0 ? (
           <p className="text-mute">{t("workers.detail.noTasks")}</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div
+            role="region"
+            tabIndex={0}
+            aria-label={t("workers.detail.recentTasks")}
+            className="overflow-x-auto"
+          >
             <table className="w-full min-w-[28rem] border-collapse text-left">
               <thead className="text-xs text-mute">
                 <tr>
@@ -206,6 +211,43 @@ export function WorkerDetailPage({ id }: { id: string }) {
             </Fact>
           ))}
         </Facts>
+      </Section>
+
+      <Section title={t("workers.machine.title")}>
+        <Facts>
+          <Fact label={t("workers.machine.name")}>
+            {worker.machine?.name || t("workers.notDeclared")}
+          </Fact>
+          <Fact label={t("workers.machine.system")}>
+            {worker.machine?.system || t("workers.notDeclared")}
+          </Fact>
+          <Fact label={t("workers.machine.processor")}>
+            {worker.machine?.processor || t("workers.notDeclared")}
+          </Fact>
+          <Fact label={t("workers.machine.memory")}>
+            {worker.machine?.memory_bytes
+              ? `${(worker.machine.memory_bytes / 1024 ** 3).toFixed(1)} GiB`
+              : t("workers.notDeclared")}
+          </Fact>
+          <Fact label={t("workers.machine.gpu")}>
+            {worker.machine?.gpu_name || t("workers.notDeclared")}
+          </Fact>
+          <Fact label={t("workers.machine.gpuMemory")}>
+            {worker.machine?.gpu_memory_bytes
+              ? `${(worker.machine.gpu_memory_bytes / 1024 ** 3).toFixed(1)} GiB`
+              : t("workers.notDeclared")}
+          </Fact>
+          <Fact label={t("workers.machine.driver")}>
+            {worker.machine?.gpu_driver || t("workers.notDeclared")}
+          </Fact>
+          <Fact label={t("workers.machine.version")}>
+            {worker.machine?.worker_version || t("workers.notDeclared")}
+          </Fact>
+          <Fact label={t("workers.machine.address")}>
+            {worker.remote_address || t("workers.notDeclared")}
+          </Fact>
+        </Facts>
+        <p className="text-sm text-mute">{t("workers.machine.systemHint")}</p>
       </Section>
 
       {!revoked && (

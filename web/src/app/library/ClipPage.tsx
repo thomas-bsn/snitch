@@ -10,6 +10,7 @@ import { useI18n } from "../i18n";
 import { ClipPlayer } from "./ClipPlayer";
 import { ClipStatePill } from "./ClipStatePill";
 import { HistoryTab } from "./HistoryTab";
+import { Retranscribe } from "./Retranscribe";
 import { ProgressBanner } from "./ProgressBanner";
 import { TranscriptTab } from "./TranscriptTab";
 import { VoicesTab } from "./VoicesTab";
@@ -21,7 +22,7 @@ const tabClass =
 
 type TabName = "transcript" | "voices" | "history";
 
-function ClipView({ clip }: { clip: Clip }) {
+function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
   const { t } = useI18n();
   const formatDate = useFormatDate();
   const location = useLocation();
@@ -98,7 +99,11 @@ function ClipView({ clip }: { clip: Clip }) {
             </h1>
             <p className="mt-1 mb-0 text-mute">
               {[
-                t("clip.meta.owner", { owner: clip.owner }),
+                t("clip.meta.owner", {
+                  owner: clip.owner_deleted
+                    ? t("library.deletedOwner")
+                    : clip.owner,
+                }),
                 date,
                 typeof clip.duration_seconds === "number"
                   ? formatTimecode(clip.duration_seconds)
@@ -119,6 +124,12 @@ function ClipView({ clip }: { clip: Clip }) {
             )}
           </div>
           <ProgressBanner clip={clip} voice={voiceData} />
+          {clip.transcription && (
+            <Retranscribe
+              id={clip.id}
+              stream={clip.transcription.audio_stream_index}
+            />
+          )}
         </div>
 
         <Tabs.Root
@@ -128,6 +139,7 @@ function ClipView({ clip }: { clip: Clip }) {
         >
           <Tabs.List
             aria-label={t("clip.tabs.label")}
+            tabIndex={0}
             className="flex gap-1 overflow-x-auto border-b border-line px-3"
           >
             <Tabs.Tab value="transcript" className={tabClass}>
@@ -145,6 +157,10 @@ function ClipView({ clip }: { clip: Clip }) {
             className="max-h-[70vh] overflow-y-auto outline-none"
           >
             <TranscriptTab
+              clipId={clip.id}
+              jobId={clip.transcription?.transcription_job_id}
+              speakers={clip.transcription?.local_speakers ?? []}
+              onChanged={onChanged}
               segments={segments}
               playhead={playhead}
               onSeek={seek}
@@ -160,7 +176,12 @@ function ClipView({ clip }: { clip: Clip }) {
             value="history"
             className="max-h-[70vh] overflow-y-auto outline-none"
           >
-            <HistoryTab clipId={clip.id} segments={segments} />
+            <HistoryTab
+              clipId={clip.id}
+              segments={segments}
+              jobId={clip.transcription?.transcription_job_id}
+              onChanged={onChanged}
+            />
           </Tabs.Panel>
         </Tabs.Root>
       </div>
@@ -204,5 +225,11 @@ export function ClipPage() {
       </section>
     );
   }
-  return <ClipView key={clip.state.value.id} clip={clip.state.value} />;
+  return (
+    <ClipView
+      key={clip.state.value.id}
+      clip={clip.state.value}
+      onChanged={clip.reload}
+    />
+  );
 }

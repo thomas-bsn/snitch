@@ -1,3 +1,9 @@
+import { MembersTab } from "./admin/members/MembersTab";
+import { SignupsTab } from "./admin/members/SignupsTab";
+import { ExportsTab } from "./admin/members/ExportsTab";
+import { VoiceTab } from "./admin/voice/VoiceTab";
+import { VocabularyTab } from "./admin/transcription/VocabularyTab";
+import { TranscriptionTab } from "./admin/transcription/TranscriptionTab";
 import {
   BrowserRouter,
   Navigate,
@@ -8,6 +14,9 @@ import {
 } from "react-router";
 import { AdminLayout, AdminPlaceholder } from "./admin/AdminLayout";
 import { ADMIN_TABS } from "./admin/tabs";
+import { FoldersTab } from "./admin/folders/FoldersTab";
+import { QueueTab } from "./admin/queue/QueueTab";
+import { SemanticTab } from "./admin/semantic/SemanticTab";
 import { WorkersTab } from "./admin/workers/WorkersTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
@@ -94,9 +103,33 @@ function Routing() {
           <Route element={<RequireAdministrator />}>
             <Route path="admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="workers" replace />} />
+              <Route path="users" element={<MembersTab />} />
+              <Route path="users/signups" element={<SignupsTab />} />
+              <Route path="exports" element={<ExportsTab />} />
               <Route path="workers" element={<WorkersTab />} />
+              <Route path="queue" element={<QueueTab />} />
+              <Route path="folders" element={<FoldersTab />} />
+              <Route path="semantic" element={<SemanticTab />} />
               <Route path="workers/:id" element={<WorkersTab />} />
-              {ADMIN_TABS.filter((tab) => tab.path !== "workers").map((tab) => (
+              <Route path="voice" element={<VoiceTab />} />
+              <Route path="transcription" element={<TranscriptionTab />} />
+              <Route
+                path="transcription/vocabulary"
+                element={<VocabularyTab />}
+              />
+              {ADMIN_TABS.filter(
+                (tab) =>
+                  ![
+                    "workers",
+                    "queue",
+                    "folders",
+                    "semantic",
+                    "voice",
+                    "transcription",
+                    "users",
+                    "exports",
+                  ].includes(tab.path),
+              ).map((tab) => (
                 <Route
                   key={tab.path}
                   path={`${tab.path}/*`}

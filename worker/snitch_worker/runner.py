@@ -30,6 +30,7 @@ from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
 from snitch_worker.declared_models import declared_models
+from snitch_worker.declared_machine import declared_machine
 from snitch_worker.voice import ensure_provider_ready, is_voice_step, process_voice_step, requires_audio
 
 
@@ -157,10 +158,10 @@ def download_media(client: AuthenticatedClient, task_input: Any, lease_token: st
             output.writelines(media.iter_bytes())
 
 
-def configured_transcriber(model: str = "") -> OpenAICompatibleTranscriber:
+def configured_transcriber(model: str = "", override: str | None = None) -> OpenAICompatibleTranscriber:
     return OpenAICompatibleTranscriber(
         os.environ.get("TRANSCRIPTION_API_URL", ""),
-        model.strip() or os.environ.get("TRANSCRIPTION_MODEL", ""),
+        (os.environ.get("TRANSCRIPTION_MODEL", "").strip() if override is None else override.strip()) or model.strip(),
         os.environ.get("TRANSCRIPTION_API_KEY", ""),
     )
 
@@ -247,8 +248,10 @@ def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: d
                     word["end"] = float(word["end"]) + start
             results.extend(part.get("segments", []))
     if not spans:
-        return {"provider": "openai-compatible", "model": getattr(transcriber, "model", "fixture"), "version": getattr(transcriber, "model", "fixture"), "language": config.get("language", "fr"), "segments": []}
+        return {"provider": "openai-compatible", "model": config.get("model") or getattr(transcriber, "model", "fixture"), "version": getattr(transcriber, "model", "fixture"), "language": config.get("language", "fr"), "segments": []}
     metadata = part if results else {"provider": "openai-compatible", "model": getattr(transcriber, "model", "fixture"), "version": getattr(transcriber, "model", "fixture"), "language": config.get("language", "fr")}
+    if config.get("model"):
+        metadata["model"] = config["model"]
     metadata["segments"] = results
     return metadata
 
@@ -300,6 +303,7 @@ def run_once(
                 capacity=capacity,
                 supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
                 models=declared_models(os.environ),
+                machine=declared_machine(),
             ),
         ),
         "pulse",
@@ -348,7 +352,10 @@ def run_once(
                 prepare_audio(original, wav_path, stream_index)
                 pipeline_value = getattr(task_input, "pipeline", None)
                 pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
-                active_transcriber = transcriber or configured_transcriber(str(pipeline.get("model", "")))
+                override = getattr(task_input, "transcription_model", None)
+                if not isinstance(override, str):
+                    override = None
+                active_transcriber = transcriber or configured_transcriber(str(pipeline.get("model", "")), override)
                 vocabulary = [
                     {"term": term.term, "variants": term.variants, "preferred_spelling": term.preferred_spelling}
                     for term in (task_input.vocabulary or [])

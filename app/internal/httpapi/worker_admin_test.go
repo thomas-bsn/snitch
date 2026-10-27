@@ -190,6 +190,21 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("listing after the second Worker: %+v", again)
 	}
 
+	// A Worker may use a different name on its own Whisper server without changing the library profile.
+	path := "/api/admin/workers/" + second.ID + "/transcription-model"
+	call(anon, http.MethodPut, path, map[string]string{"model": "server-model"}, "", "", http.StatusUnauthorized)
+	call(admin, http.MethodPut, path, map[string]string{"model": "bad model!"}, me.CSRF, "", http.StatusBadRequest)
+	call(admin, http.MethodPut, path, map[string]string{"model": "server-model"}, me.CSRF, "", http.StatusOK)
+	var updated struct {
+		TranscriptionModel string `json:"transcription_model"`
+	}
+	if err = json.Unmarshal(call(admin, http.MethodGet, "/api/admin/workers/"+second.ID, nil, "", "", http.StatusOK), &updated); err != nil || updated.TranscriptionModel != "server-model" {
+		t.Fatalf("worker model not persisted: %+v: %v", updated, err)
+	}
+	if again := list(); again.Transcription != afterFirst.Transcription {
+		t.Fatalf("worker override changed library profile: %+v", again.Transcription)
+	}
+
 	// Worker detail: deployment file with a token placeholder, never the token itself.
 	call(anon, http.MethodGet, "/api/admin/workers/"+first.ID, nil, "", "", http.StatusUnauthorized)
 	call(admin, http.MethodGet, "/api/admin/workers/wk_unknownunknownunknownunknown", nil, "", "", http.StatusNotFound)

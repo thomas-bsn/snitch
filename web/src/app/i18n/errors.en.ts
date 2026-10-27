@@ -2,6 +2,11 @@
 // HTTP handlers). An unknown code falls back to a generic message that shows the code.
 
 export const errorsEn = {
+  member_protected: "This member cannot be modified.",
+  member_not_found: "The member was not found.",
+  invalid_role: "This role is invalid.",
+
+  invalid_worker_machine: "The Worker machine declaration is invalid.",
   account_already_linked: "This account is already linked to a person.",
   audio_selection_required: "Choose which audio track to use first.",
   audio_stream_not_found: "This audio track does not exist in the clip.",
@@ -30,6 +35,9 @@ export const errorsEn = {
     "Discord is unavailable. Try again or use your local account.",
   duplicate_vocabulary_term: "This term already exists.",
   embedding_rebuild_in_progress: "An index rebuild is already running.",
+  invalid_embedding_settings: "Enter a valid service address and model.",
+  embedding_provider_unavailable:
+    "The embeddings service could not be reached or returned an invalid response.",
   embeddings_unconfigured: "Semantic search is not configured.",
   empty_audio_track_rule: "The audio track rule is empty.",
   excerpt_not_found: "This excerpt does not exist.",

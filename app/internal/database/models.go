@@ -411,6 +411,7 @@ type User struct {
 	DiscordID    pgtype.Text        `json:"discord_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	Language     pgtype.Text        `json:"language"`
+	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type VoiceAutomationEvent struct {
@@ -526,4 +527,7 @@ type Worker struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	SupportedSteps      []string           `json:"supported_steps"`
 	Models              []byte             `json:"models"`
+	TranscriptionModel  string             `json:"transcription_model"`
+	Machine             []byte             `json:"machine"`
+	RemoteAddress       string             `json:"remote_address"`
 }

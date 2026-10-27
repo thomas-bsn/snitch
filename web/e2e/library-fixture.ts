@@ -76,7 +76,10 @@ export const SEGMENTS: Segment[] = [
  * (SPEAKER_00 until 2.2 s, SPEAKER_01 after) and gives them fingerprints. Returns the ids
  * of the two local speakers.
  */
-export async function transcribeAndDiarize(clipId: number) {
+export async function transcribeAndDiarize(
+  clipId: number,
+  options: { secondFingerprintEnd?: number } = {},
+) {
   const { api, post, put } = await adminApi();
   await put(`/api/admin/clips/${clipId}/audio-track`, {
     audio_stream_index: 2,
@@ -185,7 +188,7 @@ export async function transcribeAndDiarize(clipId: number) {
             speaker_label: "SPEAKER_01",
             scope: "speaker",
             start: 2.2,
-            end: 4.2,
+            end: options.secondFingerprintEnd ?? 2.5,
             quality: 0.9,
             embedding: [0.8, 0.6],
           },

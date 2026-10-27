@@ -35,6 +35,9 @@ type Worker struct {
 	RevokedAt           *time.Time `json:"revoked_at"`
 	Connected           bool       `json:"connected"`
 	Models              Models     `json:"models"`
+	TranscriptionModel  string     `json:"transcription_model"`
+	Machine             *Machine   `json:"machine,omitempty"`
+	RemoteAddress       string     `json:"remote_address,omitempty"`
 }
 
 type Registration struct {
@@ -127,7 +130,7 @@ func (s *Service) Get(ctx context.Context, id string) (Detail, error) {
 		return Detail{}, ErrNotFound
 	}
 	var d Detail
-	err := s.pool.QueryRow(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($2 * interval '1 second'),false),models FROM workers WHERE id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models)
+	err := s.pool.QueryRow(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($2 * interval '1 second'),false),models,transcription_model,machine,remote_address FROM workers WHERE id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models, &d.TranscriptionModel, &d.Machine, &d.RemoteAddress)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrNotFound
 	}
@@ -200,7 +203,7 @@ func (s *Service) RenewToken(ctx context.Context, id string) (Registration, erro
 }
 
 func (s *Service) List(ctx context.Context) ([]Worker, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($1 * interval '1 second'),false),models FROM workers ORDER BY created_at,id`, int64(ConnectedWindow.Seconds()))
+	rows, err := s.pool.Query(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($1 * interval '1 second'),false),models,transcription_model FROM workers ORDER BY created_at,id`, int64(ConnectedWindow.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("list workers: %w", err)
 	}
@@ -208,7 +211,7 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 	items := []Worker{}
 	for rows.Next() {
 		var worker Worker
-		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected, &worker.Models); err != nil {
+		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected, &worker.Models, &worker.TranscriptionModel); err != nil {
 			return nil, fmt.Errorf("scan worker: %w", err)
 		}
 		items = append(items, worker)
@@ -265,8 +268,8 @@ func (s *Service) Touch(ctx context.Context, id string, capacity int) error {
 // Pulse refreshes worker presence, available capacity, and the step families
 // this running worker can claim, and the models it declares. Both are replaced
 // on every pulse.
-func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedSteps []string, models Models) error {
-	if capacity < 1 || capacity > 4 || len(supportedSteps) > 64 || !models.Valid() {
+func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedSteps []string, models Models, machine Machine, remoteAddress string) error {
+	if capacity < 1 || capacity > 4 || len(supportedSteps) > 64 || !models.Valid() || !machine.Valid() {
 		return ErrInvalidInput
 	}
 	steps := make([]string, 0, len(supportedSteps))
@@ -282,7 +285,7 @@ func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedS
 		steps = append(steps, step)
 	}
 	slices.Sort(steps)
-	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_seen_at=now(),reported_concurrency=$2,supported_steps=$3,models=$4 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity, steps, models)
+	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_seen_at=now(),reported_concurrency=$2,supported_steps=$3,models=$4,machine=$5,remote_address=$6 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity, steps, models, machine, remoteAddress)
 	if err != nil {
 		return fmt.Errorf("update worker pulse: %w", err)
 	}

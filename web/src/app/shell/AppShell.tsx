@@ -42,16 +42,14 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
-        <a
-          href="/legacy/"
-          className="mt-auto px-2.5 text-xs text-mute underline-offset-2 hover:underline"
-        >
-          {t("app.previousInterface")}
-        </a>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b border-line px-4 py-3 md:px-7">
-          <Link to="/library" className="md:hidden" aria-label="Snitch">
+          <Link
+            to="/library"
+            className="flex min-h-11 min-w-11 items-center justify-center md:hidden"
+            aria-label="Snitch"
+          >
             <Logo className="size-8" />
           </Link>
           <HeaderSearch />

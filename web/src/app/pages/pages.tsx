@@ -27,11 +27,6 @@ function Placeholder({ title }: { title: MessageKey }) {
   return (
     <Page title={t(title)}>
       <p className="max-w-xl text-mute">{t("pages.comingSoon")}</p>
-      <div>
-        <a href="/legacy/" className={buttonClass("secondary")}>
-          {t("app.previousInterface")}
-        </a>
-      </div>
     </Page>
   );
 }

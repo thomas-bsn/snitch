@@ -6,33 +6,38 @@ test("un administrateur télécharge l’export des segments corrigés", async (
   page,
 }) => {
   await prepareDiarizedClip(page);
-  await page
-    .getByRole("button", { name: "Actualiser la transcription" })
-    .click();
-  const transcript = page.getByRole("region", {
-    name: "Transcription horodatée",
+  const seeded = await page.evaluate(async () => {
+    const me = await fetch("/api/auth/me").then((response) => response.json());
+    const clips = await fetch("/api/clips").then((response) => response.json());
+    const clipId = clips.items[0].id;
+    const response = await fetch(`/api/clips/${clipId}/segments/0/text`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": me.csrf_token,
+        Origin: location.origin,
+      },
+      body: JSON.stringify({
+        text: "Bien joué, Alice !",
+        expected_version: 0,
+      }),
+    });
+    return response.status;
   });
-  await expect(transcript).toContainText("Bien joué");
-  await transcript
-    .getByRole("button", { name: "Modifier le texte du segment 1" })
-    .click();
-  await transcript
-    .getByRole("textbox", { name: "Texte du segment 1" })
-    .fill("Bien joué, Alice !");
-  await transcript
-    .getByRole("button", { name: "Enregistrer le texte du segment 1" })
-    .click();
-  await expect(transcript).toContainText("Bien joué, Alice !");
+  expect(seeded).toBe(200);
 
-  const card = page.getByRole("region", { name: "Export des corrections" });
-  await expect(card).toContainText("Snitch ne calcule aucun taux d’erreur");
+  await page.goto("/admin/exports");
+  const card = page.getByRole("heading", { name: "Exports" }).locator("..");
+  await expect(card).toContainText(
+    "Download the currently corrected segments in NDJSON format.",
+  );
   const downloading = page.waitForEvent("download");
-  await card
-    .getByRole("link", { name: "Télécharger l’export des segments corrigés" })
-    .click();
+  await card.getByRole("link", { name: "Download corrected segments" }).click();
   const download = await downloading;
   expect(download.suggestedFilename()).toBe("segment-corrections.ndjson");
-  const lines = (await readFile((await download.path())!, "utf8"))
+  const content = await readFile((await download.path())!, "utf8");
+  expect(content).not.toBe("");
+  const lines = content
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));

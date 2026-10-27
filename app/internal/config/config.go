@@ -58,6 +58,10 @@ func Load() (Config, error) {
 		UploadRoot:          env("UPLOAD_ROOT", "/data/media"),
 		DiscordAuthorizeURL: "https://discord.com/oauth2/authorize", DiscordTokenURL: "https://discord.com/api/oauth2/token", DiscordUserURL: "https://discord.com/api/users/@me",
 	}
+	// Preserve installations that selected a model while relying on the bundled service URL.
+	if c.EmbeddingsURL == "" && c.EmbeddingsModel != "" {
+		c.EmbeddingsURL = os.Getenv("EMBEDDINGS_DEFAULT_URL")
+	}
 	var err error
 	c.StabilityWindow, err = time.ParseDuration(env("CLIP_STABILITY_WINDOW", "3s"))
 	if err != nil || c.StabilityWindow < 0 || c.StabilityWindow > 24*time.Hour {

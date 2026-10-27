@@ -98,18 +98,19 @@ type Page struct {
 }
 
 type Input struct {
-	Job             Job              `json:"job"`
-	OriginalName    string           `json:"original_name"`
-	SizeBytes       int64            `json:"size_bytes"`
-	DurationSeconds *float64         `json:"duration_seconds"`
-	VideoCodec      string           `json:"video_codec"`
-	AudioCodec      string           `json:"audio_codec"`
-	Tracks          json.RawMessage  `json:"tracks"`
-	MediaURL        string           `json:"media_url"`
-	Vocabulary      []VocabularyTerm `json:"vocabulary"`
-	Pipeline        json.RawMessage  `json:"pipeline"`
-	PipelineVersion string           `json:"pipeline_version"`
-	Voice           json.RawMessage  `json:"voice,omitempty"`
+	Job                Job              `json:"job"`
+	OriginalName       string           `json:"original_name"`
+	SizeBytes          int64            `json:"size_bytes"`
+	DurationSeconds    *float64         `json:"duration_seconds"`
+	VideoCodec         string           `json:"video_codec"`
+	AudioCodec         string           `json:"audio_codec"`
+	Tracks             json.RawMessage  `json:"tracks"`
+	MediaURL           string           `json:"media_url"`
+	Vocabulary         []VocabularyTerm `json:"vocabulary"`
+	Pipeline           json.RawMessage  `json:"pipeline"`
+	PipelineVersion    string           `json:"pipeline_version"`
+	TranscriptionModel string           `json:"transcription_model"`
+	Voice              json.RawMessage  `json:"voice,omitempty"`
 }
 
 type VocabularyTerm struct {
@@ -397,6 +398,10 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 	input.Vocabulary = []VocabularyTerm{}
 	input.Pipeline = json.RawMessage(`{"provider":"openai-compatible","model":"default","language":"fr","preparation":"wav-16khz-mono-v1","vad":{"mode":"off","version":"vad-off-v1"}}`)
 	if strings.HasPrefix(input.Job.Step, "transcription.audio.") {
+		if queryErr := s.pool.QueryRow(ctx, `SELECT transcription_model FROM workers WHERE id=$1`, workerID).Scan(&input.TranscriptionModel); queryErr != nil {
+			return Input{}, fmt.Errorf("read worker transcription model: %w", queryErr)
+		}
+
 		vocabMarker := strings.Index(input.Job.InputVersion, "-v")
 		if vocabMarker >= 0 {
 			vocabVersion := input.Job.InputVersion[vocabMarker+len("-v"):]

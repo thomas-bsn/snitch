@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
@@ -18,8 +18,15 @@ import { ImportStep } from "./steps/ImportStep";
 import { SemanticStep } from "./steps/SemanticStep";
 import { SummaryStep } from "./steps/SummaryStep";
 import { WorkerStep } from "./steps/WorkerStep";
-import { OPTIONAL_STEPS, STEP_IDS, serverStep, type StepId } from "./steps";
+import {
+  OPTIONAL_STEPS,
+  STEP_IDS,
+  STEP_LABELS,
+  serverStep,
+  type StepId,
+} from "./steps";
 import { WizardSidebar, standingOf, type Standing } from "./WizardSidebar";
+import { StepHeader } from "./StepHeader";
 
 const OPTIONAL_IDS = new Set<StepId>(OPTIONAL_STEPS.map((step) => step.id));
 
@@ -46,6 +53,19 @@ export function SetupWizard() {
   useDocumentTitle(t("setup.title"));
 
   const [step, setStep] = useState<StepId>(installing ? "code" : "discord");
+  const [visited, setVisited] = useState<ReadonlySet<StepId>>(
+    () => new Set([installing ? "code" : "discord"]),
+  );
+  const [furthest, setFurthest] = useState(installing ? 0 : 2);
+  const main = useRef<HTMLElement>(null);
+  function showStep(next: StepId) {
+    setVisited((previous) => new Set([...previous, next]));
+    setFurthest((previous) => Math.max(previous, STEP_IDS.indexOf(next)));
+    setStep(next);
+  }
+  useEffect(() => {
+    main.current?.querySelector<HTMLElement>("[data-active-step] h1")?.focus();
+  }, [step]);
   const [code, setCode] = useState("");
   const [draft, setDraft] = useState<AccountDraft>({
     username: "",
@@ -64,7 +84,7 @@ export function SetupWizard() {
       if (!current) return;
       if (result.ok) {
         setProgress(result.value);
-        setStep(firstStepToDo(result.value));
+        showStep(firstStepToDo(result.value));
       } else setLoadFailure(result.code);
     });
     return () => {
@@ -105,14 +125,16 @@ export function SetupWizard() {
     const known = serverStep(id);
     if (known) {
       setRecordFailure(undefined);
-      const result = await record(known, state);
+      const preservedState =
+        progress && stepState(progress, known) === "done" ? "done" : state;
+      const result = await record(known, preservedState);
       if (!result.ok) {
         setRecordFailure(result.code);
         return;
       }
       setProgress(result.value);
     }
-    setStep(STEP_IDS[STEP_IDS.indexOf(id) + 1]);
+    showStep(STEP_IDS[STEP_IDS.indexOf(id) + 1]);
   }
 
   const skip = (id: StepId) => (
@@ -128,8 +150,16 @@ export function SetupWizard() {
   const resuming = !installing && !progress;
   return (
     <div className="flex min-h-dvh flex-col bg-canvas text-ink md:flex-row">
-      <WizardSidebar standing={standing} optional={OPTIONAL_IDS} />
-      <main className="flex flex-1 flex-col gap-5 px-5 py-8 md:px-12 md:py-12">
+      <WizardSidebar
+        standing={standing}
+        optional={OPTIONAL_IDS}
+        available={new Set(STEP_IDS.slice(0, furthest + 1))}
+        onSelect={showStep}
+      />
+      <main
+        ref={main}
+        className="flex flex-1 flex-col gap-5 px-5 py-8 md:px-12 md:py-12"
+      >
         {resuming && !loadFailure && <p role="status">{t("app.loading")}</p>}
         {loadFailure && <ErrorAlert>{error(loadFailure)}</ErrorAlert>}
         {recordFailure && <ErrorAlert>{error(recordFailure)}</ErrorAlert>}
@@ -137,42 +167,109 @@ export function SetupWizard() {
           <CodeStep
             code={code}
             onCodeChange={setCode}
-            onValid={() => setStep("admin")}
+            onValid={() => showStep("admin")}
           />
         )}
         {step === "admin" && installing && (
           <AdminStep
             draft={draft}
             onChange={setDraft}
-            onBack={() => setStep("code")}
+            onBack={() => showStep("code")}
             onSubmit={createAccount}
           />
         )}
-        {progress && step === "discord" && (
-          <DiscordStep
-            onDone={() => leave("discord", "done")}
-            skip={skip("discord")}
-          />
+        {progress && !installing && (step === "code" || step === "admin") && (
+          <div data-active-step className="flex max-w-xl flex-col gap-5">
+            <StepHeader
+              position={STEP_IDS.indexOf(step) + 1}
+              total={7}
+              title={t(STEP_LABELS[step])}
+            />
+            <p>{t("setup.completed")}</p>
+            <button
+              type="button"
+              className={buttonClass("primary")}
+              onClick={() => showStep(STEP_IDS[STEP_IDS.indexOf(step) + 1])}
+            >
+              {t("setup.continue")}
+            </button>
+          </div>
         )}
-        {progress && step === "semantic" && (
-          <SemanticStep
-            onDone={() => leave("semantic", "done")}
-            skip={skip("semantic")}
-          />
+        {progress && visited.has("discord") && (
+          <div
+            hidden={step !== "discord"}
+            data-active-step={step === "discord" ? "" : undefined}
+          >
+            <DiscordStep
+              onDone={() => leave("discord", "done")}
+              skip={skip("discord")}
+            />
+          </div>
         )}
-        {progress && step === "worker" && (
-          <WorkerStep
-            onDone={() => leave("worker", "done")}
-            skip={skip("worker")}
-          />
+        {progress && visited.has("semantic") && (
+          <div
+            hidden={step !== "semantic"}
+            data-active-step={step === "semantic" ? "" : undefined}
+          >
+            <SemanticStep
+              onDone={() => leave("semantic", "done")}
+              skip={skip("semantic")}
+            />
+          </div>
+        )}
+        {progress && visited.has("worker") && (
+          <div
+            hidden={step !== "worker"}
+            data-active-step={step === "worker" ? "" : undefined}
+          >
+            {stepState(progress, "worker") === "done" ? (
+              <div className="flex max-w-xl flex-col gap-5">
+                <StepHeader
+                  position={5}
+                  total={7}
+                  title={t("setup.worker.title")}
+                />
+                <p>{t("setup.completed")}</p>
+                <button
+                  type="button"
+                  className={buttonClass("primary")}
+                  onClick={() => showStep("import")}
+                >
+                  {t("setup.continue")}
+                </button>
+              </div>
+            ) : (
+              <WorkerStep
+                onDone={() => leave("worker", "done")}
+                skip={skip("worker")}
+              />
+            )}
+          </div>
         )}
         {progress && step === "import" && (
-          <ImportStep
-            onDone={() => leave("import", "done")}
-            skip={skip("import")}
-          />
+          <div data-active-step>
+            <ImportStep
+              onDone={() => leave("import", "done")}
+              skip={skip("import")}
+            />
+          </div>
         )}
-        {progress && step === "summary" && <SummaryStep progress={progress} />}
+        {progress && step === "summary" && (
+          <div data-active-step>
+            <SummaryStep progress={progress} />
+          </div>
+        )}
+        {progress && step !== "code" && (
+          <div>
+            <button
+              type="button"
+              onClick={() => showStep(STEP_IDS[STEP_IDS.indexOf(step) - 1])}
+              className={buttonClass()}
+            >
+              {t("setup.back")}
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );

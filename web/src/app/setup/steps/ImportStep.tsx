@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
 import { StepHeader } from "../StepHeader";
@@ -26,11 +25,6 @@ export function ImportStep({
       <p className="rounded-lg border border-line bg-side p-4 text-mute">
         {t("setup.import.nothing")}
       </p>
-      <div>
-        <Link to="/import" className={buttonClass()}>
-          {t("setup.import.open")}
-        </Link>
-      </div>
       <div className="flex flex-wrap gap-2">
         {skip}
         <button

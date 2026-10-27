@@ -31,6 +31,7 @@ export function PeopleLayout() {
       </div>
       <nav
         aria-label={t("people.tabsLabel")}
+        tabIndex={0}
         className="-mx-4 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0"
       >
         <ul className="m-0 flex list-none gap-1 p-0">

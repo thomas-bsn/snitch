@@ -403,6 +403,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/workers", map[string]any{"name": "fixture-transcriber-2", "max_concurrency": 1}, session.CSRF, http.StatusCreated), &worker); err != nil {
 		t.Fatal(err)
 	}
+	call(admin, http.MethodPut, "/api/admin/workers/"+worker.ID+"/transcription-model", map[string]string{"model": "server-model"}, session.CSRF, http.StatusOK)
 	workerCall := func(method, path string, body any, lease string, want int) []byte {
 		t.Helper()
 		var payload []byte
@@ -447,8 +448,9 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("transcription was not leased to a capable worker: %+v", assignment)
 	}
 	var leasedInput struct {
-		PipelineVersion string `json:"pipeline_version"`
-		Pipeline        struct {
+		TranscriptionModel string `json:"transcription_model"`
+		PipelineVersion    string `json:"pipeline_version"`
+		Pipeline           struct {
 			Model string `json:"model"`
 			VAD   struct {
 				Mode string `json:"mode"`
@@ -458,7 +460,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(workerCall(http.MethodGet, "/api/worker/jobs/"+strconv64(assignment.Job.ID)+"/input", nil, assignment.LeaseToken, http.StatusOK), &leasedInput); err != nil {
 		t.Fatal(err)
 	}
-	if leasedInput.PipelineVersion != newPipeline.Version || leasedInput.Pipeline.Model != "test-profile" || leasedInput.Pipeline.VAD.Mode != "energy" {
+	if leasedInput.TranscriptionModel != "server-model" || leasedInput.PipelineVersion != newPipeline.Version || leasedInput.Pipeline.Model != "test-profile" || leasedInput.Pipeline.VAD.Mode != "energy" {
 		t.Fatalf("worker did not receive its immutable pipeline snapshot: %+v", leasedInput)
 	}
 	const result = `{"provider":"fixture","model":"deterministic-v1","version":"deterministic-v1","language":"fr","audio_stream_index":2,"segments":[{"start":1.25,"end":2.1,"text":"Bien joué !","words":[{"word":"Bien","start":1.25,"end":1.52},{"word":"joué","start":1.55,"end":1.9}]}]}`

@@ -34,6 +34,7 @@ RUN ffmpeg -hide_banner -loglevel error -f lavfi -i sine=frequency=440:duration=
 COPY deploy/licenses/voice/extra /licenses-extra
 COPY scripts/collect_python_notices.py /collect_python_notices.py
 RUN python /collect_python_notices.py
+COPY worker/pyproject.toml /worker/pyproject.toml
 COPY worker/snitch_worker /worker/snitch_worker
 COPY worker/scripts/download_models.py /worker/scripts/download_models.py
 COPY LICENSE /usr/share/licenses/snitch/LICENSE

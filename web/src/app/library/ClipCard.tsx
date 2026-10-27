@@ -52,7 +52,13 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
           </Link>
         </h2>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-mute">
-          <span>{t("library.card.by", { owner: clip.owner })}</span>
+          <span>
+            {t("library.card.by", {
+              owner: clip.owner_deleted
+                ? t("library.deletedOwner")
+                : clip.owner,
+            })}
+          </span>
           <span aria-hidden="true">·</span>
           <time dateTime={clip.recorded_at}>{date}</time>
           <span className="ml-auto">

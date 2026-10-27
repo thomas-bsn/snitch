@@ -36,6 +36,16 @@ async function pulse(token: string) {
     data: {
       capacity: 1,
       supported_steps: ["fixture.*"],
+      machine: {
+        name: "Synthetic host",
+        system: "Linux",
+        processor: "Synthetic CPU",
+        memory_bytes: 8589934592,
+        gpu_name: "Synthetic GPU",
+        gpu_memory_bytes: 4294967296,
+        gpu_driver: "555.1",
+        worker_version: "1.2.3",
+      },
       models: {
         transcription: {
           provider: "openai-compatible",
@@ -247,6 +257,12 @@ test.describe.serial("administration et Workers", () => {
     await expect(models).toContainText("whisper-large-v3");
     await expect(models).toContainText("speaker-diarization-community-1");
     await expect(models).toContainText("Not declared");
+    const machine = page.getByRole("region", { name: "Machine" });
+    await expect(machine).toContainText("Synthetic host");
+    await expect(machine).toContainText("Synthetic CPU");
+    await expect(machine).toContainText("Synthetic GPU");
+    await expect(machine).toContainText("555.1");
+    await expect(machine).toContainText("1.2.3");
     // The token is never shown again: the file holds a placeholder.
     const env = page.getByRole("textbox", { name: "Content of .env" });
     expect(await env.inputValue()).not.toContain(firstToken);

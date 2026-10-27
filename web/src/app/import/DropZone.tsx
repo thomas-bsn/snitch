@@ -49,7 +49,7 @@ export function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
           type="button"
           onClick={() => input.current?.click()}
           aria-describedby={hintId}
-          className="font-medium text-accent-ink underline underline-offset-2"
+          className="inline-flex min-h-11 items-center font-medium text-accent-ink underline underline-offset-2"
         >
           {t("import.drop.choose")}
         </button>

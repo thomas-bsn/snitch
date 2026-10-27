@@ -36,20 +36,22 @@ import (
 )
 
 type Server struct {
-	Pool            *pgxpool.Pool
-	Config          config.Config
-	Log             *slog.Logger
-	Client          *http.Client
-	Store           settings.Store
-	Library         *library.Service
-	Jobs            *jobs.Service
-	Uploads         *uploads.Service
-	Workers         *workers.Service
-	rates           sync.Map
-	embeddingCancel context.CancelFunc
-	embeddingWG     sync.WaitGroup
-	passwordSlots   chan struct{}
-	dummyPassword   string
+	Pool               *pgxpool.Pool
+	Config             config.Config
+	Log                *slog.Logger
+	Client             *http.Client
+	Store              settings.Store
+	Library            *library.Service
+	Jobs               *jobs.Service
+	Uploads            *uploads.Service
+	Workers            *workers.Service
+	rates              sync.Map
+	embeddingCancel    context.CancelFunc
+	embeddingContext   context.Context
+	embeddingStartOnce sync.Once
+	embeddingWG        sync.WaitGroup
+	passwordSlots      chan struct{}
+	dummyPassword      string
 }
 type session struct {
 	User database.GetUserRow
@@ -84,15 +86,27 @@ func (s *Server) Start(ctx context.Context) error {
 		s.Uploads.Close()
 		return fmt.Errorf("start library: %w", err)
 	}
-	if s.Config.EmbeddingsURL != "" {
-		embeddingCtx, cancel := context.WithCancel(ctx)
-		s.embeddingCancel = cancel
-		for worker := 0; worker < 4; worker++ {
-			s.embeddingWG.Add(1)
-			go func() { defer s.embeddingWG.Done(); s.embeddingLoop(embeddingCtx) }()
-		}
+	s.embeddingContext, s.embeddingCancel = context.WithCancel(ctx)
+	settings, err := s.embeddingSettings(ctx)
+	if err != nil {
+		s.Close()
+		return err
+	}
+	if settings.URL != "" {
+		s.startEmbeddingWorkers()
 	}
 	return nil
+}
+func (s *Server) startEmbeddingWorkers() {
+	if s.embeddingContext == nil {
+		return
+	}
+	s.embeddingStartOnce.Do(func() {
+		for worker := 0; worker < 4; worker++ {
+			s.embeddingWG.Add(1)
+			go func() { defer s.embeddingWG.Done(); s.embeddingLoop(s.embeddingContext) }()
+		}
+	})
 }
 func (s *Server) Close() {
 	if s.embeddingCancel != nil {
@@ -116,6 +130,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/auth/register", s.limited(http.HandlerFunc(s.register)))
 	mux.Handle("GET /api/auth/me", s.protected(false, http.HandlerFunc(s.me)))
 	mux.Handle("POST /api/auth/logout", s.protected(false, http.HandlerFunc(s.logout)))
+	mux.Handle("DELETE /api/account", s.protected(false, http.HandlerFunc(s.closeAccount)))
 	mux.Handle("GET /api/account/preferences", s.protected(false, http.HandlerFunc(s.getAccountPreferences)))
 	mux.Handle("PUT /api/account/preferences", s.protected(false, http.HandlerFunc(s.putAccountPreferences)))
 	mux.Handle("POST /api/auth/discord/start", s.rateLimited("discord", http.HandlerFunc(s.discordStart)))
@@ -130,6 +145,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/admin/vocabulary/{id}", s.protected(true, http.HandlerFunc(s.updateVocabulary)))
 	mux.Handle("DELETE /api/admin/vocabulary/{id}", s.protected(true, http.HandlerFunc(s.deleteVocabulary)))
 	mux.Handle("PUT /api/admin/settings", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.putSettings)))
+	mux.Handle("GET /api/admin/members", s.protected(true, http.HandlerFunc(s.listMembers)))
+	mux.Handle("PUT /api/admin/members/{id}/role", s.protected(true, http.HandlerFunc(s.changeMember)))
+	mux.Handle("DELETE /api/admin/members/{id}", s.protected(true, http.HandlerFunc(s.changeMember)))
 	mux.Handle("GET /api/admin/users", s.protected(true, http.HandlerFunc(s.pending)))
 	mux.Handle("POST /api/admin/users/{id}/approve", s.protected(true, http.HandlerFunc(s.approve)))
 	mux.Handle("GET /api/admin/jobs", s.protected(true, http.HandlerFunc(s.listJobs)))
@@ -141,6 +159,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/admin/job-controls", s.protected(true, http.HandlerFunc(s.updateJobControls)))
 	mux.Handle("GET /api/admin/workers", s.protected(true, http.HandlerFunc(s.listWorkers)))
 	mux.Handle("POST /api/admin/workers", s.protected(true, http.HandlerFunc(s.registerWorker)))
+	mux.Handle("PUT /api/admin/workers/{id}/transcription-model", s.protected(true, http.HandlerFunc(s.putWorkerTranscriptionModel)))
 	mux.Handle("GET /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.getWorker)))
 	mux.Handle("POST /api/admin/workers/{id}/token", s.protected(true, http.HandlerFunc(s.renewWorkerToken)))
 	mux.Handle("DELETE /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.revokeWorker)))
@@ -166,6 +185,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/uploads/{id}", s.protected(false, http.HandlerFunc(s.cancelUpload)))
 	mux.Handle("GET /api/clips", s.protected(false, http.HandlerFunc(s.listClips)))
 	mux.Handle("GET /api/search", s.protected(false, http.HandlerFunc(s.search)))
+	mux.Handle("GET /api/admin/embeddings/settings", s.protected(true, http.HandlerFunc(s.getEmbeddingSettings)))
+	mux.Handle("PUT /api/admin/embeddings/settings", s.protected(true, http.HandlerFunc(s.putEmbeddingSettings)))
 	mux.Handle("GET /api/admin/embeddings", s.protected(true, http.HandlerFunc(s.embeddingStatus)))
 	mux.Handle("POST /api/admin/embeddings/backfill", s.protected(true, http.HandlerFunc(s.backfillEmbeddings)))
 	mux.Handle("POST /api/admin/embeddings/rebuild", s.protected(true, http.HandlerFunc(s.rebuildEmbeddings)))
@@ -201,12 +222,8 @@ func (s *Server) Handler() http.Handler {
 			path = "index.html"
 		}
 		if _, err := fs.Stat(embedded, path); err != nil {
-			// Unknown paths return an application shell, never a 404: each screen has its own
-			// address. The old interface keeps a separate shell under /legacy during the transition.
+			// Unknown paths return the application shell: each screen has its own address.
 			r.URL.Path = "/"
-			if path == "legacy" || strings.HasPrefix(path, "legacy/") {
-				r.URL.Path = "/legacy/"
-			}
 		}
 		files.ServeHTTP(w, r)
 	})
@@ -406,15 +423,16 @@ func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 	}
 	status := "degraded"
 	// No model is installed implicitly. The probe checks the provider, never indexes media.
-	model := s.Config.EmbeddingsModel
+	settings, _ := s.embeddingSettings(ctx)
+	model := settings.Model
 	var activeModel string
 	if err := s.Pool.QueryRow(ctx, `SELECT p.model FROM embedding_index_state i JOIN embedding_profiles p ON p.id=i.active_profile_id WHERE i.id=1`).Scan(&activeModel); err == nil && activeModel != "" {
 		model = activeModel
 	}
-	if s.Config.EmbeddingsURL != "" && model != "" {
+	if settings.URL != "" && model != "" {
 		body, _ := json.Marshal(embeddingBatch{Model: model, Input: []string{"health"}})
 		requestBody := strings.NewReader(string(body))
-		req, err := http.NewRequestWithContext(ctx, "POST", s.Config.EmbeddingsURL, requestBody)
+		req, err := http.NewRequestWithContext(ctx, "POST", settings.URL, requestBody)
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
 			resp, e := s.Client.Do(req)

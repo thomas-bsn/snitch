@@ -67,7 +67,12 @@ function WorkersList() {
         </p>
       )}
       {state.status === "ready" && state.value.items.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-line">
+        <div
+          role="region"
+          tabIndex={0}
+          aria-label={t("workers.title")}
+          className="overflow-x-auto rounded-xl border border-line"
+        >
           <table className="w-full min-w-[34rem] border-collapse text-left">
             <thead className="bg-side text-xs text-mute">
               <tr>

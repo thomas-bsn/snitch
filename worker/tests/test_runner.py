@@ -1,4 +1,5 @@
 import json
+import os
 import ssl
 import threading
 import tempfile
@@ -17,6 +18,47 @@ from snitch_worker import runner
 
 
 class FakeProviderTests(unittest.TestCase):
+    def test_worker_override_is_sent_to_whisper_but_result_keeps_profile_identity(self):
+        requests = []
+
+        class Whisper(BaseHTTPRequestHandler):
+            def do_POST(self):
+                requests.append(self.rfile.read(int(self.headers["Content-Length"])))
+                body = json.dumps({"model": "server-model", "language": "fr", "segments": []}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):
+                pass
+
+        server = HTTPServer(("127.0.0.1", 0), Whisper)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {
+                "TRANSCRIPTION_API_URL": f"http://127.0.0.1:{server.server_port}",
+                "TRANSCRIPTION_MODEL": "unused-env-model",
+            }):
+                path = str(Path(directory) / "fixture.wav")
+                with wave.open(path, "wb") as audio:
+                    audio.setnchannels(1)
+                    audio.setsampwidth(2)
+                    audio.setframerate(16000)
+                    audio.writeframes(b"\0\0" * 1600)
+                result = runner.transcribe_prepared_audio(
+                    runner.configured_transcriber("library-model", "server-model"), path,
+                    {"model": "library-model", "language": "fr", "vad": {"mode": "off"}}, [],
+                )
+                self.assertIn(b"server-model", requests[0])
+                self.assertEqual(result["model"], "library-model")
+        finally:
+            server.shutdown()
+            thread.join()
+            server.server_close()
+
     def test_run_once_does_not_claim_after_stop_during_pulse(self):
         stop = threading.Event()
 
@@ -72,6 +114,19 @@ class FakeProviderTests(unittest.TestCase):
         self.assertFalse(thread.is_alive(), "worker pool did not drain on shutdown")
         self.assertEqual(peak_active, capacity)
         self.assertEqual(calls, capacity, "worker claimed more jobs after shutdown")
+
+    def test_pulse_declares_configured_machine_name_without_secrets(self):
+        with (patch.dict(os.environ, {"SNITCH_WORKER_MACHINE_NAME": "Gaming PC"}),
+              patch.object(runner, "pulse", return_value=object()) as pulse,
+              patch("snitch_worker.declared_machine._hardware", return_value={"processor": "Fixture CPU", "memory_bytes": 8589934592, "gpu_name": "Fixture GPU", "gpu_memory_bytes": 4294967296, "gpu_driver": "555.1"}),
+              patch.object(runner, "claim_job", return_value=SimpleNamespace(job=None))):
+            self.assertFalse(runner.run_once(object(), capacity=1))
+        machine = pulse.call_args.kwargs["body"].to_dict()["machine"]
+        self.assertEqual(machine["name"], "Gaming PC")
+        self.assertEqual(machine["worker_version"], "0.1.0")
+        self.assertEqual(machine["gpu_name"], "Fixture GPU")
+        self.assertEqual(machine["memory_bytes"], 8589934592)
+        self.assertNotIn("HF_TOKEN", str(machine))
 
     def test_returns_deterministic_fixture_metadata_only(self):
         self.assertEqual(
