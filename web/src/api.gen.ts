@@ -258,6 +258,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/members": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs : membres actifs, rôle, arrivée et nombre de clips. */
+    get: operations["listMembers"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}/role": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Le Super-administrateur gère les rôles ; les comptes protégés ne sont pas modifiables. */
+    put: operations["updateMemberRole"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Désactive un compte et conserve ses clips ; le masquage les rend privés. */
+    delete: operations["deleteMember"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users": {
     parameters: {
       query?: never;
@@ -1857,6 +1908,17 @@ export interface components {
     JobHistory: {
       items: components["schemas"]["JobEvent"][];
     };
+    Member: {
+      /** Format: int64 */
+      id: number;
+      username: string;
+      /** @enum {string} */
+      role: "user" | "admin" | "super_admin";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: int64 */
+      clip_count: number;
+    };
     /** @description Informations non secrètes déclarées par le Worker ; le système est celui du conteneur. */
     WorkerMachine: {
       name?: string;
@@ -2771,6 +2833,8 @@ export interface components {
       id: number;
       /** Format: int64 */
       owner_id: number;
+      /** @description Le compte propriétaire a été supprimé. */
+      owner_deleted?: boolean;
       owner: string;
       /** @enum {string} */
       visibility: "private" | "shared";
@@ -3789,6 +3853,118 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listMembers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Membres */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["Member"][];
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateMemberRole: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          role: "user" | "admin";
+        };
+      };
+    };
+    responses: {
+      /** @description Rôle enregistré */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          hide_clips: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Compte supprimé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

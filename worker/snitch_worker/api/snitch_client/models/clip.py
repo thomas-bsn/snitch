@@ -46,6 +46,7 @@ class Clip:
             audio_codec (str):
             tracks (list[MediaTrack]):
             uploaders (list[str]):
+            owner_deleted (bool | Unset): Le compte propriétaire a été supprimé.
             duration_seconds (float | None | Unset):
             status (str | Unset):
             sources (list[str] | Unset):
@@ -71,6 +72,7 @@ class Clip:
     audio_codec: str
     tracks: list[MediaTrack]
     uploaders: list[str]
+    owner_deleted: bool | Unset = UNSET
     duration_seconds: float | None | Unset = UNSET
     status: str | Unset = UNSET
     sources: list[str] | Unset = UNSET
@@ -124,6 +126,8 @@ class Clip:
         uploaders = self.uploaders
 
 
+
+        owner_deleted = self.owner_deleted
 
         duration_seconds: float | None | Unset
         if isinstance(self.duration_seconds, Unset):
@@ -179,6 +183,8 @@ class Clip:
             "tracks": tracks,
             "uploaders": uploaders,
         })
+        if owner_deleted is not UNSET:
+            field_dict["owner_deleted"] = owner_deleted
         if duration_seconds is not UNSET:
             field_dict["duration_seconds"] = duration_seconds
         if status is not UNSET:
@@ -252,6 +258,8 @@ class Clip:
         uploaders = cast(list[str], d.pop("uploaders"))
 
 
+        owner_deleted = d.pop("owner_deleted", UNSET)
+
         def _parse_duration_seconds(data: object) -> float | None | Unset:
             if data is None:
                 return data
@@ -324,6 +332,7 @@ class Clip:
             audio_codec=audio_codec,
             tracks=tracks,
             uploaders=uploaders,
+            owner_deleted=owner_deleted,
             duration_seconds=duration_seconds,
             status=status,
             sources=sources,

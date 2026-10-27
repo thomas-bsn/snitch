@@ -211,6 +211,49 @@ export const en = {
     disabledEvent: "Disabled",
     forcedEvent: "Criteria unmet",
   },
+  members: {
+    title: "Members",
+    columns: {
+      name: "Name",
+      role: "Role",
+      joined: "Joined",
+      clips: "Clips",
+      actions: "Actions",
+    },
+    changeRole: "Change role",
+    delete: "Delete member",
+    roleTitle: "Change role?",
+    deleteTitle: "Delete this member?",
+    cancel: "Cancel",
+    confirm: "Confirm",
+    deleteConfirm: "Delete",
+    promote:
+      "Make {name} an Administrator? They can manage Workers, folders, processing and sign-ups.",
+    demote: "Make {name} a User? They will lose access to administration.",
+    deleteBody:
+      "Delete {name}? Their account and sessions are disabled. Clips and correction history are kept.",
+    hide: "Hide their clips",
+    signups: "Sign-ups",
+    saved: "Changes saved.",
+    approve: "Approve {name}",
+    noPending: "No sign-ups awaiting approval.",
+    accessSettings: "Sign-up and Discord settings",
+    ownerOnly: "Only the Super-administrator can change these settings.",
+    requireApproval: "Require approval for sign-ups",
+    discordId: "Discord application ID",
+    discordSecret: "Discord application secret",
+    secretKept: "Leave empty to keep the current secret.",
+    callback: "Discord return address",
+    unreadable: "Secrets to enter again: {names}",
+    saveSettings: "Save settings",
+    exports: "Exports",
+    exportHint: "Download the currently corrected segments in NDJSON format.",
+    exportSegments: "Download corrected segments",
+    masterKey: "Master key",
+    masterWarning:
+      "Keep this key separately from the database backup. It cannot recover secrets encrypted with a different key.",
+    exportKey: "Export master key",
+  },
   nav: {
     label: "Main navigation",
     library: "Library",
@@ -449,7 +492,9 @@ export const en = {
   pages: {
     comingSoon:
       "This screen is being rebuilt. The previous interface still offers it in the meantime.",
-    library: { title: "Library" },
+    library: {
+      title: "Library",
+    },
     search: { title: "Search" },
     people: { title: "People" },
     import: { title: "Import" },
@@ -673,6 +718,7 @@ export const en = {
     doneAnnouncement: "“{name}” was checked and added to the library.",
   },
   library: {
+    deletedOwner: "Deleted user",
     count: "{count} clips",
     countOne: "1 clip",
     loading: "Loading the clips…",

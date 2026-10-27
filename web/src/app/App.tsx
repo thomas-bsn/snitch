@@ -1,3 +1,6 @@
+import { MembersTab } from "./admin/members/MembersTab";
+import { SignupsTab } from "./admin/members/SignupsTab";
+import { ExportsTab } from "./admin/members/ExportsTab";
 import { VoiceTab } from "./admin/voice/VoiceTab";
 import { VocabularyTab } from "./admin/transcription/VocabularyTab";
 import { TranscriptionTab } from "./admin/transcription/TranscriptionTab";
@@ -100,6 +103,9 @@ function Routing() {
           <Route element={<RequireAdministrator />}>
             <Route path="admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="workers" replace />} />
+              <Route path="users" element={<MembersTab />} />
+              <Route path="users/signups" element={<SignupsTab />} />
+              <Route path="exports" element={<ExportsTab />} />
               <Route path="workers" element={<WorkersTab />} />
               <Route path="queue" element={<QueueTab />} />
               <Route path="folders" element={<FoldersTab />} />
@@ -120,6 +126,8 @@ function Routing() {
                     "semantic",
                     "voice",
                     "transcription",
+                    "users",
+                    "exports",
                   ].includes(tab.path),
               ).map((tab) => (
                 <Route
