@@ -259,6 +259,18 @@ export const fr: Messages = {
       "Conservez cette clé séparément de la sauvegarde de la base. Elle ne récupère pas les secrets chiffrés avec une autre clé.",
     exportKey: "Exporter la clé maître",
   },
+  closeAccount: {
+    title: "Supprimer mon compte",
+    explanation:
+      "Vos sessions seront fermées et vos clips deviendront privés. Les clips, corrections et leur historique restent conservés. La suppression du profil vocal est une action séparée.",
+    protected: "Le Super-administrateur ne peut pas fermer ce compte.",
+    open: "Supprimer mon compte",
+    cancel: "Annuler",
+    confirm: "Supprimer le compte",
+    confirmHint:
+      "Cette action désactive votre compte et ne peut pas être annulée depuis cette interface.",
+    type: "Saisissez delete ou supprimer",
+  },
   nav: {
     label: "Navigation principale",
     library: "Bibliothèque",

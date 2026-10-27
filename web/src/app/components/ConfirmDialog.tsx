@@ -13,6 +13,7 @@ type ConfirmDialogProps = {
   /** A destructive action gets the warning look. */
   danger?: boolean;
   busy?: boolean;
+  confirmDisabled?: boolean;
 };
 
 /**
@@ -29,6 +30,7 @@ export function ConfirmDialog({
   onConfirm,
   danger,
   busy,
+  confirmDisabled,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -51,7 +53,7 @@ export function ConfirmDialog({
               </AlertDialog.Close>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || confirmDisabled}
                 onClick={onConfirm}
                 className={buttonClass(danger ? "danger" : "primary")}
               >

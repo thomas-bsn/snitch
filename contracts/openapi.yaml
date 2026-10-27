@@ -362,6 +362,9 @@
         "description": "Révoque la session courante en base et efface le cookie. Exige session active, même origine et X-CSRF-Token. Une session expirée ou déjà déconnectée renvoie 401 unauthorized ; absence ou erreur CSRF : 403 csrf_rejected."
       }
     },
+    "/api/account": {
+      "delete": {"operationId":"closeAccount","description":"Désactive son compte, coupe ses sessions et rend ses clips privés sans les supprimer. Le Super-administrateur est protégé.","parameters":[{"in":"header","name":"Origin","required":true,"schema":{"type":"string"}},{"in":"header","name":"X-CSRF-Token","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"Compte fermé","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Status"}}}},"default":{"description":"Erreur","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}},"security":[{"session":[]}]}
+    },
     "/api/account/preferences": {
       "get": {
         "operationId": "getAccountPreferences",
