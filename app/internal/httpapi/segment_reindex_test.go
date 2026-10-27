@@ -32,6 +32,18 @@ func vectorOf(text string) []float32 {
 func newReindexProvider(t *testing.T) *reindexProvider {
 	p := &reindexProvider{}
 	p.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/control" && r.Method == http.MethodPost {
+			var control struct {
+				Down bool `json:"down"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&control); err != nil {
+				http.Error(w, "invalid control request", http.StatusBadRequest)
+				return
+			}
+			p.setDown(control.Down)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		var in struct {
 			Input []string `json:"input"`
 		}

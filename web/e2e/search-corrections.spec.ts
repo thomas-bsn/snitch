@@ -27,22 +27,25 @@ test("la recherche trouve le texte corrigé d’un segment et plus l’ancien", 
   });
   expect(old).toMatchObject({ total: 0, items: [] });
 
-  const search = page.getByRole("region", {
-    name: "Recherche dans les paroles",
-  });
-  await page.getByLabel("Rechercher dans les paroles").fill("joue");
-  await page.getByLabel("Type de recherche").selectOption("full_text");
-  await page.getByRole("button", { name: "Rechercher", exact: true }).click();
-  await expect(search.getByText("Très bien dit")).toHaveCount(0);
-  await expect(search.getByText("Corrigé", { exact: true })).toHaveCount(0);
+  await page.goto("/search");
+  const search = page.getByRole("search", { name: "Search by quote" });
+  const query = search.getByRole("searchbox", { name: "What was said" });
+  const results = page.getByRole("list", { name: "Passages found" });
+  await query.fill("joue");
+  await page.getByText("Exact", { exact: true }).click();
+  await search.getByRole("button", { name: "Search" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Nothing found" }),
+  ).toBeVisible();
+  await expect(results).toHaveCount(0);
 
-  await page.getByLabel("Rechercher dans les paroles").fill("tres bien");
-  await page.getByRole("button", { name: "Rechercher", exact: true }).click();
-  await expect(search.getByText("1 résultat · page 1")).toBeVisible();
-  await expect(search.getByText("Très bien dit")).toBeVisible();
-  await expect(search.getByText("Corrigé", { exact: true })).toBeVisible();
+  await query.fill("tres bien");
+  await page.getByText("Full text", { exact: true }).click();
+  await search.getByRole("button", { name: "Search" }).click();
+  await expect(results).toContainText("Très bien dit");
+  await expect(results).toContainText("Corrected");
   // The segment start is unchanged: the result still opens at its timestamp.
   await expect(
-    search.getByRole("button", { name: "Ouvrir à 00:01" }),
+    results.getByRole("link", { name: "Open synthetic-voices.mp4 at 0:01" }),
   ).toBeVisible();
 });

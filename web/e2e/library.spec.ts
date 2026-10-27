@@ -64,7 +64,9 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
     test.beforeAll(async () => {
       sharedId = await uploadClip("synthetic-shared.mp4", "shared");
       privateId = await uploadClip("synthetic-private.mp4", "private");
-      const [first] = await transcribeAndDiarize(sharedId);
+      const [first] = await transcribeAndDiarize(sharedId, {
+        secondFingerprintEnd: 4.2,
+      });
       await nameVoice(first, "Alice");
       await correctText(sharedId, 0, "Bien joué, Alice !", "nom");
       await correctSpeaker(sharedId, 1, first);
