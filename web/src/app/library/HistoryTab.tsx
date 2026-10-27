@@ -1,7 +1,11 @@
+import { ObsoleteHistory } from "./ObsoleteHistory";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback, useId, useState } from "react";
 import { useLoaded } from "../api/loaded";
 import { useFormatDate } from "../admin/format";
+import { api, errorCode, mutation } from "../api/client";
+import { buttonClass } from "../components/buttons";
+import { useSession } from "../session";
 import { ErrorAlert } from "../components/Alert";
 import { useI18n } from "../i18n";
 import type { MessageKey } from "../i18n/messages";
@@ -18,7 +22,15 @@ const kinds: Record<string, MessageKey> = {
   restore: "clip.history.kindRestore",
 };
 
-function Entries({ history }: { history: SegmentHistory }) {
+function Entries({
+  history,
+  restore,
+  busy,
+}: {
+  history: SegmentHistory;
+  busy: boolean;
+  restore: (target: { original: true } | { event_id: number }) => void;
+}) {
   const { t } = useI18n();
   const formatDate = useFormatDate();
   return (
@@ -26,6 +38,16 @@ function Entries({ history }: { history: SegmentHistory }) {
       <p className="m-0 text-xs text-mute">
         {t("clip.history.original", { text: history.original_text })}
       </p>
+      {history.current.corrected && (
+        <button
+          type="button"
+          disabled={busy}
+          className={buttonClass()}
+          onClick={() => restore({ original: true })}
+        >
+          {t("segmentEdit.restoreOriginal")}
+        </button>
+      )}
       {history.items.length === 0 ? (
         <p className="m-0 text-mute">{t("clip.history.none")}</p>
       ) : (
@@ -61,6 +83,19 @@ function Entries({ history }: { history: SegmentHistory }) {
                   <dd className="m-0">{entry.new_text}</dd>
                 </dl>
               )}
+              {entry.kind !== "speaker" &&
+                entry.new_text !== history.current.text && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={buttonClass()}
+                    onClick={() => restore({ event_id: entry.id })}
+                  >
+                    {t("segmentEdit.restoreVersion", {
+                      version: entry.version_after,
+                    })}
+                  </button>
+                )}
               {entry.kind === "speaker" && (
                 <p className="m-0 mt-1.5">
                   {entry.old_speaker_label} → {entry.new_speaker_label}
@@ -74,10 +109,29 @@ function Entries({ history }: { history: SegmentHistory }) {
   );
 }
 
-function LoadedHistory({ clipId, index }: { clipId: number; index: number }) {
+function LoadedHistory({
+  clipId,
+  index,
+  jobId,
+  onChanged,
+}: {
+  clipId: number;
+  index: number;
+  jobId?: number;
+  onChanged: () => void;
+}) {
   const { t, error } = useI18n();
-  const { state } = useLoaded(
-    useCallback(() => fetchSegmentHistory(clipId, index), [clipId, index]),
+  const { session } = useSession();
+  const [failure, setFailure] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const { state, reload } = useLoaded(
+    useCallback(async () => {
+      try {
+        return await fetchSegmentHistory(clipId, index);
+      } catch {
+        return { ok: false as const, code: "unavailable" };
+      }
+    }, [clipId, index]),
   );
   if (state.status === "loading") {
     return (
@@ -89,13 +143,55 @@ function LoadedHistory({ clipId, index }: { clipId: number; index: number }) {
   if (state.status === "failed") {
     return <ErrorAlert>{error(state.code)}</ErrorAlert>;
   }
-  return <Entries history={state.value} />;
+  async function restore(target: { original: true } | { event_id: number }) {
+    if (state.status !== "ready") return;
+    setBusy(true);
+    try {
+      const r = await api.POST("/api/clips/{id}/segments/{index}/restore", {
+        params: {
+          path: { id: clipId, index },
+          header: mutation(session?.csrf_token),
+        },
+        body: {
+          ...target,
+          expected_version: state.value.current.version,
+          transcription_job_id: jobId,
+        },
+      });
+      if (r.error) {
+        setFailure(errorCode(r.error) ?? "unknown");
+        reload();
+        return;
+      }
+      setFailure(undefined);
+      reload();
+      onChanged();
+    } catch {
+      setFailure("unavailable");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
+      <Entries
+        history={state.value}
+        busy={busy}
+        restore={(target) => void restore(target)}
+      />
+    </>
+  );
 }
 
 function CorrectedSegment({
   clipId,
   segment,
+  jobId,
+  onChanged,
 }: {
+  jobId?: number;
+  onChanged: () => void;
   clipId: number;
   segment: TranscriptSegment;
 }) {
@@ -130,7 +226,14 @@ function CorrectedSegment({
         </button>
       </div>
       <div id={panel} hidden={!open} className="mt-3">
-        {open && <LoadedHistory clipId={clipId} index={segment.index ?? 0} />}
+        {open && (
+          <LoadedHistory
+            clipId={clipId}
+            index={segment.index ?? 0}
+            jobId={jobId}
+            onChanged={onChanged}
+          />
+        )}
       </div>
     </li>
   );
@@ -140,7 +243,11 @@ function CorrectedSegment({
 export function HistoryTab({
   clipId,
   segments,
+  jobId,
+  onChanged,
 }: {
+  jobId?: number;
+  onChanged: () => void;
   clipId: number;
   segments: TranscriptSegment[];
 }) {
@@ -148,23 +255,35 @@ export function HistoryTab({
   const corrected = segments.filter(
     (segment) =>
       segment.index !== undefined &&
-      (segment.corrected || segment.local_speaker_corrected),
+      (segment.corrected ||
+        segment.local_speaker_corrected ||
+        (segment.correction_version ?? 0) > 0),
   );
   if (corrected.length === 0) {
-    return <p className="p-4 text-mute">{t("clip.history.empty")}</p>;
+    return (
+      <>
+        <p className="p-4 text-mute">{t("clip.history.empty")}</p>
+        <ObsoleteHistory clipId={clipId} jobId={jobId} />
+      </>
+    );
   }
   return (
-    <ul
-      aria-label={t("clip.history.listLabel")}
-      className="m-0 flex list-none flex-col gap-2 p-3"
-    >
-      {corrected.map((segment) => (
-        <CorrectedSegment
-          key={segment.index}
-          clipId={clipId}
-          segment={segment}
-        />
-      ))}
-    </ul>
+    <>
+      <ul
+        aria-label={t("clip.history.listLabel")}
+        className="m-0 flex list-none flex-col gap-2 p-3"
+      >
+        {corrected.map((segment) => (
+          <CorrectedSegment
+            key={segment.index}
+            clipId={clipId}
+            jobId={jobId}
+            onChanged={onChanged}
+            segment={segment}
+          />
+        ))}
+      </ul>
+      <ObsoleteHistory clipId={clipId} jobId={jobId} />
+    </>
   );
 }
