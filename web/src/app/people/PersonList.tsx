@@ -102,7 +102,12 @@ export function PersonList() {
         <p className="text-mute">{t("people.persons.noMatch")}</p>
       )}
       {shown.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-line">
+        <div
+          role="region"
+          tabIndex={0}
+          aria-label={t("people.persons.listLabel")}
+          className="overflow-x-auto rounded-xl border border-line"
+        >
           <table
             aria-label={t("people.persons.listLabel")}
             className="w-full border-collapse text-left"

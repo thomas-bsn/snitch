@@ -139,6 +139,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
         >
           <Tabs.List
             aria-label={t("clip.tabs.label")}
+            tabIndex={0}
             className="flex gap-1 overflow-x-auto border-b border-line px-3"
           >
             <Tabs.Tab value="transcript" className={tabClass}>

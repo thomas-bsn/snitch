@@ -76,7 +76,12 @@ export function MembersTab() {
       )}
       {failure && !action && <ErrorAlert>{error(failure)}</ErrorAlert>}
       {state.status === "ready" && (
-        <div className="overflow-x-auto">
+        <div
+          role="region"
+          tabIndex={0}
+          aria-label={t("members.title")}
+          className="overflow-x-auto"
+        >
           <table className="w-full min-w-[38rem] text-left">
             <thead>
               <tr>

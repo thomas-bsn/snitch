@@ -155,7 +155,12 @@ export function WorkerDetailPage({ id }: { id: string }) {
         {worker.recent_tasks.length === 0 ? (
           <p className="text-mute">{t("workers.detail.noTasks")}</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div
+            role="region"
+            tabIndex={0}
+            aria-label={t("workers.detail.recentTasks")}
+            className="overflow-x-auto"
+          >
             <table className="w-full min-w-[28rem] border-collapse text-left">
               <thead className="text-xs text-mute">
                 <tr>
