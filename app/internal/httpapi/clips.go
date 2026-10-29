@@ -303,14 +303,17 @@ func (s *Server) serveClipMedia(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) resolveClipMedia(ctx context.Context, clipID int64) (string, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT cs.root_path,sf.relative_path FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=$1 AND sf.status='ready' AND cs.enabled ORDER BY sf.modified_at DESC`, clipID)
+	rows, err := s.Pool.Query(ctx, `SELECT cs.root_path,sf.relative_path,cs.managed_root,sf.size_bytes,sf.modified_at FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=$1 AND sf.status='ready' AND cs.enabled ORDER BY sf.modified_at DESC`, clipID)
 	if err != nil {
 		return "", fmt.Errorf("query clip source media: %w", err)
 	}
 	var candidate string
 	for rows.Next() {
 		var root, relative string
-		if rows.Scan(&root, &relative) != nil {
+		var managed bool
+		var expectedSize int64
+		var expectedModified time.Time
+		if rows.Scan(&root, &relative, &managed, &expectedSize, &expectedModified) != nil {
 			continue
 		}
 		base, e := filepath.EvalSymlinks(root)
@@ -324,6 +327,9 @@ func (s *Server) resolveClipMedia(ctx context.Context, clipID int64) (string, er
 		}
 		info, e := os.Stat(resolved)
 		if e != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		if managed && (info.Size() != expectedSize || !info.ModTime().UTC().Truncate(time.Microsecond).Equal(expectedModified)) {
 			continue
 		}
 		candidate = resolved

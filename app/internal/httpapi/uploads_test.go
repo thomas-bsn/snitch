@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -214,4 +215,84 @@ func testResumableUploads(t *testing.T, pool *pgxpool.Pool) {
 	}
 	request(admin, http.MethodPut, "/api/uploads/"+privateDuplicate.ID+"/chunks", content, "application/octet-stream", "bytes 0-25/26", session.CSRF, http.StatusOK)
 	request(admin, http.MethodPost, "/api/uploads/"+privateDuplicate.ID+"/complete", []byte(`{}`), "application/json", "", session.CSRF, http.StatusConflict)
+	t.Run("managed root manual scan and named uploads", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "existing.mp4"), []byte("synthetic-existing-video"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(t.TempDir(), filepath.Join(root, "outside")); err != nil {
+			t.Fatal(err)
+		}
+		call := func(method, path string, body any, want int) []byte {
+			data, _ := json.Marshal(body)
+			return request(admin, method, path, data, "application/json", "", session.CSRF, want)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		managed, err := api.Library.ManagedRoot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var count int
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM source_files WHERE source_id=$1`, managed.ID).Scan(&count)
+		if count != 0 {
+			t.Fatal("setting a root discovered files automatically")
+		}
+		call("GET", "/api/admin/video-root/browse?path=..", nil, 422)
+		call("GET", "/api/admin/video-root/browse?path=outside", nil, 422)
+		call("POST", "/api/admin/video-root/folders", map[string]string{"parent": "", "name": "matches"}, 201)
+		call("POST", "/api/admin/video-root/scan", map[string]any{"paths": []string{""}, "confirm": false}, 200)
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM source_files WHERE source_id=$1`, managed.ID).Scan(&count)
+		if count != 0 {
+			t.Fatal("preview queued a scan")
+		}
+		call("POST", "/api/admin/video-root/scan", map[string]any{"paths": []string{"existing.mp4"}, "confirm": true}, 200)
+		if err := api.Library.ScanSource(context.Background(), managed.ID); err != nil {
+			t.Fatal(err)
+		}
+		var clip *int64
+		pool.QueryRow(context.Background(), `SELECT clip_id FROM source_files WHERE source_id=$1`, managed.ID).Scan(&clip)
+		if clip != nil {
+			t.Fatal("scan advanced without a Worker")
+		}
+		upload := func(content, version string, completion int) string {
+			var item struct {
+				ID string `json:"id"`
+			}
+			body := map[string]any{"filename": "game.mp4", "size_bytes": len(content), "destination": "matches", "overwrite_version": version}
+			if err := json.Unmarshal(call("POST", "/api/uploads", body, 201), &item); err != nil {
+				t.Fatal(err)
+			}
+			request(admin, "PUT", "/api/uploads/"+item.ID+"/chunks", []byte(content), "application/octet-stream", fmt.Sprintf("bytes 0-%d/%d", len(content)-1, len(content)), session.CSRF, 200)
+			call("POST", "/api/uploads/"+item.ID+"/complete", map[string]any{}, completion)
+			return item.ID
+		}
+		id := upload("synthetic-named-first", "", 201)
+		got, err := os.ReadFile(filepath.Join(root, "matches", "game.mp4"))
+		if err != nil || string(got) != "synthetic-named-first" {
+			t.Fatalf("named upload: %s %v", got, err)
+		}
+		call("POST", "/api/uploads/"+id+"/complete", map[string]any{}, 201)
+		var conflict struct {
+			Version string `json:"version"`
+		}
+		json.Unmarshal(call("POST", "/api/uploads", map[string]any{"filename": "game.mp4", "size_bytes": 22, "destination": "matches"}, 409), &conflict)
+		if conflict.Version == "" {
+			t.Fatal("overwrite conflict has no version")
+		}
+		oldID := int64(0)
+		pool.QueryRow(context.Background(), `SELECT clip_id FROM uploads WHERE id=$1`, id).Scan(&oldID)
+		second := upload("synthetic-named-replacement", conflict.Version, 201)
+		got, err = os.ReadFile(filepath.Join(root, "matches", "game.mp4"))
+		if err != nil || string(got) != "synthetic-named-replacement" {
+			t.Fatal("replacement missing", err)
+		}
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM clips WHERE id=$1`, oldID).Scan(&count)
+		if count != 0 {
+			t.Fatal("replaced clip retained its results")
+		}
+		call("POST", "/api/uploads/"+second+"/complete", map[string]any{}, 201)
+		call("POST", "/api/uploads", map[string]any{"filename": "game.mp4", "size_bytes": 22, "destination": "matches", "overwrite_version": conflict.Version}, 409)
+		call("POST", "/api/uploads", map[string]any{"filename": "game.mp4", "size_bytes": 22, "destination": "../outside"}, 422)
+	})
+
 }

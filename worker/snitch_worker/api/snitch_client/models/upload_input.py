@@ -26,11 +26,15 @@ class UploadInput:
         Attributes:
             filename (str):
             size_bytes (int):
+            destination (str | Unset): Sous-dossier relatif de la racine configurée ; chaîne vide pour la racine.
+            overwrite_version (str | Unset): Version renvoyée par le conflit, après confirmation explicite.
             visibility (UploadInputVisibility | Unset):  Default: UploadInputVisibility.SHARED.
      """
 
     filename: str
     size_bytes: int
+    destination: str | Unset = UNSET
+    overwrite_version: str | Unset = UNSET
     visibility: UploadInputVisibility | Unset = UploadInputVisibility.SHARED
 
 
@@ -41,6 +45,10 @@ class UploadInput:
         filename = self.filename
 
         size_bytes = self.size_bytes
+
+        destination = self.destination
+
+        overwrite_version = self.overwrite_version
 
         visibility: str | Unset = UNSET
         if not isinstance(self.visibility, Unset):
@@ -54,6 +62,10 @@ class UploadInput:
             "filename": filename,
             "size_bytes": size_bytes,
         })
+        if destination is not UNSET:
+            field_dict["destination"] = destination
+        if overwrite_version is not UNSET:
+            field_dict["overwrite_version"] = overwrite_version
         if visibility is not UNSET:
             field_dict["visibility"] = visibility
 
@@ -68,6 +80,10 @@ class UploadInput:
 
         size_bytes = d.pop("size_bytes")
 
+        destination = d.pop("destination", UNSET)
+
+        overwrite_version = d.pop("overwrite_version", UNSET)
+
         _visibility = d.pop("visibility", UNSET)
         visibility: UploadInputVisibility | Unset
         if isinstance(_visibility,  Unset):
@@ -81,6 +97,8 @@ class UploadInput:
         upload_input = cls(
             filename=filename,
             size_bytes=size_bytes,
+            destination=destination,
+            overwrite_version=overwrite_version,
             visibility=visibility,
         )
 

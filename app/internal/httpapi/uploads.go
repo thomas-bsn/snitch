@@ -9,9 +9,11 @@ import (
 )
 
 type createUploadRequest struct {
-	Filename   string `json:"filename"`
-	SizeBytes  int64  `json:"size_bytes"`
-	Visibility string `json:"visibility"`
+	Filename         string  `json:"filename"`
+	SizeBytes        int64   `json:"size_bytes"`
+	Visibility       string  `json:"visibility"`
+	Destination      *string `json:"destination"`
+	OverwriteVersion string  `json:"overwrite_version"`
 }
 
 func (s *Server) listUploads(w http.ResponseWriter, r *http.Request) {
@@ -33,10 +35,26 @@ func (s *Server) createUpload(w http.ResponseWriter, r *http.Request) {
 	if request.Visibility == "" {
 		request.Visibility = "shared"
 	}
+	var source int64
+	var relative, version string
+	if request.Destination != nil {
+		var ok bool
+		source, relative, version, ok = s.uploadDestination(w, r, request.Filename, *request.Destination, request.OverwriteVersion)
+		if !ok {
+			return
+		}
+	}
 	item, err := s.Uploads.Create(r.Context(), ss.User.ID, request.Filename, request.Visibility, request.SizeBytes)
 	if err != nil {
 		s.uploadFailure(w, err)
 		return
+	}
+	if request.Destination != nil {
+		if _, err = s.Pool.Exec(r.Context(), `INSERT INTO upload_destinations(upload_id,source_id,relative_path,expected_version) VALUES($1,$2,$3,$4)`, item.ID, source, relative, version); err != nil {
+			_ = s.Uploads.Cancel(r.Context(), ss.User.ID, item.ID)
+			s.internal(w, err)
+			return
+		}
 	}
 	reply(w, http.StatusCreated, item)
 }
@@ -67,6 +85,12 @@ func (s *Server) completeUpload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.uploadFailure(w, err)
 		return
+	}
+	if item.ClipID != nil {
+		if err := s.publishUpload(r.Context(), item.ID, *item.ClipID); err != nil {
+			s.uploadFailure(w, err)
+			return
+		}
 	}
 	reply(w, http.StatusCreated, item)
 }

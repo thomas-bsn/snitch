@@ -41,15 +41,16 @@ type Service struct {
 	config Config
 	logger interface{ Warn(string, ...any) }
 
-	mu          sync.Mutex
-	watcher     *fsnotify.Watcher
-	watchCancel context.CancelFunc
-	ctx         context.Context
-	watched     map[string]int64
-	roots       map[int64]string
-	timers      map[int64]*time.Timer
-	closed      bool
-	locks       sync.Map
+	mu             sync.Mutex
+	watcher        *fsnotify.Watcher
+	watchCancel    context.CancelFunc
+	ctx            context.Context
+	watched        map[string]int64
+	roots          map[int64]string
+	timers         map[int64]*time.Timer
+	closed         bool
+	locks          sync.Map
+	OnManagedReady func(context.Context, int64) error
 }
 
 type Source struct {
@@ -57,6 +58,7 @@ type Source struct {
 	Name          string     `json:"name"`
 	Path          string     `json:"path"`
 	OwnerID       int64      `json:"-"`
+	ManagedRoot   bool       `json:"managed_root"`
 	Visibility    string     `json:"visibility"`
 	Enabled       bool       `json:"enabled"`
 	Health        string     `json:"health"`
@@ -170,7 +172,7 @@ func (s *Service) CreateSource(ctx context.Context, ownerID int64, name, path st
 		return Source{}, err
 	}
 	var source Source
-	err = s.pool.QueryRow(ctx, `INSERT INTO clip_sources(name,root_path,owner_id) VALUES($1,$2,$3) RETURNING id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at`, name, absolute, ownerID).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan)
+	err = s.pool.QueryRow(ctx, `INSERT INTO clip_sources(name,root_path,owner_id) VALUES($1,$2,$3) RETURNING id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at,managed_root`, name, absolute, ownerID).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan, &source.ManagedRoot)
 	if err != nil {
 		if strings.Contains(err.Error(), "clip_sources_root_path_key") || strings.Contains(err.Error(), "clip_sources_name_key") {
 			return Source{}, ErrSourceExists
@@ -219,7 +221,7 @@ func within(root, candidate string) bool {
 }
 
 func (s *Service) ListSources(ctx context.Context) ([]Source, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at FROM clip_sources ORDER BY id`)
+	rows, err := s.pool.Query(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at,managed_root FROM clip_sources ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +229,7 @@ func (s *Service) ListSources(ctx context.Context) ([]Source, error) {
 	sources := make([]Source, 0)
 	for rows.Next() {
 		var source Source
-		if err = rows.Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan); err != nil {
+		if err = rows.Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan, &source.ManagedRoot); err != nil {
 			return nil, err
 		}
 		sources = append(sources, source)
@@ -237,7 +239,7 @@ func (s *Service) ListSources(ctx context.Context) ([]Source, error) {
 
 func (s *Service) GetSource(ctx context.Context, id int64) (Source, error) {
 	var source Source
-	err := s.pool.QueryRow(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at FROM clip_sources WHERE id=$1`, id).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan)
+	err := s.pool.QueryRow(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at,managed_root FROM clip_sources WHERE id=$1`, id).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan, &source.ManagedRoot)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Source{}, ErrNotFound
 	}
@@ -355,6 +357,9 @@ func (s *Service) Close() {
 }
 
 func (s *Service) WatchSource(source Source) {
+	if source.ManagedRoot {
+		return
+	}
 	s.mu.Lock()
 	watcher := s.watcher
 	if source.Enabled {
@@ -521,6 +526,9 @@ func (s *Service) ScanSource(ctx context.Context, sourceID int64) error {
 	}
 	if !source.Enabled {
 		return nil
+	}
+	if source.ManagedRoot {
+		return s.scanManaged(ctx, source)
 	}
 	info, err := os.Stat(source.Path)
 	if err != nil || !info.IsDir() {

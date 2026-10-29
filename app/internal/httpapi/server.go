@@ -82,11 +82,30 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.Uploads.Start(ctx); err != nil {
 		return fmt.Errorf("start uploads: %w", err)
 	}
+	s.Library.OnManagedReady = func(ctx context.Context, id int64) error {
+		_, _, err := s.scheduleResolvedTranscription(ctx, id, nil, true)
+		return err
+	}
 	if err := s.Library.Start(ctx); err != nil {
 		s.Uploads.Close()
 		return fmt.Errorf("start library: %w", err)
 	}
 	s.embeddingContext, s.embeddingCancel = context.WithCancel(ctx)
+	s.embeddingWG.Add(1)
+	go func() {
+		defer s.embeddingWG.Done()
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			s.resumeUploadPublications(s.embeddingContext)
+			select {
+			case <-s.embeddingContext.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+
 	settings, err := s.embeddingSettings(ctx)
 	if err != nil {
 		s.Close()
@@ -118,6 +137,15 @@ func (s *Server) Close() {
 }
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("GET /api/admin/video-root", s.protected(false, http.HandlerFunc(s.videoRoot)))
+	mux.Handle("PUT /api/admin/video-root", s.protected(true, http.HandlerFunc(s.videoRoot)))
+	mux.Handle("GET /api/admin/video-root/browse", s.protected(false, http.HandlerFunc(s.videoBrowse)))
+	mux.Handle("POST /api/admin/video-root/folders", s.protected(true, http.HandlerFunc(s.videoFolder)))
+	mux.Handle("POST /api/admin/video-root/scan", s.protected(true, http.HandlerFunc(s.videoScan)))
+
+	for _, method := range []string{"GET", "PUT", "DELETE"} {
+		mux.Handle(method+" /api/account/avatar", s.protected(false, http.HandlerFunc(s.accountAvatar)))
+	}
 	mux.HandleFunc("GET /api/health/live", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("GET /api/health/ready", s.ready)
 	mux.HandleFunc("GET /api/setup", s.setupStatus)
@@ -247,6 +275,9 @@ func (s *Server) Handler() http.Handler {
 			}
 		}
 		limit := int64(16 * 1024)
+		if r.Method == http.MethodPut && r.URL.Path == "/api/account/avatar" {
+			limit = 5 << 20
+		}
 		if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api/uploads/") && strings.HasSuffix(r.URL.Path, "/chunks") {
 			limit = s.Config.UploadChunkBytes
 			if limit <= 0 {

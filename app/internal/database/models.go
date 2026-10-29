@@ -9,6 +9,11 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+type AccountAvatar struct {
+	UserID int64  `json:"user_id"`
+	Png    []byte `json:"png"`
+}
+
 type AttributionEvent struct {
 	ID               int64              `json:"id"`
 	LocalSpeakerID   int64              `json:"local_speaker_id"`
@@ -74,6 +79,7 @@ type ClipSource struct {
 	ScanGeneration int64              `json:"scan_generation"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	HealthMessage  string             `json:"health_message"`
+	ManagedRoot    bool               `json:"managed_root"`
 }
 
 type EmbeddingIndexState struct {
@@ -296,6 +302,7 @@ type SourceFile struct {
 	LastSeenGeneration int64              `json:"last_seen_generation"`
 	Status             string             `json:"status"`
 	ErrorCode          pgtype.Text        `json:"error_code"`
+	ScanRequested      bool               `json:"scan_requested"`
 }
 
 type SourceMicrophoneTrack struct {
@@ -391,6 +398,14 @@ type Upload struct {
 	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UploadDestination struct {
+	UploadID        string `json:"upload_id"`
+	SourceID        int64  `json:"source_id"`
+	RelativePath    string `json:"relative_path"`
+	ExpectedVersion string `json:"expected_version"`
+	Published       bool   `json:"published"`
 }
 
 type UploadedMedium struct {

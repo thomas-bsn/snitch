@@ -1,3 +1,4 @@
+import { AvatarEditor } from "./Avatar";
 import { useI18n } from "../../i18n";
 import { roleLabelKey } from "../../roles";
 import { useSession } from "../../session";
@@ -14,6 +15,7 @@ export function ProfileTab() {
   return (
     <div className="flex flex-col gap-4">
       <Section title={t("account.profile.identityTitle")}>
+        <AvatarEditor />
         <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5">
           <dt className="text-mute">{t("account.profile.username")}</dt>
           <dd className="font-medium">{user.username}</dd>

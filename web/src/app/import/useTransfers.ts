@@ -1,3 +1,4 @@
+import { useI18n } from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "../session";
 import {
@@ -30,6 +31,7 @@ export type Transfer = {
   /** The file itself, when this page holds it (it does not after a reload). */
   file: File | null;
   visibility: Visibility;
+  destination?: string;
   /** Server-side upload, once created. */
   upload: Upload | null;
   /** Stable error code of a failure or of the last interruption. */
@@ -57,6 +59,7 @@ const newKey = () => `transfer-${++counter}`;
  */
 export function useTransfers() {
   const { session } = useSession();
+  const { language } = useI18n();
   const csrf = session?.csrf_token ?? "";
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const controllers = useRef(new Map<string, AbortController>());
@@ -118,7 +121,18 @@ export function useTransfers() {
         });
       let upload = transfer.upload;
       if (!upload) {
-        const created = await createUpload(csrf, file, transfer.visibility);
+        const created = await createUpload(
+          csrf,
+          file,
+          transfer.visibility,
+          transfer.destination,
+          () =>
+            window.confirm(
+              language === "fr"
+                ? `Remplacer ${transfer.destination || "/"}/${file.name} ? Le fichier existant sera écrasé. Les résultats et corrections de son ancien contenu seront retirés si aucune autre copie ne les utilise.`
+                : `Replace ${transfer.destination || "/"}/${file.name}? The existing file will be overwritten. Results and corrections for the old content will be removed if no other copy uses them.`,
+            ),
+        );
         if (controller.signal.aborted) return;
         if (!created.ok) return stop(created.code);
         upload = created.value;
@@ -148,7 +162,7 @@ export function useTransfers() {
         upload: done.value,
       });
     },
-    [csrf, patch],
+    [csrf, patch, language],
   );
 
   /** Takes the queued transfers one after the other. */
@@ -171,21 +185,25 @@ export function useTransfers() {
     if (transfers.some((t) => t.status === "queued")) void pump();
   }, [transfers, pump]);
 
-  const add = useCallback((files: File[], visibility: Visibility) => {
-    setTransfers((all) => [
-      ...all,
-      ...files.map<Transfer>((file) => ({
-        key: newKey(),
-        name: file.name,
-        size: file.size,
-        offset: 0,
-        status: "queued",
-        file,
-        visibility,
-        upload: null,
-      })),
-    ]);
-  }, []);
+  const add = useCallback(
+    (files: File[], visibility: Visibility, destination?: string) => {
+      setTransfers((all) => [
+        ...all,
+        ...files.map<Transfer>((file) => ({
+          key: newKey(),
+          name: file.name,
+          size: file.size,
+          offset: 0,
+          status: "queued",
+          file,
+          visibility,
+          destination,
+          upload: null,
+        })),
+      ]);
+    },
+    [],
+  );
 
   /** Resumes an interrupted transfer, with the file when this page no longer holds it. */
   const resume = useCallback(

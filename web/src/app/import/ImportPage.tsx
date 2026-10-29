@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
@@ -11,7 +11,15 @@ import { useTransfers } from "./useTransfers";
 
 /** Import: drop videos or choose them, follow each transfer, resume or cancel it. */
 export function ImportPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const [root, setRoot] = useState<string>();
+  const [destination, setDestination] = useState("");
+  useEffect(() => {
+    void fetch("/api/admin/video-root")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setRoot(data?.root?.path))
+      .catch(() => {});
+  }, []);
   useDocumentTitle(t("pages.import.title"));
   const { transfers, add, resume, cancel, dismiss } = useTransfers();
   const [visibility, setVisibility] = useState<Visibility>("shared");
@@ -20,7 +28,8 @@ export function ImportPage() {
   function receive(files: File[]) {
     const videos = files.filter(looksLikeVideo);
     setRejected(files.filter((f) => !looksLikeVideo(f)).map((f) => f.name));
-    if (videos.length > 0) add(videos, visibility);
+    if (videos.length > 0)
+      add(videos, visibility, root ? destination : undefined);
   }
 
   const done = transfers.filter((x) => x.status === "done");
@@ -44,6 +53,22 @@ export function ImportPage() {
         </select>
       </div>
 
+      {root && (
+        <label className="flex max-w-xl flex-col gap-2">
+          {language === "fr"
+            ? "Sous-dossier de destination"
+            : "Destination subfolder"}
+          <input
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+            placeholder={language === "fr" ? "Vide : racine" : "Empty: root"}
+            className="h-11 rounded-lg border border-line-strong bg-surface px-3"
+          />
+          <span className="break-all text-sm text-mute">
+            {root}/{destination}
+          </span>
+        </label>
+      )}
       <DropZone onFiles={receive} />
 
       {rejected.map((name) => (

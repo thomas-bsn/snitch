@@ -4,6 +4,22 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  avatar_too_large: "La photo doit faire moins de 5 Mo.",
+  invalid_avatar: "Choisissez une image JPEG ou PNG de 16 mégapixels maximum.",
+  video_root_unavailable:
+    "Cette racine ne peut pas être configurée. Vérifiez son montage et ses droits ; changer une racine existante nécessite de migrer ses fichiers.",
+  video_root_unconfigured: "Configurez d’abord le dossier racine des vidéos.",
+  video_path_unavailable:
+    "Ce chemin est inaccessible ou hors du dossier racine.",
+  video_selection_too_large: "Sélectionnez moins de fichiers (10 000 maximum).",
+  invalid_folder_name:
+    "Choisissez un nom de dossier sans barre oblique ni point initial.",
+  folder_not_created: "Le dossier existe déjà ou ne peut pas être créé.",
+  invalid_video_selection: "Sélectionnez les fichiers ou dossiers à scanner.",
+  video_scan_incomplete:
+    "La sélection n’a pas pu être entièrement listée. Vérifiez les droits ou sélectionnez moins de fichiers.",
+  overwrite_confirmation_required:
+    "Un fichier existe déjà : son remplacement nécessite votre confirmation.",
   member_protected: "Ce membre ne peut pas être modifié.",
   member_not_found: "Ce membre est introuvable.",
   invalid_role: "Ce rôle est invalide.",
