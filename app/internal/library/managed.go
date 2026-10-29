@@ -47,41 +47,81 @@ func (s *Service) scanManaged(ctx context.Context, source Source) error {
 	if err != nil {
 		return err
 	}
+	var pending, slowRetry, warning bool
 	for _, relative := range paths {
 		absolute, err := ManagedPath(source.Path, relative)
 		if err != nil {
 			_, _ = s.pool.Exec(ctx, `UPDATE source_files SET status='missing',scan_requested=false,error_code='video_unreadable' WHERE source_id=$1 AND relative_path=$2`, source.ID, relative)
+			warning = true
 			continue
 		}
 		info, err := os.Stat(absolute)
 		if err != nil || !info.Mode().IsRegular() {
+			code := "video_unreadable"
+			if os.IsNotExist(err) {
+				code = "video_missing"
+			}
+			_, _ = s.pool.Exec(ctx, `UPDATE source_files SET status='missing',scan_requested=false,error_code=$3 WHERE source_id=$1 AND relative_path=$2`, source.ID, relative, code)
+			warning = true
 			continue
 		}
-		pending, unreadable, err := s.observe(ctx, source, relative, absolute, info, 0)
+		isPending, unreadable, err := s.observe(ctx, source, relative, absolute, info, 0)
 		if err != nil {
 			return err
 		}
-		if !pending {
-			if !unreadable && s.OnManagedReady != nil {
-				var clipID int64
-				if e := s.pool.QueryRow(ctx, `SELECT clip_id FROM source_files WHERE source_id=$1 AND relative_path=$2`, source.ID, relative).Scan(&clipID); e != nil {
-					return e
-				}
-				if e := s.OnManagedReady(ctx, clipID); e != nil {
-					continue
-				}
-			}
+		if isPending {
+			pending = true
+			continue
+		}
+		if unreadable {
+			warning = true
 			_, err = s.pool.Exec(ctx, `UPDATE source_files SET scan_requested=false WHERE source_id=$1 AND relative_path=$2`, source.ID, relative)
 			if err != nil {
 				return err
 			}
-			if unreadable {
+			continue
+		}
+		if s.OnManagedReady != nil {
+			var clipID int64
+			if e := s.pool.QueryRow(ctx, `SELECT clip_id FROM source_files WHERE source_id=$1 AND relative_path=$2`, source.ID, relative).Scan(&clipID); e != nil {
+				return e
+			}
+			if e := s.OnManagedReady(ctx, clipID); e != nil {
+				code := "transcription_scheduling_failed"
+				var scanErr *ManagedScanError
+				if errors.As(e, &scanErr) && scanErr.Code != "" {
+					code = scanErr.Code
+				}
+				_, updateErr := s.pool.Exec(ctx, `UPDATE source_files SET error_code=$3 WHERE source_id=$1 AND relative_path=$2`, source.ID, relative, code)
+				if updateErr != nil {
+					return updateErr
+				}
+				// A missing configuration will not fix itself in three seconds:
+				// keep the request visible and retry slowly until it is provided.
+				slowRetry = true
+				warning = true
 				continue
 			}
 		}
+		_, err = s.pool.Exec(ctx, `UPDATE source_files SET scan_requested=false,error_code=NULL WHERE source_id=$1 AND relative_path=$2`, source.ID, relative)
+		if err != nil {
+			return err
+		}
 	}
-	if len(paths) > 0 {
+	health, message := "ready", ""
+	if warning {
+		health, message = "warning", "Certains fichiers demandent une vérification ou une configuration avant leur traitement."
+	}
+	if _, err = s.pool.Exec(ctx, `UPDATE clip_sources SET health=$2,health_message=$3,last_scan_at=now() WHERE id=$1`, source.ID, health, message); err != nil {
+		return err
+	}
+	switch {
+	case pending:
 		s.ScheduleScan(source.ID, 3*time.Second)
+	case slowRetry:
+		s.ScheduleScan(source.ID, 30*time.Second)
+	case len(paths) == 50:
+		s.ScheduleScan(source.ID, time.Second)
 	}
 	return nil
 }
@@ -121,6 +161,12 @@ func (s *Service) ManagedRoot(ctx context.Context) (Source, error) {
 	return s.GetSource(ctx, id)
 }
 
+// SetManagedRoot creates the single managed root or changes its location.
+// Changing the location never moves files and never rebinds an indexed path to
+// another file: every previous entry becomes "missing" and keeps its clip and
+// results, while the new root starts with no indexed file until an explicit
+// scan. Pending upload publications block the change because their relative
+// paths would otherwise silently point into the new root.
 func (s *Service) SetManagedRoot(ctx context.Context, owner int64, path string) (Source, error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) == string(os.PathSeparator) {
 		return Source{}, ErrInvalidSource
@@ -146,8 +192,28 @@ func (s *Service) SetManagedRoot(ctx context.Context, owner int64, path string) 
 		if old.Path == path {
 			return old, nil
 		}
-		// Changing the location does not move files or silently rebind indexed paths.
-		return Source{}, ErrSourceExists
+		tx, beginErr := s.pool.Begin(ctx)
+		if beginErr != nil {
+			return Source{}, beginErr
+		}
+		defer tx.Rollback(ctx)
+		var pending int
+		if beginErr = tx.QueryRow(ctx, `SELECT count(*) FROM upload_destinations WHERE source_id=$1 AND NOT published`, old.ID).Scan(&pending); beginErr != nil {
+			return Source{}, beginErr
+		}
+		if pending > 0 {
+			return Source{}, ErrSourceBusy
+		}
+		if _, beginErr = tx.Exec(ctx, `UPDATE clip_sources SET root_path=$2,health='ready',health_message='',last_scan_at=NULL WHERE id=$1`, old.ID, path); beginErr != nil {
+			return Source{}, beginErr
+		}
+		if _, beginErr = tx.Exec(ctx, `UPDATE source_files SET status='missing',scan_requested=false,error_code=NULL WHERE source_id=$1 AND status<>'missing'`, old.ID); beginErr != nil {
+			return Source{}, beginErr
+		}
+		if beginErr = tx.Commit(ctx); beginErr != nil {
+			return Source{}, beginErr
+		}
+		return s.GetSource(ctx, old.ID)
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Source{}, err

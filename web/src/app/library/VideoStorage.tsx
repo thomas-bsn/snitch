@@ -1,13 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Folder, FileVideo, ArrowLeft } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useSession } from "../session";
 import { isAdministrator } from "../roles";
 import { buttonClass } from "../components/buttons";
 
-type Root = { id: number; path: string };
+type Root = {
+  id: number;
+  path: string;
+  health?: string;
+  last_scan_at?: string;
+};
 type Entry = { path: string; directory: boolean; size_bytes: number };
-type Queued = { relative_path: string; status: string; error_code?: string };
+type Queued = {
+  relative_path: string;
+  status: string;
+  error_code?: string;
+  scan_requested?: boolean;
+};
+
 async function request(
   path: string,
   csrf: string,
@@ -28,12 +39,14 @@ async function request(
   if (!response.ok) throw new Error(data.error ?? "unavailable");
   return data;
 }
+
+/** One managed video root: choose it, browse it, request a scan, create subfolders. */
 export function VideoStorage({ settings = false }: { settings?: boolean }) {
-  const { language, error } = useI18n();
-  const fr = language === "fr";
+  const { t, error } = useI18n();
   const { user, session } = useSession();
   const csrf = session?.csrf_token ?? "";
   const [root, setRoot] = useState<Root | null>(null);
+  const [worker, setWorker] = useState(false);
   const [path, setPath] = useState("");
   const [open, setOpen] = useState(settings);
   const [directory, setDirectory] = useState("");
@@ -46,12 +59,19 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const [notice, setNotice] = useState("");
+  // The periodic refresh must not overwrite a path being edited.
+  const loadedRoot = useRef("");
   const admin = !!user && isAdministrator(user);
+
   const load = useCallback(async () => {
     const data = await request("/api/admin/video-root", csrf);
+    setWorker(!!data.worker_available);
     setRoot(data.root);
     if (data.root) {
-      setPath(data.root.path);
+      setPath((current) =>
+        loadedRoot.current === current ? data.root.path : current,
+      );
+      loadedRoot.current = data.root.path;
       const browsing = await request(
         `/api/admin/video-root/browse?path=${encodeURIComponent(directory)}`,
         csrf,
@@ -62,14 +82,19 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
         csrf,
       );
       setQueue(files.items);
+    } else {
+      setEntries([]);
+      setQueue([]);
     }
   }, [csrf, directory]);
+
   useEffect(() => {
     if (!admin || !open) return;
     void load().catch((e) => setFailure(String(e.message)));
     const timer = setInterval(() => void load().catch(() => {}), 5000);
     return () => clearInterval(timer);
   }, [load, admin, open]);
+
   async function action(fn: () => Promise<void>) {
     setBusy(true);
     setFailure("");
@@ -83,6 +108,7 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
       setBusy(false);
     }
   }
+
   async function scan(paths: string[]) {
     await action(async () => {
       const result = await request("/api/admin/video-root/scan", csrf, {
@@ -93,7 +119,41 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
       setPreviewSelection(paths);
     });
   }
+
+  function saveRoot() {
+    if (
+      root &&
+      path !== root.path &&
+      !window.confirm(t("videoStorage.confirmRootChange"))
+    ) {
+      return;
+    }
+    void action(async () => {
+      const changed = root !== null && path !== root.path;
+      await request("/api/admin/video-root", csrf, { path }, "PUT");
+      setDirectory("");
+      setNotice(
+        t(changed ? "videoStorage.rootChanged" : "videoStorage.rootSaved"),
+      );
+    });
+  }
+
+  function queueStatus(item: Queued) {
+    if (item.status === "missing") return t("videoStorage.status.missing");
+    if (item.error_code) return t("videoStorage.status.attention");
+    // A ready file may still wait for a Worker or for the transcription profile.
+    if (item.scan_requested)
+      return worker
+        ? t("videoStorage.status.pending")
+        : t("videoStorage.status.waiting");
+    if (item.status === "ready") return t("videoStorage.status.indexed");
+    if (item.status === "waiting_stability")
+      return t("videoStorage.status.waiting");
+    return t("videoStorage.status.attention");
+  }
+
   if (!admin) return null;
+
   return (
     <section className="flex flex-col gap-3">
       {!settings && (
@@ -103,36 +163,23 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
             onClick={() => setOpen(!open)}
             aria-expanded={open}
           >
-            {fr
-              ? "Scanner des vidéos et gérer les dossiers"
-              : "Scan videos and manage folders"}
+            {t("videoStorage.open")}
           </button>
         </div>
       )}
       {open && (
         <>
-          <h2 className="text-lg font-semibold">
-            {fr ? "Dossier des vidéos" : "Video folder"}
-          </h2>
+          <h2 className="text-lg font-semibold">{t("videoStorage.title")}</h2>
           {(settings || !root) && (
             <form
               className="flex max-w-xl flex-col gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                void action(async () => {
-                  await request("/api/admin/video-root", csrf, { path }, "PUT");
-                  setNotice(
-                    fr
-                      ? "Dossier enregistré. Aucun scan lancé."
-                      : "Folder saved. No scan started.",
-                  );
-                });
+                saveRoot();
               }}
             >
               <label htmlFor="video-root-path">
-                {fr
-                  ? "Dossier racine accessible à Snitch"
-                  : "Root folder accessible to Snitch"}
+                {t("videoStorage.rootLabel")}
               </label>
               <input
                 id="video-root-path"
@@ -142,14 +189,10 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                 required
                 className="h-11 rounded-lg border border-line-strong bg-surface px-3"
               />
-              <p className="text-sm text-mute">
-                {fr
-                  ? "Le dossier doit déjà être monté dans le conteneur et accessible en lecture et écriture. Enregistrer ce chemin ne lance aucun scan."
-                  : "The folder must already be mounted in the container with read and write access. Saving this path does not start a scan."}
-              </p>
+              <p className="text-sm text-mute">{t("videoStorage.rootHint")}</p>
               <div>
                 <button className={buttonClass("primary")} disabled={busy}>
-                  {fr ? "Enregistrer le dossier" : "Save folder"}
+                  {t("videoStorage.saveRoot")}
                 </button>
               </div>
             </form>
@@ -166,6 +209,18 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                 {root.path}
                 {directory ? `/${directory}` : ""}
               </p>
+              <p className="text-sm" role="status">
+                {worker
+                  ? t("videoStorage.workerOnline")
+                  : t("videoStorage.workerOffline")}
+              </p>
+              <p className="text-sm text-mute">
+                {t("videoStorage.lastScan", {
+                  date: root.last_scan_at
+                    ? new Date(root.last_scan_at).toLocaleString()
+                    : t("videoStorage.never"),
+                })}
+              </p>
               <div className="flex flex-wrap gap-2">
                 {directory && (
                   <button
@@ -176,7 +231,7 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                     }}
                   >
                     <ArrowLeft size={16} />
-                    {fr ? "Dossier parent" : "Parent folder"}
+                    {t("videoStorage.parent")}
                   </button>
                 )}
                 <button
@@ -184,24 +239,17 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                   className={buttonClass("secondary")}
                   onClick={() => void scan([""])}
                 >
-                  {fr ? "Scanner toute la racine" : "Scan entire root"}
+                  {t("videoStorage.scanRoot")}
                 </button>
                 <button
                   disabled={busy || !selected.length}
                   className={buttonClass("primary")}
                   onClick={() => void scan(selected)}
                 >
-                  {fr
-                    ? "Préparer le scan de la sélection"
-                    : "Prepare selection scan"}{" "}
-                  ({selected.length})
+                  {t("videoStorage.scanSelection", { count: selected.length })}
                 </button>
               </div>
-              <p className="text-sm text-mute">
-                {fr
-                  ? "Sélectionner un dossier inclut ses sous-dossiers. Rien n’est analysé avant confirmation. Sans Worker disponible, les fichiers restent en attente."
-                  : "Selecting a folder includes its subfolders. Nothing is analysed before confirmation. Files wait when no Worker is available."}
-              </p>
+              <p className="text-sm text-mute">{t("videoStorage.scanHint")}</p>
               <ul className="divide-y divide-line rounded-lg border border-line">
                 {entries.map((entry) => (
                   <li
@@ -210,7 +258,9 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                   >
                     <input
                       type="checkbox"
-                      aria-label={`${fr ? "Sélectionner" : "Select"} ${entry.path}`}
+                      aria-label={t("videoStorage.select", {
+                        path: entry.path,
+                      })}
                       checked={selected.includes(entry.path)}
                       onChange={(e) =>
                         setSelected(
@@ -243,11 +293,7 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                   </li>
                 ))}
                 {!entries.length && (
-                  <li className="p-3 text-mute">
-                    {fr
-                      ? "Aucun dossier ou fichier vidéo ici."
-                      : "No folders or video files here."}
-                  </li>
+                  <li className="p-3 text-mute">{t("videoStorage.empty")}</li>
                 )}
               </ul>
               <form
@@ -260,11 +306,12 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                       name: folder,
                     });
                     setFolder("");
+                    setNotice(t("videoStorage.folderCreated"));
                   });
                 }}
               >
                 <label className="flex flex-col gap-1">
-                  {fr ? "Nouveau sous-dossier" : "New subfolder"}
+                  {t("videoStorage.newFolder")}
                   <input
                     value={folder}
                     onChange={(e) => setFolder(e.target.value)}
@@ -274,16 +321,13 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                   />
                 </label>
                 <button className={buttonClass("secondary")} disabled={busy}>
-                  {fr ? "Créer le dossier" : "Create folder"}
+                  {t("videoStorage.createFolder")}
                 </button>
               </form>
               {preview && (
                 <div className="flex flex-col gap-3 rounded-lg border border-line p-4">
                   <h3 className="font-semibold">
-                    {fr
-                      ? "Confirmer les fichiers à scanner"
-                      : "Confirm files to scan"}{" "}
-                    ({preview.length})
+                    {t("videoStorage.confirmTitle", { count: preview.length })}
                   </h3>
                   <ul className="max-h-64 overflow-auto text-sm">
                     {preview.map((p) => (
@@ -304,21 +348,17 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                           });
                           setPreview(null);
                           setSelected([]);
-                          setNotice(
-                            fr
-                              ? "Fichiers ajoutés à la file."
-                              : "Files added to the queue.",
-                          );
+                          setNotice(t("videoStorage.queued"));
                         })
                       }
                     >
-                      {fr ? "Ajouter à la file" : "Add to queue"}
+                      {t("videoStorage.addToQueue")}
                     </button>
                     <button
                       className={buttonClass("secondary")}
                       onClick={() => setPreview(null)}
                     >
-                      {fr ? "Annuler" : "Cancel"}
+                      {t("videoStorage.cancel")}
                     </button>
                   </div>
                 </div>
@@ -326,7 +366,7 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
               {queue.length > 0 && (
                 <>
                   <h3 className="font-semibold">
-                    {fr ? "File des fichiers demandés" : "Requested files"}
+                    {t("videoStorage.queueTitle")}
                   </h3>
                   <ul className="max-h-72 overflow-auto divide-y divide-line text-sm">
                     {queue.map((item) => (
@@ -335,18 +375,13 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                         className="flex flex-wrap justify-between gap-2 py-2"
                       >
                         <span className="break-all">{item.relative_path}</span>
-                        <span>
-                          {item.status === "ready"
-                            ? fr
-                              ? "Indexé"
-                              : "Indexed"
-                            : item.status === "waiting_stability"
-                              ? fr
-                                ? "En attente"
-                                : "Waiting"
-                              : fr
-                                ? "À vérifier"
-                                : "Needs attention"}
+                        <span className="flex flex-col items-end">
+                          <span>{queueStatus(item)}</span>
+                          {item.error_code && (
+                            <span className="text-xs text-danger">
+                              {error(item.error_code)}
+                            </span>
+                          )}
                         </span>
                       </li>
                     ))}

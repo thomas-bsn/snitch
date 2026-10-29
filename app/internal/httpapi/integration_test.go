@@ -796,7 +796,7 @@ func TestFoundation(t *testing.T) {
 			"admin-workers.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
 			"people-groups.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
-			"segment-export.spec.ts",
+			"segment-export.spec.ts", "video-storage.spec.ts",
 		}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = []string{"setup-wizard.spec.ts"}
@@ -903,6 +903,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_SEGMENT_EXPORT") == "1" {
 			suites = []string{"segment-export.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_VIDEO_STORAGE") == "1" {
+			suites = []string{"video-storage.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_SEGMENT_SPEAKER") == "1" {
 			suites = []string{"clip-corrections.spec.ts"}
 		}
@@ -918,6 +921,8 @@ func TestFoundation(t *testing.T) {
 				}
 				config := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}
 				sourceRoot := ""
+				videoRoot := ""
+				videoRoot2 := ""
 				providerURL := ""
 				if suite == "admin-semantic.spec.ts" || suite == "segment-reindex.spec.ts" {
 					providerURL = newReindexProvider(t).srv.URL
@@ -933,7 +938,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
+				if suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -941,8 +946,15 @@ func TestFoundation(t *testing.T) {
 					config.UploadSessionTTL = time.Hour
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
+				if suite == "video-storage.spec.ts" {
+					videoRoot = t.TempDir()
+					videoRoot2 = t.TempDir()
+					if e = os.WriteFile(filepath.Join(videoRoot, "browser-fixture.mp4"), []byte("synthetic-browser-video"), 0o600); e != nil {
+						t.Fatal(e)
+					}
+				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" {
+				if suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
@@ -958,7 +970,7 @@ func TestFoundation(t *testing.T) {
 				args := []string{"run", "test:e2e", "--", suite}
 				cmd := exec.Command("npm", args...)
 				cmd.Dir = "../../../web"
-				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384")
+				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384", "SNITCH_TEST_VIDEO_ROOT="+videoRoot, "SNITCH_TEST_VIDEO_ROOT_2="+videoRoot2)
 				out, e := cmd.CombinedOutput()
 				t.Log(string(out))
 				if e != nil {

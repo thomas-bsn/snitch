@@ -11,20 +11,28 @@ const percentOf = (t: Transfer) =>
 export function TransferRow({
   transfer,
   onResume,
+  onRetry,
   onCancel,
   onDismiss,
 }: {
   transfer: Transfer;
   onResume: (key: string, file?: File) => void;
+  onRetry: (key: string) => void;
   onCancel: (key: string) => void;
   onDismiss: (key: string) => void;
 }) {
   const { t, error } = useI18n();
   const picker = useRef<HTMLInputElement>(null);
   const percent = percentOf(transfer);
-  const { name, status } = transfer;
+  const { name, status, publication } = transfer;
   const busy =
     status === "queued" || status === "sending" || status === "verifying";
+  const publicationLabel =
+    publication === "pending"
+      ? t("import.publication.pending")
+      : publication === "failed"
+        ? t("import.publication.failed")
+        : t(`import.status.${status}`);
 
   return (
     <li
@@ -34,8 +42,8 @@ export function TransferRow({
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="break-all font-medium">{name}</span>
         <span className="text-xs text-mute">
-          {t(`import.status.${status}`)}
-          {status !== "queued" && status !== "done" && (
+          {publicationLabel}
+          {!publication && status !== "queued" && status !== "done" && (
             <> · {t("import.percent", { percent })}</>
           )}
         </span>
@@ -101,7 +109,17 @@ export function TransferRow({
             />
           </>
         )}
-        {(busy || status === "interrupted") && (
+        {(publication === "failed" || publication === "pending") && (
+          <button
+            type="button"
+            className={buttonClass("primary")}
+            aria-label={t("import.publication.retryLabel", { name })}
+            onClick={() => onRetry(transfer.key)}
+          >
+            {t("import.publication.retry")}
+          </button>
+        )}
+        {(busy || status === "interrupted" || !!publication) && (
           <button
             type="button"
             className={buttonClass("secondary")}
@@ -111,7 +129,7 @@ export function TransferRow({
             {t("import.cancel")}
           </button>
         )}
-        {(status === "done" || status === "failed") && (
+        {(status === "done" || (status === "failed" && !publication)) && (
           <button
             type="button"
             className={buttonClass("secondary")}

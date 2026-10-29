@@ -7,8 +7,15 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   avatar_too_large: "La photo doit faire moins de 5 Mo.",
   invalid_avatar: "Choisissez une image JPEG ou PNG de 16 mégapixels maximum.",
   video_root_unavailable:
-    "Cette racine ne peut pas être configurée. Vérifiez son montage et ses droits ; changer une racine existante nécessite de migrer ses fichiers.",
+    "Cette racine ne peut pas être utilisée. Vérifiez qu’elle est montée et accessible en écriture.",
   video_root_unconfigured: "Configurez d’abord le dossier racine des vidéos.",
+  video_root_busy:
+    "Terminez ou annulez les envois en attente de publication avant de changer la racine.",
+  video_root_permission:
+    "Snitch ne peut pas écrire dans la racine vidéo. Vérifiez ses permissions.",
+  publication_failed: "Le fichier n’a pas pu être publié dans la racine vidéo.",
+  destination_changed:
+    "La destination a changé pendant le transfert. Réessayez ou annulez l’envoi.",
   video_path_unavailable:
     "Ce chemin est inaccessible ou hors du dossier racine.",
   video_selection_too_large: "Sélectionnez moins de fichiers (10 000 maximum).",

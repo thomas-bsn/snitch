@@ -26,9 +26,11 @@ class GetVideoRootResponse200:
     """
         Attributes:
             root (None | Source):
+            worker_available (bool): Un Worker connecté peut prendre les fichiers demandés. Sinon ils restent en attente.
      """
 
     root: None | Source
+    worker_available: bool
 
 
 
@@ -42,11 +44,14 @@ class GetVideoRootResponse200:
         else:
             root = self.root
 
+        worker_available = self.worker_available
+
 
         field_dict: dict[str, Any] = {}
 
         field_dict.update({
             "root": root,
+            "worker_available": worker_available,
         })
 
         return field_dict
@@ -75,8 +80,11 @@ class GetVideoRootResponse200:
         root = _parse_root(d.pop("root"))
 
 
+        worker_available = d.pop("worker_available")
+
         get_video_root_response_200 = cls(
             root=root,
+            worker_available=worker_available,
         )
 
         return get_video_root_response_200

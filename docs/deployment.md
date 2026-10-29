@@ -2,6 +2,8 @@
 
 Les médias importés sont stockés dans le volume nommé `media`, séparé de PostgreSQL et accessible uniquement à l’application (UID 10001). Les variables `MAX_UPLOAD_BYTES` (20 GiB), `UPLOAD_CHUNK_BYTES` (4 MiB) et `UPLOAD_SESSION_TTL` (168 h) règlent les limites et la durée de reprise. Le nom d’origine est conservé comme métadonnée ; le chemin est toujours généré côté serveur. Le volume `media` contient les fichiers importés et doit être sauvegardé séparément de la base.
 
+La **racine vidéo** est un dossier de l’hôte monté dans le service `app`, lisible et inscriptible par l’UID 10001 (par exemple `/chemin/hote/videos:/videos`). C’est le seul dossier où Snitch publie les envois nommés et crée des sous-dossiers ; elle est distincte du volume `media` et des sources `CLIPS_ROOTS`, qui restent en lecture seule. Enregistrer la racine dans l’interface ne lance aucun scan. Sauvegardez ce dossier comme les originaux qu’il contient, séparément de PostgreSQL : voir [racine vidéo](video-root.md) et [sauvegarde](backups.md).
+
 ## Forgeyard
 
 Importer **compose.yaml seul**, jamais compose.override.yaml. Fournir dans les variables chiffrées du projet :

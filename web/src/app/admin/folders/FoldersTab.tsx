@@ -27,6 +27,12 @@ export function FoldersTab() {
   const [failure, setFailure] = useState<string>();
   const [notice, setNotice] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The single managed root is configured above; the legacy list only keeps
+  // installations that still watch additional read-only folders.
+  const legacy =
+    state.status === "ready"
+      ? state.value.items.filter((source) => !source.managed_root)
+      : [];
   async function add(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
@@ -88,9 +94,8 @@ export function FoldersTab() {
       {notice && <StatusNotice>{t("folders.saved")}</StatusNotice>}
       {state.status === "ready" && (
         <>
-          {state.value.allowed_roots.length === 0 ? (
-            <p>{t("folders.noMount")}</p>
-          ) : (
+          <p>{t("folders.legacyHint")}</p>
+          {state.value.allowed_roots.length > 0 && (
             <>
               <p>
                 {t("folders.roots", {
@@ -118,11 +123,11 @@ export function FoldersTab() {
               </form>
             </>
           )}
-          {state.value.items.length === 0 ? (
+          {legacy.length === 0 ? (
             <p>{t("folders.empty")}</p>
           ) : (
             <ul className="flex list-none flex-col gap-3 p-0">
-              {state.value.items.map((source) => (
+              {legacy.map((source) => (
                 <li
                   key={source.id}
                   className="flex flex-col gap-3 rounded-xl border border-line p-4"

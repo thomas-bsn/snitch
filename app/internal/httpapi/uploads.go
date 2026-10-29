@@ -4,7 +4,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 
+	"snitch/internal/library"
 	"snitch/internal/uploads"
 )
 
@@ -88,6 +90,7 @@ func (s *Server) completeUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	if item.ClipID != nil {
 		if err := s.publishUpload(r.Context(), item.ID, *item.ClipID); err != nil {
+			s.recordPublicationFailure(r.Context(), item.ID, err)
 			s.uploadFailure(w, err)
 			return
 		}
@@ -118,6 +121,12 @@ func (s *Server) uploadFailure(w http.ResponseWriter, err error) {
 		fail(w, http.StatusGone, "upload_expired")
 	case errors.Is(err, uploads.ErrInvalidVideo):
 		fail(w, http.StatusUnprocessableEntity, "invalid_video")
+	case errors.Is(err, os.ErrPermission):
+		fail(w, http.StatusUnprocessableEntity, "video_root_permission")
+	case errors.Is(err, os.ErrNotExist):
+		fail(w, http.StatusUnprocessableEntity, "video_root_unavailable")
+	case errors.Is(err, library.ErrInvalidSource):
+		fail(w, http.StatusUnprocessableEntity, "video_path_unavailable")
 	default:
 		s.internal(w, err)
 	}

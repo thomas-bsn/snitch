@@ -85,6 +85,10 @@ func (s *Server) publishUpload(ctx context.Context, id string, clipID int64) err
 		return err
 	}
 	if published {
+		_, _ = tx.Exec(ctx, `UPDATE upload_destinations SET attempts=0,last_error=NULL WHERE upload_id=$1`, id)
+		if err = tx.Commit(ctx); err != nil {
+			return err
+		}
 		_ = os.Remove(filepath.Join(s.Uploads.MediaRoot(), id+".media"))
 		return nil
 	}
@@ -173,7 +177,7 @@ func (s *Server) publishUpload(ctx context.Context, id string, clipID int64) err
 	if err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE upload_destinations SET published=true WHERE upload_id=$1`, id); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE upload_destinations SET published=true,attempts=0,last_error=NULL WHERE upload_id=$1`, id); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `DELETE FROM uploaded_media WHERE upload_id=$1`, id); err != nil {
@@ -211,8 +215,10 @@ func (s *Server) publishUpload(ctx context.Context, id string, clipID int64) err
 
 // Resume the already confirmed uploads after a process interruption. Conflicts
 // remain untouched and require a new explicit confirmation from the uploader.
+// Five failed attempts stop the automatic loop; the upload stays listed with its
+// stable error so an administrator can retry or cancel it explicitly.
 func (s *Server) resumeUploadPublications(ctx context.Context) {
-	rows, err := s.Pool.Query(ctx, `SELECT u.id,u.clip_id FROM uploads u JOIN upload_destinations d ON d.upload_id=u.id WHERE u.status='complete' AND u.clip_id IS NOT NULL AND NOT d.published ORDER BY u.created_at LIMIT 20`)
+	rows, err := s.Pool.Query(ctx, `SELECT u.id,u.clip_id FROM uploads u JOIN upload_destinations d ON d.upload_id=u.id WHERE u.status='complete' AND u.clip_id IS NOT NULL AND NOT d.published AND d.attempts < 5 ORDER BY u.created_at LIMIT 20`)
 	if err != nil {
 		return
 	}
@@ -234,6 +240,26 @@ func (s *Server) resumeUploadPublications(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		_ = s.publishUpload(ctx, item.id, item.clip)
+		if err := s.publishUpload(ctx, item.id, item.clip); err != nil {
+			s.recordPublicationFailure(ctx, item.id, err)
+		}
 	}
+}
+
+// recordPublicationFailure stores a stable code rather than raw text, so the
+// interface can translate it and a later explicit retry can replace it.
+func (s *Server) recordPublicationFailure(ctx context.Context, id string, err error) {
+	if ctx.Err() != nil {
+		return
+	}
+	code := "publication_failed"
+	switch {
+	case errors.Is(err, uploads.ErrConflict):
+		code = "destination_changed"
+	case errors.Is(err, os.ErrPermission):
+		code = "video_root_permission"
+	case errors.Is(err, os.ErrNotExist):
+		code = "video_root_unavailable"
+	}
+	_, _ = s.Pool.Exec(ctx, `UPDATE upload_destinations SET attempts=attempts+1,last_error=$2 WHERE upload_id=$1 AND NOT published`, id, code)
 }

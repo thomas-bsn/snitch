@@ -1925,6 +1925,15 @@ export interface components {
       /** Format: date-time */
       expires_at: string;
       sha256?: string;
+      /** @description Sous-dossier relatif demandé à la création, s'il y en a un. */
+      destination?: string;
+      /**
+       * @description État de la publication vers la racine vidéo. Absent sans destination.
+       * @enum {string}
+       */
+      publication?: "pending" | "published" | "failed";
+      /** @description Code stable expliquant la dernière publication échouée. */
+      publication_error?: string;
     };
     UploadList: {
       items: components["schemas"]["Upload"][];
@@ -2892,6 +2901,8 @@ export interface components {
       relative_path: string;
       /** @enum {string} */
       status: "waiting_stability" | "ready" | "unreadable" | "missing";
+      /** @description Le fichier a été demandé explicitement et attend encore un Worker, une configuration ou son indexation. */
+      scan_requested: boolean;
       /** Format: int64 */
       clip_id?: number | null;
       error_code?: string;
@@ -3730,6 +3741,8 @@ export interface operations {
         content: {
           "application/json": {
             root: components["schemas"]["Source"] | null;
+            /** @description Un Worker connecté peut prendre les fichiers demandés. Sinon ils restent en attente. */
+            worker_available: boolean;
           };
         };
       };

@@ -177,6 +177,7 @@ from .upload_input import UploadInput
 from .upload_input_visibility import UploadInputVisibility
 from .upload_list import UploadList
 from .upload_offset import UploadOffset
+from .upload_publication import UploadPublication
 from .upload_status import UploadStatus
 from .upload_visibility import UploadVisibility
 from .user import User
@@ -423,6 +424,7 @@ __all__ = (
     "UploadInputVisibility",
     "UploadList",
     "UploadOffset",
+    "UploadPublication",
     "UploadStatus",
     "UploadVisibility",
     "User",

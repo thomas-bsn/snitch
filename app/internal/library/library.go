@@ -24,9 +24,26 @@ import (
 var (
 	ErrInvalidSource = errors.New("invalid source")
 	ErrSourceExists  = errors.New("source already exists")
+	ErrSourceBusy    = errors.New("source has pending uploads")
 	ErrNotFound      = errors.New("source not found")
 	ErrUnavailable   = errors.New("source unavailable")
 )
+
+// ManagedScanError reports, with a stable code, why a ready managed file could
+// not be handed to the transcription scheduler.
+type ManagedScanError struct {
+	Code string
+	Err  error
+}
+
+func (e *ManagedScanError) Error() string {
+	if e.Err == nil {
+		return e.Code
+	}
+	return e.Code + ": " + e.Err.Error()
+}
+
+func (e *ManagedScanError) Unwrap() error { return e.Err }
 
 type Config struct {
 	Roots          []string
@@ -84,6 +101,7 @@ type File struct {
 	Status              string     `json:"status"`
 	ClipID              *int64     `json:"clip_id,omitempty"`
 	ErrorCode           string     `json:"error_code,omitempty"`
+	ScanRequested       bool       `json:"scan_requested"`
 	SizeBytes           int64      `json:"size_bytes"`
 	ModifiedAt          time.Time  `json:"modified_at"`
 	DiscoveredAt        *time.Time `json:"discovered_at,omitempty"`
@@ -279,7 +297,7 @@ func (s *Service) DisableSource(ctx context.Context, id int64) error {
 }
 
 func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error) {
-	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.size_bytes,sf.modified_at,c.discovered_at,c.recorded_at,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
+	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.recorded_at,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +307,7 @@ func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error)
 		var file File
 		var duration *float64
 		var tracks []byte
-		if err = rows.Scan(&file.RelativePath, &file.Status, &file.ClipID, &file.ErrorCode, &file.SizeBytes, &file.ModifiedAt, &file.DiscoveredAt, &file.RecordedAt, &file.RecordedAtEstimated, &duration, &file.FormatName, &file.VideoCodec, &file.AudioCodec, &tracks); err != nil {
+		if err = rows.Scan(&file.RelativePath, &file.Status, &file.ClipID, &file.ErrorCode, &file.ScanRequested, &file.SizeBytes, &file.ModifiedAt, &file.DiscoveredAt, &file.RecordedAt, &file.RecordedAtEstimated, &duration, &file.FormatName, &file.VideoCodec, &file.AudioCodec, &tracks); err != nil {
 			return nil, err
 		}
 		file.Name = filepath.Base(filepath.FromSlash(file.RelativePath))

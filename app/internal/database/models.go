@@ -401,11 +401,13 @@ type Upload struct {
 }
 
 type UploadDestination struct {
-	UploadID        string `json:"upload_id"`
-	SourceID        int64  `json:"source_id"`
-	RelativePath    string `json:"relative_path"`
-	ExpectedVersion string `json:"expected_version"`
-	Published       bool   `json:"published"`
+	UploadID        string      `json:"upload_id"`
+	SourceID        int64       `json:"source_id"`
+	RelativePath    string      `json:"relative_path"`
+	ExpectedVersion string      `json:"expected_version"`
+	Published       bool        `json:"published"`
+	Attempts        int32       `json:"attempts"`
+	LastError       pgtype.Text `json:"last_error"`
 }
 
 type UploadedMedium struct {

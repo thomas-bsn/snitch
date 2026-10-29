@@ -383,10 +383,15 @@
                         }
                       ],
                       "nullable": true
+                    },
+                    "worker_available": {
+                      "type": "boolean",
+                      "description": "Un Worker connecté peut prendre les fichiers demandés. Sinon ils restent en attente."
                     }
                   },
                   "required": [
-                    "root"
+                    "root",
+                    "worker_available"
                   ],
                   "additionalProperties": false
                 }
@@ -5018,6 +5023,23 @@
           "sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Sous-dossier relatif demandé à la création, s'il y en a un."
+          },
+          "publication": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "published",
+              "failed"
+            ],
+            "description": "État de la publication vers la racine vidéo. Absent sans destination."
+          },
+          "publication_error": {
+            "type": "string",
+            "description": "Code stable expliquant la dernière publication échouée."
           }
         }
       },
@@ -6324,6 +6346,7 @@
           "name",
           "relative_path",
           "status",
+          "scan_requested",
           "size_bytes",
           "modified_at",
           "recorded_at_estimated",
@@ -6344,6 +6367,10 @@
               "unreadable",
               "missing"
             ]
+          },
+          "scan_requested": {
+            "type": "boolean",
+            "description": "Le fichier a été demandé explicitement et attend encore un Worker, une configuration ou son indexation."
           },
           "clip_id": {
             "type": "integer",

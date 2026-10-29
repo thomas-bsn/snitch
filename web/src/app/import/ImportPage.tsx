@@ -4,6 +4,7 @@ import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
+import { FolderPicker } from "../library/FolderPicker";
 import { DropZone, looksLikeVideo } from "./DropZone";
 import { TransferRow } from "./TransferRow";
 import type { Visibility } from "./uploadApi";
@@ -11,7 +12,7 @@ import { useTransfers } from "./useTransfers";
 
 /** Import: drop videos or choose them, follow each transfer, resume or cancel it. */
 export function ImportPage() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [root, setRoot] = useState<string>();
   const [destination, setDestination] = useState("");
   useEffect(() => {
@@ -21,7 +22,7 @@ export function ImportPage() {
       .catch(() => {});
   }, []);
   useDocumentTitle(t("pages.import.title"));
-  const { transfers, add, resume, cancel, dismiss } = useTransfers();
+  const { transfers, add, resume, retry, cancel, dismiss } = useTransfers();
   const [visibility, setVisibility] = useState<Visibility>("shared");
   const [rejected, setRejected] = useState<string[]>([]);
 
@@ -53,22 +54,7 @@ export function ImportPage() {
         </select>
       </div>
 
-      {root && (
-        <label className="flex max-w-xl flex-col gap-2">
-          {language === "fr"
-            ? "Sous-dossier de destination"
-            : "Destination subfolder"}
-          <input
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            placeholder={language === "fr" ? "Vide : racine" : "Empty: root"}
-            className="h-11 rounded-lg border border-line-strong bg-surface px-3"
-          />
-          <span className="break-all text-sm text-mute">
-            {root}/{destination}
-          </span>
-        </label>
-      )}
+      {root && <FolderPicker value={destination} onChange={setDestination} />}
       <DropZone onFiles={receive} />
 
       {rejected.map((name) => (
@@ -82,6 +68,7 @@ export function ImportPage() {
               key={transfer.key}
               transfer={transfer}
               onResume={resume}
+              onRetry={(key) => void retry(key)}
               onCancel={(key) => void cancel(key)}
               onDismiss={dismiss}
             />

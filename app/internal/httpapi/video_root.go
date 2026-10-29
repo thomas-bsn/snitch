@@ -37,6 +37,10 @@ func (s *Server) videoRoot(w http.ResponseWriter, r *http.Request) {
 		}
 		owner := r.Context().Value(sessionKey{}).(session).User.ID
 		root, err := s.Library.SetManagedRoot(r.Context(), owner, input.Path)
+		if errors.Is(err, library.ErrSourceBusy) {
+			fail(w, 409, "video_root_busy")
+			return
+		}
 		if err != nil {
 			fail(w, 422, "video_root_unavailable")
 			return
@@ -44,16 +48,25 @@ func (s *Server) videoRoot(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, root)
 		return
 	}
+	available := s.workerAvailable(r)
 	root, err := s.Library.ManagedRoot(r.Context())
 	if errors.Is(err, pgx.ErrNoRows) {
-		reply(w, 200, map[string]any{"root": nil})
+		reply(w, 200, map[string]any{"root": nil, "worker_available": available})
 		return
 	}
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	reply(w, 200, map[string]any{"root": root})
+	reply(w, 200, map[string]any{"root": root, "worker_available": available})
+}
+
+// A connected Worker is the signal that a requested file can move from the
+// waiting queue to indexing and transcription.
+func (s *Server) workerAvailable(r *http.Request) bool {
+	var available bool
+	_ = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM workers WHERE revoked_at IS NULL AND last_seen_at > now()-interval '2 minutes')`).Scan(&available)
+	return available
 }
 func (s *Server) videoBrowse(w http.ResponseWriter, r *http.Request) {
 	root, err := s.Library.ManagedRoot(r.Context())

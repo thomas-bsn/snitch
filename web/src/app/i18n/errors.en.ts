@@ -5,8 +5,15 @@ export const errorsEn = {
   avatar_too_large: "The photo must be smaller than 5 MB.",
   invalid_avatar: "Choose a JPEG or PNG image, up to 16 megapixels.",
   video_root_unavailable:
-    "This root cannot be configured. Check its mount and write permissions; changing an existing root requires migrating its files.",
+    "This root cannot be used. Check that it is mounted and writable.",
   video_root_unconfigured: "Configure the video root first.",
+  video_root_busy:
+    "Finish or cancel the uploads waiting to be published before changing the root.",
+  video_root_permission:
+    "Snitch cannot write to the video root. Check its permissions.",
+  publication_failed: "The file could not be published to the video root.",
+  destination_changed:
+    "The destination changed during the transfer. Retry or cancel the upload.",
   video_path_unavailable: "This path is unavailable or outside the video root.",
   video_selection_too_large: "Select fewer files (10,000 maximum).",
   invalid_folder_name: "Choose a folder name without slashes or leading dots.",
