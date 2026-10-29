@@ -163,6 +163,16 @@ func testPublicAddress(t *testing.T, pool *pgxpool.Pool) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The setup code must also work before any administrator exists, without
+	// consuming it, through the same HTTPS -> HTTP proxy chain as Forgeyard.
+	_, setupProxy := start(t, base(func(c *config.Config) { c.TrustedProxies = loopback }), false)
+	checked := call(t, setupProxy, "POST", "/api/setup/code", `{"code":"`+code+`"}`, map[string]string{
+		"Host": "snitch.example.org", "X-Forwarded-Proto": "http",
+		"Origin": "https://snitch.example.org", "Sec-Fetch-Site": "same-origin",
+	}, nil)
+	if checked.status != 200 {
+		t.Fatalf("setup code behind HTTP proxies: %d %s", checked.status, checked.body)
+	}
 	boot := call(t, directServer, "POST", "/api/setup", `{"code":"`+code+`","username":"administrator","password":"synthetic-password"}`, map[string]string{"Origin": directServer.URL}, nil)
 	if boot.status != 201 || len(boot.cookies) != 1 || boot.cookies[0].Secure {
 		t.Fatalf("start without address setting over HTTP: %d %s %+v", boot.status, boot.body, boot.cookies)
@@ -197,6 +207,32 @@ func testPublicAddress(t *testing.T, pool *pgxpool.Pool) {
 		}
 		if r := loginStatus(t, directServer, map[string]string{"Host": alias, "Origin": "http://" + alias}); r.status != 200 {
 			t.Fatalf("origin matching the requested host: %d %s", r.status, r.body)
+		}
+	})
+
+	t.Run("browser HTTPS survives a chain of HTTP proxies", func(t *testing.T) {
+		_, ts := start(t, base(func(c *config.Config) { c.TrustedProxies = loopback }), false)
+		h := map[string]string{
+			"Host": "snitch.example.org", "X-Forwarded-Proto": "http",
+			"X-Forwarded-Host": "snitch.example.org", "Origin": "https://snitch.example.org",
+			"Referer": "https://snitch.example.org/", "Sec-Fetch-Site": "same-origin",
+		}
+		cookie, csrf := login(t, ts, h)
+		if !cookie.Secure {
+			t.Fatal("HTTPS session cookie lost Secure behind HTTP proxies")
+		}
+		want := "https://snitch.example.org/api/auth/discord/callback"
+		if got := redirectURI(t, ts, h); got != want {
+			t.Fatalf("Discord callback = %q, want %q", got, want)
+		}
+		// Browser GET fetches have Referer and Fetch Metadata, without Origin.
+		delete(h, "Origin")
+		if got := callbackShown(t, ts, h, cookie); got != want {
+			t.Fatalf("displayed callback = %q, want %q", got, want)
+		}
+		h["Origin"] = "https://snitch.example.org"
+		if got, insecure := workerAPIURL(t, ts, h, cookie, csrf); got != "https://snitch.example.org" || insecure {
+			t.Fatalf("worker URL = %q, insecure = %v", got, insecure)
 		}
 	})
 

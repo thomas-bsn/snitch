@@ -18,3 +18,13 @@ La suite démarre PostgreSQL/pgvector avec Testcontainers, remet la base à l’
 ## Restant et écarts
 
 Le ticket #81 reste en attente de validation (`needs-triage`) et n’est pas inclus. Le benchmark réel de phase 7 n’a pas été réalisé. La vérification mobile utilise Chromium à 390 px ; aucun appareil physique ni autre moteur de navigateur n’a été testé. Les données de test sont synthétiques.
+
+## Correctif d'installation derrière plusieurs proxies — 29 octobre 2026
+
+Le refus `403 origin_rejected` est reproduit par une requête d'installation HTTPS dont un relais HTTP a remplacé `X-Forwarded-Proto` par `http`. La configuration locale de Forgeyard comporte Caddy devant un Traefik sans confiance configurée pour les en-têtes amont ; les en-têtes effectivement reçus par Snitch en production n'ont pas été capturés.
+
+Snitch retrouve désormais HTTPS depuis les métadonnées `same-origin` du navigateur, derrière un pair TCP de confiance et avec un hôte et port identiques à ceux de la requête. La règle s'applique aux mutations, aux lectures GET/HEAD, aux cookies Secure et aux adresses Discord/Worker. Les origines étrangères, ports différents, pairs non fiables et mutations sans origine restent refusés. `PUBLIC_URL` reste une surcharge facultative. Voir l'[ADR 0016](adr/0016-https-derriere-plusieurs-mandataires.md).
+
+Vérifications : le test de régression reproduisait initialement le 403 ; après correction, les tests des paquets `httpapi` et `config`, `go vet` et le parcours `TestFoundation/public_address_deduced_from_the_request` avec PostgreSQL/pgvector synthétique et détecteur de courses passent. Ce parcours vérifie un code d'installation valide avant création du compte, la connexion, le cookie Secure, les adresses Discord et le fichier de Worker. README et documentation d'accès/déploiement mis à jour.
+
+Restant : publier une image contenant ce correctif, redéployer puis vérifier le parcours sur Forgeyard. Aucun déploiement ni traitement de média réel n'a été lancé. La suite navigateur complète n'a pas été relancée pour ce correctif backend.

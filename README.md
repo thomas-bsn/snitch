@@ -23,6 +23,8 @@ L’écran **Importer** de la nouvelle interface (`/import`) accepte des vidéos
 
 > Les images GHCR ne sont publiées qu'après le premier push sur `main` suivant l'intégration de ce workflow. Tant que `snitch-worker` n'est pas disponible (ou reste privée sans connexion), utiliser `deploy/worker/compose.yaml` (il construit l'image, environ 12 Go) avec l'URL et le jeton du worker créé. L'image worker exige un GPU NVIDIA pour des performances raisonnables (`SNITCH_VOICE_DEVICE=cpu` reste possible mais lent, non mesuré). Les licences NVIDIA de l'image worker sont à relire avant de la rendre publique. Détails : [installer sur le PC de jeu](docs/real-voice-worker.md#installer-sur-le-pc-gamer). Le code vocal réel (pyannote) n'a pas encore tourné avec de vrais modèles : à valider sur le PC de jeu avec une première vidéo.
 
+L'accès HTTPS derrière plusieurs proxies (par exemple Caddy puis Traefik sur Forgeyard) retrouve automatiquement le schéma du navigateur, même si un relais le remplace par HTTP. `PUBLIC_URL` reste facultative ; voir les [conditions de détection et de sécurité](docs/access.md#adresse-publique).
+
 ## Essayer localement
 
 Prérequis : Docker avec Compose v2, Git ; environ 8 Go d’images amont en cache. Les images GHCR ne sont pas encore publiées : construire depuis les sources. Node et Go tournent dans les stages de build, jamais dans le conteneur final.
