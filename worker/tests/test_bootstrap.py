@@ -148,6 +148,32 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(len(launched), 1)
         self.assertNotIn(SECRET, "\n".join(self.logs))
 
+    def test_permission_error_on_models_directory_is_reported_cleanly(self):
+        # Simulate a directory the container user cannot write to
+        import stat
+        readonly_root = tempfile.TemporaryDirectory()
+        self.addCleanup(readonly_root.cleanup)
+        diarization_path = os.path.join(readonly_root.name, "diarization")
+        embedding_path = os.path.join(readonly_root.name, "embedding")
+        os.makedirs(diarization_path, exist_ok=True)
+        os.makedirs(embedding_path, exist_ok=True)
+        # Make the parent directory read-only (simulating a host mount with wrong permissions)
+        os.chmod(readonly_root.name, stat.S_IRUSR | stat.S_IXUSR)  # 0500 - no write
+        try:
+            env = {
+                **self.env,
+                **self.optin(),
+                "SNITCH_VOICE_DIARIZATION_MODEL_PATH": diarization_path,
+                "SNITCH_VOICE_EMBEDDING_MODEL_PATH": embedding_path,
+            }
+            status = bootstrap.run_bootstrap(env, Fakes().downloader, Fakes().resolve, self.logs.append)
+            self.assertEqual(status, "failed")
+            self.assertIn("models directory is not writable", "\n".join(self.logs))
+            self.assertNotIn(SECRET, "\n".join(self.logs))
+        finally:
+            # Restore permissions for cleanup
+            os.chmod(readonly_root.name, stat.S_IRWXU)
+
 
 class VersionFromManifestTests(unittest.TestCase):
     def setUp(self):

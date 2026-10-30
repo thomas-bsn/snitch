@@ -1002,6 +1002,28 @@ export const en = {
       before: "Before",
       after: "After",
     },
+    transcribe: {
+      button: "Transcribe",
+      scheduled: "Transcription scheduled",
+      job: {
+        pending: "Waiting",
+        leased: "Running",
+        running: "Running",
+        retry_wait: "Waiting to retry",
+        done: "Done",
+        failed: "Failed",
+        dead: "Exhausted",
+        cancelled: "Cancelled",
+      },
+      jobError: "Transcription error: {error}",
+      clear: "Clear",
+      selectTrack: "Select an audio track",
+      selectTrackPlaceholder: "Choose a track…",
+      confirmTrack: "Confirm track",
+      retranscribeTitle: "Replace corrections?",
+      retranscribeWarning:
+        "This will replace {texts} text and {speakers} speaker correction(s) by {authors}. They remain in history as obsolete.",
+    },
   },
   people: {
     lead: "Name the voices Snitch hears. A human confirmation always comes first.",

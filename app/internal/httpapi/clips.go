@@ -234,6 +234,82 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 	reply(w, 200, response)
 }
 
+// scheduleClipTranscription schedules a transcription job for a clip from the clip page.
+// It is accessible to any authenticated user who can view the clip (not just admins).
+// If the clip has corrections, the caller must confirm they want to replace them.
+func (s *Server) scheduleClipTranscription(w http.ResponseWriter, r *http.Request) {
+	v, ok := s.authorizedClip(w, r)
+	if !ok {
+		return
+	}
+
+	var input struct {
+		AudioStreamIndex *int  `json:"audio_stream_index,omitempty"`
+		ConfirmReplace   bool  `json:"confirm_replace,omitempty"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+
+	// Check if the clip has existing corrections that would be replaced
+	hasCorrections, err := s.hasUnstaleCorrections(r.Context(), v.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if hasCorrections && !input.ConfirmReplace {
+		fail(w, http.StatusConflict, "corrections_would_be_replaced")
+		return
+	}
+
+	if input.AudioStreamIndex != nil && *input.AudioStreamIndex < 0 {
+		fail(w, 400, "invalid_audio_stream")
+		return
+	}
+
+	job, created, err := s.scheduleResolvedTranscription(r.Context(), v.ID, input.AudioStreamIndex, true)
+	if err != nil {
+		if err.Error() == "audio selection required" {
+			fail(w, http.StatusConflict, "audio_track_selection_required")
+			return
+		}
+		if err.Error() == "audio stream not found" {
+			fail(w, 400, "audio_stream_not_found")
+			return
+		}
+		if err.Error() == "clip not ready" {
+			fail(w, http.StatusConflict, "clip_not_ready")
+			return
+		}
+		if errors.Is(err, pgx.ErrNoRows) {
+			fail(w, 404, "clip_not_found")
+			return
+		}
+		if strings.Contains(err.Error(), "audio stream") {
+			fail(w, 400, "audio_stream_not_found")
+			return
+		}
+		s.internal(w, err)
+		return
+	}
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	reply(w, status, map[string]any{"status": "scheduled", "job": job})
+}
+
+// hasUnstaleCorrections checks if a clip has non-stale corrections that would be replaced
+// by a new transcription job.
+func (s *Server) hasUnstaleCorrections(ctx context.Context, clipID int64) (bool, error) {
+	var count int
+	err := s.Pool.QueryRow(ctx, `SELECT count(*) FROM segment_corrections WHERE clip_id=$1 AND stale_at IS NULL`, clipID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func (s *Server) serveClipMedia(w http.ResponseWriter, r *http.Request) {
 	v, ok := s.authorizedClip(w, r)
 	if !ok {

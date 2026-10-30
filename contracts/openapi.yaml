@@ -3175,6 +3175,102 @@
         "description": "Session requise et règles de visibilité identiques au détail. Le chemin disque n’est jamais exposé."
       }
     },
+    "/api/clips/{id}/transcription": {
+      "post": {
+        "operationId": "scheduleClipTranscription",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "confirm_replace_corrections",
+            "required": false,
+            "description": "True to explicitly confirm replacing the clip’s human corrections with a new transcription. Without it, a retranscription of a corrected clip is rejected (409 corrections_would_be_replaced).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscriptionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "409": {
+            "description": "The retranscription would replace human corrections (corrections_would_be_replaced); other operation state conflicts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionsWarning"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Transcription scheduled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledTranscription"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Active task already scheduled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledTranscription"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Clip not ready or audio track unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "User-facing endpoint. The audio track uses its global FFmpeg index.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/job-controls": {
       "get": {
         "operationId": "getJobControls",

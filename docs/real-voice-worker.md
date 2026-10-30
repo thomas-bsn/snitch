@@ -71,20 +71,64 @@ Le volume de modèles n'est plus monté en lecture seule dans le compose, pour p
 
 Cible : un PC Linux (ou Windows avec WSL2 et Docker) avec une carte NVIDIA, par exemple une RTX 4070 (12 Go). Le worker ne publie aucun port et appelle l'API Snitch en HTTPS sortant ; les secrets restent sur ce PC. Les fichiers sont dans `deploy/worker/` (`compose.yaml`, `.env.example`).
 
-1. **Prérequis.** Pilote NVIDIA récent (`nvidia-smi` fonctionne, CUDA 12.8 ou plus), Docker avec Compose v2 et le [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) configuré pour Docker. Vérifier l'accès GPU : `docker run --rm --gpus all ubuntu nvidia-smi`.
+### Prérequis communs
+
+1. **Pilote NVIDIA récent** (`nvidia-smi` fonctionne, CUDA 12.8 ou plus), Docker avec Compose v2 et le [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) configuré pour Docker. Vérifier l'accès GPU : `docker run --rm --gpus all ubuntu nvidia-smi`.
 2. **Créer le worker dans l'interface Snitch** (page des workers, administrateur) pour obtenir le jeton, affiché une seule fois. Snitch doit être joignable en HTTPS depuis le PC.
-3. **Préparer `.env`.** `cd deploy/worker && cp .env.example .env`, puis renseigner `SNITCH_API_URL`, `SNITCH_WORKER_TOKEN`, `TRANSCRIPTION_API_URL` (et `TRANSCRIPTION_API_KEY` si besoin), `SNITCH_MODELS_DIR` (dossier du PC qui recevra les modèles) et, après l'étape suivante, `SNITCH_VOICE_EMBEDDING_MODEL_VERSION`. Ne jamais versionner `.env`.
-4. **Télécharger les modèles à la main (alternative au parcours automatique ci-dessus).** Créer un compte Hugging Face gratuit, ouvrir les pages de `pyannote/speaker-diarization-community-1` (accès « gated » : accepter les conditions) et de `pyannote/wespeaker-voxceleb-resnet34-LM` (à la lecture de la fiche, aucune restriction affichée ; à vérifier, et accepter les conditions si elles sont demandées), créer un jeton de lecture, puis :
+
+### Sur Linux (chemin recommandé)
+
+3. **Préparer `.env`.** `cd deploy/worker && cp .env.example .env`, puis renseigner `SNITCH_API_URL`, `SNITCH_WORKER_TOKEN`, `TRANSCRIPTION_API_URL` (et `TRANSCRIPTION_API_KEY` si besoin), `SNITCH_MODELS_DIR` (dossier du PC qui recevra les modèles) et `SNITCH_VOICE_EMBEDDING_MODEL_VERSION` (laissé vide pour le bootstrap automatique). Ne jamais versionner `.env`.
+4. **Rendre le dossier des modèles inscriptible par l'utilisateur 10001 du conteneur** :
    ```sh
-   SNITCH_WORKER_IMAGE=snitch-worker:local docker compose build
    mkdir -p "$SNITCH_MODELS_DIR"
+   sudo chown 10001:10001 "$SNITCH_MODELS_DIR"
+   ```
+   (ou `chmod 777 "$SNITCH_MODELS_DIR"` si vous préférez éviter `sudo`).
+5. **Activer le bootstrap automatique** dans `.env` :
+   ```ini
+   SNITCH_VOICE_DOWNLOAD_ON_START=1
+   SNITCH_VOICE_CONFIRM_TERMS=1
+   HF_TOKEN=...          # jeton Hugging Face en lecture seule
+   ```
+6. **Lancer.** `docker compose up -d` dans `deploy/worker`, puis `docker compose logs -f worker`. Au premier démarrage, le bootstrap télécharge les modèles dans le volume, écrit le marqueur `.snitch-voice-models.json`, retire `HF_TOKEN` de l'environnement et lance le worker en mode hors ligne. Les démarrages suivants ne retéléchargent rien.
+
+### Sur Windows / WSL2 (procédure vérifiée)
+
+Le montage de dossier hôte vers le conteneur sous WSL2 ne propage pas toujours les permissions Linux attendues par l'utilisateur 10001 du conteneur. Le symptôme est :
+```
+[snitch-bootstrap] download of pyannote/speaker-diarization-community-1 failed: models directory is not writable (mount it read-write for the first download)
+```
+
+**Procédure recommandée (téléchargement manuel, sans problème de permissions) :**
+
+3. **Préparer `.env`.** `cd deploy/worker && cp .env.example .env`, puis renseigner `SNITCH_API_URL`, `SNITCH_WORKER_TOKEN`, `TRANSCRIPTION_API_URL` (et `TRANSCRIPTION_API_KEY` si besoin), `SNITCH_MODELS_DIR` (chemin WSL2, ex: `/home/user/snitch-models` ou `/mnt/c/Users/.../snitch-models`). Laisser `SNITCH_VOICE_DOWNLOAD_ON_START=0` et `SNITCH_VOICE_CONFIRM_TERMS=0` ; `HF_TOKEN` n'est pas mis dans `.env`.
+4. **Créer le dossier et télécharger les modèles avec votre utilisateur WSL2** (pas l'utilisateur 10001 du conteneur) :
+   ```sh
+   mkdir -p "$SNITCH_MODELS_DIR"
+   export HF_TOKEN=...   # dans le shell uniquement, jamais dans .env
+   SNITCH_WORKER_IMAGE=snitch-worker:local docker compose build
    docker run --rm --user "$(id -u):$(id -g)" -e HF_TOKEN -e HF_HUB_OFFLINE=0 \
      -v "$SNITCH_MODELS_DIR:/models" --entrypoint python snitch-worker:local \
-     /worker/scripts/download_models.py --confirm-terms --revision <révision> \
+     /worker/scripts/download_models.py --confirm-terms \
      --diarization-dir /models/diarization --embedding-dir /models/embedding
    ```
-   avec `HF_TOKEN` exporté dans le shell (jamais écrit dans `.env`). L'image force `HF_HUB_OFFLINE=1` ; `-e HF_HUB_OFFLINE=0` n'est donné qu'à cette commande ponctuelle. Noter la révision utilisée : c'est la valeur de `SNITCH_VOICE_EMBEDDING_MODEL_VERSION`. Le worker n'a jamais besoin du jeton (le compose monte le volume en écriture seulement pour le bootstrap ; ajouter `:ro` si vous préparez les modèles à la main).
-5. **Lancer.** `docker compose up -d` (image publiée ; `SNITCH_WORKER_IMAGE=snitch-worker:local docker compose up -d --build` pour construire localement) dans `deploy/worker`, puis `docker compose logs -f worker`.
+   Noter la révision affichée (ex: `sha-abc123`) : la reporter dans `.env` comme `SNITCH_VOICE_EMBEDDING_MODEL_VERSION=sha-abc123`.
+5. **Optionnel : verrouiller le dossier en lecture seule pour le worker** (une fois les modèles présents) :
+   Dans `compose.yaml`, changer la ligne du volume en :
+   ```yaml
+   - ${SNITCH_MODELS_DIR}:/models:ro
+   ```
+6. **Lancer.** `docker compose up -d` dans `deploy/worker`, puis `docker compose logs -f worker`. Le worker démarre directement (pas de bootstrap), trouve les modèles et le marqueur, et tourne en mode hors ligne sans `HF_TOKEN`.
+
+**Alternative (bootstrap automatique sous WSL2) :** si vous tenez au parcours automatique, assurez-vous que le dossier WSL2 appartient à l'utilisateur 10001 **dans le filesystem Linux de WSL2** (pas un chemin `/mnt/c/...` monté depuis Windows). Créez le dossier sous `/home/...`, faites `sudo chown 10001:10001 /home/.../snitch-models`, puis activez `SNITCH_VOICE_DOWNLOAD_ON_START=1` et `SNITCH_VOICE_CONFIRM_TERMS=1` dans `.env`. Les chemins `/mnt/c/...` posent souvent problème pour les permissions de conteneur.
+
+### Étapes communes (Linux et Windows/WSL2)
+
+7. **Vérifier dans Snitch.** Le worker apparaît actif sur la page des workers avec ses capacités (`transcription.*`, `voice.*`). La fiche indique la machine déclarée ; pour remplacer le nom du conteneur par celui du PC, renseigner `SNITCH_WORKER_MACHINE_NAME` dans `.env`. Le système affiché est celui du conteneur. Un échec `provider_unavailable` renvoie au code de raison stable des journaux (`model_path_missing`, `cuda_unavailable`, `model_load_failed`...).
+8. **Brancher la transcription (Whisper).** Un serveur compatible `POST /v1/audio/transcriptions` : sur le PC hors Docker, `TRANSCRIPTION_API_URL=http://host.docker.internal:<port>` (le compose ajoute `host.docker.internal:host-gateway`) ; dans un autre projet Compose, activer l'option de réseau partagé du compose et viser le nom du service. Le profil de bibliothèque définit le modèle et la langue. Si le serveur Whisper utilise un autre nom pour le même modèle, renseigner ce nom pour le Worker dans Administration › Transcription ; les résultats restent étiquetés avec le nom du profil.
+9. **Embeddings de texte (Ollama).** Ils restent côté NAS (`EMBEDDINGS_URL` et `EMBEDDINGS_MODEL` de l'application, voir [déploiement](deployment.md)) et ne passent pas par le worker. Un Ollama sur le PC peut servir de fournisseur si le NAS peut le joindre (réseau privé de votre choix).
+10. **Configurer le pipeline vocal** dans l'interface (fournisseur `pyannote`, modèle `pyannote/speaker-diarization-community-1`, version téléchargée) et confirmer `access_confirmed` : c'est la confirmation explicite par l'administrateur que les conditions ont été acceptées.
 6. **Vérifier dans Snitch.** Le worker apparaît actif sur la page des workers avec ses capacités (`transcription.*`, `voice.*`). La fiche indique la machine déclarée ; pour remplacer le nom du conteneur par celui du PC, renseigner `SNITCH_WORKER_MACHINE_NAME` dans `.env`. Le système affiché est celui du conteneur. Un échec `provider_unavailable` renvoie au code de raison stable des journaux (`model_path_missing`, `cuda_unavailable`, `model_load_failed`...).
 7. **Brancher la transcription (Whisper).** Un serveur compatible `POST /v1/audio/transcriptions` : sur le PC hors Docker, `TRANSCRIPTION_API_URL=http://host.docker.internal:<port>` (le compose ajoute `host.docker.internal:host-gateway`) ; dans un autre projet Compose, activer l'option de réseau partagé du compose et viser le nom du service. Le profil de bibliothèque définit le modèle et la langue. Si le serveur Whisper utilise un autre nom pour le même modèle, renseigner ce nom pour le Worker dans Administration › Transcription ; les résultats restent étiquetés avec le nom du profil.
 8. **Embeddings de texte (Ollama).** Ils restent côté NAS (`EMBEDDINGS_URL` et `EMBEDDINGS_MODEL` de l'application, voir [déploiement](deployment.md)) et ne passent pas par le worker. Un Ollama sur le PC peut servir de fournisseur si le NAS peut le joindre (réseau privé de votre choix).

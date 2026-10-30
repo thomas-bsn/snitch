@@ -996,6 +996,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/transcription": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description User-facing endpoint. The audio track uses its global FFmpeg index. */
+    post: operations["scheduleClipTranscription"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/job-controls": {
     parameters: {
       query?: never;
@@ -5895,6 +5912,65 @@ export interface operations {
         content?: never;
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scheduleClipTranscription: {
+    parameters: {
+      query?: {
+        /** @description True to explicitly confirm replacing the clip’s human corrections with a new transcription. Without it, a retranscription of a corrected clip is rejected (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TranscriptionInput"];
+      };
+    };
+    responses: {
+      /** @description Active task already scheduled */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description Transcription scheduled */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description The retranscription would replace human corrections (corrections_would_be_replaced); other operation state conflicts */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
+        };
+      };
+      /** @description Clip not ready or audio track unknown */
       default: {
         headers: {
           [name: string]: unknown;
