@@ -29,13 +29,34 @@ export async function createUpload(
   csrf: string,
   file: File,
   visibility: Visibility,
+  destination?: string,
+  confirmOverwrite?: () => boolean,
 ): Promise<Result<Upload>> {
   try {
-    const { data, error } = await api.POST("/api/uploads", {
-      params: { header: mutation(csrf) },
-      body: { filename: file.name, size_bytes: file.size, visibility },
-    });
-    return data ? { ok: true, value: data } : failure(error);
+    const send = (overwrite_version?: string) =>
+      fetch("/api/uploads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+        body: JSON.stringify({
+          filename: file.name,
+          size_bytes: file.size,
+          visibility,
+          destination,
+          overwrite_version,
+        }),
+      });
+    let response = await send();
+    let body = await response.json();
+    if (
+      response.status === 409 &&
+      body.error === "overwrite_confirmation_required" &&
+      typeof body.version === "string" &&
+      confirmOverwrite?.()
+    ) {
+      response = await send(body.version);
+      body = await response.json();
+    }
+    return response.ok ? { ok: true, value: body as Upload } : failure(body);
   } catch {
     return { ok: false, code: NETWORK_FAILURE };
   }

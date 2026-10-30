@@ -1,3 +1,4 @@
+import { VideoStorage } from "../../library/VideoStorage";
 import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
 import { StepHeader } from "../StepHeader";
@@ -22,6 +23,7 @@ export function ImportStep({
         title={t("setup.import.title")}
         lead={t("setup.import.lead")}
       />
+      <VideoStorage settings />
       <p className="rounded-lg border border-line bg-side p-4 text-mute">
         {t("setup.import.nothing")}
       </p>

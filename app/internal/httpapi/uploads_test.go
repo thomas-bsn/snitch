@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -214,4 +215,390 @@ func testResumableUploads(t *testing.T, pool *pgxpool.Pool) {
 	}
 	request(admin, http.MethodPut, "/api/uploads/"+privateDuplicate.ID+"/chunks", content, "application/octet-stream", "bytes 0-25/26", session.CSRF, http.StatusOK)
 	request(admin, http.MethodPost, "/api/uploads/"+privateDuplicate.ID+"/complete", []byte(`{}`), "application/json", "", session.CSRF, http.StatusConflict)
+	t.Run("managed root manual scan and named uploads", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "existing.mp4"), []byte("synthetic-existing-video"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(t.TempDir(), filepath.Join(root, "outside")); err != nil {
+			t.Fatal(err)
+		}
+		call := func(method, path string, body any, want int) []byte {
+			data, _ := json.Marshal(body)
+			return request(admin, method, path, data, "application/json", "", session.CSRF, want)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		managed, err := api.Library.ManagedRoot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var count int
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM source_files WHERE source_id=$1`, managed.ID).Scan(&count)
+		if count != 0 {
+			t.Fatal("setting a root discovered files automatically")
+		}
+		call("GET", "/api/admin/video-root/browse?path=..", nil, 422)
+		call("GET", "/api/admin/video-root/browse?path=outside", nil, 422)
+		call("POST", "/api/admin/video-root/folders", map[string]string{"parent": "", "name": "matches"}, 201)
+		call("POST", "/api/admin/video-root/scan", map[string]any{"paths": []string{""}, "confirm": false}, 200)
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM source_files WHERE source_id=$1`, managed.ID).Scan(&count)
+		if count != 0 {
+			t.Fatal("preview queued a scan")
+		}
+		call("POST", "/api/admin/video-root/scan", map[string]any{"paths": []string{"existing.mp4"}, "confirm": true}, 200)
+		if err := api.Library.ScanSource(context.Background(), managed.ID); err != nil {
+			t.Fatal(err)
+		}
+		var clip *int64
+		pool.QueryRow(context.Background(), `SELECT clip_id FROM source_files WHERE source_id=$1`, managed.ID).Scan(&clip)
+		if clip != nil {
+			t.Fatal("scan advanced without a Worker")
+		}
+		upload := func(content, version string, completion int) string {
+			var item struct {
+				ID string `json:"id"`
+			}
+			body := map[string]any{"filename": "game.mp4", "size_bytes": len(content), "destination": "matches", "overwrite_version": version}
+			if err := json.Unmarshal(call("POST", "/api/uploads", body, 201), &item); err != nil {
+				t.Fatal(err)
+			}
+			request(admin, "PUT", "/api/uploads/"+item.ID+"/chunks", []byte(content), "application/octet-stream", fmt.Sprintf("bytes 0-%d/%d", len(content)-1, len(content)), session.CSRF, 200)
+			call("POST", "/api/uploads/"+item.ID+"/complete", map[string]any{}, completion)
+			return item.ID
+		}
+		id := upload("synthetic-named-first", "", 201)
+		got, err := os.ReadFile(filepath.Join(root, "matches", "game.mp4"))
+		if err != nil || string(got) != "synthetic-named-first" {
+			t.Fatalf("named upload: %s %v", got, err)
+		}
+		call("POST", "/api/uploads/"+id+"/complete", map[string]any{}, 201)
+		var conflict struct {
+			Version string `json:"version"`
+		}
+		json.Unmarshal(call("POST", "/api/uploads", map[string]any{"filename": "game.mp4", "size_bytes": 22, "destination": "matches"}, 409), &conflict)
+		if conflict.Version == "" {
+			t.Fatal("overwrite conflict has no version")
+		}
+		oldID := int64(0)
+		pool.QueryRow(context.Background(), `SELECT clip_id FROM uploads WHERE id=$1`, id).Scan(&oldID)
+		second := upload("synthetic-named-replacement", conflict.Version, 201)
+		got, err = os.ReadFile(filepath.Join(root, "matches", "game.mp4"))
+		if err != nil || string(got) != "synthetic-named-replacement" {
+			t.Fatal("replacement missing", err)
+		}
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM clips WHERE id=$1`, oldID).Scan(&count)
+		if count != 0 {
+			t.Fatal("replaced clip retained its results")
+		}
+		call("POST", "/api/uploads/"+second+"/complete", map[string]any{}, 201)
+		call("POST", "/api/uploads", map[string]any{"filename": "game.mp4", "size_bytes": 22, "destination": "matches", "overwrite_version": conflict.Version}, 409)
+		call("POST", "/api/uploads", map[string]any{"filename": "game.mp4", "size_bytes": 22, "destination": "../outside"}, 422)
+	})
+
+	// call and upload are shared by the publication scenarios below. They always
+	// reconfigure the managed root first, so each scenario starts from a clean root.
+	call := func(method, path string, body any, want int) []byte {
+		data, _ := json.Marshal(body)
+		return request(admin, method, path, data, "application/json", "", session.CSRF, want)
+	}
+	startUpload := func(name, folder string, content []byte, version string) string {
+		t.Helper()
+		var item struct {
+			ID string `json:"id"`
+		}
+		body := map[string]any{"filename": name, "size_bytes": len(content), "destination": folder, "overwrite_version": version}
+		if err := json.Unmarshal(call("POST", "/api/uploads", body, 201), &item); err != nil {
+			t.Fatal(err)
+		}
+		request(admin, "PUT", "/api/uploads/"+item.ID+"/chunks", content, "application/octet-stream", fmt.Sprintf("bytes 0-%d/%d", len(content)-1, len(content)), session.CSRF, 200)
+		return item.ID
+	}
+	finish := func(id string, want int) int64 {
+		t.Helper()
+		data := call("POST", "/api/uploads/"+id+"/complete", map[string]any{}, want)
+		var done struct {
+			ClipID int64 `json:"clip_id"`
+		}
+		if want == 201 {
+			if err := json.Unmarshal(data, &done); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return done.ClipID
+	}
+	uploadTo := func(name, folder string, content []byte, version string, want int) (string, int64) {
+		t.Helper()
+		id := startUpload(name, folder, content, version)
+		return id, finish(id, want)
+	}
+
+	t.Run("publication recovers after an interruption", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Mkdir(filepath.Join(root, "recovery"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		content := []byte("synthetic-recovery-content")
+		id, _ := uploadTo("recover.mp4", "recovery", content, "", 201)
+		destination := filepath.Join(root, "recovery", "recover.mp4")
+		// Crash after the rename but before the durable commit: the installed
+		// content is recognized by its hash, even though staging is already gone.
+		if _, err := pool.Exec(context.Background(), `UPDATE upload_destinations SET published=false WHERE upload_id=$1`, id); err != nil {
+			t.Fatal(err)
+		}
+		api.resumeUploadPublications(context.Background())
+		var published bool
+		if err := pool.QueryRow(context.Background(), `SELECT published FROM upload_destinations WHERE upload_id=$1`, id).Scan(&published); err != nil {
+			t.Fatal(err)
+		}
+		if !published {
+			t.Fatal("installed content was not recognized after an interrupted commit")
+		}
+		// Crash before the rename: the destination is gone and the staging copy
+		// is still there. The resume loop must republish it.
+		if err := os.Remove(destination); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(context.Background(), `UPDATE upload_destinations SET published=false WHERE upload_id=$1`, id); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(api.Uploads.MediaRoot(), id+".media"), content, 0600); err != nil {
+			t.Fatal(err)
+		}
+		api.resumeUploadPublications(context.Background())
+		got, err := os.ReadFile(destination)
+		if err != nil || !bytes.Equal(got, content) {
+			t.Fatalf("staged content was not republished: %q %v", got, err)
+		}
+	})
+
+	t.Run("destination changed during a transfer is reported and cancellable", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Mkdir(filepath.Join(root, "clash"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		content := []byte("synthetic-destination-race")
+		id := startUpload("game.mp4", "clash", content, "")
+		// Another process installs a different file before completion.
+		if err := os.WriteFile(filepath.Join(root, "clash", "game.mp4"), []byte("someone-else"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		finish(id, 409)
+		var list struct {
+			Items []struct {
+				ID               string `json:"id"`
+				Status           string `json:"status"`
+				Destination      string `json:"destination"`
+				Publication      string `json:"publication"`
+				PublicationError string `json:"publication_error"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(call("GET", "/api/uploads", nil, 200), &list); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, item := range list.Items {
+			if item.ID != id {
+				continue
+			}
+			found = true
+			if item.Status != "complete" || item.Destination != "clash/game.mp4" || item.Publication != "failed" || item.PublicationError != "destination_changed" {
+				t.Fatalf("failed publication is not visible with its stable code: %+v", item)
+			}
+		}
+		if !found {
+			t.Fatal("failed publication disappeared from the upload list")
+		}
+		call("DELETE", "/api/uploads/"+id, nil, 204)
+		if err := json.Unmarshal(call("GET", "/api/uploads", nil, 200), &list); err != nil {
+			t.Fatal(err)
+		}
+		for _, item := range list.Items {
+			if item.ID == id {
+				t.Fatal("cancelled publication is still listed")
+			}
+		}
+		got, err := os.ReadFile(filepath.Join(root, "clash", "game.mp4"))
+		if err != nil || string(got) != "someone-else" {
+			t.Fatalf("cancelling changed the destination file: %q %v", got, err)
+		}
+	})
+
+	t.Run("publication permission failure can be retried", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("permission checks are not enforced for root")
+		}
+		root := t.TempDir()
+		locked := filepath.Join(root, "locked")
+		if err := os.Mkdir(locked, 0500); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		content := []byte("synthetic-permission-content")
+		id, _ := uploadTo("locked.mp4", "locked", content, "", 422)
+		var list struct {
+			Items []struct {
+				ID               string `json:"id"`
+				Publication      string `json:"publication"`
+				PublicationError string `json:"publication_error"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(call("GET", "/api/uploads", nil, 200), &list); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, item := range list.Items {
+			if item.ID == id {
+				found = true
+				if item.Publication != "failed" || item.PublicationError != "video_root_permission" {
+					t.Fatalf("permission failure was not recorded: %+v", item)
+				}
+			}
+		}
+		if !found {
+			t.Fatal("permission failure is not listed")
+		}
+		if err := os.Chmod(locked, 0700); err != nil {
+			t.Fatal(err)
+		}
+		// An explicit retry is the same idempotent completion call.
+		call("POST", "/api/uploads/"+id+"/complete", map[string]any{}, 201)
+		got, err := os.ReadFile(filepath.Join(locked, "locked.mp4"))
+		if err != nil || !bytes.Equal(got, content) {
+			t.Fatalf("retry did not publish the file: %q %v", got, err)
+		}
+	})
+
+	t.Run("concurrent uploads to the same path do not overwrite silently", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Mkdir(filepath.Join(root, "race"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		first := []byte("synthetic-race-first")
+		second := []byte("synthetic-race-second")
+		// Both intents are created while the destination is still absent.
+		var one, two struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(call("POST", "/api/uploads", map[string]any{"filename": "race.mp4", "size_bytes": len(first), "destination": "race"}, 201), &one); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(call("POST", "/api/uploads", map[string]any{"filename": "race.mp4", "size_bytes": len(second), "destination": "race"}, 201), &two); err != nil {
+			t.Fatal(err)
+		}
+		request(admin, "PUT", "/api/uploads/"+one.ID+"/chunks", first, "application/octet-stream", fmt.Sprintf("bytes 0-%d/%d", len(first)-1, len(first)), session.CSRF, 200)
+		request(admin, "PUT", "/api/uploads/"+two.ID+"/chunks", second, "application/octet-stream", fmt.Sprintf("bytes 0-%d/%d", len(second)-1, len(second)), session.CSRF, 200)
+		call("POST", "/api/uploads/"+one.ID+"/complete", map[string]any{}, 201)
+		call("POST", "/api/uploads/"+two.ID+"/complete", map[string]any{}, 409)
+		got, err := os.ReadFile(filepath.Join(root, "race", "race.mp4"))
+		if err != nil || !bytes.Equal(got, first) {
+			t.Fatalf("concurrent publication replaced the winner: %q %v", got, err)
+		}
+		var list struct {
+			Items []struct {
+				ID               string `json:"id"`
+				PublicationError string `json:"publication_error"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(call("GET", "/api/uploads", nil, 200), &list); err != nil {
+			t.Fatal(err)
+		}
+		for _, item := range list.Items {
+			if item.ID == two.ID && item.PublicationError != "destination_changed" {
+				t.Fatalf("losing publication is not reported: %+v", item)
+			}
+		}
+		// The loser releases its intent so it no longer blocks a root change.
+		call("DELETE", "/api/uploads/"+two.ID, nil, 204)
+	})
+
+	t.Run("distinct copies keep the results of the replaced content", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Mkdir(filepath.Join(root, "copies"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		managed, err := api.Library.ManagedRoot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		shared := []byte("synthetic-shared-copy")
+		_, firstClip := uploadTo("a.mp4", "copies", shared, "", 201)
+		_, secondClip := uploadTo("b.mp4", "copies", shared, "", 201)
+		if firstClip == 0 || firstClip != secondClip {
+			t.Fatalf("identical content was not deduplicated: %d %d", firstClip, secondClip)
+		}
+		var conflict struct {
+			Version string `json:"version"`
+		}
+		json.Unmarshal(call("POST", "/api/uploads", map[string]any{"filename": "a.mp4", "size_bytes": len(shared), "destination": "copies"}, 409), &conflict)
+		if conflict.Version == "" {
+			t.Fatal("overwrite conflict has no version")
+		}
+		_, replacedClip := uploadTo("a.mp4", "copies", []byte("synthetic-replaced-copy"), conflict.Version, 201)
+		if replacedClip == firstClip {
+			t.Fatal("replacement reused the old clip")
+		}
+		var count int
+		if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM source_files WHERE clip_id=$1`, firstClip).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 1 {
+			t.Fatalf("the other copy lost its clip: %d reference(s)", count)
+		}
+		var otherClip int64
+		if err := pool.QueryRow(context.Background(), `SELECT clip_id FROM source_files WHERE source_id=$1 AND relative_path='copies/b.mp4'`, managed.ID).Scan(&otherClip); err != nil {
+			t.Fatal(err)
+		}
+		if otherClip != firstClip {
+			t.Fatalf("the other copy was rebound: %d", otherClip)
+		}
+	})
+
+	t.Run("changing the root detaches files and blocks pending publications", func(t *testing.T) {
+		first := t.TempDir()
+		if err := os.Mkdir(filepath.Join(first, "media"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": first}, 200)
+		managed, err := api.Library.ManagedRoot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, clip := uploadTo("kept.mp4", "media", []byte("synthetic-root-kept"), "", 201)
+		// A pending intent still points into the current root.
+		var pending struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(call("POST", "/api/uploads", map[string]any{"filename": "pending.mp4", "size_bytes": 4, "destination": "media"}, 201), &pending); err != nil {
+			t.Fatal(err)
+		}
+		request(admin, "PUT", "/api/uploads/"+pending.ID+"/chunks", []byte("data"), "application/octet-stream", "bytes 0-3/4", session.CSRF, 200)
+		second := t.TempDir()
+		call("PUT", "/api/admin/video-root", map[string]string{"path": second}, 409)
+		call("DELETE", "/api/uploads/"+pending.ID, nil, 204)
+		call("PUT", "/api/admin/video-root", map[string]string{"path": second}, 200)
+		var status string
+		var fileClip *int64
+		if err := pool.QueryRow(context.Background(), `SELECT status,clip_id FROM source_files WHERE source_id=$1 AND relative_path='media/kept.mp4'`, managed.ID).Scan(&status, &fileClip); err != nil {
+			t.Fatal(err)
+		}
+		if status != "missing" || fileClip == nil || *fileClip != clip {
+			t.Fatalf("root change lost the old file or its results: status=%q clip=%v", status, fileClip)
+		}
+		var browsing struct {
+			Items []struct {
+				Path string `json:"path"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(call("GET", "/api/admin/video-root/browse?path=", nil, 200), &browsing); err != nil {
+			t.Fatal(err)
+		}
+		if len(browsing.Items) != 0 {
+			t.Fatalf("new root was indexed without a request: %+v", browsing.Items)
+		}
+	})
+
 }

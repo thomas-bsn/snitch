@@ -76,6 +76,8 @@ export const en = {
       both: "Match by number and title",
     },
     title: "Watched folders",
+    legacyHint:
+      "The video folder above is the main source. Additional read-only folders can still be watched below.",
     noMount:
       "No host folder is mounted for Snitch. Configure CLIPS_ROOTS and a read-only host mount in your deployment.",
     roots: "Allowed roots: {roots}. Originals remain read-only.",
@@ -104,6 +106,45 @@ export const en = {
     person: "Person",
     choose: "Choose",
     remove: "Remove designation",
+  },
+  videoStorage: {
+    open: "Scan videos and manage folders",
+    title: "Video folder",
+    rootLabel: "Root folder accessible to Snitch",
+    rootHint:
+      "The folder must already be mounted in the container with read and write access. Saving this path does not start a scan.",
+    saveRoot: "Save folder",
+    rootSaved: "Folder saved. No scan started.",
+    rootChanged:
+      "Root changed. Files indexed under the previous root are kept with their results but marked missing until you scan the new root.",
+    confirmRootChange:
+      "Change the video root? Files indexed under the previous root will be marked missing. Their clips and results are kept.",
+    workerOnline: "A Worker is connected: requested files can be indexed.",
+    workerOffline: "No Worker is connected: requested files wait in the queue.",
+    lastScan: "Last scan: {date}",
+    never: "never",
+    parent: "Parent folder",
+    scanRoot: "Scan entire root",
+    scanSelection: "Prepare selection scan ({count})",
+    scanHint:
+      "Selecting a folder includes its subfolders. Nothing is analysed before confirmation. Files wait when no Worker is available.",
+    empty: "No folders or video files here.",
+    newFolder: "New subfolder",
+    createFolder: "Create folder",
+    folderCreated: "Folder created.",
+    confirmTitle: "Confirm files to scan ({count})",
+    addToQueue: "Add to queue",
+    cancel: "Cancel",
+    queued: "Files added to the queue.",
+    queueTitle: "Requested files",
+    select: "Select {path}",
+    status: {
+      indexed: "Indexed",
+      waiting: "Waiting for a Worker",
+      pending: "Waiting for configuration",
+      missing: "Missing",
+      attention: "Needs attention",
+    },
   },
   transAdmin: {
     empty: "Create a Worker to set the transcription profile.",
@@ -513,6 +554,16 @@ export const en = {
       languageSaved: "Language saved.",
       languageNotSaved:
         "Language changed here, but your account could not keep it.",
+      avatar: {
+        title: "Profile photo",
+        choose: "Choose a photo (JPEG or PNG)",
+        hint: "The image will be cropped to a centred square.",
+        remove: "Remove photo",
+        updated: "Profile photo updated.",
+        tooLarge: "The limit is 5 MB.",
+        failed:
+          "Could not update the photo. Choose a JPEG or PNG image (up to 5 MB and 16 megapixels).",
+      },
     },
     voice: {
       title: "My voice",
@@ -767,6 +818,24 @@ export const en = {
     dismissLabel: "Dismiss {name}",
     viewInLibrary: "Open the library",
     doneAnnouncement: "“{name}” was checked and added to the library.",
+    destination: {
+      label: "Destination subfolder",
+      root: "Root of the video folder",
+      choose: "Choose a folder",
+      use: "Use this folder",
+      up: "Parent folder",
+      empty: "No subfolder here.",
+    },
+    publication: {
+      pending: "Waiting to be published",
+      failed: "Not published",
+      retry: "Retry publication",
+      retryLabel: "Retry publishing {name}",
+    },
+    overwrite: {
+      confirm:
+        "Replace {path}? The existing file will be overwritten. Results and corrections for the old content are removed only if no other copy uses them.",
+    },
   },
   library: {
     deletedOwner: "Deleted user",
@@ -942,6 +1011,28 @@ export const en = {
       reason: "Reason: {reason}",
       before: "Before",
       after: "After",
+    },
+    transcribe: {
+      button: "Transcribe",
+      scheduled: "Transcription scheduled",
+      job: {
+        pending: "Waiting",
+        leased: "Running",
+        running: "Running",
+        retry_wait: "Waiting to retry",
+        done: "Done",
+        failed: "Failed",
+        dead: "Exhausted",
+        cancelled: "Cancelled",
+      },
+      jobError: "Transcription error: {error}",
+      clear: "Clear",
+      selectTrack: "Select an audio track",
+      selectTrackPlaceholder: "Choose a track…",
+      confirmTrack: "Confirm track",
+      retranscribeTitle: "Replace corrections?",
+      retranscribeWarning:
+        "This will replace {texts} text and {speakers} speaker correction(s) by {authors}. They remain in history as obsolete.",
     },
   },
   people: {

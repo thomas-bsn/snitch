@@ -1,3 +1,4 @@
+import { VideoStorage } from "./VideoStorage";
 import { Link, useLocation } from "react-router";
 import { useCallback, useMemo } from "react";
 import { useLoaded } from "../api/loaded";
@@ -72,6 +73,7 @@ export function LibraryPage() {
         )}
       </div>
 
+      <VideoStorage />
       <LibraryFilters
         filters={filters}
         options={

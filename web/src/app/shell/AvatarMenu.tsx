@@ -1,3 +1,4 @@
+import { Avatar } from "../screens/account/Avatar";
 import { Menu } from "@base-ui/react/menu";
 import {
   LogOut,
@@ -38,11 +39,13 @@ export function AvatarMenu() {
   return (
     <Menu.Root>
       <Menu.Trigger
-        aria-label={t("header.accountMenu")}
-        // The initials are drawn by CSS: they are decoration, the accessible name is the label.
-        data-initials={initials}
-        className="flex size-11 shrink-0 items-center justify-center rounded-full bg-avatar-bg text-xs font-semibold text-accent-ink before:content-[attr(data-initials)] md:size-8"
-      />
+        // The visible initials are part of the accessible name, so assistive
+        // technology and the visible label always agree.
+        aria-label={`${t("header.accountMenu")} ${initials}`}
+        className="flex size-11 shrink-0 items-center justify-center rounded-full bg-avatar-bg text-xs font-semibold text-accent-ink md:size-8"
+      >
+        <Avatar initials={initials} />
+      </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner align="end" sideOffset={8} className="z-50">
           <Menu.Popup className="w-64 rounded-xl border border-line bg-surface p-1.5 text-ink shadow-pop outline-none">

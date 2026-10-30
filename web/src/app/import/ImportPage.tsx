@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
+import { FolderPicker } from "../library/FolderPicker";
 import { DropZone, looksLikeVideo } from "./DropZone";
 import { TransferRow } from "./TransferRow";
 import type { Visibility } from "./uploadApi";
@@ -12,15 +13,24 @@ import { useTransfers } from "./useTransfers";
 /** Import: drop videos or choose them, follow each transfer, resume or cancel it. */
 export function ImportPage() {
   const { t } = useI18n();
+  const [root, setRoot] = useState<string>();
+  const [destination, setDestination] = useState("");
+  useEffect(() => {
+    void fetch("/api/admin/video-root")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setRoot(data?.root?.path))
+      .catch(() => {});
+  }, []);
   useDocumentTitle(t("pages.import.title"));
-  const { transfers, add, resume, cancel, dismiss } = useTransfers();
+  const { transfers, add, resume, retry, cancel, dismiss } = useTransfers();
   const [visibility, setVisibility] = useState<Visibility>("shared");
   const [rejected, setRejected] = useState<string[]>([]);
 
   function receive(files: File[]) {
     const videos = files.filter(looksLikeVideo);
     setRejected(files.filter((f) => !looksLikeVideo(f)).map((f) => f.name));
-    if (videos.length > 0) add(videos, visibility);
+    if (videos.length > 0)
+      add(videos, visibility, root ? destination : undefined);
   }
 
   const done = transfers.filter((x) => x.status === "done");
@@ -44,6 +54,7 @@ export function ImportPage() {
         </select>
       </div>
 
+      {root && <FolderPicker value={destination} onChange={setDestination} />}
       <DropZone onFiles={receive} />
 
       {rejected.map((name) => (
@@ -57,6 +68,7 @@ export function ImportPage() {
               key={transfer.key}
               transfer={transfer}
               onResume={resume}
+              onRetry={(key) => void retry(key)}
               onCancel={(key) => void cancel(key)}
               onDismiss={dismiss}
             />

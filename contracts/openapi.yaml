@@ -365,6 +365,475 @@
     "/api/account": {
       "delete": {"operationId":"closeAccount","description":"Désactive son compte, coupe ses sessions et rend ses clips privés sans les supprimer. Le Super-administrateur est protégé.","parameters":[{"in":"header","name":"Origin","required":true,"schema":{"type":"string"}},{"in":"header","name":"X-CSRF-Token","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"Compte fermé","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Status"}}}},"default":{"description":"Erreur","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}},"security":[{"session":[]}]}
     },
+    "/api/admin/video-root": {
+      "get": {
+        "operationId": "getVideoRoot",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "root": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/Source"
+                        }
+                      ],
+                      "nullable": true
+                    },
+                    "worker_available": {
+                      "type": "boolean",
+                      "description": "Un Worker connecté peut prendre les fichiers demandés. Sinon ils restent en attente."
+                    }
+                  },
+                  "required": [
+                    "root",
+                    "worker_available"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      },
+      "put": {
+        "operationId": "setVideoRoot",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Source"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal PUBLIC_URL"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/video-root/browse": {
+      "get": {
+        "operationId": "browseVideoRoot",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "directory": {
+                            "type": "boolean"
+                          },
+                          "size_bytes": {
+                            "type": "integer",
+                            "format": "int64"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "directory",
+                          "size_bytes"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/admin/video-root/folders": {
+      "post": {
+        "operationId": "createVideoFolder",
+        "responses": {
+          "default": {
+            "description": "Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal PUBLIC_URL"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "parent": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/video-root/scan": {
+      "post": {
+        "operationId": "scanVideoSelection",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "paths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "queued": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "paths",
+                    "queued"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal PUBLIC_URL"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "paths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 1000
+                  },
+                  "confirm": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "paths",
+                  "confirm"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/avatar": {
+      "get": {
+        "operationId": "getAccountAvatar",
+        "responses": {
+          "default": {
+            "description": "Error (401 session required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Photo PNG",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pas de photo"
+          }
+        },
+        "parameters": [],
+        "description": "Photo personnelle du compte connecté. JPEG/PNG, 5 Mo et 16 mégapixels maximum ; recadrage carré et stockage PNG 256×256 sans métadonnées."
+      },
+      "put": {
+        "operationId": "putAccountAvatar",
+        "responses": {
+          "default": {
+            "description": "Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Photo mise à jour"
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal PUBLIC_URL"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Photo personnelle du compte connecté. JPEG/PNG, 5 Mo et 16 mégapixels maximum ; recadrage carré et stockage PNG 256×256 sans métadonnées.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAccountAvatar",
+        "responses": {
+          "default": {
+            "description": "Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Photo mise à jour"
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal PUBLIC_URL"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Photo personnelle du compte connecté. JPEG/PNG, 5 Mo et 16 mégapixels maximum ; recadrage carré et stockage PNG 256×256 sans métadonnées."
+      }
+    },
     "/api/account/preferences": {
       "get": {
         "operationId": "getAccountPreferences",
@@ -2734,6 +3203,102 @@
         "description": "Session requise et règles de visibilité identiques au détail. Le chemin disque n’est jamais exposé."
       }
     },
+    "/api/clips/{id}/transcription": {
+      "post": {
+        "operationId": "scheduleClipTranscription",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "confirm_replace_corrections",
+            "required": false,
+            "description": "True to explicitly confirm replacing the clip’s human corrections with a new transcription. Without it, a retranscription of a corrected clip is rejected (409 corrections_would_be_replaced).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscriptionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "409": {
+            "description": "The retranscription would replace human corrections (corrections_would_be_replaced); other operation state conflicts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionsWarning"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Transcription scheduled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledTranscription"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Active task already scheduled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledTranscription"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Clip not ready or audio track unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "User-facing endpoint. The audio track uses its global FFmpeg index.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/job-controls": {
       "get": {
         "operationId": "getJobControls",
@@ -4509,6 +5074,8 @@
           "size_bytes"
         ],
         "properties": {
+          "destination": {"type":"string","description":"Sous-dossier relatif de la racine configurée ; chaîne vide pour la racine."},
+          "overwrite_version": {"type":"string","description":"Version renvoyée par le conflit, après confirmation explicite."},
           "filename": {
             "type": "string",
             "minLength": 1,
@@ -4590,6 +5157,23 @@
           "sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Sous-dossier relatif demandé à la création, s'il y en a un."
+          },
+          "publication": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "published",
+              "failed"
+            ],
+            "description": "État de la publication vers la racine vidéo. Absent sans destination."
+          },
+          "publication_error": {
+            "type": "string",
+            "description": "Code stable expliquant la dernière publication échouée."
           }
         }
       },
@@ -5815,6 +6399,7 @@
           "health"
         ],
         "properties": {
+          "managed_root": {"type":"boolean"},
           "id": {
             "type": "integer",
             "format": "int64"
@@ -5895,6 +6480,7 @@
           "name",
           "relative_path",
           "status",
+          "scan_requested",
           "size_bytes",
           "modified_at",
           "recorded_at_estimated",
@@ -5915,6 +6501,10 @@
               "unreadable",
               "missing"
             ]
+          },
+          "scan_requested": {
+            "type": "boolean",
+            "description": "Le fichier a été demandé explicitement et attend encore un Worker, une configuration ou son indexation."
           },
           "clip_id": {
             "type": "integer",

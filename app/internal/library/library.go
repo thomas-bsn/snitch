@@ -24,9 +24,26 @@ import (
 var (
 	ErrInvalidSource = errors.New("invalid source")
 	ErrSourceExists  = errors.New("source already exists")
+	ErrSourceBusy    = errors.New("source has pending uploads")
 	ErrNotFound      = errors.New("source not found")
 	ErrUnavailable   = errors.New("source unavailable")
 )
+
+// ManagedScanError reports, with a stable code, why a ready managed file could
+// not be handed to the transcription scheduler.
+type ManagedScanError struct {
+	Code string
+	Err  error
+}
+
+func (e *ManagedScanError) Error() string {
+	if e.Err == nil {
+		return e.Code
+	}
+	return e.Code + ": " + e.Err.Error()
+}
+
+func (e *ManagedScanError) Unwrap() error { return e.Err }
 
 type Config struct {
 	Roots          []string
@@ -41,15 +58,16 @@ type Service struct {
 	config Config
 	logger interface{ Warn(string, ...any) }
 
-	mu          sync.Mutex
-	watcher     *fsnotify.Watcher
-	watchCancel context.CancelFunc
-	ctx         context.Context
-	watched     map[string]int64
-	roots       map[int64]string
-	timers      map[int64]*time.Timer
-	closed      bool
-	locks       sync.Map
+	mu             sync.Mutex
+	watcher        *fsnotify.Watcher
+	watchCancel    context.CancelFunc
+	ctx            context.Context
+	watched        map[string]int64
+	roots          map[int64]string
+	timers         map[int64]*time.Timer
+	closed         bool
+	locks          sync.Map
+	OnManagedReady func(context.Context, int64) error
 }
 
 type Source struct {
@@ -57,6 +75,7 @@ type Source struct {
 	Name          string     `json:"name"`
 	Path          string     `json:"path"`
 	OwnerID       int64      `json:"-"`
+	ManagedRoot   bool       `json:"managed_root"`
 	Visibility    string     `json:"visibility"`
 	Enabled       bool       `json:"enabled"`
 	Health        string     `json:"health"`
@@ -82,6 +101,7 @@ type File struct {
 	Status              string     `json:"status"`
 	ClipID              *int64     `json:"clip_id,omitempty"`
 	ErrorCode           string     `json:"error_code,omitempty"`
+	ScanRequested       bool       `json:"scan_requested"`
 	SizeBytes           int64      `json:"size_bytes"`
 	ModifiedAt          time.Time  `json:"modified_at"`
 	DiscoveredAt        *time.Time `json:"discovered_at,omitempty"`
@@ -170,7 +190,7 @@ func (s *Service) CreateSource(ctx context.Context, ownerID int64, name, path st
 		return Source{}, err
 	}
 	var source Source
-	err = s.pool.QueryRow(ctx, `INSERT INTO clip_sources(name,root_path,owner_id) VALUES($1,$2,$3) RETURNING id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at`, name, absolute, ownerID).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan)
+	err = s.pool.QueryRow(ctx, `INSERT INTO clip_sources(name,root_path,owner_id) VALUES($1,$2,$3) RETURNING id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at,managed_root`, name, absolute, ownerID).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan, &source.ManagedRoot)
 	if err != nil {
 		if strings.Contains(err.Error(), "clip_sources_root_path_key") || strings.Contains(err.Error(), "clip_sources_name_key") {
 			return Source{}, ErrSourceExists
@@ -219,7 +239,7 @@ func within(root, candidate string) bool {
 }
 
 func (s *Service) ListSources(ctx context.Context) ([]Source, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at FROM clip_sources ORDER BY id`)
+	rows, err := s.pool.Query(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at,managed_root FROM clip_sources ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +247,7 @@ func (s *Service) ListSources(ctx context.Context) ([]Source, error) {
 	sources := make([]Source, 0)
 	for rows.Next() {
 		var source Source
-		if err = rows.Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan); err != nil {
+		if err = rows.Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan, &source.ManagedRoot); err != nil {
 			return nil, err
 		}
 		sources = append(sources, source)
@@ -237,7 +257,7 @@ func (s *Service) ListSources(ctx context.Context) ([]Source, error) {
 
 func (s *Service) GetSource(ctx context.Context, id int64) (Source, error) {
 	var source Source
-	err := s.pool.QueryRow(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at FROM clip_sources WHERE id=$1`, id).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan)
+	err := s.pool.QueryRow(ctx, `SELECT id,name,root_path,owner_id,visibility,enabled,health,health_message,last_scan_at,managed_root FROM clip_sources WHERE id=$1`, id).Scan(&source.ID, &source.Name, &source.Path, &source.OwnerID, &source.Visibility, &source.Enabled, &source.Health, &source.HealthMessage, &source.LastScan, &source.ManagedRoot)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Source{}, ErrNotFound
 	}
@@ -277,7 +297,7 @@ func (s *Service) DisableSource(ctx context.Context, id int64) error {
 }
 
 func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error) {
-	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.size_bytes,sf.modified_at,c.discovered_at,c.recorded_at,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
+	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.recorded_at,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +307,7 @@ func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error)
 		var file File
 		var duration *float64
 		var tracks []byte
-		if err = rows.Scan(&file.RelativePath, &file.Status, &file.ClipID, &file.ErrorCode, &file.SizeBytes, &file.ModifiedAt, &file.DiscoveredAt, &file.RecordedAt, &file.RecordedAtEstimated, &duration, &file.FormatName, &file.VideoCodec, &file.AudioCodec, &tracks); err != nil {
+		if err = rows.Scan(&file.RelativePath, &file.Status, &file.ClipID, &file.ErrorCode, &file.ScanRequested, &file.SizeBytes, &file.ModifiedAt, &file.DiscoveredAt, &file.RecordedAt, &file.RecordedAtEstimated, &duration, &file.FormatName, &file.VideoCodec, &file.AudioCodec, &tracks); err != nil {
 			return nil, err
 		}
 		file.Name = filepath.Base(filepath.FromSlash(file.RelativePath))
@@ -355,6 +375,9 @@ func (s *Service) Close() {
 }
 
 func (s *Service) WatchSource(source Source) {
+	if source.ManagedRoot {
+		return
+	}
 	s.mu.Lock()
 	watcher := s.watcher
 	if source.Enabled {
@@ -521,6 +544,9 @@ func (s *Service) ScanSource(ctx context.Context, sourceID int64) error {
 	}
 	if !source.Enabled {
 		return nil
+	}
+	if source.ManagedRoot {
+		return s.scanManaged(ctx, source)
 	}
 	info, err := os.Stat(source.Path)
 	if err != nil || !info.IsDir() {

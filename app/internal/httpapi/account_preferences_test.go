@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"image"
+	"image/png"
 	"io"
 	"log/slog"
 	"net/http"
@@ -211,4 +213,23 @@ func testAccountPreferences(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("administrator language became %v", got)
 		}
 	})
+	t.Run("profile photo is validated persisted and removable", func(t *testing.T) {
+		call(newClient(), "", "GET", "/api/account/avatar", "", 401)
+		call(admin, "", "GET", "/api/account/avatar", "", 404)
+		var imageData bytes.Buffer
+		if err := png.Encode(&imageData, image.NewNRGBA(image.Rect(0, 0, 20, 10))); err != nil {
+			t.Fatal(err)
+		}
+		call(admin, "", "PUT", "/api/account/avatar", imageData.String(), 403)
+		call(admin, adminCSRF, "PUT", "/api/account/avatar", "not an image", 400)
+		call(admin, adminCSRF, "PUT", "/api/account/avatar", imageData.String(), 204)
+		data := call(admin, "", "GET", "/api/account/avatar", "", 200)
+		cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
+		if err != nil || format != "png" || cfg.Width != 256 || cfg.Height != 256 {
+			t.Fatalf("invalid stored avatar: %+v %s %v", cfg, format, err)
+		}
+		call(admin, adminCSRF, "DELETE", "/api/account/avatar", "", 204)
+		call(admin, "", "GET", "/api/account/avatar", "", 404)
+	})
+
 }

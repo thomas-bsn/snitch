@@ -31,6 +31,8 @@ class SourceFile:
             name (str):
             relative_path (str):
             status (SourceFileStatus):
+            scan_requested (bool): Le fichier a été demandé explicitement et attend encore un Worker, une configuration ou
+                son indexation.
             size_bytes (int):
             modified_at (datetime.datetime):
             recorded_at_estimated (bool):
@@ -48,6 +50,7 @@ class SourceFile:
     name: str
     relative_path: str
     status: SourceFileStatus
+    scan_requested: bool
     size_bytes: int
     modified_at: datetime.datetime
     recorded_at_estimated: bool
@@ -73,6 +76,8 @@ class SourceFile:
         relative_path = self.relative_path
 
         status = self.status.value
+
+        scan_requested = self.scan_requested
 
         size_bytes = self.size_bytes
 
@@ -118,6 +123,7 @@ class SourceFile:
             "name": name,
             "relative_path": relative_path,
             "status": status,
+            "scan_requested": scan_requested,
             "size_bytes": size_bytes,
             "modified_at": modified_at,
             "recorded_at_estimated": recorded_at_estimated,
@@ -156,6 +162,8 @@ class SourceFile:
 
 
 
+
+        scan_requested = d.pop("scan_requested")
 
         size_bytes = d.pop("size_bytes")
 
@@ -220,6 +228,7 @@ class SourceFile:
             name=name,
             relative_path=relative_path,
             status=status,
+            scan_requested=scan_requested,
             size_bytes=size_bytes,
             modified_at=modified_at,
             recorded_at_estimated=recorded_at_estimated,

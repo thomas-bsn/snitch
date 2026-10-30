@@ -190,6 +190,89 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/video-root": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getVideoRoot"];
+    put: operations["setVideoRoot"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/video-root/browse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["browseVideoRoot"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/video-root/folders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["createVideoFolder"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/video-root/scan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["scanVideoSelection"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Photo personnelle du compte connecté. JPEG/PNG, 5 Mo et 16 mégapixels maximum ; recadrage carré et stockage PNG 256×256 sans métadonnées. */
+    get: operations["getAccountAvatar"];
+    /** @description Photo personnelle du compte connecté. JPEG/PNG, 5 Mo et 16 mégapixels maximum ; recadrage carré et stockage PNG 256×256 sans métadonnées. */
+    put: operations["putAccountAvatar"];
+    post?: never;
+    /** @description Photo personnelle du compte connecté. JPEG/PNG, 5 Mo et 16 mégapixels maximum ; recadrage carré et stockage PNG 256×256 sans métadonnées. */
+    delete: operations["deleteAccountAvatar"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/preferences": {
     parameters: {
       query?: never;
@@ -924,6 +1007,23 @@ export interface paths {
     get: operations["getClipMedia"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/transcription": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description User-facing endpoint. The audio track uses its global FFmpeg index. */
+    post: operations["scheduleClipTranscription"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1826,6 +1926,10 @@ export interface components {
       registration_approval: boolean;
     };
     UploadInput: {
+      /** @description Sous-dossier relatif de la racine configurée ; chaîne vide pour la racine. */
+      destination?: string;
+      /** @description Version renvoyée par le conflit, après confirmation explicite. */
+      overwrite_version?: string;
       filename: string;
       /** Format: int64 */
       size_bytes: number;
@@ -1859,6 +1963,15 @@ export interface components {
       /** Format: date-time */
       expires_at: string;
       sha256?: string;
+      /** @description Sous-dossier relatif demandé à la création, s'il y en a un. */
+      destination?: string;
+      /**
+       * @description État de la publication vers la racine vidéo. Absent sans destination.
+       * @enum {string}
+       */
+      publication?: "pending" | "published" | "failed";
+      /** @description Code stable expliquant la dernière publication échouée. */
+      publication_error?: string;
     };
     UploadList: {
       items: components["schemas"]["Upload"][];
@@ -2799,6 +2912,7 @@ export interface components {
       error: string;
     };
     Source: {
+      managed_root?: boolean;
       /** Format: int64 */
       id: number;
       name: string;
@@ -2825,6 +2939,8 @@ export interface components {
       relative_path: string;
       /** @enum {string} */
       status: "waiting_stability" | "ready" | "unreadable" | "missing";
+      /** @description Le fichier a été demandé explicitement et attend encore un Worker, une configuration ou son indexation. */
+      scan_requested: boolean;
       /** Format: int64 */
       clip_id?: number | null;
       error_code?: string;
@@ -3636,6 +3752,304 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVideoRoot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            root: components["schemas"]["Source"] | null;
+            /** @description Un Worker connecté peut prendre les fichiers demandés. Sinon ils restent en attente. */
+            worker_available: boolean;
+          };
+        };
+      };
+      /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  setVideoRoot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          path: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Source"];
+        };
+      };
+      /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  browseVideoRoot: {
+    parameters: {
+      query?: {
+        path?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: {
+              path: string;
+              directory: boolean;
+              /** Format: int64 */
+              size_bytes: number;
+            }[];
+          };
+        };
+      };
+      /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVideoFolder: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          parent?: string;
+          name: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            path: string;
+          };
+        };
+      };
+      /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scanVideoSelection: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          paths: string[];
+          confirm: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            paths: string[];
+            queued: boolean;
+          };
+        };
+      };
+      /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAccountAvatar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Photo PNG */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+        };
+      };
+      /** @description Pas de photo */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Error (401 session required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putAccountAvatar: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "image/jpeg": string;
+        "image/png": string;
+      };
+    };
+    responses: {
+      /** @description Photo mise à jour */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteAccountAvatar: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Photo mise à jour */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
       default: {
         headers: {
           [name: string]: unknown;
@@ -5552,6 +5966,65 @@ export interface operations {
         content?: never;
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scheduleClipTranscription: {
+    parameters: {
+      query?: {
+        /** @description True to explicitly confirm replacing the clip’s human corrections with a new transcription. Without it, a retranscription of a corrected clip is rejected (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TranscriptionInput"];
+      };
+    };
+    responses: {
+      /** @description Active task already scheduled */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description Transcription scheduled */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description The retranscription would replace human corrections (corrections_would_be_replaced); other operation state conflicts */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
+        };
+      };
+      /** @description Clip not ready or audio track unknown */
       default: {
         headers: {
           [name: string]: unknown;

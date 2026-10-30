@@ -2,6 +2,28 @@
 // HTTP handlers). An unknown code falls back to a generic message that shows the code.
 
 export const errorsEn = {
+  avatar_too_large: "The photo must be smaller than 5 MB.",
+  invalid_avatar: "Choose a JPEG or PNG image, up to 16 megapixels.",
+  video_root_unavailable:
+    "This root cannot be used. Check that it is mounted and writable.",
+  video_root_unconfigured: "Configure the video root first.",
+  video_root_busy:
+    "Finish or cancel the uploads waiting to be published before changing the root.",
+  video_root_permission:
+    "Snitch cannot write to the video root. Check its permissions.",
+  publication_failed: "The file could not be published to the video root.",
+  destination_changed:
+    "The destination changed during the transfer. Retry or cancel the upload.",
+  video_path_unavailable: "This path is unavailable or outside the video root.",
+  video_selection_too_large: "Select fewer files (10,000 maximum).",
+  invalid_folder_name: "Choose a folder name without slashes or leading dots.",
+  folder_not_created: "The folder already exists or could not be created.",
+  invalid_video_selection: "Select files or folders to scan.",
+  video_scan_incomplete:
+    "The selection could not be listed completely. Check permissions or select fewer files.",
+  overwrite_confirmation_required:
+    "An existing file needs your confirmation before replacement.",
+
   member_protected: "This member cannot be modified.",
   member_not_found: "The member was not found.",
   invalid_role: "This role is invalid.",
