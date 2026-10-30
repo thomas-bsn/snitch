@@ -379,7 +379,7 @@ export function QueueTab() {
                     }
                     onChange={(e) => setConcurrency(e.target.value)}
                   />
-                  <label className="flex min-h-10 items-center gap-2">
+                  <label className="flex min-h-11 items-center gap-2">
                     <input
                       type="checkbox"
                       checked={paused ?? state.value.controls.paused}
@@ -502,7 +502,7 @@ export function QueueTab() {
               aria-label={
                 language === "fr" ? "Page précédente" : "Previous page"
               }
-              className="grid size-9 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
+              className="grid size-11 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
               disabled={page === 1}
               onClick={() => setPage((p) => p - 1)}
             >
@@ -513,7 +513,7 @@ export function QueueTab() {
             </span>
             <button
               aria-label={language === "fr" ? "Page suivante" : "Next page"}
-              className="grid size-9 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
+              className="grid size-11 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
               disabled={page * 20 >= state.value.jobs.total}
               onClick={() => setPage((p) => p + 1)}
             >

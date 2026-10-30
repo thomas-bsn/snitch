@@ -11,6 +11,10 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   });
   const page = await context.newPage();
   await page.goto("/admin/queue");
+  await page
+    .locator("summary")
+    .filter({ hasText: "Concurrency settings" })
+    .click();
   await page.getByLabel("Global concurrency").fill("3");
   await page.getByLabel("Pause new acquisitions").check();
   const firstSave = page.waitForResponse(
@@ -22,6 +26,10 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   await page.getByRole("button", { name: "Save controls" }).click();
   await firstSave;
   await page.reload();
+  await page
+    .locator("summary")
+    .filter({ hasText: "Concurrency settings" })
+    .click();
   await expect(page.getByLabel("Global concurrency")).toHaveValue("3");
   await expect(page.getByLabel("Pause new acquisitions")).toBeChecked();
   expect(

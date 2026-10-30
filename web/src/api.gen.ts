@@ -2063,8 +2063,8 @@ export interface components {
       gpu_memory_bytes?: number;
     };
     Worker: {
-      /** @description Last reported task capabilities; revoked workers must not be selected. */
-      supported_steps?: string[];
+      /** @description Last reported task capabilities; a worker that never reported has none; revoked workers must not be selected. */
+      supported_steps?: string[] | null;
       /** @description Nom facultatif du modèle propre au Worker. */
       transcription_model?: string;
       machine?: components["schemas"]["WorkerMachine"];
