@@ -29,6 +29,10 @@ export const errorsEn = {
   discord_denied:
     "Discord sign-in was cancelled. You can sign in with your local account.",
   discord_not_configured: "Discord sign-in is not configured.",
+  discord_not_linked: "No Discord identity is linked to this account.",
+  discord_local_login_required:
+    "Set a local password before unlinking Discord so you can still sign in.",
+  discord_unlink_unavailable: "Discord could not be unlinked. Try again.",
   discord_secret_required:
     "Enter your Discord application's secret to enable sign-in.",
   discord_unavailable:

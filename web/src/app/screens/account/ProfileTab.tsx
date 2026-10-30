@@ -1,3 +1,4 @@
+import { Shield } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { roleLabelKey } from "../../roles";
 import { useSession } from "../../session";
@@ -12,22 +13,38 @@ export function ProfileTab() {
   const { user } = useSession();
   if (!user) return null;
   return (
-    <div className="flex flex-col gap-4">
-      <Section title={t("account.profile.identityTitle")}>
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5">
-          <dt className="text-mute">{t("account.profile.username")}</dt>
-          <dd className="font-medium">{user.username}</dd>
-          <dt className="text-mute">{t("account.profile.role")}</dt>
-          <dd className="font-medium">{t(roleLabelKey(user))}</dd>
-        </dl>
-      </Section>
-      <Section title={t("account.profile.discordTitle")}>
-        <DiscordLink />
-      </Section>
-      <CloseAccount />
-      <Section title={t("account.profile.preferencesTitle")}>
-        <LanguagePreference />
-      </Section>
+    <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+      <section
+        aria-label={t("account.profile.identityTitle")}
+        className="min-w-0 rounded-2xl border border-line bg-surface p-6"
+      >
+        <div className="flex flex-wrap items-center gap-4">
+          <span
+            aria-hidden="true"
+            className="grid size-16 shrink-0 place-items-center rounded-full bg-accent-soft text-xl font-semibold text-accent-ink"
+          >
+            {Array.from(user.username).slice(0, 2).join("").toLocaleUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <h2 className="break-words text-2xl font-semibold">
+              {user.username}
+            </h2>
+            <p className="mt-2 flex items-center gap-2 text-sm text-mute">
+              <Shield size={16} aria-hidden="true" />
+              {t(roleLabelKey(user))}
+            </p>
+          </div>
+        </div>
+      </section>
+      <div className="min-w-0 space-y-5">
+        <Section title={t("account.profile.discordTitle")}>
+          <DiscordLink />
+        </Section>
+        <Section title={t("account.profile.preferencesTitle")}>
+          <LanguagePreference />
+        </Section>
+        <CloseAccount />
+      </div>
     </div>
   );
 }

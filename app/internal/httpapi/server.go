@@ -54,8 +54,10 @@ type Server struct {
 	dummyPassword      string
 }
 type session struct {
-	User database.GetUserRow
-	CSRF string
+	User             database.GetUserRow
+	CSRF             string
+	DiscordLinked    bool
+	CanUnlinkDiscord bool
 }
 type sessionKey struct{}
 type credentials struct {
@@ -133,6 +135,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/account", s.protected(false, http.HandlerFunc(s.closeAccount)))
 	mux.Handle("GET /api/account/preferences", s.protected(false, http.HandlerFunc(s.getAccountPreferences)))
 	mux.Handle("PUT /api/account/preferences", s.protected(false, http.HandlerFunc(s.putAccountPreferences)))
+	mux.Handle("DELETE /api/account/discord", s.protected(false, http.HandlerFunc(s.unlinkDiscord)))
 	mux.Handle("POST /api/auth/discord/start", s.rateLimited("discord", http.HandlerFunc(s.discordStart)))
 	mux.Handle("POST /api/auth/discord/link", s.protected(false, http.HandlerFunc(s.discordStart)))
 	mux.Handle("GET /api/auth/discord/callback", s.rateLimited("discord", http.HandlerFunc(s.discordCallback)))
@@ -335,7 +338,7 @@ func (s *Server) findSession(r *http.Request) (session, error) {
 	if err != nil {
 		return ss, err
 	}
-	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF)
+	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf,u.discord_id IS NOT NULL,u.password_hash IS NOT NULL FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF, &ss.DiscordLinked, &ss.CanUnlinkDiscord)
 	return ss, err
 }
 func (s *Server) protected(admin bool, next http.Handler) http.Handler {
@@ -568,7 +571,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	reply(w, 200, map[string]any{"user": ss.User, "csrf_token": ss.CSRF})
+	reply(w, 200, map[string]any{"user": ss.User, "csrf_token": ss.CSRF, "discord_linked": ss.DiscordLinked, "can_unlink_discord": ss.DiscordLinked && ss.CanUnlinkDiscord})
 }
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	c, _ := sessionCookie(r)

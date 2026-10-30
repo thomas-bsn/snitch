@@ -89,6 +89,50 @@ func testAccountPreferences(t *testing.T, pool *pgxpool.Pool) {
 		call(newClient(), "", "GET", "/api/account/preferences", "", 401)
 		call(newClient(), "", "PUT", "/api/account/preferences", `{"language":"fr"}`, 401)
 	})
+	t.Run("Discord link state and unlink preserve the local sign-in safeguard", func(t *testing.T) {
+		var me struct {
+			User struct {
+				ID int64 `json:"id"`
+			} `json:"user"`
+			DiscordLinked    bool `json:"discord_linked"`
+			CanUnlinkDiscord bool `json:"can_unlink_discord"`
+		}
+		if err := json.Unmarshal(call(admin, "", "GET", "/api/auth/me", "", 200), &me); err != nil {
+			t.Fatal(err)
+		}
+		userID := me.User.ID
+		if _, err := pool.Exec(ctx, `UPDATE users SET discord_id='fixture-discord-user' WHERE id=$1`, userID); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(call(admin, "", "GET", "/api/auth/me", "", 200), &me); err != nil {
+			t.Fatal(err)
+		}
+		if !me.DiscordLinked || !me.CanUnlinkDiscord {
+			t.Fatalf("linked account state: linked=%v can_unlink=%v", me.DiscordLinked, me.CanUnlinkDiscord)
+		}
+		call(admin, "", "DELETE", "/api/account/discord", "", 403)
+		call(admin, adminCSRF, "DELETE", "/api/account/discord", "", 200)
+		var linked bool
+		if err := pool.QueryRow(ctx, `SELECT discord_id IS NOT NULL FROM users WHERE id=$1`, userID).Scan(&linked); err != nil || linked {
+			t.Fatalf("Discord identity should be removed: linked=%v err=%v", linked, err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE users SET discord_id='fixture-discord-only',password_hash=NULL WHERE id=$1`, userID); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(call(admin, "", "GET", "/api/auth/me", "", 200), &me); err != nil {
+			t.Fatal(err)
+		}
+		if !me.DiscordLinked || me.CanUnlinkDiscord {
+			t.Fatalf("Discord-only account state: linked=%v can_unlink=%v", me.DiscordLinked, me.CanUnlinkDiscord)
+		}
+		out := call(admin, adminCSRF, "DELETE", "/api/account/discord", "", 409)
+		if !bytes.Contains(out, []byte(`"error":"discord_local_login_required"`)) {
+			t.Fatalf("unexpected safeguard response: %s", out)
+		}
+		if err := pool.QueryRow(ctx, `SELECT discord_id IS NOT NULL FROM users WHERE id=$1`, userID).Scan(&linked); err != nil || !linked {
+			t.Fatalf("Discord-only identity must remain linked: linked=%v err=%v", linked, err)
+		}
+	})
 	t.Run("a new account has no language chosen", func(t *testing.T) {
 		if got := language(admin); got != nil {
 			t.Fatalf("language %q, want none", *got)

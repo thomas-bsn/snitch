@@ -27,10 +27,14 @@ class Session:
         Attributes:
             user (User):
             csrf_token (str):
+            discord_linked (bool): Whether this account has a Discord identity linked.
+            can_unlink_discord (bool): True only when Discord is linked and a local password is configured.
      """
 
     user: User
     csrf_token: str
+    discord_linked: bool
+    can_unlink_discord: bool
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -43,12 +47,18 @@ class Session:
 
         csrf_token = self.csrf_token
 
+        discord_linked = self.discord_linked
+
+        can_unlink_discord = self.can_unlink_discord
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "user": user,
             "csrf_token": csrf_token,
+            "discord_linked": discord_linked,
+            "can_unlink_discord": can_unlink_discord,
         })
 
         return field_dict
@@ -66,9 +76,15 @@ class Session:
 
         csrf_token = d.pop("csrf_token")
 
+        discord_linked = d.pop("discord_linked")
+
+        can_unlink_discord = d.pop("can_unlink_discord")
+
         session = cls(
             user=user,
             csrf_token=csrf_token,
+            discord_linked=discord_linked,
+            can_unlink_discord=can_unlink_discord,
         )
 
 

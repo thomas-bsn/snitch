@@ -494,6 +494,16 @@ export const en = {
         "Link your Discord identity to this account, so that you can sign in with Discord. The link is made to this account only, never by matching usernames. This opens Discord.",
       discordLink: "Link Discord",
       discordLinking: "Opening Discord…",
+      discordConnected: "Discord is linked to the Snitch account {username}.",
+      discordUnlink: "Unlink Discord",
+      discordUnlinkConfirmTitle: "Unlink Discord?",
+      discordUnlinkConfirmBody:
+        "You will no longer be able to sign in to this account with Discord. Your Snitch account and clips will remain.",
+      discordUnlinkConfirm: "Unlink Discord",
+      discordUnlinking: "Unlinking…",
+      discordUnlinkBlocked:
+        "Set a local password before unlinking Discord. This is your only sign-in method right now.",
+      discordUnlinked: "Discord was unlinked.",
       discordDisabled:
         "Discord sign-in is not enabled on this instance. An administrator can enable it.",
       preferencesTitle: "Preferences",

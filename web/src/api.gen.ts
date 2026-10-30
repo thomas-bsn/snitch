@@ -208,6 +208,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/discord": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Removes the linked Discord identity only if a local password is configured. */
+    delete: operations["unlinkDiscord"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/discord/start": {
     parameters: {
       query?: never;
@@ -1742,6 +1759,10 @@ export interface components {
     Session: {
       user: components["schemas"]["User"];
       csrf_token: string;
+      /** @description Whether this account has a Discord identity linked. */
+      discord_linked: boolean;
+      /** @description True only when Discord is linked and a local password is configured. */
+      can_unlink_discord: boolean;
     };
     Setup: {
       initialized: boolean;
@@ -3681,6 +3702,39 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  unlinkDiscord: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Discord identity unlinked */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Error (401 session required, 403 origin/CSRF, 409 not linked or local login required, 503 unavailable) */
       default: {
         headers: {
           [name: string]: unknown;

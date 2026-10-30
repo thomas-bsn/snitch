@@ -34,6 +34,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   discord_denied:
     "Connexion Discord annulée. Vous pouvez vous connecter avec votre compte local.",
   discord_not_configured: "La connexion Discord n’est pas configurée.",
+  discord_not_linked: "Aucune identité Discord n’est liée à ce compte.",
+  discord_local_login_required:
+    "Définissez un mot de passe local avant de délier Discord pour garder un moyen de connexion.",
+  discord_unlink_unavailable: "Discord n’a pas pu être délié. Réessayez.",
   discord_secret_required:
     "Saisissez le secret de votre application Discord pour activer la connexion.",
   discord_unavailable:
