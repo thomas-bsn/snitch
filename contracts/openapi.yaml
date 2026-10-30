@@ -918,6 +918,34 @@
         "description": "Enregistre la langue d'interface du compte connecté (en ou fr). Toute autre valeur est refusée avec 400 invalid_language ; propriétés supplémentaires ou absence de langue : 400 invalid_request. Exige session active, même origine et X-CSRF-Token."
       }
     },
+    "/api/account/discord": {
+      "delete": {
+        "operationId": "unlinkDiscord",
+        "responses": {
+          "200": {
+            "description": "Discord identity unlinked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Status" }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (401 session required, 403 origin/CSRF, 409 not linked or local login required, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        },
+        "parameters": [
+          { "in": "header", "name": "Origin", "required": true, "schema": { "type": "string" }, "description": "Must equal PUBLIC_URL" },
+          { "in": "header", "name": "X-CSRF-Token", "required": true, "schema": { "type": "string" } }
+        ],
+        "description": "Removes the linked Discord identity only if a local password is configured."
+      }
+    },
     "/api/auth/discord/start": {
       "post": {
         "operationId": "startDiscord",
@@ -4889,7 +4917,9 @@
         "type": "object",
         "required": [
           "user",
-          "csrf_token"
+          "csrf_token",
+          "discord_linked",
+          "can_unlink_discord"
         ],
         "properties": {
           "user": {
@@ -4897,6 +4927,14 @@
           },
           "csrf_token": {
             "type": "string"
+          },
+          "discord_linked": {
+            "type": "boolean",
+            "description": "Whether this account has a Discord identity linked."
+          },
+          "can_unlink_discord": {
+            "type": "boolean",
+            "description": "True only when Discord is linked and a local password is configured."
           }
         }
       },

@@ -13,7 +13,7 @@ export function ProfileTab() {
   const { user } = useSession();
   if (!user) return null;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
       <Section title={t("account.profile.identityTitle")}>
         <AvatarEditor />
         <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5">
@@ -23,13 +23,15 @@ export function ProfileTab() {
           <dd className="font-medium">{t(roleLabelKey(user))}</dd>
         </dl>
       </Section>
-      <Section title={t("account.profile.discordTitle")}>
-        <DiscordLink />
-      </Section>
-      <CloseAccount />
-      <Section title={t("account.profile.preferencesTitle")}>
-        <LanguagePreference />
-      </Section>
+      <div className="min-w-0 space-y-5">
+        <Section title={t("account.profile.discordTitle")}>
+          <DiscordLink />
+        </Section>
+        <Section title={t("account.profile.preferencesTitle")}>
+          <LanguagePreference />
+        </Section>
+        <CloseAccount />
+      </div>
     </div>
   );
 }

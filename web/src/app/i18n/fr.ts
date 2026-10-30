@@ -546,6 +546,16 @@ export const fr: Messages = {
         "Liez votre identité Discord à ce compte pour pouvoir vous connecter avec Discord. Le lien se fait avec ce compte uniquement, jamais par correspondance de pseudo. Cette action ouvre Discord.",
       discordLink: "Lier Discord",
       discordLinking: "Ouverture de Discord…",
+      discordConnected: "Discord est lié au compte Snitch {username}.",
+      discordUnlink: "Délier Discord",
+      discordUnlinkConfirmTitle: "Délier Discord ?",
+      discordUnlinkConfirmBody:
+        "Vous ne pourrez plus vous connecter à ce compte avec Discord. Votre compte Snitch et vos clips seront conservés.",
+      discordUnlinkConfirm: "Délier Discord",
+      discordUnlinking: "Déliaison…",
+      discordUnlinkBlocked:
+        "Définissez un mot de passe local avant de délier Discord. C’est votre seul moyen de connexion actuellement.",
+      discordUnlinked: "Discord a été délié.",
       discordDisabled:
         "La connexion Discord n’est pas activée sur cette instance. Un administrateur peut l’activer.",
       preferencesTitle: "Préférences",

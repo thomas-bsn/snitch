@@ -206,6 +206,14 @@ test.describe.serial("paramètres du compte", () => {
     await expect(
       page.getByRole("status").filter({ hasText: "Your Discord identity is" }),
     ).toBeVisible();
+    await expect(
+      page.getByText(
+        `Discord is linked to the Snitch account ${MEMBER.username}.`,
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Unlink Discord" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Dismiss this message" }).click();
     await expect(page.getByRole("status")).toHaveCount(0);
 
@@ -243,6 +251,21 @@ test.describe.serial("paramètres du compte", () => {
       admin.getByRole("status").filter({ hasText: "already linked" }),
     ).toBeVisible();
     await adminContext.close();
+
+    await page.getByRole("button", { name: "Unlink Discord" }).click();
+    const confirmation = page.getByRole("alertdialog", {
+      name: "Unlink Discord?",
+    });
+    await expect(confirmation).toBeVisible();
+    await confirmation
+      .getByRole("button", { name: "Unlink Discord", exact: true })
+      .click();
+    await expect(page.getByRole("status")).toContainText(
+      "Discord was unlinked.",
+    );
+    await expect(
+      page.getByRole("button", { name: "Link Discord" }),
+    ).toBeVisible();
     await context.close();
   });
 
