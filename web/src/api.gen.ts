@@ -2084,6 +2084,8 @@ export interface components {
       gpu_memory_bytes?: number;
     };
     Worker: {
+      /** @description Last reported task capabilities; a worker that never reported has none; revoked workers must not be selected. */
+      supported_steps?: string[] | null;
       /** @description Nom facultatif du modèle propre au Worker. */
       transcription_model?: string;
       machine?: components["schemas"]["WorkerMachine"];
@@ -4732,6 +4734,8 @@ export interface operations {
   listJobs: {
     parameters: {
       query?: {
+        /** @description Paginate clips with their latest job per step. Total counts clips. active includes unfinished or cancelled clips; done requires every latest step to have succeeded. */
+        workflow?: "active" | "done";
         status?:
           | "pending"
           | "leased"

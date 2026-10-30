@@ -37,7 +37,7 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	pageResult, err := s.Jobs.List(r.Context(), jobs.Filter{Status: jobs.Status(query.Get("status")), ClipID: clipID, Step: query.Get("step"), Page: page, PageSize: pageSize})
+	pageResult, err := s.Jobs.List(r.Context(), jobs.Filter{Workflow: query.Get("workflow"), Status: jobs.Status(query.Get("status")), ClipID: clipID, Step: query.Get("step"), Page: page, PageSize: pageSize})
 	if errors.Is(err, jobs.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_job_filter")
 		return

@@ -1,6 +1,27 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
+
+const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+/** The queue shows one card per clip and step; its actions live inside the collapsed card. */
+async function openCard(card: Locator) {
+  if (!(await card.getByRole("button", { name: "History" }).isVisible())) {
+    await card.locator("summary").click();
+  }
+}
+
+async function upload(page: Page, name: string, seed: number) {
+  await page.goto("/import");
+  await page.getByLabel("choose files").setInputFiles({
+    name,
+    mimeType: "video/mp4",
+    buffer: Buffer.alloc(20000 + seed, seed),
+  });
+  await expect(
+    page.getByRole("listitem").filter({ hasText: name }),
+  ).toContainText("Added to the library", { timeout: 30000 });
+}
 
 test("l'administrateur pilote la file et voit les dossiers disponibles", async ({
   browser,
@@ -10,7 +31,16 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     storageState: await sessionFor(ADMIN),
   });
   const page = await context.newPage();
+  const queue = page.locator("[data-workflow-grid]");
+  const cardOf = (clipId: number) =>
+    queue.locator("details").filter({ hasText: `#${clipId}` });
+
+  // Concurrency controls, collapsed behind a disclosure panel.
   await page.goto("/admin/queue");
+  await page
+    .locator("summary")
+    .filter({ hasText: "Concurrency settings" })
+    .click();
   await page.getByLabel("Global concurrency").fill("3");
   await page.getByLabel("Pause new acquisitions").check();
   const firstSave = page.waitForResponse(
@@ -22,15 +52,12 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   await page.getByRole("button", { name: "Save controls" }).click();
   await firstSave;
   await page.reload();
+  await page
+    .locator("summary")
+    .filter({ hasText: "Concurrency settings" })
+    .click();
   await expect(page.getByLabel("Global concurrency")).toHaveValue("3");
   await expect(page.getByLabel("Pause new acquisitions")).toBeChecked();
-  expect(
-    (
-      await new AxeBuilder({ page })
-        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-        .analyze()
-    ).violations,
-  ).toEqual([]);
   await page.getByLabel("Pause new acquisitions").uncheck();
   const saved = page.waitForResponse(
     (r) =>
@@ -40,37 +67,24 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   );
   await page.getByRole("button", { name: "Save controls" }).click();
   await saved;
-  await page.goto("/import");
-  await page.getByLabel("choose files").setInputFiles({
-    name: "synthetic.mp4",
-    mimeType: "video/mp4",
-    buffer: Buffer.alloc(20000, 1),
-  });
-  await expect(
-    page.getByRole("listitem").filter({ hasText: "synthetic.mp4" }),
-  ).toContainText("Added to the library", { timeout: 30000 });
+
+  // A worker that can transcribe makes the transcription step available in the form.
+  await upload(page, "synthetic-a.mp4", 1);
+  await upload(page, "synthetic-b.mp4", 2);
   const me = await (await page.request.get("/api/auth/me")).json();
   const headers = {
     Origin: process.env.SNITCH_TEST_URL!,
     "X-CSRF-Token": me.csrf_token,
   };
   const clips = await (await page.request.get("/api/clips")).json();
-  await page.goto("/admin/queue");
-  await page.locator("summary").filter({ hasText: "Schedule task" }).click();
-  await page
-    .getByLabel("Clip ID", { exact: true })
-    .fill(String(clips.items[0].id));
-  await page.getByLabel("Step", { exact: true }).fill("fixture.inspect");
-  await page.getByLabel("Input version").fill("fixture-v1");
-  await page.getByLabel("Maximum attempts").fill("1");
-  const scheduled = page.waitForResponse(
-    (r) =>
-      r.url().endsWith("/api/admin/jobs") &&
-      r.request().method() === "POST" &&
-      r.status() === 201,
-  );
-  await page.getByRole("button", { name: "Schedule task" }).click();
-  const job = await (await scheduled).json();
+  const clipA = clips.items.find(
+    (clip: { original_name: string }) =>
+      clip.original_name === "synthetic-a.mp4",
+  ).id;
+  const clipB = clips.items.find(
+    (clip: { original_name: string }) =>
+      clip.original_name === "synthetic-b.mp4",
+  ).id;
   const workerResponse = await page.request.post("/api/admin/workers", {
     headers,
     data: { name: "fixture-worker", max_concurrency: 1 },
@@ -82,15 +96,63 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     (
       await page.request.post("/api/worker/pulse", {
         headers: authorization,
-        data: { capacity: 1, supported_steps: ["fixture.*"] },
+        data: { capacity: 1, supported_steps: ["transcription.*"] },
       })
     ).ok(),
   ).toBe(true);
+
+  // Scheduling from the queue page: the clip and the step, nothing else.
+  expect(
+    (
+      await page.request.put(`/api/admin/clips/${clipA}/audio-track`, {
+        headers,
+        data: { audio_stream_index: 2 },
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.goto("/admin/queue");
+  await page.locator("summary").filter({ hasText: "Schedule task" }).click();
+  await page.getByLabel("Clip ID", { exact: true }).fill(String(clipA));
+  await page
+    .locator("label")
+    .filter({ hasText: "Step 0 · Transcription" })
+    .click();
+  await expect(
+    page.getByRole("radio", { name: /Step 0 · Transcription/ }),
+  ).toBeChecked();
+  const scheduled = page.waitForResponse(
+    (r) =>
+      r.url().endsWith(`/api/admin/clips/${clipA}/transcription`) &&
+      r.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Schedule", exact: true }).click();
+  const response = await scheduled;
+  expect([200, 201], await response.text()).toContain(response.status());
+  const cardA = cardOf(clipA);
+  await expect(cardA).toContainText("Pending");
+  await openCard(cardA);
+  await cardA.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(cardA).toContainText("Cancelled");
+
+  // A task that runs out of attempts is retried, read in its history, then cancelled.
+  const jobResponse = await page.request.post("/api/admin/jobs", {
+    headers,
+    data: {
+      clip_id: clipB,
+      step: "transcription.audio.9",
+      input_version: "e2e-v1",
+      priority: 1,
+      max_attempts: 1,
+    },
+  });
+  expect(jobResponse.status()).toBe(201);
+  const job = await jobResponse.json();
   const claim = await (
     await page.request.post("/api/worker/jobs/claim", {
       headers: authorization,
     })
   ).json();
+  expect(claim.job.id).toBe(job.id);
   expect(
     (
       await page.request.post(`/api/worker/jobs/${claim.job.id}/fail`, {
@@ -102,32 +164,43 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
       })
     ).ok(),
   ).toBe(true);
-  await page.goto("/admin/queue");
-  const item = page
-    .getByRole("listitem")
-    .filter({ hasText: "fixture.inspect" });
-  await expect(item).toContainText("Exhausted");
-  await item.getByRole("button", { name: "Retry" }).click();
-  await expect(item).toContainText("Pending");
-  await item.getByRole("button", { name: "History" }).click();
-  await expect(item).toContainText("Relaunched by administrator");
-  await item.getByRole("button", { name: "Cancel" }).click();
-  await expect(item).toContainText("Cancelled");
-  expect(job.id).toBe(claim.job.id);
-  await page.getByLabel("Filter by step").fill("different.step");
-  await page.getByRole("button", { name: "Filter tasks" }).click();
-  await expect(page.getByText("No tasks.")).toBeVisible();
+
+  await page.reload();
+  const cardB = cardOf(clipB);
+  await expect(cardB).toContainText("Exhausted");
+  await openCard(cardB);
+  await cardB.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(cardB).toContainText("Pending");
+  await openCard(cardB);
+  await cardB.getByRole("button", { name: "History", exact: true }).click();
+  await expect(cardB).toContainText("Relaunched by administrator");
+  await cardB.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(cardB).toContainText("Cancelled");
+
+  // The toolbar narrows the workflow down to one clip.
+  await page.getByLabel("Filter by clip ID").fill(String(clipB));
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  await expect(cardOf(clipB)).toBeVisible();
+  await expect(cardOf(clipA)).toHaveCount(0);
+
+  // The completed-clip history is its own dialog.
+  await page.getByRole("button", { name: "Clip history" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Completed clip history" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+
+  expect(
+    (await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations,
+  ).toEqual([]);
+
   await page.goto("/admin/folders");
   await expect(
     page.getByLabel("Root folder accessible to Snitch"),
   ).toBeVisible();
   await expect(page.getByText("No watched folders configured.")).toBeVisible();
   expect(
-    (
-      await new AxeBuilder({ page })
-        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-        .analyze()
-    ).violations,
+    (await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations,
   ).toEqual([]);
   await context.close();
 });

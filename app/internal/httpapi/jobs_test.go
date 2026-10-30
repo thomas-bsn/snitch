@@ -19,6 +19,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/config"
+	"snitch/internal/jobs"
 	"snitch/internal/setup"
 )
 
@@ -173,6 +174,27 @@ func testJobQueue(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(body, &page); err != nil || page.Total != 1 {
 		t.Fatalf("job disappeared after application restart: %s %v", body, err)
 	}
+	for _, workflow := range []string{"active", "done"} {
+		page, err := server.Jobs.List(ctx, jobs.Filter{Workflow: workflow, Page: 1, PageSize: 1})
+		if err != nil {
+			t.Fatalf("workflow %s: %v", workflow, err)
+		}
+		ids := map[int64]bool{}
+		for _, job := range page.Items {
+			ids[job.ClipID] = true
+		}
+		if len(ids) > 1 {
+			t.Fatal("workflow pagination split clips")
+		}
+		if workflow == "done" {
+			for _, job := range page.Items {
+				if job.Status != jobs.Done {
+					t.Fatal("unfinished clip in completed history")
+				}
+			}
+		}
+	}
+
 }
 
 func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {

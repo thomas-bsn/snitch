@@ -1,4 +1,6 @@
-import { useCallback, useState, type FormEvent } from "react";
+import { ChevronLeft, ChevronRight, Monitor } from "lucide-react";
+import { JobWorkflow } from "./JobWorkflow";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../../api/client";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert, StatusNotice } from "../../components/Alert";
@@ -16,20 +18,33 @@ type Filters = {
 };
 async function load(page: number, filters: Filters) {
   try {
-    const [controls, jobs] = await Promise.all([
+    const [controls, jobs, recent, workers] = await Promise.all([
       api.GET("/api/admin/job-controls"),
       api.GET("/api/admin/jobs", {
-        params: { query: { page, page_size: 20, ...filters } },
+        params: {
+          query: { page_size: 20, ...filters, page, workflow: "active" },
+        },
       }),
+      api.GET("/api/admin/jobs", {
+        params: { query: { workflow: "done", page: 1, page_size: 3 } },
+      }),
+      api.GET("/api/admin/workers"),
     ]);
-    if (!controls.data || !jobs.data)
+    if (!controls.data || !jobs.data || !recent.data || !workers.data)
       return {
         ok: false as const,
         code: errorCode(controls.error ?? jobs.error) ?? "unknown",
       };
     return {
       ok: true as const,
-      value: { controls: controls.data, jobs: jobs.data },
+      value: {
+        controls: controls.data,
+        workers: workers.data.items,
+        jobs: {
+          ...jobs.data,
+          items: [...jobs.data.items, ...recent.data.items],
+        },
+      },
     };
   } catch {
     return { ok: false as const, code: "unavailable" };
@@ -38,7 +53,7 @@ async function load(page: number, filters: Filters) {
 type Job = components["schemas"]["Job"];
 type Event = components["schemas"]["JobEvent"];
 export function QueueTab() {
-  const { t, error } = useI18n();
+  const { t, error, language } = useI18n();
   const { session } = useSession();
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<Filters>({});
@@ -50,6 +65,7 @@ export function QueueTab() {
   const [notice, setNotice] = useState(false);
   const [history, setHistory] = useState<Record<number, Event[]>>({});
   const [busy, setBusy] = useState(false);
+  const [transcriptionClip, setTranscriptionClip] = useState<number>();
   const [warning, setWarning] = useState<{
     job?: Job;
     input?: components["schemas"]["JobInput"];
@@ -89,16 +105,63 @@ export function QueueTab() {
       setBusy(false);
     }
   }
-  function submitJob(event: FormEvent<HTMLFormElement>) {
+  async function submitJob(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const f = new FormData(event.currentTarget);
-    void schedule({
-      clip_id: Number(f.get("clip")),
-      step: String(f.get("step")),
-      input_version: String(f.get("version")),
-      priority: Number(f.get("priority")),
-      max_attempts: Number(f.get("attempts")),
-    });
+    const clip = Number(f.get("clip"));
+    if (!["transcription", "voice"].includes(String(f.get("step")))) return;
+    if (f.get("step") === "voice") {
+      setBusy(true);
+      setFailure(undefined);
+      try {
+        const r = await api.POST("/api/admin/clips/{id}/voice", {
+          params: { path: { id: clip }, header: mutation(session?.csrf_token) },
+          body: {},
+        });
+        if (r.error) setFailure(errorCode(r.error) ?? "unknown");
+        else {
+          setNotice(true);
+          reload();
+        }
+      } catch {
+        setFailure("unavailable");
+      } finally {
+        setBusy(false);
+      }
+    } else await scheduleTranscription(clip);
+  }
+  async function scheduleTranscription(clip: number, confirm = false) {
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const result = await api.POST("/api/admin/clips/{id}/transcription", {
+        params: {
+          path: { id: clip },
+          header: mutation(session?.csrf_token),
+          query: { confirm_replace_corrections: confirm || undefined },
+        },
+        body: {},
+      });
+      if (
+        result.error &&
+        "corrections" in result.error &&
+        result.error.corrections &&
+        result.error.error === "corrections_would_be_replaced"
+      ) {
+        setTranscriptionClip(clip);
+        setWarning({ corrections: result.error.corrections });
+      } else if (result.error) setFailure(errorCode(result.error) ?? "unknown");
+      else {
+        setWarning(undefined);
+        setTranscriptionClip(undefined);
+        setNotice(true);
+        reload();
+      }
+    } catch {
+      setFailure("unavailable");
+    } finally {
+      setBusy(false);
+    }
   }
   function filterJobs(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -198,18 +261,23 @@ export function QueueTab() {
     }
   }
   return (
-    <div className="flex max-w-4xl flex-col gap-5">
+    <div className="mx-auto flex w-full flex-col gap-5 2xl:w-[74%] 2xl:max-w-[1820px]">
       <ConfirmDialog
         open={!!warning}
         onOpenChange={(open) => {
-          if (!open) setWarning(undefined);
+          if (!open) {
+            setWarning(undefined);
+            setTranscriptionClip(undefined);
+          }
         }}
         title={t("queue.confirmTitle")}
         cancelLabel={t("queue.cancel")}
         confirmLabel={t("queue.confirm")}
         busy={busy}
         onConfirm={() => {
-          if (warning?.job) void retry(warning.job, true);
+          if (transcriptionClip)
+            void scheduleTranscription(transcriptionClip, true);
+          else if (warning?.job) void retry(warning.job, true);
           else if (warning?.input) void schedule(warning.input, true);
         }}
       >
@@ -223,212 +291,355 @@ export function QueueTab() {
           </p>
         )}
       </ConfirmDialog>
-      <h2 className="text-lg font-semibold">{t("queue.title")}</h2>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-4xl font-semibold">{t("queue.title")}</h2>
+          <p className="mt-8 text-[22px] text-mute">
+            {language === "fr"
+              ? "Suivez chaque clip et les traitements effectués par vos workers."
+              : "Follow each clip and the processing performed by your workers."}
+          </p>
+        </div>
+        <button
+          onClick={reload}
+          className={`${buttonClass()} h-14 md:h-14 !px-5 !text-lg`}
+        >
+          {language === "fr" ? "⟳ Actualiser" : "⟳ Refresh"}
+        </button>
+      </div>
       {state.status === "loading" && <p role="status">{t("app.loading")}</p>}
       {state.status === "failed" && (
-        <ErrorAlert>{error(state.code)}</ErrorAlert>
+        <ErrorAlert>
+          {error(state.code)}{" "}
+          <button onClick={reload} className={buttonClass()}>
+            {t("queue.retry")}
+          </button>
+        </ErrorAlert>
       )}
       {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
       {notice && <StatusNotice>{t("queue.updated")}</StatusNotice>}
       {state.status === "ready" && (
         <>
-          <form
-            onSubmit={save}
-            className="flex max-w-md flex-col gap-4 rounded-xl border border-line p-4"
-          >
-            <Field
-              label={t("queue.concurrency")}
-              type="number"
-              min={1}
-              max={4}
-              required
-              value={
-                concurrency ?? String(state.value.controls.max_concurrency)
-              }
-              onChange={(e) => setConcurrency(e.target.value)}
-            />
-            <label className="flex min-h-11 items-center gap-2">
-              <input
-                type="checkbox"
-                checked={paused ?? state.value.controls.paused}
-                onChange={(e) => setPaused(e.target.checked)}
-              />
-              {t("queue.pause")}
-            </label>
-            <div>
-              <button disabled={busy} className={buttonClass("primary")}>
-                {t("queue.save")}
-              </button>
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-6">
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent-ink">
+                <Monitor size={30} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-2xl font-semibold">
+                  {state.value.workers.find((w) => !w.revoked_at)?.name ??
+                    (language === "fr"
+                      ? "Aucun worker actif"
+                      : "No active worker")}
+                </p>
+                <p className="mt-1 text-lg text-mute">
+                  {(() => {
+                    const machine = state.value.workers.find(
+                      (w) => !w.revoked_at,
+                    )?.machine;
+                    const memory = machine?.gpu_memory_bytes
+                      ? `${Math.round(machine.gpu_memory_bytes / 1024 ** 3)} ${language === "fr" ? "Go" : "GB"}`
+                      : undefined;
+                    const running = state.value.jobs.items.filter(
+                      (job) => job.status !== "done",
+                    ).length;
+                    return [
+                      machine?.gpu_name,
+                      memory,
+                      `${running} ${language === "fr" ? "traitements en cours" : "running tasks"}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                  })()}
+                </p>
+              </div>
             </div>
-          </form>
-          <details className="rounded-xl border border-line p-4">
-            <summary className="cursor-pointer font-medium">
-              {t("queue.schedule")}
+            <details className="relative">
+              <summary className="cursor-pointer list-none px-2 py-3 text-xl font-medium hover:text-accent-ink">
+                {language === "fr"
+                  ? "Réglages de concurrence　⌄"
+                  : "Concurrency settings　⌄"}
+              </summary>
+              <div className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-line bg-surface p-4 shadow-lg">
+                <p className="mb-3 text-sm text-mute">
+                  {language === "fr"
+                    ? "Nombre maximal de tâches lancées simultanément sur tous les workers."
+                    : "Maximum number of tasks started at once across all workers."}
+                </p>
+                <form onSubmit={save} className="flex flex-col gap-4">
+                  <Field
+                    label={t("queue.concurrency")}
+                    type="number"
+                    min={1}
+                    max={4}
+                    required
+                    value={
+                      concurrency ??
+                      String(state.value.controls.max_concurrency)
+                    }
+                    onChange={(e) => setConcurrency(e.target.value)}
+                  />
+                  <label className="flex min-h-11 items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={paused ?? state.value.controls.paused}
+                      onChange={(e) => setPaused(e.target.checked)}
+                    />
+                    {t("queue.pause")}
+                  </label>
+                  <button disabled={busy} className={buttonClass("primary")}>
+                    {t("queue.save")}
+                  </button>
+                </form>
+              </div>
+            </details>
+          </div>
+
+          <JobWorkflow
+            jobs={state.value.jobs.items}
+            emptyMessage={t("queue.empty")}
+            toolbar={
+              <form
+                onSubmit={filterJobs}
+                className="flex flex-wrap items-end gap-4"
+              >
+                <label className="flex flex-col gap-1.5 font-medium">
+                  <span className="text-lg">{t("queue.filterStatus")}</span>
+                  <select
+                    name="status"
+                    className="h-14 min-w-56 rounded-lg border border-line-strong bg-surface px-4 text-lg"
+                  >
+                    <option value="">{t("queue.allStatuses")}</option>
+                    {(
+                      [
+                        "pending",
+                        "leased",
+                        "done",
+                        "failed",
+                        "retry_wait",
+                        "dead",
+                        "cancelled",
+                      ] as const
+                    ).map((status) => (
+                      <option value={status} key={status}>
+                        {t(`queue.status.${status}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5 font-medium">
+                  <span className="text-lg">{t("queue.filterClip")}</span>
+                  <input
+                    name="clip"
+                    type="number"
+                    min={1}
+                    placeholder="ex. 18"
+                    className="h-14 w-56 rounded-lg border border-line-strong bg-surface px-4 text-lg"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5 font-medium">
+                  <span className="text-lg">{t("queue.filterStep")}</span>
+                  <input
+                    name="step"
+                    className="h-14 w-56 rounded-lg border border-line-strong bg-surface px-4 text-lg"
+                  />
+                </label>
+                <button
+                  className={`${buttonClass()} h-14 md:h-14 px-5 !text-lg`}
+                >
+                  {language === "fr" ? "Filtrer" : "Filter"}
+                </button>
+              </form>
+            }
+            actions={(job) => (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={buttonClass()}
+                  onClick={() => void showHistory(job)}
+                >
+                  {t("queue.history")}
+                </button>
+                {job.status === "dead" && (
+                  <button
+                    disabled={busy}
+                    className={buttonClass()}
+                    onClick={() => void retry(job)}
+                  >
+                    {t("queue.retry")}
+                  </button>
+                )}
+                {["pending", "retry_wait", "leased"].includes(job.status) && (
+                  <button
+                    disabled={busy}
+                    className={buttonClass()}
+                    onClick={() => void cancel(job)}
+                  >
+                    {t("queue.cancel")}
+                  </button>
+                )}
+                {history[job.id] && (
+                  <ul className="w-full">
+                    {history[job.id].map((item) => (
+                      <li key={item.id}>
+                        {t(`queue.event.${item.event}`)} · {item.created_at} ·{" "}
+                        {item.error_code}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          />
+
+          <nav
+            aria-label={
+              language === "fr" ? "Pagination de la file" : "Queue pagination"
+            }
+            className="flex items-center justify-center gap-3 py-3"
+          >
+            <button
+              aria-label={
+                language === "fr" ? "Page précédente" : "Previous page"
+              }
+              className="grid size-11 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="min-w-16 text-center text-sm text-mute">
+              {page} / {Math.max(1, Math.ceil(state.value.jobs.total / 20))}
+            </span>
+            <button
+              aria-label={language === "fr" ? "Page suivante" : "Next page"}
+              className="grid size-11 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
+              disabled={page * 20 >= state.value.jobs.total}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </nav>
+
+          <details className="rounded-2xl border border-line p-6">
+            <summary className="cursor-pointer list-none p-1">
+              <span className="text-2xl font-semibold">
+                {t("queue.schedule")}
+              </span>
+              <span className="ml-4 text-xl text-mute">
+                {language === "fr"
+                  ? "Choisir un clip et démarrer au bon traitement"
+                  : "Choose a clip and start at the right step"}
+              </span>
             </summary>
             <form
               onSubmit={submitJob}
-              className="flex max-w-md flex-col gap-3 pt-3"
+              className="flex flex-col gap-5 px-1 pb-1 pt-9"
             >
-              <Field
-                name="clip"
-                label={t("queue.clip")}
-                type="number"
-                min={1}
-                required
-              />
-              <Field
-                name="step"
-                label={t("queue.step")}
-                required
-                maxLength={64}
-                pattern="[a-z][a-z0-9_.-]{0,63}"
-              />
-              <Field
-                name="version"
-                label={t("queue.version")}
-                required
-                maxLength={128}
-              />
-              <Field
-                name="priority"
-                label={t("queue.priority")}
-                type="number"
-                min={-100}
-                max={100}
-                defaultValue={0}
-              />
-              <Field
-                name="attempts"
-                label={t("queue.attempts")}
-                type="number"
-                min={1}
-                max={20}
-                defaultValue={3}
-                required
-              />
+              <label className="flex flex-col gap-2 text-lg font-medium">
+                {t("queue.clip")}
+                <input
+                  name="clip"
+                  type="number"
+                  min={1}
+                  required
+                  placeholder="ex. 18"
+                  className="h-[60px] w-full rounded-lg border border-line-strong bg-surface px-4 text-lg"
+                />
+              </label>
+              {!state.value.workers.some(
+                (w) =>
+                  !w.revoked_at &&
+                  w.supported_steps?.some(
+                    (s) =>
+                      s.startsWith("transcription.") ||
+                      s === "voice.*" ||
+                      s.startsWith("voice.diarization."),
+                  ),
+              ) && (
+                <p
+                  role="status"
+                  className="rounded-lg bg-warn-bg p-3 text-warn-fg"
+                >
+                  {language === "fr"
+                    ? "Aucun worker n’a déclaré de traitement compatible. Démarrez un worker puis actualisez cette page."
+                    : "No worker has reported compatible tasks. Start a worker, then refresh this page."}
+                </p>
+              )}
+              <fieldset className="mt-36 grid gap-4 md:grid-cols-2">
+                <legend className="mb-3 text-lg font-medium">
+                  {t("queue.step")}
+                </legend>
+                {state.value.workers.some(
+                  (w) =>
+                    !w.revoked_at &&
+                    w.supported_steps?.some((s) =>
+                      s.startsWith("transcription."),
+                    ),
+                ) && (
+                  <label className="flex min-h-24 cursor-pointer items-start gap-3 rounded-xl border border-line p-5 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
+                    <input
+                      type="radio"
+                      name="step"
+                      value="transcription"
+                      required
+                      className="sr-only"
+                    />
+                    <span>
+                      <strong className="block text-xl">
+                        {language === "fr"
+                          ? "Étape 0 · Transcription"
+                          : "Step 0 · Transcription"}
+                      </strong>
+                      <span className="mt-1 block text-lg text-mute">
+                        {language === "fr"
+                          ? "Écrire les paroles du clip"
+                          : "Write down the clip’s speech"}
+                      </span>
+                    </span>
+                  </label>
+                )}
+                {state.value.workers.some(
+                  (w) =>
+                    !w.revoked_at &&
+                    w.supported_steps?.some(
+                      (s) =>
+                        s === "voice.*" || s.startsWith("voice.diarization."),
+                    ),
+                ) && (
+                  <label className="flex min-h-24 cursor-pointer items-start gap-3 rounded-xl border border-line p-5 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
+                    <input
+                      type="radio"
+                      name="step"
+                      value="voice"
+                      required
+                      className="sr-only"
+                    />
+                    <span>
+                      <strong className="block text-xl">
+                        {language === "fr"
+                          ? "Étape 1 · Analyse des voix"
+                          : "Step 1 · Voice analysis"}
+                      </strong>
+                      <span className="mt-1 block text-lg text-mute">
+                        {language === "fr"
+                          ? "Nécessite une transcription"
+                          : "Requires a transcript"}
+                      </span>
+                    </span>
+                  </label>
+                )}
+              </fieldset>
               <div>
-                <button disabled={busy} className={buttonClass()}>
-                  {t("queue.schedule")}
+                <button
+                  disabled={busy}
+                  className={`${buttonClass("primary")} h-[60px] md:h-[60px] px-6 text-lg`}
+                >
+                  {language === "fr" ? "Planifier" : "Schedule"}
                 </button>
               </div>
             </form>
           </details>
-          <form
-            onSubmit={filterJobs}
-            className="flex flex-wrap items-end gap-3"
-          >
-            <label className="flex flex-col gap-1.5 font-medium">
-              {t("queue.filterStatus")}
-              <select
-                name="status"
-                className="h-11 rounded-lg border border-line-strong bg-surface px-3"
-              >
-                <option value="">{t("queue.allStatuses")}</option>
-                {(
-                  [
-                    "pending",
-                    "leased",
-                    "done",
-                    "failed",
-                    "retry_wait",
-                    "dead",
-                    "cancelled",
-                  ] as const
-                ).map((status) => (
-                  <option value={status} key={status}>
-                    {t(`queue.status.${status}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Field
-              name="clip"
-              label={t("queue.filterClip")}
-              type="number"
-              min={1}
-            />
-            <Field name="step" label={t("queue.filterStep")} />
-            <button className={buttonClass()}>{t("queue.filter")}</button>
-          </form>
-          {state.value.jobs.items.length === 0 ? (
-            <p>{t("queue.empty")}</p>
-          ) : (
-            <ul className="flex list-none flex-col gap-3 p-0">
-              {state.value.jobs.items.map((job) => (
-                <li key={job.id} className="rounded-xl border border-line p-4">
-                  <strong>{job.step}</strong>
-                  <p>
-                    {t("queue.job", {
-                      id: job.id,
-                      clip: job.clip_id,
-                      status: t(`queue.status.${job.status}`),
-                    })}
-                  </p>
-                  <p className="text-mute">{job.last_error}</p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className={buttonClass()}
-                      onClick={() => void showHistory(job)}
-                    >
-                      {t("queue.history")}
-                    </button>
-                    {job.status === "dead" && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className={buttonClass()}
-                        onClick={() => void retry(job)}
-                      >
-                        {t("queue.retry")}
-                      </button>
-                    )}
-                    {["pending", "retry_wait", "leased"].includes(
-                      job.status,
-                    ) && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className={buttonClass()}
-                        onClick={() => void cancel(job)}
-                      >
-                        {t("queue.cancel")}
-                      </button>
-                    )}
-                  </div>
-                  {history[job.id] && (
-                    <ul>
-                      {history[job.id].map((item) => (
-                        <li key={item.id}>
-                          {t(`queue.event.${item.event}`)} · {item.created_at} ·{" "}
-                          {item.error_code}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={page <= 1}
-              className={buttonClass()}
-              onClick={() => setPage(page - 1)}
-            >
-              {t("queue.previous")}
-            </button>
-            <span>{t("queue.page", { page })}</span>
-            <button
-              type="button"
-              disabled={page * 20 >= state.value.jobs.total}
-              className={buttonClass()}
-              onClick={() => setPage(page + 1)}
-            >
-              {t("queue.next")}
-            </button>
-          </div>
         </>
       )}
     </div>

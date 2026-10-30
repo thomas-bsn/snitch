@@ -36,6 +36,8 @@ class Worker:
             created_at (datetime.datetime):
             revoked_at (datetime.datetime | None):
             connected (bool):
+            supported_steps (list[str] | None | Unset): Last reported task capabilities; a worker that never reported has
+                none; revoked workers must not be selected.
             transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
             machine (WorkerMachine | Unset): Informations non secrètes déclarées par le Worker ; le système est celui du
                 conteneur.
@@ -53,6 +55,7 @@ class Worker:
     created_at: datetime.datetime
     revoked_at: datetime.datetime | None
     connected: bool
+    supported_steps: list[str] | None | Unset = UNSET
     transcription_model: str | Unset = UNSET
     machine: WorkerMachine | Unset = UNSET
     remote_address: str | Unset = UNSET
@@ -90,6 +93,16 @@ class Worker:
 
         connected = self.connected
 
+        supported_steps: list[str] | None | Unset
+        if isinstance(self.supported_steps, Unset):
+            supported_steps = UNSET
+        elif isinstance(self.supported_steps, list):
+            supported_steps = self.supported_steps
+
+
+        else:
+            supported_steps = self.supported_steps
+
         transcription_model = self.transcription_model
 
         machine: dict[str, Any] | Unset = UNSET
@@ -115,6 +128,8 @@ class Worker:
             "revoked_at": revoked_at,
             "connected": connected,
         })
+        if supported_steps is not UNSET:
+            field_dict["supported_steps"] = supported_steps
         if transcription_model is not UNSET:
             field_dict["transcription_model"] = transcription_model
         if machine is not UNSET:
@@ -184,6 +199,24 @@ class Worker:
 
         connected = d.pop("connected")
 
+        def _parse_supported_steps(data: object) -> list[str] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                supported_steps_type_0 = cast(list[str], data)
+
+                return supported_steps_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[str] | None | Unset, data)
+
+        supported_steps = _parse_supported_steps(d.pop("supported_steps", UNSET))
+
+
         transcription_model = d.pop("transcription_model", UNSET)
 
         _machine = d.pop("machine", UNSET)
@@ -217,6 +250,7 @@ class Worker:
             created_at=created_at,
             revoked_at=revoked_at,
             connected=connected,
+            supported_steps=supported_steps,
             transcription_model=transcription_model,
             machine=machine,
             remote_address=remote_address,

@@ -10,6 +10,7 @@ export const fr: Messages = {
     loading: "Chargement…",
   },
   queue: {
+    voiceStep: "Analyse des voix (après transcription)",
     filterStatus: "Filtrer par état",
     allStatuses: "Tous les états",
     filterClip: "Filtrer par ID de clip",
