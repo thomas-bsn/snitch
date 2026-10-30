@@ -895,7 +895,8 @@ export const fr: Messages = {
       },
       changeVisibility: "Changer la visibilité",
       confirmVisibilityChange: "Confirmer le changement de visibilité ?",
-      confirmMakeShared: "Ce clip deviendra visible par tous les membres du workspace.",
+      confirmMakeShared:
+        "Ce clip deviendra visible par tous les membres du workspace.",
       confirmMakePrivate: "Ce clip ne sera visible que par vous.",
       confirmShared: "Confirmer — Partagé",
       confirmPrivate: "Confirmer — Privé",
