@@ -244,8 +244,8 @@ func (s *Server) scheduleClipTranscription(w http.ResponseWriter, r *http.Reques
 	}
 
 	var input struct {
-		AudioStreamIndex *int  `json:"audio_stream_index,omitempty"`
-		ConfirmReplace   bool  `json:"confirm_replace,omitempty"`
+		AudioStreamIndex *int `json:"audio_stream_index,omitempty"`
+		ConfirmReplace   bool `json:"confirm_replace,omitempty"`
 	}
 	if !decode(w, r, &input) {
 		return
