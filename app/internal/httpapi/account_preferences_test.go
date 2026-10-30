@@ -103,6 +103,17 @@ func testAccountPreferences(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatal(err)
 		}
 		userID := me.User.ID
+		var localPassword *string
+		if err := pool.QueryRow(ctx, `SELECT password_hash FROM users WHERE id=$1`, userID).Scan(&localPassword); err != nil {
+			t.Fatal(err)
+		}
+		// The last case removes the local password to test the Discord-only safeguard; put it back so the
+		// later language cases can still open a new session with it.
+		t.Cleanup(func() {
+			if _, err := pool.Exec(ctx, `UPDATE users SET password_hash=$1 WHERE id=$2`, localPassword, userID); err != nil {
+				t.Error(err)
+			}
+		})
 		if _, err := pool.Exec(ctx, `UPDATE users SET discord_id='fixture-discord-user' WHERE id=$1`, userID); err != nil {
 			t.Fatal(err)
 		}
