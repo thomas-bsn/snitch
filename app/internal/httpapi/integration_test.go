@@ -706,6 +706,8 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/text", map[string]any{"text": "corrigé", "expected_version": 0, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/text", map[string]any{"text": "encore", "expected_version": 0}, me.CSRF, 409)
+		// Scheduling a transcription from the clip page: the clip has a correction, so replacing it needs an explicit confirmation.
+		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/transcription", map[string]any{}, me.CSRF, 409)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/segments/0/history", nil, "", 200)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/obsolete-corrections", nil, "", 200)
 		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/segments/0/restore", map[string]any{"original": true, "expected_version": 0}, me.CSRF, 409)
