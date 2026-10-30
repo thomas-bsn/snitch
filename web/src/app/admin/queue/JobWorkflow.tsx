@@ -12,7 +12,6 @@ import {
   Film,
   ArrowRight,
   ChevronDown,
-  Monitor,
 } from "lucide-react";
 import { api } from "../../api/client";
 import { useI18n } from "../../i18n";
@@ -23,7 +22,7 @@ const stageDefinitions = [
   { key: "index", label: "Recherche", icon: Search },
   { key: "diarization", label: "Voix distinctes", icon: Users },
   { key: "voice", label: "Reconnaissance des voix", icon: ScanFace },
-  { key: "done", label: "Traitements terminés", icon: CheckCheck },
+  { key: "done", label: "Terminé", icon: CheckCheck },
   { key: "other", label: "Autres traitements", icon: Film },
 ];
 function stage(job: Job) {
@@ -37,11 +36,26 @@ function stage(job: Job) {
     return "voice";
   return "other";
 }
+function statusLabel(
+  status: Job["status"],
+  language: string,
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  if (language === "fr") {
+    if (status === "leased") return "En cours";
+    if (status === "done") return "Terminé";
+  }
+  if (language === "en") {
+    if (status === "leased") return "Running";
+    if (status === "done") return "Done";
+  }
+  return t(`queue.status.${status}`);
+}
 function ClipArtwork({ id }: { id: number }) {
   return (
     <svg
       viewBox="0 0 80 64"
-      className="h-12 w-14 shrink-0 rounded-md"
+      className="h-[60px] w-[72px] shrink-0 rounded-md"
       aria-hidden="true"
     >
       <rect width="80" height="64" fill={id % 2 ? "#172a38" : "#24233c"} />
@@ -64,9 +78,13 @@ function ClipArtwork({ id }: { id: number }) {
 export function JobWorkflow({
   jobs,
   actions,
+  toolbar,
+  emptyMessage,
 }: {
   jobs: Job[];
   actions: (job: Job) => ReactNode;
+  toolbar?: ReactNode;
+  emptyMessage?: string;
 }) {
   const { t, language } = useI18n();
   const tr = (fr: string, en: string) => (language === "fr" ? fr : en);
@@ -129,8 +147,7 @@ export function JobWorkflow({
     };
   }, [historyOpen, historyPage]);
   const displayedJobs = groups
-    .filter((g) => !g.finished)
-    .map((g) => g.current)
+    .flatMap((g) => g.jobs.filter((job) => job.status !== "done"))
     .concat(completedClips.slice(0, 3).map((g) => g.current));
   const [titles, setTitles] = useState<Record<number, string>>({});
   const ids = [
@@ -161,174 +178,166 @@ export function JobWorkflow({
   }, [ids]);
   return (
     <>
-      <header className="mb-6">
-        <p className="text-sm text-mute">
-          {tr(
-            "Administration / Traitement des clips",
-            "Administration / Clip processing",
-          )}
-        </p>
-        <h2 className="mt-2 text-3xl font-semibold">
-          {tr("Le parcours de vos clips", "Your clips’ workflow")}
-        </h2>
-        <p className="mt-2 text-mute">
-          {tr(
-            "Repérez une vidéo dans le schéma, puis dépliez sa carte pour voir ses détails.",
-            "Find a video in the workflow, then expand its card for details.",
-          )}
-        </p>
-      </header>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
-        <div className="flex items-center gap-4">
-          <span className="grid size-12 place-items-center rounded-xl bg-accent-soft text-accent-ink">
-            <Monitor aria-hidden="true" />
-          </span>
-          <p className="font-semibold">
-            {jobs.filter((j) => j.status === "leased").length}{" "}
-            {tr("traitements en cours", "running tasks")}
-          </p>
-        </div>
+      <div className="mb-3 mt-1 flex flex-wrap items-end justify-between gap-3">
+        {toolbar}
         <button
           onClick={() => {
             setHistoryPage(1);
             setHistoryOpen(true);
           }}
-          className="min-h-11 rounded-lg border border-line-strong px-4 font-semibold"
+          className="min-h-14 rounded-lg border border-line-strong px-5 text-xl font-semibold"
         >
           {tr("Historique des clips", "Clip history")}
         </button>
       </div>
-      <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-        {stages
-          .filter(
-            (s) =>
-              s.key !== "other" ||
-              displayedJobs.some((j) => stage(j) === "other"),
-          )
-          .map((s, index) => (
-            <section
-              key={s.key}
-              className="min-w-0 rounded-2xl border border-line bg-side p-3"
-            >
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <span
-                  className={`relative grid size-14 place-items-center rounded-2xl border border-line shadow-sm ${s.key === "done" ? "bg-ok-bg text-ok-fg" : "bg-surface text-accent-ink"}`}
-                >
-                  <s.icon size={26} strokeWidth={1.5} aria-hidden="true" />
-                  <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border border-line bg-surface text-xs text-mute">
-                    {index + 1}
+      {jobs.length === 0 ? (
+        <p>{emptyMessage}</p>
+      ) : (
+        <div
+          data-workflow-grid
+          className="-mt-3 grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+        >
+          {stages
+            .filter(
+              (s) =>
+                s.key !== "other" ||
+                displayedJobs.some((j) => stage(j) === "other"),
+            )
+            .map((s, index) => (
+              <section
+                key={s.key}
+                className="min-w-0 rounded-2xl border border-line bg-side p-5 2xl:h-[618px] 2xl:overflow-hidden"
+              >
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <span
+                    className={`relative grid size-[72px] place-items-center rounded-2xl border border-line shadow-sm ${s.key === "done" ? "bg-ok-bg text-ok-fg" : "bg-surface text-accent-ink"}`}
+                  >
+                    <s.icon size={32} strokeWidth={1.5} aria-hidden="true" />
+                    <span className="absolute -bottom-1 -right-1 grid size-6 place-items-center rounded-full border border-line bg-surface text-sm text-mute">
+                      {index + 1}
+                    </span>
                   </span>
-                </span>
-                {s.key !== "done" && (
-                  <ArrowRight
-                    size={18}
-                    className="text-accent-ink"
-                    aria-hidden="true"
-                  />
-                )}
-              </div>
-              <h3 className="mt-3 font-semibold">
-                {s.label} ·{" "}
-                {displayedJobs.filter((j) => stage(j) === s.key).length}
-              </h3>
-              <p className="mb-4 mt-1 min-h-10 text-xs text-mute">
-                {tr(
-                  [
-                    "Écrire ce qui est dit dans la vidéo.",
-                    "Retrouver le clip à partir de ses paroles.",
-                    "Distinguer les personnes qui parlent.",
-                    "Comparer les voix aux personnes connues.",
-                    "Les résultats sont disponibles.",
-                  ][index] ?? "Autres traitements.",
-                  [
-                    "Write down the speech in the video.",
-                    "Find the clip by its spoken content.",
-                    "Separate the voices in the clip.",
-                    "Compare voices with known people.",
-                    "Results are available.",
-                  ][index] ?? "Other tasks.",
-                )}
-              </p>
-              <div className="space-y-3">
-                {displayedJobs
-                  .filter((j) => stage(j) === s.key)
-                  .slice(0, s.key === "done" ? 3 : jobs.length)
-                  .map((job) => (
-                    <details
-                      key={job.id}
-                      className={`group rounded-xl border bg-surface shadow-sm transition-shadow hover:shadow-md motion-reduce:transition-none ${["pending", "retry_wait", "dead", "failed"].includes(job.status) ? "border-warn-fg" : "border-line"}`}
-                    >
-                      <summary className="relative flex min-h-20 cursor-pointer list-none items-start gap-2 p-3 pr-8">
-                        <ClipArtwork id={job.clip_id} />
-                        <div className="min-w-0 flex-1">
-                          <span className="block break-words text-sm font-semibold">
-                            {titles[job.clip_id] ?? `Clip #${job.clip_id}`}
-                          </span>
-                          <span className="mt-2 block text-xs text-mute">
-                            {game(titles[job.clip_id] ?? "")
-                              ? `${game(titles[job.clip_id])} · `
-                              : ""}
-                            #{job.clip_id} · {t(`queue.status.${job.status}`)}
-                          </span>
-                          {["pending", "retry_wait", "dead", "failed"].includes(
-                            job.status,
-                          ) && (
-                            <TriangleAlert
-                              size={17}
-                              className="absolute right-2 top-2 text-warn-fg"
-                              aria-label={t(`queue.status.${job.status}`)}
-                            />
-                          )}
-                        </div>
-                        <ChevronDown
-                          size={14}
-                          className="absolute bottom-3 right-2 text-mute transition-transform group-open:rotate-180 motion-reduce:transition-none"
-                          aria-hidden="true"
-                        />
-                      </summary>
-                      <div className="space-y-3 border-t border-line p-3 text-sm">
-                        <Link
-                          to={`/clips/${job.clip_id}`}
-                          className="text-accent-ink underline"
+                  {s.key !== "done" && (
+                    <ArrowRight
+                      size={18}
+                      className="text-accent-ink"
+                      aria-hidden="true"
+                    />
+                  )}
+                </div>
+                <h3 className="mt-6 text-xl font-semibold">
+                  {s.label} ·{" "}
+                  {displayedJobs.filter((j) => stage(j) === s.key).length}
+                </h3>
+                <p className="mb-[22px] mt-2 min-h-12 text-base leading-6 text-mute">
+                  {tr(
+                    [
+                      "Écrire ce qui est dit dans la vidéo.",
+                      "Retrouver le clip à partir de ses paroles.",
+                      "Distinguer les personnes qui parlent.",
+                      "Comparer les voix aux personnes connues.",
+                      "Les résultats sont disponibles.",
+                    ][index] ?? "Autres traitements.",
+                    [
+                      "Write down the speech in the video.",
+                      "Find the clip by its spoken content.",
+                      "Separate the voices in the clip.",
+                      "Compare voices with known people.",
+                      "Results are available.",
+                    ][index] ?? "Other tasks.",
+                  )}
+                </p>
+                <div className="max-h-none space-y-3 overflow-visible 2xl:max-h-[380px] 2xl:overflow-y-auto">
+                  {displayedJobs
+                    .filter((j) => stage(j) === s.key)
+                    .slice(0, s.key === "done" ? 3 : jobs.length)
+                    .map((job) => (
+                      <details
+                        key={job.id}
+                        className={`group rounded-xl border bg-surface shadow-sm transition-shadow hover:shadow-md motion-reduce:transition-none ${["pending", "retry_wait", "dead", "failed"].includes(job.status) ? "border-warn-fg" : "border-line"}`}
+                      >
+                        <summary
+                          className={`relative flex cursor-pointer list-none items-start gap-4 p-3 pr-3 ${["pending", "retry_wait", "dead", "failed"].includes(job.status) ? "min-h-[212px]" : "min-h-32"}`}
                         >
-                          {tr("Ouvrir le clip", "Open clip")}
-                        </Link>
-                        <p className="break-words text-mute">
-                          {stages.find(
-                            (s) =>
-                              s.key === stage({ ...job, status: "pending" }),
-                          )?.label ?? job.step}
-                        </p>
-                        {job.last_error && (
-                          <p className="rounded-lg bg-warn-bg p-2 text-warn-fg">
-                            {job.last_error}
+                          <ClipArtwork id={job.clip_id} />
+                          <div className="min-w-0 flex-1">
+                            <span className="block break-words text-[17px] font-semibold leading-6">
+                              {titles[job.clip_id] ?? `Clip #${job.clip_id}`}
+                            </span>
+                            <span className="mt-2 block text-sm leading-5 text-mute">
+                              {game(titles[job.clip_id] ?? "")
+                                ? `${game(titles[job.clip_id])} · `
+                                : ""}
+                              #{job.clip_id} ·{" "}
+                              {statusLabel(job.status, language, t)}
+                            </span>
+                            {[
+                              "pending",
+                              "retry_wait",
+                              "dead",
+                              "failed",
+                            ].includes(job.status) && (
+                              <TriangleAlert
+                                size={17}
+                                className="absolute right-2 top-2 text-warn-fg"
+                                aria-label={statusLabel(
+                                  job.status,
+                                  language,
+                                  t,
+                                )}
+                              />
+                            )}
+                          </div>
+                          <ChevronDown
+                            size={14}
+                            className="absolute bottom-3 right-2 text-mute transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                            aria-hidden="true"
+                          />
+                        </summary>
+                        <div className="space-y-3 border-t border-line p-3 text-sm">
+                          <Link
+                            to={`/clips/${job.clip_id}`}
+                            className="text-accent-ink underline"
+                          >
+                            {tr("Ouvrir le clip", "Open clip")}
+                          </Link>
+                          <p className="break-words text-mute">
+                            {stages.find(
+                              (s) =>
+                                s.key === stage({ ...job, status: "pending" }),
+                            )?.label ?? job.step}
                           </p>
-                        )}
-                        {groups
-                          .find((g) => g.clipId === job.clip_id)
-                          ?.jobs.map((item) => (
-                            <div
-                              key={item.id}
-                              className="space-y-2 border-t border-line pt-2"
-                            >
-                              <p>
-                                {stages.find(
-                                  (s) =>
-                                    s.key ===
-                                    stage({ ...item, status: "pending" }),
-                                )?.label ?? item.step}{" "}
-                                · {t(`queue.status.${item.status}`)}
-                              </p>
-                              {actions(item)}
-                            </div>
-                          ))}
-                      </div>
-                    </details>
-                  ))}
-              </div>
-            </section>
-          ))}
-      </div>
+                          {job.last_error && (
+                            <p className="rounded-lg bg-warn-bg p-2 text-warn-fg">
+                              {job.last_error}
+                            </p>
+                          )}
+                          {groups
+                            .find((g) => g.clipId === job.clip_id)
+                            ?.jobs.map((item) => (
+                              <div
+                                key={item.id}
+                                className="space-y-2 border-t border-line pt-2"
+                              >
+                                <p>
+                                  {stages.find(
+                                    (s) =>
+                                      s.key ===
+                                      stage({ ...item, status: "pending" }),
+                                  )?.label ?? item.step}{" "}
+                                  · {statusLabel(item.status, language, t)}
+                                </p>
+                                {actions(item)}
+                              </div>
+                            ))}
+                        </div>
+                      </details>
+                    ))}
+                </div>
+              </section>
+            ))}
+        </div>
+      )}
       <Dialog.Root open={historyOpen} onOpenChange={setHistoryOpen}>
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/50" />
@@ -378,7 +387,8 @@ export function JobWorkflow({
                             (s) =>
                               s.key === stage({ ...job, status: "pending" }),
                           )?.label ?? job.step}{" "}
-                          · {t(`queue.status.${job.status}`)} · {job.updated_at}
+                          · {statusLabel(job.status, language, t)} ·{" "}
+                          {job.updated_at}
                         </p>
                       </li>
                     ))}

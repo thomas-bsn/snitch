@@ -291,10 +291,20 @@ export function QueueTab() {
           </p>
         )}
       </ConfirmDialog>
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{t("queue.title")}</h2>
-        <button onClick={reload} className={buttonClass()}>
-          {language === "fr" ? "Actualiser" : "Refresh"}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-4xl font-semibold">{t("queue.title")}</h2>
+          <p className="mt-8 text-[22px] text-mute">
+            {language === "fr"
+              ? "Suivez chaque clip et les traitements effectués par vos workers."
+              : "Follow each clip and the processing performed by your workers."}
+          </p>
+        </div>
+        <button
+          onClick={reload}
+          className={`${buttonClass()} h-14 md:h-14 !px-5 !text-lg`}
+        >
+          {language === "fr" ? "⟳ Actualiser" : "⟳ Refresh"}
         </button>
       </div>
       {state.status === "loading" && <p role="status">{t("app.loading")}</p>}
@@ -310,160 +320,183 @@ export function QueueTab() {
       {notice && <StatusNotice>{t("queue.updated")}</StatusNotice>}
       {state.status === "ready" && (
         <>
-          <details className="rounded-xl border border-line p-4">
-            <summary className="cursor-pointer font-semibold">
-              {language === "fr" ? "Réglages de la file" : "Queue settings"}
-            </summary>
-            <p className="my-3 text-sm text-mute">
-              {language === "fr"
-                ? "La concurrence globale limite les tâches simultanées sur tous les workers. La pause laisse finir les tâches en cours."
-                : "Global concurrency limits simultaneous tasks across all workers. Pausing lets running tasks finish."}
-            </p>
-            <form
-              onSubmit={save}
-              className="flex max-w-md flex-col gap-4 rounded-xl border border-line p-4"
-            >
-              <Field
-                label={t("queue.concurrency")}
-                type="number"
-                min={1}
-                max={4}
-                required
-                value={
-                  concurrency ?? String(state.value.controls.max_concurrency)
-                }
-                onChange={(e) => setConcurrency(e.target.value)}
-              />
-              <label className="flex min-h-11 items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={paused ?? state.value.controls.paused}
-                  onChange={(e) => setPaused(e.target.checked)}
-                />
-                {t("queue.pause")}
-              </label>
-              <div>
-                <button disabled={busy} className={buttonClass("primary")}>
-                  {t("queue.save")}
-                </button>
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-6">
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent-ink">
+                <Monitor size={30} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-2xl font-semibold">
+                  {state.value.workers.find((w) => !w.revoked_at)?.name ??
+                    (language === "fr"
+                      ? "Aucun worker actif"
+                      : "No active worker")}
+                </p>
+                <p className="mt-1 text-lg text-mute">
+                  {(() => {
+                    const machine = state.value.workers.find(
+                      (w) => !w.revoked_at,
+                    )?.machine;
+                    const memory = machine?.gpu_memory_bytes
+                      ? `${Math.round(machine.gpu_memory_bytes / 1024 ** 3)} ${language === "fr" ? "Go" : "GB"}`
+                      : undefined;
+                    const running = state.value.jobs.items.filter(
+                      (job) => job.status !== "done",
+                    ).length;
+                    return [
+                      machine?.gpu_name,
+                      memory,
+                      `${running} ${language === "fr" ? "traitements en cours" : "running tasks"}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                  })()}
+                </p>
               </div>
-            </form>
-          </details>
+            </div>
+            <details className="relative">
+              <summary className="cursor-pointer list-none px-2 py-3 text-xl font-medium hover:text-accent-ink">
+                {language === "fr"
+                  ? "Réglages de concurrence　⌄"
+                  : "Concurrency settings　⌄"}
+              </summary>
+              <div className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-line bg-surface p-4 shadow-lg">
+                <p className="mb-3 text-sm text-mute">
+                  {language === "fr"
+                    ? "Nombre maximal de tâches lancées simultanément sur tous les workers."
+                    : "Maximum number of tasks started at once across all workers."}
+                </p>
+                <form onSubmit={save} className="flex flex-col gap-4">
+                  <Field
+                    label={t("queue.concurrency")}
+                    type="number"
+                    min={1}
+                    max={4}
+                    required
+                    value={
+                      concurrency ??
+                      String(state.value.controls.max_concurrency)
+                    }
+                    onChange={(e) => setConcurrency(e.target.value)}
+                  />
+                  <label className="flex min-h-10 items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={paused ?? state.value.controls.paused}
+                      onChange={(e) => setPaused(e.target.checked)}
+                    />
+                    {t("queue.pause")}
+                  </label>
+                  <button disabled={busy} className={buttonClass("primary")}>
+                    {t("queue.save")}
+                  </button>
+                </form>
+              </div>
+            </details>
+          </div>
 
-          <form
-            onSubmit={filterJobs}
-            className="flex flex-wrap items-end gap-3"
-          >
-            <label className="flex flex-col gap-1.5 font-medium">
-              {t("queue.filterStatus")}
-              <select
-                name="status"
-                className="h-11 rounded-lg border border-line-strong bg-surface px-3"
+          <JobWorkflow
+            jobs={state.value.jobs.items}
+            emptyMessage={t("queue.empty")}
+            toolbar={
+              <form
+                onSubmit={filterJobs}
+                className="flex flex-wrap items-end gap-4"
               >
-                <option value="">{t("queue.allStatuses")}</option>
-                {(
-                  [
-                    "pending",
-                    "leased",
-                    "done",
-                    "failed",
-                    "retry_wait",
-                    "dead",
-                    "cancelled",
-                  ] as const
-                ).map((status) => (
-                  <option value={status} key={status}>
-                    {t(`queue.status.${status}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Field
-              name="clip"
-              label={t("queue.filterClip")}
-              type="number"
-              min={1}
-            />
-            <Field name="step" label={t("queue.filterStep")} />
-            <button className={buttonClass()}>{t("queue.filter")}</button>
-          </form>
-
-          {state.value.jobs.items.length === 0 ? (
-            <p>{t("queue.empty")}</p>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
-                <span className="grid size-10 place-items-center rounded-lg bg-accent-soft text-accent-ink">
-                  <Monitor size={19} />
-                </span>
-                <div>
-                  <p className="font-semibold">
-                    {state.value.workers.find((w) => !w.revoked_at)?.name ??
-                      (language === "fr"
-                        ? "Aucun worker actif"
-                        : "No active worker")}
-                  </p>
-                  <p className="text-xs text-mute">
-                    {state.value.workers.find((w) => !w.revoked_at)?.machine
-                      ?.gpu_name ??
-                      (language === "fr"
-                        ? "Worker disponible selon ses capacités"
-                        : "Worker available for its reported capabilities")}
-                  </p>
-                </div>
-              </div>
-              <JobWorkflow
-                jobs={state.value.jobs.items}
-                actions={(job) => (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className={buttonClass()}
-                      onClick={() => void showHistory(job)}
-                    >
-                      {t("queue.history")}
-                    </button>
-                    {job.status === "dead" && (
-                      <button
-                        disabled={busy}
-                        className={buttonClass()}
-                        onClick={() => void retry(job)}
-                      >
-                        {t("queue.retry")}
-                      </button>
-                    )}
-                    {["pending", "retry_wait", "leased"].includes(
-                      job.status,
-                    ) && (
-                      <button
-                        disabled={busy}
-                        className={buttonClass()}
-                        onClick={() => void cancel(job)}
-                      >
-                        {t("queue.cancel")}
-                      </button>
-                    )}
-                    {history[job.id] && (
-                      <ul className="w-full">
-                        {history[job.id].map((item) => (
-                          <li key={item.id}>
-                            {t(`queue.event.${item.event}`)} · {item.created_at}{" "}
-                            · {item.error_code}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                <label className="flex flex-col gap-1.5 font-medium">
+                  <span className="text-lg">{t("queue.filterStatus")}</span>
+                  <select
+                    name="status"
+                    className="h-14 min-w-56 rounded-lg border border-line-strong bg-surface px-4 text-lg"
+                  >
+                    <option value="">{t("queue.allStatuses")}</option>
+                    {(
+                      [
+                        "pending",
+                        "leased",
+                        "done",
+                        "failed",
+                        "retry_wait",
+                        "dead",
+                        "cancelled",
+                      ] as const
+                    ).map((status) => (
+                      <option value={status} key={status}>
+                        {t(`queue.status.${status}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5 font-medium">
+                  <span className="text-lg">{t("queue.filterClip")}</span>
+                  <input
+                    name="clip"
+                    type="number"
+                    min={1}
+                    placeholder="ex. 18"
+                    className="h-14 w-56 rounded-lg border border-line-strong bg-surface px-4 text-lg"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5 font-medium">
+                  <span className="text-lg">{t("queue.filterStep")}</span>
+                  <input
+                    name="step"
+                    className="h-14 w-56 rounded-lg border border-line-strong bg-surface px-4 text-lg"
+                  />
+                </label>
+                <button
+                  className={`${buttonClass()} h-14 md:h-14 px-5 !text-lg`}
+                >
+                  {language === "fr" ? "Filtrer" : "Filter"}
+                </button>
+              </form>
+            }
+            actions={(job) => (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={buttonClass()}
+                  onClick={() => void showHistory(job)}
+                >
+                  {t("queue.history")}
+                </button>
+                {job.status === "dead" && (
+                  <button
+                    disabled={busy}
+                    className={buttonClass()}
+                    onClick={() => void retry(job)}
+                  >
+                    {t("queue.retry")}
+                  </button>
                 )}
-              />
-            </>
-          )}
+                {["pending", "retry_wait", "leased"].includes(job.status) && (
+                  <button
+                    disabled={busy}
+                    className={buttonClass()}
+                    onClick={() => void cancel(job)}
+                  >
+                    {t("queue.cancel")}
+                  </button>
+                )}
+                {history[job.id] && (
+                  <ul className="w-full">
+                    {history[job.id].map((item) => (
+                      <li key={item.id}>
+                        {t(`queue.event.${item.event}`)} · {item.created_at} ·{" "}
+                        {item.error_code}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          />
 
           <nav
             aria-label={
               language === "fr" ? "Pagination de la file" : "Queue pagination"
             }
-            className="flex items-center justify-center gap-3 py-2"
+            className="flex items-center justify-center gap-3 py-3"
           >
             <button
               aria-label={
@@ -487,21 +520,33 @@ export function QueueTab() {
               <ChevronRight size={18} />
             </button>
           </nav>
-          <details className="rounded-xl border border-line p-4">
-            <summary className="cursor-pointer font-medium">
-              {t("queue.schedule")}
+
+          <details className="rounded-2xl border border-line p-6">
+            <summary className="cursor-pointer list-none p-1">
+              <span className="text-2xl font-semibold">
+                {t("queue.schedule")}
+              </span>
+              <span className="ml-4 text-xl text-mute">
+                {language === "fr"
+                  ? "Choisir un clip et démarrer au bon traitement"
+                  : "Choose a clip and start at the right step"}
+              </span>
             </summary>
             <form
               onSubmit={submitJob}
-              className="flex max-w-md flex-col gap-3 pt-3"
+              className="flex flex-col gap-5 px-1 pb-1 pt-9"
             >
-              <Field
-                name="clip"
-                label={t("queue.clip")}
-                type="number"
-                min={1}
-                required
-              />
+              <label className="flex flex-col gap-2 text-lg font-medium">
+                {t("queue.clip")}
+                <input
+                  name="clip"
+                  type="number"
+                  min={1}
+                  required
+                  placeholder="ex. 18"
+                  className="h-[60px] w-full rounded-lg border border-line-strong bg-surface px-4 text-lg"
+                />
+              </label>
               {!state.value.workers.some(
                 (w) =>
                   !w.revoked_at &&
@@ -521,55 +566,76 @@ export function QueueTab() {
                     : "No worker has reported compatible tasks. Start a worker, then refresh this page."}
                 </p>
               )}
-              <label className="flex flex-col gap-2">
-                {t("queue.step")}
-                <select
-                  name="step"
-                  required
-                  className="h-11 rounded-lg border border-line-strong bg-surface px-3"
-                >
-                  <option value="">
-                    {language === "fr"
-                      ? "Choisir une étape disponible"
-                      : "Choose an available step"}
-                  </option>
-                  {state.value.workers.some(
-                    (w) =>
-                      !w.revoked_at &&
-                      w.supported_steps?.some((s) =>
-                        s.startsWith("transcription."),
-                      ),
-                  ) && (
-                    <option value="transcription">
-                      {language === "fr"
-                        ? "Étape 0 · Transcrire les paroles"
-                        : "Step 0 · Transcribe speech"}
-                    </option>
-                  )}
-                  {state.value.workers.some(
-                    (w) =>
-                      !w.revoked_at &&
-                      w.supported_steps?.some(
-                        (s) =>
-                          s === "voice.*" || s.startsWith("voice.diarization."),
-                      ),
-                  ) && (
-                    <option value="voice">
-                      {language === "fr"
-                        ? "Étape 1 · Analyser les voix"
-                        : "Step 1 · Analyze voices"}
-                    </option>
-                  )}
-                </select>
-              </label>
-              <p className="text-sm text-mute">
-                {language === "fr"
-                  ? "La version et la piste sont déterminées par le serveur. Un worker compatible prendra la tâche automatiquement. Les voix nécessitent une transcription existante."
-                  : "The server resolves the version and audio track. A compatible worker claims the task automatically. Voice processing requires an existing transcript."}
-              </p>
+              <fieldset className="mt-36 grid gap-4 md:grid-cols-2">
+                <legend className="mb-3 text-lg font-medium">
+                  {t("queue.step")}
+                </legend>
+                {state.value.workers.some(
+                  (w) =>
+                    !w.revoked_at &&
+                    w.supported_steps?.some((s) =>
+                      s.startsWith("transcription."),
+                    ),
+                ) && (
+                  <label className="flex min-h-24 cursor-pointer items-start gap-3 rounded-xl border border-line p-5 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
+                    <input
+                      type="radio"
+                      name="step"
+                      value="transcription"
+                      required
+                      className="sr-only"
+                    />
+                    <span>
+                      <strong className="block text-xl">
+                        {language === "fr"
+                          ? "Étape 0 · Transcription"
+                          : "Step 0 · Transcription"}
+                      </strong>
+                      <span className="mt-1 block text-lg text-mute">
+                        {language === "fr"
+                          ? "Écrire les paroles du clip"
+                          : "Write down the clip’s speech"}
+                      </span>
+                    </span>
+                  </label>
+                )}
+                {state.value.workers.some(
+                  (w) =>
+                    !w.revoked_at &&
+                    w.supported_steps?.some(
+                      (s) =>
+                        s === "voice.*" || s.startsWith("voice.diarization."),
+                    ),
+                ) && (
+                  <label className="flex min-h-24 cursor-pointer items-start gap-3 rounded-xl border border-line p-5 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
+                    <input
+                      type="radio"
+                      name="step"
+                      value="voice"
+                      required
+                      className="sr-only"
+                    />
+                    <span>
+                      <strong className="block text-xl">
+                        {language === "fr"
+                          ? "Étape 1 · Analyse des voix"
+                          : "Step 1 · Voice analysis"}
+                      </strong>
+                      <span className="mt-1 block text-lg text-mute">
+                        {language === "fr"
+                          ? "Nécessite une transcription"
+                          : "Requires a transcript"}
+                      </span>
+                    </span>
+                  </label>
+                )}
+              </fieldset>
               <div>
-                <button disabled={busy} className={buttonClass()}>
-                  {t("queue.schedule")}
+                <button
+                  disabled={busy}
+                  className={`${buttonClass("primary")} h-[60px] md:h-[60px] px-6 text-lg`}
+                >
+                  {language === "fr" ? "Planifier" : "Schedule"}
                 </button>
               </div>
             </form>
