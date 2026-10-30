@@ -29,7 +29,11 @@ export function TranscribeButton({
 }) {
   const { t, error } = useI18n();
   const { user, session } = useSession();
-  const [warning, setWarning] = useState<{ text_segments: number; speaker_segments: number; authors: string[] }>();
+  const [warning, setWarning] = useState<{
+    text_segments: number;
+    speaker_segments: number;
+    authors: string[];
+  }>();
   const [failure, setFailure] = useState<string>();
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -40,7 +44,8 @@ export function TranscribeButton({
   // Don't show if transcription is already done or in progress
   const transcriptionState = progress?.transcription ?? "none";
   const isTranscriptionDone = transcriptionState === "done";
-  const isTranscriptionRunning = transcriptionState === "running" || transcriptionState === "queued";
+  const isTranscriptionRunning =
+    transcriptionState === "running" || transcriptionState === "queued";
 
   // Show button if clip is ready and transcription is not done
   const clipReady = transcriptionState !== "unavailable";
@@ -52,7 +57,10 @@ export function TranscribeButton({
     const isDone = jobState === "done";
     const isFailed = jobState === "failed" || jobState === "dead";
     const isRunning = jobState === "leased";
-    const isQueued = jobState === "pending" || jobState === "retry_wait" || jobState === "cancelled";
+    const isQueued =
+      jobState === "pending" ||
+      jobState === "retry_wait" ||
+      jobState === "cancelled";
 
     return (
       <div className="flex flex-col gap-2">
@@ -65,10 +73,10 @@ export function TranscribeButton({
               isDone
                 ? "bg-ok-fg/10 text-ok-fg"
                 : isFailed
-                ? "bg-bad-fg/10 text-bad-fg"
-                : isRunning
-                ? "bg-accent-ink/10 text-accent-ink"
-                : "bg-warn-fg/10 text-warn-fg"
+                  ? "bg-bad-fg/10 text-bad-fg"
+                  : isRunning
+                    ? "bg-accent-ink/10 text-accent-ink"
+                    : "bg-warn-fg/10 text-warn-fg"
             }`}
           >
             {t(`clip.transcribe.job.${jobState}`)}
@@ -79,7 +87,9 @@ export function TranscribeButton({
             {t("clip.transcribe.jobError", { error: error(job.last_error) })}
           </ErrorAlert>
         )}
-        {isDone && <StatusNotice>{t("clip.transcribe.scheduled")}</StatusNotice>}
+        {isDone && (
+          <StatusNotice>{t("clip.transcribe.scheduled")}</StatusNotice>
+        )}
         <button
           type="button"
           disabled={busy}
@@ -113,8 +123,8 @@ export function TranscribeButton({
           ...(selectedStream !== null
             ? { audio_stream_index: selectedStream }
             : audioTrackSelection?.audio_stream_index !== undefined
-            ? { audio_stream_index: audioTrackSelection.audio_stream_index }
-            : {}),
+              ? { audio_stream_index: audioTrackSelection.audio_stream_index }
+              : {}),
         },
       });
       if (r.error) {
@@ -154,14 +164,22 @@ export function TranscribeButton({
     return (
       <div className="flex flex-col gap-2">
         <div>
-          <p className="mb-2 text-sm text-mute">{t("clip.transcribe.selectTrack")}</p>
+          <p className="mb-2 text-sm text-mute">
+            {t("clip.transcribe.selectTrack")}
+          </p>
           <div className="flex gap-2">
             <select
               value={selectedStream ?? ""}
-              onChange={(e) => setSelectedStream(e.target.value ? Number(e.target.value) : null)}
+              onChange={(e) =>
+                setSelectedStream(
+                  e.target.value ? Number(e.target.value) : null,
+                )
+              }
               className="flex-1 min-h-11 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="">{t("clip.transcribe.selectTrackPlaceholder")}</option>
+              <option value="">
+                {t("clip.transcribe.selectTrackPlaceholder")}
+              </option>
               {audioOnlyTracks.map((track) => (
                 <option key={track.index} value={track.index}>
                   {track.title ?? `Track ${track.index}`}
