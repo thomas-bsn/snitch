@@ -1,4 +1,6 @@
-import { useCallback, useState, type FormEvent } from "react";
+import { JobWorkflow } from "./JobWorkflow";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router";
 import { api, errorCode, mutation } from "../../api/client";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert, StatusNotice } from "../../components/Alert";
@@ -8,6 +10,11 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
 import type { components } from "../../../api.gen";
+import {
+  QueuePrototype,
+  sampleQueueControls,
+  sampleQueueJobs,
+} from "./QueuePrototype";
 
 type Filters = {
   status?: components["schemas"]["Job"]["status"];
@@ -19,7 +26,7 @@ async function load(page: number, filters: Filters) {
     const [controls, jobs] = await Promise.all([
       api.GET("/api/admin/job-controls"),
       api.GET("/api/admin/jobs", {
-        params: { query: { page, page_size: 20, ...filters } },
+        params: { query: { page_size: 100, ...filters, page: 1 } },
       }),
     ]);
     if (!controls.data || !jobs.data)
@@ -27,9 +34,15 @@ async function load(page: number, filters: Filters) {
         ok: false as const,
         code: errorCode(controls.error ?? jobs.error) ?? "unknown",
       };
+    const allJobs = [...jobs.data.items];
+    for (let nextPage = 2; allJobs.length < jobs.data.total; nextPage++) {
+      const next = await api.GET("/api/admin/jobs", {params: {query: { ...filters, page: nextPage, page_size: 100 }}});
+      if (!next.data || !next.data.items.length) return {ok: false as const, code: "unavailable"};
+      allJobs.push(...next.data.items);
+    }
     return {
       ok: true as const,
-      value: { controls: controls.data, jobs: jobs.data },
+      value: { controls: controls.data, jobs: {...jobs.data, items: allJobs} },
     };
   } catch {
     return { ok: false as const, code: "unavailable" };
@@ -38,6 +51,7 @@ async function load(page: number, filters: Filters) {
 type Job = components["schemas"]["Job"];
 type Event = components["schemas"]["JobEvent"];
 export function QueueTab() {
+  const [searchParams] = useSearchParams();
   const { t, error } = useI18n();
   const { session } = useSession();
   const [page, setPage] = useState(1);
@@ -50,6 +64,7 @@ export function QueueTab() {
   const [notice, setNotice] = useState(false);
   const [history, setHistory] = useState<Record<number, Event[]>>({});
   const [busy, setBusy] = useState(false);
+  const [transcriptionClip, setTranscriptionClip] = useState<number>();
   const [warning, setWarning] = useState<{
     job?: Job;
     input?: components["schemas"]["JobInput"];
@@ -89,16 +104,23 @@ export function QueueTab() {
       setBusy(false);
     }
   }
-  function submitJob(event: FormEvent<HTMLFormElement>) {
+  async function submitJob(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const f = new FormData(event.currentTarget);
-    void schedule({
-      clip_id: Number(f.get("clip")),
-      step: String(f.get("step")),
-      input_version: String(f.get("version")),
-      priority: Number(f.get("priority")),
-      max_attempts: Number(f.get("attempts")),
-    });
+    const clip = Number(f.get("clip"));
+    await scheduleTranscription(clip);
+  }
+  async function scheduleTranscription(clip: number, confirm = false) {
+    setBusy(true); setFailure(undefined);
+    try {
+      const result = await api.POST("/api/admin/clips/{id}/transcription", {
+        params: { path: {id: clip}, header: mutation(session?.csrf_token), query: {confirm_replace_corrections: confirm || undefined} }, body: {},
+      });
+      if (result.error && "corrections" in result.error && result.error.corrections && result.error.error === "corrections_would_be_replaced") {
+        setTranscriptionClip(clip); setWarning({corrections: result.error.corrections});
+      } else if (result.error) setFailure(errorCode(result.error) ?? "unknown");
+      else { setWarning(undefined); setTranscriptionClip(undefined); setNotice(true); reload(); }
+    } catch {setFailure("unavailable");} finally {setBusy(false);}
   }
   function filterJobs(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -197,19 +219,27 @@ export function QueueTab() {
       setBusy(false);
     }
   }
+  if (import.meta.env.DEV && searchParams.has("variant"))
+    return (
+      <QueuePrototype
+        jobs={sampleQueueJobs}
+        controls={sampleQueueControls}
+      />
+    );
   return (
-    <div className="flex max-w-4xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <ConfirmDialog
         open={!!warning}
         onOpenChange={(open) => {
-          if (!open) setWarning(undefined);
+          if (!open) {setWarning(undefined); setTranscriptionClip(undefined);}
         }}
         title={t("queue.confirmTitle")}
         cancelLabel={t("queue.cancel")}
         confirmLabel={t("queue.confirm")}
         busy={busy}
         onConfirm={() => {
-          if (warning?.job) void retry(warning.job, true);
+          if (transcriptionClip) void scheduleTranscription(transcriptionClip, true);
+          else if (warning?.job) void retry(warning.job, true);
           else if (warning?.input) void schedule(warning.input, true);
         }}
       >
@@ -232,7 +262,7 @@ export function QueueTab() {
       {notice && <StatusNotice>{t("queue.updated")}</StatusNotice>}
       {state.status === "ready" && (
         <>
-          <form
+          <details className="rounded-xl border border-line p-4"><summary className="cursor-pointer font-semibold">Réglages de la file</summary><p className="my-3 text-sm text-mute">La concurrence globale limite le nombre de tâches simultanées sur tous les workers. La pause empêche de prendre de nouvelles tâches et laisse finir celles en cours.</p><form
             onSubmit={save}
             className="flex max-w-md flex-col gap-4 rounded-xl border border-line p-4"
           >
@@ -260,7 +290,7 @@ export function QueueTab() {
                 {t("queue.save")}
               </button>
             </div>
-          </form>
+          </form></details>
           <details className="rounded-xl border border-line p-4">
             <summary className="cursor-pointer font-medium">
               {t("queue.schedule")}
@@ -276,36 +306,8 @@ export function QueueTab() {
                 min={1}
                 required
               />
-              <Field
-                name="step"
-                label={t("queue.step")}
-                required
-                maxLength={64}
-                pattern="[a-z][a-z0-9_.-]{0,63}"
-              />
-              <Field
-                name="version"
-                label={t("queue.version")}
-                required
-                maxLength={128}
-              />
-              <Field
-                name="priority"
-                label={t("queue.priority")}
-                type="number"
-                min={-100}
-                max={100}
-                defaultValue={0}
-              />
-              <Field
-                name="attempts"
-                label={t("queue.attempts")}
-                type="number"
-                min={1}
-                max={20}
-                defaultValue={3}
-                required
-              />
+              <label className="flex flex-col gap-2">{t("queue.step")}<select name="step" className="h-11 rounded-lg border border-line-strong bg-surface px-3"><option value="transcription">Transcription</option></select></label>
+              <p className="text-sm text-mute">La piste audio et la version sont calculées par le serveur. Un worker compatible prendra la tâche automatiquement. Les traitements vocaux existants peuvent être relancés depuis leur carte.</p>
               <div>
                 <button disabled={busy} className={buttonClass()}>
                   {t("queue.schedule")}
@@ -353,82 +355,14 @@ export function QueueTab() {
           {state.value.jobs.items.length === 0 ? (
             <p>{t("queue.empty")}</p>
           ) : (
-            <ul className="flex list-none flex-col gap-3 p-0">
-              {state.value.jobs.items.map((job) => (
-                <li key={job.id} className="rounded-xl border border-line p-4">
-                  <strong>{job.step}</strong>
-                  <p>
-                    {t("queue.job", {
-                      id: job.id,
-                      clip: job.clip_id,
-                      status: t(`queue.status.${job.status}`),
-                    })}
-                  </p>
-                  <p className="text-mute">{job.last_error}</p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className={buttonClass()}
-                      onClick={() => void showHistory(job)}
-                    >
-                      {t("queue.history")}
-                    </button>
-                    {job.status === "dead" && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className={buttonClass()}
-                        onClick={() => void retry(job)}
-                      >
-                        {t("queue.retry")}
-                      </button>
-                    )}
-                    {["pending", "retry_wait", "leased"].includes(
-                      job.status,
-                    ) && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className={buttonClass()}
-                        onClick={() => void cancel(job)}
-                      >
-                        {t("queue.cancel")}
-                      </button>
-                    )}
-                  </div>
-                  {history[job.id] && (
-                    <ul>
-                      {history[job.id].map((item) => (
-                        <li key={item.id}>
-                          {t(`queue.event.${item.event}`)} · {item.created_at} ·{" "}
-                          {item.error_code}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <JobWorkflow jobs={state.value.jobs.items} actions={job => <div className="flex flex-wrap gap-2">
+              <button type="button" className={buttonClass()} onClick={() => void showHistory(job)}>{t("queue.history")}</button>
+              {job.status === "dead" && <button disabled={busy} className={buttonClass()} onClick={() => void retry(job)}>{t("queue.retry")}</button>}
+              {["pending", "retry_wait", "leased"].includes(job.status) && <button disabled={busy} className={buttonClass()} onClick={() => void cancel(job)}>{t("queue.cancel")}</button>}
+              {history[job.id] && <ul className="w-full">{history[job.id].map(item => <li key={item.id}>{t(`queue.event.${item.event}`)} · {item.created_at} · {item.error_code}</li>)}</ul>}
+            </div>}/>
           )}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={page <= 1}
-              className={buttonClass()}
-              onClick={() => setPage(page - 1)}
-            >
-              {t("queue.previous")}
-            </button>
-            <span>{t("queue.page", { page })}</span>
-            <button
-              type="button"
-              disabled={page * 20 >= state.value.jobs.total}
-              className={buttonClass()}
-              onClick={() => setPage(page + 1)}
-            >
-              {t("queue.next")}
-            </button>
-          </div>
+
         </>
       )}
     </div>

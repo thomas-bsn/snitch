@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useSearchParams } from "react-router";
+import type { ReactNode } from "react";
 import { AddressNotice } from "../components/AddressNotice";
 import { buttonClass } from "../components/buttons";
 import { Brand, Logo } from "../components/Logo";
@@ -18,7 +19,7 @@ const tabLink =
  * The frame of every signed-in screen: a sidebar with four entries, a header with the
  * search, the Import button and the avatar, and on a phone a tab bar instead of the sidebar.
  */
-export function AppShell() {
+export function AppShell({ children }: { children?: ReactNode }) {
   const { t } = useI18n();
   const [params, setParams] = useSearchParams();
   const notice = params.get("notice");
@@ -79,7 +80,7 @@ export function AppShell() {
               }}
             />
           )}
-          <Outlet />
+          {children ?? <Outlet />}
         </main>
       </div>
       <nav

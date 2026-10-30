@@ -15,6 +15,7 @@ import {
 import { AdminLayout, AdminPlaceholder } from "./admin/AdminLayout";
 import { ADMIN_TABS } from "./admin/tabs";
 import { FoldersTab } from "./admin/folders/FoldersTab";
+import { QueuePrototype, sampleQueueControls, sampleQueueJobs } from "./admin/queue/QueuePrototype";
 import { QueueTab } from "./admin/queue/QueueTab";
 import { SemanticTab } from "./admin/semantic/SemanticTab";
 import { WorkersTab } from "./admin/workers/WorkersTab";
@@ -72,6 +73,22 @@ function Home() {
 function Routing() {
   const { phase, setup, reload } = useSession();
   const unreachable = useServerUnreachable();
+  const location = useLocation();
+
+  // A read-only preview keeps the real shell and route without requiring an API server.
+  if (
+    import.meta.env.DEV &&
+    location.pathname === "/admin/queue" &&
+    new URLSearchParams(location.search).has("variant")
+  ) {
+    return (
+      <AppShell>
+        <AdminLayout>
+          <QueuePrototype jobs={sampleQueueJobs} controls={sampleQueueControls} />
+        </AdminLayout>
+      </AppShell>
+    );
+  }
 
   if (unreachable || phase === "failed") {
     return <ConnectionLost onRetry={() => void reload()} />;
