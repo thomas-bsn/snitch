@@ -141,8 +141,8 @@ test.describe.serial("racine vidéo et photo de profil", () => {
   }) => {
     await page.goto("/admin/folders");
     const rootInput = page.getByLabel("Root folder accessible to Snitch");
-    // Wait for the periodic refresh to load the current root before editing it.
-    await expect(rootInput).not.toHaveValue("");
+    // This page starts with an empty path draft; the configured path is shown
+    // in the root summary and only needs to be replaced in this form.
     page.once("dialog", (dialog) => dialog.accept());
     await rootInput.fill(ROOT_2!);
     await page.getByRole("button", { name: "Save folder" }).click();
