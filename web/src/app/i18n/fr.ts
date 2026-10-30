@@ -887,6 +887,18 @@ export const fr: Messages = {
     card: {
       open: "Ouvrir le clip {name}",
       by: "par {owner}",
+      id: "ID",
+      copyId: "Copier l'identifiant",
+      visibility: {
+        shared: "Partagé",
+        private: "Privé",
+      },
+      changeVisibility: "Changer la visibilité",
+      confirmVisibilityChange: "Confirmer le changement de visibilité ?",
+      confirmMakeShared: "Ce clip deviendra visible par tous les membres du workspace.",
+      confirmMakePrivate: "Ce clip ne sera visible que par vous.",
+      confirmShared: "Confirmer — Partagé",
+      confirmPrivate: "Confirmer — Privé",
     },
     pagination: {
       label: "Pages de la bibliothèque",

@@ -874,6 +874,18 @@ export const en = {
     card: {
       open: "Open the clip {name}",
       by: "by {owner}",
+      id: "ID",
+      copyId: "Copy clip ID",
+      visibility: {
+        shared: "Shared",
+        private: "Private",
+      },
+      changeVisibility: "Change visibility",
+      confirmVisibilityChange: "Confirm visibility change?",
+      confirmMakeShared: "This clip will become visible to all workspace members.",
+      confirmMakePrivate: "This clip will be visible only to you.",
+      confirmShared: "Confirm — Shared",
+      confirmPrivate: "Confirm — Private",
     },
     pagination: {
       label: "Pages of the library",
