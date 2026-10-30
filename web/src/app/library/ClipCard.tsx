@@ -165,7 +165,7 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
             </span>
             <button
               type="button"
-              className="p-1 rounded hover:bg-muted transition-colors"
+              className="relative z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded hover:bg-muted transition-colors"
               aria-label={t("library.card.copyId")}
               onClick={async () => {
                 try {
@@ -193,7 +193,7 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
           <div className="relative">
             <button
               type="button"
-              className="absolute top-2 right-2 p-1 rounded hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-0 right-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded hover:bg-muted/50 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               aria-label={t("library.card.changeVisibility")}
               aria-expanded={showMenu}
               aria-haspopup="menu"
