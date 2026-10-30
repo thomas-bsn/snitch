@@ -1,3 +1,4 @@
+import { LibrarySearchTabs } from "../library/LibrarySearchTabs";
 import { useCallback, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useLoaded } from "../api/loaded";
@@ -90,6 +91,7 @@ export function SearchPage() {
 
   return (
     <section className="flex flex-col gap-5 px-4 py-6 md:px-7">
+      <LibrarySearchTabs />
       <h1 className="text-[22px] font-semibold">{t("pages.search.title")}</h1>
 
       <SearchForm

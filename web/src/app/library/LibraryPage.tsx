@@ -1,3 +1,4 @@
+import { LibrarySearchTabs } from "../library/LibrarySearchTabs";
 import { VideoStorage } from "./VideoStorage";
 import { Link, useLocation } from "react-router";
 import { useCallback, useMemo } from "react";
@@ -60,6 +61,7 @@ export function LibraryPage() {
 
   return (
     <section className="flex flex-col gap-5 px-4 py-6 md:px-7">
+      <LibrarySearchTabs />
       <div className="flex items-baseline gap-3">
         <h1 className="text-[22px] font-semibold">
           {t("pages.library.title")}
