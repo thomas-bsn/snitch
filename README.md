@@ -62,3 +62,7 @@ Le worker autonome (absent de Compose) traite les fixtures et les tâches de tra
 Les administrateurs peuvent ajouter des dossiers sous les racines configurées. Le scan garde l’historique des emplacements disparus et évite de déclarer des fichiers manquants si un dossier est inaccessible ou si le parcours est incomplet. Une empreinte SHA-256 permet de relier le même contenu à plusieurs emplacements ; remplacer le contenu d’un chemin crée une nouvelle identité de clip. Une disparition d’au moins 20 % des fichiers suivis produit un avertissement de santé. Voir la [décision de réconciliation](docs/adr/0010-identite-et-reconciliation-des-clips.md).
 
 Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. Les phases 0 à 2 sont validées ; les phases 3 à 5 sont implémentées, la phase 5 attendant la validation utilisateur. Voir les bilans de [phase 3](docs/phase-3-report.md), [phase 4](docs/phase-4-report.md) et [phase 5](docs/phase-5-report.md). Les données de test de la phase 5 sont synthétiques ; la précision d’identification réelle n’est pas mesurée. Le benchmark réel de phase 7 demande une autorisation séparée.
+
+### File de tâches par clip
+
+L’administration présente les traitements par clip, les trois derniers clips terminés et un historique paginé. La planification calcule la version automatiquement et propose les traitements compatibles avec les workers déclarés. Voir [le bilan #98](docs/issue-98-report.md).

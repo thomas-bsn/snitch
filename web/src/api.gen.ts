@@ -1968,6 +1968,8 @@ export interface components {
       connected: boolean;
       /** @description Modèles déclarés par le worker à son dernier pouls, visibles des administrateurs. Un rôle absent est « non déclaré ». */
       models?: components["schemas"]["WorkerModels"];
+      /** @description Last reported task capabilities; revoked workers must not be selected. */
+      supported_steps?: string[];
     };
     /** @description Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs ressemblant à un secret sont refusées. */
     WorkerModels: {
@@ -4276,6 +4278,8 @@ export interface operations {
         step?: string;
         page?: number;
         page_size?: number;
+        /** @description Paginate clips with their latest job per step. Total counts clips. active includes unfinished or cancelled clips; done requires every latest step to have succeeded. */
+        workflow?: "active" | "done";
       };
       header?: never;
       path?: never;

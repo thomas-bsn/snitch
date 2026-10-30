@@ -56,6 +56,7 @@ from .job_status import JobStatus
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
+from .list_jobs_workflow import ListJobsWorkflow
 from .list_members_response_200 import ListMembersResponse200
 from .list_voice_groups_sort import ListVoiceGroupsSort
 from .list_voice_verification_level import ListVoiceVerificationLevel
@@ -294,6 +295,7 @@ __all__ = (
     "ListClipsStatus",
     "ListClipsVisibility",
     "ListJobsStatus",
+    "ListJobsWorkflow",
     "ListMembersResponse200",
     "ListVoiceGroupsSort",
     "ListVoiceVerificationLevel",

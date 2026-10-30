@@ -1118,6 +1118,7 @@
       "get": {
         "operationId": "listJobs",
         "parameters": [
+{"name": "workflow", "in": "query", "description": "Paginate clips with their latest job per step. Total counts clips. active includes unfinished or cancelled clips; done requires every latest step to have succeeded.", "schema": {"type": "string", "enum": ["active", "done"]}},
           {
             "in": "query",
             "name": "status",
@@ -4847,6 +4848,7 @@
           "connected"
         ],
         "properties": {
+"supported_steps":{"type": "array", "items": {"type": "string"}, "description": "Last reported task capabilities; revoked workers must not be selected."},
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "machine": {"$ref": "#/components/schemas/WorkerMachine"},
           "remote_address": {"type": "string", "description": "Adresse IP de connexion observée par Snitch, sans port."},

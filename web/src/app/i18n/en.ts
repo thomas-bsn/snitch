@@ -10,6 +10,7 @@ export const en = {
     loading: "Loading…",
   },
   queue: {
+    voiceStep: "Voice processing (after transcription)",
     filterStatus: "Filter by status",
     allStatuses: "All statuses",
     filterClip: "Filter by clip ID",

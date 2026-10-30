@@ -83,6 +83,7 @@ type Event struct {
 }
 
 type Filter struct {
+	Workflow string
 	Status   Status
 	ClipID   int64
 	Step     string
@@ -184,6 +185,9 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 }
 
 func (s *Service) List(ctx context.Context, filter Filter) (Page, error) {
+	if filter.Workflow != "" {
+		return s.listWorkflow(ctx, filter)
+	}
 	if filter.Page < 1 || filter.Page > 100000 || filter.PageSize < 1 || filter.PageSize > 100 || (filter.Status != "" && filter.Status != Pending && filter.Status != Leased && filter.Status != Done && filter.Status != Failed && filter.Status != RetryWait && filter.Status != Cancelled && filter.Status != Dead) || filter.ClipID < 0 || (filter.Step != "" && !stepPattern.MatchString(filter.Step)) {
 		return Page{}, ErrInvalidInput
 	}
@@ -605,4 +609,32 @@ func scanJob(row scanner) (Job, error) {
 	var job Job
 	err := row.Scan(&job.ID, &job.ClipID, &job.Step, &job.InputVersion, &job.Status, &job.Priority, &job.Attempts, &job.MaxAttempts, &job.LeaseOwner, &job.LeaseExpiresAt, &job.NextAttemptAt, &job.LastError, &job.CreatedAt, &job.UpdatedAt, &job.Result, &job.Cycle)
 	return job, err
+}
+
+// listWorkflow paginates clips before loading their latest task per step.
+func (s *Service) listWorkflow(ctx context.Context, f Filter) (Page, error) {
+	if (f.Workflow != "active" && f.Workflow != "done") || f.Page < 1 || f.Page > 100000 || f.PageSize < 1 || f.PageSize > 100 {
+		return Page{}, ErrInvalidInput
+	}
+	const base = `WITH latest AS (SELECT DISTINCT ON (clip_id,step) * FROM jobs ORDER BY clip_id,step,id DESC), grouped AS (SELECT clip_id,max(updated_at) AS updated,bool_and(status='done') AS done FROM latest GROUP BY clip_id), eligible AS (SELECT * FROM grouped WHERE done=$1 AND ($2::bigint=0 OR clip_id=$2) AND EXISTS (SELECT 1 FROM latest l WHERE l.clip_id=grouped.clip_id AND ($3='' OR l.status=$3) AND ($4='' OR l.step=$4))) `
+	args := []any{f.Workflow == "done", f.ClipID, f.Status, f.Step}
+	var total int64
+	if err := s.pool.QueryRow(ctx, base+`SELECT count(*) FROM eligible`, args...).Scan(&total); err != nil {
+		return Page{}, err
+	}
+	args = append(args, f.PageSize, (f.Page-1)*f.PageSize)
+	rows, err := s.pool.Query(ctx, base+`SELECT l.id,l.clip_id,l.step,l.input_version,l.status,l.priority,l.attempts,l.max_attempts,l.lease_owner,l.lease_expires_at,l.next_attempt_at,l.last_error,l.created_at,l.updated_at,NULL::jsonb,l.cycle FROM latest l JOIN (SELECT clip_id,updated FROM eligible ORDER BY updated DESC,clip_id DESC LIMIT $5 OFFSET $6) e USING(clip_id) ORDER BY e.updated DESC,l.clip_id DESC,l.id DESC`, args...)
+	if err != nil {
+		return Page{}, err
+	}
+	defer rows.Close()
+	items := []Job{}
+	for rows.Next() {
+		j, e := scanJob(rows)
+		if e != nil {
+			return Page{}, e
+		}
+		items = append(items, j)
+	}
+	return Page{Items: items, Page: f.Page, PageSize: f.PageSize, Total: total}, rows.Err()
 }

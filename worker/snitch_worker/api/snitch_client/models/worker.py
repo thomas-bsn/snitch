@@ -43,6 +43,7 @@ class Worker:
             models (WorkerModels | Unset): Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais
                 de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs
                 ressemblant à un secret sont refusées.
+            supported_steps (list[str] | Unset): Last reported task capabilities; revoked workers must not be selected.
      """
 
     id: str
@@ -57,6 +58,7 @@ class Worker:
     machine: WorkerMachine | Unset = UNSET
     remote_address: str | Unset = UNSET
     models: WorkerModels | Unset = UNSET
+    supported_steps: list[str] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -102,6 +104,12 @@ class Worker:
         if not isinstance(self.models, Unset):
             models = self.models.to_dict()
 
+        supported_steps: list[str] | Unset = UNSET
+        if not isinstance(self.supported_steps, Unset):
+            supported_steps = self.supported_steps
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -123,6 +131,8 @@ class Worker:
             field_dict["remote_address"] = remote_address
         if models is not UNSET:
             field_dict["models"] = models
+        if supported_steps is not UNSET:
+            field_dict["supported_steps"] = supported_steps
 
         return field_dict
 
@@ -208,6 +218,9 @@ class Worker:
 
 
 
+        supported_steps = cast(list[str], d.pop("supported_steps", UNSET))
+
+
         worker = cls(
             id=id,
             name=name,
@@ -221,6 +234,7 @@ class Worker:
             machine=machine,
             remote_address=remote_address,
             models=models,
+            supported_steps=supported_steps,
         )
 
 

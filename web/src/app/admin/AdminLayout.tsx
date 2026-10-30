@@ -1,5 +1,4 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import type { ReactNode } from "react";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import { ADMIN_TABS } from "./tabs";
@@ -22,7 +21,7 @@ const pillClass = ({ isActive }: { isActive: boolean }) =>
  * The administration: a horizontal tab bar, optional pills for the sections of a tab, and the
  * screen of the tab below. Reserved to administrators (the route guards it).
  */
-export function AdminLayout({ children }: { children?: ReactNode }) {
+export function AdminLayout() {
   const { t } = useI18n();
   const { pathname } = useLocation();
   useDocumentTitle(t("admin.title"));
@@ -72,7 +71,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
           </ul>
         </nav>
       )}
-      {children ?? <Outlet />}
+      <Outlet />
     </section>
   );
 }
