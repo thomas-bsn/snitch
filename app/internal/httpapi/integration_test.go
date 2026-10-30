@@ -700,6 +700,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/setup-progress", nil, "", 200)
 		call(client, "PUT", "/api/admin/setup-progress", map[string]string{"step": "discord", "state": "skipped"}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/setup-progress/dismiss", nil, me.CSRF, 200)
+		call(client, "PATCH", "/api/clips/"+strconv64(contractClipID), map[string]string{"visibility": "private"}, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/text", map[string]any{"text": "corrigé", "expected_version": 0}, me.CSRF, 404)
 		if _, e = pool.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,status,result) VALUES($1,'transcription.audio.2','contract-transcription','done',$2::jsonb)`, contractClipID, `{"provider":"fixture","model":"m","audio_stream_index":2,"segments":[{"start":0,"end":1,"text":"original","words":[]}]}`); e != nil {
 			t.Fatal(e)
