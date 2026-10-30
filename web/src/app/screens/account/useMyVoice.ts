@@ -68,5 +68,5 @@ export function useMyVoice() {
     [csrfToken, load],
   );
 
-  return { voice, erase };
+  return { voice, erase, reload: load };
 }

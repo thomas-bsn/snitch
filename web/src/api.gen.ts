@@ -1354,6 +1354,77 @@ export interface paths {
     get: operations["getMyPerson"];
     put?: never;
     post?: never;
+    /** @description Utilisateurs connectés. Le compte lié retire sa propre liaison : la Personne, ses attributions et ses clips sont conservés, mais l'accès de « Ma voix » et le droit de supprimer le profil vocal sont perdus. Tracé. */
+    delete: operations["unlinkMyPerson"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/me/person/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Renvoie la demande la plus récente du compte : en attente, approuvée ou refusée. */
+    get: operations["getMyPersonLinkRequest"];
+    put?: never;
+    /** @description Utilisateurs connectés. Demande à lier son compte à une Personne existante ; un Administrateur approuve ou refuse. Un compte déjà lié doit se délier d'abord. Un compte a au plus une demande en attente, et une Personne aussi. */
+    post: operations["requestPersonLink"];
+    /** @description Utilisateurs connectés. Annule la demande en attente du compte ; le fait reste dans la trace immuable. */
+    delete: operations["cancelMyPersonLinkRequest"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/person-link-requests": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. File des demandes de liaison entre un compte et une Personne. */
+    get: operations["listPersonLinkRequests"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/person-link-requests/{id}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Lie le compte demandeur à la Personne ; si un autre compte y était lié, le lien est remplacé — l'ancien compte perd la liaison — et les deux faits sont tracés. */
+    post: operations["approvePersonLinkRequest"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/person-link-requests/{id}/refuse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Refuse la demande ; aucun lien n'est créé et le fait est tracé. */
+    post: operations["refusePersonLinkRequest"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2317,6 +2388,37 @@ export interface components {
       /** Format: int64 */
       id: number;
       display_name: string;
+    };
+    PersonLinkAccount: {
+      /** Format: int64 */
+      id: number;
+      /** @description Nom du compte au moment de la décision. */
+      username: string;
+    };
+    PersonLinkRequestInput: {
+      /** Format: int64 */
+      person_id: number;
+      /** @description Message facultatif à l'attention de l'Administrateur. */
+      message?: string;
+    };
+    PersonLinkRequest: {
+      /** Format: int64 */
+      id: number;
+      person: components["schemas"]["PersonRef"];
+      /** @description Compte qui demande la liaison. */
+      account: components["schemas"]["PersonLinkAccount"];
+      /** @enum {string} */
+      status: "pending" | "approved" | "refused";
+      message: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      decided_at: string | null;
+      /** @description Administrateur qui a décidé, le cas échéant. */
+      decided_by: components["schemas"]["PersonLinkAccount"] | null;
+    };
+    PersonLinkRequestList: {
+      items: components["schemas"]["PersonLinkRequest"][];
     };
     Person: {
       /** Format: int64 */
@@ -7105,6 +7207,288 @@ export interface operations {
       };
       /** @description no_linked_person : aucune Personne n'est liée à ce compte */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  unlinkMyPerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Lien retiré ; la Personne, son profil vocal et ses clips sont conservés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description no_linked_person : aucune Personne n'est liée à ce compte */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getMyPersonLinkRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demande la plus récente du compte, tous états confondus */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequest"];
+        };
+      };
+      /** @description no_link_request : ce compte n'a aucune demande */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  requestPersonLink: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonLinkRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Demande créée, en attente d'un Administrateur */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequest"];
+        };
+      };
+      /** @description account_already_linked (ce compte est déjà lié), request_pending (une demande de ce compte est déjà en attente) ou person_request_pending (cette Personne a déjà une demande en attente) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelMyPersonLinkRequest: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demande annulée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description no_pending_request : aucune demande en attente */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPersonLinkRequests: {
+    parameters: {
+      query?: {
+        status?: "pending" | "approved" | "refused";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demandes de liaison, en attente par défaut */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequestList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  approvePersonLinkRequest: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demande approuvée : le compte demandeur est lié à la Personne */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequest"];
+        };
+      };
+      /** @description request_not_pending (déjà décidée) ou account_already_linked (le compte demandeur a gagné un autre lien entre-temps) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  refusePersonLinkRequest: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demande refusée : aucun lien n'est créé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequest"];
+        };
+      };
+      /** @description request_not_pending : la demande a déjà été décidée */
+      409: {
         headers: {
           [name: string]: unknown;
         };

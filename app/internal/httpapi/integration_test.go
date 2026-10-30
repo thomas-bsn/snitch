@@ -220,6 +220,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceProfileDeletion(t, pool)
 	})
+	t.Run("person link requests", func(t *testing.T) {
+		reset(t)
+		testPersonLinkRequests(t, pool)
+	})
 	t.Run("segment corrections", func(t *testing.T) {
 		reset(t)
 		testSegmentCorrections(t, pool)
