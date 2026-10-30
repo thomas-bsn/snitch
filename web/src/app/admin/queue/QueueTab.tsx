@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, Monitor } from "lucide-react";
 import { JobWorkflow } from "./JobWorkflow";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../../api/client";
@@ -309,70 +310,6 @@ export function QueueTab() {
       {notice && <StatusNotice>{t("queue.updated")}</StatusNotice>}
       {state.status === "ready" && (
         <>
-          {state.value.jobs.items.length === 0 ? (
-            <p>{t("queue.empty")}</p>
-          ) : (
-            <JobWorkflow
-              jobs={state.value.jobs.items}
-              actions={(job) => (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={buttonClass()}
-                    onClick={() => void showHistory(job)}
-                  >
-                    {t("queue.history")}
-                  </button>
-                  {job.status === "dead" && (
-                    <button
-                      disabled={busy}
-                      className={buttonClass()}
-                      onClick={() => void retry(job)}
-                    >
-                      {t("queue.retry")}
-                    </button>
-                  )}
-                  {["pending", "retry_wait", "leased"].includes(job.status) && (
-                    <button
-                      disabled={busy}
-                      className={buttonClass()}
-                      onClick={() => void cancel(job)}
-                    >
-                      {t("queue.cancel")}
-                    </button>
-                  )}
-                  {history[job.id] && (
-                    <ul className="w-full">
-                      {history[job.id].map((item) => (
-                        <li key={item.id}>
-                          {t(`queue.event.${item.event}`)} · {item.created_at} ·{" "}
-                          {item.error_code}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            />
-          )}
-
-          <div className="flex gap-3">
-            <button
-              className={buttonClass()}
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              {t("queue.previous")}
-            </button>
-            <span>{t("queue.page", { page })}</span>
-            <button
-              className={buttonClass()}
-              disabled={page * 20 >= state.value.jobs.total}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              {t("queue.next")}
-            </button>
-          </div>
           <details className="rounded-xl border border-line p-4">
             <summary className="cursor-pointer font-semibold">
               {language === "fr" ? "Réglages de la file" : "Queue settings"}
@@ -412,6 +349,144 @@ export function QueueTab() {
               </div>
             </form>
           </details>
+
+          <form
+            onSubmit={filterJobs}
+            className="flex flex-wrap items-end gap-3"
+          >
+            <label className="flex flex-col gap-1.5 font-medium">
+              {t("queue.filterStatus")}
+              <select
+                name="status"
+                className="h-11 rounded-lg border border-line-strong bg-surface px-3"
+              >
+                <option value="">{t("queue.allStatuses")}</option>
+                {(
+                  [
+                    "pending",
+                    "leased",
+                    "done",
+                    "failed",
+                    "retry_wait",
+                    "dead",
+                    "cancelled",
+                  ] as const
+                ).map((status) => (
+                  <option value={status} key={status}>
+                    {t(`queue.status.${status}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Field
+              name="clip"
+              label={t("queue.filterClip")}
+              type="number"
+              min={1}
+            />
+            <Field name="step" label={t("queue.filterStep")} />
+            <button className={buttonClass()}>{t("queue.filter")}</button>
+          </form>
+
+          {state.value.jobs.items.length === 0 ? (
+            <p>{t("queue.empty")}</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+                <span className="grid size-10 place-items-center rounded-lg bg-accent-soft text-accent-ink">
+                  <Monitor size={19} />
+                </span>
+                <div>
+                  <p className="font-semibold">
+                    {state.value.workers.find((w) => !w.revoked_at)?.name ??
+                      (language === "fr"
+                        ? "Aucun worker actif"
+                        : "No active worker")}
+                  </p>
+                  <p className="text-xs text-mute">
+                    {state.value.workers.find((w) => !w.revoked_at)?.machine
+                      ?.gpu_name ??
+                      (language === "fr"
+                        ? "Worker disponible selon ses capacités"
+                        : "Worker available for its reported capabilities")}
+                  </p>
+                </div>
+              </div>
+              <JobWorkflow
+                jobs={state.value.jobs.items}
+                actions={(job) => (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={buttonClass()}
+                      onClick={() => void showHistory(job)}
+                    >
+                      {t("queue.history")}
+                    </button>
+                    {job.status === "dead" && (
+                      <button
+                        disabled={busy}
+                        className={buttonClass()}
+                        onClick={() => void retry(job)}
+                      >
+                        {t("queue.retry")}
+                      </button>
+                    )}
+                    {["pending", "retry_wait", "leased"].includes(
+                      job.status,
+                    ) && (
+                      <button
+                        disabled={busy}
+                        className={buttonClass()}
+                        onClick={() => void cancel(job)}
+                      >
+                        {t("queue.cancel")}
+                      </button>
+                    )}
+                    {history[job.id] && (
+                      <ul className="w-full">
+                        {history[job.id].map((item) => (
+                          <li key={item.id}>
+                            {t(`queue.event.${item.event}`)} · {item.created_at}{" "}
+                            · {item.error_code}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              />
+            </>
+          )}
+
+          <nav
+            aria-label={
+              language === "fr" ? "Pagination de la file" : "Queue pagination"
+            }
+            className="flex items-center justify-center gap-3 py-2"
+          >
+            <button
+              aria-label={
+                language === "fr" ? "Page précédente" : "Previous page"
+              }
+              className="grid size-9 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="min-w-16 text-center text-sm text-mute">
+              {page} / {Math.max(1, Math.ceil(state.value.jobs.total / 20))}
+            </span>
+            <button
+              aria-label={language === "fr" ? "Page suivante" : "Next page"}
+              className="grid size-9 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
+              disabled={page * 20 >= state.value.jobs.total}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </nav>
           <details className="rounded-xl border border-line p-4">
             <summary className="cursor-pointer font-medium">
               {t("queue.schedule")}
@@ -467,8 +542,8 @@ export function QueueTab() {
                   ) && (
                     <option value="transcription">
                       {language === "fr"
-                        ? "Paroles en texte"
-                        : "Speech to text"}
+                        ? "Étape 0 · Transcrire les paroles"
+                        : "Step 0 · Transcribe speech"}
                     </option>
                   )}
                   {state.value.workers.some(
@@ -478,7 +553,13 @@ export function QueueTab() {
                         (s) =>
                           s === "voice.*" || s.startsWith("voice.diarization."),
                       ),
-                  ) && <option value="voice">{t("queue.voiceStep")}</option>}
+                  ) && (
+                    <option value="voice">
+                      {language === "fr"
+                        ? "Étape 1 · Analyser les voix"
+                        : "Step 1 · Analyze voices"}
+                    </option>
+                  )}
                 </select>
               </label>
               <p className="text-sm text-mute">
@@ -493,43 +574,6 @@ export function QueueTab() {
               </div>
             </form>
           </details>
-          <form
-            onSubmit={filterJobs}
-            className="flex flex-wrap items-end gap-3"
-          >
-            <label className="flex flex-col gap-1.5 font-medium">
-              {t("queue.filterStatus")}
-              <select
-                name="status"
-                className="h-11 rounded-lg border border-line-strong bg-surface px-3"
-              >
-                <option value="">{t("queue.allStatuses")}</option>
-                {(
-                  [
-                    "pending",
-                    "leased",
-                    "done",
-                    "failed",
-                    "retry_wait",
-                    "dead",
-                    "cancelled",
-                  ] as const
-                ).map((status) => (
-                  <option value={status} key={status}>
-                    {t(`queue.status.${status}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Field
-              name="clip"
-              label={t("queue.filterClip")}
-              type="number"
-              min={1}
-            />
-            <Field name="step" label={t("queue.filterStep")} />
-            <button className={buttonClass()}>{t("queue.filter")}</button>
-          </form>
         </>
       )}
     </div>

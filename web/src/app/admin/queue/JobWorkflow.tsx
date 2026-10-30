@@ -10,6 +10,9 @@ import {
   CheckCheck,
   TriangleAlert,
   Film,
+  ArrowRight,
+  ChevronDown,
+  Monitor,
 } from "lucide-react";
 import { api } from "../../api/client";
 import { useI18n } from "../../i18n";
@@ -34,6 +37,30 @@ function stage(job: Job) {
     return "voice";
   return "other";
 }
+function ClipArtwork({ id }: { id: number }) {
+  return (
+    <svg
+      viewBox="0 0 80 64"
+      className="h-12 w-14 shrink-0 rounded-md"
+      aria-hidden="true"
+    >
+      <rect width="80" height="64" fill={id % 2 ? "#172a38" : "#24233c"} />
+      <path
+        d="M0 48 20 28 32 38 49 14 80 42V64H0Z"
+        fill={id % 2 ? "#345769" : "#514b77"}
+      />
+      <path d="M0 57 27 41 45 53 63 32 80 46V64H0Z" fill="#101827" />
+      <path
+        d="M39 22v8m0 10v8M26 35h8m10 0h8"
+        stroke="#e9e8f4"
+        strokeWidth="1.5"
+        opacity=".8"
+      />
+      <rect x="5" y="5" width="15" height="3" rx="1.5" fill="#c4b5fd" />
+    </svg>
+  );
+}
+
 export function JobWorkflow({
   jobs,
   actions,
@@ -134,7 +161,33 @@ export function JobWorkflow({
   }, [ids]);
   return (
     <>
-      <div className="mb-4 flex justify-end">
+      <header className="mb-6">
+        <p className="text-sm text-mute">
+          {tr(
+            "Administration / Traitement des clips",
+            "Administration / Clip processing",
+          )}
+        </p>
+        <h2 className="mt-2 text-3xl font-semibold">
+          {tr("Le parcours de vos clips", "Your clips’ workflow")}
+        </h2>
+        <p className="mt-2 text-mute">
+          {tr(
+            "Repérez une vidéo dans le schéma, puis dépliez sa carte pour voir ses détails.",
+            "Find a video in the workflow, then expand its card for details.",
+          )}
+        </p>
+      </header>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
+        <div className="flex items-center gap-4">
+          <span className="grid size-12 place-items-center rounded-xl bg-accent-soft text-accent-ink">
+            <Monitor aria-hidden="true" />
+          </span>
+          <p className="font-semibold">
+            {jobs.filter((j) => j.status === "leased").length}{" "}
+            {tr("traitements en cours", "running tasks")}
+          </p>
+        </div>
         <button
           onClick={() => {
             setHistoryPage(1);
@@ -152,20 +205,50 @@ export function JobWorkflow({
               s.key !== "other" ||
               displayedJobs.some((j) => stage(j) === "other"),
           )
-          .map((s) => (
+          .map((s, index) => (
             <section
               key={s.key}
               className="min-w-0 rounded-2xl border border-line bg-side p-3"
             >
-              <s.icon
-                className="mb-3 text-accent-ink"
-                size={28}
-                aria-hidden="true"
-              />
-              <h3 className="mb-4 font-semibold">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span
+                  className={`relative grid size-14 place-items-center rounded-2xl border border-line shadow-sm ${s.key === "done" ? "bg-ok-bg text-ok-fg" : "bg-surface text-accent-ink"}`}
+                >
+                  <s.icon size={26} strokeWidth={1.5} aria-hidden="true" />
+                  <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border border-line bg-surface text-xs text-mute">
+                    {index + 1}
+                  </span>
+                </span>
+                {s.key !== "done" && (
+                  <ArrowRight
+                    size={18}
+                    className="text-accent-ink"
+                    aria-hidden="true"
+                  />
+                )}
+              </div>
+              <h3 className="mt-3 font-semibold">
                 {s.label} ·{" "}
                 {displayedJobs.filter((j) => stage(j) === s.key).length}
               </h3>
+              <p className="mb-4 mt-1 min-h-10 text-xs text-mute">
+                {tr(
+                  [
+                    "Écrire ce qui est dit dans la vidéo.",
+                    "Retrouver le clip à partir de ses paroles.",
+                    "Distinguer les personnes qui parlent.",
+                    "Comparer les voix aux personnes connues.",
+                    "Les résultats sont disponibles.",
+                  ][index] ?? "Autres traitements.",
+                  [
+                    "Write down the speech in the video.",
+                    "Find the clip by its spoken content.",
+                    "Separate the voices in the clip.",
+                    "Compare voices with known people.",
+                    "Results are available.",
+                  ][index] ?? "Other tasks.",
+                )}
+              </p>
               <div className="space-y-3">
                 {displayedJobs
                   .filter((j) => stage(j) === s.key)
@@ -173,27 +256,35 @@ export function JobWorkflow({
                   .map((job) => (
                     <details
                       key={job.id}
-                      className={`rounded-xl border bg-surface ${["pending", "retry_wait", "dead", "failed"].includes(job.status) ? "border-warn-fg" : "border-line"}`}
+                      className={`group rounded-xl border bg-surface shadow-sm transition-shadow hover:shadow-md motion-reduce:transition-none ${["pending", "retry_wait", "dead", "failed"].includes(job.status) ? "border-warn-fg" : "border-line"}`}
                     >
-                      <summary className="relative min-h-16 cursor-pointer p-3 pr-8">
-                        <span className="block break-words text-sm font-semibold">
-                          {titles[job.clip_id] ?? `Clip #${job.clip_id}`}
-                        </span>
-                        <span className="mt-2 block text-xs text-mute">
-                          {game(titles[job.clip_id] ?? "")
-                            ? `${game(titles[job.clip_id])} · `
-                            : ""}
-                          #{job.clip_id} · {t(`queue.status.${job.status}`)}
-                        </span>
-                        {["pending", "retry_wait", "dead", "failed"].includes(
-                          job.status,
-                        ) && (
-                          <TriangleAlert
-                            size={17}
-                            className="absolute right-2 top-2 text-warn-fg"
-                            aria-label={t(`queue.status.${job.status}`)}
-                          />
-                        )}
+                      <summary className="relative flex min-h-20 cursor-pointer list-none items-start gap-2 p-3 pr-8">
+                        <ClipArtwork id={job.clip_id} />
+                        <div className="min-w-0 flex-1">
+                          <span className="block break-words text-sm font-semibold">
+                            {titles[job.clip_id] ?? `Clip #${job.clip_id}`}
+                          </span>
+                          <span className="mt-2 block text-xs text-mute">
+                            {game(titles[job.clip_id] ?? "")
+                              ? `${game(titles[job.clip_id])} · `
+                              : ""}
+                            #{job.clip_id} · {t(`queue.status.${job.status}`)}
+                          </span>
+                          {["pending", "retry_wait", "dead", "failed"].includes(
+                            job.status,
+                          ) && (
+                            <TriangleAlert
+                              size={17}
+                              className="absolute right-2 top-2 text-warn-fg"
+                              aria-label={t(`queue.status.${job.status}`)}
+                            />
+                          )}
+                        </div>
+                        <ChevronDown
+                          size={14}
+                          className="absolute bottom-3 right-2 text-mute transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                          aria-hidden="true"
+                        />
                       </summary>
                       <div className="space-y-3 border-t border-line p-3 text-sm">
                         <Link
