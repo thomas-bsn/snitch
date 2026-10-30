@@ -20,7 +20,11 @@ export function HeaderSearch() {
   function submit(event: FormEvent) {
     event.preventDefault();
     const trimmed = query.trim();
-    navigate(trimmed ? `/search?q=${encodeURIComponent(trimmed)}` : "/search");
+    const params = new URLSearchParams(location.search);
+    if (trimmed) params.set("q", trimmed);
+    else params.delete("q");
+    params.delete("page");
+    navigate(`/search${params.size ? `?${params}` : ""}`);
   }
 
   return (

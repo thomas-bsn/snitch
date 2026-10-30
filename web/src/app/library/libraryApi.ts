@@ -31,6 +31,7 @@ export type LibraryFilters = {
   from: string;
   to: string;
   source: string;
+  visibility: string;
   owner: string;
   /** A Person's id, or "unknown" for the voices nobody identified. */
   person: string;
@@ -52,6 +53,10 @@ export async function fetchClips(
         from: filters.from || undefined,
         to: filters.to || undefined,
         source_id: positive(filters.source),
+        visibility:
+          filters.visibility === "shared" || filters.visibility === "private"
+            ? filters.visibility
+            : undefined,
         owner_id: positive(filters.owner),
         status: CLIP_STATES.find((state) => state === filters.state),
         person_id: positive(filters.person),

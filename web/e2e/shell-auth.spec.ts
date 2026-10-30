@@ -176,15 +176,19 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
       ).toBeVisible();
     }
 
-    // The sidebar leads to the four screens and marks the current one.
+    // Search is a view within the Library entry.
     await page.goto("/library");
     const sidebar = page.getByRole("navigation", { name: "Main navigation" });
-    await sidebar.getByRole("link", { name: "Search" }).click();
+    await page
+      .getByRole("navigation", { name: "Library" })
+      .getByRole("link", { name: "Search" })
+      .click();
     await expect(page).toHaveURL(/\/search$/);
-    await expect(sidebar.getByRole("link", { name: "Search" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(
+      page
+        .getByRole("navigation", { name: "Library" })
+        .getByRole("link", { name: "Search" }),
+    ).toHaveAttribute("aria-current", "page");
 
     // The header search opens the search screen with the query in the address.
     await page
