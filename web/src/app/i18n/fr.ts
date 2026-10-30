@@ -1015,6 +1015,28 @@ export const fr: Messages = {
       before: "Avant",
       after: "Après",
     },
+    transcribe: {
+      button: "Transcrire",
+      scheduled: "Transcription planifiée",
+      job: {
+        pending: "En attente",
+        leased: "En cours",
+        running: "En cours",
+        retry_wait: "Nouvel essai différé",
+        done: "Terminé",
+        failed: "Échoué",
+        dead: "Épuisé",
+        cancelled: "Annulée",
+      },
+      jobError: "Erreur de transcription : {error}",
+      clear: "Effacer",
+      selectTrack: "Sélectionnez une piste audio",
+      selectTrackPlaceholder: "Choisir une piste…",
+      confirmTrack: "Confirmer la piste",
+      retranscribeTitle: "Remplacer les corrections ?",
+      retranscribeWarning:
+        "Cette opération remplacera {texts} correction(s) de texte et {speakers} de locuteur par {authors}. Elles resteront obsolètes dans l’historique.",
+    },
   },
   people: {
     lead: "Nommez les voix qu’entend Snitch. Une confirmation humaine passe toujours en premier.",
