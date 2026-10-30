@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.upload_publication import UploadPublication
 from ..models.upload_status import UploadStatus
 from ..models.upload_visibility import UploadVisibility
 from ..types import UNSET, Unset
@@ -37,6 +38,9 @@ class Upload:
             expires_at (datetime.datetime):
             clip_id (int | Unset):
             sha256 (str | Unset):
+            destination (str | Unset): Sous-dossier relatif demandé à la création, s'il y en a un.
+            publication (UploadPublication | Unset): État de la publication vers la racine vidéo. Absent sans destination.
+            publication_error (str | Unset): Code stable expliquant la dernière publication échouée.
      """
 
     id: str
@@ -49,6 +53,9 @@ class Upload:
     expires_at: datetime.datetime
     clip_id: int | Unset = UNSET
     sha256: str | Unset = UNSET
+    destination: str | Unset = UNSET
+    publication: UploadPublication | Unset = UNSET
+    publication_error: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -76,6 +83,15 @@ class Upload:
 
         sha256 = self.sha256
 
+        destination = self.destination
+
+        publication: str | Unset = UNSET
+        if not isinstance(self.publication, Unset):
+            publication = self.publication.value
+
+
+        publication_error = self.publication_error
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -93,6 +109,12 @@ class Upload:
             field_dict["clip_id"] = clip_id
         if sha256 is not UNSET:
             field_dict["sha256"] = sha256
+        if destination is not UNSET:
+            field_dict["destination"] = destination
+        if publication is not UNSET:
+            field_dict["publication"] = publication
+        if publication_error is not UNSET:
+            field_dict["publication_error"] = publication_error
 
         return field_dict
 
@@ -130,6 +152,20 @@ class Upload:
 
         sha256 = d.pop("sha256", UNSET)
 
+        destination = d.pop("destination", UNSET)
+
+        _publication = d.pop("publication", UNSET)
+        publication: UploadPublication | Unset
+        if isinstance(_publication,  Unset):
+            publication = UNSET
+        else:
+            publication = UploadPublication(_publication)
+
+
+
+
+        publication_error = d.pop("publication_error", UNSET)
+
         upload = cls(
             id=id,
             original_name=original_name,
@@ -141,6 +177,9 @@ class Upload:
             expires_at=expires_at,
             clip_id=clip_id,
             sha256=sha256,
+            destination=destination,
+            publication=publication,
+            publication_error=publication_error,
         )
 
 

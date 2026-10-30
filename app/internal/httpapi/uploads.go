@@ -4,14 +4,18 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 
+	"snitch/internal/library"
 	"snitch/internal/uploads"
 )
 
 type createUploadRequest struct {
-	Filename   string `json:"filename"`
-	SizeBytes  int64  `json:"size_bytes"`
-	Visibility string `json:"visibility"`
+	Filename         string  `json:"filename"`
+	SizeBytes        int64   `json:"size_bytes"`
+	Visibility       string  `json:"visibility"`
+	Destination      *string `json:"destination"`
+	OverwriteVersion string  `json:"overwrite_version"`
 }
 
 func (s *Server) listUploads(w http.ResponseWriter, r *http.Request) {
@@ -33,10 +37,26 @@ func (s *Server) createUpload(w http.ResponseWriter, r *http.Request) {
 	if request.Visibility == "" {
 		request.Visibility = "shared"
 	}
+	var source int64
+	var relative, version string
+	if request.Destination != nil {
+		var ok bool
+		source, relative, version, ok = s.uploadDestination(w, r, request.Filename, *request.Destination, request.OverwriteVersion)
+		if !ok {
+			return
+		}
+	}
 	item, err := s.Uploads.Create(r.Context(), ss.User.ID, request.Filename, request.Visibility, request.SizeBytes)
 	if err != nil {
 		s.uploadFailure(w, err)
 		return
+	}
+	if request.Destination != nil {
+		if _, err = s.Pool.Exec(r.Context(), `INSERT INTO upload_destinations(upload_id,source_id,relative_path,expected_version) VALUES($1,$2,$3,$4)`, item.ID, source, relative, version); err != nil {
+			_ = s.Uploads.Cancel(r.Context(), ss.User.ID, item.ID)
+			s.internal(w, err)
+			return
+		}
 	}
 	reply(w, http.StatusCreated, item)
 }
@@ -68,6 +88,13 @@ func (s *Server) completeUpload(w http.ResponseWriter, r *http.Request) {
 		s.uploadFailure(w, err)
 		return
 	}
+	if item.ClipID != nil {
+		if err := s.publishUpload(r.Context(), item.ID, *item.ClipID); err != nil {
+			s.recordPublicationFailure(r.Context(), item.ID, err)
+			s.uploadFailure(w, err)
+			return
+		}
+	}
 	reply(w, http.StatusCreated, item)
 }
 
@@ -94,6 +121,12 @@ func (s *Server) uploadFailure(w http.ResponseWriter, err error) {
 		fail(w, http.StatusGone, "upload_expired")
 	case errors.Is(err, uploads.ErrInvalidVideo):
 		fail(w, http.StatusUnprocessableEntity, "invalid_video")
+	case errors.Is(err, os.ErrPermission):
+		fail(w, http.StatusUnprocessableEntity, "video_root_permission")
+	case errors.Is(err, os.ErrNotExist):
+		fail(w, http.StatusUnprocessableEntity, "video_root_unavailable")
+	case errors.Is(err, library.ErrInvalidSource):
+		fail(w, http.StatusUnprocessableEntity, "video_path_unavailable")
 	default:
 		s.internal(w, err)
 	}

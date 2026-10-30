@@ -50,16 +50,19 @@ type Service struct {
 }
 
 type Session struct {
-	ID           string    `json:"id"`
-	OriginalName string    `json:"original_name"`
-	SizeBytes    int64     `json:"size_bytes"`
-	OffsetBytes  int64     `json:"offset_bytes"`
-	ChunkBytes   int64     `json:"chunk_size_bytes"`
-	Visibility   string    `json:"visibility"`
-	Status       string    `json:"status"`
-	ClipID       *int64    `json:"clip_id,omitempty"`
-	ExpiresAt    time.Time `json:"expires_at"`
-	SHA256       string    `json:"sha256,omitempty"`
+	ID               string    `json:"id"`
+	OriginalName     string    `json:"original_name"`
+	SizeBytes        int64     `json:"size_bytes"`
+	OffsetBytes      int64     `json:"offset_bytes"`
+	ChunkBytes       int64     `json:"chunk_size_bytes"`
+	Visibility       string    `json:"visibility"`
+	Status           string    `json:"status"`
+	ClipID           *int64    `json:"clip_id,omitempty"`
+	ExpiresAt        time.Time `json:"expires_at"`
+	SHA256           string    `json:"sha256,omitempty"`
+	Destination      string    `json:"destination,omitempty"`
+	Publication      string    `json:"publication,omitempty"`
+	PublicationError string    `json:"publication_error,omitempty"`
 }
 
 type Metadata interface {
@@ -184,7 +187,9 @@ func (s *Service) List(ctx context.Context, ownerID int64) ([]Session, error) {
 	if err := s.purgeExpired(ctx); err != nil {
 		return nil, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT id,original_name,total_bytes,offset_bytes,visibility,status,clip_id,expires_at FROM uploads WHERE owner_id=$1 AND status IN ('uploading','processing','failed') ORDER BY created_at DESC`, ownerID)
+	// Completed uploads whose named destination is not published stay visible:
+	// otherwise a failed publication would be invisible and impossible to retry.
+	rows, err := s.pool.Query(ctx, `SELECT u.id,u.original_name,u.total_bytes,u.offset_bytes,u.visibility,u.status,u.clip_id,u.expires_at,COALESCE(d.relative_path,''),COALESCE(d.published,false),COALESCE(d.last_error,'') FROM uploads u LEFT JOIN upload_destinations d ON d.upload_id=u.id WHERE u.owner_id=$1 AND (u.status IN ('uploading','processing','failed') OR (u.status='complete' AND d.upload_id IS NOT NULL AND NOT d.published)) ORDER BY u.created_at DESC`, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -192,8 +197,17 @@ func (s *Service) List(ctx context.Context, ownerID int64) ([]Session, error) {
 	items := make([]Session, 0)
 	for rows.Next() {
 		var item Session
-		if err = rows.Scan(&item.ID, &item.OriginalName, &item.SizeBytes, &item.OffsetBytes, &item.Visibility, &item.Status, &item.ClipID, &item.ExpiresAt); err != nil {
+		var published bool
+		if err = rows.Scan(&item.ID, &item.OriginalName, &item.SizeBytes, &item.OffsetBytes, &item.Visibility, &item.Status, &item.ClipID, &item.ExpiresAt, &item.Destination, &published, &item.PublicationError); err != nil {
 			return nil, err
+		}
+		if item.Destination != "" {
+			item.Publication = "pending"
+			if published {
+				item.Publication = "published"
+			} else if item.PublicationError != "" {
+				item.Publication = "failed"
+			}
 		}
 		item.ChunkBytes = s.config.ChunkSize
 		items = append(items, item)
@@ -416,8 +430,50 @@ func (s *Service) Cancel(ctx context.Context, ownerID int64, id string) error {
 	if err != nil {
 		return err
 	}
-	if status == "complete" || status == "processing" {
+	if status == "complete" {
+		// A completed upload whose named destination never got published can be
+		// abandoned: this is the only way to release its staging copy and intent.
+		var published bool
+		err = tx.QueryRow(ctx, `SELECT published FROM upload_destinations WHERE upload_id=$1 FOR UPDATE`, id).Scan(&published)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrConflict
+		}
+		if err != nil {
+			return err
+		}
+		if published {
+			return ErrConflict
+		}
+		var clipID *int64
+		if err = tx.QueryRow(ctx, `SELECT clip_id FROM uploads WHERE id=$1`, id).Scan(&clipID); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `DELETE FROM uploaded_media WHERE upload_id=$1`, id); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `DELETE FROM upload_destinations WHERE upload_id=$1`, id); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE uploads SET status='cancelled',clip_id=NULL,updated_at=now() WHERE id=$1`, id); err != nil {
+			return err
+		}
+		if clipID != nil {
+			if _, err = tx.Exec(ctx, `DELETE FROM clips WHERE id=$1 AND NOT EXISTS(SELECT 1 FROM source_files WHERE clip_id=$1) AND NOT EXISTS(SELECT 1 FROM uploaded_media WHERE clip_id=$1) AND NOT EXISTS(SELECT 1 FROM uploads WHERE clip_id=$1)`, *clipID); err != nil {
+				return err
+			}
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return err
+		}
+		_ = os.Remove(s.mediaPath(id))
+		return nil
+	}
+	if status == "processing" {
 		return ErrConflict
+	}
+	// An abandoned intent must not keep blocking a root change.
+	if _, err = tx.Exec(ctx, `DELETE FROM upload_destinations WHERE upload_id=$1`, id); err != nil {
+		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE uploads SET status='cancelled',updated_at=now() WHERE id=$1`, id); err != nil {
 		return err
@@ -522,6 +578,10 @@ func (s *Service) purgeExpired(ctx context.Context) error {
 			return beginErr
 		}
 		if _, beginErr = tx.Exec(ctx, `UPDATE uploads SET status='expired',updated_at=now() WHERE id=$1`, id); beginErr != nil {
+			_ = tx.Rollback(ctx)
+			return beginErr
+		}
+		if _, beginErr = tx.Exec(ctx, `DELETE FROM upload_destinations WHERE upload_id=$1`, id); beginErr != nil {
 			_ = tx.Rollback(ctx)
 			return beginErr
 		}

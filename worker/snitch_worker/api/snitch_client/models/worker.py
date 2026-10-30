@@ -36,6 +36,7 @@ class Worker:
             created_at (datetime.datetime):
             revoked_at (datetime.datetime | None):
             connected (bool):
+            supported_steps (list[str] | Unset): Last reported task capabilities; revoked workers must not be selected.
             transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
             machine (WorkerMachine | Unset): Informations non secrètes déclarées par le Worker ; le système est celui du
                 conteneur.
@@ -43,7 +44,6 @@ class Worker:
             models (WorkerModels | Unset): Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais
                 de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs
                 ressemblant à un secret sont refusées.
-            supported_steps (list[str] | Unset): Last reported task capabilities; revoked workers must not be selected.
      """
 
     id: str
@@ -54,11 +54,11 @@ class Worker:
     created_at: datetime.datetime
     revoked_at: datetime.datetime | None
     connected: bool
+    supported_steps: list[str] | Unset = UNSET
     transcription_model: str | Unset = UNSET
     machine: WorkerMachine | Unset = UNSET
     remote_address: str | Unset = UNSET
     models: WorkerModels | Unset = UNSET
-    supported_steps: list[str] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -92,6 +92,12 @@ class Worker:
 
         connected = self.connected
 
+        supported_steps: list[str] | Unset = UNSET
+        if not isinstance(self.supported_steps, Unset):
+            supported_steps = self.supported_steps
+
+
+
         transcription_model = self.transcription_model
 
         machine: dict[str, Any] | Unset = UNSET
@@ -103,12 +109,6 @@ class Worker:
         models: dict[str, Any] | Unset = UNSET
         if not isinstance(self.models, Unset):
             models = self.models.to_dict()
-
-        supported_steps: list[str] | Unset = UNSET
-        if not isinstance(self.supported_steps, Unset):
-            supported_steps = self.supported_steps
-
-
 
 
         field_dict: dict[str, Any] = {}
@@ -123,6 +123,8 @@ class Worker:
             "revoked_at": revoked_at,
             "connected": connected,
         })
+        if supported_steps is not UNSET:
+            field_dict["supported_steps"] = supported_steps
         if transcription_model is not UNSET:
             field_dict["transcription_model"] = transcription_model
         if machine is not UNSET:
@@ -131,8 +133,6 @@ class Worker:
             field_dict["remote_address"] = remote_address
         if models is not UNSET:
             field_dict["models"] = models
-        if supported_steps is not UNSET:
-            field_dict["supported_steps"] = supported_steps
 
         return field_dict
 
@@ -194,6 +194,9 @@ class Worker:
 
         connected = d.pop("connected")
 
+        supported_steps = cast(list[str], d.pop("supported_steps", UNSET))
+
+
         transcription_model = d.pop("transcription_model", UNSET)
 
         _machine = d.pop("machine", UNSET)
@@ -218,9 +221,6 @@ class Worker:
 
 
 
-        supported_steps = cast(list[str], d.pop("supported_steps", UNSET))
-
-
         worker = cls(
             id=id,
             name=name,
@@ -230,11 +230,11 @@ class Worker:
             created_at=created_at,
             revoked_at=revoked_at,
             connected=connected,
+            supported_steps=supported_steps,
             transcription_model=transcription_model,
             machine=machine,
             remote_address=remote_address,
             models=models,
-            supported_steps=supported_steps,
         )
 
 

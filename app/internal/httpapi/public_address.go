@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -16,6 +17,8 @@ import (
 // Host header) and only the proxy headers X-Forwarded-Proto and X-Forwarded-Host sent by a
 // trusted proxy are honored. A peer is trusted when its address (the TCP peer, never a header)
 // is inside Config.TrustedProxies. A configured PUBLIC_URL overrides the deduction entirely.
+// Behind a trusted HTTP proxy chain, same-origin browser metadata can recover HTTPS
+// lost between proxies. It can only upgrade the scheme of the already established host.
 
 var hostPattern = regexp.MustCompile(`^(?:[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])(?::[0-9]{1,5})?$|^\[[0-9a-f:.]+\](?::[0-9]{1,5})?$`)
 
@@ -36,6 +39,9 @@ func (s *Server) publicOrigin(r *http.Request) string {
 		if forwarded := firstForwardedValue(r, "X-Forwarded-Host"); hostPattern.MatchString(forwarded) {
 			host = forwarded
 		}
+		if scheme == "http" && browserUsedHTTPS(r, host) {
+			scheme = "https"
+		}
 	}
 	if !hostPattern.MatchString(host) {
 		return ""
@@ -48,6 +54,33 @@ func (s *Server) publicOrigin(r *http.Request) string {
 		}
 	}
 	return scheme + "://" + host
+}
+
+// browserUsedHTTPS handles TLS termination followed by a proxy that replaces
+// X-Forwarded-Proto with http. Fetch Metadata is browser-controlled; Origin (or
+// Referer for GET requests) must agree with the host independently seen by Snitch.
+// Never learn a host from these headers, accept a cross-site request, or downgrade TLS.
+func browserUsedHTTPS(r *http.Request, host string) bool {
+	if r.Header.Get("Sec-Fetch-Site") != "same-origin" {
+		return false
+	}
+	value := r.Header.Get("Origin")
+	isOrigin := value != ""
+	if !isOrigin {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			return false
+		}
+		value = r.Referer()
+	}
+	u, err := url.Parse(value)
+	if err != nil || u.Scheme != "https" || u.User != nil || u.Opaque != "" || u.Fragment != "" {
+		return false
+	}
+	if isOrigin && (u.Path != "" || u.RawQuery != "" || u.ForceQuery) {
+		return false
+	}
+	// Compare HTTPS authorities without the default port, just as publicOrigin does.
+	return strings.TrimSuffix(strings.ToLower(u.Host), ":443") == strings.TrimSuffix(host, ":443")
 }
 
 // secureCookies reports whether the session cookie carries the Secure attribute: forced by

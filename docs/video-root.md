@@ -1,0 +1,82 @@
+# Racine vidéo, sous-dossiers et écrasement
+
+Snitch peut travailler avec **un seul dossier vidéo** — par exemple `/videos` — monté dans le conteneur de l'application. C'est le dossier dans lequel la bibliothèque de jeu peut déposer ses fichiers et dans lequel Snitch peut écrire les vidéos importées. Les anciennes sources en lecture seule (`CLIPS_ROOTS`) restent disponibles séparément.
+
+## Monter le dossier
+
+Le chemin saisi dans l'interface est celui **vu par le conteneur**, pas celui de la machine hôte. Montez le dossier dans le service `app` de votre déploiement, par exemple :
+
+```yaml
+services:
+  app:
+    volumes:
+      - /chemin/hote/videos:/videos
+```
+
+Le dossier doit être lisible et inscriptible par l'utilisateur de l'application (UID 10001). Snitch vérifie qu'il peut y créer un fichier avant d'enregistrer la racine ; sinon il répond `video_root_unavailable`.
+
+Sur Forgeyard, ajoutez le volume dans la configuration du service avant de redéployer. La syntaxe exacte dépend de la plateforme : ne la devinez pas, reprenez celle de votre projet.
+
+## Configurer la racine
+
+Dans **Administration › Dossiers** (ou dans l'étape « Import » de l'installation guidée), saisissez le chemin du conteneur, par exemple `/videos`, puis **Enregistrer le dossier**.
+
+- Enregistrer un chemin **ne lance aucun scan**.
+- La santé de la racine et la date du dernier scan sont affichées.
+- L'interface indique si un Worker est connecté. Sans Worker, les fichiers demandés restent en attente.
+
+### Changer de racine
+
+Un changement de racine est refusé tant qu'un envoi attend sa publication (`video_root_busy`). Terminez ou annulez ces envois, puis confirmez le changement.
+
+Après le changement :
+
+- les fichiers indexés sous l'ancienne racine sont marqués **manquants** ;
+- leurs clips, transcriptions, corrections et attributions sont conservés tant qu'une copie du contenu existe ;
+- la nouvelle racine n'est pas indexée : choisissez ce que vous voulez scanner.
+
+## Demander un scan
+
+Depuis la bibliothèque, ouvrez **Scanner des vidéos et gérer les dossiers**, naviguez dans la racine et :
+
+1. cochez un ou plusieurs fichiers ou sous-dossiers, ou utilisez **Scanner toute la racine** ;
+2. prévisualisez la liste des fichiers vidéo trouvés ;
+3. confirmez avec **Ajouter à la file**.
+
+Un sous-dossier sélectionné inclut ses sous-dossiers. Rien n'est analysé avant la confirmation. La file affiche chaque fichier avec son état :
+
+- **Indexé** : le fichier est prêt et plus rien n'attend ;
+- **En attente d'un Worker** : la demande est enregistrée, mais aucun Worker n'est connecté ;
+- **En attente de configuration** : un Worker est là, mais un réglage de transcription manque ;
+- **Manquant** : le fichier n'existe plus à cet emplacement (par exemple après un changement de racine) ;
+- **À vérifier** : une erreur est affichée avec son code traduit.
+
+Un fichier n'est jamais présenté comme indexé tant que sa demande n'est pas réellement traitée.
+
+## Créer un sous-dossier et y importer
+
+Dans le même panneau, **Nouveau sous-dossier** crée un dossier dans le dossier courant. Le nom ne peut pas contenir de barre oblique ni commencer par un point.
+
+À l'import, **Choisir un dossier** permet de sélectionner un sous-dossier existant comme destination. Sans choix, le fichier va à la racine. Le fichier est d'abord envoyé dans un staging, puis publié dans la racine une fois complet.
+
+## Écraser un fichier existant
+
+Si un fichier porte déjà ce nom, Snitch demande confirmation et affiche le chemin. Après confirmation :
+
+- l'ancien fichier est remplacé par le nouveau contenu ;
+- un nouveau clip est créé pour ce contenu ;
+- les résultats de l'ancien contenu ne sont supprimés que si aucune autre copie ne les utilise. Si le même contenu existe ailleurs dans la racine, cette autre copie garde ses transcriptions et corrections.
+
+Deux envois simultanés vers le même chemin ne s'écrasent pas : un seul est publié, l'autre est signalé `destination_changed` et peut être réessayé ou annulé.
+
+## Reprendre ou annuler une publication
+
+Un envoi complet dont la publication a échoué (permission, destination modifiée, coupure) reste visible dans **Importer** avec son état **Non publiée**. **Réessayer la publication** relance la publication sans renvoyer le fichier ; **Annuler** libère l'intention et supprime le staging. Une boucle serveur reprend aussi automatiquement les publications en attente.
+
+## Photo de profil
+
+Dans **Compte › Profil**, **Choisir une photo** accepte un JPEG ou PNG de 5 Mo et 16 mégapixels au plus. L'image est recadrée au centre en carré et ses métadonnées sont retirées. **Retirer la photo** revient aux initiales. La photo apparaît aussi dans le menu du compte.
+
+## Sauvegarde
+
+La racine vidéo contient des originaux : sauvegardez-la séparément de PostgreSQL et du volume `media`, avec une rétention adaptée. Une sauvegarde de la base ne contient ni les vidéos ni leurs fichiers. Voir [sauvegarde et restauration](backups.md).

@@ -1,3 +1,4 @@
+import { useI18n } from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "../session";
 import {
@@ -30,12 +31,15 @@ export type Transfer = {
   /** The file itself, when this page holds it (it does not after a reload). */
   file: File | null;
   visibility: Visibility;
+  destination?: string;
   /** Server-side upload, once created. */
   upload: Upload | null;
   /** Stable error code of a failure or of the last interruption. */
   code?: string;
   /** Set when the file chosen to resume is not the interrupted one. */
   mismatch?: boolean;
+  /** Named destination publication state, once every byte arrived. */
+  publication?: "pending" | "failed" | "published";
 };
 
 /** Errors after which resuming is pointless: the server will not accept this upload. */
@@ -57,6 +61,7 @@ const newKey = () => `transfer-${++counter}`;
  */
 export function useTransfers() {
   const { session } = useSession();
+  const { t } = useI18n();
   const csrf = session?.csrf_token ?? "";
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const controllers = useRef(new Map<string, AbortController>());
@@ -76,6 +81,11 @@ export function useTransfers() {
     void listUploads(csrf).then((result) => {
       if (!current || !result.ok) return;
       const held = result.value.filter((u) => u.status === "uploading");
+      // A completed upload whose named destination never got published stays
+      // visible so the publication can be retried or cancelled.
+      const unpublished = result.value.filter(
+        (u) => u.status === "complete" && u.publication !== "published",
+      );
       setTransfers((all) => [
         ...held
           .filter((u) => !all.some((t) => t.upload?.id === u.id))
@@ -87,7 +97,23 @@ export function useTransfers() {
             status: "interrupted",
             file: null,
             visibility: u.visibility,
+            destination: u.destination,
             upload: u,
+          })),
+        ...unpublished
+          .filter((u) => !all.some((t) => t.upload?.id === u.id))
+          .map<Transfer>((u) => ({
+            key: newKey(),
+            name: u.original_name,
+            size: u.size_bytes,
+            offset: u.size_bytes,
+            status: "failed",
+            file: null,
+            visibility: u.visibility,
+            destination: u.destination,
+            upload: u,
+            code: u.publication_error || undefined,
+            publication: u.publication,
           })),
         ...all,
       ]);
@@ -118,7 +144,14 @@ export function useTransfers() {
         });
       let upload = transfer.upload;
       if (!upload) {
-        const created = await createUpload(csrf, file, transfer.visibility);
+        const target = `${transfer.destination ? `${transfer.destination}/` : "/"}${file.name}`;
+        const created = await createUpload(
+          csrf,
+          file,
+          transfer.visibility,
+          transfer.destination,
+          () => window.confirm(t("import.overwrite.confirm", { path: target })),
+        );
         if (controller.signal.aborted) return;
         if (!created.ok) return stop(created.code);
         upload = created.value;
@@ -141,14 +174,25 @@ export function useTransfers() {
       patch(transfer.key, { status: "verifying" });
       const done = await completeUpload(csrf, upload.id);
       if (controller.signal.aborted) return;
-      if (!done.ok) return stop(done.code);
+      if (!done.ok) {
+        // A publication conflict is reported with its stable server code.
+        const code =
+          done.code === "upload_conflict" ? "destination_changed" : done.code;
+        patch(transfer.key, {
+          status: "failed",
+          code,
+          publication: transfer.destination ? "failed" : undefined,
+        });
+        return;
+      }
       patch(transfer.key, {
         status: "done",
         offset: file.size,
         upload: done.value,
+        publication: transfer.destination ? "published" : undefined,
       });
     },
-    [csrf, patch],
+    [csrf, patch, t],
   );
 
   /** Takes the queued transfers one after the other. */
@@ -171,21 +215,25 @@ export function useTransfers() {
     if (transfers.some((t) => t.status === "queued")) void pump();
   }, [transfers, pump]);
 
-  const add = useCallback((files: File[], visibility: Visibility) => {
-    setTransfers((all) => [
-      ...all,
-      ...files.map<Transfer>((file) => ({
-        key: newKey(),
-        name: file.name,
-        size: file.size,
-        offset: 0,
-        status: "queued",
-        file,
-        visibility,
-        upload: null,
-      })),
-    ]);
-  }, []);
+  const add = useCallback(
+    (files: File[], visibility: Visibility, destination?: string) => {
+      setTransfers((all) => [
+        ...all,
+        ...files.map<Transfer>((file) => ({
+          key: newKey(),
+          name: file.name,
+          size: file.size,
+          offset: 0,
+          status: "queued",
+          file,
+          visibility,
+          destination,
+          upload: null,
+        })),
+      ]);
+    },
+    [],
+  );
 
   /** Resumes an interrupted transfer, with the file when this page no longer holds it. */
   const resume = useCallback(
@@ -200,6 +248,29 @@ export function useTransfers() {
       patch(key, { file: chosen, status: "queued", mismatch: undefined });
     },
     [patch],
+  );
+
+  /** Retries publishing a completed upload whose destination was not written. */
+  const retry = useCallback(
+    async (key: string) => {
+      const transfer = latest.current.find((t) => t.key === key);
+      if (!transfer?.upload) return;
+      patch(key, { status: "verifying", code: undefined });
+      const done = await completeUpload(csrf, transfer.upload.id);
+      if (!done.ok) {
+        const code =
+          done.code === "upload_conflict" ? "destination_changed" : done.code;
+        patch(key, { status: "failed", code, publication: "failed" });
+        return;
+      }
+      patch(key, {
+        status: "done",
+        code: undefined,
+        upload: done.value,
+        publication: "published",
+      });
+    },
+    [csrf, patch],
   );
 
   const cancel = useCallback(
@@ -225,5 +296,5 @@ export function useTransfers() {
     setTransfers((all) => all.filter((t) => t.key !== key));
   }, []);
 
-  return { transfers, add, resume, cancel, dismiss };
+  return { transfers, add, resume, retry, cancel, dismiss };
 }

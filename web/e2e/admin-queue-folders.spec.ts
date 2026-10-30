@@ -118,7 +118,10 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   await page.getByRole("button", { name: "Filter tasks" }).click();
   await expect(page.getByText("No tasks.")).toBeVisible();
   await page.goto("/admin/folders");
-  await expect(page.getByText("No host folder is mounted")).toBeVisible();
+  await expect(
+    page.getByLabel("Root folder accessible to Snitch"),
+  ).toBeVisible();
+  await expect(page.getByText("No watched folders configured.")).toBeVisible();
   expect(
     (
       await new AxeBuilder({ page })

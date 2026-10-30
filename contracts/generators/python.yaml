@@ -1,3 +1,9 @@
 project_name_override: snitch-client
 package_name_override: snitch_client
 post_hooks: []
+# The avatar endpoints exchange raw image bytes. The generator only understands
+# JSON, text and octet-stream, so these media types are generated as bytes; the
+# actual HTTP Content-Type is still image/png or image/jpeg.
+content_type_overrides:
+  image/png: application/octet-stream
+  image/jpeg: application/octet-stream

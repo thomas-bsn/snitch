@@ -19,12 +19,12 @@ from typing import cast
 
 def _get_kwargs(
     *,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 24,
-    workflow: ListJobsWorkflow | Unset = UNSET,
 
 ) -> dict[str, Any]:
 
@@ -32,6 +32,12 @@ def _get_kwargs(
 
 
     params: dict[str, Any] = {}
+
+    json_workflow: str | Unset = UNSET
+    if not isinstance(workflow, Unset):
+        json_workflow = workflow.value
+
+    params["workflow"] = json_workflow
 
     json_status: str | Unset = UNSET
     if not isinstance(status, Unset):
@@ -46,12 +52,6 @@ def _get_kwargs(
     params["page"] = page
 
     params["page_size"] = page_size
-
-    json_workflow: str | Unset = UNSET
-    if not isinstance(workflow, Unset):
-        json_workflow = workflow.value
-
-    params["workflow"] = json_workflow
 
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -96,23 +96,23 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 24,
-    workflow: ListJobsWorkflow | Unset = UNSET,
 
 ) -> Response[Error | JobPage]:
     """  Administrateurs uniquement. Aucun chemin local n'est exposé.
 
     Args:
+        workflow (ListJobsWorkflow | Unset):
         status (ListJobsStatus | Unset):
         clip_id (int | Unset):
         step (str | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 24.
-        workflow (ListJobsWorkflow | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,12 +124,12 @@ def sync_detailed(
 
 
     kwargs = _get_kwargs(
-        status=status,
+        workflow=workflow,
+status=status,
 clip_id=clip_id,
 step=step,
 page=page,
 page_size=page_size,
-workflow=workflow,
 
     )
 
@@ -142,23 +142,23 @@ workflow=workflow,
 def sync(
     *,
     client: AuthenticatedClient | Client,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 24,
-    workflow: ListJobsWorkflow | Unset = UNSET,
 
 ) -> Error | JobPage | None:
     """  Administrateurs uniquement. Aucun chemin local n'est exposé.
 
     Args:
+        workflow (ListJobsWorkflow | Unset):
         status (ListJobsStatus | Unset):
         clip_id (int | Unset):
         step (str | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 24.
-        workflow (ListJobsWorkflow | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -171,35 +171,35 @@ def sync(
 
     return sync_detailed(
         client=client,
+workflow=workflow,
 status=status,
 clip_id=clip_id,
 step=step,
 page=page,
 page_size=page_size,
-workflow=workflow,
 
     ).parsed
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 24,
-    workflow: ListJobsWorkflow | Unset = UNSET,
 
 ) -> Response[Error | JobPage]:
     """  Administrateurs uniquement. Aucun chemin local n'est exposé.
 
     Args:
+        workflow (ListJobsWorkflow | Unset):
         status (ListJobsStatus | Unset):
         clip_id (int | Unset):
         step (str | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 24.
-        workflow (ListJobsWorkflow | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -211,12 +211,12 @@ async def asyncio_detailed(
 
 
     kwargs = _get_kwargs(
-        status=status,
+        workflow=workflow,
+status=status,
 clip_id=clip_id,
 step=step,
 page=page,
 page_size=page_size,
-workflow=workflow,
 
     )
 
@@ -229,23 +229,23 @@ workflow=workflow,
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 24,
-    workflow: ListJobsWorkflow | Unset = UNSET,
 
 ) -> Error | JobPage | None:
     """  Administrateurs uniquement. Aucun chemin local n'est exposé.
 
     Args:
+        workflow (ListJobsWorkflow | Unset):
         status (ListJobsStatus | Unset):
         clip_id (int | Unset):
         step (str | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 24.
-        workflow (ListJobsWorkflow | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -258,11 +258,11 @@ async def asyncio(
 
     return (await asyncio_detailed(
         client=client,
+workflow=workflow,
 status=status,
 clip_id=clip_id,
 step=step,
 page=page,
 page_size=page_size,
-workflow=workflow,
 
     )).parsed

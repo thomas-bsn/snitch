@@ -77,6 +77,8 @@ export const fr: Messages = {
       both: "Son numéro et son titre",
     },
     title: "Dossiers surveillés",
+    legacyHint:
+      "Le dossier vidéo ci-dessus est la source principale. Des dossiers supplémentaires en lecture seule peuvent encore être surveillés ci-dessous.",
     noMount:
       "Aucun dossier hôte n’est monté pour Snitch. Configurez CLIPS_ROOTS et un montage hôte en lecture seule dans le déploiement.",
     roots:
@@ -106,6 +108,47 @@ export const fr: Messages = {
     person: "Personne",
     choose: "Choisir",
     remove: "Retirer la désignation",
+  },
+  videoStorage: {
+    open: "Scanner des vidéos et gérer les dossiers",
+    title: "Dossier des vidéos",
+    rootLabel: "Dossier racine accessible à Snitch",
+    rootHint:
+      "Le dossier doit déjà être monté dans le conteneur et accessible en lecture et en écriture. Enregistrer ce chemin ne lance aucun scan.",
+    saveRoot: "Enregistrer le dossier",
+    rootSaved: "Dossier enregistré. Aucun scan lancé.",
+    rootChanged:
+      "Racine modifiée. Les fichiers indexés sous l’ancienne racine sont conservés avec leurs résultats mais marqués manquants jusqu’au scan de la nouvelle racine.",
+    confirmRootChange:
+      "Changer la racine vidéo ? Les fichiers indexés sous l’ancienne racine seront marqués manquants. Leurs clips et résultats sont conservés.",
+    workerOnline:
+      "Un Worker est connecté : les fichiers demandés peuvent être indexés.",
+    workerOffline:
+      "Aucun Worker n’est connecté : les fichiers demandés attendent dans la file.",
+    lastScan: "Dernier scan : {date}",
+    never: "jamais",
+    parent: "Dossier parent",
+    scanRoot: "Scanner toute la racine",
+    scanSelection: "Préparer le scan de la sélection ({count})",
+    scanHint:
+      "Sélectionner un dossier inclut ses sous-dossiers. Rien n’est analysé avant confirmation. Sans Worker disponible, les fichiers restent en attente.",
+    empty: "Aucun dossier ou fichier vidéo ici.",
+    newFolder: "Nouveau sous-dossier",
+    createFolder: "Créer le dossier",
+    folderCreated: "Dossier créé.",
+    confirmTitle: "Confirmer les fichiers à scanner ({count})",
+    addToQueue: "Ajouter à la file",
+    cancel: "Annuler",
+    queued: "Fichiers ajoutés à la file.",
+    queueTitle: "File des fichiers demandés",
+    select: "Sélectionner {path}",
+    status: {
+      indexed: "Indexé",
+      waiting: "En attente d’un Worker",
+      pending: "En attente de configuration",
+      missing: "Manquant",
+      attention: "À vérifier",
+    },
   },
   transAdmin: {
     empty: "Créez un Worker pour définir le profil de transcription.",
@@ -512,6 +555,16 @@ export const fr: Messages = {
       languageSaved: "Langue enregistrée.",
       languageNotSaved:
         "Langue changée ici, mais votre compte n’a pas pu la conserver.",
+      avatar: {
+        title: "Photo de profil",
+        choose: "Choisir une photo (JPEG ou PNG)",
+        hint: "L’image sera recadrée au centre en carré.",
+        remove: "Retirer la photo",
+        updated: "Photo de profil mise à jour.",
+        tooLarge: "La limite est de 5 Mo.",
+        failed:
+          "Impossible de modifier la photo. Choisissez une image JPEG ou PNG (5 Mo et 16 mégapixels maximum).",
+      },
     },
     voice: {
       title: "Ma voix",
@@ -769,6 +822,24 @@ export const fr: Messages = {
     dismissLabel: "Fermer {name}",
     viewInLibrary: "Ouvrir la bibliothèque",
     doneAnnouncement: "« {name} » a été vérifiée et ajoutée à la bibliothèque.",
+    destination: {
+      label: "Sous-dossier de destination",
+      root: "Racine du dossier vidéo",
+      choose: "Choisir un dossier",
+      use: "Utiliser ce dossier",
+      up: "Dossier parent",
+      empty: "Aucun sous-dossier ici.",
+    },
+    publication: {
+      pending: "En attente de publication",
+      failed: "Non publiée",
+      retry: "Réessayer la publication",
+      retryLabel: "Réessayer la publication de {name}",
+    },
+    overwrite: {
+      confirm:
+        "Remplacer {path} ? Le fichier existant sera écrasé. Les résultats et corrections de son ancien contenu sont retirés uniquement si aucune autre copie ne les utilise.",
+    },
   },
   library: {
     deletedOwner: "Utilisateur supprimé",
@@ -944,6 +1015,28 @@ export const fr: Messages = {
       reason: "Motif : {reason}",
       before: "Avant",
       after: "Après",
+    },
+    transcribe: {
+      button: "Transcrire",
+      scheduled: "Transcription planifiée",
+      job: {
+        pending: "En attente",
+        leased: "En cours",
+        running: "En cours",
+        retry_wait: "Nouvel essai différé",
+        done: "Terminé",
+        failed: "Échoué",
+        dead: "Épuisé",
+        cancelled: "Annulée",
+      },
+      jobError: "Erreur de transcription : {error}",
+      clear: "Effacer",
+      selectTrack: "Sélectionnez une piste audio",
+      selectTrackPlaceholder: "Choisir une piste…",
+      confirmTrack: "Confirmer la piste",
+      retranscribeTitle: "Remplacer les corrections ?",
+      retranscribeWarning:
+        "Cette opération remplacera {texts} correction(s) de texte et {speakers} de locuteur par {authors}. Elles resteront obsolètes dans l’historique.",
     },
   },
   people: {

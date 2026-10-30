@@ -19,6 +19,8 @@ from .audio_track_selection import AudioTrackSelection
 from .audio_track_selection_status import AudioTrackSelectionStatus
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
 from .bootstrap import Bootstrap
+from .browse_video_root_response_200 import BrowseVideoRootResponse200
+from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
 from .clip import Clip
 from .clip_filter_options import ClipFilterOptions
 from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
@@ -34,6 +36,8 @@ from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
 from .corrections_to_replace import CorrectionsToReplace
 from .corrections_warning import CorrectionsWarning
+from .create_video_folder_body import CreateVideoFolderBody
+from .create_video_folder_response_201 import CreateVideoFolderResponse201
 from .credentials import Credentials
 from .decision_level import DecisionLevel
 from .delete_member_body import DeleteMemberBody
@@ -41,6 +45,7 @@ from .embedding_settings import EmbeddingSettings
 from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
+from .get_video_root_response_200 import GetVideoRootResponse200
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
 from .job import Job
 from .job_controls import JobControls
@@ -102,6 +107,8 @@ from .put_embedding_settings_body import PutEmbeddingSettingsBody
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
 from .scan_source_body import ScanSourceBody
+from .scan_video_selection_body import ScanVideoSelectionBody
+from .scan_video_selection_response_200 import ScanVideoSelectionResponse200
 from .schedule_transcription_batch_body import ScheduleTranscriptionBatchBody
 from .schedule_transcription_batch_response_200 import ScheduleTranscriptionBatchResponse200
 from .schedule_transcription_batch_response_200_preview import ScheduleTranscriptionBatchResponse200Preview
@@ -128,6 +135,7 @@ from .segment_speaker import SegmentSpeaker
 from .segment_speaker_input import SegmentSpeakerInput
 from .segment_text_input import SegmentTextInput
 from .session import Session
+from .set_video_root_body import SetVideoRootBody
 from .settings import Settings
 from .settings_input import SettingsInput
 from .settings_master_key_origin import SettingsMasterKeyOrigin
@@ -170,6 +178,7 @@ from .upload_input import UploadInput
 from .upload_input_visibility import UploadInputVisibility
 from .upload_list import UploadList
 from .upload_offset import UploadOffset
+from .upload_publication import UploadPublication
 from .upload_status import UploadStatus
 from .upload_visibility import UploadVisibility
 from .user import User
@@ -258,6 +267,8 @@ __all__ = (
     "AudioTrackSelectionStatus",
     "BackfillEmbeddingIndexResponse202",
     "Bootstrap",
+    "BrowseVideoRootResponse200",
+    "BrowseVideoRootResponse200ItemsItem",
     "Clip",
     "ClipFilterOptions",
     "ClipFilterOptionsOwnersItem",
@@ -273,6 +284,8 @@ __all__ = (
     "ClipVoiceStatus",
     "CorrectionsToReplace",
     "CorrectionsWarning",
+    "CreateVideoFolderBody",
+    "CreateVideoFolderResponse201",
     "Credentials",
     "DecisionLevel",
     "DeleteMemberBody",
@@ -280,6 +293,7 @@ __all__ = (
     "Error",
     "ExportSegmentCorrectionsFormat",
     "GetEmbeddingIndexStatusResponse200",
+    "GetVideoRootResponse200",
     "HeartbeatWorkerJobResponse200",
     "Job",
     "JobControls",
@@ -341,6 +355,8 @@ __all__ = (
     "RebuildEmbeddingIndexBody",
     "Redirect",
     "ScanSourceBody",
+    "ScanVideoSelectionBody",
+    "ScanVideoSelectionResponse200",
     "ScheduledTranscription",
     "ScheduledVoice",
     "ScheduleTranscriptionBatchBody",
@@ -380,6 +396,7 @@ __all__ = (
     "SetupStepState",
     "SetupStepStateState",
     "SetupStepStateStep",
+    "SetVideoRootBody",
     "Source",
     "SourceFile",
     "SourceFiles",
@@ -409,6 +426,7 @@ __all__ = (
     "UploadInputVisibility",
     "UploadList",
     "UploadOffset",
+    "UploadPublication",
     "UploadStatus",
     "UploadVisibility",
     "User",
