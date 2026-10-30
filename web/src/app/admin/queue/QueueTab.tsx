@@ -261,7 +261,7 @@ export function QueueTab() {
     }
   }
   return (
-    <div className="flex flex-col gap-5">
+    <div className="mx-auto flex w-full flex-col gap-5 2xl:w-[74%] 2xl:max-w-[1820px]">
       <ConfirmDialog
         open={!!warning}
         onOpenChange={(open) => {
