@@ -1,4 +1,10 @@
-import { Link, NavLink, Outlet, useSearchParams } from "react-router";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useSearchParams,
+  useLocation,
+} from "react-router";
 import { AddressNotice } from "../components/AddressNotice";
 import { buttonClass } from "../components/buttons";
 import { Brand, Logo } from "../components/Logo";
@@ -21,6 +27,9 @@ const tabLink =
 export function AppShell() {
   const { t } = useI18n();
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const libraryAddress =
+    location.pathname === "/search" ? `/library${location.search}` : "/library";
   const notice = params.get("notice");
   return (
     <div className="flex min-h-dvh bg-canvas text-ink">
@@ -36,7 +45,11 @@ export function AppShell() {
         </Link>
         <nav aria-label={t("nav.label")} className="flex flex-col gap-1">
           {NAV_ENTRIES.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} className={sidebarLink}>
+            <NavLink
+              key={to}
+              to={to === "/library" ? libraryAddress : to}
+              className={sidebarLink}
+            >
               <Icon className="size-4" />
               {t(label)}
             </NavLink>
@@ -87,7 +100,11 @@ export function AppShell() {
         className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-side md:hidden"
       >
         {NAV_ENTRIES.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={tabLink}>
+          <NavLink
+            key={to}
+            to={to === "/library" ? libraryAddress : to}
+            className={tabLink}
+          >
             <Icon className="size-5" />
             {t(label)}
           </NavLink>

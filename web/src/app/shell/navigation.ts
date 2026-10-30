@@ -7,7 +7,7 @@ export type NavEntry = {
   icon: LucideIcon;
 };
 
-/** The four entries of the sidebar (and of the tab bar on a phone). */
+/** The three entries of the sidebar (and of the tab bar on a phone). */
 export const NAV_ENTRIES: NavEntry[] = [
   { to: "/library", label: "nav.library", icon: Library },
   { to: "/people", label: "nav.people", icon: Users },

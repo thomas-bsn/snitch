@@ -109,6 +109,12 @@ test.describe.serial("recherche par citation", () => {
       page.getByRole("searchbox", { name: "What was said" }),
     ).toHaveValue("joué");
     await expect(page.getByRole("radio", { name: "Exact" })).toBeChecked();
+    await page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("link", { name: "Library" })
+      .click();
+    await expect(page).toHaveURL(/\/library\?.*q=jou/);
+    await expect(page.getByLabel("Visibility")).toHaveValue("shared");
     await context.close();
   });
 

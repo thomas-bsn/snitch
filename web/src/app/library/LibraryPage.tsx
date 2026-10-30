@@ -1,4 +1,3 @@
-import { LibrarySearchTabs } from "../library/LibrarySearchTabs";
 import { VideoStorage } from "./VideoStorage";
 import { Link, useLocation } from "react-router";
 import { useCallback, useMemo } from "react";
@@ -10,6 +9,7 @@ import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import { ClipCard } from "./ClipCard";
 import { LibraryFilters } from "./LibraryFilters";
+import { LibrarySearchTabs } from "./LibrarySearchTabs";
 import {
   PAGE_SIZE,
   fetchClips,

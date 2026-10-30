@@ -1,4 +1,3 @@
-import { LibrarySearchTabs } from "../library/LibrarySearchTabs";
 import { useCallback, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useLoaded } from "../api/loaded";
@@ -8,6 +7,7 @@ import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import { fetchFilterOptions } from "../library/libraryApi";
+import { LibrarySearchTabs } from "../library/LibrarySearchTabs";
 import { SearchForm } from "./SearchForm";
 import { SearchResultItem } from "./SearchResultItem";
 import {
