@@ -118,9 +118,21 @@ func (s *Server) reprocessClipMetadata(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, result)
 		return
 	}
+	// The hash is checked inside the selector so a changed copy is skipped and
+	// the next intact copy can be tried instead of giving up on the whole clip.
+	var matchedInfo os.FileInfo
 	path, err := s.findClipMedia(r.Context(), id, func(path string) bool {
+		beforeHash, statErr := os.Stat(path)
+		if statErr != nil {
+			return false
+		}
 		actual, hashErr := library.HashFile(r.Context(), path)
-		return hashErr == nil && len(expectedHash) != 0 && bytes.Equal(actual[:], expectedHash)
+		afterHash, statErr := os.Stat(path)
+		if hashErr != nil || statErr != nil || beforeHash.Size() != afterHash.Size() || !beforeHash.ModTime().Equal(afterHash.ModTime()) || !bytes.Equal(actual[:], expectedHash) {
+			return false
+		}
+		matchedInfo = afterHash
+		return true
 	})
 	if errors.Is(err, os.ErrNotExist) {
 		result["unavailable"] = 1
@@ -132,13 +144,7 @@ func (s *Server) reprocessClipMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	before, err := os.Stat(path)
-	if err != nil {
-		result["unavailable"] = 1
-		reply(w, 200, result)
-		return
-	}
-	actualHash, err := library.HashFile(r.Context(), path)
-	if err != nil || len(expectedHash) == 0 || !bytes.Equal(actualHash[:], expectedHash) {
+	if err != nil || matchedInfo == nil || before.Size() != matchedInfo.Size() || !before.ModTime().Equal(matchedInfo.ModTime()) {
 		result["unavailable"] = 1
 		reply(w, 200, result)
 		return
