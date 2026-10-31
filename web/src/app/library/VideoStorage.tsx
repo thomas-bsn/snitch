@@ -51,6 +51,7 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
   const [open, setOpen] = useState(settings);
   const [directory, setDirectory] = useState("");
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<string[] | null>(null);
   const [previewSelection, setPreviewSelection] = useState<string[]>([]);
@@ -62,6 +63,11 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
   // The periodic refresh must not overwrite a path being edited.
   const loadedRoot = useRef("");
   const admin = !!user && isAdministrator(user);
+  const visibleEntries = entries.filter((entry) =>
+    (entry.path.split("/").pop() ?? "")
+      .toLocaleLowerCase()
+      .includes(filter.trim().toLocaleLowerCase()),
+  );
 
   const load = useCallback(async () => {
     const data = await request("/api/admin/video-root", csrf);
@@ -228,6 +234,7 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                     onClick={() => {
                       setDirectory(directory.split("/").slice(0, -1).join("/"));
                       setSelected([]);
+                      setFilter("");
                     }}
                   >
                     <ArrowLeft size={16} />
@@ -250,52 +257,76 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                 </button>
               </div>
               <p className="text-sm text-mute">{t("videoStorage.scanHint")}</p>
-              <ul className="divide-y divide-line rounded-lg border border-line">
-                {entries.map((entry) => (
-                  <li
-                    key={entry.path}
-                    className="flex min-h-11 items-center gap-3 px-3"
-                  >
-                    <input
-                      type="checkbox"
-                      aria-label={t("videoStorage.select", {
-                        path: entry.path,
-                      })}
-                      checked={selected.includes(entry.path)}
-                      onChange={(e) =>
-                        setSelected(
-                          e.target.checked
-                            ? [...selected, entry.path]
-                            : selected.filter((p) => p !== entry.path),
-                        )
-                      }
-                    />
-                    {entry.directory ? (
-                      <Folder size={18} />
-                    ) : (
-                      <FileVideo size={18} />
-                    )}
-                    {entry.directory ? (
-                      <button
-                        className="min-h-11 text-accent-ink"
-                        onClick={() => {
-                          setDirectory(entry.path);
-                          setSelected([]);
-                        }}
-                      >
-                        {entry.path.split("/").pop()}
-                      </button>
-                    ) : (
-                      <span className="break-all">
-                        {entry.path.split("/").pop()}
-                      </span>
-                    )}
-                  </li>
-                ))}
-                {!entries.length && (
-                  <li className="p-3 text-mute">{t("videoStorage.empty")}</li>
-                )}
-              </ul>
+              {entries.length > 0 && (
+                <label className="flex max-w-md flex-col gap-1 text-sm">
+                  {t("videoStorage.filterLabel")}
+                  <input
+                    type="search"
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="h-11 rounded-lg border border-line-strong bg-surface px-3"
+                  />
+                </label>
+              )}
+              <div
+                role="region"
+                aria-label={t("videoStorage.entriesLabel")}
+                tabIndex={0}
+                className="max-h-80 overflow-y-auto rounded-lg border border-line focus-visible:outline-2"
+              >
+                <ul className="divide-y divide-line">
+                  {visibleEntries.map((entry) => (
+                    <li
+                      key={entry.path}
+                      className="flex min-h-11 items-center gap-3 px-3"
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label={t("videoStorage.select", {
+                          path: entry.path,
+                        })}
+                        checked={selected.includes(entry.path)}
+                        onChange={(e) =>
+                          setSelected(
+                            e.target.checked
+                              ? [...selected, entry.path]
+                              : selected.filter((p) => p !== entry.path),
+                          )
+                        }
+                      />
+                      {entry.directory ? (
+                        <Folder size={18} />
+                      ) : (
+                        <FileVideo size={18} />
+                      )}
+                      {entry.directory ? (
+                        <button
+                          className="min-h-11 text-accent-ink"
+                          onClick={() => {
+                            setDirectory(entry.path);
+                            setSelected([]);
+                            setFilter("");
+                          }}
+                        >
+                          {entry.path.split("/").pop()}
+                        </button>
+                      ) : (
+                        <span className="break-all">
+                          {entry.path.split("/").pop()}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                  {!entries.length && (
+                    <li className="p-3 text-mute">{t("videoStorage.empty")}</li>
+                  )}
+                  {entries.length > 0 && visibleEntries.length === 0 && (
+                    <li className="p-3 text-mute">
+                      {t("videoStorage.noMatches")}
+                    </li>
+                  )}
+                </ul>
+              </div>
               <form
                 className="flex flex-wrap items-end gap-2"
                 onSubmit={(e) => {

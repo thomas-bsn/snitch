@@ -130,6 +130,9 @@ export const en = {
     scanHint:
       "Selecting a folder includes its subfolders. Nothing is analysed before confirmation. Files wait when no Worker is available.",
     empty: "No folders or video files here.",
+    filterLabel: "Filter folders and videos",
+    entriesLabel: "Folders and videos",
+    noMatches: "No matching folders or videos.",
     newFolder: "New subfolder",
     createFolder: "Create folder",
     folderCreated: "Folder created.",

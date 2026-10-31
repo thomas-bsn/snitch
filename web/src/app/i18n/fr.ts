@@ -133,6 +133,9 @@ export const fr: Messages = {
     scanHint:
       "Sélectionner un dossier inclut ses sous-dossiers. Rien n’est analysé avant confirmation. Sans Worker disponible, les fichiers restent en attente.",
     empty: "Aucun dossier ou fichier vidéo ici.",
+    filterLabel: "Filtrer les dossiers et vidéos",
+    entriesLabel: "Dossiers et vidéos",
+    noMatches: "Aucun dossier ni vidéo ne correspond.",
     newFolder: "Nouveau sous-dossier",
     createFolder: "Créer le dossier",
     folderCreated: "Dossier créé.",
