@@ -13,11 +13,27 @@ import (
 func TestWorkerInstallerScriptIsExecutableWithoutRepositoryFiles(t *testing.T) {
 	token := "rw_synthetic-fixture-token"
 	var script bytes.Buffer
-	data := struct{ WorkerID, APIURL, Token, Image string }{
-		"wk_syntheticFixtureWorker123",
-		base64.StdEncoding.EncodeToString([]byte("https://snitch.example.org")),
-		base64.StdEncoding.EncodeToString([]byte(token)),
-		base64.StdEncoding.EncodeToString([]byte("ghcr.io/thomas-bsn/snitch-worker:fixture")),
+	endpointB64 := base64.StdEncoding.EncodeToString([]byte("http://host.docker.internal:8000"))
+	modelB64 := base64.StdEncoding.EncodeToString([]byte("whisper-large-v3"))
+	languageB64 := base64.StdEncoding.EncodeToString([]byte("fr"))
+	data := struct {
+		WorkerID              string
+		APIURL                string
+		Token                 string
+		Image                 string
+		TranscriptionMode     string
+		TranscriptionEndpoint string
+		TranscriptionModel    string
+		TranscriptionLanguage string
+	}{
+		WorkerID:              "wk_syntheticFixtureWorker123",
+		APIURL:                base64.StdEncoding.EncodeToString([]byte("https://snitch.example.org")),
+		Token:                 base64.StdEncoding.EncodeToString([]byte(token)),
+		Image:                 base64.StdEncoding.EncodeToString([]byte("ghcr.io/thomas-bsn/snitch-worker:fixture")),
+		TranscriptionMode:     "enabled",
+		TranscriptionEndpoint: endpointB64,
+		TranscriptionModel:    modelB64,
+		TranscriptionLanguage: languageB64,
 	}
 	if err := workerInstallScript.Execute(&script, data); err != nil {
 		t.Fatal(err)
@@ -27,7 +43,8 @@ func TestWorkerInstallerScriptIsExecutableWithoutRepositoryFiles(t *testing.T) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("installer is not valid bash: %v: %s", err, out)
 	}
-	for _, fragment := range []string{"docker pull", "docker volume create", "--user 10001:10001", "HF_TOKEN", "--restart unless-stopped", "SNITCH_WORKER_TOKEN"} {
+	// The template contains base64-encoded values; check for the encoded forms.
+	for _, fragment := range []string{"docker pull", "docker volume create", "--user 10001:10001", "HF_TOKEN", "--restart unless-stopped", "SNITCH_WORKER_TOKEN", endpointB64, modelB64, languageB64, "base64 -d"} {
 		if !strings.Contains(script.String(), fragment) {
 			t.Errorf("installer lacks %q", fragment)
 		}

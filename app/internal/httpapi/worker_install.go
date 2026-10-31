@@ -19,9 +19,9 @@ const workerInstallInviteLifetime = 15 * time.Minute
 
 // createWorkerInstallCommand keeps the Worker token out of the copied command.
 // A private local script enables later retries after this invitation expires.
-func (s *Server) createWorkerInstallCommand(ctx context.Context, workerID, token, image, apiURL string) (string, error) {
+func (s *Server) createWorkerInstallCommand(ctx context.Context, workerID, token, image, apiURL, transcriptionMode, transcriptionEndpoint, transcriptionModel, transcriptionLanguage string) (string, error) {
 	origin, err := url.Parse(apiURL)
-	if err != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+	if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
 		return "", nil
 	}
 	code := auth.Token()
@@ -29,13 +29,17 @@ func (s *Server) createWorkerInstallCommand(ctx context.Context, workerID, token
 	if err != nil {
 		return "", err
 	}
-	_, err = s.Pool.Exec(ctx, `INSERT INTO worker_install_invites(code_hash,worker_id,encrypted_token,api_url,image,expires_at) VALUES($1,$2,$3,$4,$5,$6)`, auth.Hash(code), workerID, sealed, apiURL, image, time.Now().Add(workerInstallInviteLifetime))
+	_, err = s.Pool.Exec(ctx, `INSERT INTO worker_install_invites(code_hash,worker_id,encrypted_token,api_url,image,expires_at,transcription_mode,transcription_endpoint,transcription_model,transcription_language) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, auth.Hash(code), workerID, sealed, apiURL, image, time.Now().Add(workerInstallInviteLifetime), transcriptionMode, transcriptionEndpoint, transcriptionModel, transcriptionLanguage)
 	if err != nil {
 		return "", err
 	}
 	endpoint := strings.TrimRight(apiURL, "/") + "/api/worker/install/" + code
 	dir := "$HOME/.local/share/snitch-worker/" + workerID
-	return fmt.Sprintf(`bash -c 'set -euo pipefail; d="%s"; mkdir -p "$d"; chmod 700 "$d"; if [ ! -s "$d/install.sh" ]; then umask 077; curl -fsS --proto "=https" --tlsv1.2 %q -o "$d/install.sh.tmp"; mv "$d/install.sh.tmp" "$d/install.sh"; fi; bash "$d/install.sh"'`, dir, endpoint), nil
+	proto := "=https"
+	if origin.Scheme == "http" {
+		proto = "=http,https"
+	}
+	return fmt.Sprintf(`bash -c 'set -euo pipefail; d="%s"; mkdir -p "$d"; chmod 700 "$d"; if [ ! -s "$d/install.sh" ]; then umask 077; curl -fsS --proto "%s" --tlsv1.2 %q -o "$d/install.sh.tmp"; mv "$d/install.sh.tmp" "$d/install.sh"; fi; bash "$d/install.sh"'`, dir, proto, endpoint), nil
 }
 
 var workerInstallScript = template.Must(template.New("install").Parse(`#!/usr/bin/env bash
@@ -50,10 +54,15 @@ api_url=$(printf '%s' '{{.APIURL}}' | base64 -d)
 worker_token=$(printf '%s' '{{.Token}}' | base64 -d)
 image=$(printf '%s' '{{.Image}}' | base64 -d)
 worker_id='{{.WorkerID}}'
+transcription_mode='{{.TranscriptionMode}}'
+transcription_endpoint=$(printf '%s' '{{.TranscriptionEndpoint}}' | base64 -d)
+transcription_model=$(printf '%s' '{{.TranscriptionModel}}' | base64 -d)
+transcription_language=$(printf '%s' '{{.TranscriptionLanguage}}' | base64 -d)
 dir="$HOME/.local/share/snitch-worker/$worker_id"
 mkdir -p "$dir"; chmod 700 "$dir"
 env_file="$dir/worker.env"
-printf 'SNITCH_API_URL=%s\nSNITCH_WORKER_TOKEN=%s\nTRANSCRIPTION_API_URL=\nSNITCH_VOICE_DOWNLOAD_ON_START=0\nSNITCH_VOICE_CONFIRM_TERMS=0\nHOME=/tmp\nXDG_CACHE_HOME=/models/.cache\nHF_HOME=/models/.cache/huggingface\nHF_XET_CACHE=/models/.cache/huggingface/xet\n' "$api_url" "$worker_token" > "$env_file"
+# Transcription configuration from Snitch (may be empty if disabled or unconfigured)
+printf 'SNITCH_API_URL=%s\nSNITCH_WORKER_TOKEN=%s\nTRANSCRIPTION_API_URL=%s\nTRANSCRIPTION_MODEL=%s\nTRANSCRIPTION_LANGUAGE=%s\nSNITCH_VOICE_DOWNLOAD_ON_START=0\nSNITCH_VOICE_CONFIRM_TERMS=0\nHOME=/tmp\nXDG_CACHE_HOME=/models/.cache\nHF_HOME=/models/.cache/huggingface\nHF_XET_CACHE=/models/.cache/huggingface/xet\n' "$api_url" "$worker_token" "$transcription_endpoint" "$transcription_model" "$transcription_language" > "$env_file"
 chmod 600 "$env_file"; unset worker_token
 stage=image
 docker pull "$image" || fail 'Check network and registry credentials.'
@@ -99,9 +108,9 @@ func (s *Server) serveWorkerInstall(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	var workerID, apiURL, image string
+	var workerID, apiURL, image, transcriptionMode, transcriptionEndpoint, transcriptionModel, transcriptionLanguage string
 	var sealed []byte
-	err := s.Pool.QueryRow(r.Context(), `SELECT i.worker_id,i.encrypted_token,i.api_url,i.image FROM worker_install_invites i JOIN workers w ON w.id=i.worker_id WHERE i.code_hash=$1 AND i.expires_at>now() AND w.revoked_at IS NULL`, auth.Hash(code)).Scan(&workerID, &sealed, &apiURL, &image)
+	err := s.Pool.QueryRow(r.Context(), `SELECT i.worker_id,i.encrypted_token,i.api_url,i.image,i.transcription_mode,i.transcription_endpoint,i.transcription_model,i.transcription_language FROM worker_install_invites i JOIN workers w ON w.id=i.worker_id WHERE i.code_hash=$1 AND i.expires_at>now() AND w.revoked_at IS NULL`, auth.Hash(code)).Scan(&workerID, &sealed, &apiURL, &image, &transcriptionMode, &transcriptionEndpoint, &transcriptionModel, &transcriptionLanguage)
 	if errors.Is(err, pgx.ErrNoRows) {
 		http.NotFound(w, r)
 		return
@@ -118,7 +127,25 @@ func (s *Server) serveWorkerInstall(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	data := struct{ WorkerID, APIURL, Token, Image string }{workerID, base64.StdEncoding.EncodeToString([]byte(apiURL)), base64.StdEncoding.EncodeToString([]byte(token)), base64.StdEncoding.EncodeToString([]byte(image))}
+	data := struct {
+		WorkerID              string
+		APIURL                string
+		Token                 string
+		Image                 string
+		TranscriptionMode     string
+		TranscriptionEndpoint string
+		TranscriptionModel    string
+		TranscriptionLanguage string
+	}{
+		WorkerID:              workerID,
+		APIURL:                base64.StdEncoding.EncodeToString([]byte(apiURL)),
+		Token:                 base64.StdEncoding.EncodeToString([]byte(token)),
+		Image:                 base64.StdEncoding.EncodeToString([]byte(image)),
+		TranscriptionMode:     transcriptionMode,
+		TranscriptionEndpoint: base64.StdEncoding.EncodeToString([]byte(transcriptionEndpoint)),
+		TranscriptionModel:    base64.StdEncoding.EncodeToString([]byte(transcriptionModel)),
+		TranscriptionLanguage: base64.StdEncoding.EncodeToString([]byte(transcriptionLanguage)),
+	}
 	if err = workerInstallScript.Execute(w, data); err != nil {
 		s.Log.Error("worker install script render failed")
 	}

@@ -133,6 +133,12 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	var model, language string
+	err = s.Pool.QueryRow(r.Context(), `SELECT v.config->>'model',v.config->>'language' FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&model, &language)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	registration, err := s.Workers.Register(r.Context(), workers.Input{Name: input.Name, MaxConcurrency: input.MaxConcurrency})
 	if errors.Is(err, workers.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_worker")
@@ -151,7 +157,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 	if image == "" {
 		image = config.DefaultWorkerImage
 	}
-	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r))
+	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), mode, endpoint, model, language)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -218,11 +224,17 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	var endpoint string
-	err = s.Pool.QueryRow(r.Context(), `SELECT endpoint FROM transcription_settings WHERE id=true AND mode='enabled'`).Scan(&endpoint)
+	var mode, endpoint string
+	err = s.Pool.QueryRow(r.Context(), `SELECT mode,endpoint FROM transcription_settings WHERE id=true`).Scan(&mode, &endpoint)
 	if errors.Is(err, pgx.ErrNoRows) {
-		endpoint = ""
+		mode, endpoint = "unconfigured", ""
 	} else if err != nil {
+		s.internal(w, err)
+		return
+	}
+	var model, language string
+	err = s.Pool.QueryRow(r.Context(), `SELECT v.config->>'model',v.config->>'language' FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&model, &language)
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -235,7 +247,7 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 	if image == "" {
 		image = config.DefaultWorkerImage
 	}
-	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r))
+	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), mode, endpoint, model, language)
 	if err != nil {
 		s.internal(w, err)
 		return
