@@ -711,6 +711,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/{id}/transcription/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Demande un test de configuration au Worker. */
+    post: operations["requestWorkerTranscriptionTest"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/transcription/override": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Définit ou supprime l'adresse Whisper propre à ce Worker (vide pour supprimer). */
+    put: operations["putWorkerTranscriptionOverride"];
+    post?: never;
+    /** @description Administrateurs uniquement. Supprime l'adresse Whisper propre à ce Worker. */
+    delete: operations["deleteWorkerTranscriptionOverride"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/worker/pulse": {
     parameters: {
       query?: never;
@@ -721,6 +756,40 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["workerPulse"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/transcription-config": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Récupère la configuration de transcription pour ce Worker. */
+    get: operations["getWorkerTranscriptionConfig"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/transcription-config/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Envoie le résultat du test de configuration depuis le Worker. */
+    post: operations["postWorkerTranscriptionConfigStatus"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2237,11 +2306,29 @@ export interface components {
       /** Format: int64 */
       gpu_memory_bytes?: number;
     };
+    /** @description Statut de synchronisation de la configuration de transcription pour un Worker. */
+    WorkerTranscriptionConfig: {
+      /** @description Version de configuration reçue par le Worker. */
+      received_version?: string;
+      /** @description Version de configuration testée par le Worker. */
+      tested_version?: string;
+      /** @description Version de configuration active (validée) pour ce Worker. */
+      active_version?: string;
+      /**
+       * @description Code d'erreur du dernier test.
+       * @enum {string}
+       */
+      error_code?: "connection_failed" | "model_missing";
+      /** @description Adresse Whisper propre à ce Worker, si définie. */
+      endpoint_override?: string;
+    };
     Worker: {
       /** @description Last reported task capabilities; a worker that never reported has none; revoked workers must not be selected. */
       supported_steps?: string[] | null;
       /** @description Nom facultatif du modèle propre au Worker. */
       transcription_model?: string;
+      /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
+      transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
       machine?: components["schemas"]["WorkerMachine"];
       /** @description Adresse IP de connexion observée par Snitch, sans port. */
       remote_address?: string;
@@ -5516,6 +5603,156 @@ export interface operations {
       };
     };
   };
+  requestWorkerTranscriptionTest: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Test demandé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            test_requested: boolean;
+          };
+        };
+      };
+      /** @description Worker introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putWorkerTranscriptionOverride: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          endpoint_override: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Adresse propre enregistrée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            endpoint_override: string;
+          };
+        };
+      };
+      /** @description Adresse invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Worker introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteWorkerTranscriptionOverride: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Adresse propre supprimée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            endpoint_override: string;
+          };
+        };
+      };
+      /** @description Worker introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   workerPulse: {
     parameters: {
       query?: never;
@@ -5539,6 +5776,96 @@ export interface operations {
         };
       };
       /** @description Jeton invalide ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerTranscriptionConfig: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Configuration de transcription pour ce Worker */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @enum {string} */
+            mode: "unconfigured" | "enabled" | "disabled";
+            endpoint: string;
+            model: string;
+            language: string;
+            version: string;
+            test_requested: boolean;
+            endpoint_override: string;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerTranscriptionConfigStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          version: string;
+          active: boolean;
+          /** @enum {string} */
+          error_code?: "connection_failed" | "model_missing";
+        };
+      };
+    };
+    responses: {
+      /** @description Statut enregistré */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            received_version: string;
+            tested_version: string;
+            active_version: string;
+            error_code: string;
+          };
+        };
+      };
+      /** @description Version obsolète */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

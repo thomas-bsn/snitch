@@ -25,20 +25,29 @@ var (
 // ConnectedWindow is six five-second worker poll intervals.
 const ConnectedWindow = 30 * time.Second
 
+type WorkerTranscriptionConfig struct {
+	ReceivedVersion  string `json:"received_version"`
+	TestedVersion    string `json:"tested_version"`
+	ActiveVersion    string `json:"active_version"`
+	ErrorCode        string `json:"error_code"`
+	EndpointOverride string `json:"endpoint_override"`
+}
+
 type Worker struct {
-	SupportedSteps      []string   `json:"supported_steps"`
-	ID                  string     `json:"id"`
-	Name                string     `json:"name"`
-	MaxConcurrency      int        `json:"max_concurrency"`
-	ReportedConcurrency int        `json:"reported_concurrency"`
-	LastSeenAt          *time.Time `json:"last_seen_at"`
-	CreatedAt           time.Time  `json:"created_at"`
-	RevokedAt           *time.Time `json:"revoked_at"`
-	Connected           bool       `json:"connected"`
-	Models              Models     `json:"models"`
-	TranscriptionModel  string     `json:"transcription_model"`
-	Machine             *Machine   `json:"machine,omitempty"`
-	RemoteAddress       string     `json:"remote_address,omitempty"`
+	SupportedSteps        []string                   `json:"supported_steps"`
+	ID                    string                     `json:"id"`
+	Name                  string                     `json:"name"`
+	MaxConcurrency        int                        `json:"max_concurrency"`
+	ReportedConcurrency   int                        `json:"reported_concurrency"`
+	LastSeenAt            *time.Time                 `json:"last_seen_at"`
+	CreatedAt             time.Time                  `json:"created_at"`
+	RevokedAt             *time.Time                 `json:"revoked_at"`
+	Connected             bool                       `json:"connected"`
+	Models                Models                     `json:"models"`
+	TranscriptionModel    string                     `json:"transcription_model"`
+	TranscriptionConfig   *WorkerTranscriptionConfig `json:"transcription_config,omitempty"`
+	Machine               *Machine                   `json:"machine,omitempty"`
+	RemoteAddress         string                     `json:"remote_address,omitempty"`
 }
 
 type Registration struct {
@@ -131,12 +140,22 @@ func (s *Service) Get(ctx context.Context, id string) (Detail, error) {
 		return Detail{}, ErrNotFound
 	}
 	var d Detail
-	err := s.pool.QueryRow(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($2 * interval '1 second'),false),models,transcription_model,machine,remote_address FROM workers WHERE id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models, &d.TranscriptionModel, &d.Machine, &d.RemoteAddress)
+	var receivedVersion, testedVersion, activeVersion, errorCode, endpointOverride string
+	err := s.pool.QueryRow(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'),false),w.models,w.transcription_model,w.machine,w.remote_address,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models, &d.TranscriptionModel, &d.Machine, &d.RemoteAddress, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrNotFound
 	}
 	if err != nil {
 		return Detail{}, fmt.Errorf("read worker: %w", err)
+	}
+	if receivedVersion != "" || testedVersion != "" || activeVersion != "" || errorCode != "" || endpointOverride != "" {
+		d.TranscriptionConfig = &WorkerTranscriptionConfig{
+			ReceivedVersion:  receivedVersion,
+			TestedVersion:    testedVersion,
+			ActiveVersion:    activeVersion,
+			ErrorCode:        errorCode,
+			EndpointOverride: endpointOverride,
+		}
 	}
 	rows, err := s.pool.Query(ctx, `SELECT job_id,clip_id,step,event,error_code,created_at FROM (
 		SELECT DISTINCT ON (e.job_id) e.job_id,j.clip_id,j.step,e.event,e.error_code,e.created_at,e.id
@@ -204,7 +223,7 @@ func (s *Service) RenewToken(ctx context.Context, id string) (Registration, erro
 }
 
 func (s *Service) List(ctx context.Context) ([]Worker, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at,COALESCE(revoked_at IS NULL AND last_seen_at >= now() - ($1 * interval '1 second'),false),models,transcription_model,supported_steps FROM workers ORDER BY created_at,id`, int64(ConnectedWindow.Seconds()))
+	rows, err := s.pool.Query(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($1 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id ORDER BY w.created_at,w.id`, int64(ConnectedWindow.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("list workers: %w", err)
 	}
@@ -212,8 +231,18 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 	items := []Worker{}
 	for rows.Next() {
 		var worker Worker
-		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected, &worker.Models, &worker.TranscriptionModel, &worker.SupportedSteps); err != nil {
+		var receivedVersion, testedVersion, activeVersion, errorCode, endpointOverride string
+		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected, &worker.Models, &worker.TranscriptionModel, &worker.SupportedSteps, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride); err != nil {
 			return nil, fmt.Errorf("scan worker: %w", err)
+		}
+		if receivedVersion != "" || testedVersion != "" || activeVersion != "" || errorCode != "" || endpointOverride != "" {
+			worker.TranscriptionConfig = &WorkerTranscriptionConfig{
+				ReceivedVersion:  receivedVersion,
+				TestedVersion:    testedVersion,
+				ActiveVersion:    activeVersion,
+				ErrorCode:        errorCode,
+				EndpointOverride: endpointOverride,
+			}
 		}
 		items = append(items, worker)
 	}
