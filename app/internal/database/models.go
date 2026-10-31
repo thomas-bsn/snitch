@@ -57,6 +57,14 @@ type ClipAudioTrackOverride struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ClipDeletionFile struct {
+	ClipID       int64  `json:"clip_id"`
+	RootPath     string `json:"root_path"`
+	RelativePath string `json:"relative_path"`
+	StagedPath   string `json:"staged_path"`
+	Phase        string `json:"phase"`
+}
+
 type ClipMicrophoneOverride struct {
 	ClipID           int64              `json:"clip_id"`
 	Disabled         bool               `json:"disabled"`

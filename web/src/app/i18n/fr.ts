@@ -941,6 +941,12 @@ export const fr: Messages = {
         shared: "Partagé",
         private: "Privé",
       },
+      deleteClip: "Supprimer définitivement",
+      deleteTitle: "Supprimer définitivement cette vidéo ?",
+      deleteBody:
+        "Toutes les copies indexées de la vidéo seront supprimées du disque, ainsi que les données et corrections du clip. Cette action est irréversible.",
+      deleteError:
+        "La suppression a échoué ou est incomplète. Vérifiez les fichiers et les permissions, puis réessayez.",
       changeVisibility: "Changer la visibilité",
       confirmVisibilityChange: "Confirmer le changement de visibilité ?",
       confirmMakeShared:

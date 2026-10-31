@@ -7,12 +7,11 @@ import { formatTimecode } from "./clipFormat";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { buttonClass } from "../components/buttons";
 import { useSession } from "../session";
-import { isAdministrator } from "../roles";
+import { isAdministrator, isSuperAdministrator } from "../roles";
 import type { Clip } from "./libraryApi";
 import { api, mutation } from "../api/client";
 
-// The server makes no image of a clip: the tile is a quiet gradient picked from the clip's
-// number, so the same clip always looks the same.
+// The gradient remains visible when the browser cannot decode the clip.
 const tiles = [
   "from-accent-soft to-side",
   "from-ok-bg to-side",
@@ -23,7 +22,15 @@ const tiles = [
 ];
 
 /** A clip of the library grid: tile, name, owner, date, state, ID, visibility, and admin actions. */
-export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
+export function ClipCard({
+  clip,
+  from,
+  onDeleted,
+}: {
+  clip: Clip;
+  from: string;
+  onDeleted: () => void;
+}) {
   const { t, language } = useI18n();
   const { user, session } = useSession();
   const isAdmin = user ? isAdministrator(user) : false;
@@ -44,6 +51,26 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
     "shared" | "private" | null
   >(null);
   const [busy, setBusy] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
+
+  async function deleteClip() {
+    setBusy(true);
+    setDeleteError(false);
+    try {
+      const response = await fetch(`/api/admin/clips/${clip.id}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": session?.csrf_token ?? "" },
+      });
+      if (!response.ok) throw new Error("delete failed");
+      setDeleteOpen(false);
+      onDeleted();
+    } catch {
+      setDeleteError(true);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const currentVisibility = clip.visibility; // "shared" | "private"
   const nextVisibility = currentVisibility === "shared" ? "private" : "shared";
@@ -102,7 +129,18 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
         <div
           className={`relative flex aspect-video items-center justify-center rounded-lg border border-line bg-linear-to-br ${tile}`}
         >
-          <Play className="size-7 text-mute" aria-hidden="true" />
+          <video
+            src={`/api/clips/${clip.id}/media#t=0.1`}
+            preload="metadata"
+            muted
+            playsInline
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full rounded-lg object-cover"
+          />
+          <Play
+            className="relative size-7 text-white drop-shadow-md"
+            aria-hidden="true"
+          />
           {typeof clip.duration_seconds === "number" && (
             <span className="absolute right-1.5 bottom-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
               {formatTimecode(clip.duration_seconds)}
@@ -236,12 +274,38 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
                       </>
                     )}
                   </button>
+                  {user && isSuperAdministrator(user) && (
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-left text-sm text-bad-fg hover:bg-muted"
+                      onClick={() => {
+                        setShowMenu(false);
+                        setDeleteError(false);
+                        setDeleteOpen(true);
+                      }}
+                    >
+                      {t("library.card.deleteClip")}
+                    </button>
+                  )}
                 </div>
               </>
             )}
           </div>
         )}
 
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title={t("library.card.deleteTitle")}
+          cancelLabel={t("segmentEdit.cancel")}
+          confirmLabel={t("library.card.deleteClip")}
+          danger
+          busy={busy}
+          onConfirm={deleteClip}
+        >
+          <p>{t("library.card.deleteBody")}</p>
+          {deleteError && <p role="alert">{t("library.card.deleteError")}</p>}
+        </ConfirmDialog>
         {/* Confirm Dialog */}
         <ConfirmDialog
           open={confirmOpen}

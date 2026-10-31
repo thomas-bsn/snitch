@@ -133,6 +133,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
+  clip_delete_failed:
+    "La vidéo ne peut pas être supprimée complètement. Vérifiez les fichiers et les permissions, puis réessayez.",
   super_administrator_required: "Seul le Super-administrateur peut faire cela.",
   invalid_transcription_language:
     "Ce code de langue n’est pas valide (deux ou trois lettres minuscules, par exemple fr).",
