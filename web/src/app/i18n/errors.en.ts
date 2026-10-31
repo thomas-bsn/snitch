@@ -111,6 +111,7 @@ export const errorsEn = {
   invalid_video: "This file is not a readable video.",
   invalid_vocabulary_id: "This vocabulary identifier is not valid.",
   invalid_vocabulary_term: "This vocabulary term is not valid.",
+  invalid_visibility: 'Visibility must be "shared" or "private".',
   invalid_voice_automation: "These automation settings are not valid.",
   invalid_voice_criteria: "These criteria are not valid.",
   invalid_voice_matching: "These matching settings are not valid.",

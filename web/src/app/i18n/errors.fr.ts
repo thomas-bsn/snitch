@@ -121,6 +121,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_video: "Ce fichier n’est pas une vidéo lisible.",
   invalid_vocabulary_id: "Cet identifiant de vocabulaire n’est pas valide.",
   invalid_vocabulary_term: "Ce terme de vocabulaire n’est pas valide.",
+  invalid_visibility: 'La visibilité doit être "shared" ou "private".',
   invalid_voice_automation:
     "Ces réglages d’automatisation ne sont pas valides.",
   invalid_voice_criteria: "Ces critères ne sont pas valides.",
