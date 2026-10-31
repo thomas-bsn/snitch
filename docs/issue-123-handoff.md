@@ -14,6 +14,8 @@ Spec: https://github.com/thomas-bsn/snitch/issues/123. Decisions: `docs/adr/0020
 - Product decisions and test seams confirmed by user; spec and six tickets published.
 - No real library scan or model benchmark authorized. Use synthetic fixtures only.
 - Documentation decision commit: `2b87751`.
+- Exploration notes for later tickets: `/tmp/snitch-123-exploration.md` (outside the repo).
+- #144 includes the fresh-host, one-command installation promised by #89. The current UI only provides compose/env downloads and `deploy/worker/install.py` assumes a cloned repository; filling the current bundle alone does not satisfy #144.
 - Next: finish #143, merge into this branch, then start #144 and #145 in separate worktrees.
 
 ## Resume instructions
