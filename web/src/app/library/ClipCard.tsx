@@ -40,25 +40,31 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
   // Admin dropdown state
   const [showMenu, setShowMenu] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmTarget, setConfirmTarget] = useState<"shared" | "private" | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<
+    "shared" | "private" | null
+  >(null);
   const [busy, setBusy] = useState(false);
 
   const currentVisibility = clip.visibility; // "shared" | "private"
   const nextVisibility = currentVisibility === "shared" ? "private" : "shared";
 
   // Translation helpers for dynamic visibility keys
-  const visibilityLabel = currentVisibility === "shared"
-    ? t("library.card.visibility.shared")
-    : t("library.card.visibility.private");
-  const nextVisibilityLabel = nextVisibility === "shared"
-    ? t("library.card.visibility.shared")
-    : t("library.card.visibility.private");
-  const confirmMessage = confirmTarget === "shared"
-    ? t("library.card.confirmMakeShared")
-    : t("library.card.confirmMakePrivate");
-  const confirmButtonLabel = confirmTarget === "shared"
-    ? t("library.card.confirmShared")
-    : t("library.card.confirmPrivate");
+  const visibilityLabel =
+    currentVisibility === "shared"
+      ? t("library.card.visibility.shared")
+      : t("library.card.visibility.private");
+  const nextVisibilityLabel =
+    nextVisibility === "shared"
+      ? t("library.card.visibility.shared")
+      : t("library.card.visibility.private");
+  const confirmMessage =
+    confirmTarget === "shared"
+      ? t("library.card.confirmMakeShared")
+      : t("library.card.confirmMakePrivate");
+  const confirmButtonLabel =
+    confirmTarget === "shared"
+      ? t("library.card.confirmShared")
+      : t("library.card.confirmPrivate");
 
   const handleVisibilityChange = useCallback(async () => {
     if (!confirmTarget) return;
@@ -127,7 +133,9 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
             >
               <span
                 className={`size-1.5 rounded-full ${
-                  currentVisibility === "shared" ? "bg-green-500" : "bg-gray-400"
+                  currentVisibility === "shared"
+                    ? "bg-green-500"
+                    : "bg-gray-400"
                 }`}
                 aria-hidden="true"
               />
@@ -149,7 +157,10 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
 
           <div className="ml-auto flex items-center gap-1">
             {/* Clip ID with copy button */}
-            <span className="font-mono text-primary-hover" id={`clip-id-${clip.id}`}>
+            <span
+              className="font-mono text-primary-hover"
+              id={`clip-id-${clip.id}`}
+            >
               #{clip.id}
             </span>
             <button
@@ -196,7 +207,11 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
 
             {showMenu && (
               <>
-                <div className="fixed inset-0 z-30" onClick={() => setShowMenu(false)} aria-hidden="true" />
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setShowMenu(false)}
+                  aria-hidden="true"
+                />
                 <div className="absolute top-full right-0 mt-1 z-40 min-w-[160px] rounded-lg border border-line bg-surface shadow-pop">
                   <button
                     type="button"
@@ -205,12 +220,18 @@ export function ClipCard({ clip, from }: { clip: Clip; from: string }) {
                   >
                     {nextVisibility === "shared" ? (
                       <>
-                        <Check className="size-4 text-green-600" aria-hidden="true" />
+                        <Check
+                          className="size-4 text-green-600"
+                          aria-hidden="true"
+                        />
                         {nextVisibilityLabel}
                       </>
                     ) : (
                       <>
-                        <X className="size-4 text-gray-500" aria-hidden="true" />
+                        <X
+                          className="size-4 text-gray-500"
+                          aria-hidden="true"
+                        />
                         {nextVisibilityLabel}
                       </>
                     )}
