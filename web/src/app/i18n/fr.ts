@@ -1240,6 +1240,9 @@ export const fr: Messages = {
     },
   },
   metadata: {
+    localDate: "Heure dans le fuseau de ce navigateur : {zone}.",
+    invalidDate:
+      "Cette heure est ambiguë ou n’existe pas dans ce fuseau. Choisissez une autre heure.",
     unknownUploader: "Importateur inconnu",
     origin: {
       container: "Fichier vidéo",

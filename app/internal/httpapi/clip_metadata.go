@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
 	"os"
@@ -87,6 +88,9 @@ func (s *Server) putClipMetadata(w http.ResponseWriter, r *http.Request) {
 // Reprocess one clip per request so the server's write timeout cannot cut off
 // a large library halfway through a single response. The caller advances by ID.
 func (s *Server) reprocessClipMetadata(w http.ResponseWriter, r *http.Request) {
+	// A large clip can take longer than the server's ordinary response deadline
+	// to hash. The request remains cancellable when the caller disconnects.
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(30 * time.Minute))
 	after := int64(0)
 	if raw := r.URL.Query().Get("after"); raw != "" {
 		var err error
@@ -98,7 +102,8 @@ func (s *Server) reprocessClipMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	var id int64
 	var name string
-	err := s.Pool.QueryRow(r.Context(), `SELECT id,original_name FROM clips WHERE id>$1 ORDER BY id LIMIT 1`, after).Scan(&id, &name)
+	var expectedHash []byte
+	err := s.Pool.QueryRow(r.Context(), `SELECT id,original_name,content_sha256 FROM clips WHERE id>$1 ORDER BY id LIMIT 1`, after).Scan(&id, &name, &expectedHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		reply(w, 200, map[string]any{"updated": 0, "unavailable": 0, "next": after, "done": true})
 		return
@@ -120,6 +125,12 @@ func (s *Server) reprocessClipMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	before, err := os.Stat(path)
 	if err != nil {
+		result["unavailable"] = 1
+		reply(w, 200, result)
+		return
+	}
+	actualHash, err := library.HashFile(r.Context(), path)
+	if err != nil || len(expectedHash) == 0 || !bytes.Equal(actualHash[:], expectedHash) {
 		result["unavailable"] = 1
 		reply(w, 200, result)
 		return

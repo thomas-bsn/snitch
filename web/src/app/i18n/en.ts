@@ -1223,6 +1223,9 @@ export const en = {
     },
   },
   metadata: {
+    localDate: "Time in this browser’s time zone: {zone}.",
+    invalidDate:
+      "This time is ambiguous or does not exist in this time zone. Choose another time.",
     unknownUploader: "Unknown uploader",
     origin: {
       container: "Video file",

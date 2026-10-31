@@ -316,6 +316,7 @@ type SourceFile struct {
 	ErrorCode          pgtype.Text        `json:"error_code"`
 	ScanRequested      bool               `json:"scan_requested"`
 	FirstSeenAt        pgtype.Timestamptz `json:"first_seen_at"`
+	PreviousClipID     pgtype.Int8        `json:"previous_clip_id"`
 }
 
 type SourceMicrophoneTrack struct {

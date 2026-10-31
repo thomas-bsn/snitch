@@ -5,11 +5,13 @@ CREATE TABLE clip_metadata_settings (
  timezone text NOT NULL DEFAULT ''
 );
 INSERT INTO clip_metadata_settings (id) VALUES (true);
+UPDATE installation SET setup_banner_dismissed=false WHERE initialized;
 
 ALTER TABLE setup_steps DROP CONSTRAINT setup_steps_step_check;
 ALTER TABLE setup_steps ADD CONSTRAINT setup_steps_step_check CHECK (step IN ('discord','semantic_search','worker','import','location'));
 
 ALTER TABLE source_files ADD COLUMN first_seen_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE source_files ADD COLUMN previous_clip_id bigint REFERENCES clips(id) ON DELETE SET NULL;
 UPDATE source_files SET first_seen_at=stable_since;
 
 ALTER TABLE clips ADD COLUMN game text;
@@ -26,5 +28,5 @@ ALTER TABLE clips DROP COLUMN capture_time_edited, DROP COLUMN game_edited,
 DELETE FROM setup_steps WHERE step='location';
 ALTER TABLE setup_steps DROP CONSTRAINT setup_steps_step_check;
 ALTER TABLE setup_steps ADD CONSTRAINT setup_steps_step_check CHECK (step IN ('discord','semantic_search','worker','import'));
-ALTER TABLE source_files DROP COLUMN first_seen_at;
+ALTER TABLE source_files DROP COLUMN first_seen_at, DROP COLUMN previous_clip_id;
 DROP TABLE clip_metadata_settings;

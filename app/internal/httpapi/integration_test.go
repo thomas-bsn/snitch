@@ -457,6 +457,12 @@ func TestFoundation(t *testing.T) {
 		if !bytes.Contains(filtered, []byte(`"game":"Synthetic game"`)) {
 			t.Fatalf("game filter: %s", filtered)
 		}
+		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/metadata", map[string]any{"game": "Synthetic game", "recorded_at": "2025-01-01T23:30:00Z", "recorded_at_changed": true}, me.CSRF, 200)
+		localDay := call(client, "GET", "/api/clips?from=2025-01-02&to=2025-01-02", nil, "", 200)
+		if !bytes.Contains(localDay, []byte(`"game":"Synthetic game"`)) {
+			t.Fatalf("local date filter: %s", localDay)
+		}
+
 		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", map[string]int{"audio_stream_index": 2}, me.CSRF, 200)
 		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", nil, me.CSRF, 200)
 		// Voice endpoints: contract conformity here, full behavior in the voice suite.

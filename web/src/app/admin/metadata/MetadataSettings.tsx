@@ -6,6 +6,7 @@ import { useSession } from "../../session";
 import zones from "./zones.json";
 
 const countries = zones as Record<string, string[]>;
+const allZones = Array.from(new Set(Object.values(countries).flat())).sort();
 
 export function MetadataSettings({
   onSaved,
@@ -120,7 +121,9 @@ export function MetadataSettings({
           className="rounded border border-line bg-canvas p-2"
           disabled={!country}
         >
-          {(countries[country] ?? []).map((z) => (
+          {Array.from(
+            new Set([...(countries[country] ?? []), ...allZones]),
+          ).map((z) => (
             <option key={z} value={z}>
               {z}
             </option>

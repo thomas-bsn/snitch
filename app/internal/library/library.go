@@ -298,7 +298,7 @@ func (s *Service) DisableSource(ctx context.Context, id int64) error {
 }
 
 func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error) {
-	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.recorded_at,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
+	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.capture_time,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -656,7 +656,7 @@ func (s *Service) observe(ctx context.Context, source Source, relativePath, abso
 		stableSince = time.Now().UTC()
 		clipID = nil
 		status = "waiting_stability"
-		_, err = s.pool.Exec(ctx, `INSERT INTO source_files(source_id,relative_path,size_bytes,modified_at,stable_since,last_seen_generation,status) VALUES($1,$2,$3,$4,$5,$6,'waiting_stability') ON CONFLICT(source_id,relative_path) DO UPDATE SET clip_id=NULL,size_bytes=EXCLUDED.size_bytes,modified_at=EXCLUDED.modified_at,stable_since=EXCLUDED.stable_since,last_seen_generation=EXCLUDED.last_seen_generation,status='waiting_stability',error_code=NULL`, source.ID, relativePath, stat.Size(), modified, stableSince, generation)
+		_, err = s.pool.Exec(ctx, `INSERT INTO source_files(source_id,relative_path,size_bytes,modified_at,stable_since,last_seen_generation,status) VALUES($1,$2,$3,$4,$5,$6,'waiting_stability') ON CONFLICT(source_id,relative_path) DO UPDATE SET previous_clip_id=COALESCE(source_files.clip_id,source_files.previous_clip_id),clip_id=NULL,size_bytes=EXCLUDED.size_bytes,modified_at=EXCLUDED.modified_at,stable_since=EXCLUDED.stable_since,last_seen_generation=EXCLUDED.last_seen_generation,status='waiting_stability',error_code=NULL`, source.ID, relativePath, stat.Size(), modified, stableSince, generation)
 		if err != nil {
 			return false, false, err
 		}
@@ -712,7 +712,7 @@ func (s *Service) observe(ctx context.Context, source Source, relativePath, abso
 	if err != nil {
 		return false, false, err
 	}
-	_, err = tx.Exec(ctx, `UPDATE source_files SET clip_id=$3,status='ready',error_code=NULL,last_seen_generation=$4 WHERE source_id=$1 AND relative_path=$2`, source.ID, relativePath, newClipID, generation)
+	_, err = tx.Exec(ctx, `UPDATE source_files SET first_seen_at=CASE WHEN previous_clip_id IS NOT NULL AND previous_clip_id<>$3 THEN now() ELSE first_seen_at END,previous_clip_id=NULL,clip_id=$3,status='ready',error_code=NULL,last_seen_generation=$4 WHERE source_id=$1 AND relative_path=$2`, source.ID, relativePath, newClipID, generation)
 	if err != nil {
 		return false, false, err
 	}

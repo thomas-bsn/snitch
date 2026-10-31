@@ -183,6 +183,31 @@ func testFolderSources(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(request(admin, "GET", "/api/clips", "", "", http.StatusOK), &list); err != nil || len(list.Items) != 1 || list.Items[0].Game == nil || *list.Items[0].Game != "Manual game" || list.Items[0].RecordedAt == nil || !sameTimestamp(*list.Items[0].RecordedAt, "2025-01-02T03:04:05Z") {
 		t.Fatalf("reprocessed metadata: %s %v", request(admin, "GET", "/api/clips", "", "", http.StatusOK), err)
 	}
+	// Reprocessing must not attribute the metadata of a replaced file to the old clip,
+	// even when its size and modification time are unchanged.
+	info, err := os.Stat(media)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(media, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(media, bytes.Repeat([]byte("x"), len("synthetic-video-fixture")), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(media, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	out := request(admin, "POST", "/api/admin/clip-metadata/reprocess", "", session.CSRF, http.StatusOK)
+	if !bytes.Contains(out, []byte(`"unavailable":1`)) {
+		t.Fatalf("replaced file should be skipped: %s", out)
+	}
+	if err := os.WriteFile(media, []byte("synthetic-video-fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(media, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
 	if byName["broken.mp4"].Status != "unreadable" || byName["broken.mp4"].ErrorCode != "video_unreadable" || byName["no-video.mp4"].Status != "unreadable" || byName["no-video.mp4"].ErrorCode != "video_stream_missing" {
 		t.Fatalf("invalid videos did not have visible errors: %+v", byName)
 	}
