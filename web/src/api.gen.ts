@@ -2329,6 +2329,8 @@ export interface components {
       transcription_model?: string;
       /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
+      transcription_config_ready?: boolean;
       machine?: components["schemas"]["WorkerMachine"];
       /** @description Adresse IP de connexion observée par Snitch, sans port. */
       remote_address?: string;
@@ -2387,6 +2389,10 @@ export interface components {
     WorkerDetail: {
       /** @description Nom facultatif du modèle propre au Worker. */
       transcription_model?: string;
+      /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
+      transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
+      transcription_config_ready?: boolean;
       machine?: components["schemas"]["WorkerMachine"];
       /** @description Adresse IP de connexion observée par Snitch, sans port. */
       remote_address?: string;
