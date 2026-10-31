@@ -14,6 +14,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { api } from "../../api/client";
+import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
 import type { components } from "../../../api.gen";
 type Job = components["schemas"]["Job"];
@@ -55,7 +56,7 @@ function ClipArtwork({ id }: { id: number }) {
   return (
     <svg
       viewBox="0 0 80 64"
-      className="h-[60px] w-[72px] shrink-0 rounded-md"
+      className="h-12 w-14 shrink-0 rounded-md"
       aria-hidden="true"
     >
       <rect width="80" height="64" fill={id % 2 ? "#172a38" : "#24233c"} />
@@ -185,7 +186,7 @@ export function JobWorkflow({
             setHistoryPage(1);
             setHistoryOpen(true);
           }}
-          className="min-h-14 rounded-lg border border-line-strong px-5 text-xl font-semibold"
+          className={buttonClass()}
         >
           {tr("Historique des clips", "Clip history")}
         </button>
@@ -195,7 +196,7 @@ export function JobWorkflow({
       ) : (
         <div
           data-workflow-grid
-          className="-mt-3 grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+          className="-mt-3 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
         >
           {stages
             .filter(
@@ -206,14 +207,14 @@ export function JobWorkflow({
             .map((s, index) => (
               <section
                 key={s.key}
-                className="min-w-0 rounded-2xl border border-line bg-side p-5 2xl:h-[618px] 2xl:overflow-hidden"
+                className="min-w-0 rounded-xl border border-line bg-side p-4"
               >
                 <div className="mb-4 flex items-center justify-between gap-2">
                   <span
-                    className={`relative grid size-[72px] place-items-center rounded-2xl border border-line shadow-sm ${s.key === "done" ? "bg-ok-bg text-ok-fg" : "bg-surface text-accent-ink"}`}
+                    className={`relative grid size-12 place-items-center rounded-xl border border-line shadow-sm ${s.key === "done" ? "bg-ok-bg text-ok-fg" : "bg-surface text-accent-ink"}`}
                   >
-                    <s.icon size={32} strokeWidth={1.5} aria-hidden="true" />
-                    <span className="absolute -bottom-1 -right-1 grid size-6 place-items-center rounded-full border border-line bg-surface text-sm text-mute">
+                    <s.icon size={22} strokeWidth={1.5} aria-hidden="true" />
+                    <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border border-line bg-surface text-xs text-mute">
                       {index + 1}
                     </span>
                   </span>
@@ -225,11 +226,11 @@ export function JobWorkflow({
                     />
                   )}
                 </div>
-                <h3 className="mt-6 text-xl font-semibold">
+                <h3 className="mt-4 text-base font-semibold">
                   {s.label} ·{" "}
                   {displayedJobs.filter((j) => stage(j) === s.key).length}
                 </h3>
-                <p className="mb-[22px] mt-2 min-h-12 text-base leading-6 text-mute">
+                <p className="mb-3 mt-1 min-h-10 text-sm leading-5 text-mute">
                   {tr(
                     [
                       "Écrire ce qui est dit dans la vidéo.",
@@ -247,7 +248,7 @@ export function JobWorkflow({
                     ][index] ?? "Other tasks.",
                   )}
                 </p>
-                <div className="max-h-none space-y-3 overflow-visible 2xl:max-h-[380px] 2xl:overflow-y-auto">
+                <div className="max-h-none space-y-2 overflow-visible 2xl:max-h-[340px] 2xl:overflow-y-auto">
                   {displayedJobs
                     .filter((j) => stage(j) === s.key)
                     .slice(0, s.key === "done" ? 3 : jobs.length)
@@ -257,14 +258,14 @@ export function JobWorkflow({
                         className={`group rounded-xl border bg-surface shadow-sm transition-shadow hover:shadow-md motion-reduce:transition-none ${["pending", "retry_wait", "dead", "failed"].includes(job.status) ? "border-warn-fg" : "border-line"}`}
                       >
                         <summary
-                          className={`relative flex cursor-pointer list-none items-start gap-4 p-3 pr-3 ${["pending", "retry_wait", "dead", "failed"].includes(job.status) ? "min-h-[212px]" : "min-h-32"}`}
+                          className={`relative flex cursor-pointer list-none items-start gap-3 p-2.5 pr-2.5 ${["pending", "retry_wait", "dead", "failed"].includes(job.status) ? "min-h-[168px]" : "min-h-24"}`}
                         >
                           <ClipArtwork id={job.clip_id} />
                           <div className="min-w-0 flex-1">
-                            <span className="block break-words text-[17px] font-semibold leading-6">
+                            <span className="block break-words text-sm font-medium leading-5">
                               {titles[job.clip_id] ?? `Clip #${job.clip_id}`}
                             </span>
-                            <span className="mt-2 block text-sm leading-5 text-mute">
+                            <span className="mt-1 block text-xs leading-4 text-mute">
                               {game(titles[job.clip_id] ?? "")
                                 ? `${game(titles[job.clip_id])} · `
                                 : ""}
@@ -345,7 +346,7 @@ export function JobWorkflow({
             <Dialog.Popup className="flex max-h-[90dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-line bg-surface text-ink shadow-xl outline-none">
               <header className="flex items-center justify-between gap-4 border-b border-line p-5">
                 <div>
-                  <Dialog.Title className="text-xl font-semibold">
+                  <Dialog.Title className="text-lg font-semibold">
                     {tr(
                       "Historique des clips terminés",
                       "Completed clip history",
