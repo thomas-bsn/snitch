@@ -357,6 +357,11 @@ func (s *Service) Complete(ctx context.Context, ownerID int64, id string) (Sessi
 		_ = os.Remove(partPath)
 		return Session{}, ErrInvalidVideo
 	}
+	game, gameOrigin, captureTime, captureOrigin, err := library.CaptureMetadata(ctx, s.pool, session.OriginalName, metadata.ContainerTags)
+	if err != nil {
+		_ = s.resumeProcessing(ctx, id)
+		return Session{}, err
+	}
 	if err = os.Rename(partPath, mediaPath); err != nil {
 		_ = s.failProcessing(ctx, id)
 		return Session{}, ErrStorage
@@ -376,7 +381,7 @@ func (s *Service) Complete(ctx context.Context, ownerID int64, id string) (Sessi
 	defer finish.Rollback(ctx)
 	var clipID, clipOwnerID int64
 	var clipVisibility string
-	err = finish.QueryRow(ctx, `INSERT INTO clips(owner_id,visibility,original_name,size_bytes,modified_at,recorded_at,recorded_at_estimated,duration_seconds,format_name,video_codec,audio_codec,tracks,content_sha256) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(content_sha256) DO UPDATE SET content_sha256=EXCLUDED.content_sha256 RETURNING id,visibility,owner_id`, ownerID, session.Visibility, session.OriginalName, session.SizeBytes, info.ModTime(), metadata.RecordedAt, metadata.RecordedAtEstimated, metadata.Duration, metadata.FormatName, metadata.VideoCodec, metadata.AudioCodec, tracks, digest[:]).Scan(&clipID, &clipVisibility, &clipOwnerID)
+	err = finish.QueryRow(ctx, `INSERT INTO clips(owner_id,visibility,original_name,size_bytes,modified_at,recorded_at,recorded_at_estimated,duration_seconds,format_name,video_codec,audio_codec,tracks,content_sha256,game,game_origin,capture_time,capture_time_origin) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULLIF($14,''),NULLIF($15,''),$16,NULLIF($17,'')) ON CONFLICT(content_sha256) DO UPDATE SET content_sha256=EXCLUDED.content_sha256 RETURNING id,visibility,owner_id`, ownerID, session.Visibility, session.OriginalName, session.SizeBytes, info.ModTime(), metadata.RecordedAt, metadata.RecordedAtEstimated, metadata.Duration, metadata.FormatName, metadata.VideoCodec, metadata.AudioCodec, tracks, digest[:], game, gameOrigin, captureTime, captureOrigin).Scan(&clipID, &clipVisibility, &clipOwnerID)
 	if err != nil {
 		_ = os.Rename(mediaPath, partPath)
 		_ = s.resumeProcessing(ctx, id)

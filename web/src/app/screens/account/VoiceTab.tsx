@@ -239,7 +239,9 @@ export function VoiceTab() {
                 {clip.original_name}
                 <span className="text-mute">
                   {" · "}
-                  {new Date(clip.recorded_at).toLocaleDateString(language)}
+                  {clip.recorded_at
+                    ? new Date(clip.recorded_at).toLocaleDateString(language)
+                    : t("clip.speaker.unknown")}
                 </span>
               </li>
             ))}

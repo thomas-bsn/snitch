@@ -37,10 +37,12 @@ export function ClipCard({
 
   const date = useMemo(
     () =>
-      new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(
-        new Date(clip.recorded_at),
-      ),
-    [clip.recorded_at, language],
+      clip.recorded_at
+        ? new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(
+            new Date(clip.recorded_at),
+          )
+        : t("clip.speaker.unknown"),
+    [clip.recorded_at, language, t],
   );
   const tile = tiles[clip.id % tiles.length];
 
@@ -184,14 +186,20 @@ export function ClipCard({
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-mute px-1">
           <span>
-            {t("library.card.by", {
-              owner: clip.owner_deleted
-                ? t("library.deletedOwner")
-                : clip.owner,
-            })}
+            {clip.origins?.[0]?.kind === "source"
+              ? t("metadata.detected")
+              : clip.origins?.[0]?.name
+                ? t("metadata.uploaded", { name: clip.origins[0].name })
+                : t("metadata.unknownUploader")}
           </span>
+          {clip.game && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{clip.game}</span>
+            </>
+          )}
           <span aria-hidden="true">·</span>
-          <time dateTime={clip.recorded_at}>{date}</time>
+          <time dateTime={clip.recorded_at ?? undefined}>{date}</time>
 
           <div className="ml-auto flex items-center gap-1">
             {/* Clip ID with copy button */}

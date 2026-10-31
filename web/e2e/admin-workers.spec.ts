@@ -122,6 +122,7 @@ test.describe.serial("administration et Workers", () => {
       "Workers",
       "Task queue",
       "Folders",
+      "Location and metadata",
       "Transcription",
       "Voice processing",
       "Semantic index",

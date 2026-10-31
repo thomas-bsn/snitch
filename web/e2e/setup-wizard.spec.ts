@@ -99,20 +99,32 @@ test.describe.serial("assistant d'installation", () => {
     await expectNoViolations(page);
     await page.getByRole("button", { name: "Create the account" }).click();
 
+    // Set the country and its proposed time zone.
+    await expect(
+      page.getByRole("heading", { name: "Location and metadata" }),
+    ).toBeVisible();
+    await page.getByLabel("Country").selectOption("FR");
+    await expect(page.getByLabel("Time zone")).toHaveValue("Europe/Paris");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+
     // Discord: configured for real (Snitch does not call Discord to save it).
     await expect(
       page.getByRole("heading", { name: "Sign in with Discord" }),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/setup$/);
     const steps = page.getByRole("list", { name: "Setup steps" });
-    await expect(steps.getByRole("listitem")).toHaveCount(7);
-    await expect(steps.getByRole("listitem").nth(2)).toHaveAttribute(
+    await expect(steps.getByRole("listitem")).toHaveCount(8);
+    await expect(steps.getByRole("listitem").nth(3)).toHaveAttribute(
       "aria-current",
       "step",
     );
     await expect(
       page.getByLabel("Return address to register in Discord"),
     ).toHaveValue(`${process.env.SNITCH_TEST_URL}/api/auth/discord/callback`);
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Location and metadata" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Back", exact: true }).click();
     await expect(
       page.getByText("This step is complete. It will not be repeated."),
@@ -126,6 +138,7 @@ test.describe.serial("assistant d'installation", () => {
     ).toBeVisible();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expectNoViolations(page);
     await page.getByLabel("Application ID").fill("123456789012345678");
     await page.getByLabel("Application secret").fill("synthetic-secret");
@@ -155,7 +168,7 @@ test.describe.serial("assistant d'installation", () => {
       page
         .getByRole("list", { name: "Setup steps" })
         .getByRole("listitem")
-        .nth(2),
+        .nth(3),
     ).toContainText("Done");
 
     // Skipping is always possible.

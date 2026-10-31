@@ -18,8 +18,8 @@ export function WorkerStep({
   return (
     <div className="flex flex-col gap-5">
       <StepHeader
-        position={5}
-        total={7}
+        position={6}
+        total={8}
         title={t("setup.worker.title")}
         lead={t("setup.worker.lead")}
       />

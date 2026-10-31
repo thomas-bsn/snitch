@@ -90,7 +90,7 @@ func testSetupProgress(t *testing.T, pool *pgxpool.Pool) {
 		for _, s := range p.Steps {
 			states[s.Step] = s.State
 		}
-		if len(p.Steps) != 4 || p.Steps[0].Step != "discord" || p.Steps[3].Step != "import" {
+		if len(p.Steps) != 5 || p.Steps[0].Step != "location" || p.Steps[4].Step != "import" {
 			t.Fatalf("steps %+v", p.Steps)
 		}
 		return states, p.Dismissed
