@@ -5,6 +5,7 @@ import type { SetupStep } from "./setupApi";
 export const STEP_IDS = [
   "code",
   "admin",
+  "location",
   "discord",
   "semantic",
   "worker",
@@ -17,6 +18,7 @@ export type StepId = (typeof STEP_IDS)[number];
 export const STEP_LABELS: Record<StepId, MessageKey> = {
   code: "setup.steps.code",
   admin: "setup.steps.admin",
+  location: "metadata.title",
   discord: "setup.steps.discord",
   semantic: "setup.steps.semantic",
   worker: "setup.steps.worker",
@@ -31,6 +33,12 @@ export const OPTIONAL_STEPS: {
   where: string;
   whereLabel: MessageKey;
 }[] = [
+  {
+    id: "location",
+    server: "location",
+    where: "/admin/metadata",
+    whereLabel: "metadata.title",
+  },
   {
     id: "discord",
     server: "discord",

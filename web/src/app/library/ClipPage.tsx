@@ -7,6 +7,7 @@ import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
+import { ClipMetadata } from "./ClipMetadata";
 import { ClipPlayer } from "./ClipPlayer";
 import { ClipStatePill } from "./ClipStatePill";
 import { HistoryTab } from "./HistoryTab";
@@ -69,7 +70,9 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
     keepMoment(Math.floor(seconds));
   }
 
-  const date = formatDate(clip.recorded_at);
+  const date = clip.recorded_at
+    ? formatDate(clip.recorded_at)
+    : t("clip.speaker.unknown");
   const voiceData = voice.state.status === "ready" ? voice.state.value : null;
 
   return (
@@ -124,6 +127,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
               </p>
             )}
           </div>
+          <ClipMetadata clip={clip} onChanged={onChanged} />
           <ProgressBanner clip={clip} voice={voiceData} />
           <TranscribeButton
             clipId={clip.id}

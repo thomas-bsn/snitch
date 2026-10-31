@@ -13,6 +13,7 @@ import {
   Routes,
   useLocation,
 } from "react-router";
+import { MetadataSettings } from "./admin/metadata/MetadataSettings";
 import { AdminLayout, AdminPlaceholder } from "./admin/AdminLayout";
 import { ADMIN_TABS } from "./admin/tabs";
 import { FoldersTab } from "./admin/folders/FoldersTab";
@@ -111,6 +112,7 @@ function Routing() {
               <Route path="workers" element={<WorkersTab />} />
               <Route path="queue" element={<QueueTab />} />
               <Route path="folders" element={<FoldersTab />} />
+              <Route path="metadata" element={<MetadataSettings reprocess />} />
               <Route path="semantic" element={<SemanticTab />} />
               <Route path="workers/:id" element={<WorkersTab />} />
               <Route path="voice" element={<VoiceTab />} />
@@ -125,6 +127,7 @@ function Routing() {
                     "workers",
                     "queue",
                     "folders",
+                    "metadata",
                     "semantic",
                     "voice",
                     "transcription",

@@ -1287,6 +1287,39 @@ export const fr: Messages = {
       unknown: "Inconnu",
     },
   },
+  metadata: {
+    dateFilterZone:
+      "Les filtres de dates utilisent le fuseau de l’installation ; les dates affichées utilisent celui du navigateur.",
+    localDate: "Heure dans le fuseau de ce navigateur : {zone}.",
+    invalidDate:
+      "Cette heure est ambiguë ou n’existe pas dans ce fuseau. Choisissez une autre heure.",
+    unknownUploader: "Importateur inconnu",
+    origin: {
+      container: "Fichier vidéo",
+      filename: "Nom du fichier",
+      manual: "Correction manuelle",
+    },
+    dateOrigin: "Origine de la date",
+    detected: "Détecté par Snitch",
+    uploaded: "Importé par {name}",
+    date: "Date d’enregistrement",
+    cancel: "Annuler",
+    edit: "Modifier",
+    game: "Jeu",
+    title: "Localisation et métadonnées",
+    explain:
+      "Le fuseau sert à dater les clips dont l’heure ne précise pas de fuseau.",
+    country: "Pays",
+    timezone: "Fuseau horaire",
+    choose: "Choisir un pays",
+    save: "Enregistrer",
+    saved: "Localisation enregistrée.",
+    error: "Impossible de terminer l’opération. Réessayez.",
+    reprocess: "Retraiter les métadonnées",
+    confirm:
+      "Retraiter les clips existants ? Les corrections manuelles seront conservées.",
+    result: "{updated} clips traités ; {unavailable} indisponibles.",
+  },
   errors: errorsFr,
   errorFallback: "Une erreur est survenue ({code}). Réessayez.",
 };

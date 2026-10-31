@@ -64,7 +64,11 @@ export function SearchResultItem({
               : t("search.result.unknownSpeaker")}
           </span>
           <span aria-hidden="true">·</span>
-          <span>{formatDate(result.recorded_at)}</span>
+          <span>
+            {result.recorded_at
+              ? formatDate(result.recorded_at)
+              : t("clip.speaker.unknown")}
+          </span>
           <span aria-hidden="true">·</span>
           <span>{t(`search.matches.${result.match_type}`)}</span>
         </p>

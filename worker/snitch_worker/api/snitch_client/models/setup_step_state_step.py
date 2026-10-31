@@ -3,6 +3,7 @@ from enum import StrEnum
 class SetupStepStateStep(StrEnum):
     DISCORD = "discord"
     IMPORT = "import"
+    LOCATION = "location"
     SEMANTIC_SEARCH = "semantic_search"
     WORKER = "worker"
 

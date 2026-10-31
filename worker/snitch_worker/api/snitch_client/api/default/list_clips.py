@@ -20,6 +20,7 @@ import datetime
 
 def _get_kwargs(
     *,
+    game: str | Unset = UNSET,
     page: int | Unset = UNSET,
     page_size: int | Unset = UNSET,
     visibility: ListClipsVisibility | Unset = UNSET,
@@ -37,6 +38,8 @@ def _get_kwargs(
 
 
     params: dict[str, Any] = {}
+
+    params["game"] = game
 
     params["page"] = page
 
@@ -115,6 +118,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
+    game: str | Unset = UNSET,
     page: int | Unset = UNSET,
     page_size: int | Unset = UNSET,
     visibility: ListClipsVisibility | Unset = UNSET,
@@ -130,6 +134,7 @@ def sync_detailed(
     """  Session requise. Les clips privés hors propriétaire/admin sont exclus avant filtres et pagination.
 
     Args:
+        game (str | Unset):
         page (int | Unset):
         page_size (int | Unset):
         visibility (ListClipsVisibility | Unset):
@@ -151,7 +156,8 @@ def sync_detailed(
 
 
     kwargs = _get_kwargs(
-        page=page,
+        game=game,
+page=page,
 page_size=page_size,
 visibility=visibility,
 status=status,
@@ -173,6 +179,7 @@ to=to,
 def sync(
     *,
     client: AuthenticatedClient | Client,
+    game: str | Unset = UNSET,
     page: int | Unset = UNSET,
     page_size: int | Unset = UNSET,
     visibility: ListClipsVisibility | Unset = UNSET,
@@ -188,6 +195,7 @@ def sync(
     """  Session requise. Les clips privés hors propriétaire/admin sont exclus avant filtres et pagination.
 
     Args:
+        game (str | Unset):
         page (int | Unset):
         page_size (int | Unset):
         visibility (ListClipsVisibility | Unset):
@@ -210,6 +218,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+game=game,
 page=page,
 page_size=page_size,
 visibility=visibility,
@@ -226,6 +235,7 @@ to=to,
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
+    game: str | Unset = UNSET,
     page: int | Unset = UNSET,
     page_size: int | Unset = UNSET,
     visibility: ListClipsVisibility | Unset = UNSET,
@@ -241,6 +251,7 @@ async def asyncio_detailed(
     """  Session requise. Les clips privés hors propriétaire/admin sont exclus avant filtres et pagination.
 
     Args:
+        game (str | Unset):
         page (int | Unset):
         page_size (int | Unset):
         visibility (ListClipsVisibility | Unset):
@@ -262,7 +273,8 @@ async def asyncio_detailed(
 
 
     kwargs = _get_kwargs(
-        page=page,
+        game=game,
+page=page,
 page_size=page_size,
 visibility=visibility,
 status=status,
@@ -284,6 +296,7 @@ to=to,
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
+    game: str | Unset = UNSET,
     page: int | Unset = UNSET,
     page_size: int | Unset = UNSET,
     visibility: ListClipsVisibility | Unset = UNSET,
@@ -299,6 +312,7 @@ async def asyncio(
     """  Session requise. Les clips privés hors propriétaire/admin sont exclus avant filtres et pagination.
 
     Args:
+        game (str | Unset):
         page (int | Unset):
         page_size (int | Unset):
         visibility (ListClipsVisibility | Unset):
@@ -321,6 +335,7 @@ async def asyncio(
 
     return (await asyncio_detailed(
         client=client,
+game=game,
 page=page,
 page_size=page_size,
 visibility=visibility,
