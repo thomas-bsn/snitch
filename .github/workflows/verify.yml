@@ -43,6 +43,9 @@ jobs:
           gofmt -l app
           (cd app && go vet ./...)
           npm --prefix web run lint
+          npm --prefix web run tsc --version
+          node --version
+          npm --prefix web run tsc --noEmit --traceResolution 2>&1 | head -100
           npm --prefix web run build
           .venv/bin/python scripts/check_generated.py
           .venv/bin/python scripts/check_compose.py
