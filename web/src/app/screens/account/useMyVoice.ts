@@ -8,7 +8,11 @@ import {
 } from "../../api/client";
 import { useSession, type Outcome } from "../../session";
 
-export type MyClip = { id: number; original_name: string; recorded_at: string };
+export type MyClip = {
+  id: number;
+  original_name: string;
+  recorded_at: string | null;
+};
 
 export type MyVoice =
   | { phase: "loading" }

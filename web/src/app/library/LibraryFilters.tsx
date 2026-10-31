@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { buttonClass } from "../components/buttons";
 import { DateField, Select } from "../components/FilterFields";
 import { useI18n } from "../i18n";
@@ -8,7 +9,7 @@ import {
   type Person,
 } from "./libraryApi";
 
-/** The five filters of the library (date, Source, owner, Person, state), kept in the address. */
+/** The library filters (game, date, Source, visibility, owner, Person, state), kept in the address. */
 export function LibraryFilters({
   filters,
   options,
@@ -25,6 +26,7 @@ export function LibraryFilters({
   onClear: () => void;
 }) {
   const { t } = useI18n();
+  const gameId = useId();
   return (
     <form
       role="search"
@@ -32,6 +34,20 @@ export function LibraryFilters({
       onSubmit={(event) => event.preventDefault()}
       className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7"
     >
+      <p className="col-span-full text-sm text-mute">
+        {t("metadata.dateFilterZone")}
+      </p>
+      <div className="flex min-w-0 flex-col gap-1">
+        <label htmlFor={gameId} className="text-xs font-medium text-mute">
+          {t("metadata.game")}
+        </label>
+        <input
+          id={gameId}
+          value={filters.game}
+          onChange={(event) => onChange({ game: event.target.value })}
+          className="h-11 w-full min-w-0 rounded-lg border border-line-strong bg-surface px-2.5 text-ink md:h-9"
+        />
+      </div>
       <DateField
         label={t("library.filters.from")}
         value={filters.from}

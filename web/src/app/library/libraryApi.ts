@@ -28,6 +28,7 @@ const failure = (error: unknown): { ok: false; code: string } => ({
 
 /** The filters of the library, as they live in the address. */
 export type LibraryFilters = {
+  game: string;
   from: string;
   to: string;
   source: string;
@@ -50,6 +51,7 @@ export async function fetchClips(
   const { data, error } = await api.GET("/api/clips", {
     params: {
       query: {
+        game: filters.game || undefined,
         page: filters.page,
         page_size: PAGE_SIZE,
         from: filters.from || undefined,

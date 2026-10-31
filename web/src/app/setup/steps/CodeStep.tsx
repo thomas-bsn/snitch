@@ -39,7 +39,7 @@ export function CodeStep({
     <form onSubmit={submit} className="flex max-w-xl flex-col gap-5">
       <StepHeader
         position={1}
-        total={7}
+        total={8}
         title={t("setup.code.title")}
         lead={t("setup.code.lead")}
         focus={false}

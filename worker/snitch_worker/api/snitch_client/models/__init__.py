@@ -27,6 +27,8 @@ from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
 from .clip_filter_options_sources_item import ClipFilterOptionsSourcesItem
 from .clip_microphone_track import ClipMicrophoneTrack
 from .clip_microphone_track_selection_source import ClipMicrophoneTrackSelectionSource
+from .clip_origins_item import ClipOriginsItem
+from .clip_origins_item_kind import ClipOriginsItemKind
 from .clip_page import ClipPage
 from .clip_person import ClipPerson
 from .clip_progress import ClipProgress
@@ -45,6 +47,7 @@ from .embedding_settings import EmbeddingSettings
 from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
+from .get_metadata_location_response_200 import GetMetadataLocationResponse200
 from .get_video_root_response_200 import GetVideoRootResponse200
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
 from .job import Job
@@ -109,9 +112,14 @@ from .person_separation_input import PersonSeparationInput
 from .person_voice import PersonVoice
 from .person_voice_list import PersonVoiceList
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
+from .put_clip_metadata_body import PutClipMetadataBody
+from .put_clip_metadata_response_200 import PutClipMetadataResponse200
 from .put_embedding_settings_body import PutEmbeddingSettingsBody
+from .put_metadata_location_body import PutMetadataLocationBody
+from .put_metadata_location_response_200 import PutMetadataLocationResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
+from .reprocess_clip_metadata_response_200 import ReprocessClipMetadataResponse200
 from .scan_source_body import ScanSourceBody
 from .scan_video_selection_body import ScanVideoSelectionBody
 from .scan_video_selection_response_200 import ScanVideoSelectionResponse200
@@ -283,6 +291,8 @@ __all__ = (
     "ClipFilterOptionsSourcesItem",
     "ClipMicrophoneTrack",
     "ClipMicrophoneTrackSelectionSource",
+    "ClipOriginsItem",
+    "ClipOriginsItemKind",
     "ClipPage",
     "ClipPerson",
     "ClipProgress",
@@ -301,6 +311,7 @@ __all__ = (
     "Error",
     "ExportSegmentCorrectionsFormat",
     "GetEmbeddingIndexStatusResponse200",
+    "GetMetadataLocationResponse200",
     "GetVideoRootResponse200",
     "HeartbeatWorkerJobResponse200",
     "Job",
@@ -365,9 +376,14 @@ __all__ = (
     "PersonVoice",
     "PersonVoiceList",
     "PreviewTranscriptionBatchResponse200",
+    "PutClipMetadataBody",
+    "PutClipMetadataResponse200",
     "PutEmbeddingSettingsBody",
+    "PutMetadataLocationBody",
+    "PutMetadataLocationResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",
+    "ReprocessClipMetadataResponse200",
     "ScanSourceBody",
     "ScanVideoSelectionBody",
     "ScanVideoSelectionResponse200",

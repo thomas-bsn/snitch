@@ -10,7 +10,7 @@ import (
 )
 
 // setupSteps are the optional steps of the guided installation, in the order the wizard shows them.
-var setupSteps = []string{"discord", "semantic_search", "worker", "import"}
+var setupSteps = []string{"location", "discord", "semantic_search", "worker", "import"}
 
 type setupStepState struct {
 	Step  string `json:"step"`
@@ -32,14 +32,15 @@ func (s *Server) setupConfigured(ctx context.Context) (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	var semantic, worker, imported bool
+	var semantic, worker, imported, location bool
 	if err := s.Pool.QueryRow(ctx, `SELECT
  EXISTS(SELECT 1 FROM embedding_index_state WHERE id=1 AND active_profile_id IS NOT NULL),
  EXISTS(SELECT 1 FROM workers WHERE revoked_at IS NULL),
- EXISTS(SELECT 1 FROM clips)`).Scan(&semantic, &worker, &imported); err != nil {
+ EXISTS(SELECT 1 FROM clips),
+ EXISTS(SELECT 1 FROM clip_metadata_settings WHERE id=true AND country<>'' AND timezone<>'')`).Scan(&semantic, &worker, &imported, &location); err != nil {
 		return nil, err
 	}
-	return map[string]bool{"discord": id != "" && secret != "", "semantic_search": semantic, "worker": worker, "import": imported}, nil
+	return map[string]bool{"location": location, "discord": id != "" && secret != "", "semantic_search": semantic, "worker": worker, "import": imported}, nil
 }
 
 // loadSetupProgress merges the recorded steps with the real state: a configured step is done whatever was

@@ -4,6 +4,54 @@
  */
 
 export interface paths {
+  "/api/admin/metadata-location": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getMetadataLocation"];
+    put: operations["putMetadataLocation"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/metadata": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["putClipMetadata"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clip-metadata/reprocess": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["reprocessClipMetadata"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/health/live": {
     parameters: {
       query?: never;
@@ -1948,13 +1996,13 @@ export interface components {
     };
     SetupStepInput: {
       /** @enum {string} */
-      step: "discord" | "semantic_search" | "worker" | "import";
+      step: "location" | "discord" | "semantic_search" | "worker" | "import";
       /** @enum {string} */
       state: "done" | "skipped";
     };
     SetupStepState: {
       /** @enum {string} */
-      step: "discord" | "semantic_search" | "worker" | "import";
+      step: "location" | "discord" | "semantic_search" | "worker" | "import";
       /** @enum {string} */
       state: "done" | "skipped" | "todo";
     };
@@ -3103,7 +3151,15 @@ export interface components {
       /** Format: date-time */
       discovered_at: string;
       /** Format: date-time */
-      recorded_at: string;
+      recorded_at: string | null;
+      origins?: {
+        /** @enum {string} */
+        kind: "source" | "upload";
+        name: string | null;
+      }[];
+      game?: string | null;
+      game_origin?: string | null;
+      capture_time_origin?: string | null;
       recorded_at_estimated: boolean;
       duration_seconds?: number | null;
       format_name: string;
@@ -3415,7 +3471,7 @@ export interface components {
       /** @enum {string} */
       visibility: "shared" | "private";
       /** Format: date-time */
-      recorded_at: string;
+      recorded_at: string | null;
       /** @enum {string} */
       status: "ready" | "waiting_stability" | "unreadable" | "missing";
       sources: string[];
@@ -3443,6 +3499,166 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  getMetadataLocation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            country: string;
+            timezone: string;
+          };
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putMetadataLocation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          country: string;
+          timezone: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            country: string;
+            timezone: string;
+          };
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putClipMetadata: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          game_changed?: boolean;
+          recorded_at_changed?: boolean;
+          game: string | null;
+          /** Format: date-time */
+          recorded_at: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  reprocessClipMetadata: {
+    parameters: {
+      query?: {
+        after?: number;
+      };
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            done: boolean;
+            /** Format: int64 */
+            next: number;
+            updated: number;
+            unavailable: number;
+          };
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   liveness: {
     parameters: {
       query?: never;
@@ -5665,6 +5881,7 @@ export interface operations {
   listClips: {
     parameters: {
       query?: {
+        game?: string;
         page?: number;
         page_size?: number;
         visibility?: "shared" | "private";

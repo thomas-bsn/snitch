@@ -99,6 +99,9 @@ export function SearchForm({
         aria-label={t("search.filters.label")}
         className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7"
       >
+        <p className="col-span-full text-sm text-mute">
+          {t("metadata.dateFilterZone")}
+        </p>
         <DateField
           label={t("library.filters.from")}
           value={filters.from}

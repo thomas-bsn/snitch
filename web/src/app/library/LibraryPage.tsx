@@ -19,6 +19,7 @@ import {
 } from "./libraryApi";
 
 const KEYS = [
+  "game",
   "from",
   "to",
   "source",
@@ -32,6 +33,7 @@ const KEYS = [
 function readFilters(params: URLSearchParams): Filters {
   const page = Number(params.get("page"));
   return {
+    game: params.get("game") ?? "",
     from: params.get("from") ?? "",
     to: params.get("to") ?? "",
     source: params.get("source") ?? "",
