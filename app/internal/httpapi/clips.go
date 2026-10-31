@@ -110,10 +110,16 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	folder := strings.Trim(strings.TrimSpace(r.URL.Query().Get("folder")), "/")
+	if strings.Contains(folder, "..") || strings.Contains(folder, "\\") {
+		fail(w, 400, "invalid_filter")
+		return
+	}
+	game := strings.TrimSpace(r.URL.Query().Get("game"))
 	admin := isAdministrator(ss.User.Role)
 	visibilityClause := "(c.visibility='shared' OR c.owner_id=$1 OR $2)"
-	args := []any{ss.User.ID, admin, visibility, status, owner, source, from, to, person.PersonID, person.Unknown, strings.TrimSpace(r.URL.Query().Get("game"))}
-	filters := "($3='' OR c.visibility=$3) AND ($4='' OR c.id IN (SELECT sf.clip_id FROM source_files sf WHERE sf.status=$4) OR ($4='ready' AND EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id)) OR ($4='missing' AND NOT EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready'))) AND ($5=0 OR c.owner_id=$5) AND ($6=0 OR EXISTS(SELECT 1 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id AND cs.id=$6)) AND ($7='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date >= $7::date) AND ($8='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date <= $8::date) AND " + clipPersonPredicate("$9", "$10") + " AND ($11='' OR c.game ILIKE '%' || $11 || '%')"
+	args := []any{ss.User.ID, admin, visibility, status, owner, source, from, to, person.PersonID, person.Unknown, game, folder}
+	filters := "($3='' OR c.visibility=$3) AND ($4='' OR c.id IN (SELECT sf.clip_id FROM source_files sf WHERE sf.status=$4) OR ($4='ready' AND EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id)) OR ($4='missing' AND NOT EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready'))) AND ($5=0 OR c.owner_id=$5) AND ($6=0 OR EXISTS(SELECT 1 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id AND cs.id=$6)) AND ($7='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date >= $7::date) AND ($8='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date <= $8::date) AND " + clipPersonPredicate("$9", "$10") + " AND ($11='' OR c.game ILIKE '%' || $11 || '%') AND ($12='' OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.relative_path LIKE $12 || '/%'))"
 	var total int
 	err = s.Pool.QueryRow(r.Context(), "SELECT count(*) FROM clips c WHERE "+visibilityClause+" AND "+filters, args...).Scan(&total)
 	if err != nil {
@@ -126,7 +132,7 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
  COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb),
  COALESCE((SELECT jsonb_agg(jsonb_build_object('kind',o.kind,'name',o.name) ORDER BY o.created_at,o.kind,o.sort_id) FROM (SELECT 'source' AS kind,cs.name AS name,sf.first_seen_at AS created_at,cs.id AS sort_id FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id UNION ALL SELECT 'upload',CASE WHEN u2.deleted_at IS NULL THEN u2.username ELSE NULL END,um.created_at,um.owner_id FROM uploaded_media um JOIN users u2 ON u2.id=um.owner_id WHERE um.clip_id=c.id) o),'[]'::jsonb)
- FROM clips c JOIN users u ON u.id=c.owner_id WHERE `+visibilityClause+" AND "+filters+" ORDER BY c.capture_time DESC NULLS LAST,c.discovered_at DESC,c.id DESC LIMIT $12 OFFSET $13", args...)
+ FROM clips c JOIN users u ON u.id=c.owner_id WHERE `+visibilityClause+" AND "+filters+" ORDER BY c.capture_time DESC NULLS LAST,c.discovered_at DESC,c.id DESC LIMIT $13 OFFSET $14", args...)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -162,6 +168,41 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	reply(w, 200, map[string]any{"items": items, "page": page, "page_size": size, "total": total})
+}
+
+// listLibraryFolders returns folders that contain at least one visible, explicitly indexed clip.
+func (s *Server) listLibraryFolders(w http.ResponseWriter, r *http.Request) {
+	ss := r.Context().Value(sessionKey{}).(session)
+	rows, err := s.Pool.Query(r.Context(), `SELECT DISTINCT cs.id,cs.name,split_part(sf.relative_path,'/',1)
+	 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id JOIN clips c ON c.id=sf.clip_id
+	 WHERE sf.status='ready' AND (c.visibility='shared' OR c.owner_id=$1 OR $2)
+	 AND position('/' in sf.relative_path)>0 ORDER BY cs.id,3`, ss.User.ID, isAdministrator(ss.User.Role))
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer rows.Close()
+	type folder struct {
+		SourceID int64  `json:"source_id"`
+		Source   string `json:"source"`
+		Name     string `json:"name"`
+		Path     string `json:"path"`
+	}
+	items := []folder{}
+	for rows.Next() {
+		var f folder
+		if err = rows.Scan(&f.SourceID, &f.Source, &f.Name); err != nil {
+			s.internal(w, err)
+			return
+		}
+		f.Path = f.Name
+		items = append(items, f)
+	}
+	if err = rows.Err(); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func timeParseDate(v string) (time.Time, error) { return time.Parse("2006-01-02", v) }

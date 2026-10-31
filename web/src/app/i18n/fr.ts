@@ -955,6 +955,10 @@ export const fr: Messages = {
       next: "Page suivante",
       position: "Page {page} sur {pages}",
     },
+    folderNavigation: "Navigation par dossiers",
+    folders: "Dossiers",
+    allClips: "Tous les clips",
+    parentFolder: "Dossier parent",
   },
   search: {
     prompt:

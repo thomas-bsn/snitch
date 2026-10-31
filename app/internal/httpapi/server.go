@@ -219,6 +219,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/uploads/{id}/complete", s.protected(false, http.HandlerFunc(s.completeUpload)))
 	mux.Handle("DELETE /api/uploads/{id}", s.protected(false, http.HandlerFunc(s.cancelUpload)))
 	mux.Handle("GET /api/clips", s.protected(false, http.HandlerFunc(s.listClips)))
+	mux.Handle("GET /api/library/folders", s.protected(false, http.HandlerFunc(s.listLibraryFolders)))
 	mux.Handle("GET /api/search", s.protected(false, http.HandlerFunc(s.search)))
 	mux.Handle("GET /api/admin/embeddings/settings", s.protected(true, http.HandlerFunc(s.getEmbeddingSettings)))
 	mux.Handle("PUT /api/admin/embeddings/settings", s.protected(true, http.HandlerFunc(s.putEmbeddingSettings)))
