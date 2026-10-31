@@ -42,6 +42,7 @@ from .create_video_folder_body import CreateVideoFolderBody
 from .create_video_folder_response_201 import CreateVideoFolderResponse201
 from .credentials import Credentials
 from .decision_level import DecisionLevel
+from .delete_clip_response_200 import DeleteClipResponse200
 from .delete_member_body import DeleteMemberBody
 from .embedding_settings import EmbeddingSettings
 from .error import Error
@@ -306,6 +307,7 @@ __all__ = (
     "CreateVideoFolderResponse201",
     "Credentials",
     "DecisionLevel",
+    "DeleteClipResponse200",
     "DeleteMemberBody",
     "EmbeddingSettings",
     "Error",

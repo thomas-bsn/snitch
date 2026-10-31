@@ -256,6 +256,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testSegmentExport(t, pool)
 	})
+	t.Run("delete clip", func(t *testing.T) {
+		reset(t)
+		testDeleteClip(t, pool)
+	})
 	t.Run("segment speaker", func(t *testing.T) {
 		reset(t)
 		testSegmentSpeaker(t, pool)
@@ -438,6 +442,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/admin/embeddings/rebuild", map[string]string{"model": "fixture-only"}, me.CSRF, 503)
 		call(client, "GET", "/api/clips", nil, "", 200)
 		call(client, "GET", "/api/clips/999999", nil, "", 404)
+		call(client, "DELETE", "/api/admin/clips/999999", nil, me.CSRF, 404)
 		var adminID, contractClipID int64
 		if e = pool.QueryRow(ctx, `SELECT id FROM users WHERE username='administrator'`).Scan(&adminID); e != nil {
 			t.Fatal(e)

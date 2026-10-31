@@ -926,6 +926,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Supprimer définitivement un clip et ses fichiers (super-administrateur) */
+    delete: operations["deleteClip"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}": {
     parameters: {
       query?: never;
@@ -5937,6 +5954,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ClipFilterOptions"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteClip: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Clip supprimé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
         };
       };
       /** @description Erreur */

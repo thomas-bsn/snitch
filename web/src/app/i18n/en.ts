@@ -925,6 +925,12 @@ export const en = {
         shared: "Shared",
         private: "Private",
       },
+      deleteClip: "Delete permanently",
+      deleteTitle: "Delete this video permanently?",
+      deleteBody:
+        "All indexed copies of the video will be deleted from disk, along with its clip data and corrections. This cannot be undone.",
+      deleteError:
+        "Deletion failed or was incomplete. Check the files and permissions, then try again.",
       changeVisibility: "Change visibility",
       confirmVisibilityChange: "Confirm visibility change?",
       confirmMakeShared:

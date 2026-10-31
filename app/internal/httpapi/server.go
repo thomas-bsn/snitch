@@ -227,6 +227,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/embeddings/backfill", s.protected(true, http.HandlerFunc(s.backfillEmbeddings)))
 	mux.Handle("POST /api/admin/embeddings/rebuild", s.protected(true, http.HandlerFunc(s.rebuildEmbeddings)))
 	mux.Handle("GET /api/clip-filters", s.protected(false, http.HandlerFunc(s.listClipFilterOptions)))
+	mux.Handle("DELETE /api/admin/clips/{id}", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.deleteClip)))
 	mux.Handle("GET /api/clips/{id}", s.protected(false, http.HandlerFunc(s.getClip)))
 	mux.Handle("PATCH /api/clips/{id}", s.protected(true, http.HandlerFunc(s.updateClip)))
 	mux.Handle("POST /api/clips/{id}/transcription", s.protected(false, http.HandlerFunc(s.scheduleClipTranscription)))

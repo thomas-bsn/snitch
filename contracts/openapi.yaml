@@ -3150,6 +3150,19 @@
         "description": "Session requise. Ne liste que les Sources et les propriétaires des clips que la visibilité permet à l’appelant de voir : un membre n’apprend l’existence d’aucune Source ni d’aucun compte dont il ne voit aucun clip."
       }
     },
+    "/api/admin/clips/{id}": {
+      "delete": {
+        "operationId": "deleteClip",
+        "summary": "Supprimer définitivement un clip et ses fichiers (super-administrateur)",
+        "parameters": [
+          {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "minimum": 1}}
+        ],
+        "responses": {
+          "200": {"description": "Clip supprimé", "content": {"application/json": {"schema": {"type": "object", "required": ["status"], "properties": {"status": {"type": "string"}}}}}},
+          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
     "/api/clips/{id}": {
       "get": {
         "operationId": "getClip",

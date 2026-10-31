@@ -29,7 +29,7 @@ Le jeu et la date de prise de vue sont désormais extraits du conteneur, puis, e
 
 ## Migration
 
-`00046_clip_metadata.sql` : table `clip_metadata_settings`, colonnes de métadonnées sur `clips`, colonnes de première observation sur `source_files`, ajout de l’étape `location` au wizard, et reprise de `capture_time` depuis `recorded_at` lorsque la date n’était pas estimée.
+`00047_clip_metadata.sql` : table `clip_metadata_settings`, colonnes de métadonnées sur `clips`, colonnes de première observation sur `source_files`, ajout de l’étape `location` au wizard, et reprise de `capture_time` depuis `recorded_at` lorsque la date n’était pas estimée.
 
 ## Vérifications
 

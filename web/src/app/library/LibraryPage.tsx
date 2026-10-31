@@ -311,7 +311,12 @@ export function LibraryPage() {
       {page && page.items.length > 0 && (
         <ul className="m-0 grid list-none grid-cols-1 gap-x-4 gap-y-6 p-0 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {page.items.map((clip) => (
-            <ClipCard key={clip.id} clip={clip} from={from} />
+            <ClipCard
+              key={clip.id}
+              clip={clip}
+              from={from}
+              onDeleted={clips.reload}
+            />
           ))}
         </ul>
       )}

@@ -290,6 +290,34 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await context.close();
     });
 
+    test("le super-administrateur supprime définitivement un clip", async ({
+      browser,
+    }) => {
+      const id = await uploadClip("synthetic-delete.mp4", "shared");
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto("/library");
+      const card = page.locator("article").filter({
+        has: page.getByRole("link", {
+          name: "Open the clip synthetic-delete.mp4",
+        }),
+      });
+      await expect(
+        card.locator(`video[src="/api/clips/${id}/media#t=0.1"]`),
+      ).toHaveCount(1);
+      await card.getByRole("button", { name: "Change visibility" }).click();
+      await card.getByRole("button", { name: "Delete permanently" }).click();
+      const dialog = page.getByRole("alertdialog");
+      await expect(dialog.getByText(/deleted from disk/)).toBeVisible();
+      await dialog.getByRole("button", { name: "Delete permanently" }).click();
+      await expect(dialog).toBeHidden();
+      await expect(page.getByText("2 clips", { exact: true })).toBeVisible();
+      await expect(card).toHaveCount(0);
+      await context.close();
+    });
+
     test("la pagination parcourt plus de douze clips", async ({ browser }) => {
       for (let i = 1; i <= 11; i++) {
         await uploadClip(`synthetic-bulk-${i}.mp4`, "shared");

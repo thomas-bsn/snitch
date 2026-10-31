@@ -105,7 +105,7 @@ func (s *Server) publishUpload(ctx context.Context, id string, clipID int64) err
 	}
 	defer handle.Close()
 	var digest []byte
-	if err = tx.QueryRow(ctx, `SELECT content_sha256 FROM clips WHERE id=$1`, clipID).Scan(&digest); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT content_sha256 FROM clips WHERE id=$1 FOR KEY SHARE`, clipID).Scan(&digest); err != nil {
 		return err
 	}
 	alreadyInstalled := false

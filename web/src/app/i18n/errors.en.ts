@@ -121,6 +121,8 @@ export const errorsEn = {
   invalid_worker_capabilities: "These worker capabilities are not valid.",
   invalid_worker_capacity: "This worker capacity is not valid.",
   invalid_worker_models: "These worker models are not valid.",
+  clip_delete_failed:
+    "The video could not be deleted completely. Check its files and permissions, then retry.",
   super_administrator_required: "Only the Super-administrator can do this.",
   invalid_transcription_language:
     "This language code is not valid (two or three lowercase letters, for example fr).",
