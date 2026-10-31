@@ -38,6 +38,14 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Transcription d'origine** : Le texte d'un clip tel que produit par la transcription automatique. Il n'est jamais modifié et sert de référence pour mesurer la qualité.
 
+**Configuration de transcription** : Les réglages définis dans Snitch pour produire les transcriptions de la bibliothèque : serveur, modèle et langue. Elle peut exister avant tout Worker.
+
+**Adresse de transcription propre au Worker** : Une adresse de serveur de transcription choisie pour un Worker lorsque l'adresse commune n'est pas accessible depuis sa machine. Elle ne change ni le modèle ni la langue de la bibliothèque.
+
+**Configuration de transcription active** : La version des réglages qu'un Worker a testée et utilise pour les nouveaux travaux. Une version demandée peut être différente tant que sa validation n'a pas réussi.
+
+**Transcription désactivée** : Choix explicite de ne pas produire de transcription pour la bibliothèque. Il se distingue d'un réglage encore incomplet ou non testé.
+
 **Correction** : Le texte, ou le locuteur, qu'un utilisateur donne à un segment à la place de ce que Snitch avait compris. Elle recouvre la transcription d'origine sans la remplacer ; chaque changement garde ancienne valeur, nouvelle valeur, auteur et date, et peut être restauré. Une correction n'est ni une validation vocale ni une attribution.
 _Avoid_ : Modification de la transcription, édition.
 
