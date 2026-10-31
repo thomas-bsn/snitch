@@ -176,6 +176,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/vocabulary", s.protected(true, http.HandlerFunc(s.listVocabulary)))
 	mux.Handle("GET /api/admin/transcription-pipeline", s.protected(true, http.HandlerFunc(s.getTranscriptionPipeline)))
 	mux.Handle("PUT /api/admin/transcription-pipeline", s.protected(true, http.HandlerFunc(s.putTranscriptionPipeline)))
+	mux.Handle("GET /api/admin/transcription-settings", s.protected(true, http.HandlerFunc(s.getTranscriptionSettings)))
+	mux.Handle("PUT /api/admin/transcription-settings", s.protected(true, http.HandlerFunc(s.putTranscriptionSettings)))
 	mux.Handle("POST /api/admin/vocabulary", s.protected(true, http.HandlerFunc(s.createVocabulary)))
 	mux.Handle("PUT /api/admin/vocabulary/{id}", s.protected(true, http.HandlerFunc(s.updateVocabulary)))
 	mux.Handle("DELETE /api/admin/vocabulary/{id}", s.protected(true, http.HandlerFunc(s.deleteVocabulary)))

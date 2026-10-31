@@ -14,12 +14,21 @@ test("le profil de bibliothèque et le nom propre du Worker", async ({
   const page = await context.newPage();
   await page.goto("/admin/transcription");
   await expect(
-    page.getByText("Create a Worker to set the transcription profile."),
+    page.getByText("Transcription needs configuration."),
+  ).toBeVisible();
+  await page
+    .getByLabel("Whisper/Speaches server URL")
+    .fill("http://fixture:8000");
+  await page.getByLabel("Library model").fill("library-model");
+  await page.getByLabel("Language").fill("fr");
+  await page.getByRole("button", { name: "Save and version" }).click();
+  await expect(
+    page.getByText("Saved, not yet tested from a Worker."),
   ).toBeVisible();
   expect(
     (await new AxeBuilder({ page }).withTags(tags).analyze()).violations,
   ).toEqual([]);
-  await page.getByRole("link", { name: "Create a Worker" }).click();
+  await page.goto("/admin/workers/new");
   await page.getByLabel("Worker name").fill("fixture-worker");
   await page.getByLabel("Whisper server address").fill("http://fixture:8000");
   await page.getByLabel("Whisper model name").fill("library-model");
