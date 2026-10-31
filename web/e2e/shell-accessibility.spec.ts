@@ -192,7 +192,7 @@ test.describe.serial("accessibilité de la nouvelle interface", () => {
     await page.goto("/library");
     const tabs = page.getByRole("navigation", { name: "Main navigation" });
     await expect(tabs).toBeVisible();
-    await expect(tabs.getByRole("link")).toHaveCount(4);
+    await expect(tabs.getByRole("link")).toHaveCount(3);
     for (const link of await tabs.getByRole("link").all()) {
       const box = await link.boundingBox();
       expect(box!.height).toBeGreaterThanOrEqual(44);

@@ -87,6 +87,37 @@ test.describe.serial("recherche par citation", () => {
     await context.close();
   });
 
+  test("Bibliothèque et Recherche partagent les filtres dans une URL partageable", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      storageState: await sessionFor(ADMIN),
+    });
+    const page = await context.newPage();
+    await page.goto(
+      "/search?q=jou%C3%A9&visibility=shared&state=ready&mode=exact",
+    );
+    await page.getByRole("link", { name: "Library" }).last().click();
+    await expect(page).toHaveURL(/\/library\?/);
+    await expect(page.getByLabel("Visibility")).toHaveValue("shared");
+    await expect(page.getByLabel("State")).toHaveValue("ready");
+    const sharedAddress = page.url();
+    await page.reload();
+    await expect(page).toHaveURL(sharedAddress);
+    await page.getByRole("link", { name: "Search" }).last().click();
+    await expect(
+      page.getByRole("searchbox", { name: "What was said" }),
+    ).toHaveValue("joué");
+    await expect(page.getByRole("radio", { name: "Exact" })).toBeChecked();
+    await page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("link", { name: "Library" })
+      .click();
+    await expect(page).toHaveURL(/\/library\?.*q=jou/);
+    await expect(page.getByLabel("Visibility")).toHaveValue("shared");
+    await context.close();
+  });
+
   test("les modes, les filtres et le filtre par Personne", async ({
     browser,
   }) => {

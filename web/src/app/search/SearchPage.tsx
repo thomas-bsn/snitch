@@ -7,6 +7,7 @@ import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import { fetchFilterOptions } from "../library/libraryApi";
+import { LibrarySearchTabs } from "../library/LibrarySearchTabs";
 import { SearchForm } from "./SearchForm";
 import { SearchResultItem } from "./SearchResultItem";
 import {
@@ -90,6 +91,7 @@ export function SearchPage() {
 
   return (
     <section className="flex flex-col gap-5 px-4 py-6 md:px-7">
+      <LibrarySearchTabs />
       <h1 className="text-[22px] font-semibold">{t("pages.search.title")}</h1>
 
       <SearchForm
