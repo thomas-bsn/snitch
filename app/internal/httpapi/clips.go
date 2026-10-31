@@ -102,7 +102,10 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	folder := strings.Trim(strings.TrimSpace(r.URL.Query().Get("folder")), "/")
-	if strings.Contains(folder, "..") || strings.Contains(folder, "\\") { fail(w,400,"invalid_filter"); return }
+	if strings.Contains(folder, "..") || strings.Contains(folder, "\\") {
+		fail(w, 400, "invalid_filter")
+		return
+	}
 	admin := isAdministrator(ss.User.Role)
 	visibilityClause := "(c.visibility='shared' OR c.owner_id=$1 OR $2)"
 	args := []any{ss.User.ID, admin, visibility, status, owner, source, from, to, person.PersonID, person.Unknown, folder}
@@ -163,13 +166,32 @@ func (s *Server) listLibraryFolders(w http.ResponseWriter, r *http.Request) {
 	 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id JOIN clips c ON c.id=sf.clip_id
 	 WHERE sf.status='ready' AND (c.visibility='shared' OR c.owner_id=$1 OR $2)
 	 AND position('/' in sf.relative_path)>0 ORDER BY cs.id,3`, ss.User.ID, isAdministrator(ss.User.Role))
-	if err != nil { s.internal(w, err); return }
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	defer rows.Close()
-	type folder struct { SourceID int64 `json:"source_id"`; Source string `json:"source"`; Name string `json:"name"`; Path string `json:"path"` }
+	type folder struct {
+		SourceID int64  `json:"source_id"`
+		Source   string `json:"source"`
+		Name     string `json:"name"`
+		Path     string `json:"path"`
+	}
 	items := []folder{}
-	for rows.Next() { var f folder; if err=rows.Scan(&f.SourceID,&f.Source,&f.Name); err != nil { s.internal(w,err); return }; f.Path=f.Name; items=append(items,f) }
-	if err=rows.Err(); err != nil { s.internal(w,err); return }
-	reply(w,http.StatusOK,map[string]any{"items":items})
+	for rows.Next() {
+		var f folder
+		if err = rows.Scan(&f.SourceID, &f.Source, &f.Name); err != nil {
+			s.internal(w, err)
+			return
+		}
+		f.Path = f.Name
+		items = append(items, f)
+	}
+	if err = rows.Err(); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func timeParseDate(v string) (time.Time, error) { return time.Parse("2006-01-02", v) }

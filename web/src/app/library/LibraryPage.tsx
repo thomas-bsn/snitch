@@ -46,7 +46,7 @@ function readFilters(params: URLSearchParams): Filters {
 
 /** Build a nested folder tree from flat folder list. */
 function buildFolderTree(
-  folders: { source_id: number; source: string; name: string; path: string }[]
+  folders: { source_id: number; source: string; name: string; path: string }[],
 ): FolderNode[] {
   const roots = new Map<string, FolderNode>();
 
@@ -93,12 +93,17 @@ type FolderNode = {
 };
 
 /** Flatten folder tree for rendering with indentation. */
-function flattenFolders(nodes: FolderNode[], depth = 0): { node: FolderNode; depth: number }[] {
+function flattenFolders(
+  nodes: FolderNode[],
+  depth = 0,
+): { node: FolderNode; depth: number }[] {
   const result: { node: FolderNode; depth: number }[] = [];
   for (const node of nodes) {
     result.push({ node, depth });
     if (node.children.size > 0) {
-      result.push(...flattenFolders(Array.from(node.children.values()), depth + 1));
+      result.push(
+        ...flattenFolders(Array.from(node.children.values()), depth + 1),
+      );
     }
   }
   return result;
@@ -116,12 +121,14 @@ export function LibraryPage() {
 
   const clips = useLoaded(useCallback(() => fetchClips(filters), [filters]));
   const choices = useLoaded(fetchFilterOptions);
-  const foldersData = useLoaded<{
-  source_id: number;
-  source: string;
-  name: string;
-  path: string;
-}[]>(async () => {
+  const foldersData = useLoaded<
+    {
+      source_id: number;
+      source: string;
+      name: string;
+      path: string;
+    }[]
+  >(async () => {
     const response = await fetch("/api/library/folders");
     if (!response.ok) throw new Error("unavailable");
     const data = await response.json();
@@ -161,16 +168,14 @@ export function LibraryPage() {
   const pages = page ? Math.max(1, Math.ceil(page.total / PAGE_SIZE)) : 1;
   const from = location.pathname + location.search;
 
-  const foldersValue = foldersData.state.status === "ready" ? foldersData.state.value : [];
+  const foldersValue =
+    foldersData.state.status === "ready" ? foldersData.state.value : [];
   const folderTree = useMemo(
     () => (foldersValue.length > 0 ? buildFolderTree(foldersValue) : []),
-    [foldersValue]
+    [foldersValue],
   );
 
-  const flatFolders = useMemo(
-    () => flattenFolders(folderTree),
-    [folderTree]
-  );
+  const flatFolders = useMemo(() => flattenFolders(folderTree), [folderTree]);
 
   const currentFolderParts = filters.folder ? filters.folder.split("/") : [];
 
@@ -211,7 +216,9 @@ export function LibraryPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              className={buttonClass(filters.folder === "" ? "primary" : "secondary")}
+              className={buttonClass(
+                filters.folder === "" ? "primary" : "secondary",
+              )}
               onClick={clearFolderFilter}
             >
               {t("library.allClips")}
@@ -219,16 +226,21 @@ export function LibraryPage() {
             {flatFolders.map(({ node, depth }) => {
               const isActive = filters.folder === node.path;
               const isParent =
-                filters.folder.startsWith(node.path + "/") || filters.folder === node.path;
+                filters.folder.startsWith(node.path + "/") ||
+                filters.folder === node.path;
               const hasChildren = node.children.size > 0;
               return (
                 <button
                   key={`${node.sourceId}:${node.path}`}
                   className={buttonClass(
-                    isActive ? "primary" : isParent ? "secondary" : "secondary"
+                    isActive ? "primary" : isParent ? "secondary" : "secondary",
                   )}
                   onClick={() => navigateToFolder(node.path)}
-                  style={{ paddingLeft: `${12 + depth * 16}px` } as React.CSSProperties}
+                  style={
+                    {
+                      paddingLeft: `${12 + depth * 16}px`,
+                    } as React.CSSProperties
+                  }
                   disabled={!node.isLeaf && !hasChildren}
                 >
                   <Folder size={16} aria-hidden="true" />
