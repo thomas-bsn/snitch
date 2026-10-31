@@ -1,5 +1,6 @@
 import { MembersTab } from "./admin/members/MembersTab";
 import { SignupsTab } from "./admin/members/SignupsTab";
+import { PersonLinksTab } from "./admin/members/PersonLinksTab";
 import { ExportsTab } from "./admin/members/ExportsTab";
 import { VoiceTab } from "./admin/voice/VoiceTab";
 import { VocabularyTab } from "./admin/transcription/VocabularyTab";
@@ -106,6 +107,7 @@ function Routing() {
               <Route index element={<Navigate to="workers" replace />} />
               <Route path="users" element={<MembersTab />} />
               <Route path="users/signups" element={<SignupsTab />} />
+              <Route path="users/person-links" element={<PersonLinksTab />} />
               <Route path="exports" element={<ExportsTab />} />
               <Route path="workers" element={<WorkersTab />} />
               <Route path="queue" element={<QueueTab />} />

@@ -90,6 +90,40 @@ test.describe.serial("racine vidéo et photo de profil", () => {
     await expectNoViolations(page);
   });
 
+  test("une longue liste se filtre sans perdre la sélection", async ({
+    page,
+  }) => {
+    await page.route("**/api/admin/video-root/browse?*", async (route) => {
+      await route.fulfill({
+        json: {
+          items: Array.from({ length: 30 }, (_, i) => ({
+            path: `synthetic-${i}`,
+            directory: true,
+            size_bytes: 0,
+          })),
+        },
+      });
+    });
+    await page.goto("/admin/folders");
+    const list = page.getByRole("region", { name: "Folders and videos" });
+    await expect(list.getByRole("checkbox")).toHaveCount(30);
+    expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
+      true,
+    );
+    await list
+      .getByRole("checkbox", { name: "Select synthetic-1", exact: true })
+      .check();
+    await page.getByLabel("Filter folders and videos").fill("synthetic-29");
+    await expect(list.getByRole("checkbox")).toHaveCount(1);
+    await expect(
+      page.getByRole("button", { name: "Prepare selection scan (1)" }),
+    ).toBeEnabled();
+    await page.getByLabel("Filter folders and videos").clear();
+    await expect(
+      list.getByRole("checkbox", { name: "Select synthetic-1", exact: true }),
+    ).toBeChecked();
+  });
+
   test("un envoi choisit un sous-dossier et écrase après confirmation", async ({
     page,
   }) => {

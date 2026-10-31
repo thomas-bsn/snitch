@@ -4267,6 +4267,63 @@
         "responses": {"200": {"description": "Personne liée au compte connecté", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "404": {"description": "no_linked_person : aucune Personne n'est liée à ce compte", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "description": "Utilisateurs connectés. Les clips où cette Personne est identifiée se listent par le filtre person_id de la bibliothèque, qui applique la visibilité du compte.",
         "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "unlinkMyPerson",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Lien retiré ; la Personne, son profil vocal et ses clips sont conservés", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Person"}}}}, "404": {"description": "no_linked_person : aucune Personne n'est liée à ce compte", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Le compte lié retire sa propre liaison : la Personne, ses attributions et ses clips sont conservés, mais l'accès de « Ma voix » et le droit de supprimer le profil vocal sont perdus. Tracé.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/me/person/request": {
+      "post": {
+        "operationId": "requestPersonLink",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonLinkRequestInput"}}}},
+        "responses": {"201": {"description": "Demande créée, en attente d'un Administrateur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonLinkRequest"}}}}, "409": {"description": "account_already_linked (ce compte est déjà lié), request_pending (une demande de ce compte est déjà en attente) ou person_request_pending (cette Personne a déjà une demande en attente)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Demande à lier son compte à une Personne existante ; un Administrateur approuve ou refuse. Un compte déjà lié doit se délier d'abord. Un compte a au plus une demande en attente, et une Personne aussi.",
+        "security": [{"session": []}]
+      },
+      "get": {
+        "operationId": "getMyPersonLinkRequest",
+        "responses": {"200": {"description": "Demande la plus récente du compte, tous états confondus", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonLinkRequest"}}}}, "404": {"description": "no_link_request : ce compte n'a aucune demande", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Renvoie la demande la plus récente du compte : en attente, approuvée ou refusée.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "cancelMyPersonLinkRequest",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Demande annulée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Status"}}}}, "404": {"description": "no_pending_request : aucune demande en attente", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Annule la demande en attente du compte ; le fait reste dans la trace immuable.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/person-link-requests": {
+      "get": {
+        "operationId": "listPersonLinkRequests",
+        "parameters": [{"in": "query", "name": "status", "required": false, "schema": {"type": "string", "enum": ["pending", "approved", "refused"]}}],
+        "responses": {"200": {"description": "Demandes de liaison, en attente par défaut", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonLinkRequestList"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. File des demandes de liaison entre un compte et une Personne.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/person-link-requests/{id}/approve": {
+      "post": {
+        "operationId": "approvePersonLinkRequest",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Demande approuvée : le compte demandeur est lié à la Personne", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonLinkRequest"}}}}, "409": {"description": "request_not_pending (déjà décidée) ou account_already_linked (le compte demandeur a gagné un autre lien entre-temps)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Lie le compte demandeur à la Personne ; si un autre compte y était lié, le lien est remplacé — l'ancien compte perd la liaison — et les deux faits sont tracés.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/person-link-requests/{id}/refuse": {
+      "post": {
+        "operationId": "refusePersonLinkRequest",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Demande refusée : aucun lien n'est créé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PersonLinkRequest"}}}}, "409": {"description": "request_not_pending : la demande a déjà été décidée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Refuse la demande ; aucun lien n'est créé et le fait est tracé.",
+        "security": [{"session": []}]
       }
     },
     "/api/admin/persons/{id}/account": {
@@ -6298,6 +6355,10 @@
       },
       "PersonInput": {"type": "object", "additionalProperties": false, "required": ["display_name"], "properties": {"display_name": {"type": "string", "minLength": 1, "maxLength": 100}}},
       "PersonRef": {"type": "object", "required": ["id", "display_name"], "properties": {"id": {"type": "integer", "format": "int64"}, "display_name": {"type": "string"}}},
+      "PersonLinkAccount": {"type": "object", "required": ["id", "username"], "properties": {"id": {"type": "integer", "format": "int64"}, "username": {"type": "string", "description": "Nom du compte au moment de la décision."}}},
+      "PersonLinkRequestInput": {"type": "object", "additionalProperties": false, "required": ["person_id"], "properties": {"person_id": {"type": "integer", "format": "int64", "minimum": 1}, "message": {"type": "string", "maxLength": 500, "description": "Message facultatif à l'attention de l'Administrateur."}}},
+      "PersonLinkRequest": {"type": "object", "required": ["id", "person", "account", "status", "message", "created_at", "decided_at", "decided_by"], "properties": {"id": {"type": "integer", "format": "int64"}, "person": {"$ref": "#/components/schemas/PersonRef"}, "account": {"$ref": "#/components/schemas/PersonLinkAccount", "description": "Compte qui demande la liaison."}, "status": {"type": "string", "enum": ["pending", "approved", "refused"]}, "message": {"type": "string"}, "created_at": {"type": "string", "format": "date-time"}, "decided_at": {"type": "string", "format": "date-time", "nullable": true}, "decided_by": {"allOf": [{"$ref": "#/components/schemas/PersonLinkAccount"}], "nullable": true, "description": "Administrateur qui a décidé, le cas échéant."}}},
+      "PersonLinkRequestList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PersonLinkRequest"}}}},
       "Person": {
         "type": "object",
         "required": ["id", "display_name", "user_id", "validated_sample_count", "local_speaker_count", "voice_profile_deleted_at", "created_at"],

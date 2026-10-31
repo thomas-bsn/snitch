@@ -99,7 +99,9 @@ test.describe.serial("recherche par citation", () => {
     );
     await page.getByRole("link", { name: "Library" }).last().click();
     await expect(page).toHaveURL(/\/library\?/);
-    await expect(page.getByLabel("Visibility")).toHaveValue("shared");
+    await expect(page.getByLabel("Visibility", { exact: true })).toHaveValue(
+      "shared",
+    );
     await expect(page.getByLabel("State")).toHaveValue("ready");
     const sharedAddress = page.url();
     await page.reload();
@@ -114,7 +116,9 @@ test.describe.serial("recherche par citation", () => {
       .getByRole("link", { name: "Library" })
       .click();
     await expect(page).toHaveURL(/\/library\?.*q=jou/);
-    await expect(page.getByLabel("Visibility")).toHaveValue("shared");
+    await expect(page.getByLabel("Visibility", { exact: true })).toHaveValue(
+      "shared",
+    );
     await context.close();
   });
 
@@ -174,11 +178,13 @@ test.describe.serial("recherche par citation", () => {
     await expect(items.first()).toContainText("Merci");
 
     // The other filters narrow the results too.
-    await page.getByLabel("Visibility").selectOption("private");
+    await page
+      .getByLabel("Visibility", { exact: true })
+      .selectOption("private");
     await expect(
       page.getByRole("heading", { name: "Nothing found" }),
     ).toBeVisible();
-    await page.getByLabel("Visibility").selectOption("shared");
+    await page.getByLabel("Visibility", { exact: true }).selectOption("shared");
     await expect(items).toHaveCount(1);
     await page.getByLabel("State").selectOption({ label: "Missing" });
     await expect(

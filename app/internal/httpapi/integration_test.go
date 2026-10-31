@@ -220,6 +220,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceProfileDeletion(t, pool)
 	})
+	t.Run("person link requests", func(t *testing.T) {
+		reset(t)
+		testPersonLinkRequests(t, pool)
+	})
 	t.Run("segment corrections", func(t *testing.T) {
 		reset(t)
 		testSegmentCorrections(t, pool)
@@ -512,6 +516,26 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", personPath, map[string]any{"username": "nobody"}, me.CSRF, 404)
 		call(client, "GET", "/api/me/person", nil, "", 200)
 		call(client, "DELETE", personPath, nil, me.CSRF, 200)
+		// Exercise each link request operation through the OpenAPI validator.
+		var linkRequest struct {
+			ID int64 `json:"id"`
+		}
+		requestLink := func() {
+			t.Helper()
+			body := call(client, "POST", "/api/me/person/request", map[string]any{"person_id": contractPerson.ID}, me.CSRF, 201)
+			if err := json.Unmarshal(body, &linkRequest); err != nil || linkRequest.ID == 0 {
+				t.Fatalf("link request response: %s %v", body, err)
+			}
+		}
+		requestLink()
+		call(client, "GET", "/api/me/person/request", nil, "", 200)
+		call(client, "GET", "/api/admin/person-link-requests", nil, "", 200)
+		call(client, "POST", "/api/admin/person-link-requests/"+strconv64(linkRequest.ID)+"/refuse", nil, me.CSRF, 200)
+		requestLink()
+		call(client, "POST", "/api/admin/person-link-requests/"+strconv64(linkRequest.ID)+"/approve", nil, me.CSRF, 200)
+		call(client, "DELETE", "/api/me/person", nil, me.CSRF, 200)
+		requestLink()
+		call(client, "DELETE", "/api/me/person/request", nil, me.CSRF, 200)
 		call(client, "DELETE", "/api/persons/"+strconv64(contractPerson.ID)+"/voice-profile", nil, me.CSRF, 200)
 		call(client, "DELETE", "/api/persons/999999/voice-profile", nil, me.CSRF, 404)
 		// Accuracy measure and automation switch (behavior in the voice automation suite).

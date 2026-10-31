@@ -133,6 +133,9 @@ export const fr: Messages = {
     scanHint:
       "Sélectionner un dossier inclut ses sous-dossiers. Rien n’est analysé avant confirmation. Sans Worker disponible, les fichiers restent en attente.",
     empty: "Aucun dossier ou fichier vidéo ici.",
+    filterLabel: "Filtrer les dossiers et vidéos",
+    entriesLabel: "Dossiers et vidéos",
+    noMatches: "Aucun dossier ni vidéo ne correspond.",
     newFolder: "Nouveau sous-dossier",
     createFolder: "Créer le dossier",
     folderCreated: "Dossier créé.",
@@ -301,6 +304,25 @@ export const fr: Messages = {
     masterWarning:
       "Conservez cette clé séparément de la sauvegarde de la base. Elle ne récupère pas les secrets chiffrés avec une autre clé.",
     exportKey: "Exporter la clé maître",
+  },
+  personLinks: {
+    title: "Demandes de liaison de Personne",
+    intro:
+      "Un utilisateur demande à lier son compte à une Personne ; approuver lie ce compte, en remplaçant toute liaison existante pour cette Personne.",
+    empty: "Aucune demande en attente.",
+    columns: {
+      person: "Personne",
+      account: "Compte",
+      message: "Message",
+      requested: "Demandée le",
+      actions: "Actions",
+    },
+    approve: "Approuver",
+    approving: "Approbation…",
+    refuse: "Refuser",
+    refusing: "Refus…",
+    approved: "Demande approuvée.",
+    refused: "Demande refusée.",
   },
   closeAccount: {
     title: "Supprimer mon compte",
@@ -581,7 +603,7 @@ export const fr: Messages = {
       loading: "Chargement de votre voix…",
       noPersonTitle: "Pas de profil vocal",
       noPerson:
-        "Aucune Personne n’est liée à votre compte : Snitch ne détient donc aucun profil vocal à votre nom. Un administrateur lie une Personne à un compte.",
+        "Aucune Personne n’est encore liée à votre compte. Vous pouvez demander à lier votre compte à une Personne existante ; un administrateur approuve ou refuse la demande.",
       identity: "Vous êtes la Personne {name}.",
       samples:
         "{count} échantillon(s) vocal(aux) validé(s) servent de référence pour votre voix.",
@@ -601,6 +623,31 @@ export const fr: Messages = {
       deleting: "Suppression…",
       keep: "Garder mon profil",
       done: "Profil vocal supprimé : {samples} échantillon(s), {fingerprints} empreinte(s) et {attributions} attribution(s) effacé(s).",
+      linkTitle: "Lier mon compte à une Personne",
+      linkSearch: "Rechercher une Personne",
+      linkNoMatches: "Aucune Personne ne correspond à cette recherche.",
+      linkMessage: "Message (facultatif)",
+      linkMessageHint:
+        "Expliquez à l’administrateur pourquoi cette Personne est bien vous.",
+      linkButton: "Demander la liaison",
+      linkRequesting: "Envoi…",
+      linkPending:
+        "Votre demande pour {name} attend la décision d’un administrateur.",
+      linkCancel: "Annuler la demande",
+      linkCancelling: "Annulation…",
+      linkCancelled: "Demande annulée.",
+      linkRefused:
+        "Votre demande pour {name} a été refusée. Vous pouvez en refaire une.",
+      unlinkTitle: "Délier cette Personne",
+      unlinkBody:
+        "Le déliement retire uniquement l’association : la Personne, les clips et les attributions sont conservés. Vous ne verrez plus ces clips ici et ne pourrez plus supprimer le profil vocal. Un administrateur peut lier un autre compte.",
+      unlinkButton: "Délier",
+      unlinking: "Déliement…",
+      unlinkConfirmTitle: "Délier {name} ?",
+      unlinkConfirmBody:
+        "Votre compte ne sera plus la Personne {name}. La Personne, les clips et les attributions sont conservés.",
+      unlinkConfirm: "Délier",
+      unlinked: "Compte délié.",
     },
   },
   pages: {
@@ -642,6 +689,7 @@ export const fr: Messages = {
       vocabulary: "Vocabulaire",
       members: "Membres",
       signups: "Inscriptions",
+      personLinks: "Demandes de liaison",
     },
   },
   workers: {

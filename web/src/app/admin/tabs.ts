@@ -32,6 +32,7 @@ export const ADMIN_TABS: AdminTab[] = [
     sub: [
       { path: "", label: "admin.subTabs.members" },
       { path: "signups", label: "admin.subTabs.signups" },
+      { path: "person-links", label: "admin.subTabs.personLinks" },
     ],
   },
   { path: "exports", label: "admin.tabs.exports" },

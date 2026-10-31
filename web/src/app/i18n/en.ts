@@ -130,6 +130,9 @@ export const en = {
     scanHint:
       "Selecting a folder includes its subfolders. Nothing is analysed before confirmation. Files wait when no Worker is available.",
     empty: "No folders or video files here.",
+    filterLabel: "Filter folders and videos",
+    entriesLabel: "Folders and videos",
+    noMatches: "No matching folders or videos.",
     newFolder: "New subfolder",
     createFolder: "Create folder",
     folderCreated: "Folder created.",
@@ -294,6 +297,25 @@ export const en = {
     masterWarning:
       "Keep this key separately from the database backup. It cannot recover secrets encrypted with a different key.",
     exportKey: "Export master key",
+  },
+  personLinks: {
+    title: "Person link requests",
+    intro:
+      "A user asks to link their account to a person; approving links that account, replacing any existing link for that person.",
+    empty: "No pending request.",
+    columns: {
+      person: "Person",
+      account: "Account",
+      message: "Message",
+      requested: "Requested",
+      actions: "Actions",
+    },
+    approve: "Approve",
+    approving: "Approving…",
+    refuse: "Refuse",
+    refusing: "Refusing…",
+    approved: "Request approved.",
+    refused: "Request refused.",
   },
   closeAccount: {
     title: "Delete my account",
@@ -571,7 +593,7 @@ export const en = {
       loading: "Loading your voice…",
       noPersonTitle: "No voice profile",
       noPerson:
-        "No person is linked to your account, so Snitch holds no voice profile for you. An administrator links a person to an account.",
+        "No person is linked to your account yet. You can ask to link it to an existing person; an administrator approves or refuses the request.",
       identity: "You are the person {name}.",
       samples:
         "{count} validated voice sample(s) serve as the reference for your voice.",
@@ -591,6 +613,28 @@ export const en = {
       deleting: "Deleting…",
       keep: "Keep my profile",
       done: "Voice profile deleted: {samples} sample(s), {fingerprints} fingerprint(s) and {attributions} attribution(s) erased.",
+      linkTitle: "Link my account to a person",
+      linkSearch: "Search for a person",
+      linkNoMatches: "No person matches this search.",
+      linkMessage: "Message (optional)",
+      linkMessageHint: "Tell the administrator why this person is you.",
+      linkButton: "Request the link",
+      linkRequesting: "Sending…",
+      linkPending: "Your request for {name} is waiting for an administrator.",
+      linkCancel: "Cancel the request",
+      linkCancelling: "Cancelling…",
+      linkCancelled: "Request cancelled.",
+      linkRefused: "Your request for {name} was refused. You can ask again.",
+      unlinkTitle: "Unlink this person",
+      unlinkBody:
+        "Unlinking removes the association only: the person, the clips and the attributions are kept. You will no longer see these clips here and will no longer be able to delete the voice profile. An administrator can link another account.",
+      unlinkButton: "Unlink",
+      unlinking: "Unlinking…",
+      unlinkConfirmTitle: "Unlink {name}?",
+      unlinkConfirmBody:
+        "Your account will no longer be the person {name}. The person, the clips and the attributions are kept.",
+      unlinkConfirm: "Unlink",
+      unlinked: "Account unlinked.",
     },
   },
   pages: {
@@ -632,6 +676,7 @@ export const en = {
       vocabulary: "Vocabulary",
       members: "Members",
       signups: "Sign-ups",
+      personLinks: "Link requests",
     },
   },
   workers: {
