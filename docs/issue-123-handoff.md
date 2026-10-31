@@ -5,8 +5,8 @@ Spec: https://github.com/thomas-bsn/snitch/issues/123. Decisions: `docs/adr/0020
 
 ## Ticket graph
 
-- #143: no blocker; in progress.
-- #144 and #145: blocked by #143.
+- #143: completed on integration at `97d45a9`.
+- #144 and #145: in progress in separate worktrees.
 - #146, #147 and #148: blocked by #145.
 
 ## State
@@ -16,7 +16,9 @@ Spec: https://github.com/thomas-bsn/snitch/issues/123. Decisions: `docs/adr/0020
 - Documentation decision commit: `2b87751`.
 - Exploration notes for later tickets: `/tmp/snitch-123-exploration.md` (outside the repo).
 - #144 includes the fresh-host, one-command installation promised by #89. The current UI only provides compose/env downloads and `deploy/worker/install.py` assumes a cloned repository; filling the current bundle alone does not satisfy #144.
-- Next: finish #143, merge into this branch, then start #144 and #145 in separate worktrees.
+- Draft PR: https://github.com/thomas-bsn/snitch/pull/149.
+- #143 verification: Go unit tests, web lint/build, go vet and error-code check passed per implementer. PostgreSQL integration tests need Docker; rootless Docker was unavailable.
+- Next: merge #144 and #145 after review, then start #146–#148 from the new integration tip.
 
 ## Resume instructions
 
@@ -24,4 +26,4 @@ Read this file, the spec, each ticket and its blockers, `ROADMAP.md`, relevant p
 
 ## Completed tickets
 
-None yet.
+- #143: `e292ca2` (feature), merged via `97d45a9`. Central transcription settings can be saved before the first Worker with explicit unconfigured/enabled/disabled mode, version, endpoint, model and language; Admin → Transcription supports it. #144 must key off mode rather than the legacy default model/language.
