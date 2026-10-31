@@ -31,6 +31,7 @@ from snitch_client.models.worker_result_input_result import WorkerResultInputRes
 
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
+from snitch_worker.transcription_config import active_configuration, sync_configuration
 from snitch_worker.voice import ensure_provider_ready, is_voice_step, process_voice_step, requires_audio
 
 
@@ -159,9 +160,10 @@ def download_media(client: AuthenticatedClient, task_input: Any, lease_token: st
 
 
 def configured_transcriber(model: str = "", override: str | None = None) -> OpenAICompatibleTranscriber:
+    active = active_configuration()
     return OpenAICompatibleTranscriber(
-        os.environ.get("TRANSCRIPTION_API_URL", ""),
-        (os.environ.get("TRANSCRIPTION_MODEL", "").strip() if override is None else override.strip()) or model.strip(),
+        active.endpoint if active is not None else os.environ.get("TRANSCRIPTION_API_URL", ""),
+        ((active.model if active is not None else os.environ.get("TRANSCRIPTION_MODEL", "").strip()) if override is None else override.strip()) or model.strip(),
         os.environ.get("TRANSCRIPTION_API_KEY", ""),
     )
 
@@ -310,6 +312,8 @@ def run_once(
     )
     if stop is not None and stop.is_set():
         return False
+    if isinstance(client, AuthenticatedClient):
+        sync_configuration(client)
     claim = _require_response(claim_job(client=client), "claim")
     if claim is None or claim.job is None:
         return False

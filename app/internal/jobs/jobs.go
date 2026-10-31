@@ -365,7 +365,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if capacity < 1 || active >= capacity || globalActive >= globalCapacity {
 		return nil, tx.Commit(ctx)
 	}
-	job, err := scanJob(tx.QueryRow(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle FROM jobs j WHERE j.status='pending' AND j.next_attempt_at<=now() AND EXISTS (SELECT 1 FROM unnest($1::text[]) AS capability WHERE CASE WHEN right(capability,2)='.*' THEN left(j.step,length(capability)-1)=left(capability,length(capability)-1) ELSE j.step=capability END) ORDER BY j.priority DESC,j.created_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1`, supportedSteps))
+	job, err := scanJob(tx.QueryRow(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle FROM jobs j WHERE j.status='pending' AND j.next_attempt_at<=now() AND EXISTS (SELECT 1 FROM unnest($1::text[]) AS capability WHERE CASE WHEN right(capability,2)='.*' THEN left(j.step,length(capability)-1)=left(capability,length(capability)-1) ELSE j.step=capability END) AND (j.step NOT LIKE 'transcription.%' OR EXISTS (SELECT 1 FROM transcription_settings ts JOIN worker_transcription_config wc ON wc.active_version=ts.version WHERE ts.id=true AND ts.mode='enabled' AND wc.worker_id=$2)) ORDER BY j.priority DESC,j.created_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1`, supportedSteps, workerID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}

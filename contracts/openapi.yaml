@@ -2382,6 +2382,21 @@
         "description": "Administrateurs uniquement. Refusé (404) pour un worker révoqué."
       }
     },
+    "/api/worker/transcription-config": {
+      "get": {
+        "operationId": "getWorkerTranscriptionConfig",
+        "security": [{"workerBearer": []}],
+        "responses": {"200": {"description": "Configuration souhaitée pour ce Worker", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerTranscriptionConfig"}}}}}
+      }
+    },
+    "/api/worker/transcription-config/status": {
+      "post": {
+        "operationId": "updateWorkerTranscriptionStatus",
+        "security": [{"workerBearer": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerTranscriptionStatusInput"}}}},
+        "responses": {"200": {"description": "Résultat du test enregistré"}, "400": {"description": "État invalide"}, "409": {"description": "Version obsolète"}}
+      }
+    },
     "/api/worker/pulse": {
       "post": {
         "operationId": "workerPulse",
@@ -4150,6 +4165,14 @@
             "session": []
           }
         ]
+      }
+    },
+    "/api/admin/workers/{id}/transcription-test": {
+      "post": {
+        "operationId": "requestWorkerTranscriptionTest",
+        "security": [{"session": []}],
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"202": {"description": "Test demandé depuis le Worker"}, "404": {"description": "Worker introuvable"}}
       }
     },
     "/api/admin/transcription-settings": {
@@ -6329,7 +6352,19 @@
       },
       "TranscriptionSettingsState": {
         "type": "object", "required": ["mode", "status", "endpoint", "model", "language", "version"],
-        "properties": {"mode": {"type": "string", "enum": ["unconfigured", "enabled", "disabled"]}, "status": {"type": "string", "enum": ["unconfigured", "untested", "disabled"]}, "endpoint": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string"}, "version": {"type": "string"}}
+        "properties": {"mode": {"type": "string", "enum": ["unconfigured", "enabled", "disabled"]}, "status": {"type": "string", "enum": ["unconfigured", "untested", "disabled"]}, "endpoint": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string"}, "version": {"type": "string"}, "workers": {"type": "array", "items": {"$ref": "#/components/schemas/WorkerTranscriptionState"}}}
+      },
+      "WorkerTranscriptionConfig": {
+        "type": "object", "required": ["mode", "endpoint", "model", "language", "version"],
+        "properties": {"mode": {"type": "string"}, "endpoint": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string"}, "version": {"type": "string"}, "test_requested": {"type": "boolean"}}
+      },
+      "WorkerTranscriptionStatusInput": {
+        "type": "object", "required": ["version", "active", "error_code"],
+        "properties": {"version": {"type": "string"}, "active": {"type": "boolean"}, "error_code": {"type": "string", "enum": ["", "connection_failed", "model_missing"]}}
+      },
+      "WorkerTranscriptionState": {
+        "type": "object", "required": ["id", "name", "received_version", "tested_version", "active_version", "error_code"],
+        "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "received_version": {"type": "string"}, "tested_version": {"type": "string"}, "active_version": {"type": "string"}, "error_code": {"type": "string"}, "test_requested": {"type": "boolean"}}
       },
       "TranscriptionPipeline": {
         "type": "object", "additionalProperties": false,

@@ -711,6 +711,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/worker/transcription-config": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getWorkerTranscriptionConfig"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/transcription-config/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["updateWorkerTranscriptionStatus"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/worker/pulse": {
     parameters: {
       query?: never;
@@ -1229,6 +1261,22 @@ export interface paths {
     put?: never;
     /** @description Administrateurs uniquement. */
     post: operations["createVocabulary"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/transcription-test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["requestWorkerTranscriptionTest"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2399,6 +2447,30 @@ export interface components {
       model: string;
       language: string;
       version: string;
+      workers?: components["schemas"]["WorkerTranscriptionState"][];
+    };
+    WorkerTranscriptionConfig: {
+      mode: string;
+      endpoint: string;
+      model: string;
+      language: string;
+      version: string;
+      test_requested?: boolean;
+    };
+    WorkerTranscriptionStatusInput: {
+      version: string;
+      active: boolean;
+      /** @enum {string} */
+      error_code: "" | "connection_failed" | "model_missing";
+    };
+    WorkerTranscriptionState: {
+      id: string;
+      name: string;
+      received_version: string;
+      tested_version: string;
+      active_version: string;
+      error_code: string;
+      test_requested?: boolean;
     };
     TranscriptionPipeline: {
       /** @enum {string} */
@@ -5516,6 +5588,62 @@ export interface operations {
       };
     };
   };
+  getWorkerTranscriptionConfig: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Configuration souhaitée pour ce Worker */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerTranscriptionConfig"];
+        };
+      };
+    };
+  };
+  updateWorkerTranscriptionStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerTranscriptionStatusInput"];
+      };
+    };
+    responses: {
+      /** @description Résultat du test enregistré */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description État invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Version obsolète */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   workerPulse: {
     parameters: {
       query?: never;
@@ -7043,6 +7171,36 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Error"];
         };
+      };
+    };
+  };
+  requestWorkerTranscriptionTest: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Test demandé depuis le Worker */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Worker introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

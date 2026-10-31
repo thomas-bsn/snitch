@@ -44,7 +44,27 @@ func (s *Server) getTranscriptionSettings(w http.ResponseWriter, r *http.Request
 	if mode == "enabled" {
 		status = "untested"
 	}
-	reply(w, http.StatusOK, map[string]any{"mode": mode, "status": status, "endpoint": endpoint, "model": profile.Model, "language": profile.Language, "version": version})
+	rows, err := s.Pool.Query(r.Context(), `SELECT w.id,w.name,COALESCE(c.received_version,''),COALESCE(c.tested_version,''),COALESCE(c.active_version,''),COALESCE(c.error_code,''),COALESCE(c.test_requested_at>c.tested_at,c.test_requested_at IS NOT NULL) FROM workers w LEFT JOIN worker_transcription_config c ON c.worker_id=w.id WHERE w.revoked_at IS NULL ORDER BY w.created_at,w.id`)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer rows.Close()
+	workers := make([]map[string]any, 0)
+	for rows.Next() {
+		var id, name, received, tested, active, failure string
+		var requested bool
+		if err = rows.Scan(&id, &name, &received, &tested, &active, &failure, &requested); err != nil {
+			s.internal(w, err)
+			return
+		}
+		workers = append(workers, map[string]any{"id": id, "name": name, "received_version": received, "tested_version": tested, "active_version": active, "error_code": failure, "test_requested": requested})
+	}
+	if err = rows.Err(); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"mode": mode, "status": status, "endpoint": endpoint, "model": profile.Model, "language": profile.Language, "version": version, "workers": workers})
 }
 
 func (s *Server) putTranscriptionSettings(w http.ResponseWriter, r *http.Request) {
