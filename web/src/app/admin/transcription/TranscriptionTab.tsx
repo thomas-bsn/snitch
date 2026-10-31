@@ -1,5 +1,4 @@
 import { useCallback, useState, type FormEvent } from "react";
-import { Link } from "react-router";
 import type { components } from "../../../api.gen";
 import { api, errorCode, mutation } from "../../api/client";
 import { useLoaded } from "../../api/loaded";
@@ -12,6 +11,7 @@ import { useSession } from "../../session";
 import { fetchWorkers, type Worker } from "../workers/workersApi";
 
 type Pipeline = components["schemas"]["TranscriptionPipeline"];
+type Settings = components["schemas"]["TranscriptionSettingsState"];
 async function load() {
   try {
     const workers = await fetchWorkers();
@@ -19,9 +19,19 @@ async function load() {
     const { data, error } = await api.GET("/api/admin/transcription-pipeline");
     if (!data)
       return { ok: false, code: errorCode(error) ?? "unknown" } as const;
+    const settings = await api.GET("/api/admin/transcription-settings");
+    if (!settings.data)
+      return {
+        ok: false,
+        code: errorCode(settings.error) ?? "unknown",
+      } as const;
     return {
       ok: true,
-      value: { workers: workers.value, pipeline: data },
+      value: {
+        workers: workers.value,
+        pipeline: data,
+        settings: settings.data,
+      },
     } as const;
   } catch {
     return { ok: false, code: "unavailable" } as const;
@@ -37,26 +47,31 @@ export function TranscriptionTab() {
   const [failure, setFailure] = useState<string>();
   const [notice, setNotice] = useState(false);
   const [draft, setDraft] = useState<Pipeline>();
+  const [settingsDraft, setSettingsDraft] = useState<Partial<Settings>>();
   const [busy, setBusy] = useState(false);
   const read = useCallback(() => reload(), [reload]);
   if (state.status === "loading")
     return <p role="status">{t("app.loading")}</p>;
   if (state.status === "failed")
     return <ErrorAlert>{error(state.code)}</ErrorAlert>;
-  if (state.value.workers.first_worker)
-    return (
-      <div className="flex flex-col gap-4">
-        <p>{t("transAdmin.empty")}</p>
-        <div>
-          <Link className={buttonClass("primary")} to="/admin/workers/new">
-            {t("transAdmin.create")}
-          </Link>
-        </div>
-      </div>
-    );
-  const config = draft ?? state.value.pipeline.config;
+  const config = draft ?? {
+    ...state.value.pipeline.config,
+    model:
+      state.value.settings.mode === "unconfigured"
+        ? ""
+        : state.value.pipeline.config.model,
+    language:
+      state.value.settings.mode === "unconfigured"
+        ? ""
+        : state.value.pipeline.config.language,
+  };
+  const settings = { ...state.value.settings, ...settingsDraft };
   function change(part: Partial<Pipeline>) {
     setDraft({ ...config, ...part });
+    setNotice(false);
+  }
+  function changeSettings(part: Partial<Settings>) {
+    setSettingsDraft({ ...settings, ...part });
     setNotice(false);
   }
   async function save(event: FormEvent) {
@@ -64,15 +79,22 @@ export function TranscriptionTab() {
     setFailure(undefined);
     setBusy(true);
     try {
-      const result = await api.PUT("/api/admin/transcription-pipeline", {
+      const saved = await api.PUT("/api/admin/transcription-settings", {
         params: { header: mutation(session?.csrf_token) },
-        body: config,
+        body: {
+          mode: settings.mode === "disabled" ? "disabled" : "enabled",
+          endpoint: settings.endpoint ?? "",
+          model: config.model,
+          language: config.language,
+          profile: settings.mode === "disabled" ? undefined : config,
+        },
       });
-      if (result.error) {
-        setFailure(errorCode(result.error) ?? "unknown");
+      if (saved.error) {
+        setFailure(errorCode(saved.error) ?? "unknown");
         return;
       }
       setDraft(undefined);
+      setSettingsDraft(undefined);
       setNotice(true);
       read();
     } catch {
@@ -116,19 +138,54 @@ export function TranscriptionTab() {
         className="flex max-w-xl flex-col gap-4"
       >
         <h2 className="text-lg font-semibold">{t("transAdmin.title")}</h2>
+        <p role="status">{t(`transAdmin.settingsStatus.${settings.status}`)}</p>
+        {state.value.workers.first_worker && (
+          <p>{t("transAdmin.configureBeforeWorker")}</p>
+        )}
+        <label className="flex flex-col gap-2">
+          {t("transAdmin.transcriptionMode")}
+          <select
+            className="h-11 rounded-lg border border-line-strong bg-surface px-3"
+            value={settings.mode === "disabled" ? "disabled" : "enabled"}
+            onChange={(event) =>
+              changeSettings({
+                mode: event.target.value as "enabled" | "disabled",
+                status:
+                  event.target.value === "disabled" ? "disabled" : "untested",
+              })
+            }
+          >
+            <option value="enabled">{t("transAdmin.enabled")}</option>
+            <option value="disabled">{t("transAdmin.disabled")}</option>
+          </select>
+        </label>
+        {settings.mode !== "disabled" && (
+          <Field
+            label={t("transAdmin.endpoint")}
+            required
+            type="url"
+            maxLength={300}
+            value={settings.endpoint ?? ""}
+            onChange={(event) =>
+              changeSettings({ endpoint: event.target.value })
+            }
+          />
+        )}
         <p className="text-mute">
-          {t("transAdmin.version", { version: state.value.pipeline.version })}
+          {t("transAdmin.version", {
+            version: settings.version || state.value.pipeline.version,
+          })}
         </p>
         <Field
           label={t("transAdmin.model")}
-          required
+          required={settings.mode !== "disabled"}
           maxLength={100}
           value={config.model}
           onChange={(event) => change({ model: event.target.value })}
         />
         <Field
           label={t("transAdmin.language")}
-          required
+          required={settings.mode !== "disabled"}
           maxLength={32}
           value={config.language}
           onChange={(event) => change({ language: event.target.value })}

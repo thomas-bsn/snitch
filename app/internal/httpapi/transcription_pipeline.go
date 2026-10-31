@@ -61,20 +61,9 @@ func (s *Server) putTranscriptionPipeline(w http.ResponseWriter, r *http.Request
 	if !decode(w, r, &p) {
 		return
 	}
-	p.Provider, p.Model, p.Language, p.Preparation = strings.TrimSpace(p.Provider), strings.TrimSpace(p.Model), strings.TrimSpace(p.Language), strings.TrimSpace(p.Preparation)
-	p.VAD.Mode, p.VAD.Version = strings.TrimSpace(p.VAD.Mode), strings.TrimSpace(p.VAD.Version)
-	if p.Provider != "openai-compatible" || p.Model == "" || len(p.Model) > 100 || p.Language == "" || p.Preparation != "wav-16khz-mono-v1" || (p.VAD.Mode != "off" && p.VAD.Mode != "energy") {
+	if !validPipeline(&p) {
 		fail(w, http.StatusBadRequest, "invalid_transcription_pipeline")
 		return
-	}
-	if p.VAD.Mode == "energy" {
-		if p.VAD.Version == "" || len(p.VAD.Version) > 64 || p.VAD.Threshold <= 0 || p.VAD.Threshold >= 1 || p.VAD.MinSpeechMs < 1 || p.VAD.MinSpeechMs > 5000 || p.VAD.MinSilenceMs < 1 || p.VAD.MinSilenceMs > 10000 || p.VAD.PaddingMs < 0 || p.VAD.PaddingMs > 2000 {
-			fail(w, http.StatusBadRequest, "invalid_transcription_pipeline")
-			return
-		}
-	} else {
-		p.VAD.Version = "vad-off-v1"
-		p.VAD.Threshold, p.VAD.MinSpeechMs, p.VAD.MinSilenceMs, p.VAD.PaddingMs = 0, 0, 0, 0
 	}
 	tx, err := s.Pool.Begin(r.Context())
 	if err != nil {
@@ -92,6 +81,23 @@ func (s *Server) putTranscriptionPipeline(w http.ResponseWriter, r *http.Request
 		return
 	}
 	reply(w, http.StatusOK, map[string]any{"version": version, "config": p})
+}
+
+func validPipeline(p *transcriptionPipeline) bool {
+	p.Provider, p.Model, p.Language, p.Preparation = strings.TrimSpace(p.Provider), strings.TrimSpace(p.Model), strings.TrimSpace(p.Language), strings.TrimSpace(p.Preparation)
+	p.VAD.Mode, p.VAD.Version = strings.TrimSpace(p.VAD.Mode), strings.TrimSpace(p.VAD.Version)
+	if p.Provider != "openai-compatible" || p.Model == "" || len(p.Model) > 100 || p.Language == "" || p.Preparation != "wav-16khz-mono-v1" || (p.VAD.Mode != "off" && p.VAD.Mode != "energy") {
+		return false
+	}
+	if p.VAD.Mode == "energy" {
+		if p.VAD.Version == "" || len(p.VAD.Version) > 64 || p.VAD.Threshold <= 0 || p.VAD.Threshold >= 1 || p.VAD.MinSpeechMs < 1 || p.VAD.MinSpeechMs > 5000 || p.VAD.MinSilenceMs < 1 || p.VAD.MinSilenceMs > 10000 || p.VAD.PaddingMs < 0 || p.VAD.PaddingMs > 2000 {
+			return false
+		}
+	} else {
+		p.VAD.Version = "vad-off-v1"
+		p.VAD.Threshold, p.VAD.MinSpeechMs, p.VAD.MinSilenceMs, p.VAD.PaddingMs = 0, 0, 0, 0
+	}
+	return true
 }
 
 // activatePipeline stores a profile as a (possibly existing) immutable version and makes it the active one.

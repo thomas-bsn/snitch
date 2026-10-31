@@ -4152,6 +4152,21 @@
         ]
       }
     },
+    "/api/admin/transcription-settings": {
+      "get": {
+        "operationId": "getTranscriptionSettings",
+        "responses": {"200": {"description": "Configuration centrale", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionSettingsState"}}}}},
+        "description": "Administrateurs uniquement, y compris avant le premier Worker.",
+        "security": [{"session": []}]
+      },
+      "put": {
+        "operationId": "updateTranscriptionSettings",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionSettingsInput"}}}},
+        "responses": {"200": {"description": "Configuration souhaitée enregistrée, non testée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionSettingsState"}}}}, "400": {"description": "Configuration invalide"}},
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/transcription-pipeline": {
       "get": {
         "operationId": "getTranscriptionPipeline",
@@ -6307,6 +6322,14 @@
           "pipeline_version": {"type": "string"},
           "voice": {"$ref": "#/components/schemas/WorkerVoiceInput"}
         }
+      },
+      "TranscriptionSettingsInput": {
+        "type": "object", "required": ["mode", "endpoint", "model", "language"],
+        "properties": {"mode": {"type": "string", "enum": ["enabled", "disabled"]}, "endpoint": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string"}, "profile": {"$ref": "#/components/schemas/TranscriptionPipeline"}}
+      },
+      "TranscriptionSettingsState": {
+        "type": "object", "required": ["mode", "status", "endpoint", "model", "language", "version"],
+        "properties": {"mode": {"type": "string", "enum": ["unconfigured", "enabled", "disabled"]}, "status": {"type": "string", "enum": ["unconfigured", "untested", "disabled"]}, "endpoint": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string"}, "version": {"type": "string"}}
       },
       "TranscriptionPipeline": {
         "type": "object", "additionalProperties": false,

@@ -151,6 +151,17 @@ export const en = {
     },
   },
   transAdmin: {
+    configureBeforeWorker:
+      "Set transcription here before adding your first Worker.",
+    transcriptionMode: "Transcription",
+    enabled: "Enabled",
+    disabled: "Disabled intentionally",
+    endpoint: "Whisper/Speaches server URL",
+    settingsStatus: {
+      unconfigured: "Transcription needs configuration.",
+      untested: "Saved, not yet tested from a Worker.",
+      disabled: "Transcription is disabled intentionally.",
+    },
     empty: "Create a Worker to set the transcription profile.",
     create: "Create a Worker",
     title: "Library transcription profile",

@@ -1235,6 +1235,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/transcription-settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement, y compris avant le premier Worker. */
+    get: operations["getTranscriptionSettings"];
+    put: operations["updateTranscriptionSettings"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/transcription-pipeline": {
     parameters: {
       query?: never;
@@ -2364,6 +2381,24 @@ export interface components {
       pipeline?: components["schemas"]["TranscriptionPipeline"];
       pipeline_version?: string;
       voice?: components["schemas"]["WorkerVoiceInput"];
+    };
+    TranscriptionSettingsInput: {
+      /** @enum {string} */
+      mode: "enabled" | "disabled";
+      endpoint: string;
+      model: string;
+      language: string;
+      profile?: components["schemas"]["TranscriptionPipeline"];
+    };
+    TranscriptionSettingsState: {
+      /** @enum {string} */
+      mode: "unconfigured" | "enabled" | "disabled";
+      /** @enum {string} */
+      status: "unconfigured" | "untested" | "disabled";
+      endpoint: string;
+      model: string;
+      language: string;
+      version: string;
     };
     TranscriptionPipeline: {
       /** @enum {string} */
@@ -7008,6 +7043,60 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Error"];
         };
+      };
+    };
+  };
+  getTranscriptionSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Configuration centrale */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TranscriptionSettingsState"];
+        };
+      };
+    };
+  };
+  updateTranscriptionSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TranscriptionSettingsInput"];
+      };
+    };
+    responses: {
+      /** @description Configuration souhaitée enregistrée, non testée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TranscriptionSettingsState"];
+        };
+      };
+      /** @description Configuration invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

@@ -114,6 +114,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_source_id: "Cet identifiant de dossier n’est pas valide.",
   invalid_transcription_pipeline:
     "Ces réglages de transcription ne sont pas valides.",
+  invalid_transcription_settings:
+    "Saisissez une URL Whisper/Speaches, un modèle et une langue valides.",
   invalid_transcription_result:
     "Ce résultat de transcription n’est pas valide.",
   invalid_turn: "Ce tour de parole n’est pas valide.",
