@@ -18,7 +18,7 @@ export function Field({ label, hint, ...input }: FieldProps) {
         {...input}
         id={id}
         aria-describedby={hint ? hintId : undefined}
-        className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
+        className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink read-only:bg-side read-only:text-mute md:h-10"
       />
       {hint && (
         <p id={hintId} className="text-xs text-mute">

@@ -5960,11 +5960,11 @@
           "transcription_url": {
             "type": "string",
             "maxLength": 300,
-            "description": "Adresse du serveur Whisper de ce worker (http ou https, sans identifiants). Écrite dans le fichier d'environnement généré ; non conservée."
+            "description": "Obsolète : l'adresse est gérée dans Admin → Transcription. Refusée lors de la création."
           },
           "transcription": {
             "$ref": "#/components/schemas/WorkerTranscriptionProfile",
-            "description": "Modèle et langue de la bibliothèque : réservés au premier worker, qui crée le profil de transcription (refus transcription_profile_already_set ensuite). Le jeton Hugging Face n'est jamais envoyé à Snitch."
+            "description": "Obsolète : modèle et langue sont gérés dans Admin → Transcription. Refusés lors de la création. Le jeton Hugging Face n'est jamais envoyé à Snitch."
           }
         }
       },
@@ -6150,6 +6150,10 @@
           },
           "bundle": {
             "$ref": "#/components/schemas/WorkerBundle"
+          },
+          "install_command": {
+            "type": "string",
+            "description": "Commande d'installation Linux à copier une fois ; le code d'invitation éphémère n'est pas le jeton du Worker."
           }
         }
       },
@@ -6185,7 +6189,7 @@
         "properties": {
           "first_worker": {
             "type": "boolean",
-            "description": "Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de la bibliothèque."
+            "description": "Vrai tant qu'aucun Worker n'a jamais été créé. La configuration de transcription est indépendante."
           },
           "snitch_url": {
             "type": "string",
@@ -6195,11 +6199,17 @@
             "type": "object",
             "description": "Profil de transcription actif de la bibliothèque.",
             "required": [
+              "mode",
+              "endpoint",
+              "settings_version",
               "model",
               "language",
               "version"
             ],
             "properties": {
+              "mode": { "type": "string", "enum": ["unconfigured", "enabled", "disabled"] },
+              "endpoint": { "type": "string" },
+              "settings_version": { "type": "string" },
               "model": {
                 "type": "string"
               },

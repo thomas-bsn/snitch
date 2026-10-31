@@ -42,7 +42,7 @@ services:
       SNITCH_WORKER_CA_BUNDLE: ${SNITCH_WORKER_CA_BUNDLE:-}
       SNITCH_WORKER_CAPACITY: ${SNITCH_WORKER_CAPACITY:-1}
       SNITCH_WORKER_MACHINE_NAME: ${SNITCH_WORKER_MACHINE_NAME:-}
-      TRANSCRIPTION_API_URL: ${TRANSCRIPTION_API_URL:?Renseigner TRANSCRIPTION_API_URL dans .env}
+      TRANSCRIPTION_API_URL: ${TRANSCRIPTION_API_URL:-}
       TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-}
       TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-}
       SNITCH_VOICE_DIARIZATION_MODEL_PATH: ${SNITCH_VOICE_DIARIZATION_MODEL_PATH:-/models/diarization}
@@ -85,8 +85,7 @@ SNITCH_WORKER_TOKEN={{v .Token}}
 SNITCH_WORKER_IMAGE={{v .Image}}
 
 # --- Transcription ---
-# Serveur compatible POST /v1/audio/transcriptions, par exemple un Whisper lancé sur le PC :
-# http://host.docker.internal:8000
+# Réglé dans Snitch, Administration → Transcription. Peut rester vide si désactivé.
 TRANSCRIPTION_API_URL={{v .Whisper}}
 # Facultatif : le nom que CE serveur donne au modèle de la bibliothèque, seulement s'il diffère.
 # Par défaut, le worker utilise le modèle de la bibliothèque, réglé dans Snitch.
@@ -127,9 +126,6 @@ func NewBundle(input BundleInput) (Bundle, error) {
 	}
 	insecure := !strings.HasPrefix(strings.ToLower(input.APIURL), "https://")
 	whisper := input.WhisperURL
-	if whisper == "" {
-		whisper = Placeholder
-	}
 	var env strings.Builder
 	data := struct {
 		APIURL, Token, Image, Placeholder, Whisper string

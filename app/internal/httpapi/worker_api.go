@@ -76,11 +76,20 @@ func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	var mode, endpoint, settingsVersion string
+	err = s.Pool.QueryRow(r.Context(), `SELECT mode,endpoint,version FROM transcription_settings WHERE id=true`).Scan(&mode, &endpoint, &settingsVersion)
+	if errors.Is(err, pgx.ErrNoRows) {
+		mode = "unconfigured"
+	} else if err != nil {
+		s.internal(w, err)
+		return
+	}
 	reply(w, http.StatusOK, map[string]any{
 		"items":        items,
 		"first_worker": len(items) == 0,
 		"snitch_url":   s.publicOrigin(r),
 		"transcription": map[string]string{
+			"mode": mode, "endpoint": endpoint, "settings_version": settingsVersion,
 			"model": profile.Model, "language": profile.Language, "version": version,
 		},
 	})
@@ -110,55 +119,21 @@ func (s *Server) workerBundle(r *http.Request, token, whisper string) (workers.B
 
 func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Name             string `json:"name"`
-		MaxConcurrency   int    `json:"max_concurrency"`
-		TranscriptionURL string `json:"transcription_url"`
-		Transcription    *struct {
-			Model    string `json:"model"`
-			Language string `json:"language"`
-		} `json:"transcription"`
+		Name           string `json:"name"`
+		MaxConcurrency int    `json:"max_concurrency"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.TranscriptionURL != "" && !validWhisperURL(input.TranscriptionURL) {
-		fail(w, http.StatusBadRequest, "invalid_transcription_url")
+	var mode, endpoint string
+	err := s.Pool.QueryRow(r.Context(), `SELECT mode,endpoint FROM transcription_settings WHERE id=true`).Scan(&mode, &endpoint)
+	if errors.Is(err, pgx.ErrNoRows) {
+		mode, endpoint = "unconfigured", ""
+	} else if err != nil {
+		s.internal(w, err)
 		return
 	}
-	var profile *transcriptionPipeline
-	if input.Transcription != nil {
-		model, language := strings.TrimSpace(input.Transcription.Model), strings.TrimSpace(input.Transcription.Language)
-		switch {
-		case model == "":
-			fail(w, http.StatusBadRequest, "transcription_model_required")
-			return
-		case language == "":
-			fail(w, http.StatusBadRequest, "transcription_language_required")
-			return
-		case !transcriptionModelPattern.MatchString(model):
-			fail(w, http.StatusBadRequest, "invalid_transcription_model")
-			return
-		case !transcriptionLanguagePattern.MatchString(language):
-			fail(w, http.StatusBadRequest, "invalid_transcription_language")
-			return
-		}
-		profile = &transcriptionPipeline{Provider: "openai-compatible", Model: model, Language: language, Preparation: "wav-16khz-mono-v1"}
-		profile.VAD.Mode, profile.VAD.Version = "off", "vad-off-v1"
-	}
-	registration, _, err := s.Workers.RegisterWith(r.Context(), workers.Input{Name: input.Name, MaxConcurrency: input.MaxConcurrency}, func(ctx context.Context, tx pgx.Tx, first bool) error {
-		if profile == nil {
-			return nil
-		}
-		if !first {
-			return errProfileAlreadySet
-		}
-		_, err := activatePipeline(ctx, tx, *profile)
-		return err
-	})
-	if errors.Is(err, errProfileAlreadySet) {
-		fail(w, http.StatusConflict, "transcription_profile_already_set")
-		return
-	}
+	registration, err := s.Workers.Register(r.Context(), workers.Input{Name: input.Name, MaxConcurrency: input.MaxConcurrency})
 	if errors.Is(err, workers.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_worker")
 		return
@@ -167,7 +142,16 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	registration.Bundle, err = s.workerBundle(r, registration.Token, input.TranscriptionURL)
+	registration.Bundle, err = s.workerBundle(r, registration.Token, endpoint)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	image := s.Config.WorkerImage
+	if image == "" {
+		image = config.DefaultWorkerImage
+	}
+	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r))
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -234,7 +218,24 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	registration.Bundle, err = s.workerBundle(r, registration.Token, "")
+	var endpoint string
+	err = s.Pool.QueryRow(r.Context(), `SELECT endpoint FROM transcription_settings WHERE id=true AND mode='enabled'`).Scan(&endpoint)
+	if errors.Is(err, pgx.ErrNoRows) {
+		endpoint = ""
+	} else if err != nil {
+		s.internal(w, err)
+		return
+	}
+	registration.Bundle, err = s.workerBundle(r, registration.Token, endpoint)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	image := s.Config.WorkerImage
+	if image == "" {
+		image = config.DefaultWorkerImage
+	}
+	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r))
 	if err != nil {
 		s.internal(w, err)
 		return

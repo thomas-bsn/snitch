@@ -14,7 +14,7 @@ func TestBundleEnvCarriesTheTokenAndPublicURL(t *testing.T) {
 		"SNITCH_API_URL=https://snitch.example.org",
 		"SNITCH_WORKER_TOKEN=rw_abc-DEF_123",
 		"SNITCH_WORKER_IMAGE=ghcr.io/thomas-bsn/snitch-worker:latest",
-		"TRANSCRIPTION_API_URL=A_RENSEIGNER",
+		"TRANSCRIPTION_API_URL=\"\"",
 		"HF_TOKEN=A_RENSEIGNER",
 		"SNITCH_VOICE_DOWNLOAD_ON_START=1",
 		"SNITCH_VOICE_CONFIRM_TERMS=1",
@@ -47,6 +47,16 @@ func TestBundleCarriesTheWhisperAddressGivenAtCreation(t *testing.T) {
 	}
 	if !strings.Contains("\n"+bundle.Env, "\nTRANSCRIPTION_API_URL=http://host.docker.internal:8000\n") {
 		t.Errorf("env lacks the Whisper address:\n%s", bundle.Env)
+	}
+}
+
+func TestBundleAllowsInstallationBeforeTranscriptionIsConfigured(t *testing.T) {
+	bundle, err := NewBundle(BundleInput{APIURL: "https://snitch.example.org", Token: "rw_fixture", Image: "img:latest"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(bundle.Env, "TRANSCRIPTION_API_URL=A_RENSEIGNER") || strings.Contains(bundle.Compose, "${TRANSCRIPTION_API_URL:?") {
+		t.Fatal("a worker without transcription must not need a placeholder endpoint")
 	}
 }
 
