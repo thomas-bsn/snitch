@@ -1,7 +1,8 @@
 import { VideoStorage } from "./VideoStorage";
 import { Link, useLocation } from "react-router";
 import { useCallback, useMemo } from "react";
-import { useLoaded } from "../api/loaded";
+import { Folder, ChevronRight } from "lucide-react";
+import { useLoaded, type Result } from "../api/loaded";
 import { useAddressParams } from "../api/useAddressParams";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
@@ -25,6 +26,7 @@ const KEYS = [
   "owner",
   "person",
   "state",
+  "folder",
 ] as const;
 
 function readFilters(params: URLSearchParams): Filters {
@@ -37,8 +39,69 @@ function readFilters(params: URLSearchParams): Filters {
     owner: params.get("owner") ?? "",
     person: params.get("person") ?? "",
     state: params.get("state") ?? "",
+    folder: params.get("folder") ?? "",
     page: Number.isInteger(page) && page >= 1 ? page : 1,
   };
+}
+
+/** Build a nested folder tree from flat folder list. */
+function buildFolderTree(
+  folders: { source_id: number; source: string; name: string; path: string }[]
+): FolderNode[] {
+  const roots = new Map<string, FolderNode>();
+
+  for (const f of folders) {
+    const parts = f.path.split("/");
+    let currentMap = roots;
+    let currentPath = "";
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+
+      if (!currentMap.has(part)) {
+        const isLeaf = i === parts.length - 1;
+        currentMap.set(part, {
+          name: part,
+          path: currentPath,
+          sourceId: f.source_id,
+          source: f.source,
+          children: new Map(),
+          isLeaf,
+          clipCount: 0, // We don't have clip counts per folder from the API
+        });
+      } else if (i === parts.length - 1) {
+        // Mark as leaf if this folder has clips directly in it
+        currentMap.get(part)!.isLeaf = true;
+      }
+
+      currentMap = currentMap.get(part)!.children;
+    }
+  }
+
+  return Array.from(roots.values());
+}
+
+type FolderNode = {
+  name: string;
+  path: string;
+  sourceId: number;
+  source: string;
+  children: Map<string, FolderNode>;
+  isLeaf: boolean;
+  clipCount: number;
+};
+
+/** Flatten folder tree for rendering with indentation. */
+function flattenFolders(nodes: FolderNode[], depth = 0): { node: FolderNode; depth: number }[] {
+  const result: { node: FolderNode; depth: number }[] = [];
+  for (const node of nodes) {
+    result.push({ node, depth });
+    if (node.children.size > 0) {
+      result.push(...flattenFolders(Array.from(node.children.values()), depth + 1));
+    }
+  }
+  return result;
 }
 
 /** The library: the clips in a grid, filtered by what the address says, a page at a time. */
@@ -49,10 +112,21 @@ export function LibraryPage() {
   useDocumentTitle(t("pages.library.title"));
 
   const filters = useMemo(() => readFilters(params), [params]);
-  const active = KEYS.some((key) => filters[key] !== "");
+  const active = KEYS.some((key) => filters[key as keyof Filters] !== "");
 
   const clips = useLoaded(useCallback(() => fetchClips(filters), [filters]));
   const choices = useLoaded(fetchFilterOptions);
+  const foldersData = useLoaded<{
+  source_id: number;
+  source: string;
+  name: string;
+  path: string;
+}[]>(async () => {
+    const response = await fetch("/api/library/folders");
+    if (!response.ok) throw new Error("unavailable");
+    const data = await response.json();
+    return { ok: true, value: data.items };
+  });
 
   function change(patch: Partial<Filters>) {
     update((next) => {
@@ -64,9 +138,41 @@ export function LibraryPage() {
     });
   }
 
+  function clearFolderFilter() {
+    change({ folder: "", page: 1 });
+  }
+
+  function navigateToFolder(folderPath: string) {
+    change({ folder: folderPath, page: 1 });
+  }
+
+  function navigateToParent() {
+    if (!filters.folder) return;
+    const parts = filters.folder.split("/");
+    if (parts.length <= 1) {
+      clearFolderFilter();
+    } else {
+      parts.pop();
+      change({ folder: parts.join("/"), page: 1 });
+    }
+  }
+
   const page = clips.state.status === "ready" ? clips.state.value : null;
   const pages = page ? Math.max(1, Math.ceil(page.total / PAGE_SIZE)) : 1;
   const from = location.pathname + location.search;
+
+  const foldersValue = foldersData.state.status === "ready" ? foldersData.state.value : [];
+  const folderTree = useMemo(
+    () => (foldersValue.length > 0 ? buildFolderTree(foldersValue) : []),
+    [foldersValue]
+  );
+
+  const flatFolders = useMemo(
+    () => flattenFolders(folderTree),
+    [folderTree]
+  );
+
+  const currentFolderParts = filters.folder ? filters.folder.split("/") : [];
 
   return (
     <section className="flex flex-col gap-5 px-4 py-6 md:px-7">
@@ -85,6 +191,57 @@ export function LibraryPage() {
       </div>
 
       <VideoStorage />
+      {foldersData.state.status === "ready" && flatFolders.length > 0 && (
+        <nav
+          aria-label={t("library.folderNavigation")}
+          className="flex flex-col gap-2 rounded-xl border border-line p-4"
+        >
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold">{t("library.folders")}</h2>
+            {filters.folder && (
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                onClick={navigateToParent}
+                aria-label={t("library.parentFolder")}
+              >
+                <ChevronRight size={16} className="rotate-180" />
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className={buttonClass(filters.folder === "" ? "primary" : "secondary")}
+              onClick={clearFolderFilter}
+            >
+              {t("library.allClips")}
+            </button>
+            {flatFolders.map(({ node, depth }) => {
+              const isActive = filters.folder === node.path;
+              const isParent =
+                filters.folder.startsWith(node.path + "/") || filters.folder === node.path;
+              const hasChildren = node.children.size > 0;
+              return (
+                <button
+                  key={`${node.sourceId}:${node.path}`}
+                  className={buttonClass(
+                    isActive ? "primary" : isParent ? "secondary" : "secondary"
+                  )}
+                  onClick={() => navigateToFolder(node.path)}
+                  style={{ paddingLeft: `${12 + depth * 16}px` } as React.CSSProperties}
+                  disabled={!node.isLeaf && !hasChildren}
+                >
+                  <Folder size={16} aria-hidden="true" />
+                  {node.name}
+                  {hasChildren && !node.isLeaf && (
+                    <ChevronRight size={12} className="ml-1 opacity-50" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
       <LibraryFilters
         filters={filters}
         options={

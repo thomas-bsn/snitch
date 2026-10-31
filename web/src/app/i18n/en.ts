@@ -939,6 +939,10 @@ export const en = {
       next: "Next page",
       position: "Page {page} of {pages}",
     },
+    folderNavigation: "Folder navigation",
+    folders: "Folders",
+    allClips: "All clips",
+    parentFolder: "Parent folder",
   },
   search: {
     prompt:

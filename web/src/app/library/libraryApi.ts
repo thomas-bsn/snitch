@@ -36,6 +36,8 @@ export type LibraryFilters = {
   /** A Person's id, or "unknown" for the voices nobody identified. */
   person: string;
   state: string;
+  /** Folder path to filter by (e.g., "League of Legends" or "League of Legends/2024") */
+  folder: string;
   page: number;
 };
 
@@ -61,6 +63,7 @@ export async function fetchClips(
         status: CLIP_STATES.find((state) => state === filters.state),
         person_id: positive(filters.person),
         person_unknown: filters.person === "unknown" ? true : undefined,
+        folder: filters.folder || undefined,
       },
     },
   });
