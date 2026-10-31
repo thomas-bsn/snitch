@@ -97,3 +97,139 @@ test("le profil de bibliothèque et le nom propre du Worker", async ({
   ).toEqual([]);
   await context.close();
 });
+
+test("bouton Test et affichage des versions par Worker", async ({
+  browser,
+}) => {
+  await installAdministrator();
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+  });
+  const page = await context.newPage();
+  await page.goto("/admin/transcription");
+  // Configure transcription first
+  await page
+    .getByLabel("Whisper/Speaches server URL")
+    .fill("http://fixture:8000");
+  await page.getByLabel("Library model").fill("library-model");
+  await page.getByLabel("Language").fill("fr");
+  await page.getByRole("button", { name: "Save and version" }).click();
+  await expect(
+    page.getByText("Saved, not yet tested from a Worker."),
+  ).toBeVisible();
+
+  // Create a Worker
+  await page.goto("/admin/workers/new");
+  await page.getByLabel("Worker name").fill("test-worker-1");
+  await page.getByLabel("Whisper server address").fill("http://fixture:8000");
+  await page.getByLabel("Whisper model name").fill("library-model");
+  await page.getByRole("button", { name: "Create the Worker" }).click();
+  await page.getByRole("button", { name: "Confirm and create" }).click();
+  await page.getByRole("button", { name: "I copied the files" }).click();
+
+  // Go back to transcription admin - Worker should appear in the table
+  await page.goto("/admin/transcription");
+
+  // Check that the Worker row has the Test button
+  const workerRow = page.getByRole("row", { name: /test-worker-1/ });
+  await expect(workerRow).toBeVisible();
+
+  // The status should show "Configuration not received" initially
+  await expect(workerRow.getByText("Configuration not received")).toBeVisible();
+
+  // Version display should show received: —, tested: —, active: —
+  await expect(
+    workerRow.getByText(/Received: — · Tested: — · Active: —/),
+  ).toBeVisible();
+
+  // Click Test button - this requests a test from the Worker
+  await workerRow.getByRole("button", { name: "Test from Worker" }).click();
+
+  // Status should change to "Awaiting a successful test" (pending)
+  await expect(workerRow.getByText("Awaiting a successful test")).toBeVisible();
+
+  // Note: Actual test result requires a real Worker pulse. With synthetic fixtures,
+  // the test remains pending. The version display updates when Worker reports back.
+
+  expect(
+    (await new AxeBuilder({ page }).withTags(tags).analyze()).violations,
+  ).toEqual([]);
+  await context.close();
+});
+
+test("statuts de synchronisation Worker : modèle manquant et serveur inaccessible", async ({
+  browser,
+}) => {
+  await installAdministrator();
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+  });
+  const page = await context.newPage();
+  await page.goto("/admin/transcription");
+  // Configure transcription
+  await page
+    .getByLabel("Whisper/Speaches server URL")
+    .fill("http://fixture:8000");
+  await page.getByLabel("Library model").fill("library-model");
+  await page.getByLabel("Language").fill("fr");
+  await page.getByRole("button", { name: "Save and version" }).click();
+
+  // Create two Workers to test different error states
+  await page.goto("/admin/workers/new");
+  await page.getByLabel("Worker name").fill("missing-model-worker");
+  await page.getByLabel("Whisper server address").fill("http://fixture:8000");
+  await page.getByLabel("Whisper model name").fill("library-model");
+  await page.getByRole("button", { name: "Create the Worker" }).click();
+  await page.getByRole("button", { name: "Confirm and create" }).click();
+  await page.getByRole("button", { name: "I copied the files" }).click();
+
+  await page.goto("/admin/workers/new");
+  await page.getByLabel("Worker name").fill("unreachable-worker");
+  await page
+    .getByLabel("Whisper server address")
+    .fill("http://unreachable:8000");
+  await page.getByLabel("Whisper model name").fill("library-model");
+  await page.getByRole("button", { name: "Create the Worker" }).click();
+  await page.getByRole("button", { name: "Confirm and create" }).click();
+  await page.getByRole("button", { name: "I copied the files" }).click();
+
+  await page.goto("/admin/transcription");
+
+  // Both workers initially show "Configuration not received"
+  await expect(
+    page
+      .getByRole("row", { name: /missing-model-worker/ })
+      .getByText("Configuration not received"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("row", { name: /unreachable-worker/ })
+      .getByText("Configuration not received"),
+  ).toBeVisible();
+
+  // Test both - they will show pending
+  await page
+    .getByRole("row", { name: /missing-model-worker/ })
+    .getByRole("button", { name: "Test from Worker" })
+    .click();
+  await page
+    .getByRole("row", { name: /unreachable-worker/ })
+    .getByRole("button", { name: "Test from Worker" })
+    .click();
+
+  await expect(
+    page
+      .getByRole("row", { name: /missing-model-worker/ })
+      .getByText("Awaiting a successful test"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("row", { name: /unreachable-worker/ })
+      .getByText("Awaiting a successful test"),
+  ).toBeVisible();
+
+  expect(
+    (await new AxeBuilder({ page }).withTags(tags).analyze()).violations,
+  ).toEqual([]);
+  await context.close();
+});

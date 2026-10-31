@@ -297,45 +297,70 @@ export function TranscriptionTab() {
             </thead>
             <tbody>
               {state.value.workers.items.map((worker) => {
-                const sync = settings.workers?.find((item) => item.id === worker.id);
-                const syncState = sync?.error_code === "model_missing"
-                  ? "modelMissing"
-                  : sync?.error_code === "connection_failed"
-                    ? "connectionFailed"
-                    : sync?.active_version === settings.version && settings.version
-                      ? "active"
-                      : sync?.test_requested || sync?.received_version
-                        ? "pending"
-                        : "notReceived";
+                const sync = settings.workers?.find(
+                  (item) => item.id === worker.id,
+                );
+                const syncState =
+                  sync?.error_code === "model_missing"
+                    ? "modelMissing"
+                    : sync?.error_code === "connection_failed"
+                      ? "connectionFailed"
+                      : sync?.active_version === settings.version &&
+                          settings.version
+                        ? "active"
+                        : sync?.test_requested || sync?.received_version
+                          ? "pending"
+                          : "notReceived";
                 return (
-                <tr key={worker.id} className="border-t border-line">
-                  <td className="p-2">
-                    <button
-                      type="button"
-                      className="text-accent-ink underline"
-                      onClick={() => {
-                        setSelected(worker);
-                        setOverride(worker.transcription_model ?? "");
-                      }}
-                    >
-                      {worker.name}
-                    </button>
-                  </td>
-                  <td className="p-2">
-                    {worker.models?.transcription?.endpoint ??
-                      t("transAdmin.undeclared")}
-                  </td>
-                  <td className="p-2">
-                    {worker.transcription_model || config.model}
-                  </td>
-                  <td className="p-2">{config.language}</td>
-                  <td className="p-2">
-                    <p role="status">{t(`transAdmin.sync.${syncState}`)}</p>
-                    <p className="text-mute">{worker.connected ? t("transAdmin.online") : t("transAdmin.offline")}</p>
-                    {sync && <p className="text-mute text-xs">{t("transAdmin.sync.versions", { received: sync.received_version || "—", tested: sync.tested_version || "—", active: sync.active_version || "—" })}</p>}
-                    {settings.mode === "enabled" && <button type="button" disabled={busy} className="text-accent-ink underline" onClick={() => void testWorker(worker.id)}>{t("transAdmin.sync.test")}</button>}
-                  </td>
-                </tr>
+                  <tr key={worker.id} className="border-t border-line">
+                    <td className="p-2">
+                      <button
+                        type="button"
+                        className="text-accent-ink underline"
+                        onClick={() => {
+                          setSelected(worker);
+                          setOverride(worker.transcription_model ?? "");
+                        }}
+                      >
+                        {worker.name}
+                      </button>
+                    </td>
+                    <td className="p-2">
+                      {worker.models?.transcription?.endpoint ??
+                        t("transAdmin.undeclared")}
+                    </td>
+                    <td className="p-2">
+                      {worker.transcription_model || config.model}
+                    </td>
+                    <td className="p-2">{config.language}</td>
+                    <td className="p-2">
+                      <p role="status">{t(`transAdmin.sync.${syncState}`)}</p>
+                      <p className="text-mute">
+                        {worker.connected
+                          ? t("transAdmin.online")
+                          : t("transAdmin.offline")}
+                      </p>
+                      {sync && (
+                        <p className="text-mute text-xs">
+                          {t("transAdmin.sync.versions", {
+                            received: sync.received_version || "—",
+                            tested: sync.tested_version || "—",
+                            active: sync.active_version || "—",
+                          })}
+                        </p>
+                      )}
+                      {settings.mode === "enabled" && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="text-accent-ink underline"
+                          onClick={() => void testWorker(worker.id)}
+                        >
+                          {t("transAdmin.sync.test")}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
