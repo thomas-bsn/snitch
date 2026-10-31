@@ -118,10 +118,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Ce résultat de transcription n’est pas valide.",
   invalid_turn: "Ce tour de parole n’est pas valide.",
   invalid_upload: "Cet envoi n’est pas valide.",
-  invalid_visibility: "Cette visibilité n’est pas valide.",
   invalid_video: "Ce fichier n’est pas une vidéo lisible.",
   invalid_vocabulary_id: "Cet identifiant de vocabulaire n’est pas valide.",
   invalid_vocabulary_term: "Ce terme de vocabulaire n’est pas valide.",
+  invalid_visibility: 'La visibilité doit être "shared" ou "private".',
   invalid_voice_automation:
     "Ces réglages d’automatisation ne sont pas valides.",
   invalid_voice_criteria: "Ces critères ne sont pas valides.",
