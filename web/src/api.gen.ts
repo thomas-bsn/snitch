@@ -891,7 +891,8 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    patch?: never;
+    /** @description Administrateurs uniquement. Met à jour la visibilité d’un clip. */
+    patch: operations["updateClip"];
     trace?: never;
   };
   "/api/clips/{id}/segments/{index}/text": {
@@ -5754,6 +5755,65 @@ export interface operations {
       };
       /** @description Erreur */
       default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateClip: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /**
+           * @description Visibilité du clip : shared = visible par tous les membres du workspace, private = visible seulement par le propriétaire
+           * @enum {string}
+           */
+          visibility: "shared" | "private";
+        };
+      };
+    };
+    responses: {
+      /** @description Clip mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Clip"];
+        };
+      };
+      /** @description Requête invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Accès refusé (réservé aux administrateurs) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Clip introuvable */
+      404: {
         headers: {
           [name: string]: unknown;
         };

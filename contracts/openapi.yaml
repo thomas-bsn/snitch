@@ -2970,6 +2970,83 @@
             }
           }
         }
+      },
+      "patch": {
+        "operationId": "updateClip",
+        "description": "Administrateurs uniquement. Met à jour la visibilité d’un clip.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["visibility"],
+                "properties": {
+                  "visibility": {
+                    "type": "string",
+                    "enum": ["shared", "private"],
+                    "description": "Visibilité du clip : shared = visible par tous les membres du workspace, private = visible seulement par le propriétaire"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Clip mis à jour",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Clip"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès refusé (réservé aux administrateurs)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Clip introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [{"session": []}]
       }
     },
     "/api/clips/{id}/segments/{index}/text": {

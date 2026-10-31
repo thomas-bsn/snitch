@@ -264,7 +264,7 @@ test.describe.serial("paramètres du compte", () => {
       "Discord was unlinked.",
     );
     await expect(
-      page.getByRole("button", { name: "Link Discord" }),
+      page.getByRole("button", { name: "Link Discord", exact: true }),
     ).toBeVisible();
     await context.close();
   });

@@ -55,6 +55,15 @@ export function LibraryFilters({
         ))}
       </Select>
       <Select
+        label={t("search.filters.visibility")}
+        value={filters.visibility}
+        onChange={(visibility) => onChange({ visibility })}
+      >
+        <option value="">{t("library.filters.any")}</option>
+        <option value="shared">{t("search.filters.shared")}</option>
+        <option value="private">{t("search.filters.private")}</option>
+      </Select>
+      <Select
         label={t("library.filters.owner")}
         value={filters.owner}
         onChange={(owner) => onChange({ owner })}

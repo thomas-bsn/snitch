@@ -223,6 +223,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/embeddings/rebuild", s.protected(true, http.HandlerFunc(s.rebuildEmbeddings)))
 	mux.Handle("GET /api/clip-filters", s.protected(false, http.HandlerFunc(s.listClipFilterOptions)))
 	mux.Handle("GET /api/clips/{id}", s.protected(false, http.HandlerFunc(s.getClip)))
+	mux.Handle("PATCH /api/clips/{id}", s.protected(true, http.HandlerFunc(s.updateClip)))
 	mux.Handle("POST /api/clips/{id}/transcription", s.protected(false, http.HandlerFunc(s.scheduleClipTranscription)))
 	mux.Handle("POST /api/admin/clips/{id}/transcription", s.protected(true, http.HandlerFunc(s.scheduleTranscription)))
 	mux.Handle("GET /api/admin/transcriptions/batch-preview", s.protected(true, http.HandlerFunc(s.batchTranscriptionPreview)))
