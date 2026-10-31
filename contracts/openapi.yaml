@@ -18,6 +18,222 @@
     }
   ],
   "paths": {
+      "/api/admin/metadata-location": {
+        "get": {
+          "operationId": "getMetadataLocation",
+          "responses": {
+            "200": {
+              "description": "Success",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "country": {
+                        "type": "string"
+                      },
+                      "timezone": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "country",
+                      "timezone"
+                    ]
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          },
+          "parameters": []
+        },
+        "put": {
+          "operationId": "putMetadataLocation",
+          "responses": {
+            "200": {
+              "description": "Success",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "country": {
+                        "type": "string"
+                      },
+                      "timezone": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "country",
+                      "timezone"
+                    ]
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          },
+          "parameters": [{"in":"header","name":"Origin","required":true,"schema":{"type":"string"}},{"in":"header","name":"X-CSRF-Token","required":true,"schema":{"type":"string"}}],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "country": {
+                      "type": "string"
+                    },
+                    "timezone": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "country",
+                    "timezone"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/admin/clips/{id}/metadata": {
+        "put": {
+          "operationId": "putClipMetadata",
+          "responses": {
+            "200": {
+              "description": "Success",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          },
+          "parameters": [{"in":"header","name":"Origin","required":true,"schema":{"type":"string"}},{"in":"header","name":"X-CSRF-Token","required":true,"schema":{"type":"string"}},
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "game_changed": {"type":"boolean"},
+                    "recorded_at_changed": {"type":"boolean"},
+                    "game": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "recorded_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "game",
+                    "recorded_at"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/admin/clip-metadata/reprocess": {
+        "post": {
+          "operationId": "reprocessClipMetadata",
+          "responses": {
+            "200": {
+              "description": "Success",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "done": {"type":"boolean"},
+                      "next": {"type":"integer","format":"int64"},
+                      "updated": {
+                        "type": "integer"
+                      },
+                      "unavailable": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "done", "next",
+                      "updated",
+                      "unavailable"
+                    ]
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          },
+          "parameters": [{"in":"query","name":"after","required":false,"schema":{"type":"integer","format":"int64","minimum":0}},{"in":"header","name":"Origin","required":true,"schema":{"type":"string"}},{"in":"header","name":"X-CSRF-Token","required":true,"schema":{"type":"string"}}]
+        }
+      },
     "/api/health/live": {
       "get": {
         "operationId": "liveness",
@@ -2788,7 +3004,7 @@
     "/api/clips": {
       "get": {
         "operationId": "listClips",
-        "parameters": [
+        "parameters": [{"name":"game","in":"query","required":false,"schema":{"type":"string"}},
           {
             "in": "query",
             "name": "page",
@@ -5053,7 +5269,7 @@
         "additionalProperties": false,
         "required": ["step", "state"],
         "properties": {
-          "step": {"type": "string", "enum": ["discord", "semantic_search", "worker", "import"]},
+          "step": {"type": "string", "enum": ["location", "discord", "semantic_search", "worker", "import"]},
           "state": {"type": "string", "enum": ["done", "skipped"]}
         }
       },
@@ -5061,7 +5277,7 @@
         "type": "object",
         "required": ["step", "state"],
         "properties": {
-          "step": {"type": "string", "enum": ["discord", "semantic_search", "worker", "import"]},
+          "step": {"type": "string", "enum": ["location", "discord", "semantic_search", "worker", "import"]},
           "state": {"type": "string", "enum": ["done", "skipped", "todo"]}
         }
       },
@@ -6743,10 +6959,11 @@
             "type": "string",
             "format": "date-time"
           },
-          "recorded_at": {
-            "type": "string",
-            "format": "date-time"
-          },
+          "recorded_at": {"type": "string", "format": "date-time", "nullable": true},
+          "origins": {"type":"array","items":{"type":"object","required":["kind","name"],"properties":{"kind":{"type":"string","enum":["source","upload"]},"name":{"type":"string","nullable":true}}}},
+          "game": {"type": "string", "nullable": true},
+          "game_origin": {"type": "string", "nullable": true},
+          "capture_time_origin": {"type": "string", "nullable": true},
           "recorded_at_estimated": {
             "type": "boolean"
           },
@@ -7433,10 +7650,7 @@
               "private"
             ]
           },
-          "recorded_at": {
-            "type": "string",
-            "format": "date-time"
-          },
+          "recorded_at": {"type": "string", "format": "date-time", "nullable": true},
           "status": {
             "type": "string",
             "enum": [

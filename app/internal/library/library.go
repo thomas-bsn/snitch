@@ -140,6 +140,7 @@ type Metadata struct {
 	VideoCodec          string
 	AudioCodec          string
 	Tracks              []Track
+	ContainerTags       map[string]string
 }
 
 // ProbeFile checks an already-stored local video without changing it.
@@ -697,13 +698,17 @@ func (s *Service) observe(ctx context.Context, source Source, relativePath, abso
 	if err != nil {
 		return false, false, err
 	}
+	game, gameOrigin, captureTime, captureOrigin, err := CaptureMetadata(ctx, s.pool, filepath.Base(absolutePath), metadata.ContainerTags)
+	if err != nil {
+		return false, false, err
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return false, false, err
 	}
 	defer tx.Rollback(ctx)
 	var newClipID int64
-	err = tx.QueryRow(ctx, `INSERT INTO clips(owner_id,visibility,original_name,size_bytes,modified_at,recorded_at,recorded_at_estimated,duration_seconds,format_name,video_codec,audio_codec,tracks,content_sha256) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(content_sha256) DO UPDATE SET content_sha256=EXCLUDED.content_sha256 RETURNING id`, sourceOwnerID(source), source.Visibility, filepath.Base(absolutePath), stat.Size(), modified, metadata.RecordedAt, metadata.RecordedAtEstimated, metadata.Duration, metadata.FormatName, metadata.VideoCodec, metadata.AudioCodec, tracks, contentHash[:]).Scan(&newClipID)
+	err = tx.QueryRow(ctx, `INSERT INTO clips(owner_id,visibility,original_name,size_bytes,modified_at,recorded_at,recorded_at_estimated,duration_seconds,format_name,video_codec,audio_codec,tracks,content_sha256,game,game_origin,capture_time,capture_time_origin) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULLIF($14,''),NULLIF($15,''),$16,NULLIF($17,'')) ON CONFLICT(content_sha256) DO UPDATE SET content_sha256=EXCLUDED.content_sha256 RETURNING id`, sourceOwnerID(source), source.Visibility, filepath.Base(absolutePath), stat.Size(), modified, metadata.RecordedAt, metadata.RecordedAtEstimated, metadata.Duration, metadata.FormatName, metadata.VideoCodec, metadata.AudioCodec, tracks, contentHash[:], game, gameOrigin, captureTime, captureOrigin).Scan(&newClipID)
 	if err != nil {
 		return false, false, err
 	}
@@ -734,7 +739,7 @@ func (s *Service) probe(ctx context.Context, path string, modified time.Time) (M
 	defer cancel()
 	cmd := exec.CommandContext(probeCtx, s.config.ProbePath,
 		"-v", "error", "-protocol_whitelist", "file,pipe",
-		"-show_entries", "format=duration,format_name:format_tags=creation_time:stream=index,codec_type,codec_name,width,height,channels,channel_layout:stream_tags=title,language",
+		"-show_entries", "format=duration,format_name:format_tags=creation_time,game:stream=index,codec_type,codec_name,width,height,channels,channel_layout:stream_tags=title,language",
 		"-of", "json", path,
 	)
 	output := &cappedBuffer{max: 1 << 20}
@@ -747,7 +752,7 @@ func (s *Service) probe(ctx context.Context, path string, modified time.Time) (M
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		return Metadata{}, errProbe
 	}
-	metadata := Metadata{RecordedAt: modified, RecordedAtEstimated: true, FormatName: result.Format.FormatName, Tracks: []Track{}}
+	metadata := Metadata{RecordedAt: modified, RecordedAtEstimated: true, FormatName: result.Format.FormatName, Tracks: []Track{}, ContainerTags: result.Format.Tags}
 	if creation := tag(result.Format.Tags, "creation_time"); creation != "" {
 		if parsed, err := time.Parse(time.RFC3339Nano, creation); err == nil {
 			metadata.RecordedAt = parsed.UTC()

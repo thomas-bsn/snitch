@@ -32,6 +32,14 @@ export function LibraryFilters({
       onSubmit={(event) => event.preventDefault()}
       className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7"
     >
+      <label className="flex flex-col gap-1">
+        {t("metadata.game")}
+        <input
+          value={filters.game}
+          onChange={(event) => onChange({ game: event.target.value })}
+          className="rounded border border-line bg-canvas p-2"
+        />
+      </label>
       <DateField
         label={t("library.filters.from")}
         value={filters.from}

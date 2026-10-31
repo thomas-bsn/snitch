@@ -15,6 +15,7 @@ export const ADMIN_TABS: AdminTab[] = [
   { path: "workers", label: "admin.tabs.workers" },
   { path: "queue", label: "admin.tabs.queue" },
   { path: "folders", label: "admin.tabs.folders" },
+  { path: "metadata", label: "metadata.title" },
   {
     path: "transcription",
     label: "admin.tabs.transcription",

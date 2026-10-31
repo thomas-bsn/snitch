@@ -48,6 +48,12 @@ type Clip struct {
 	AudioCodec          string             `json:"audio_codec"`
 	Tracks              []byte             `json:"tracks"`
 	ContentSha256       []byte             `json:"content_sha256"`
+	Game                pgtype.Text        `json:"game"`
+	GameOrigin          pgtype.Text        `json:"game_origin"`
+	CaptureTime         pgtype.Timestamptz `json:"capture_time"`
+	CaptureTimeOrigin   pgtype.Text        `json:"capture_time_origin"`
+	GameEdited          bool               `json:"game_edited"`
+	CaptureTimeEdited   bool               `json:"capture_time_edited"`
 }
 
 type ClipAudioTrackOverride struct {
@@ -55,6 +61,12 @@ type ClipAudioTrackOverride struct {
 	AudioStreamIndex int32              `json:"audio_stream_index"`
 	Version          int64              `json:"version"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ClipMetadataSetting struct {
+	ID       bool   `json:"id"`
+	Country  string `json:"country"`
+	Timezone string `json:"timezone"`
 }
 
 type ClipMicrophoneOverride struct {
@@ -303,6 +315,7 @@ type SourceFile struct {
 	Status             string             `json:"status"`
 	ErrorCode          pgtype.Text        `json:"error_code"`
 	ScanRequested      bool               `json:"scan_requested"`
+	FirstSeenAt        pgtype.Timestamptz `json:"first_seen_at"`
 }
 
 type SourceMicrophoneTrack struct {

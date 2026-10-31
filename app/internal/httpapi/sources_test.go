@@ -167,6 +167,22 @@ func testFolderSources(t *testing.T, pool *pgxpool.Pool) {
 	if clip.Name != "synthetic-clip.mp4" || clip.Status != "ready" || clip.SizeBytes != int64(len("synthetic-video-fixture")) || clip.Duration != 4.25 || clip.VideoCodec != "h264" || clip.RecordedAt != "2025-01-02T03:04:05Z" || clip.DateEstimated || len(clip.Tracks) != 3 || clip.Tracks[1].Language != "fra" {
 		t.Fatalf("unexpected clip metadata: %+v", clip)
 	}
+	var list struct {
+		Items []struct {
+			ID         int64   `json:"id"`
+			Game       *string `json:"game"`
+			RecordedAt *string `json:"recorded_at"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(request(admin, "GET", "/api/clips", "", "", http.StatusOK), &list); err != nil || len(list.Items) != 1 {
+		t.Fatalf("clip list: %+v %v", list, err)
+	}
+	clipPath := "/api/admin/clips/" + strconv.FormatInt(list.Items[0].ID, 10) + "/metadata"
+	request(admin, "PUT", clipPath, `{"game":"Manual game","recorded_at":null,"game_changed":true,"recorded_at_changed":false}`, session.CSRF, http.StatusOK)
+	request(admin, "POST", "/api/admin/clip-metadata/reprocess", "", session.CSRF, http.StatusOK)
+	if err := json.Unmarshal(request(admin, "GET", "/api/clips", "", "", http.StatusOK), &list); err != nil || len(list.Items) != 1 || list.Items[0].Game == nil || *list.Items[0].Game != "Manual game" || list.Items[0].RecordedAt == nil || !sameTimestamp(*list.Items[0].RecordedAt, "2025-01-02T03:04:05Z") {
+		t.Fatalf("reprocessed metadata: %s %v", request(admin, "GET", "/api/clips", "", "", http.StatusOK), err)
+	}
 	if byName["broken.mp4"].Status != "unreadable" || byName["broken.mp4"].ErrorCode != "video_unreadable" || byName["no-video.mp4"].Status != "unreadable" || byName["no-video.mp4"].ErrorCode != "video_stream_missing" {
 		t.Fatalf("invalid videos did not have visible errors: %+v", byName)
 	}
@@ -539,4 +555,10 @@ func syntheticConcurrentProbeFixture(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return probe
+}
+
+func sameTimestamp(a, b string) bool {
+	x, errA := time.Parse(time.RFC3339, a)
+	y, errB := time.Parse(time.RFC3339, b)
+	return errA == nil && errB == nil && x.Equal(y)
 }

@@ -18,25 +18,34 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type clipOrigin struct {
+	Kind string  `json:"kind"`
+	Name *string `json:"name"`
+}
+
 type clipItem struct {
-	ID                  int64     `json:"id"`
-	OwnerID             int64     `json:"owner_id"`
-	Owner               string    `json:"owner"`
-	OwnerDeleted        bool      `json:"owner_deleted"`
-	Visibility          string    `json:"visibility"`
-	OriginalName        string    `json:"original_name"`
-	SizeBytes           int64     `json:"size_bytes"`
-	DiscoveredAt        time.Time `json:"discovered_at"`
-	RecordedAt          time.Time `json:"recorded_at"`
-	RecordedAtEstimated bool      `json:"recorded_at_estimated"`
-	DurationSeconds     *float64  `json:"duration_seconds"`
-	FormatName          string    `json:"format_name"`
-	VideoCodec          string    `json:"video_codec"`
-	AudioCodec          string    `json:"audio_codec"`
-	Tracks              any       `json:"tracks"`
-	Status              string    `json:"status"`
-	Sources             []string  `json:"sources"`
-	Uploaders           []string  `json:"uploaders"`
+	ID                  int64        `json:"id"`
+	OwnerID             int64        `json:"owner_id"`
+	Owner               string       `json:"owner"`
+	OwnerDeleted        bool         `json:"owner_deleted"`
+	Visibility          string       `json:"visibility"`
+	OriginalName        string       `json:"original_name"`
+	SizeBytes           int64        `json:"size_bytes"`
+	DiscoveredAt        time.Time    `json:"discovered_at"`
+	RecordedAt          *time.Time   `json:"recorded_at"`
+	Game                *string      `json:"game"`
+	GameOrigin          *string      `json:"game_origin"`
+	CaptureTimeOrigin   *string      `json:"capture_time_origin"`
+	RecordedAtEstimated bool         `json:"recorded_at_estimated"`
+	DurationSeconds     *float64     `json:"duration_seconds"`
+	FormatName          string       `json:"format_name"`
+	VideoCodec          string       `json:"video_codec"`
+	AudioCodec          string       `json:"audio_codec"`
+	Tracks              any          `json:"tracks"`
+	Status              string       `json:"status"`
+	Sources             []string     `json:"sources"`
+	Origins             []clipOrigin `json:"origins"`
+	Uploaders           []string     `json:"uploaders"`
 	// Persons are the Persons identified in the clip (human or automatic attribution).
 	Persons []clipPerson `json:"persons"`
 }
@@ -103,8 +112,8 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 	}
 	admin := isAdministrator(ss.User.Role)
 	visibilityClause := "(c.visibility='shared' OR c.owner_id=$1 OR $2)"
-	args := []any{ss.User.ID, admin, visibility, status, owner, source, from, to, person.PersonID, person.Unknown}
-	filters := "($3='' OR c.visibility=$3) AND ($4='' OR c.id IN (SELECT sf.clip_id FROM source_files sf WHERE sf.status=$4) OR ($4='ready' AND EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id)) OR ($4='missing' AND NOT EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready'))) AND ($5=0 OR c.owner_id=$5) AND ($6=0 OR EXISTS(SELECT 1 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id AND cs.id=$6)) AND ($7='' OR c.recorded_at::date >= $7::date) AND ($8='' OR c.recorded_at::date <= $8::date) AND " + clipPersonPredicate("$9", "$10")
+	args := []any{ss.User.ID, admin, visibility, status, owner, source, from, to, person.PersonID, person.Unknown, strings.TrimSpace(r.URL.Query().Get("game"))}
+	filters := "($3='' OR c.visibility=$3) AND ($4='' OR c.id IN (SELECT sf.clip_id FROM source_files sf WHERE sf.status=$4) OR ($4='ready' AND EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id)) OR ($4='missing' AND NOT EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready'))) AND ($5=0 OR c.owner_id=$5) AND ($6=0 OR EXISTS(SELECT 1 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id AND cs.id=$6)) AND ($7='' OR c.capture_time::date >= $7::date) AND ($8='' OR c.capture_time::date <= $8::date) AND " + clipPersonPredicate("$9", "$10") + " AND ($11='' OR c.game ILIKE '%' || $11 || '%')"
 	var total int
 	err = s.Pool.QueryRow(r.Context(), "SELECT count(*) FROM clips c WHERE "+visibilityClause+" AND "+filters, args...).Scan(&total)
 	if err != nil {
@@ -112,11 +121,12 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	args = append(args, size, (page-1)*size)
-	rows, err := s.Pool.Query(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.recorded_at,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
+	rows, err := s.Pool.Query(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.capture_time,c.game,c.game_origin,c.capture_time_origin,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
- COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb)
- FROM clips c JOIN users u ON u.id=c.owner_id WHERE `+visibilityClause+" AND "+filters+" ORDER BY c.recorded_at DESC,c.id DESC LIMIT $11 OFFSET $12", args...)
+ COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb),
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('kind',o.kind,'name',o.name) ORDER BY o.created_at,o.kind,o.sort_id) FROM (SELECT 'source' AS kind,cs.name AS name,sf.first_seen_at AS created_at,cs.id AS sort_id FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id UNION ALL SELECT 'upload',CASE WHEN u2.deleted_at IS NULL THEN u2.username ELSE NULL END,um.created_at,um.owner_id FROM uploaded_media um JOIN users u2 ON u2.id=um.owner_id WHERE um.clip_id=c.id) o),'[]'::jsonb)
+ FROM clips c JOIN users u ON u.id=c.owner_id WHERE `+visibilityClause+" AND "+filters+" ORDER BY c.capture_time DESC NULLS LAST,c.discovered_at DESC,c.id DESC LIMIT $12 OFFSET $13", args...)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -125,7 +135,7 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 	items := []clipItem{}
 	for rows.Next() {
 		var v clipItem
-		if err = rows.Scan(&v.ID, &v.OwnerID, &v.Owner, &v.OwnerDeleted, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders); err != nil {
+		if err = rows.Scan(&v.ID, &v.OwnerID, &v.Owner, &v.OwnerDeleted, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.Game, &v.GameOrigin, &v.CaptureTimeOrigin, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders, &v.Origins); err != nil {
 			s.internal(w, err)
 			return
 		}
@@ -164,11 +174,12 @@ func (s *Server) authorizedClip(w http.ResponseWriter, r *http.Request) (clipIte
 		return clipItem{}, false
 	}
 	var v clipItem
-	err = s.Pool.QueryRow(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.recorded_at,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
+	err = s.Pool.QueryRow(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.capture_time,c.game,c.game_origin,c.capture_time_origin,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
- COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb)
- FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&v.ID, &v.OwnerID, &v.Owner, &v.OwnerDeleted, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders)
+ COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb),
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('kind',o.kind,'name',o.name) ORDER BY o.created_at,o.kind,o.sort_id) FROM (SELECT 'source' AS kind,cs.name AS name,sf.first_seen_at AS created_at,cs.id AS sort_id FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id UNION ALL SELECT 'upload',CASE WHEN u2.deleted_at IS NULL THEN u2.username ELSE NULL END,um.created_at,um.owner_id FROM uploaded_media um JOIN users u2 ON u2.id=um.owner_id WHERE um.clip_id=c.id) o),'[]'::jsonb)
+ FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&v.ID, &v.OwnerID, &v.Owner, &v.OwnerDeleted, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.Game, &v.GameOrigin, &v.CaptureTimeOrigin, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders, &v.Origins)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, 404, "clip_not_found")
 		return clipItem{}, false
@@ -213,7 +224,7 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 	if clipPeople == nil {
 		clipPeople = []clipPerson{}
 	}
-	response := map[string]any{"persons": clipPeople, "audio_track_selection": selection, "id": v.ID, "owner_id": v.OwnerID, "owner": v.Owner, "visibility": v.Visibility, "original_name": v.OriginalName, "size_bytes": v.SizeBytes, "discovered_at": v.DiscoveredAt, "recorded_at": v.RecordedAt, "recorded_at_estimated": v.RecordedAtEstimated, "duration_seconds": v.DurationSeconds, "format_name": v.FormatName, "video_codec": v.VideoCodec, "audio_codec": v.AudioCodec, "tracks": v.Tracks, "status": v.Status, "sources": v.Sources, "uploaders": v.Uploaders}
+	response := map[string]any{"persons": clipPeople, "audio_track_selection": selection, "id": v.ID, "owner_id": v.OwnerID, "owner": v.Owner, "visibility": v.Visibility, "original_name": v.OriginalName, "size_bytes": v.SizeBytes, "discovered_at": v.DiscoveredAt, "recorded_at": v.RecordedAt, "game": v.Game, "game_origin": v.GameOrigin, "capture_time_origin": v.CaptureTimeOrigin, "recorded_at_estimated": v.RecordedAtEstimated, "duration_seconds": v.DurationSeconds, "format_name": v.FormatName, "video_codec": v.VideoCodec, "audio_codec": v.AudioCodec, "tracks": v.Tracks, "status": v.Status, "sources": v.Sources, "uploaders": v.Uploaders, "origins": v.Origins}
 	progress, progressErr := s.clipProgress(r.Context(), v.ID, transcriptJobID, transcript != nil)
 	if progressErr != nil {
 		s.internal(w, progressErr)
@@ -345,11 +356,12 @@ func (s *Server) updateClip(w http.ResponseWriter, r *http.Request) {
 
 	// Return updated clip (reuse authorizedClip logic but without visibility filter since admin)
 	var v clipItem
-	err = s.Pool.QueryRow(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.recorded_at,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
+	err = s.Pool.QueryRow(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.capture_time,c.game,c.game_origin,c.capture_time_origin,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
- COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb)
- FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1`, id).Scan(&v.ID, &v.OwnerID, &v.Owner, &v.OwnerDeleted, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders)
+ COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb),
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('kind',o.kind,'name',o.name) ORDER BY o.created_at,o.kind,o.sort_id) FROM (SELECT 'source' AS kind,cs.name AS name,sf.first_seen_at AS created_at,cs.id AS sort_id FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id UNION ALL SELECT 'upload',CASE WHEN u2.deleted_at IS NULL THEN u2.username ELSE NULL END,um.created_at,um.owner_id FROM uploaded_media um JOIN users u2 ON u2.id=um.owner_id WHERE um.clip_id=c.id) o),'[]'::jsonb)
+ FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1`, id).Scan(&v.ID, &v.OwnerID, &v.Owner, &v.OwnerDeleted, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.Game, &v.GameOrigin, &v.CaptureTimeOrigin, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders, &v.Origins)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, 404, "clip_not_found")
 		return
@@ -369,6 +381,9 @@ func (s *Server) updateClip(w http.ResponseWriter, r *http.Request) {
 		"size_bytes":            v.SizeBytes,
 		"discovered_at":         v.DiscoveredAt,
 		"recorded_at":           v.RecordedAt,
+		"game":                  v.Game,
+		"game_origin":           v.GameOrigin,
+		"capture_time_origin":   v.CaptureTimeOrigin,
 		"recorded_at_estimated": v.RecordedAtEstimated,
 		"duration_seconds":      v.DurationSeconds,
 		"format_name":           v.FormatName,
@@ -378,6 +393,7 @@ func (s *Server) updateClip(w http.ResponseWriter, r *http.Request) {
 		"status":                v.Status,
 		"sources":               v.Sources,
 		"uploaders":             v.Uploaders,
+		"origins":               v.Origins,
 	})
 }
 

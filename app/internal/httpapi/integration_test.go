@@ -85,7 +85,7 @@ func TestFoundation(t *testing.T) {
 	})
 	reset := func(t *testing.T) {
 		t.Helper()
-		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
+		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE clip_metadata_settings SET country='',timezone=''; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -444,6 +444,18 @@ func TestFoundation(t *testing.T) {
 		_, e = pool.Exec(ctx, `UPDATE clips SET tracks=$2::jsonb WHERE id=$1`, contractClipID, `[{"index":1,"type":"audio","codec":"aac","title":"Game","language":"fra","channels":2,"channel_layout":"stereo"},{"index":2,"type":"audio","codec":"aac","title":"Voice","language":"fra","channels":2,"channel_layout":"stereo"}]`)
 		if e != nil {
 			t.Fatal(e)
+		}
+		call(client, "GET", "/api/admin/metadata-location", nil, "", 200)
+		call(client, "PUT", "/api/admin/metadata-location", map[string]string{"country": "FR", "timezone": "Europe/Paris"}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/metadata", map[string]any{"game": "Synthetic game", "recorded_at": nil, "game_changed": true}, me.CSRF, 200)
+		call(client, "POST", "/api/admin/clip-metadata/reprocess", nil, me.CSRF, 200)
+		clipMetadata := call(client, "GET", "/api/clips/"+strconv64(contractClipID), nil, "", 200)
+		if !bytes.Contains(clipMetadata, []byte(`"game":"Synthetic game"`)) || !bytes.Contains(clipMetadata, []byte(`"recorded_at":null`)) {
+			t.Fatalf("manual metadata lost or unknown date guessed: %s", clipMetadata)
+		}
+		filtered := call(client, "GET", "/api/clips?game=Synthetic", nil, "", 200)
+		if !bytes.Contains(filtered, []byte(`"game":"Synthetic game"`)) {
+			t.Fatalf("game filter: %s", filtered)
 		}
 		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", map[string]int{"audio_stream_index": 2}, me.CSRF, 200)
 		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", nil, me.CSRF, 200)
