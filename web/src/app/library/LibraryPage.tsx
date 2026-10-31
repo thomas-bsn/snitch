@@ -9,6 +9,7 @@ import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import { ClipCard } from "./ClipCard";
 import { LibraryFilters } from "./LibraryFilters";
+import { LibrarySearchTabs } from "./LibrarySearchTabs";
 import {
   PAGE_SIZE,
   fetchClips,
@@ -16,7 +17,15 @@ import {
   type LibraryFilters as Filters,
 } from "./libraryApi";
 
-const KEYS = ["from", "to", "source", "owner", "person", "state"] as const;
+const KEYS = [
+  "from",
+  "to",
+  "source",
+  "visibility",
+  "owner",
+  "person",
+  "state",
+] as const;
 
 function readFilters(params: URLSearchParams): Filters {
   const page = Number(params.get("page"));
@@ -24,6 +33,7 @@ function readFilters(params: URLSearchParams): Filters {
     from: params.get("from") ?? "",
     to: params.get("to") ?? "",
     source: params.get("source") ?? "",
+    visibility: params.get("visibility") ?? "",
     owner: params.get("owner") ?? "",
     person: params.get("person") ?? "",
     state: params.get("state") ?? "",
@@ -60,6 +70,7 @@ export function LibraryPage() {
 
   return (
     <section className="flex flex-col gap-5 px-4 py-6 md:px-7">
+      <LibrarySearchTabs />
       <div className="flex items-baseline gap-3">
         <h1 className="text-[22px] font-semibold">
           {t("pages.library.title")}
@@ -86,7 +97,8 @@ export function LibraryPage() {
         onChange={change}
         onClear={() =>
           update((next) => {
-            for (const key of [...next.keys()]) next.delete(key);
+            for (const key of KEYS) next.delete(key);
+            next.delete("page");
           })
         }
       />
