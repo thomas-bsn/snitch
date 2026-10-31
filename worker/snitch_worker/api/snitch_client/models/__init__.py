@@ -63,6 +63,7 @@ from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
 from .list_jobs_workflow import ListJobsWorkflow
 from .list_members_response_200 import ListMembersResponse200
+from .list_person_link_requests_status import ListPersonLinkRequestsStatus
 from .list_voice_groups_sort import ListVoiceGroupsSort
 from .list_voice_verification_level import ListVoiceVerificationLevel
 from .local_speaker import LocalSpeaker
@@ -96,6 +97,11 @@ from .person_event import PersonEvent
 from .person_event_action import PersonEventAction
 from .person_event_list import PersonEventList
 from .person_input import PersonInput
+from .person_link_account import PersonLinkAccount
+from .person_link_request import PersonLinkRequest
+from .person_link_request_input import PersonLinkRequestInput
+from .person_link_request_list import PersonLinkRequestList
+from .person_link_request_status import PersonLinkRequestStatus
 from .person_list import PersonList
 from .person_merge_input import PersonMergeInput
 from .person_ref import PersonRef
@@ -313,6 +319,7 @@ __all__ = (
     "ListJobsStatus",
     "ListJobsWorkflow",
     "ListMembersResponse200",
+    "ListPersonLinkRequestsStatus",
     "ListVoiceGroupsSort",
     "ListVoiceVerificationLevel",
     "LocalSpeaker",
@@ -346,6 +353,11 @@ __all__ = (
     "PersonEventAction",
     "PersonEventList",
     "PersonInput",
+    "PersonLinkAccount",
+    "PersonLinkRequest",
+    "PersonLinkRequestInput",
+    "PersonLinkRequestList",
+    "PersonLinkRequestStatus",
     "PersonList",
     "PersonMergeInput",
     "PersonRef",

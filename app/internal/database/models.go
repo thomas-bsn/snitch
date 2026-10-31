@@ -219,6 +219,32 @@ type PersonEvent struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
+type PersonLinkEvent struct {
+	ID               int64              `json:"id"`
+	Action           string             `json:"action"`
+	PersonID         int64              `json:"person_id"`
+	PersonName       string             `json:"person_name"`
+	UserID           pgtype.Int8        `json:"user_id"`
+	Username         string             `json:"username"`
+	PreviousUserID   pgtype.Int8        `json:"previous_user_id"`
+	PreviousUsername string             `json:"previous_username"`
+	ActorID          pgtype.Int8        `json:"actor_id"`
+	ActorUsername    string             `json:"actor_username"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type PersonLinkRequest struct {
+	ID                int64              `json:"id"`
+	PersonID          int64              `json:"person_id"`
+	UserID            int64              `json:"user_id"`
+	Status            string             `json:"status"`
+	Message           string             `json:"message"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	DecidedAt         pgtype.Timestamptz `json:"decided_at"`
+	DecidedBy         pgtype.Int8        `json:"decided_by"`
+	DecidedByUsername string             `json:"decided_by_username"`
+}
+
 type SegmentCorrection struct {
 	TranscriptionJobID    int64              `json:"transcription_job_id"`
 	SegmentIndex          int32              `json:"segment_index"`

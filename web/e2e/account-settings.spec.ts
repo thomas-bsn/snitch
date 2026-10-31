@@ -76,7 +76,11 @@ test.describe.serial("paramètres du compte", () => {
     await tabs.getByRole("tab", { name: "My voice" }).click();
     await expect(page).toHaveURL(/\/account\/voice$/);
     await expect(
-      page.getByRole("heading", { level: 2, name: "My voice", exact: true }),
+      page.getByRole("heading", {
+        level: 2,
+        name: "Link my account to a person",
+        exact: true,
+      }),
     ).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(/\/account$/);
