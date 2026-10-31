@@ -125,6 +125,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_transcription_url")
 		return
 	}
+	// Validate transcription config if provided (for bootstrap only)
 	var profile *transcriptionPipeline
 	if input.Transcription != nil {
 		model, language := strings.TrimSpace(input.Transcription.Model), strings.TrimSpace(input.Transcription.Language)
@@ -145,20 +146,27 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		profile = &transcriptionPipeline{Provider: "openai-compatible", Model: model, Language: language, Preparation: "wav-16khz-mono-v1"}
 		profile.VAD.Mode, profile.VAD.Version = "off", "vad-off-v1"
 	}
+	// Determine the WhisperURL for the bundle: prefer centralized config, fallback to provided TranscriptionURL
+	var bundleWhisperURL string
 	registration, _, err := s.Workers.RegisterWith(r.Context(), workers.Input{Name: input.Name, MaxConcurrency: input.MaxConcurrency}, func(ctx context.Context, tx pgx.Tx, first bool) error {
-		if profile == nil {
+		if !first {
 			return nil
 		}
-		if !first {
-			return errProfileAlreadySet
+		// For the first worker, initialize centralized config from registration input if provided
+		if profile != nil {
+			version, err := activatePipeline(ctx, tx, *profile)
+			if err != nil {
+				return err
+			}
+			// Initialize transcription_settings with the provided config
+			_, err = tx.Exec(ctx, `INSERT INTO transcription_settings(mode,endpoint,version) VALUES('enabled',$1,$2) ON CONFLICT(id) DO UPDATE SET mode='enabled',endpoint=$1,version=$2,updated_at=now()`, input.TranscriptionURL, version)
+			if err != nil {
+				return err
+			}
+			bundleWhisperURL = input.TranscriptionURL
 		}
-		_, err := activatePipeline(ctx, tx, *profile)
-		return err
+		return nil
 	})
-	if errors.Is(err, errProfileAlreadySet) {
-		fail(w, http.StatusConflict, "transcription_profile_already_set")
-		return
-	}
 	if errors.Is(err, workers.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_worker")
 		return
@@ -167,7 +175,17 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	registration.Bundle, err = s.workerBundle(r, registration.Token, input.TranscriptionURL)
+	// If not first worker or no profile provided, fetch centralized config for bundle
+	if bundleWhisperURL == "" {
+		var endpoint, version string
+		err = s.Pool.QueryRow(r.Context(), `SELECT endpoint,version FROM transcription_settings WHERE id=true AND mode='enabled'`).Scan(&endpoint, &version)
+		if err == nil && endpoint != "" {
+			bundleWhisperURL = endpoint
+		} else if input.TranscriptionURL != "" {
+			bundleWhisperURL = input.TranscriptionURL
+		}
+	}
+	registration.Bundle, err = s.workerBundle(r, registration.Token, bundleWhisperURL)
 	if err != nil {
 		s.internal(w, err)
 		return

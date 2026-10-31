@@ -34,20 +34,21 @@ type WorkerTranscriptionConfig struct {
 }
 
 type Worker struct {
-	SupportedSteps        []string                   `json:"supported_steps"`
-	ID                    string                     `json:"id"`
-	Name                  string                     `json:"name"`
-	MaxConcurrency        int                        `json:"max_concurrency"`
-	ReportedConcurrency   int                        `json:"reported_concurrency"`
-	LastSeenAt            *time.Time                 `json:"last_seen_at"`
-	CreatedAt             time.Time                  `json:"created_at"`
-	RevokedAt             *time.Time                 `json:"revoked_at"`
-	Connected             bool                       `json:"connected"`
-	Models                Models                     `json:"models"`
-	TranscriptionModel    string                     `json:"transcription_model"`
-	TranscriptionConfig   *WorkerTranscriptionConfig `json:"transcription_config,omitempty"`
-	Machine               *Machine                   `json:"machine,omitempty"`
-	RemoteAddress         string                     `json:"remote_address,omitempty"`
+	SupportedSteps           []string                   `json:"supported_steps"`
+	ID                       string                     `json:"id"`
+	Name                     string                     `json:"name"`
+	MaxConcurrency           int                        `json:"max_concurrency"`
+	ReportedConcurrency      int                        `json:"reported_concurrency"`
+	LastSeenAt               *time.Time                 `json:"last_seen_at"`
+	CreatedAt                time.Time                  `json:"created_at"`
+	RevokedAt                *time.Time                 `json:"revoked_at"`
+	Connected                bool                       `json:"connected"`
+	Models                   Models                     `json:"models"`
+	TranscriptionModel       string                     `json:"transcription_model"`
+	TranscriptionConfig      *WorkerTranscriptionConfig `json:"transcription_config,omitempty"`
+	TranscriptionConfigReady bool                       `json:"transcription_config_ready"`
+	Machine                  *Machine                   `json:"machine,omitempty"`
+	RemoteAddress            string                     `json:"remote_address,omitempty"`
 }
 
 type Registration struct {
@@ -141,7 +142,8 @@ func (s *Service) Get(ctx context.Context, id string) (Detail, error) {
 	}
 	var d Detail
 	var receivedVersion, testedVersion, activeVersion, errorCode, endpointOverride string
-	err := s.pool.QueryRow(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'),false),w.models,w.transcription_model,w.machine,w.remote_address,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models, &d.TranscriptionModel, &d.Machine, &d.RemoteAddress, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride)
+	var supportedSteps []string
+	err := s.pool.QueryRow(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,w.machine,w.remote_address,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models, &d.TranscriptionModel, &supportedSteps, &d.Machine, &d.RemoteAddress, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrNotFound
 	}
@@ -155,6 +157,13 @@ func (s *Service) Get(ctx context.Context, id string) (Detail, error) {
 			ActiveVersion:    activeVersion,
 			ErrorCode:        errorCode,
 			EndpointOverride: endpointOverride,
+		}
+	}
+	// Check if worker supports centralized transcription config
+	for _, step := range supportedSteps {
+		if step == "transcription.config.v1" {
+			d.TranscriptionConfigReady = true
+			break
 		}
 	}
 	rows, err := s.pool.Query(ctx, `SELECT job_id,clip_id,step,event,error_code,created_at FROM (
@@ -242,6 +251,13 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 				ActiveVersion:    activeVersion,
 				ErrorCode:        errorCode,
 				EndpointOverride: endpointOverride,
+			}
+		}
+		// Check if worker supports centralized transcription config
+		for _, step := range worker.SupportedSteps {
+			if step == "transcription.config.v1" {
+				worker.TranscriptionConfigReady = true
+				break
 			}
 		}
 		items = append(items, worker)

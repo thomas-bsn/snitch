@@ -85,11 +85,15 @@ SNITCH_WORKER_TOKEN={{v .Token}}
 SNITCH_WORKER_IMAGE={{v .Image}}
 
 # --- Transcription ---
+# ATTENTION : Cette configuration n'est utilisée qu'au PREMIER DÉMARRAGE (bootstrap).
+# Une fois le worker connecté, la configuration de transcription est GÉRÉE CENTRALEMENT
+# depuis l'interface d'administration Snitch (onglet Transcription).
+# Les valeurs ci-dessous sont IGNORÉES si le worker supporte la configuration centralisée.
 # Serveur compatible POST /v1/audio/transcriptions, par exemple un Whisper lancé sur le PC :
 # http://host.docker.internal:8000
 TRANSCRIPTION_API_URL={{v .Whisper}}
-# Facultatif : le nom que CE serveur donne au modèle de la bibliothèque, seulement s'il diffère.
-# Par défaut, le worker utilise le modèle de la bibliothèque, réglé dans Snitch.
+# Facultatif : le nom que CE serveur donne au modèle, seulement s'il diffère de Snitch.
+# Par défaut, le worker utilise le modèle centralisé, réglé dans Snitch.
 # TRANSCRIPTION_MODEL=
 # Clé bearer, facultative.
 # TRANSCRIPTION_API_KEY=
