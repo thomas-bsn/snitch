@@ -298,7 +298,7 @@ func (s *Service) DisableSource(ctx context.Context, id int64) error {
 }
 
 func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error) {
-	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.capture_time,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
+	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.capture_time,COALESCE(c.capture_time_origin='filename',true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
 	if err != nil {
 		return nil, err
 	}

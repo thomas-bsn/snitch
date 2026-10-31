@@ -113,7 +113,15 @@ func (s *Server) reprocessClipMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result := map[string]any{"updated": 0, "unavailable": 0, "next": id, "done": false}
-	path, err := s.resolveClipMedia(r.Context(), id)
+	if len(expectedHash) == 0 {
+		result["unavailable"] = 1
+		reply(w, 200, result)
+		return
+	}
+	path, err := s.findClipMedia(r.Context(), id, func(path string) bool {
+		actual, hashErr := library.HashFile(r.Context(), path)
+		return hashErr == nil && len(expectedHash) != 0 && bytes.Equal(actual[:], expectedHash)
+	})
 	if errors.Is(err, os.ErrNotExist) {
 		result["unavailable"] = 1
 		reply(w, 200, result)

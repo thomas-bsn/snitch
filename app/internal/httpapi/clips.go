@@ -121,7 +121,7 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	args = append(args, size, (page-1)*size)
-	rows, err := s.Pool.Query(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.capture_time,c.game,c.game_origin,c.capture_time_origin,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
+	rows, err := s.Pool.Query(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.capture_time,c.game,c.game_origin,c.capture_time_origin,COALESCE(c.capture_time_origin='filename',true),c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
  COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb),
@@ -174,7 +174,7 @@ func (s *Server) authorizedClip(w http.ResponseWriter, r *http.Request) (clipIte
 		return clipItem{}, false
 	}
 	var v clipItem
-	err = s.Pool.QueryRow(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.capture_time,c.game,c.game_origin,c.capture_time_origin,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
+	err = s.Pool.QueryRow(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.capture_time,c.game,c.game_origin,c.capture_time_origin,COALESCE(c.capture_time_origin='filename',true),c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
  COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb),
@@ -356,7 +356,7 @@ func (s *Server) updateClip(w http.ResponseWriter, r *http.Request) {
 
 	// Return updated clip (reuse authorizedClip logic but without visibility filter since admin)
 	var v clipItem
-	err = s.Pool.QueryRow(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.capture_time,c.game,c.game_origin,c.capture_time_origin,c.recorded_at_estimated,c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
+	err = s.Pool.QueryRow(r.Context(), `SELECT c.id,c.owner_id,u.username,(u.deleted_at IS NOT NULL),c.visibility,c.original_name,c.size_bytes,c.discovered_at,c.capture_time,c.game,c.game_origin,c.capture_time_origin,COALESCE(c.capture_time_origin='filename',true),c.duration_seconds,c.format_name,c.video_codec,c.audio_codec,c.tracks,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
  COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb),
@@ -466,18 +466,25 @@ func (s *Server) serveClipMedia(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) resolveClipMedia(ctx context.Context, clipID int64) (string, error) {
+	return s.findClipMedia(ctx, clipID, nil)
+}
+
+// findClipMedia checks every available copy until one passes accept. Paths are
+// resolved and constrained before the callback is allowed to read them.
+func (s *Server) findClipMedia(ctx context.Context, clipID int64, accept func(string) bool) (string, error) {
 	rows, err := s.Pool.Query(ctx, `SELECT cs.root_path,sf.relative_path,cs.managed_root,sf.size_bytes,sf.modified_at FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=$1 AND sf.status='ready' AND cs.enabled ORDER BY sf.modified_at DESC`, clipID)
 	if err != nil {
 		return "", fmt.Errorf("query clip source media: %w", err)
 	}
-	var candidate string
+	var paths []string
 	for rows.Next() {
 		var root, relative string
 		var managed bool
 		var expectedSize int64
 		var expectedModified time.Time
-		if rows.Scan(&root, &relative, &managed, &expectedSize, &expectedModified) != nil {
-			continue
+		if err = rows.Scan(&root, &relative, &managed, &expectedSize, &expectedModified); err != nil {
+			rows.Close()
+			return "", err
 		}
 		base, e := filepath.EvalSymlinks(root)
 		if e != nil {
@@ -495,38 +502,60 @@ func (s *Server) resolveClipMedia(ctx context.Context, clipID int64) (string, er
 		if managed && (info.Size() != expectedSize || !info.ModTime().UTC().Truncate(time.Microsecond).Equal(expectedModified)) {
 			continue
 		}
-		candidate = resolved
-		break
+		paths = append(paths, resolved)
 	}
 	if err = rows.Err(); err != nil {
 		rows.Close()
-		return "", fmt.Errorf("read clip source media: %w", err)
+		return "", err
 	}
 	rows.Close()
-	if candidate == "" {
-		var key string
-		err = s.Pool.QueryRow(ctx, `SELECT um.storage_key FROM uploaded_media um WHERE um.clip_id=$1 ORDER BY um.created_at DESC LIMIT 1`, clipID).Scan(&key)
-		if err == nil {
-			root, rootErr := filepath.EvalSymlinks(s.Uploads.MediaRoot())
-			if rootErr == nil {
-				candidate = filepath.Join(root, key+".media")
+	choose := func(paths []string) (string, error) {
+		for _, candidate := range paths {
+			resolved, e := filepath.EvalSymlinks(candidate)
+			if e != nil || resolved != candidate {
+				continue
 			}
-		} else if !errors.Is(err, pgx.ErrNoRows) {
-			return "", fmt.Errorf("query uploaded clip media: %w", err)
+			info, e := os.Lstat(candidate)
+			if e != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+				continue
+			}
+			if accept == nil || accept(candidate) {
+				return candidate, nil
+			}
+			if err := ctx.Err(); err != nil {
+				return "", err
+			}
+		}
+		return "", nil
+	}
+	if candidate, err := choose(paths); candidate != "" || err != nil {
+		return candidate, err
+	}
+	paths = nil
+	rows, err = s.Pool.Query(ctx, `SELECT storage_key FROM uploaded_media WHERE clip_id=$1 ORDER BY created_at DESC`, clipID)
+	if err != nil {
+		return "", fmt.Errorf("query uploaded clip media: %w", err)
+	}
+	root, rootErr := filepath.EvalSymlinks(s.Uploads.MediaRoot())
+	for rows.Next() {
+		var key string
+		if err = rows.Scan(&key); err != nil {
+			rows.Close()
+			return "", err
+		}
+		if rootErr == nil {
+			paths = append(paths, filepath.Join(root, key+".media"))
 		}
 	}
-	if candidate == "" {
-		return "", os.ErrNotExist
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return "", err
 	}
-	resolved, err := filepath.EvalSymlinks(candidate)
-	if err != nil || resolved != candidate {
-		return "", os.ErrNotExist
+	rows.Close()
+	if candidate, err := choose(paths); candidate != "" || err != nil {
+		return candidate, err
 	}
-	info, err := os.Lstat(candidate)
-	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return "", os.ErrNotExist
-	}
-	return candidate, nil
+	return "", os.ErrNotExist
 }
 
 func inside(root, path string) bool {

@@ -32,6 +32,9 @@ export function LibraryFilters({
       onSubmit={(event) => event.preventDefault()}
       className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7"
     >
+      <p className="col-span-full text-sm text-mute">
+        {t("metadata.dateFilterZone")}
+      </p>
       <label className="flex flex-col gap-1">
         {t("metadata.game")}
         <input

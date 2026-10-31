@@ -1223,6 +1223,8 @@ export const en = {
     },
   },
   metadata: {
+    dateFilterZone:
+      "Date filters use the installation time zone; displayed dates use the browser time zone.",
     localDate: "Time in this browser’s time zone: {zone}.",
     invalidDate:
       "This time is ambiguous or does not exist in this time zone. Choose another time.",

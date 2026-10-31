@@ -202,6 +202,31 @@ func testFolderSources(t *testing.T, pool *pgxpool.Pool) {
 	if !bytes.Contains(out, []byte(`"unavailable":1`)) {
 		t.Fatalf("replaced file should be skipped: %s", out)
 	}
+	// A second intact copy must be tried when the first accessible copy changed.
+	secondRoot := t.TempDir()
+	secondPath := filepath.Join(secondRoot, "copy.mp4")
+	if err := os.WriteFile(secondPath, []byte("synthetic-video-fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var secondSource int64
+	err = pool.QueryRow(context.Background(), `INSERT INTO clip_sources(name,root_path,owner_id) SELECT 'second-fixture',$1,id FROM users WHERE username='administrator' RETURNING id`, secondRoot).Scan(&secondSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(context.Background(), `INSERT INTO source_files(source_id,relative_path,clip_id,size_bytes,modified_at,stable_since,last_seen_generation,status) VALUES($1,'copy.mp4',$2,$3,$4,now(),0,'ready')`, secondSource, list.Items[0].ID, info.Size(), info.ModTime().Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out = request(admin, "POST", "/api/admin/clip-metadata/reprocess", "", session.CSRF, http.StatusOK)
+	if !bytes.Contains(out, []byte(`"updated":1`)) {
+		t.Fatalf("intact copy should be reprocessed: %s", out)
+	}
+	if _, err = pool.Exec(context.Background(), `DELETE FROM source_files WHERE source_id=$1`, secondSource); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(context.Background(), `DELETE FROM clip_sources WHERE id=$1`, secondSource); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(media, []byte("synthetic-video-fixture"), 0600); err != nil {
 		t.Fatal(err)
 	}

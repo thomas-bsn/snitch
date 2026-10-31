@@ -1240,6 +1240,8 @@ export const fr: Messages = {
     },
   },
   metadata: {
+    dateFilterZone:
+      "Les filtres de dates utilisent le fuseau de l’installation ; les dates affichées utilisent celui du navigateur.",
     localDate: "Heure dans le fuseau de ce navigateur : {zone}.",
     invalidDate:
       "Cette heure est ambiguë ou n’existe pas dans ce fuseau. Choisissez une autre heure.",
