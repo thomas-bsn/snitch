@@ -42,7 +42,7 @@ services:
       SNITCH_WORKER_CA_BUNDLE: ${SNITCH_WORKER_CA_BUNDLE:-}
       SNITCH_WORKER_CAPACITY: ${SNITCH_WORKER_CAPACITY:-1}
       SNITCH_WORKER_MACHINE_NAME: ${SNITCH_WORKER_MACHINE_NAME:-}
-      TRANSCRIPTION_API_URL: ${TRANSCRIPTION_API_URL:?Renseigner TRANSCRIPTION_API_URL dans .env}
+      TRANSCRIPTION_API_URL: ${TRANSCRIPTION_API_URL:-}
       TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-}
       TRANSCRIPTION_API_KEY: ${TRANSCRIPTION_API_KEY:-}
       SNITCH_VOICE_DIARIZATION_MODEL_PATH: ${SNITCH_VOICE_DIARIZATION_MODEL_PATH:-/models/diarization}
@@ -131,9 +131,6 @@ func NewBundle(input BundleInput) (Bundle, error) {
 	}
 	insecure := !strings.HasPrefix(strings.ToLower(input.APIURL), "https://")
 	whisper := input.WhisperURL
-	if whisper == "" {
-		whisper = Placeholder
-	}
 	var env strings.Builder
 	data := struct {
 		APIURL, Token, Image, Placeholder, Whisper string

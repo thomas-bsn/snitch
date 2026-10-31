@@ -203,6 +203,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/workers/{id}/transcription/test", s.protected(true, http.HandlerFunc(s.requestWorkerTranscriptionTest)))
 	mux.Handle("PUT /api/admin/workers/{id}/transcription/override", s.protected(true, http.HandlerFunc(s.putWorkerTranscriptionOverride)))
 	mux.Handle("DELETE /api/admin/workers/{id}/transcription/override", s.protected(true, http.HandlerFunc(s.deleteWorkerTranscriptionOverride)))
+	mux.Handle("GET /api/worker/install/{code}", http.HandlerFunc(s.serveWorkerInstall))
 	mux.Handle("POST /api/worker/pulse", s.workerOnly(http.HandlerFunc(s.workerPulse)))
 	mux.Handle("POST /api/worker/jobs/claim", s.workerOnly(http.HandlerFunc(s.claimWorkerJob)))
 	mux.Handle("GET /api/worker/jobs/{id}/input", s.workerOnly(http.HandlerFunc(s.workerJobInput)))

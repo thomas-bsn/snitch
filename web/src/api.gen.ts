@@ -2364,9 +2364,9 @@ export interface components {
     WorkerRegistrationInput: {
       name: string;
       max_concurrency: number;
-      /** @description Adresse du serveur Whisper de ce worker (http ou https, sans identifiants). Écrite dans le fichier d'environnement généré ; non conservée. */
+      /** @description Obsolète : l'adresse est gérée dans Admin → Transcription. Refusée lors de la création. */
       transcription_url?: string;
-      /** @description Modèle et langue de la bibliothèque : réservés au premier worker, qui crée le profil de transcription (refus transcription_profile_already_set ensuite). Le jeton Hugging Face n'est jamais envoyé à Snitch. */
+      /** @description Obsolète : modèle et langue sont gérés dans Admin → Transcription. Refusés lors de la création. Le jeton Hugging Face n'est jamais envoyé à Snitch. */
       transcription?: components["schemas"]["WorkerTranscriptionProfile"];
     };
     WorkerTranscriptionProfile: {
@@ -2426,6 +2426,8 @@ export interface components {
       revoked_at: string | null;
       token: string;
       bundle: components["schemas"]["WorkerBundle"];
+      /** @description Commande d'installation Linux à copier une fois ; le code d'invitation éphémère n'est pas le jeton du Worker. */
+      install_command?: string;
     };
     /** @description Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton. */
     WorkerBundle: {
@@ -2435,12 +2437,16 @@ export interface components {
       insecure_api_url: boolean;
     };
     WorkerPage: {
-      /** @description Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de la bibliothèque. */
+      /** @description Vrai tant qu'aucun Worker n'a jamais été créé. La configuration de transcription est indépendante. */
       first_worker: boolean;
       /** @description Adresse de Snitch telle que vue par cette requête, écrite dans les fichiers générés. */
       snitch_url: string;
       /** @description Profil de transcription actif de la bibliothèque. */
       transcription: {
+        /** @enum {string} */
+        mode: "unconfigured" | "enabled" | "disabled";
+        endpoint: string;
+        settings_version: string;
         model: string;
         language: string;
         version: string;

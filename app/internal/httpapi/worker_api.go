@@ -76,11 +76,20 @@ func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	var mode, endpoint, settingsVersion string
+	err = s.Pool.QueryRow(r.Context(), `SELECT mode,endpoint,version FROM transcription_settings WHERE id=true`).Scan(&mode, &endpoint, &settingsVersion)
+	if errors.Is(err, pgx.ErrNoRows) {
+		mode = "unconfigured"
+	} else if err != nil {
+		s.internal(w, err)
+		return
+	}
 	reply(w, http.StatusOK, map[string]any{
 		"items":        items,
 		"first_worker": len(items) == 0,
 		"snitch_url":   s.publicOrigin(r),
 		"transcription": map[string]string{
+			"mode": mode, "endpoint": endpoint, "settings_version": settingsVersion,
 			"model": profile.Model, "language": profile.Language, "version": version,
 		},
 	})
@@ -125,6 +134,14 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_transcription_url")
 		return
 	}
+	var mode, endpoint string
+	err := s.Pool.QueryRow(r.Context(), `SELECT mode,endpoint FROM transcription_settings WHERE id=true`).Scan(&mode, &endpoint)
+	if errors.Is(err, pgx.ErrNoRows) {
+		mode, endpoint = "unconfigured", ""
+	} else if err != nil {
+		s.internal(w, err)
+		return
+	}
 	// Validate transcription config if provided (for bootstrap only)
 	var profile *transcriptionPipeline
 	if input.Transcription != nil {
@@ -148,6 +165,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 	}
 	// Determine the WhisperURL for the bundle: prefer centralized config, fallback to provided TranscriptionURL
 	var bundleWhisperURL string
+	var installMode, installEndpoint, installModel, installLanguage string
 	registration, _, err := s.Workers.RegisterWith(r.Context(), workers.Input{Name: input.Name, MaxConcurrency: input.MaxConcurrency}, func(ctx context.Context, tx pgx.Tx, first bool) error {
 		if !first {
 			return nil
@@ -164,6 +182,10 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 			bundleWhisperURL = input.TranscriptionURL
+			installMode = "enabled"
+			installEndpoint = input.TranscriptionURL
+			installModel = profile.Model
+			installLanguage = profile.Language
 		}
 		return nil
 	})
@@ -185,7 +207,26 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 			bundleWhisperURL = input.TranscriptionURL
 		}
 	}
+	// For install command, fetch the active transcription profile if not set by bootstrap
+	if installMode == "" {
+		installMode = mode
+		installEndpoint = endpoint
+		err = s.Pool.QueryRow(r.Context(), `SELECT v.config->>'model',v.config->>'language' FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&installModel, &installLanguage)
+		if err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
 	registration.Bundle, err = s.workerBundle(r, registration.Token, bundleWhisperURL)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	image := s.Config.WorkerImage
+	if image == "" {
+		image = config.DefaultWorkerImage
+	}
+	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), installMode, installEndpoint, installModel, installLanguage)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -252,7 +293,30 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	registration.Bundle, err = s.workerBundle(r, registration.Token, "")
+	var mode, endpoint string
+	err = s.Pool.QueryRow(r.Context(), `SELECT mode,endpoint FROM transcription_settings WHERE id=true`).Scan(&mode, &endpoint)
+	if errors.Is(err, pgx.ErrNoRows) {
+		mode, endpoint = "unconfigured", ""
+	} else if err != nil {
+		s.internal(w, err)
+		return
+	}
+	var model, language string
+	err = s.Pool.QueryRow(r.Context(), `SELECT v.config->>'model',v.config->>'language' FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&model, &language)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	registration.Bundle, err = s.workerBundle(r, registration.Token, endpoint)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	image := s.Config.WorkerImage
+	if image == "" {
+		image = config.DefaultWorkerImage
+	}
+	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), mode, endpoint, model, language)
 	if err != nil {
 		s.internal(w, err)
 		return
