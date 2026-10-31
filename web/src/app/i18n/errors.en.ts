@@ -108,7 +108,6 @@ export const errorsEn = {
   invalid_transcription_result: "This transcription result is not valid.",
   invalid_turn: "This speaker turn is not valid.",
   invalid_upload: "This upload is not valid.",
-  invalid_visibility: "This visibility is not valid.",
   invalid_video: "This file is not a readable video.",
   invalid_vocabulary_id: "This vocabulary identifier is not valid.",
   invalid_vocabulary_term: "This vocabulary term is not valid.",
