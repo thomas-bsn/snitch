@@ -387,6 +387,8 @@ class FakeProviderTests(unittest.TestCase):
                             "last_seen_at": None,
                             "created_at": "2026-10-24T09:00:00Z",
                             "revoked_at": None,
+                            "revoke_reason": None,
+                            "revocation_acknowledged_at": None,
                             "connected": False,
                         },
                     )
