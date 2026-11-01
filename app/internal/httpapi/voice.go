@@ -23,6 +23,7 @@ func (s *Server) registerVoiceRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/admin/voice-pipeline", s.protected(true, http.HandlerFunc(s.getVoicePipeline)))
 	mux.Handle("PUT /api/admin/voice-pipeline", s.protected(true, http.HandlerFunc(s.putVoicePipeline)))
 	mux.Handle("GET /api/admin/voice-overview", s.protected(true, http.HandlerFunc(s.getVoiceOverview)))
+	s.registerVoiceModelRoutes(mux)
 	mux.Handle("POST /api/admin/clips/{id}/voice", s.protected(true, http.HandlerFunc(s.scheduleVoice)))
 	mux.Handle("GET /api/clips/{id}/voice", s.protected(false, http.HandlerFunc(s.getClipVoice)))
 }
@@ -36,7 +37,6 @@ type voicePipeline struct {
 	Provider              string     `json:"provider"`
 	Model                 string     `json:"model"`
 	ModelVersion          string     `json:"model_version"`
-	AccessConfirmed       bool       `json:"access_confirmed"`
 	MinFingerprintSeconds float64    `json:"min_fingerprint_seconds"`
 	MinQuality            float64    `json:"min_quality"`
 	Fake                  *voiceFake `json:"fake,omitempty"`
@@ -86,34 +86,39 @@ func (s *Server) putVoicePipeline(w http.ResponseWriter, r *http.Request) {
 		}
 		valid = p.Fake.Speakers >= 1 && p.Fake.Speakers <= 8 && p.Fake.Dimensions >= 2 && p.Fake.Dimensions <= 512
 	} else if valid {
-		valid = p.Fake == nil
+		// A pyannote model is chosen from the catalogue, never typed: its pinned revision is the version.
+		entry, known := voiceCatalogByRepo("diarization", p.Model)
+		valid = p.Fake == nil && known && p.ModelVersion == entry.Revision
 	}
 	if !valid {
 		fail(w, http.StatusBadRequest, "invalid_voice_pipeline")
 		return
 	}
+	version, err := s.saveVoicePipeline(r, p)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"version": version, "config": p})
+}
+
+// saveVoicePipeline stores an immutable snapshot and makes it the active version for new voice steps.
+func (s *Server) saveVoicePipeline(r *http.Request, p voicePipeline) (string, error) {
 	raw, _ := json.Marshal(p)
 	hash := sha256.Sum256(raw)
 	version := "voice-" + hex.EncodeToString(hash[:10])
 	tx, err := s.Pool.Begin(r.Context())
 	if err != nil {
-		s.internal(w, err)
-		return
+		return "", err
 	}
 	defer tx.Rollback(r.Context())
 	if _, err = tx.Exec(r.Context(), `INSERT INTO voice_pipeline_versions(version,config) VALUES($1,$2) ON CONFLICT(version) DO NOTHING`, version, raw); err != nil {
-		s.internal(w, err)
-		return
+		return "", err
 	}
 	if _, err = tx.Exec(r.Context(), `UPDATE voice_pipeline_active SET version=$1 WHERE id=true`, version); err != nil {
-		s.internal(w, err)
-		return
+		return "", err
 	}
-	if err = tx.Commit(r.Context()); err != nil {
-		s.internal(w, err)
-		return
-	}
-	reply(w, http.StatusOK, map[string]any{"version": version, "config": p})
+	return version, tx.Commit(r.Context())
 }
 
 // scheduleVoice is the only way voice processing starts: an explicit admin action
@@ -190,13 +195,9 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusConflict, "transcription_required")
 		return
 	}
-	version, config, err := s.activeVoicePipeline(r.Context())
+	version, _, err := s.activeVoicePipeline(r.Context())
 	if err != nil {
 		s.internal(w, err)
-		return
-	}
-	if config.Provider != "fake" && !config.AccessConfirmed {
-		fail(w, http.StatusConflict, "voice_model_access_unconfirmed")
 		return
 	}
 	job, created, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: id, Step: fmt.Sprintf("voice.diarization.%d", *index), InputVersion: fmt.Sprintf("d5-a%d-p%s", *index, version), MaxAttempts: 3})

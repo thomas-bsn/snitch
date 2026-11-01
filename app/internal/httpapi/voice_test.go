@@ -266,7 +266,7 @@ func (h *voiceHarness) putPipeline(config map[string]any) string {
 }
 
 func fakePipeline(speakers int) map[string]any {
-	return map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "access_confirmed": false, "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": speakers, "dimensions": 4}}
+	return map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": speakers, "dimensions": 4}}
 }
 
 func diarizationPayload(speakers ...string) map[string]any {
@@ -302,9 +302,6 @@ func testVoiceDiarization(t *testing.T, pool *pgxpool.Pool) {
 	_ = pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs WHERE step LIKE 'voice.%'`).Scan(&jobsBefore)
 	if jobsBefore != 0 {
 		t.Fatal("voice tasks must never be scheduled implicitly")
-	}
-	if body := h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), scheduleBody, http.StatusConflict); !bytes.Contains(body, []byte("voice_model_access_unconfirmed")) {
-		t.Fatalf("default model must require explicit access confirmation: %s", body)
 	}
 	h.adminCall(http.MethodPut, "/api/admin/voice-pipeline", map[string]any{"provider": "unknown"}, http.StatusBadRequest)
 	pipelineV1 := h.putPipeline(fakePipeline(2))

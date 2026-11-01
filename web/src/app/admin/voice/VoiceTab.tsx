@@ -76,6 +76,20 @@ export function VoiceTab() {
   const config = pipeline ?? state.value.pipeline.config;
   const match = matching ?? state.value.matching;
   const accuracy = state.value.accuracy;
+  // A real model is never typed: switching to pyannote takes the first diarization model of the catalogue.
+  async function changeProvider(provider: Pipeline["provider"]) {
+    if (provider === "fake") {
+      patch({ provider, fake: { speakers: 2, dimensions: 8 } });
+      return;
+    }
+    const models = await api.GET("/api/admin/voice-models");
+    const first = models.data?.models.find((m) => m.kind === "diarization");
+    patch({
+      provider,
+      fake: undefined,
+      ...(first ? { model: first.repo, model_version: first.revision } : {}),
+    });
+  }
   function patch(value: Partial<Pipeline>) {
     setPipeline({ ...config, ...value });
   }
@@ -174,13 +188,7 @@ export function VoiceTab() {
             <select
               value={config.provider}
               onChange={(e) =>
-                patch({
-                  provider: e.target.value as Pipeline["provider"],
-                  fake:
-                    e.target.value === "fake"
-                      ? { speakers: 2, dimensions: 8 }
-                      : undefined,
-                })
+                void changeProvider(e.target.value as Pipeline["provider"])
               }
               className="h-11 rounded-lg border border-line-strong bg-surface px-3"
             >
@@ -192,22 +200,16 @@ export function VoiceTab() {
             label={t("voiceAdmin.model")}
             value={config.model}
             required
+            readOnly={config.provider === "pyannote"}
             onChange={(e) => patch({ model: e.target.value })}
           />
           <Field
             label={t("voiceAdmin.modelVersion")}
             value={config.model_version}
             required
+            readOnly={config.provider === "pyannote"}
             onChange={(e) => patch({ model_version: e.target.value })}
           />
-          <label className="flex min-h-11 items-center gap-2">
-            <input
-              type="checkbox"
-              checked={config.access_confirmed}
-              onChange={(e) => patch({ access_confirmed: e.target.checked })}
-            />
-            {t("voiceAdmin.access")}
-          </label>
           <Field
             label={t("voiceAdmin.minDuration")}
             type="number"

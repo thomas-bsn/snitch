@@ -269,6 +269,56 @@ export const fr: Messages = {
       models_missing: "Modèle actif absent",
     },
   },
+  voiceModels: {
+    title: "Modèle de diarisation",
+    hint: "Choisissez un candidat dans le catalogue : chaque Worker le télécharge, le charge et lance une inférence de test. Vous l'activez ensuite pour tous les Workers.",
+    active: "Actif",
+    candidate: "Candidat",
+    facts:
+      "Moteur {engine}, licence {license}, {size} Mo, révision {revision}.",
+    gated: "Accès restreint sur Hugging Face.",
+    maxSpeakers: "{count} voix au maximum.",
+    numSpeakers: "Nombre de locuteurs réglable.",
+    noNumSpeakers: "Nombre de locuteurs non réglable.",
+    progress: "{received} / {total} Mo",
+    choose: "Choisir comme candidat",
+    activate: "Activer",
+    cancel: "Annuler le candidat",
+    revert: "Revenir à ce modèle",
+    remove: "Supprimer",
+    retry: "Réessayer",
+    cancelDialog: "Annuler",
+    confirmTitle: "Activer {model} ?",
+    confirmActivate: "Activer pour tous les Workers",
+    effectVersion:
+      "Une nouvelle version du pipeline vocal est créée : les nouveaux travaux vocaux l'utilisent.",
+    effectRunning: "Les travaux en cours gardent leur version.",
+    effectClips:
+      "Les clips déjà traités ne sont jamais rediarisés automatiquement.",
+    effectReady: "Workers prêts : {names}.",
+    effectNotReady:
+      "Ces Workers n'ont pas le modèle prêt et ne prendront plus de travaux vocaux : {names}.",
+    removeTitle: "Supprimer {model} ?",
+    removeText:
+      "Chaque Worker supprime ce modèle de son volume. Il faudra le choisir de nouveau pour le retélécharger.",
+    state: {
+      not_installed: "Non installé",
+      downloading: "Téléchargement",
+      verifying: "Vérification",
+      ready: "Prêt",
+      failed: "Échec",
+    },
+    cause: {
+      hf_token_missing:
+        "Jeton Hugging Face absent : posez-le dans le fichier indiqué par SNITCH_HF_TOKEN_FILE sur la machine du Worker.",
+      hf_access_denied:
+        "Accès Hugging Face refusé : acceptez les conditions du modèle avec le compte du jeton.",
+      disk_full: "Disque plein sur la machine du Worker.",
+      runtime_incompatible:
+        "Ce modèle n'est pas compatible avec l'environnement du Worker.",
+      inference_failed: "L'inférence de test a échoué.",
+    },
+  },
   voiceAdmin: {
     title: "Traitement vocal",
     saved: "Réglages enregistrés.",
@@ -279,7 +329,6 @@ export const fr: Messages = {
     fake: "Fournisseur factice (tests)",
     model: "Modèle de diarisation",
     modelVersion: "Version du modèle",
-    access: "Accès au modèle confirmé",
     minDuration: "Durée minimale d’une empreinte (secondes)",
     minQuality: "Qualité minimale",
     fakeSpeakers: "Locuteurs factices",

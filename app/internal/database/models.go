@@ -552,6 +552,12 @@ type VoiceMatchingSetting struct {
 	AutoChangedBy       pgtype.Int8        `json:"auto_changed_by"`
 }
 
+type VoiceModelCandidate struct {
+	ID       bool               `json:"id"`
+	ModelID  string             `json:"model_id"`
+	ChosenAt pgtype.Timestamptz `json:"chosen_at"`
+}
+
 type VoicePipelineActive struct {
 	ID      bool   `json:"id"`
 	Version string `json:"version"`
@@ -642,4 +648,16 @@ type WorkerTranscriptionConfig struct {
 	TestedAt         pgtype.Timestamptz `json:"tested_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	EndpointOverride string             `json:"endpoint_override"`
+}
+
+type WorkerVoiceModel struct {
+	WorkerID         string             `json:"worker_id"`
+	ModelID          string             `json:"model_id"`
+	State            string             `json:"state"`
+	CauseCode        string             `json:"cause_code"`
+	BytesReceived    int64              `json:"bytes_received"`
+	BytesTotal       int64              `json:"bytes_total"`
+	RetryRequested   bool               `json:"retry_requested"`
+	RemovalRequested bool               `json:"removal_requested"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }

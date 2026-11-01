@@ -130,7 +130,6 @@ export async function transcribeAndDiarize(
     provider: "fake",
     model: "fixture-diarization",
     model_version: "fixture-v1",
-    access_confirmed: false,
     min_fingerprint_seconds: 1,
     min_quality: 0.5,
     fake: { speakers: 2, dimensions: 2 },

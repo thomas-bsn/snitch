@@ -74,8 +74,7 @@ test("l'inventaire vocal montre ce que chaque Worker détient réellement", asyn
     data: {
       provider: "pyannote",
       model: "pyannote/speaker-diarization-community-1",
-      model_version: "community-1",
-      access_confirmed: true,
+      model_version: "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
       min_fingerprint_seconds: 1,
       min_quality: 0.5,
     },
@@ -134,6 +133,96 @@ test("l'inventaire vocal montre ce que chaque Worker détient réellement", asyn
   await expect(other).toContainText("Active model missing");
   await expect(other).toContainText("takes no voice job");
   await expect(other).toContainText("Not installed"); // no embedder declared
+
+  await context.close();
+  await admin.dispose();
+});
+
+test("un administrateur choisit, suit puis active un modèle vocal candidat", async ({
+  browser,
+}) => {
+  const session = await sessionFor(ADMIN);
+  const origin = process.env.SNITCH_TEST_URL!;
+  const admin = await request.newContext({
+    baseURL: origin,
+    extraHTTPHeaders: { Origin: origin },
+    storageState: session,
+  });
+  const me = await (await admin.get("/api/auth/me")).json();
+  const csrf = { "X-CSRF-Token": me.csrf_token };
+  // The synthetic provider is active: no catalogue model is active yet, so one can become the candidate.
+  const fake = await admin.put("/api/admin/voice-pipeline", {
+    headers: csrf,
+    data: {
+      provider: "fake",
+      model: "fixture-diarization",
+      model_version: "fixture-v1",
+      min_fingerprint_seconds: 1,
+      min_quality: 0.5,
+      fake: { speakers: 2, dimensions: 2 },
+    },
+  });
+  expect(fake.ok()).toBe(true);
+  const worker = async (name: string) => {
+    const created = await admin.post("/api/admin/workers", {
+      headers: csrf,
+      data: { name, max_concurrency: 1 },
+    });
+    const { token } = await created.json();
+    return async (state: object) =>
+      expect(
+        (
+          await admin.post("/api/worker/voice-models/status", {
+            headers: { Authorization: `Bearer ${token}` },
+            data: { model_id: "pyannote-community-1", ...state },
+          })
+        ).status(),
+      ).toBe(204);
+  };
+  const preparing = await worker("worker-prepare");
+  await worker("worker-sans-modele");
+
+  const context = await browser.newContext({ storageState: session });
+  const page = await context.newPage();
+  await page.goto("/admin/voice");
+  const models = page.getByRole("region", { name: "Diarization model" });
+  const card = models.getByRole("listitem", {
+    name: "pyannote/speaker-diarization-community-1",
+  });
+  await expect(card).toContainText("cc-by-4.0");
+  await expect(card).toContainText("Restricted access on Hugging Face.");
+  await card.getByRole("button", { name: "Choose as candidate" }).click();
+  await expect(card.getByText("Candidate", { exact: true })).toBeVisible();
+  await expect(card.getByRole("button", { name: "Activate" })).toBeDisabled();
+
+  await preparing({
+    state: "downloading",
+    bytes_received: 12_000_000,
+    bytes_total: 34_000_000,
+  });
+  await page.reload();
+  await expect(card).toContainText("12 / 34 MB");
+
+  await preparing({ state: "failed", cause_code: "hf_token_missing" });
+  await page.reload();
+  await expect(card).toContainText("Hugging Face token missing");
+  await card.getByRole("button", { name: "Retry" }).click();
+  // The retry is consumed by the Worker's next report.
+  await preparing({ state: "verifying" });
+  await preparing({ state: "ready" });
+  await page.reload();
+  await expect(card).toContainText("Ready");
+
+  await card.getByRole("button", { name: "Activate" }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("new voice pipeline version");
+  await expect(dialog).toContainText("worker-sans-modele");
+  await expect(dialog).toContainText("stop taking voice jobs");
+  await dialog
+    .getByRole("button", { name: "Activate for every Worker" })
+    .click();
+  await expect(card.getByText("Active", { exact: true })).toBeVisible();
+  await expect(card.getByText("Candidate", { exact: true })).toHaveCount(0);
 
   await context.close();
   await admin.dispose();

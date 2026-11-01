@@ -263,6 +263,55 @@ export const en = {
       models_missing: "Active model missing",
     },
   },
+  voiceModels: {
+    title: "Diarization model",
+    hint: "Pick a candidate from the catalogue: each Worker downloads it, loads it and runs a test inference. You then activate it for every Worker.",
+    active: "Active",
+    candidate: "Candidate",
+    facts:
+      "Engine {engine}, licence {license}, {size} MB, revision {revision}.",
+    gated: "Restricted access on Hugging Face.",
+    maxSpeakers: "At most {count} voices.",
+    numSpeakers: "Number of speakers can be set.",
+    noNumSpeakers: "Number of speakers cannot be set.",
+    progress: "{received} / {total} MB",
+    choose: "Choose as candidate",
+    activate: "Activate",
+    cancel: "Cancel the candidate",
+    revert: "Switch back to this model",
+    remove: "Delete",
+    retry: "Retry",
+    cancelDialog: "Cancel",
+    confirmTitle: "Activate {model}?",
+    confirmActivate: "Activate for every Worker",
+    effectVersion:
+      "A new voice pipeline version is created: new voice jobs use it.",
+    effectRunning: "Jobs already running keep their version.",
+    effectClips: "Clips already processed are never re-diarized automatically.",
+    effectReady: "Ready Workers: {names}.",
+    effectNotReady:
+      "These Workers do not have the model ready and will stop taking voice jobs: {names}.",
+    removeTitle: "Delete {model}?",
+    removeText:
+      "Each Worker deletes this model from its volume. You will have to choose it again to download it again.",
+    state: {
+      not_installed: "Not installed",
+      downloading: "Downloading",
+      verifying: "Verifying",
+      ready: "Ready",
+      failed: "Failed",
+    },
+    cause: {
+      hf_token_missing:
+        "Hugging Face token missing: put it in the file named by SNITCH_HF_TOKEN_FILE on the Worker machine.",
+      hf_access_denied:
+        "Hugging Face access refused: accept the model terms with the account that owns the token.",
+      disk_full: "The Worker machine's disk is full.",
+      runtime_incompatible:
+        "This model is not compatible with the Worker environment.",
+      inference_failed: "The test inference failed.",
+    },
+  },
   voiceAdmin: {
     title: "Voice processing",
     saved: "Settings saved.",
@@ -272,7 +321,6 @@ export const en = {
     fake: "Synthetic provider (tests)",
     model: "Diarization model",
     modelVersion: "Model version",
-    access: "Model access confirmed",
     minDuration: "Minimum fingerprint duration (seconds)",
     minQuality: "Minimum quality",
     fakeSpeakers: "Synthetic speakers",

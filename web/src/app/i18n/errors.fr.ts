@@ -209,8 +209,15 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   vocabulary_term_not_found: "Ce terme de vocabulaire n’existe pas.",
   voice_group_not_found: "Ce groupe de voix n’existe pas.",
   voice_locked_by_validation: "Cette voix est verrouillée par une validation.",
-  voice_model_access_unconfirmed:
-    "L’accès aux modèles de voix n’a pas été confirmé.",
+  voice_model_already_active: "Ce modèle est déjà le modèle actif.",
+  voice_model_in_use:
+    "Ce modèle est actif ou candidat : il ne peut pas être supprimé.",
+  voice_model_not_found: "Ce modèle n’existe pas dans le catalogue.",
+  voice_model_not_ready:
+    "Aucun Worker n’a ce modèle prêt : attendez la fin de sa préparation.",
+  invalid_voice_model: "Ce modèle ne peut pas être choisi.",
+  invalid_voice_model_status: "Cet état de modèle vocal n’est pas valide.",
+  no_voice_candidate: "Aucun échec à relancer pour le candidat.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
   worker_not_found: "Ce Worker n’existe pas.",
   install_invite_used:

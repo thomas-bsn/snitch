@@ -45,7 +45,7 @@ const (
 
 func testVoiceModelDispatch(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
-	pyannote := map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": "community-1", "access_confirmed": true, "min_fingerprint_seconds": 1.0, "min_quality": 0.5}
+	pyannote := map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": communityRevision, "min_fingerprint_seconds": 1.0, "min_quality": 0.5}
 	h.putPipeline(pyannote)
 	// Two jobs run at once below: the global queue limit would otherwise hide the dispatch rule.
 	h.adminCall(http.MethodPut, "/api/admin/job-controls", map[string]any{"paused": false, "max_concurrency": 3}, http.StatusOK)
@@ -128,7 +128,7 @@ func (o voiceOverview) worker(t *testing.T, name string) voiceOverviewWorker {
 
 func testVoiceOverview(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool) // its Worker is named voice-fixture
-	h.putPipeline(map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": "community-1", "access_confirmed": true, "min_fingerprint_seconds": 1.0, "min_quality": 0.5})
+	h.putPipeline(map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": communityRevision, "min_fingerprint_seconds": 1.0, "min_quality": 0.5})
 	h.transcribe()
 
 	// Anonymous callers never read the inventory.

@@ -190,6 +190,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelDispatch(t, pool)
 	})
+	t.Run("voice model candidate", func(t *testing.T) {
+		reset(t)
+		testVoiceModelCandidate(t, pool)
+	})
 	t.Run("voice overview", func(t *testing.T) {
 		reset(t)
 		testVoiceOverview(t, pool)
@@ -511,7 +515,13 @@ func TestFoundation(t *testing.T) {
 		// Voice endpoints: contract conformity here, full behavior in the voice suite.
 		call(client, "GET", "/api/admin/voice-pipeline", nil, "", 200)
 		call(client, "GET", "/api/admin/voice-overview", nil, "", 200)
-		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "access_confirmed": false, "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
+		// Voice model manager: behavior in the voice model candidate suite.
+		call(client, "GET", "/api/admin/voice-models", nil, "", 200)
+		call(client, "PUT", "/api/admin/voice-models/candidate", map[string]any{"model_id": "pyannote-community-1"}, me.CSRF, 409)
+		call(client, "DELETE", "/api/admin/voice-models/candidate", nil, me.CSRF, 204)
+		call(client, "POST", "/api/admin/voice-models/pyannote-community-1/activate", nil, me.CSRF, 409)
+		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation", nil, me.CSRF, 409)
+		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/voice", nil, "", 200)
 		// Person and attribution endpoints, on a synthetic local speaker.
@@ -623,12 +633,15 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/transcription/override", map[string]any{"endpoint_override": "http://127.0.0.1:9001"}, me.CSRF, 200)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/transcription/override", nil, me.CSRF, 200)
 		call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/transcription/test", nil, me.CSRF, 200)
+		call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/voice-models/retry", nil, me.CSRF, 409)
 		renewedBody := call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/token", nil, me.CSRF, 201)
 		if e = json.Unmarshal(renewedBody, &contractWorker); e != nil || contractWorker.Token == "" {
 			t.Fatalf("contract worker token renewal: %s %v", renewedBody, e)
 		}
 		workerToken = contractWorker.Token
 		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.synthetic"}}, "", 200)
+		call(client, "GET", "/api/worker/voice-models", nil, "", 200)
+		call(client, "POST", "/api/worker/voice-models/status", map[string]any{"model_id": "pyannote-community-1", "state": "removed"}, "", 204)
 		call(client, "POST", "/api/worker/install-events", map[string]any{"events": []map[string]any{{"phase": "service", "status": "succeeded", "occurred_at": time.Now().UTC().Format(time.RFC3339)}}}, "", 204)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {
