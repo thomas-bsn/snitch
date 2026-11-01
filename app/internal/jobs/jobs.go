@@ -348,7 +348,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	var maximum, reported int
 	var supportedSteps []string
 	var activeVersion string
-	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion)
+	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE OF w`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
