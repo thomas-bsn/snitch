@@ -616,6 +616,7 @@ type WorkerInstallInvite struct {
 	TranscriptionEndpoint string             `json:"transcription_endpoint"`
 	TranscriptionModel    string             `json:"transcription_model"`
 	TranscriptionLanguage string             `json:"transcription_language"`
+	UsedAt                pgtype.Timestamptz `json:"used_at"`
 }
 
 type WorkerTranscriptionConfig struct {

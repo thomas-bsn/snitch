@@ -54,8 +54,10 @@ type Worker struct {
 type Registration struct {
 	Worker
 	Token          string `json:"token"`
-	InstallCommand string `json:"install_command"`
-	Bundle         Bundle `json:"bundle"`
+	InstallCommand string `json:"install_command,omitempty"`
+	// InstallCommandUnavailable says why no command was generated (insecure_origin, invalid_origin).
+	InstallCommandUnavailable string `json:"install_command_unavailable,omitempty"`
+	Bundle                    Bundle `json:"bundle"`
 }
 
 type Input struct {

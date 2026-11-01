@@ -2193,6 +2193,13 @@
         "operationId": "registerWorker",
         "parameters": [
           {
+            "in": "query",
+            "name": "allow_insecure_install",
+            "required": false,
+            "description": "Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin.",
+            "schema": {"type": "boolean", "default": false}
+          },
+          {
             "in": "header",
             "name": "Origin",
             "required": true,
@@ -2332,6 +2339,13 @@
       "post": {
         "operationId": "renewWorkerToken",
         "parameters": [
+          {
+            "in": "query",
+            "name": "allow_insecure_install",
+            "required": false,
+            "description": "Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin.",
+            "schema": {"type": "boolean", "default": false}
+          },
           {
             "in": "path",
             "name": "id",
@@ -2567,6 +2581,18 @@
           }
         },
         "description": "Administrateurs uniquement. Supprime l'adresse Whisper propre à ce Worker."
+      }
+    },
+    "/api/worker/install/{code}": {
+      "get": {
+        "operationId": "downloadWorkerInstaller",
+        "security": [],
+        "description": "Lanceur d'installation Linux. L'invitation est à usage unique : consommée dès la demande acceptée ; 404 si inconnue ou expirée, 410 install_invite_used si déjà utilisée. Le script transporte le jeton durable du Worker, jamais redonné.",
+        "parameters": [{"in": "path", "name": "code", "required": true, "schema": {"type": "string", "minLength": 43, "maxLength": 43}}],
+        "responses": {
+          "200": {"description": "Script shell", "content": {"text/x-shellscript": {"schema": {"type": "string"}}}},
+          "default": {"description": "Invitation inconnue, expirée ou déjà utilisée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
       }
     },
     "/api/worker/pulse": {
@@ -6479,7 +6505,12 @@
           },
           "install_command": {
             "type": "string",
-            "description": "Commande d'installation Linux à copier une fois ; le code d'invitation éphémère n'est pas le jeton du Worker."
+            "description": "Commande d'installation Linux à copier une fois ; le code d'invitation éphémère (usage unique, 15 minutes) n'est pas le jeton du Worker. Absente si install_command_unavailable est présent."
+          },
+          "install_command_unavailable": {
+            "type": "string",
+            "enum": ["insecure_origin", "invalid_origin"],
+            "description": "Raison pour laquelle aucune commande n'a été générée : insecure_origin (adresse http:// sans choix explicite) ou invalid_origin (adresse publique inutilisable)."
           }
         }
       },

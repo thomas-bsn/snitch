@@ -232,7 +232,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 	if image == "" {
 		image = config.DefaultWorkerImage
 	}
-	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), installMode, installEndpoint, installModel, installLanguage)
+	registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", installMode, installEndpoint, installModel, installLanguage)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -322,7 +322,7 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 	if image == "" {
 		image = config.DefaultWorkerImage
 	}
-	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), mode, endpoint, model, language)
+	registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", mode, endpoint, model, language)
 	if err != nil {
 		s.internal(w, err)
 		return
