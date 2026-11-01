@@ -135,36 +135,50 @@ if command -v nvidia-smi >/dev/null && nvidia-smi >/dev/null 2>&1; then
  docker run --rm ${gpu[@]+"${gpu[@]}"} --entrypoint sh "$image" -c true || fail gpu_unavailable 'Install NVIDIA Container Toolkit for Docker and restart Docker, then rerun.' 'Installez NVIDIA Container Toolkit pour Docker et redémarrez Docker, puis relancez.'
  emit gpu succeeded
 else printf 'No NVIDIA GPU: voice processing unavailable (transcription still works).\n'; fi
-# Voice models are optional and never block the installation.
-if [ ! -e "$dir/.voice-declined" ] && (exec </dev/tty) 2>/dev/null; then
- printf 'Download voice models? Accept pyannote Hugging Face terms first. [y/N] ' > /dev/tty
- IFS= read -r choice < /dev/tty || choice=''
-else choice=''; fi
-if [ "$choice" = y ] || [ "$choice" = Y ]; then
- printf 'Hugging Face token (hidden): ' > /dev/tty
- stty -echo < /dev/tty
- IFS= read -r hf_token < /dev/tty || hf_token=''
- stty echo < /dev/tty; printf '\n' > /dev/tty
- if [[ "$hf_token" =~ ^hf_[A-Za-z0-9]+$ ]]; then
-  bootstrap_env=$(mktemp "$dir/bootstrap.XXXXXX")
-  trap 'rm -f "$bootstrap_env"' EXIT
-  cp "$env_file" "$bootstrap_env"
-  printf 'HF_TOKEN=%s\nSNITCH_VOICE_DOWNLOAD_ON_START=1\nSNITCH_VOICE_CONFIRM_TERMS=1\n' "$hf_token" >> "$bootstrap_env"
-  unset hf_token
-  stage=voice-models
-  if docker run --rm ${gpu[@]+"${gpu[@]}"} --user 10001:10001 --env-file "$bootstrap_env" -v "$volume:/models" --entrypoint python "$image" -c 'import os; from snitch_worker.bootstrap import run_bootstrap; raise SystemExit(run_bootstrap(os.environ) == "failed")'; then
-   emit voice-models succeeded
-   # Voice is ready only after a synthetic inference succeeds, not once the models are downloaded.
-   if [ ${#gpu[@]} -gt 0 ]; then
-    if docker run --rm "${gpu[@]}" --user 10001:10001 --env-file "$bootstrap_env" -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.voice_selftest; then emit voice-test succeeded
-    else emit voice-test failed unknown; printf 'Warning [unknown]: the synthetic voice test failed; voice stays unavailable, transcription still works.\nAvertissement [unknown] : le test vocal synthétique a échoué ; la voix reste indisponible, la transcription fonctionne.\n' >&2; fi
-   fi
-  else
-   emit voice-models failed hf_access_denied
-   printf 'Warning [hf_access_denied]: voice models unavailable; transcription stays available. Check Hugging Face access and model terms, then rerun.\nAvertissement [hf_access_denied] : modèles vocaux indisponibles ; la transcription reste disponible. Vérifiez l’accès Hugging Face et les conditions du modèle, puis relancez.\n' >&2
+# Voice models are optional and never block the installation or transcription.
+# Voice is ready only after a synthetic inference succeeds, never because models were downloaded.
+voice_selftest() {
+ stage=voice-test
+ if docker run --rm "${gpu[@]}" --user 10001:10001 --env-file "$env_file" -e HF_HUB_OFFLINE=1 -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.voice_selftest; then emit voice-test succeeded
+ else emit voice-test failed unknown; printf 'Warning [unknown]: the synthetic voice test failed; voice stays unavailable, transcription still works.\nAvertissement [unknown] : le test vocal synthétique a échoué ; la voix reste indisponible, la transcription fonctionne.\n' >&2; fi
+}
+voice_warn() {
+ emit voice-models failed "$1"
+ printf 'Warning [%s]: voice models unavailable; transcription stays available. Fix the cause, then rerun this command.\nAvertissement [%s] : modèles vocaux indisponibles ; la transcription reste disponible. Corrigez la cause, puis relancez cette commande.\n' "$1" "$1" >&2
+}
+if [ ${#gpu[@]} -gt 0 ]; then
+ stage=voice-models
+ # Models already downloaded (valid manifest) are reused: no prompt, no token, no download.
+ if docker run --rm --user 10001:10001 --env-file "$env_file" -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.bootstrap check >/dev/null 2>&1; then
+  emit voice-models succeeded
+  voice_selftest
+ elif [ ! -e "$dir/.voice-declined" ] && (exec </dev/tty) 2>/dev/null; then
+  printf 'Download the voice models (optional)? [y/N] ' > /dev/tty
+  IFS= read -r choice < /dev/tty || choice=''
+  if [ "$choice" = y ] || [ "$choice" = Y ]; then
+   printf 'The models are gated by their authors on Hugging Face (pyannote/speaker-diarization-community-1, pyannote/wespeaker-voxceleb-resnet34-LM).\nType "accept" once you have accepted their terms with your Hugging Face account: ' > /dev/tty
+   IFS= read -r terms < /dev/tty || terms=''
+   if [ "$terms" = accept ]; then
+    printf 'Hugging Face token (hidden): ' > /dev/tty
+    trap 'stty echo < /dev/tty 2>/dev/null; rm -f "${bootstrap_env:-}"' EXIT
+    stty -echo < /dev/tty
+    IFS= read -r hf_token < /dev/tty || hf_token=''
+    stty echo < /dev/tty; printf '\n' > /dev/tty
+    if [[ "$hf_token" =~ ^hf_[A-Za-z0-9]+$ ]]; then
+     # The token reaches the container only through this private (0600) env file, never argv, logs or worker.env.
+     bootstrap_env=$(mktemp "$dir/bootstrap.XXXXXX")
+     cp "$env_file" "$bootstrap_env"
+     printf 'HF_TOKEN=%s\nSNITCH_VOICE_DOWNLOAD_ON_START=1\nSNITCH_VOICE_CONFIRM_TERMS=1\nSNITCH_VOICE_REQUIRE_GPU=1\n' "$hf_token" >> "$bootstrap_env"
+     unset hf_token
+     rc=0; cause=$(docker run --rm "${gpu[@]}" --user 10001:10001 --env-file "$bootstrap_env" -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.bootstrap provision 2>/dev/null) || rc=$?
+     rm -f "$bootstrap_env"; trap - EXIT
+     cause=${cause##*cause=}; cause=${cause%%[!a-z_]*}
+     case "$cause" in hf_access_denied|network_unreachable|volume_not_writable|hf_cache_not_writable|gpu_unavailable) ;; *) cause=unknown ;; esac
+     if [ "$rc" -eq 0 ]; then emit voice-models succeeded; voice_selftest; else voice_warn "$cause"; fi
+    else trap - EXIT; unset hf_token; voice_warn hf_access_denied; fi
+   else printf 'Terms not confirmed: voice models skipped.\nConditions non confirmées : modèles vocaux ignorés.\n' >&2; fi
   fi
-  rm -f "$bootstrap_env"; trap - EXIT
- else emit voice-models failed hf_access_denied; printf 'Warning [hf_access_denied]: invalid Hugging Face token; voice setup skipped.\nAvertissement [hf_access_denied] : jeton Hugging Face invalide ; configuration vocale ignorée.\n' >&2; fi
+ fi
 fi
 stage=service
 previous_image=''
