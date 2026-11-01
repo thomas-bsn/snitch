@@ -78,6 +78,14 @@ def ready_revision(environ: Mapping[str, str], repo: str) -> str:
     return ""
 
 
+def engine_of(path: str) -> str:
+    """The engine that runs the model held at ``path``: a ``.nemo`` archive means NeMo, else pyannote."""
+    try:
+        return "nemo" if any(name.endswith(".nemo") for name in os.listdir(path)) else "pyannote"
+    except OSError:
+        return "pyannote"
+
+
 def inference_environment(environ: Mapping[str, str]) -> dict[str, str]:
     """What the inference process may see: never the token, nor the path of its secret file."""
     env = {k: v for k, v in environ.items() if k not in {"HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", TOKEN_FILE_ENV}}
@@ -278,10 +286,12 @@ def _subprocess_download(repo: str, revision: str, target: str, progress: Progre
 
 def _inference_verify(path: str, environ: Mapping[str, str]) -> None:  # pragma: no cover - needs models
     from snitch_worker import voice_selftest
+    from snitch_worker.voice_nemo import NemoProvider
     from snitch_worker.voice_pyannote import PyannoteProvider
 
-    provider = PyannoteProvider(environ=dict(environ) | {voice_manifest.DIARIZATION_PATH_ENV: path})
-    voice_selftest.diarize_synthetic(provider)
+    engine = engine_of(path)
+    provider = (NemoProvider if engine == "nemo" else PyannoteProvider)(environ=dict(environ) | {voice_manifest.DIARIZATION_PATH_ENV: path})
+    voice_selftest.diarize_synthetic(provider, engine)
 
 
 _manager: ModelManager | None = None

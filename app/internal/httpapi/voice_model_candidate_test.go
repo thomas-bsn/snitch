@@ -82,6 +82,7 @@ func (v voiceModelsView) model(t *testing.T, id string) catalogModel {
 
 type wantedModel struct {
 	ModelID  string `json:"model_id"`
+	Engine   string `json:"engine"`
 	Repo     string `json:"repo"`
 	Revision string `json:"revision"`
 	Role     string `json:"role"`

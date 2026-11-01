@@ -24,10 +24,22 @@ var voiceCatalog = []voiceCatalogEntry{
 		License: "cc-by-4.0", Gated: true, SizeBytes: 33695573, SupportsNumSpeakers: true,
 	},
 	{
+		// Sortformer streaming: not gated (NVIDIA Open Model License), 4 speakers at most, no speaker count hint.
+		ID: "nvidia-sortformer-4spk-v2.1", Kind: "diarization", Engine: "nemo",
+		Repo: "nvidia/diar_streaming_sortformer_4spk-v2.1", Revision: "cd03eee90fbec18297ac31b8c21546e596b7f71c",
+		License: "nvidia-open-model-license", MaxSpeakers: 4, SizeBytes: 471403401,
+	},
+	{
 		ID: "pyannote-wespeaker-resnet34", Kind: "fingerprint", Engine: "pyannote",
 		Repo: "pyannote/wespeaker-voxceleb-resnet34-LM", Revision: "837717ddb9ff5507820346191109dc79c958d614",
 		License: "cc-by-4.0", SizeBytes: 26650477,
 	},
+}
+
+// voiceRealProvider tells whether a pipeline provider runs a catalogue model (the fake one runs none).
+// The provider of a diarization model is its engine.
+func voiceRealProvider(provider string) bool {
+	return provider == "pyannote" || provider == "nemo"
 }
 
 func voiceCatalogByID(id string) (voiceCatalogEntry, bool) {

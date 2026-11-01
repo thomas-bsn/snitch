@@ -31,7 +31,7 @@ MIN_EMBEDDABLE_SECONDS = 0.5
 FULL_QUALITY_TURN_SECONDS = 3.0
 FULL_QUALITY_SPEAKER_SECONDS = 10.0
 
-REAL_PROVIDERS = frozenset({"pyannote"})
+REAL_PROVIDERS = frozenset({"pyannote", "nemo"})
 
 
 class VoiceProviderUnavailable(RuntimeError):
@@ -249,9 +249,10 @@ def default_providers() -> dict[str, Any]:
     """Process-wide providers; the pyannote one caches its models between tasks."""
     global _default_providers
     if _default_providers is None:
-        from snitch_worker.voice_pyannote import PyannoteProvider  # light: no ML import
+        from snitch_worker.voice_nemo import NemoProvider  # light: no ML import
+        from snitch_worker.voice_pyannote import PyannoteProvider
 
-        _default_providers = {"fake": _FakeProvider(), "pyannote": PyannoteProvider()}
+        _default_providers = {"fake": _FakeProvider(), "pyannote": PyannoteProvider(), "nemo": NemoProvider()}
     return _default_providers
 
 

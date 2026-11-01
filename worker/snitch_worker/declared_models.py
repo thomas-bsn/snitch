@@ -92,7 +92,7 @@ def declared_models(env: Mapping[str, str], active_diarization: str = "") -> Wor
     # A verified copy of the active diarization model on the models volume wins over the legacy layout.
     held = voice_models.ready_revision(env, active_diarization) if active_diarization else ""
     if held:
-        voice = _model("pyannote", active_diarization, held[:_REVISION_LENGTH])
+        voice = _model(voice_models.engine_of(voice_models.model_path(env, active_diarization, held)), active_diarization, held[:_REVISION_LENGTH])
         if voice is not None:
             models.diarization = voice
     for role, manifest_key, prefix, default_name in voice_roles:

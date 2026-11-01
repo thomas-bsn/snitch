@@ -321,7 +321,7 @@ const ActiveEmbeddingModel = "pyannote/wespeaker-voxceleb-resnet34-LM"
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
 // For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
-// With the pyannote voice provider active, a voice job only goes to a worker that declares the
+// With a real voice provider (pyannote, nemo) active, a voice job only goes to a worker that declares the
 // active model of its kind.
 func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -400,7 +400,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		      OR $2::text = '' OR substring(j.input_version FROM '-p([^-]+)$') = $2::text
 		  )
 		  AND (
-		      j.step NOT LIKE 'voice.%' OR $3::text <> 'pyannote'
+		      j.step NOT LIKE 'voice.%' OR $3::text NOT IN ('pyannote','nemo')
 		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%')
 		      OR (j.step LIKE 'voice.diarization.%' AND $4::jsonb->'diarization'->>'model' = $5::text)
 		      OR (j.step LIKE 'voice.fingerprint.%' AND $4::jsonb->'fingerprint'->>'model' = $6::text)
