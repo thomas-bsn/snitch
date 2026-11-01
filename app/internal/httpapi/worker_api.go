@@ -65,6 +65,10 @@ func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	if err = s.withInstallProgress(r, items, false); err != nil {
+		s.internal(w, err)
+		return
+	}
 	var version string
 	var raw []byte
 	if err = s.Pool.QueryRow(r.Context(), `SELECT v.version,v.config FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&version, &raw); err != nil {
@@ -252,17 +256,27 @@ func (s *Server) getWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	one := []workers.Worker{detail.Worker}
+	if err = s.withInstallProgress(r, one, true); err != nil {
+		s.internal(w, err)
+		return
+	}
+	detail.Install = one[0].Install
 	// The token is never readable: the deployment file carries a placeholder.
 	bundle, err := s.workerBundle(r, workers.Placeholder, "")
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{
+	result := map[string]any{
 		"id": detail.ID, "name": detail.Name, "max_concurrency": detail.MaxConcurrency, "reported_concurrency": detail.ReportedConcurrency,
 		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "connected": detail.Connected,
-		"models": detail.Models, "transcription_model": detail.TranscriptionModel, "machine": detail.Machine, "remote_address": detail.RemoteAddress, "recent_tasks": detail.RecentTasks, "bundle": bundle,
-	})
+		"models": detail.Models, "transcription_model": detail.TranscriptionModel, "machine": detail.Machine, "remote_address": detail.RemoteAddress, "install": detail.Install, "transcription_config_ready": detail.TranscriptionConfigReady, "recent_tasks": detail.RecentTasks, "bundle": bundle,
+	}
+	if detail.TranscriptionConfig != nil {
+		result["transcription_config"] = detail.TranscriptionConfig
+	}
+	reply(w, http.StatusOK, result)
 }
 
 func (s *Server) putWorkerTranscriptionModel(w http.ResponseWriter, r *http.Request) {

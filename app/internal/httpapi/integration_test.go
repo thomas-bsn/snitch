@@ -315,6 +315,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerInstallInvitation(t, pool)
 	})
+	t.Run("worker install progress", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallProgress(t, pool)
+	})
+	t.Run("worker install never connected and silence", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallNeverConnectedAndSilence(t, pool)
+	})
 	t.Run("worker install refuses insecure origin", func(t *testing.T) {
 		reset(t)
 		testWorkerInstallRefusesInsecureOrigin(t, pool)
@@ -602,6 +610,7 @@ func TestFoundation(t *testing.T) {
 		}
 		workerToken = contractWorker.Token
 		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.synthetic"}}, "", 200)
+		call(client, "POST", "/api/worker/install-events", map[string]any{"events": []map[string]any{{"phase": "service", "status": "succeeded", "occurred_at": time.Now().UTC().Format(time.RFC3339)}}}, "", 204)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {
 			LeaseToken string `json:"lease_token"`

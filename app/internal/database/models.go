@@ -603,6 +603,17 @@ type Worker struct {
 	TranscriptionModel  string             `json:"transcription_model"`
 	Machine             []byte             `json:"machine"`
 	RemoteAddress       string             `json:"remote_address"`
+	FirstPulseAt        pgtype.Timestamptz `json:"first_pulse_at"`
+}
+
+type WorkerInstallEvent struct {
+	ID         int64              `json:"id"`
+	WorkerID   string             `json:"worker_id"`
+	Phase      string             `json:"phase"`
+	Status     string             `json:"status"`
+	CauseCode  string             `json:"cause_code"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	ReceivedAt pgtype.Timestamptz `json:"received_at"`
 }
 
 type WorkerInstallInvite struct {

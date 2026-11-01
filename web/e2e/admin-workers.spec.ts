@@ -261,6 +261,84 @@ test.describe.serial("administration et Workers", () => {
     await context.close();
   });
 
+  test("la progression d'installation : échec, reprise, événement reçu plus tard, voix", async ({
+    browser,
+  }) => {
+    const sendEvents = async (events: object[]) => {
+      const api = await request.newContext({
+        baseURL: process.env.SNITCH_TEST_URL,
+      });
+      const response = await api.post("/api/worker/install-events", {
+        headers: { Authorization: `Bearer ${firstToken}` },
+        data: { events },
+      });
+      const status = response.status();
+      await api.dispose();
+      return status;
+    };
+    const at = (minutesAgo: number) =>
+      new Date(Date.now() - minutesAgo * 60_000).toISOString();
+    const context = await browser.newContext({
+      storageState: await sessionFor(ADMIN),
+    });
+    const page = await context.newPage();
+    const open = async () => {
+      await page.goto(`/admin/workers/${firstId}`);
+      return page.getByRole("region", { name: "Installation" });
+    };
+
+    // A failure names the phase, the cause and the recovery action; transcription is shown apart.
+    expect(
+      await sendEvents([
+        {
+          phase: "image",
+          status: "failed",
+          cause_code: "image_pull_failed",
+          occurred_at: at(0),
+        },
+      ]),
+    ).toBe(204);
+    let section = await open();
+    await expect(section).toContainText(
+      "Failed at Image: Image download failed",
+    );
+    await expect(section).toContainText("Recovery action");
+    await expect(section).toContainText(
+      "Check the network and registry access",
+    );
+    await expect(section).toContainText("Transcription");
+    await expectNoViolations(page);
+
+    // An event queued offline keeps its original time and is marked as received later.
+    expect(
+      await sendEvents([
+        { phase: "prerequisites", status: "succeeded", occurred_at: at(180) },
+        { phase: "image", status: "succeeded", occurred_at: at(0) },
+      ]),
+    ).toBe(204);
+    section = await open();
+    await expect(section).toContainText("Installation");
+    await expect(section).toContainText("received later");
+    await expect(section).not.toContainText("Failed at");
+
+    // Voice is unavailable with its cause while the Worker is not even connected yet.
+    expect(
+      await sendEvents([
+        {
+          phase: "voice-models",
+          status: "failed",
+          cause_code: "hf_access_denied",
+          occurred_at: at(0),
+        },
+      ]),
+    ).toBe(204);
+    section = await open();
+    await expect(section).toContainText(
+      "Unavailable: Hugging Face access denied",
+    );
+    await context.close();
+  });
+
   test("la fiche du Worker, le nouveau jeton et la révocation", async ({
     browser,
   }) => {

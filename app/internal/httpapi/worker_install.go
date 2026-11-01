@@ -53,8 +53,38 @@ var workerInstallScript = template.Must(template.New("install").Parse(`#!/usr/bi
 set -euo pipefail
 umask 077
 stage=prerequisites
+worker_id='{{.WorkerID}}'
+dir="$HOME/.local/share/snitch-worker/$worker_id"
+mkdir -p "$dir"; chmod 700 "$dir"
+env_file="$dir/worker.env"
+# Installation events: phase, status, stable cause code and the original timestamp only, never free text or a secret.
+# They are queued in events.queue and sent with the durable token; offline, they wait for the next authenticated run.
+queue="$dir/events.queue"
+events_token=''; events_api=''
+flush_events() {
+ [ -n "$events_token" ] && [ -s "$queue" ] || return 0
+ local body code ts phase status cause sep=''
+ body=$(mktemp "$dir/events.XXXXXX")
+ { printf '{"events":['
+   while read -r ts phase status cause; do
+     printf '%s{"phase":"%s","status":"%s","occurred_at":"%s"' "$sep" "$phase" "$status" "$ts"
+     [ -z "$cause" ] || printf ',"cause_code":"%s"' "$cause"
+     printf '}'; sep=','
+   done < "$queue"
+   printf ']}'; } > "$body"
+ code=$(printf 'header = "Authorization: Bearer %s"\n' "$events_token" | curl -sS --max-time 10 -K - -H 'Content-Type: application/json' --data-binary @"$body" -o /dev/null -w '%{http_code}' "$events_api/api/worker/install-events" 2>/dev/null || true)
+ rm -f "$body"
+ case "$code" in 2??|400|401) rm -f "$queue" ;; esac
+ return 0
+}
+# emit PHASE STATUS [CAUSE]
+emit() {
+ printf '%s %s %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" "${3:-}" >> "$queue"
+ if [ "$(wc -l < "$queue")" -gt 50 ]; then tail -n 50 "$queue" > "$queue.tmp"; mv "$queue.tmp" "$queue"; fi
+ flush_events
+}
 # fail CODE "English recovery" "Récupération en français": names the step and a stable cause, never a secret.
-fail() { printf 'Snitch Worker: step "%s" failed [%s].\n  %s\n  %s\n' "$stage" "$1" "$2" "$3" >&2; exit 1; }
+fail() { emit "$stage" failed "$1"; printf 'Snitch Worker: step "%s" failed [%s].\n  %s\n  %s\n' "$stage" "$1" "$2" "$3" >&2; exit 1; }
 [ "$(uname -s)" = Linux ] || fail unsupported_platform 'Only Linux hosts are supported; run this command on a Linux machine.' 'Seuls les hôtes Linux sont pris en charge ; lancez cette commande sur une machine Linux.'
 command -v docker >/dev/null || fail docker_unavailable 'Install Docker Engine, then rerun this command.' 'Installez Docker Engine, puis relancez cette commande.'
 command -v curl >/dev/null || fail unknown 'Install curl, then rerun this command.' 'Installez curl, puis relancez cette commande.'
@@ -63,17 +93,15 @@ docker info >/dev/null 2>&1 || fail docker_unavailable 'Start Docker and grant t
 api_url=$(printf '%s' '{{.APIURL}}' | base64 -d)
 seed_token=$(printf '%s' '{{.Token}}' | base64 -d)
 image=$(printf '%s' '{{.Image}}' | base64 -d)
-worker_id='{{.WorkerID}}'
 transcription_endpoint=$(printf '%s' '{{.TranscriptionEndpoint}}' | base64 -d)
 transcription_model=$(printf '%s' '{{.TranscriptionModel}}' | base64 -d)
 transcription_language=$(printf '%s' '{{.TranscriptionLanguage}}' | base64 -d)
-dir="$HOME/.local/share/snitch-worker/$worker_id"
-mkdir -p "$dir"; chmod 700 "$dir"
-env_file="$dir/worker.env"
 # The durable token lives in worker.env (mode 600). A lost token is unrecoverable: ask the administrator for a new invitation.
 worker_token=$(sed -n 's/^SNITCH_WORKER_TOKEN=//p' "$env_file" 2>/dev/null | head -n1 || true)
 [ -n "$worker_token" ] || worker_token=$seed_token
 unset seed_token
+events_token=$worker_token; events_api=$api_url
+emit prerequisites succeeded
 stage=registration
 status=$(printf 'header = "Authorization: Bearer %s"\n' "$worker_token" | curl -sS --max-time 20 -K - -o "$dir/config.json" -w '%{http_code}' "$api_url/api/worker/transcription-config" 2>/dev/null || true)
 case "$status" in
@@ -85,6 +113,7 @@ json_field() { sed -n 's/.*"'"$1"'":"\([^"]*\)".*/\1/p' "$dir/config.json" | hea
 # Current Snitch configuration wins over what the first download carried.
 transcription_endpoint=$(json_field endpoint); transcription_model=$(json_field model); transcription_language=$(json_field language)
 rm -f "$dir/config.json"
+emit registration succeeded
 printf 'SNITCH_API_URL=%s\nSNITCH_WORKER_TOKEN=%s\nTRANSCRIPTION_API_URL=%s\nTRANSCRIPTION_MODEL=%s\nTRANSCRIPTION_LANGUAGE=%s\nSNITCH_VOICE_DOWNLOAD_ON_START=0\nSNITCH_VOICE_CONFIRM_TERMS=0\nHOME=/tmp\nXDG_CACHE_HOME=/models/.cache\nHF_HOME=/models/.cache/huggingface\nHF_XET_CACHE=/models/.cache/huggingface/xet\n' "$api_url" "$worker_token" "$transcription_endpoint" "$transcription_model" "$transcription_language" > "$env_file.tmp"
 chmod 600 "$env_file.tmp"; mv "$env_file.tmp" "$env_file"; unset worker_token
 stage=image
@@ -94,14 +123,17 @@ if ! docker pull "$image"; then
 fi
 volume="snitch-models-$worker_id"; container="snitch-worker-$worker_id"
 docker volume create "$volume" >/dev/null || fail volume_not_writable 'Check Docker volume permissions, then rerun.' 'Vérifiez les permissions des volumes Docker, puis relancez.'
+emit image succeeded
 stage=permissions
 docker run --rm --user 0 --entrypoint sh -v "$volume:/models" "$image" -c 'mkdir -p /models/.cache/huggingface/xet; chown -R 10001:10001 /models' || fail volume_not_writable 'Could not prepare the model volume for UID 10001. Check Docker storage ownership, then rerun.' 'Impossible de préparer le volume de modèles pour l’UID 10001. Vérifiez les droits du stockage Docker, puis relancez.'
 docker run --rm --user 10001:10001 --entrypoint sh -v "$volume:/models" "$image" -c 'touch /models/.snitch-write && rm /models/.snitch-write' || fail volume_not_writable 'The model volume is not writable by UID 10001. Check Docker storage ownership, then rerun.' 'Le volume de modèles n’est pas inscriptible par l’UID 10001. Vérifiez les droits du stockage Docker, puis relancez.'
 docker run --rm --user 10001:10001 --entrypoint sh -v "$volume:/models" "$image" -c 'touch /models/.cache/huggingface/xet/.snitch-write && rm /models/.cache/huggingface/xet/.snitch-write' || fail hf_cache_not_writable 'The Hugging Face/Xet cache is not writable. Remove the volume ('"$volume"') only if it holds no models you need, then rerun.' 'Le cache Hugging Face/Xet n’est pas inscriptible. Supprimez le volume ('"$volume"') seulement s’il ne contient aucun modèle utile, puis relancez.'
+emit permissions succeeded
 gpu=()
 if command -v nvidia-smi >/dev/null && nvidia-smi >/dev/null 2>&1; then
  gpu=(--gpus all); stage=gpu
  docker run --rm ${gpu[@]+"${gpu[@]}"} --entrypoint sh "$image" -c true || fail gpu_unavailable 'Install NVIDIA Container Toolkit for Docker and restart Docker, then rerun.' 'Installez NVIDIA Container Toolkit pour Docker et redémarrez Docker, puis relancez.'
+ emit gpu succeeded
 else printf 'No NVIDIA GPU: voice processing unavailable (transcription still works).\n'; fi
 # Voice models are optional and never block the installation.
 if [ ! -e "$dir/.voice-declined" ] && (exec </dev/tty) 2>/dev/null; then
@@ -120,9 +152,19 @@ if [ "$choice" = y ] || [ "$choice" = Y ]; then
   printf 'HF_TOKEN=%s\nSNITCH_VOICE_DOWNLOAD_ON_START=1\nSNITCH_VOICE_CONFIRM_TERMS=1\n' "$hf_token" >> "$bootstrap_env"
   unset hf_token
   stage=voice-models
-  docker run --rm ${gpu[@]+"${gpu[@]}"} --user 10001:10001 --env-file "$bootstrap_env" -v "$volume:/models" --entrypoint python "$image" -c 'import os; from snitch_worker.bootstrap import run_bootstrap; raise SystemExit(run_bootstrap(os.environ) == "failed")' || printf 'Warning [hf_access_denied]: voice models unavailable; transcription stays available. Check Hugging Face access and model terms, then rerun.\nAvertissement [hf_access_denied] : modèles vocaux indisponibles ; la transcription reste disponible. Vérifiez l’accès Hugging Face et les conditions du modèle, puis relancez.\n' >&2
+  if docker run --rm ${gpu[@]+"${gpu[@]}"} --user 10001:10001 --env-file "$bootstrap_env" -v "$volume:/models" --entrypoint python "$image" -c 'import os; from snitch_worker.bootstrap import run_bootstrap; raise SystemExit(run_bootstrap(os.environ) == "failed")'; then
+   emit voice-models succeeded
+   # Voice is ready only after a synthetic inference succeeds, not once the models are downloaded.
+   if [ ${#gpu[@]} -gt 0 ]; then
+    if docker run --rm "${gpu[@]}" --user 10001:10001 --env-file "$bootstrap_env" -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.voice_selftest; then emit voice-test succeeded
+    else emit voice-test failed unknown; printf 'Warning [unknown]: the synthetic voice test failed; voice stays unavailable, transcription still works.\nAvertissement [unknown] : le test vocal synthétique a échoué ; la voix reste indisponible, la transcription fonctionne.\n' >&2; fi
+   fi
+  else
+   emit voice-models failed hf_access_denied
+   printf 'Warning [hf_access_denied]: voice models unavailable; transcription stays available. Check Hugging Face access and model terms, then rerun.\nAvertissement [hf_access_denied] : modèles vocaux indisponibles ; la transcription reste disponible. Vérifiez l’accès Hugging Face et les conditions du modèle, puis relancez.\n' >&2
+  fi
   rm -f "$bootstrap_env"; trap - EXIT
- else printf 'Warning [hf_access_denied]: invalid Hugging Face token; voice setup skipped.\nAvertissement [hf_access_denied] : jeton Hugging Face invalide ; configuration vocale ignorée.\n' >&2; fi
+ else emit voice-models failed hf_access_denied; printf 'Warning [hf_access_denied]: invalid Hugging Face token; voice setup skipped.\nAvertissement [hf_access_denied] : jeton Hugging Face invalide ; configuration vocale ignorée.\n' >&2; fi
 fi
 stage=service
 previous_image=''
@@ -137,6 +179,7 @@ if ! start_service "$image"; then
  fi
  fail service_start_failed 'Could not start the Worker. Inspect Docker logs, then rerun.' 'Impossible de démarrer le Worker. Consultez les journaux Docker, puis relancez.'
 fi
+emit service succeeded
 printf 'Snitch Worker started. Check Admin > Workers for connection and models.\n'
 `))
 

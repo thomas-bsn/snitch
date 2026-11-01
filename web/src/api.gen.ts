@@ -779,6 +779,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/worker/install-events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Événements d'installation envoyés par le lanceur avec le jeton du Worker. Chaque événement porte uniquement une phase, un statut, un code de cause stable et son horodatage d'origine : aucun texte libre, aucun secret. Les événements mis en file hors ligne arrivent plus tard avec leur horodatage d'origine et sont marqués « reçus plus tard ». Un lot invalide est refusé en entier (invalid_install_event). */
+    post: operations["postWorkerInstallEvents"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/worker/transcription-config": {
     parameters: {
       query?: never;
@@ -2354,6 +2371,7 @@ export interface components {
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
+      install?: components["schemas"]["WorkerInstall"];
       machine?: components["schemas"]["WorkerMachine"];
       /** @description Adresse IP de connexion observée par Snitch, sans port. */
       remote_address?: string;
@@ -2370,6 +2388,87 @@ export interface components {
       connected: boolean;
       /** @description Modèles déclarés par le worker à son dernier pouls, visibles des administrateurs. Un rôle absent est « non déclaré ». */
       models?: components["schemas"]["WorkerModels"];
+    };
+    /** @enum {string} */
+    WorkerInstallPhase:
+      | "prerequisites"
+      | "registration"
+      | "image"
+      | "permissions"
+      | "gpu"
+      | "voice-models"
+      | "voice-test"
+      | "service";
+    /**
+     * @description Codes de cause stables du lanceur.
+     * @enum {string}
+     */
+    WorkerInstallCause:
+      | "unsupported_platform"
+      | "docker_unavailable"
+      | "registration_rejected"
+      | "network_unreachable"
+      | "image_pull_failed"
+      | "volume_not_writable"
+      | "hf_cache_not_writable"
+      | "gpu_unavailable"
+      | "service_start_failed"
+      | "hf_access_denied"
+      | "unknown";
+    WorkerInstallEventInput: {
+      phase: components["schemas"]["WorkerInstallPhase"];
+      /** @enum {string} */
+      status: "started" | "succeeded" | "failed";
+      /** @description Obligatoire (un code de WorkerInstallCause) si le statut est failed, vide sinon. */
+      cause_code?: string;
+      /**
+       * Format: date-time
+       * @description Horodatage d'origine, conservé même si l'événement a été mis en file hors ligne.
+       */
+      occurred_at: string;
+    };
+    WorkerInstallEvent: {
+      phase: components["schemas"]["WorkerInstallPhase"];
+      /** @enum {string} */
+      status: "started" | "succeeded" | "failed";
+      cause_code: string;
+      /** Format: date-time */
+      occurred_at: string;
+      /** Format: date-time */
+      received_at: string;
+      /** @description Vrai si l'événement a été mis en file hors ligne et reçu longtemps après son horodatage d'origine. */
+      received_later: boolean;
+    };
+    WorkerInstallVoice: {
+      /**
+       * @description ready seulement après une inférence synthétique réussie.
+       * @enum {string}
+       */
+      state: "pending" | "ready" | "unavailable";
+      cause_code: string;
+    };
+    /** @description Progression d'installation, indépendante de la transcription (transcription_config) et de la voix (voice). */
+    WorkerInstall: {
+      /**
+       * @description connected = premier pouls ; voice_ready = connecté et inférence synthétique réussie ; never_connected = aucun pouls après 24 h.
+       * @enum {string}
+       */
+      state:
+        | "installing"
+        | "connected"
+        | "voice_ready"
+        | "failed"
+        | "never_connected";
+      failed_phase: string;
+      cause_code: string;
+      voice: components["schemas"]["WorkerInstallVoice"];
+      last_event: components["schemas"]["WorkerInstallEvent"] | null;
+      /** Format: date-time */
+      last_activity_at: string | null;
+      /** @description Absence de nouvelles, distincte du dernier événement reçu. */
+      no_news: boolean;
+      /** @description Historique récent (fiche détaillée seulement). */
+      events?: components["schemas"]["WorkerInstallEvent"][];
     };
     /** @description Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs ressemblant à un secret sont refusées. */
     WorkerModels: {
@@ -2416,6 +2515,7 @@ export interface components {
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
+      install?: components["schemas"]["WorkerInstall"];
       machine?: components["schemas"]["WorkerMachine"];
       /** @description Adresse IP de connexion observée par Snitch, sans port. */
       remote_address?: string;
@@ -5853,6 +5953,39 @@ export interface operations {
         };
       };
       /** @description Jeton invalide ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerInstallEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          events: components["schemas"]["WorkerInstallEventInput"][];
+        };
+      };
+    };
+    responses: {
+      /** @description Événements enregistrés */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

@@ -213,6 +213,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   worker_not_found: "Ce Worker n’existe pas.",
   install_invite_used:
     "Cette invitation d’installation a déjà été utilisée. Générez une nouvelle commande dans Admin > Workers.",
+  invalid_install_event: "Cet événement d’installation n’est pas valide.",
   worker_token_invalid: "Ce jeton de Worker n’est pas valide.",
   worker_token_required: "Un jeton de Worker est requis.",
 };

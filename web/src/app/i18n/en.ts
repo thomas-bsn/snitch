@@ -751,6 +751,105 @@ export const en = {
     },
     never: "Never",
     notDeclared: "Not declared",
+    install: {
+      title: "Installation",
+      column: "Installation",
+      state: {
+        installing: "Installing",
+        connected: "Connected",
+        voice_ready: "Voice ready",
+        failed: "Failed",
+        never_connected: "Never connected",
+      },
+      stateHint: {
+        installing: "Waiting for the first pulse of the Worker.",
+        connected: "The Worker sent its first pulse.",
+        voice_ready: "The Worker passed a synthetic voice test.",
+        failed:
+          "The installation stopped at a step. See the recovery action below.",
+        never_connected:
+          "No pulse for more than 24 hours since creation. Delete this Worker and generate a new command.",
+      },
+      phase: {
+        prerequisites: "Prerequisites",
+        registration: "Registration",
+        image: "Image",
+        permissions: "Permissions",
+        gpu: "GPU",
+        "voice-models": "Voice models",
+        "voice-test": "Voice test",
+        service: "Service",
+      },
+      status: {
+        started: "started",
+        succeeded: "succeeded",
+        failed: "failed",
+      },
+      cause: {
+        unsupported_platform: "Unsupported system",
+        docker_unavailable: "Docker unavailable",
+        registration_rejected: "Credential rejected",
+        network_unreachable: "Snitch unreachable",
+        image_pull_failed: "Image download failed",
+        volume_not_writable: "Model volume not writable",
+        hf_cache_not_writable: "Hugging Face cache not writable",
+        gpu_unavailable: "GPU unavailable to Docker",
+        service_start_failed: "Service did not start",
+        hf_access_denied: "Hugging Face access denied",
+        unknown: "Unknown cause",
+      },
+      recovery: {
+        unsupported_platform: "Run the command on a Linux machine.",
+        docker_unavailable:
+          "Install and start Docker Engine, give this user access, then rerun the command.",
+        registration_rejected:
+          "Generate a new installation command: this credential was revoked or replaced.",
+        network_unreachable:
+          "Check the network and the Snitch address on the machine, then rerun the command.",
+        image_pull_failed:
+          "Check the network and registry access, then rerun the command.",
+        volume_not_writable:
+          "Check Docker storage ownership for UID 10001, then rerun the command.",
+        hf_cache_not_writable:
+          "Remove the model volume only if it holds no models you need, then rerun the command.",
+        gpu_unavailable:
+          "Install NVIDIA Container Toolkit for Docker, restart Docker, then rerun the command.",
+        service_start_failed:
+          "Inspect the Docker logs on the machine, then rerun the command.",
+        hf_access_denied:
+          "Check the Hugging Face token and the model terms, then rerun the command. Transcription is not affected.",
+        unknown:
+          "Inspect the terminal output on the machine, then rerun the command.",
+      },
+      failedAt: "Failed at {phase}: {cause}",
+      recovery_label: "Recovery action",
+      lastEvent: "Latest event",
+      lastEventValue: "{phase}, {status}",
+      occurredAt: "happened {date}",
+      receivedLater: "received later",
+      noEvent: "No installation event received yet.",
+      noNews: "No news since {date}",
+      noNewsNever: "No news since the Worker was created",
+      newsOk: "News received recently",
+      news: "News",
+      history: "Event history",
+      transcription: "Transcription",
+      transcriptionState: {
+        active: "Configuration active",
+        error: "Configuration test failed",
+        waiting: "Not validated yet (this does not block the installation)",
+      },
+      transcriptionError: {
+        connection_failed: "The Worker cannot reach the transcription service.",
+        model_missing: "The transcription model is missing.",
+      },
+      voice: "Voice",
+      voiceState: {
+        ready: "Ready (synthetic inference passed)",
+        unavailable: "Unavailable: {cause}",
+        pending: "Not ready yet (no synthetic test passed)",
+      },
+    },
     models: {
       transcription: "Transcription",
       diarization: "Diarization",

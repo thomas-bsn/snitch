@@ -765,6 +765,106 @@ export const fr: Messages = {
       revoked: "Révoqué",
     },
     never: "Jamais",
+    install: {
+      title: "Installation",
+      column: "Installation",
+      state: {
+        installing: "Installation en cours",
+        connected: "Connecté",
+        voice_ready: "Voix prête",
+        failed: "Échec",
+        never_connected: "Jamais connecté",
+      },
+      stateHint: {
+        installing: "En attente du premier pouls du Worker.",
+        connected: "Le Worker a envoyé son premier pouls.",
+        voice_ready: "Le Worker a réussi un test vocal synthétique.",
+        failed:
+          "L’installation s’est arrêtée à une étape. Voir l’action de reprise ci-dessous.",
+        never_connected:
+          "Aucun pouls depuis plus de 24 heures après la création. Supprimez ce Worker et générez une nouvelle commande.",
+      },
+      phase: {
+        prerequisites: "Prérequis",
+        registration: "Enregistrement",
+        image: "Image",
+        permissions: "Permissions",
+        gpu: "GPU",
+        "voice-models": "Modèles vocaux",
+        "voice-test": "Test vocal",
+        service: "Service",
+      },
+      status: {
+        started: "démarré",
+        succeeded: "réussi",
+        failed: "échec",
+      },
+      cause: {
+        unsupported_platform: "Système non pris en charge",
+        docker_unavailable: "Docker indisponible",
+        registration_rejected: "Jeton refusé",
+        network_unreachable: "Snitch injoignable",
+        image_pull_failed: "Téléchargement de l’image impossible",
+        volume_not_writable: "Volume de modèles non inscriptible",
+        hf_cache_not_writable: "Cache Hugging Face non inscriptible",
+        gpu_unavailable: "GPU inaccessible à Docker",
+        service_start_failed: "Le service ne démarre pas",
+        hf_access_denied: "Accès Hugging Face refusé",
+        unknown: "Cause inconnue",
+      },
+      recovery: {
+        unsupported_platform: "Lancez la commande sur une machine Linux.",
+        docker_unavailable:
+          "Installez et démarrez Docker Engine, donnez accès à cet utilisateur, puis relancez la commande.",
+        registration_rejected:
+          "Générez une nouvelle commande d’installation : ce jeton a été révoqué ou remplacé.",
+        network_unreachable:
+          "Vérifiez le réseau et l’adresse de Snitch depuis la machine, puis relancez la commande.",
+        image_pull_failed:
+          "Vérifiez le réseau et l’accès au registre, puis relancez la commande.",
+        volume_not_writable:
+          "Vérifiez les droits du stockage Docker pour l’UID 10001, puis relancez la commande.",
+        hf_cache_not_writable:
+          "Supprimez le volume de modèles seulement s’il ne contient aucun modèle utile, puis relancez la commande.",
+        gpu_unavailable:
+          "Installez NVIDIA Container Toolkit pour Docker, redémarrez Docker, puis relancez la commande.",
+        service_start_failed:
+          "Consultez les journaux Docker sur la machine, puis relancez la commande.",
+        hf_access_denied:
+          "Vérifiez le jeton Hugging Face et les conditions du modèle, puis relancez la commande. La transcription n’est pas touchée.",
+        unknown:
+          "Consultez la sortie du terminal sur la machine, puis relancez la commande.",
+      },
+      failedAt: "Échec à l’étape {phase} : {cause}",
+      recovery_label: "Action de reprise",
+      lastEvent: "Dernier événement",
+      lastEventValue: "{phase}, {status}",
+      occurredAt: "survenu {date}",
+      receivedLater: "reçu plus tard",
+      noEvent: "Aucun événement d’installation reçu pour l’instant.",
+      noNews: "Pas de nouvelles depuis {date}",
+      noNewsNever: "Pas de nouvelles depuis la création du Worker",
+      newsOk: "Des nouvelles ont été reçues récemment",
+      news: "Nouvelles",
+      history: "Historique des événements",
+      transcription: "Transcription",
+      transcriptionState: {
+        active: "Configuration active",
+        error: "Test de configuration en échec",
+        waiting: "Pas encore validée (cela ne bloque pas l’installation)",
+      },
+      transcriptionError: {
+        connection_failed:
+          "Le Worker ne joint pas le service de transcription.",
+        model_missing: "Le modèle de transcription est absent.",
+      },
+      voice: "Voix",
+      voiceState: {
+        ready: "Prête (inférence synthétique réussie)",
+        unavailable: "Indisponible : {cause}",
+        pending: "Pas encore prête (aucun test synthétique réussi)",
+      },
+    },
     notDeclared: "Non déclaré",
     models: {
       transcription: "Transcription",

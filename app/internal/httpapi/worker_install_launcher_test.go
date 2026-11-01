@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
@@ -40,9 +41,14 @@ if [ "$1" = inspect ]; then echo sha256:previous; fi
 exit 0
 `)
 	write("uname", `echo "${FAKE_UNAME:-Linux}"`)
-	write("curl", `out=''; while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift;; esac; shift; done
+	write("curl", `out=''; data=''; url=''; while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift;; --data-binary) data=${2#@}; shift;; http*) url=$1;; esac; shift; done
 cat >/dev/null
 status=${FAKE_CURL_STATUS:-200}
+case "$url" in *install-events)
+ if [ "$status" = 000 ]; then printf 000; exit 7; fi
+ cat "$data" >> "$FAKE_LOG.events"; printf '\n' >> "$FAKE_LOG.events"
+ printf '%s' "${FAKE_EVENTS_STATUS:-204}"; exit 0;;
+esac
 if [ "$status" = 200 ]; then printf '%s' "${FAKE_CURL_BODY:-}" > "$out"; fi
 printf '%s' "$status"
 [ "$status" = 000 ] && exit 7
@@ -186,5 +192,70 @@ func TestInstallerFailedServiceStartRestoresPreviousVersion(t *testing.T) {
 	}
 	if !strings.Contains(r.dockerLog(), "sha256:previous") {
 		t.Fatal("previous image was not restarted")
+	}
+}
+
+func (r *installerRun) events() string {
+	data, _ := os.ReadFile(r.log + ".events")
+	return string(data)
+}
+
+func (r *installerRun) queue() string {
+	data, _ := os.ReadFile(filepath.Join(r.home, ".local/share/snitch-worker/wk_syntheticFixtureWorker123/events.queue"))
+	return string(data)
+}
+
+func TestInstallerEmitsPhaseEventsWithoutSecrets(t *testing.T) {
+	token := "rw_synthetic-fixture-token"
+	r := newInstallerRun(t)
+	if stdout, stderr, err := r.run(t, token, "FAKE_CURL_BODY="+fakeConfig); err != nil {
+		t.Fatalf("install failed: %v\n%s\n%s", err, stdout, stderr)
+	}
+	events := r.events()
+	for _, phase := range []string{"prerequisites", "registration", "image", "permissions", "service"} {
+		if !strings.Contains(events, `"phase":"`+phase+`","status":"succeeded"`) {
+			t.Errorf("no succeeded event for %s:\n%s", phase, events)
+		}
+	}
+	if !regexp.MustCompile(`"occurred_at":"20\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ"`).MatchString(events) {
+		t.Errorf("events lack their original timestamp:\n%s", events)
+	}
+	if strings.Contains(events+r.dockerLog(), token) || strings.Contains(events, "message") || r.queue() != "" {
+		t.Errorf("events leak a secret or free text, or the queue was not flushed:\n%s", events)
+	}
+}
+
+func TestInstallerQueuesEventsOfflineAndSendsThemWithOriginalTimestamp(t *testing.T) {
+	token := "rw_synthetic-fixture-token"
+	r := newInstallerRun(t)
+	// Offline: the run fails at registration; the failure is kept locally, nothing is sent.
+	if _, _, err := r.run(t, token, "FAKE_CURL_STATUS=000"); err == nil {
+		t.Fatal("expected network failure")
+	}
+	queued := r.queue()
+	if !strings.Contains(queued, " registration failed network_unreachable") || r.events() != "" {
+		t.Fatalf("offline failure not queued (events=%q):\n%s", r.events(), queued)
+	}
+	original := strings.Fields(strings.Split(strings.TrimSpace(queued), "\n")[0])[0]
+	// Back online: the queued event goes out first, with the timestamp it had when it happened.
+	if stdout, stderr, err := r.run(t, token, "FAKE_CURL_BODY="+fakeConfig); err != nil {
+		t.Fatalf("rerun failed: %v\n%s\n%s", err, stdout, stderr)
+	}
+	events := r.events()
+	if !strings.Contains(events, `"phase":"registration","status":"failed","occurred_at":"`+original+`","cause_code":"network_unreachable"`) {
+		t.Fatalf("queued event not delivered with its original timestamp %s:\n%s", original, events)
+	}
+	if r.queue() != "" {
+		t.Fatal("queue not emptied after delivery")
+	}
+}
+
+func TestInstallerReportsFailuresToSnitchOnceReachable(t *testing.T) {
+	r := newInstallerRun(t)
+	if _, _, err := r.run(t, "rw_synthetic-fixture-token", "FAKE_CURL_BODY="+fakeConfig, "FAKE_DOCKER_FAIL=^(pull|image inspect)"); err == nil {
+		t.Fatal("expected image failure")
+	}
+	if !strings.Contains(r.events(), `"phase":"image","status":"failed"`) || !strings.Contains(r.events(), `"cause_code":"image_pull_failed"`) {
+		t.Fatalf("failure not reported:\n%s", r.events())
 	}
 }
