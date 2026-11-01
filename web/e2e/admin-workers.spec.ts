@@ -184,38 +184,39 @@ test.describe.serial("administration et Workers", () => {
     await expectNoViolations(page);
 
     await page.getByLabel("Worker name").fill("gaming-pc");
-    await page.getByLabel("Hugging Face token").fill(HF_TOKEN);
     await page.getByRole("button", { name: "Create the Worker" }).click();
 
-    // The first Worker engages the whole library: a confirmation says so.
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toContainText("every future Worker");
-    await expect(dialog).toContainText("whisper-large-v3 · fr");
+    // One command to run; the files are kept under "Advanced". Secrets never go through the form.
+    await expect(
+      page.getByText("Copy the installation command now."),
+    ).toBeVisible();
+    const command = await page
+      .getByRole("textbox", { name: "Worker installation command" })
+      .inputValue();
+    expect(command).not.toContain(HF_TOKEN);
     await expectNoViolations(page);
-    await page.keyboard.press("Escape");
-    await expect(dialog).toHaveCount(0);
-    await page.getByRole("button", { name: "Create the Worker" }).click();
-    await page.getByRole("button", { name: "Confirm and create" }).click();
 
-    // Files: the token of the Worker is shown once; the Hugging Face token is in the .env only.
-    await expect(page.getByText("Copy both files now.")).toBeVisible();
+    await page.getByRole("button", { name: "Copy command" }).click();
+    await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      command,
+    );
+
+    await page.getByText("Advanced: deployment files").click();
     const env = page.getByRole("textbox", { name: "Content of .env" });
     const text = await env.inputValue();
-    expect(text).toContain("HF_TOKEN=" + HF_TOKEN);
+    // The Hugging Face token is never typed in Snitch: the file only carries a placeholder to fill by hand.
+    expect(text).toContain("HF_TOKEN=A_RENSEIGNER");
+    expect(text).not.toContain(HF_TOKEN);
     expect(text).toContain(
       "TRANSCRIPTION_API_URL=http://host.docker.internal:8000",
     );
-    expect(text).toContain("TRANSCRIPTION_MODEL=whisper-large-v3");
-    expect(text).toContain("TRANSCRIPTION_LANGUAGE=fr");
+    // Model and language are managed by Snitch once the Worker is connected: not pinned in the file.
+    expect(text).not.toMatch(/^TRANSCRIPTION_MODEL=/m);
+    expect(text).not.toMatch(/^TRANSCRIPTION_LANGUAGE=/m);
     firstToken = /^SNITCH_WORKER_TOKEN=(\S+)$/m.exec(text)![1];
     expect(firstToken).toMatch(/^rw_/);
-    await expectNoViolations(page);
-
-    await page.getByRole("button", { name: "Copy" }).first().click();
-    await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-      text,
-    );
+    expect(command).not.toContain(firstToken);
 
     const download = page.waitForEvent("download");
     await page
@@ -230,7 +231,7 @@ test.describe.serial("administration et Workers", () => {
     expect(compose).toContain("TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-}");
     expect(compose).not.toContain(firstToken);
 
-    await page.getByRole("button", { name: "I copied the files" }).click();
+    await page.getByRole("button", { name: "Done" }).click();
     await expect(page).toHaveURL(/\/admin\/workers\/wk_/);
     firstId = page.url().split("/").pop()!;
     expect(leaked).toEqual([]);
