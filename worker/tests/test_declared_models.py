@@ -1,8 +1,10 @@
+import os
+import tempfile
 import threading
 import unittest
 from unittest.mock import patch
 
-from snitch_worker import declared_models, runner
+from snitch_worker import declared_models, runner, voice_manifest
 
 
 class DeclaredModelsTest(unittest.TestCase):
@@ -67,6 +69,38 @@ class DeclaredModelsTest(unittest.TestCase):
                     "provider": "pyannote",
                     "model": "pyannote/wespeaker-voxceleb-resnet34-LM",
                     "version": "rev-1",
+                },
+            },
+        )
+
+    def test_voice_roles_report_the_repository_and_revision_actually_on_disk(self):
+        diarization_sha = "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee"
+        embedding_sha = "837717ddb9ff5507820346191109dc79c958d614"
+        with tempfile.TemporaryDirectory() as root:
+            env = {
+                "SNITCH_VOICE_DIARIZATION_MODEL_PATH": os.path.join(root, "diarization"),
+                "SNITCH_VOICE_EMBEDDING_MODEL_PATH": os.path.join(root, "embedding"),
+            }
+            voice_manifest.write_manifest(
+                env,
+                {
+                    "diarization": {"repo": "pyannote/speaker-diarization-3.1", "revision": diarization_sha},
+                    "embedding": {"repo": "pyannote/wespeaker-voxceleb-resnet34-LM", "revision": embedding_sha},
+                },
+            )
+            declared = self.declare(env)
+        self.assertEqual(
+            declared,
+            {
+                "diarization": {
+                    "provider": "pyannote",
+                    "model": "pyannote/speaker-diarization-3.1",
+                    "version": "3533c8cf8e36",
+                },
+                "fingerprint": {
+                    "provider": "pyannote",
+                    "model": "pyannote/wespeaker-voxceleb-resnet34-LM",
+                    "version": "837717ddb9ff",
                 },
             },
         )
