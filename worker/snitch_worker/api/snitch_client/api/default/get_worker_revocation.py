@@ -63,10 +63,11 @@ def sync_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[Error | GetWorkerRevocationResponse200]:
-    """  Confirmation étroite pour le lanceur local, seul endroit où un jeton révoqué est accepté. La réponse
-    dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une
-    réponse révoquée est enregistrée comme confirmation du lanceur, qui arrête alors le service. Un
-    jeton inconnu reçoit worker_token_invalid.
+    """  Confirmation étroite pour le Worker et son lanceur local, seul endroit où un jeton révoqué est
+    accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration,
+    aucune action. Une réponse révoquée est enregistrée comme confirmation : le Worker efface alors le
+    contenu de son volume de modèles et cesse tout appel, le lanceur supprime le conteneur. Un 401 sans
+    cette confirmation n'efface rien. Un jeton inconnu reçoit worker_token_invalid.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -92,10 +93,11 @@ def sync(
     client: AuthenticatedClient,
 
 ) -> Error | GetWorkerRevocationResponse200 | None:
-    """  Confirmation étroite pour le lanceur local, seul endroit où un jeton révoqué est accepté. La réponse
-    dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une
-    réponse révoquée est enregistrée comme confirmation du lanceur, qui arrête alors le service. Un
-    jeton inconnu reçoit worker_token_invalid.
+    """  Confirmation étroite pour le Worker et son lanceur local, seul endroit où un jeton révoqué est
+    accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration,
+    aucune action. Une réponse révoquée est enregistrée comme confirmation : le Worker efface alors le
+    contenu de son volume de modèles et cesse tout appel, le lanceur supprime le conteneur. Un 401 sans
+    cette confirmation n'efface rien. Un jeton inconnu reçoit worker_token_invalid.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -116,10 +118,11 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[Error | GetWorkerRevocationResponse200]:
-    """  Confirmation étroite pour le lanceur local, seul endroit où un jeton révoqué est accepté. La réponse
-    dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une
-    réponse révoquée est enregistrée comme confirmation du lanceur, qui arrête alors le service. Un
-    jeton inconnu reçoit worker_token_invalid.
+    """  Confirmation étroite pour le Worker et son lanceur local, seul endroit où un jeton révoqué est
+    accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration,
+    aucune action. Une réponse révoquée est enregistrée comme confirmation : le Worker efface alors le
+    contenu de son volume de modèles et cesse tout appel, le lanceur supprime le conteneur. Un 401 sans
+    cette confirmation n'efface rien. Un jeton inconnu reçoit worker_token_invalid.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -145,10 +148,11 @@ async def asyncio(
     client: AuthenticatedClient,
 
 ) -> Error | GetWorkerRevocationResponse200 | None:
-    """  Confirmation étroite pour le lanceur local, seul endroit où un jeton révoqué est accepté. La réponse
-    dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une
-    réponse révoquée est enregistrée comme confirmation du lanceur, qui arrête alors le service. Un
-    jeton inconnu reçoit worker_token_invalid.
+    """  Confirmation étroite pour le Worker et son lanceur local, seul endroit où un jeton révoqué est
+    accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration,
+    aucune action. Une réponse révoquée est enregistrée comme confirmation : le Worker efface alors le
+    contenu de son volume de modèles et cesse tout appel, le lanceur supprime le conteneur. Un 401 sans
+    cette confirmation n'efface rien. Un jeton inconnu reçoit worker_token_invalid.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

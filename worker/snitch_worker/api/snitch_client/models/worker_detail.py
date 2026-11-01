@@ -40,9 +40,10 @@ class WorkerDetail:
             created_at (datetime.datetime):
             revoked_at (datetime.datetime | None):
             revoke_reason (str): Motif facultatif de suppression, conservé dans l'audit minimal.
-            revocation_acknowledged_at (datetime.datetime | None): Date à laquelle le lanceur local a confirmé la révocation
-                et arrêté le service. Absente : le nettoyage local reste en attente. Ne dit jamais que le disque local est
-                effacé.
+            revocation_acknowledged_at (datetime.datetime | None): Date de la première confirmation de la révocation par la
+                machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif,
+                ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne
+                dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
             connected (bool):
             recent_tasks (list[WorkerRecentTask]): Dernières tâches de ce worker, une ligne par tâche, la plus récente
                 d'abord.

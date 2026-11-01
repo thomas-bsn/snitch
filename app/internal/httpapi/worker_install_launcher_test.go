@@ -163,7 +163,7 @@ func TestInstallerStopsServiceOnRevocationConfirmationWithoutErasingLocalData(t 
 			t.Fatalf("launcher erased local data (%s):\n%s", forbidden, log)
 		}
 	}
-	for _, want := range []string{"NOT erased", "PAS été effacés", "service was stopped", "arrêté"} {
+	for _, want := range []string{"launcher erased nothing", "lanceur n’a rien effacé", "erases its own models", "service was stopped", "arrêté"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("message lacks %q:\n%s", want, stdout)
 		}

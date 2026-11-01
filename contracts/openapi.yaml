@@ -2654,7 +2654,7 @@
         }
       }
     },
-    "/api/worker/revocation": {"get": {"operationId": "getWorkerRevocation", "security": [{"workerBearer": []}], "description": "Confirmation étroite pour le lanceur local, seul endroit où un jeton révoqué est accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une réponse révoquée est enregistrée comme confirmation du lanceur, qui arrête alors le service. Un jeton inconnu reçoit worker_token_invalid.", "responses": {"200": {"description": "État de révocation", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["revoked"], "properties": {"revoked": {"type": "boolean"}, "revoked_at": {"type": "string", "format": "date-time"}}}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/api/worker/revocation": {"get": {"operationId": "getWorkerRevocation", "security": [{"workerBearer": []}], "description": "Confirmation étroite pour le Worker et son lanceur local, seul endroit où un jeton révoqué est accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une réponse révoquée est enregistrée comme confirmation : le Worker efface alors le contenu de son volume de modèles et cesse tout appel, le lanceur supprime le conteneur. Un 401 sans cette confirmation n'efface rien. Un jeton inconnu reçoit worker_token_invalid.", "responses": {"200": {"description": "État de révocation", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["revoked"], "properties": {"revoked": {"type": "boolean"}, "revoked_at": {"type": "string", "format": "date-time"}}}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/worker/install-events": {"post": {"operationId": "postWorkerInstallEvents", "security": [{"workerBearer": []}], "description": "Événements d'installation envoyés par le lanceur avec le jeton du Worker. Chaque événement porte uniquement une phase, un statut, un code de cause stable et son horodatage d'origine : aucun texte libre, aucun secret. Les événements mis en file hors ligne arrivent plus tard avec leur horodatage d'origine et sont marqués « reçus plus tard ». Un lot invalide est refusé en entier (invalid_install_event).", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["events"], "properties": {"events": {"type": "array", "minItems": 1, "maxItems": 50, "items": {"$ref": "#/components/schemas/WorkerInstallEventInput"}}}}}}}, "responses": {"204": {"description": "Événements enregistrés"}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/worker/transcription-config": {
       "get": {
@@ -6265,7 +6265,7 @@
             "type": "string",
             "format": "date-time",
             "nullable": true,
-            "description": "Date à laquelle le lanceur local a confirmé la révocation et arrêté le service. Absente : le nettoyage local reste en attente. Ne dit jamais que le disque local est effacé."
+            "description": "Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés."
           },
           "connected": {
             "type": "boolean"
@@ -6485,7 +6485,7 @@
             "type": "string",
             "format": "date-time",
             "nullable": true,
-            "description": "Date à laquelle le lanceur local a confirmé la révocation et arrêté le service. Absente : le nettoyage local reste en attente. Ne dit jamais que le disque local est effacé."
+            "description": "Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés."
           },
           "connected": {
             "type": "boolean"

@@ -129,13 +129,13 @@ status=$(printf 'header = "Authorization: Bearer %s"\n' "$worker_token" | curl -
 case "$status" in
  200) ;;
  401)
-  # A deleted Worker is told so by the narrow confirmation endpoint: the launcher stops the service and nothing else.
-  # The local volume, models and files stay on this machine; removing them is up to the administrator.
+  # A deleted Worker is told so by the narrow confirmation endpoint: the launcher removes the service and nothing else.
+  # A running Worker erases its own models volume content on that same confirmation (ADR 0021); the volume itself and this folder stay.
   revoked=$(printf 'header = "Authorization: Bearer %s"\n' "$worker_token" | curl -sS --max-time 20 -K - -o "$dir/revocation.json" -w '%{http_code}' "$api_url/api/worker/revocation" 2>/dev/null || true)
   if [ "$revoked" = 200 ] && grep -q '"revoked":true' "$dir/revocation.json" 2>/dev/null; then
    rm -f "$dir/revocation.json" "$queue"
    docker rm -f "snitch-worker-$worker_id" >/dev/null 2>&1 || true
-   printf 'This Worker was deleted in Snitch and its access is revoked for good. The service was stopped.\nThe local volume, models and files were NOT erased: remove them yourself if you no longer need them (docker volume rm snitch-models-%s; rm -r %s).\nCe Worker a été supprimé dans Snitch et son accès est révoqué définitivement. Le service a été arrêté.\nLe volume, les modèles et les fichiers locaux n’ont PAS été effacés : supprimez-les vous-même si vous n’en avez plus besoin (docker volume rm snitch-models-%s ; rm -r %s).\n' "$worker_id" "$dir" "$worker_id" "$dir"
+   printf 'This Worker was deleted in Snitch and its access is revoked for good. The service was stopped.\nThe launcher erased nothing. A running Worker erases its own models and caches when it detects the deletion; the Docker volume and this folder stay: remove them yourself if you no longer need them (docker volume rm snitch-models-%s; rm -r %s).\nCe Worker a été supprimé dans Snitch et son accès est révoqué définitivement. Le service a été arrêté.\nLe lanceur n’a rien effacé. Un Worker en marche efface lui-même ses modèles et caches quand il détecte la suppression ; le volume Docker et ce dossier restent : supprimez-les vous-même si vous n’en avez plus besoin (docker volume rm snitch-models-%s ; rm -r %s).\n' "$worker_id" "$dir" "$worker_id" "$dir"
    exit 0
   fi
   rm -f "$dir/revocation.json"
