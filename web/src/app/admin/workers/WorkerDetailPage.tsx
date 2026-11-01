@@ -54,6 +54,7 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const load = useCallback(() => fetchWorker(id), [id]);
   const { state, reload } = useLoaded(load);
   const [confirm, setConfirm] = useState<"token" | "revoke" | null>(null);
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
   // Shown once: the files of a freshly generated token, dropped when the page is left.
@@ -104,7 +105,7 @@ export function WorkerDetailPage({ id }: { id: string }) {
   async function revoke() {
     setBusy(true);
     setFailure(undefined);
-    const result = await actions.revoke(id);
+    const result = await actions.revoke(id, reason);
     setBusy(false);
     setConfirm(null);
     if (result.ok) {
@@ -124,14 +125,30 @@ export function WorkerDetailPage({ id }: { id: string }) {
       </div>
       {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
       {revoked && worker.revoked_at && (
-        <p
+        <div
           role="status"
-          className="rounded-lg bg-bad-bg px-3 py-2.5 text-bad-fg"
+          className="flex flex-col gap-1 rounded-lg bg-bad-bg px-3 py-2.5 text-bad-fg"
         >
-          {t("workers.detail.revokedNotice", {
-            date: formatDate(worker.revoked_at),
-          })}
-        </p>
+          <p>
+            {t("workers.detail.revokedNotice", {
+              date: formatDate(worker.revoked_at),
+            })}
+          </p>
+          {worker.revoke_reason && (
+            <p>
+              {t("workers.detail.revokedReason", {
+                reason: worker.revoke_reason,
+              })}
+            </p>
+          )}
+          <p>
+            {worker.revocation_acknowledged_at
+              ? t("workers.detail.cleanupDone", {
+                  date: formatDate(worker.revocation_acknowledged_at),
+                })
+              : t("workers.detail.cleanupPending")}
+          </p>
+        </div>
       )}
 
       {worker.install && (
@@ -324,6 +341,16 @@ export function WorkerDetailPage({ id }: { id: string }) {
         busy={busy}
       >
         <p>{t("workers.detail.revokeConfirmBody")}</p>
+        <label className="mt-3 flex flex-col gap-1 text-sm">
+          {t("workers.detail.revokeReason")}
+          <input
+            type="text"
+            maxLength={200}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            className="rounded-lg border border-line-strong bg-side px-3 py-2 text-ink"
+          />
+        </label>
       </ConfirmDialog>
     </div>
   );

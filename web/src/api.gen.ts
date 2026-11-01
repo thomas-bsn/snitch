@@ -687,7 +687,7 @@ export interface paths {
     get: operations["getWorker"];
     put?: never;
     post?: never;
-    /** @description Administrateurs uniquement. L’historique du worker est conservé. */
+    /** @description Administrateurs uniquement. Supprime le Worker : son jeton est révoqué immédiatement et pour toujours, ses tâches en cours reviennent aussitôt dans la file, ses résultats tardifs sont refusés, et seul l'audit minimal (nom, date, motif facultatif) est conservé. Le disque local n'est pas effacé. Une seconde suppression est sans effet et garde le premier audit. */
     delete: operations["revokeWorker"];
     options?: never;
     head?: never;
@@ -773,6 +773,23 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["workerPulse"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/revocation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Confirmation étroite pour le lanceur local, seul endroit où un jeton révoqué est accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une réponse révoquée est enregistrée comme confirmation du lanceur, qui arrête alors le service. Un jeton inconnu reçoit worker_token_invalid. */
+    get: operations["getWorkerRevocation"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2303,7 +2320,8 @@ export interface components {
         | "admin_relaunched"
         | "cancelled"
         | "completed"
-        | "lease_expired";
+        | "lease_expired"
+        | "worker_revoked";
       cycle: number;
       attempt: number | null;
       /** @enum {string} */
@@ -2385,6 +2403,13 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       revoked_at: string | null;
+      /** @description Motif facultatif de suppression, conservé dans l'audit minimal. */
+      revoke_reason: string;
+      /**
+       * Format: date-time
+       * @description Date à laquelle le lanceur local a confirmé la révocation et arrêté le service. Absente : le nettoyage local reste en attente. Ne dit jamais que le disque local est effacé.
+       */
+      revocation_acknowledged_at: string | null;
       connected: boolean;
       /** @description Modèles déclarés par le worker à son dernier pouls, visibles des administrateurs. Un rôle absent est « non déclaré ». */
       models?: components["schemas"]["WorkerModels"];
@@ -2529,6 +2554,13 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       revoked_at: string | null;
+      /** @description Motif facultatif de suppression, conservé dans l'audit minimal. */
+      revoke_reason: string;
+      /**
+       * Format: date-time
+       * @description Date à laquelle le lanceur local a confirmé la révocation et arrêté le service. Absente : le nettoyage local reste en attente. Ne dit jamais que le disque local est effacé.
+       */
+      revocation_acknowledged_at: string | null;
       connected: boolean;
       models?: components["schemas"]["WorkerModels"];
       /** @description Dernières tâches de ce worker, une ligne par tâche, la plus récente d'abord. */
@@ -5692,7 +5724,13 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": {
+          reason?: string;
+        };
+      };
+    };
     responses: {
       /** @description Jeton révoqué */
       204: {
@@ -5953,6 +5991,39 @@ export interface operations {
         };
       };
       /** @description Jeton invalide ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerRevocation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de révocation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            revoked: boolean;
+            /** Format: date-time */
+            revoked_at?: string;
+          };
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

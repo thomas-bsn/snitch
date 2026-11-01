@@ -31,11 +31,21 @@ func (s *Server) postWorkerInstallEvents(w http.ResponseWriter, r *http.Request)
 
 // withInstallProgress attaches the installation progress to Workers.
 func (s *Server) withInstallProgress(r *http.Request, items []workers.Worker, withEvents bool) error {
-	progress, err := s.Workers.InstallProgress(r.Context(), items, withEvents)
+	// A deleted Worker keeps no installation detail, only its minimal audit.
+	live := make([]workers.Worker, 0, len(items))
+	for _, item := range items {
+		if item.RevokedAt == nil {
+			live = append(live, item)
+		}
+	}
+	progress, err := s.Workers.InstallProgress(r.Context(), live, withEvents)
 	if err != nil {
 		return err
 	}
 	for i := range items {
+		if items[i].RevokedAt != nil {
+			continue
+		}
 		p := progress[items[i].ID]
 		items[i].Install = &p
 	}

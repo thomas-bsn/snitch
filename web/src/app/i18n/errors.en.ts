@@ -126,6 +126,8 @@ export const errorsEn = {
   invalid_worker: "This worker is not valid.",
   invalid_worker_capabilities: "These worker capabilities are not valid.",
   invalid_worker_capacity: "This worker capacity is not valid.",
+  invalid_revoke_reason:
+    "The reason must be 200 characters or fewer, on a single line.",
   invalid_worker_models: "These worker models are not valid.",
   clip_delete_failed:
     "The video could not be deleted completely. Check its files and permissions, then retry.",

@@ -49,6 +49,11 @@ case "$url" in *install-events)
  cat "$data" >> "$FAKE_LOG.events"; printf '\n' >> "$FAKE_LOG.events"
  printf '%s' "${FAKE_EVENTS_STATUS:-204}"; exit 0;;
 esac
+case "$url" in *worker/revocation)
+ rstatus=${FAKE_REVOCATION_STATUS:-401}
+ if [ "$rstatus" = 200 ]; then printf '%s' "${FAKE_REVOCATION_BODY:-}" > "$out"; fi
+ printf '%s' "$rstatus"; exit 0;;
+esac
 if [ "$status" = 200 ]; then printf '%s' "${FAKE_CURL_BODY:-}" > "$out"; fi
 printf '%s' "$status"
 [ "$status" = 000 ] && exit 7
@@ -126,6 +131,44 @@ func TestInstallerFirstRunAndResumeWithFakeDocker(t *testing.T) {
 	}
 	if !strings.Contains(r.dockerLog(), "rm -f snitch-worker-wk_syntheticFixtureWorker123") {
 		t.Fatal("resume did not replace the existing service")
+	}
+}
+
+// A deleted Worker: Snitch refuses the token, the narrow confirmation says it is revoked, and the
+// launcher stops the service without touching the volume, the models or the local files.
+func TestInstallerStopsServiceOnRevocationConfirmationWithoutErasingLocalData(t *testing.T) {
+	token := "rw_synthetic-fixture-token"
+	r := newInstallerRun(t)
+	if _, stderr, err := r.run(t, token, "FAKE_CURL_BODY="+fakeConfig); err != nil {
+		t.Fatalf("first run: %v %s", err, stderr)
+	}
+	stdout, stderr, err := r.run(t, token, "FAKE_CURL_STATUS=401", "FAKE_REVOCATION_STATUS=200", `FAKE_REVOCATION_BODY={"revoked":true,"revoked_at":"2026-11-01T10:00:00Z"}`)
+	if err != nil {
+		t.Fatalf("a confirmed revocation is not a failure: %v\n%s\n%s", err, stdout, stderr)
+	}
+	log := r.dockerLog()
+	if !strings.HasSuffix(strings.TrimSpace(log), "rm -f snitch-worker-wk_syntheticFixtureWorker123") {
+		t.Fatalf("service not stopped as the last action:\n%s", log)
+	}
+	for _, forbidden := range []string{"volume rm", "volume prune", "rmi", "system prune"} {
+		if strings.Contains(log, forbidden) {
+			t.Fatalf("launcher erased local data (%s):\n%s", forbidden, log)
+		}
+	}
+	for _, want := range []string{"NOT erased", "PAS été effacés", "service was stopped", "arrêté"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("message lacks %q:\n%s", want, stdout)
+		}
+	}
+	if _, err = os.Stat(filepath.Join(r.home, ".local/share/snitch-worker/wk_syntheticFixtureWorker123/worker.env")); err != nil {
+		t.Fatal("the local configuration must stay in place")
+	}
+	if strings.Contains(stdout+stderr+log, token) {
+		t.Fatal("token exposed")
+	}
+	// An unknown credential is not a revocation: the old rejection message stays.
+	if _, stderr, err = r.run(t, token, "FAKE_CURL_STATUS=401"); err == nil || !strings.Contains(stderr, "[registration_rejected]") {
+		t.Fatalf("unconfirmed 401 must keep the rejection: %v %s", err, stderr)
 	}
 }
 

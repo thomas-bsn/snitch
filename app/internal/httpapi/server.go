@@ -205,6 +205,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/admin/workers/{id}/transcription/override", s.protected(true, http.HandlerFunc(s.putWorkerTranscriptionOverride)))
 	mux.Handle("DELETE /api/admin/workers/{id}/transcription/override", s.protected(true, http.HandlerFunc(s.deleteWorkerTranscriptionOverride)))
 	mux.Handle("GET /api/worker/install/{code}", http.HandlerFunc(s.serveWorkerInstall))
+	mux.Handle("GET /api/worker/revocation", http.HandlerFunc(s.workerRevocation))
 	mux.Handle("POST /api/worker/pulse", s.workerOnly(http.HandlerFunc(s.workerPulse)))
 	mux.Handle("POST /api/worker/install-events", s.workerOnly(http.HandlerFunc(s.postWorkerInstallEvents)))
 	mux.Handle("GET /api/worker/transcription-config", s.workerOnly(http.HandlerFunc(s.getWorkerTranscriptionConfig)))

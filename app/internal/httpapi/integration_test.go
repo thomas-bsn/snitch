@@ -315,6 +315,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerInstallInvitation(t, pool)
 	})
+	t.Run("worker revocation", func(t *testing.T) {
+		reset(t)
+		testWorkerRevocation(t, pool)
+	})
 	t.Run("worker install progress", func(t *testing.T) {
 		reset(t)
 		testWorkerInstallProgress(t, pool)

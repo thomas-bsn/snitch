@@ -270,7 +270,7 @@ func (s *Server) getWorker(w http.ResponseWriter, r *http.Request) {
 	}
 	result := map[string]any{
 		"id": detail.ID, "name": detail.Name, "max_concurrency": detail.MaxConcurrency, "reported_concurrency": detail.ReportedConcurrency,
-		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "connected": detail.Connected,
+		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "revoke_reason": detail.RevokeReason, "revocation_acknowledged_at": detail.RevocationAcknowledgedAt, "connected": detail.Connected,
 		"models": detail.Models, "transcription_model": detail.TranscriptionModel, "machine": detail.Machine, "remote_address": detail.RemoteAddress, "install": detail.Install, "transcription_config_ready": detail.TranscriptionConfigReady, "recent_tasks": detail.RecentTasks, "bundle": bundle,
 	}
 	if detail.TranscriptionConfig != nil {
@@ -345,9 +345,19 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
-	err := s.Workers.Revoke(r.Context(), r.PathValue("id"))
+	var input struct {
+		Reason string `json:"reason"`
+	}
+	if r.ContentLength != 0 && !decode(w, r, &input) {
+		return
+	}
+	err := s.Workers.Revoke(r.Context(), r.PathValue("id"), input.Reason)
 	if errors.Is(err, workers.ErrNotFound) {
 		fail(w, http.StatusNotFound, "worker_not_found")
+		return
+	}
+	if errors.Is(err, workers.ErrInvalidInput) {
+		fail(w, http.StatusBadRequest, "invalid_revoke_reason")
 		return
 	}
 	if err != nil {
@@ -355,6 +365,32 @@ func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// workerRevocation lets the local launcher learn that its identity is revoked. It is deliberately
+// outside workerOnly: a revoked token is accepted here and nowhere else, and the answer carries
+// no configuration and enables no action.
+func (s *Server) workerRevocation(w http.ResponseWriter, r *http.Request) {
+	authorization := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authorization, "Bearer ")
+	if !strings.HasPrefix(authorization, "Bearer ") || token == "" || strings.ContainsAny(token, " \t\r\n") {
+		fail(w, http.StatusUnauthorized, "worker_token_required")
+		return
+	}
+	revoked, at, err := s.Workers.RevocationStatus(r.Context(), token)
+	if errors.Is(err, workers.ErrUnauthorized) {
+		fail(w, http.StatusUnauthorized, "worker_token_invalid")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !revoked {
+		reply(w, http.StatusOK, map[string]any{"revoked": false})
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"revoked": true, "revoked_at": at})
 }
 
 func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {

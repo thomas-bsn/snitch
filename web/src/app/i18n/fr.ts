@@ -33,6 +33,7 @@ export const fr: Messages = {
       cancelled: "Annulée",
       completed: "Terminée",
       lease_expired: "Bail expiré",
+      worker_revoked: "Worker supprimé, tâche remise en file",
     },
     schedule: "Planifier une tâche",
     clip: "ID du clip",
@@ -913,16 +914,22 @@ export const fr: Messages = {
       regenerateConfirm: "Générer",
       newToken:
         "Nouveau jeton généré. Copiez les fichiers maintenant : le jeton ne sera plus affiché.",
-      revoke: "Révocation",
+      revoke: "Suppression",
       revokeBody:
-        "Un Worker révoqué ne peut plus prendre de tâches. Son historique est conservé.",
-      revokeButton: "Révoquer ce Worker…",
-      revokeTitle: "Révoquer {name} ?",
-      revokeConfirm: "Révoquer",
+        "Supprimer un Worker révoque son accès tout de suite et définitivement : ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. Seuls son nom, la date de suppression et le motif sont conservés. Les fichiers et modèles de la machine du Worker ne sont pas effacés.",
+      revokeButton: "Supprimer ce Worker…",
+      revokeTitle: "Supprimer {name} ?",
+      revokeConfirm: "Supprimer",
       revokeConfirmBody:
-        "Ce Worker cessera de recevoir des tâches. Cette action est irréversible.",
+        "L’accès est révoqué immédiatement et ne peut pas être réactivé. Le disque de la machine du Worker n’est pas effacé : retirez vous-même le service, le volume et les modèles. Si le Worker est hors ligne, il reste révoqué ici et le nettoyage local reste en attente jusqu’au prochain lancement de son lanceur.",
+      revokeReason: "Motif (facultatif)",
       revokedNotice:
-        "Ce Worker a été révoqué le {date}. Il ne peut plus prendre de tâches.",
+        "Ce Worker a été supprimé le {date}. Son accès est révoqué définitivement.",
+      revokedReason: "Motif : {reason}",
+      cleanupPending:
+        "Nettoyage local en attente : le Worker n’a pas confirmé la révocation. Sa machine garde le service, le volume et les modèles jusqu’au prochain lancement du lanceur.",
+      cleanupDone:
+        "Le lanceur local a confirmé la révocation le {date} et arrêté le service. Le volume et les modèles de cette machine ne sont pas effacés.",
     },
     create: {
       title: "Ajouter un Worker",
