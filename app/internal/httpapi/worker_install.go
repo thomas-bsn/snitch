@@ -84,11 +84,33 @@ emit() {
  flush_events
 }
 # fail CODE "English recovery" "Récupération en français": names the step and a stable cause, never a secret.
-fail() { emit "$stage" failed "$1"; printf 'Snitch Worker: step "%s" failed [%s].\n  %s\n  %s\n' "$stage" "$1" "$2" "$3" >&2; exit 1; }
+# A preflight, when set, names the diagnostic that failed (WSL2 checks); it is shown in the terminal only.
+preflight=''
+fail() { emit "$stage" failed "$1"; printf 'Snitch Worker: step "%s" failed [%s].\n' "$stage" "$1" >&2; [ -z "$preflight" ] || printf '  Preflight / Diagnostic: preflight %s\n' "$preflight" >&2; printf '  %s\n  %s\n' "$2" "$3" >&2; exit 1; }
+# WSL2 (P1): a Linux kernel built by Microsoft. WSL1 has no real kernel and cannot run Docker Engine.
+wsl=''
+kernel_release=$(uname -r 2>/dev/null || true)
+proc_version=$(cat "${SNITCH_PROC_VERSION:-/proc/version}" 2>/dev/null || true)
+case "$kernel_release $proc_version" in
+ *[Ww][Ss][Ll]2*) wsl=2 ;;
+ *[Mm]icrosoft*) wsl=1 ;;
+esac
 [ "$(uname -s)" = Linux ] || fail unsupported_platform 'Only Linux hosts are supported; run this command on a Linux machine.' 'Seuls les hôtes Linux sont pris en charge ; lancez cette commande sur une machine Linux.'
-command -v docker >/dev/null || fail docker_unavailable 'Install Docker Engine, then rerun this command.' 'Installez Docker Engine, puis relancez cette commande.'
+if [ "$wsl" = 1 ]; then fail unsupported_platform 'WSL1 cannot run Docker. Convert this distribution with "wsl --set-version <distribution> 2" in Windows, then rerun.' 'WSL1 ne peut pas exécuter Docker. Convertissez cette distribution avec « wsl --set-version <distribution> 2 » dans Windows, puis relancez.'; fi
+if [ "$wsl" = 2 ]; then
+ printf 'WSL2 detected: running the WSL2 diagnostics.\n'
+ export PATH="$PATH:/usr/lib/wsl/lib"
+ # State and models must live on the Linux filesystem: Windows mounts break permissions (UID 10001, mode 600) and are slow.
+ preflight=wsl-storage
+ case "$dir/" in
+  "${SNITCH_WSL_MOUNT_PREFIX:-/mnt/}"[a-z]/*) fail volume_not_writable "The Worker state is on a Windows drive ($dir). Move to your Linux home with \"cd ~\", delete that folder, then rerun the command from the Linux home (not /mnt/c)." "L’état du Worker est sur un disque Windows ($dir). Revenez dans votre dossier personnel Linux avec « cd ~ », supprimez ce dossier, puis relancez la commande depuis ce dossier (pas /mnt/c). Linux home = dossier personnel Linux." ;;
+ esac
+ preflight=''
+fi
+command -v docker >/dev/null || fail docker_unavailable "$([ "$wsl" = 2 ] && printf 'Install Docker Engine in this WSL2 distribution, or enable Docker Desktop WSL integration for it, then rerun.' || printf 'Install Docker Engine, then rerun this command.')" "$([ "$wsl" = 2 ] && printf 'Installez Docker Engine dans cette distribution WSL2, ou activez l’intégration WSL de Docker Desktop pour elle, puis relancez.' || printf 'Installez Docker Engine, puis relancez cette commande.')"
 command -v curl >/dev/null || fail unknown 'Install curl, then rerun this command.' 'Installez curl, puis relancez cette commande.'
 command -v base64 >/dev/null || fail unknown 'Install coreutils, then rerun this command.' 'Installez coreutils, puis relancez cette commande.'
+if [ "$wsl" = 2 ]; then preflight=wsl-docker; docker info >/dev/null 2>&1 || fail docker_unavailable 'Docker is not reachable from WSL2. Start Docker Desktop and enable WSL integration for this distribution (or start dockerd here), then rerun.' 'Docker est injoignable depuis WSL2. Démarrez Docker Desktop et activez l’intégration WSL pour cette distribution (ou démarrez dockerd ici), puis relancez.'; preflight=''; fi
 docker info >/dev/null 2>&1 || fail docker_unavailable 'Start Docker and grant this user access, then rerun.' 'Démarrez Docker et donnez accès à cet utilisateur, puis relancez.'
 api_url=$(printf '%s' '{{.APIURL}}' | base64 -d)
 seed_token=$(printf '%s' '{{.Token}}' | base64 -d)
@@ -123,6 +145,19 @@ if ! docker pull "$image"; then
 fi
 volume="snitch-models-$worker_id"; container="snitch-worker-$worker_id"
 docker volume create "$volume" >/dev/null || fail volume_not_writable 'Check Docker volume permissions, then rerun.' 'Vérifiez les permissions des volumes Docker, puis relancez.'
+if [ "$wsl" = 2 ]; then
+ # Reachability as the Worker sees it: from inside the Docker runtime, not from the WSL2 shell.
+ probe() { docker run --rm --entrypoint python "$image" -c 'import sys, urllib.request, urllib.error
+try: urllib.request.urlopen(sys.argv[1], timeout=10)
+except urllib.error.HTTPError: pass' "$1"; }
+ preflight=snitch-reachability
+ probe "$api_url" >/dev/null 2>&1 || fail network_unreachable 'Snitch is not reachable from inside Docker. Use an address the WSL2 Docker runtime can resolve (not localhost), check the Windows firewall and VPN, then rerun.' 'Snitch est injoignable depuis Docker. Utilisez une adresse résolue par le runtime Docker de WSL2 (pas localhost), vérifiez le pare-feu Windows et le VPN, puis relancez.'
+ if [ -n "$transcription_endpoint" ]; then
+  preflight=transcription-reachability
+  probe "$transcription_endpoint" >/dev/null 2>&1 || fail network_unreachable 'The transcription endpoint is not reachable from inside Docker. If it uses localhost or 127.0.0.1, use host.docker.internal or the machine address instead, then rerun.' 'Le point d’accès de transcription est injoignable depuis Docker. S’il utilise localhost ou 127.0.0.1, utilisez host.docker.internal ou l’adresse de la machine, puis relancez.'
+ fi
+ preflight=''
+fi
 emit image succeeded
 stage=permissions
 docker run --rm --user 0 --entrypoint sh -v "$volume:/models" "$image" -c 'mkdir -p /models/.cache/huggingface/xet; chown -R 10001:10001 /models' || fail volume_not_writable 'Could not prepare the model volume for UID 10001. Check Docker storage ownership, then rerun.' 'Impossible de préparer le volume de modèles pour l’UID 10001. Vérifiez les droits du stockage Docker, puis relancez.'
@@ -133,6 +168,11 @@ gpu=()
 if command -v nvidia-smi >/dev/null && nvidia-smi >/dev/null 2>&1; then
  gpu=(--gpus all); stage=gpu
  docker run --rm ${gpu[@]+"${gpu[@]}"} --entrypoint sh "$image" -c true || fail gpu_unavailable 'Install NVIDIA Container Toolkit for Docker and restart Docker, then rerun.' 'Installez NVIDIA Container Toolkit pour Docker et redémarrez Docker, puis relancez.'
+ if [ "$wsl" = 2 ]; then
+  preflight=docker-cuda
+  docker run --rm --gpus all --entrypoint python "$image" -c 'import ctypes; ctypes.CDLL("libcuda.so.1")' >/dev/null 2>&1 || fail gpu_unavailable 'CUDA is not usable from Docker in WSL2. Update the Windows NVIDIA driver (with WSL support), do not install a Linux driver inside WSL, restart with "wsl --shutdown", then rerun.' 'CUDA est inutilisable depuis Docker dans WSL2. Mettez à jour le pilote NVIDIA Windows (avec prise en charge WSL), n’installez pas de pilote Linux dans WSL, redémarrez avec « wsl --shutdown », puis relancez. Windows NVIDIA driver = pilote NVIDIA Windows.'
+  preflight=''
+ fi
  emit gpu succeeded
 else printf 'No NVIDIA GPU: voice processing unavailable (transcription still works).\n'; fi
 # Voice models are optional and never block the installation.
