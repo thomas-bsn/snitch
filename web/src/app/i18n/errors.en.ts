@@ -200,6 +200,7 @@ export const errorsEn = {
   worker_not_found: "This worker does not exist.",
   install_invite_used:
     "The installation invitation was already used. Generate a new installation command in Admin > Workers.",
+  invalid_install_event: "This installation event is not valid.",
   worker_token_invalid: "This worker token is not valid.",
   worker_token_required: "A worker token is required.",
 };

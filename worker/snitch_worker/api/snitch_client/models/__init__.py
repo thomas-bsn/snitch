@@ -115,6 +115,7 @@ from .person_ref import PersonRef
 from .person_separation_input import PersonSeparationInput
 from .person_voice import PersonVoice
 from .person_voice_list import PersonVoiceList
+from .post_worker_install_events_body import PostWorkerInstallEventsBody
 from .post_worker_transcription_config_status_body import PostWorkerTranscriptionConfigStatusBody
 from .post_worker_transcription_config_status_body_error_code import PostWorkerTranscriptionConfigStatusBodyErrorCode
 from .post_worker_transcription_config_status_response_200 import PostWorkerTranscriptionConfigStatusResponse200
@@ -256,6 +257,16 @@ from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
 from .worker_detail import WorkerDetail
 from .worker_failure_input import WorkerFailureInput
+from .worker_install import WorkerInstall
+from .worker_install_cause import WorkerInstallCause
+from .worker_install_event import WorkerInstallEvent
+from .worker_install_event_input import WorkerInstallEventInput
+from .worker_install_event_input_status import WorkerInstallEventInputStatus
+from .worker_install_event_status import WorkerInstallEventStatus
+from .worker_install_phase import WorkerInstallPhase
+from .worker_install_state import WorkerInstallState
+from .worker_install_voice import WorkerInstallVoice
+from .worker_install_voice_state import WorkerInstallVoiceState
 from .worker_job_input import WorkerJobInput
 from .worker_job_input_tracks_item import WorkerJobInputTracksItem
 from .worker_machine import WorkerMachine
@@ -400,6 +411,7 @@ __all__ = (
     "PersonSeparationInput",
     "PersonVoice",
     "PersonVoiceList",
+    "PostWorkerInstallEventsBody",
     "PostWorkerTranscriptionConfigStatusBody",
     "PostWorkerTranscriptionConfigStatusBodyErrorCode",
     "PostWorkerTranscriptionConfigStatusResponse200",
@@ -541,6 +553,16 @@ __all__ = (
     "WorkerClaim",
     "WorkerDetail",
     "WorkerFailureInput",
+    "WorkerInstall",
+    "WorkerInstallCause",
+    "WorkerInstallEvent",
+    "WorkerInstallEventInput",
+    "WorkerInstallEventInputStatus",
+    "WorkerInstallEventStatus",
+    "WorkerInstallPhase",
+    "WorkerInstallState",
+    "WorkerInstallVoice",
+    "WorkerInstallVoiceState",
     "WorkerJobInput",
     "WorkerJobInputTracksItem",
     "WorkerMachine",

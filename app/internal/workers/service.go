@@ -49,6 +49,7 @@ type Worker struct {
 	TranscriptionConfigReady bool                       `json:"transcription_config_ready"`
 	Machine                  *Machine                   `json:"machine,omitempty"`
 	RemoteAddress            string                     `json:"remote_address,omitempty"`
+	Install                  *InstallProgress           `json:"install,omitempty"`
 }
 
 type Registration struct {
@@ -334,7 +335,7 @@ func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedS
 		steps = append(steps, step)
 	}
 	slices.Sort(steps)
-	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_seen_at=now(),reported_concurrency=$2,supported_steps=$3,models=$4,machine=$5,remote_address=$6 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity, steps, models, machine, remoteAddress)
+	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_seen_at=now(),first_pulse_at=COALESCE(first_pulse_at,now()),reported_concurrency=$2,supported_steps=$3,models=$4,machine=$5,remote_address=$6 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity, steps, models, machine, remoteAddress)
 	if err != nil {
 		return fmt.Errorf("update worker pulse: %w", err)
 	}

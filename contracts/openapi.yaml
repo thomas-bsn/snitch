@@ -2637,6 +2637,7 @@
         }
       }
     },
+    "/api/worker/install-events": {"post": {"operationId": "postWorkerInstallEvents", "security": [{"workerBearer": []}], "description": "Événements d'installation envoyés par le lanceur avec le jeton du Worker. Chaque événement porte uniquement une phase, un statut, un code de cause stable et son horodatage d'origine : aucun texte libre, aucun secret. Les événements mis en file hors ligne arrivent plus tard avec leur horodatage d'origine et sont marqués « reçus plus tard ». Un lot invalide est refusé en entier (invalid_install_event).", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["events"], "properties": {"events": {"type": "array", "minItems": 1, "maxItems": 50, "items": {"$ref": "#/components/schemas/WorkerInstallEventInput"}}}}}}}, "responses": {"204": {"description": "Événements enregistrés"}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/worker/transcription-config": {
       "get": {
         "operationId": "getWorkerTranscriptionConfig",
@@ -6200,6 +6201,7 @@
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "transcription_config": {"$ref": "#/components/schemas/WorkerTranscriptionConfig", "nullable": true, "description": "Statut de synchronisation de la configuration de transcription pour ce Worker."},
           "transcription_config_ready": {"type": "boolean", "description": "Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1)."},
+          "install": {"$ref": "#/components/schemas/WorkerInstall"},
           "machine": {"$ref": "#/components/schemas/WorkerMachine"},
           "remote_address": {"type": "string", "description": "Adresse IP de connexion observée par Snitch, sans port."},
 
@@ -6242,6 +6244,12 @@
           }
         }
       },
+      "WorkerInstallPhase": {"type": "string", "enum": ["prerequisites","registration","image","permissions","gpu","voice-models","voice-test","service"]},
+      "WorkerInstallCause": {"type": "string", "enum": ["unsupported_platform","docker_unavailable","registration_rejected","network_unreachable","image_pull_failed","volume_not_writable","hf_cache_not_writable","gpu_unavailable","service_start_failed","hf_access_denied","unknown"], "description": "Codes de cause stables du lanceur."},
+      "WorkerInstallEventInput": {"type": "object", "additionalProperties": false, "required": ["phase", "status", "occurred_at"], "properties": {"phase": {"$ref": "#/components/schemas/WorkerInstallPhase"}, "status": {"type": "string", "enum": ["started", "succeeded", "failed"]}, "cause_code": {"type": "string", "description": "Obligatoire (un code de WorkerInstallCause) si le statut est failed, vide sinon."}, "occurred_at": {"type": "string", "format": "date-time", "description": "Horodatage d'origine, conservé même si l'événement a été mis en file hors ligne."}}},
+      "WorkerInstallEvent": {"type": "object", "required": ["phase", "status", "cause_code", "occurred_at", "received_at", "received_later"], "properties": {"phase": {"$ref": "#/components/schemas/WorkerInstallPhase"}, "status": {"type": "string", "enum": ["started", "succeeded", "failed"]}, "cause_code": {"type": "string"}, "occurred_at": {"type": "string", "format": "date-time"}, "received_at": {"type": "string", "format": "date-time"}, "received_later": {"type": "boolean", "description": "Vrai si l'événement a été mis en file hors ligne et reçu longtemps après son horodatage d'origine."}}},
+      "WorkerInstallVoice": {"type": "object", "required": ["state", "cause_code"], "properties": {"state": {"type": "string", "enum": ["pending", "ready", "unavailable"], "description": "ready seulement après une inférence synthétique réussie."}, "cause_code": {"type": "string"}}},
+      "WorkerInstall": {"type": "object", "description": "Progression d'installation, indépendante de la transcription (transcription_config) et de la voix (voice).", "required": ["state", "failed_phase", "cause_code", "voice", "last_event", "last_activity_at", "no_news"], "properties": {"state": {"type": "string", "enum": ["installing", "connected", "voice_ready", "failed", "never_connected"], "description": "connected = premier pouls ; voice_ready = connecté et inférence synthétique réussie ; never_connected = aucun pouls après 24 h."}, "failed_phase": {"type": "string"}, "cause_code": {"type": "string"}, "voice": {"$ref": "#/components/schemas/WorkerInstallVoice"}, "last_event": {"allOf": [{"$ref": "#/components/schemas/WorkerInstallEvent"}], "nullable": true}, "last_activity_at": {"type": "string", "format": "date-time", "nullable": true}, "no_news": {"type": "boolean", "description": "Absence de nouvelles, distincte du dernier événement reçu."}, "events": {"type": "array", "items": {"$ref": "#/components/schemas/WorkerInstallEvent"}, "description": "Historique récent (fiche détaillée seulement)."}}},
       "WorkerModels": {
         "type": "object",
         "additionalProperties": false,
@@ -6400,6 +6408,7 @@
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "transcription_config": {"$ref": "#/components/schemas/WorkerTranscriptionConfig", "nullable": true, "description": "Statut de synchronisation de la configuration de transcription pour ce Worker."},
           "transcription_config_ready": {"type": "boolean", "description": "Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1)."},
+          "install": {"$ref": "#/components/schemas/WorkerInstall"},
           "machine": {"$ref": "#/components/schemas/WorkerMachine"},
           "remote_address": {"type": "string", "description": "Adresse IP de connexion observée par Snitch, sans port."},
 

@@ -14,6 +14,7 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.worker_bundle import WorkerBundle
+  from ..models.worker_install import WorkerInstall
   from ..models.worker_machine import WorkerMachine
   from ..models.worker_models import WorkerModels
   from ..models.worker_recent_task import WorkerRecentTask
@@ -48,6 +49,8 @@ class WorkerDetail:
                 transcription pour un Worker.
             transcription_config_ready (bool | Unset): Indique si le Worker supporte la configuration de transcription
                 centralisée (capability transcription.config.v1).
+            install (WorkerInstall | Unset): Progression d'installation, indépendante de la transcription
+                (transcription_config) et de la voix (voice).
             machine (WorkerMachine | Unset): Informations non secrètes déclarées par le Worker ; le système est celui du
                 conteneur.
             remote_address (str | Unset): Adresse IP de connexion observée par Snitch, sans port.
@@ -69,6 +72,7 @@ class WorkerDetail:
     transcription_model: str | Unset = UNSET
     transcription_config: WorkerTranscriptionConfig | Unset = UNSET
     transcription_config_ready: bool | Unset = UNSET
+    install: WorkerInstall | Unset = UNSET
     machine: WorkerMachine | Unset = UNSET
     remote_address: str | Unset = UNSET
     models: WorkerModels | Unset = UNSET
@@ -80,6 +84,7 @@ class WorkerDetail:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.worker_bundle import WorkerBundle # noqa: PLC0415
+        from ..models.worker_install import WorkerInstall # noqa: PLC0415
         from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
@@ -125,6 +130,10 @@ class WorkerDetail:
 
         transcription_config_ready = self.transcription_config_ready
 
+        install: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.install, Unset):
+            install = self.install.to_dict()
+
         machine: dict[str, Any] | Unset = UNSET
         if not isinstance(self.machine, Unset):
             machine = self.machine.to_dict()
@@ -156,6 +165,8 @@ class WorkerDetail:
             field_dict["transcription_config"] = transcription_config
         if transcription_config_ready is not UNSET:
             field_dict["transcription_config_ready"] = transcription_config_ready
+        if install is not UNSET:
+            field_dict["install"] = install
         if machine is not UNSET:
             field_dict["machine"] = machine
         if remote_address is not UNSET:
@@ -170,6 +181,7 @@ class WorkerDetail:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.worker_bundle import WorkerBundle # noqa: PLC0415
+        from ..models.worker_install import WorkerInstall # noqa: PLC0415
         from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
@@ -255,6 +267,16 @@ class WorkerDetail:
 
         transcription_config_ready = d.pop("transcription_config_ready", UNSET)
 
+        _install = d.pop("install", UNSET)
+        install: WorkerInstall | Unset
+        if isinstance(_install,  Unset):
+            install = UNSET
+        else:
+            install = WorkerInstall.from_dict(_install)
+
+
+
+
         _machine = d.pop("machine", UNSET)
         machine: WorkerMachine | Unset
         if isinstance(_machine,  Unset):
@@ -291,6 +313,7 @@ class WorkerDetail:
             transcription_model=transcription_model,
             transcription_config=transcription_config,
             transcription_config_ready=transcription_config_ready,
+            install=install,
             machine=machine,
             remote_address=remote_address,
             models=models,

@@ -10,7 +10,7 @@ import { useFormatDate } from "../format";
 import { WorkerCreateForm } from "./WorkerCreateForm";
 import { WorkerDetailPage } from "./WorkerDetailPage";
 import { fetchWorkers, type Worker } from "./workersApi";
-import { workerModelSummary, workerStatus } from "./workerView";
+import { installStatus, workerModelSummary, workerStatus } from "./workerView";
 
 /** The Workers tab of the administration: the list, the creation form and a Worker's page. */
 export function WorkersTab() {
@@ -83,6 +83,9 @@ function WorkersList() {
                   {t("workers.columns.status")}
                 </th>
                 <th scope="col" className="px-3 py-2 font-medium">
+                  {t("workers.install.column")}
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
                   {t("workers.columns.lastPulse")}
                 </th>
                 <th scope="col" className="px-3 py-2 font-medium">
@@ -133,6 +136,15 @@ function WorkerRow({
       </th>
       <td className="px-3 py-2.5">
         <StatusPill tone={tone}>{t(label)}</StatusPill>
+      </td>
+      <td className="px-3 py-2.5">
+        {worker.install && !worker.revoked_at ? (
+          <StatusPill {...installStatus(worker.install)}>
+            {t(installStatus(worker.install).label)}
+          </StatusPill>
+        ) : (
+          <span className="text-mute">{t("workers.notDeclared")}</span>
+        )}
       </td>
       <td className="px-3 py-2.5 text-mute">{lastPulse}</td>
       <td className="px-3 py-2.5 text-mute">

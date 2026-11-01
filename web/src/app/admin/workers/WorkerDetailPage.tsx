@@ -10,6 +10,7 @@ import { useDocumentTitle } from "../../components/useDocumentTitle";
 import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
 import { DeploymentFiles } from "./DeploymentFiles";
+import { InstallProgress } from "./InstallProgress";
 import { fetchWorker, useWorkerActions, type WorkerBundle } from "./workersApi";
 import { ROLES, declaredModelText, workerStatus } from "./workerView";
 
@@ -131,6 +132,16 @@ export function WorkerDetailPage({ id }: { id: string }) {
             date: formatDate(worker.revoked_at),
           })}
         </p>
+      )}
+
+      {worker.install && (
+        <Section title={t("workers.install.title")}>
+          <InstallProgress
+            install={worker.install}
+            transcriptionConfig={worker.transcription_config}
+            createdAt={worker.created_at}
+          />
+        </Section>
       )}
 
       <Section title={t("workers.detail.activity")}>
