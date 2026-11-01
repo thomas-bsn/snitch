@@ -183,6 +183,15 @@ export const fr: Messages = {
     save: "Enregistrer et versionner",
     saved: "Réglages enregistrés pour les prochaines transcriptions.",
     workers: "Workers",
+    sync: {
+      notReceived: "Configuration non reçue",
+      pending: "En attente d'un test réussi",
+      connectionFailed: "Serveur Whisper inaccessible depuis ce Worker",
+      modelMissing: "Modèle de bibliothèque absent du serveur Whisper",
+      active: "Configuration active",
+      versions: "Reçue : {received} · Testée : {tested} · Active : {active}",
+      test: "Tester depuis le Worker",
+    },
     columns: {
       name: "Worker",
       server: "Serveur Whisper",

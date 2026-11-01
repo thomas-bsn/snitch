@@ -180,6 +180,15 @@ export const en = {
     save: "Save and version",
     saved: "Settings saved for future transcriptions.",
     workers: "Workers",
+    sync: {
+      notReceived: "Configuration not received",
+      pending: "Awaiting a successful test",
+      connectionFailed: "Whisper server unreachable from this Worker",
+      modelMissing: "Library model missing on the Whisper server",
+      active: "Configuration active",
+      versions: "Received: {received} · Tested: {tested} · Active: {active}",
+      test: "Test from Worker",
+    },
     columns: {
       name: "Worker",
       server: "Whisper server",

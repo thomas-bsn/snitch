@@ -263,7 +263,6 @@ export function TranscriptionTab() {
       <code className="bg-muted px-1.5 py-0.5 rounded text-sm">{endpoint}</code>
     );
   }
-
   return (
     <div className="flex flex-col gap-6">
       <form

@@ -2322,6 +2322,12 @@ export interface components {
       /** @description Adresse Whisper propre à ce Worker, si définie. */
       endpoint_override?: string;
     };
+    WorkerTranscriptionStatusInput: {
+      version: string;
+      active: boolean;
+      /** @enum {string} */
+      error_code: "" | "connection_failed" | "model_missing";
+    };
     Worker: {
       /** @description Last reported task capabilities; a worker that never reported has none; revoked workers must not be selected. */
       supported_steps?: string[] | null;

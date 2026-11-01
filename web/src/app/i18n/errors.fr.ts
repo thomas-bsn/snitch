@@ -116,6 +116,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Ces réglages de transcription ne sont pas valides.",
   invalid_transcription_settings:
     "Saisissez une URL Whisper/Speaches, un modèle et une langue valides.",
+  invalid_transcription_config_status:
+    "L'état de configuration du Worker est invalide.",
+  stale_transcription_config:
+    "La configuration de transcription a changé. Réessayez.",
   invalid_transcription_result:
     "Ce résultat de transcription n’est pas valide.",
   invalid_turn: "Ce tour de parole n’est pas valide.",

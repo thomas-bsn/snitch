@@ -6148,6 +6148,15 @@
           "endpoint_override": {"type": "string", "description": "Adresse Whisper propre à ce Worker, si définie."}
         }
       },
+      "WorkerTranscriptionStatusInput": {
+        "type": "object",
+        "required": ["version", "active", "error_code"],
+        "properties": {
+          "version": {"type": "string"},
+          "active": {"type": "boolean"},
+          "error_code": {"type": "string", "enum": ["", "connection_failed", "model_missing"]}
+        }
+      },
       "Worker": {
         "type": "object",
         "required": [

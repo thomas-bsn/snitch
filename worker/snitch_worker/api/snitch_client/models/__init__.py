@@ -184,6 +184,11 @@ from .transcription_pipeline_provider import TranscriptionPipelineProvider
 from .transcription_pipeline_state import TranscriptionPipelineState
 from .transcription_pipeline_vad import TranscriptionPipelineVad
 from .transcription_pipeline_vad_mode import TranscriptionPipelineVadMode
+from .transcription_settings_input import TranscriptionSettingsInput
+from .transcription_settings_input_mode import TranscriptionSettingsInputMode
+from .transcription_settings_state import TranscriptionSettingsState
+from .transcription_settings_state_mode import TranscriptionSettingsStateMode
+from .transcription_settings_state_status import TranscriptionSettingsStateStatus
 from .update_clip_body import UpdateClipBody
 from .update_clip_body_visibility import UpdateClipBodyVisibility
 from .update_member_role_body import UpdateMemberRoleBody
@@ -257,7 +262,11 @@ from .worker_registration import WorkerRegistration
 from .worker_registration_input import WorkerRegistrationInput
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
+from .worker_transcription_config import WorkerTranscriptionConfig
 from .worker_transcription_profile import WorkerTranscriptionProfile
+from .worker_transcription_state import WorkerTranscriptionState
+from .worker_transcription_status_input import WorkerTranscriptionStatusInput
+from .worker_transcription_status_input_error_code import WorkerTranscriptionStatusInputErrorCode
 from .worker_vocabulary_term import WorkerVocabularyTerm
 from .worker_voice_input import WorkerVoiceInput
 from .worker_voice_input_diarization import WorkerVoiceInputDiarization
@@ -447,6 +456,11 @@ __all__ = (
     "TranscriptionPipelineState",
     "TranscriptionPipelineVad",
     "TranscriptionPipelineVadMode",
+    "TranscriptionSettingsInput",
+    "TranscriptionSettingsInputMode",
+    "TranscriptionSettingsState",
+    "TranscriptionSettingsStateMode",
+    "TranscriptionSettingsStateStatus",
     "TranscriptSegment",
     "TranscriptWord",
     "UpdateClipBody",
@@ -522,7 +536,11 @@ __all__ = (
     "WorkerRegistrationInput",
     "WorkerResultInput",
     "WorkerResultInputResult",
+    "WorkerTranscriptionConfig",
     "WorkerTranscriptionProfile",
+    "WorkerTranscriptionState",
+    "WorkerTranscriptionStatusInput",
+    "WorkerTranscriptionStatusInputErrorCode",
     "WorkerVocabularyTerm",
     "WorkerVoiceInput",
     "WorkerVoiceInputDiarization",

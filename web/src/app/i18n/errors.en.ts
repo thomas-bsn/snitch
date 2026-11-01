@@ -107,6 +107,10 @@ export const errorsEn = {
   invalid_transcription_pipeline: "These transcription settings are not valid.",
   invalid_transcription_settings:
     "Enter a valid Whisper/Speaches URL, model and language.",
+  invalid_transcription_config_status:
+    "The Worker configuration status is invalid.",
+  stale_transcription_config:
+    "The transcription configuration changed. Try again.",
   invalid_transcription_result: "This transcription result is not valid.",
   invalid_turn: "This speaker turn is not valid.",
   invalid_upload: "This upload is not valid.",
