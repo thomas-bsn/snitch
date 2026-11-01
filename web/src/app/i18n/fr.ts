@@ -270,6 +270,9 @@ export const fr: Messages = {
     },
   },
   voiceModels: {
+    fingerprintTitle: "Modèle d’empreinte",
+    fingerprintHint:
+      "Fixé par le catalogue : les empreintes vocales utilisent ce modèle, rien à choisir.",
     title: "Modèle de diarisation",
     hint: "Choisissez un candidat dans le catalogue : chaque Worker le télécharge, le charge et lance une inférence de test. Vous l'activez ensuite pour tous les Workers.",
     active: "Actif",
@@ -373,6 +376,47 @@ export const fr: Messages = {
     enabledEvent: "Activation",
     disabledEvent: "Désactivation",
     forcedEvent: "Critères non atteints",
+  },
+  voiceScreen: {
+    summary: "État",
+    activeDiar: "Modèle de diarisation actif",
+    activeFingerprint: "Modèle d’empreinte actif (lecture seule)",
+    measured: "Précision mesurée",
+    autoHint:
+      "Jamais activée d’elle-même : vous seul·e l’activez, après confirmation. Les validations humaines ne sont jamais écrasées.",
+    enableTitle: "Activer l’attribution automatique ?",
+    enableText:
+      "Les voix reconnues avec assez de confiance seront attribuées sans vous demander. Vous pouvez la désactiver à tout moment.",
+    enableMeasure: "Précision mesurée : {value}.",
+    noWorker: "Aucun Worker : installez-en un pour analyser les voix.",
+    noneReady: "Aucun Worker n’a la voix prête : les travaux vocaux attendent.",
+    offline: "{count} Worker(s) hors ligne.",
+    tokenMissing:
+      "Un Worker n’a pas son jeton Hugging Face : voir la carte du modèle ci-dessous.",
+    accessDenied:
+      "Hugging Face a refusé l’accès à un modèle : acceptez ses conditions avec le compte du jeton.",
+    pending: "{count} travail(aux) vocal(aux) en attente d’un Worker prêt.",
+    advanced: "Paramètres avancés",
+    advancedHint: "Seuils et critères",
+    autoThresholdHint:
+      "Similarité au-dessus de laquelle une voix est attribuée automatiquement (si activée).",
+    suggestionHint:
+      "Similarité au-dessus de laquelle une personne vous est suggérée à confirmer.",
+    marginHint:
+      "Écart minimal avec le deuxième candidat, sinon la voix est ambiguë.",
+    candidatesHint: "Nombre de personnes proposées pour une voix.",
+    fingerprintSettings: "Empreintes vocales",
+    fingerprintHint:
+      "Les extraits trop courts ou de mauvaise qualité ne produisent pas d’empreinte. Enregistrer crée une nouvelle version du pipeline.",
+    automationSettings: "Critères d’automatisation",
+    precisionHint:
+      "Précision mesurée requise avant que l’activation soit proposée.",
+    confirmationsHint: "Confirmations humaines requises avant l’activation.",
+    reset: "Rétablir les valeurs par défaut",
+    resetTitle: "Rétablir ces réglages ?",
+    resetText:
+      "Les seuils de rapprochement, les réglages d’empreinte et les critères d’activation reviennent aux valeurs de l’installation. L’attribution automatique reste telle quelle.",
+    resetConfirm: "Rétablir",
   },
   members: {
     title: "Membres",

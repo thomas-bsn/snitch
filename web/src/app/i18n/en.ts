@@ -264,6 +264,9 @@ export const en = {
     },
   },
   voiceModels: {
+    fingerprintTitle: "Fingerprint model",
+    fingerprintHint:
+      "Fixed by the catalogue: voice fingerprints use this model, nothing to choose.",
     title: "Diarization model",
     hint: "Pick a candidate from the catalogue: each Worker downloads it, loads it and runs a test inference. You then activate it for every Worker.",
     active: "Active",
@@ -364,6 +367,46 @@ export const en = {
     enabledEvent: "Enabled",
     disabledEvent: "Disabled",
     forcedEvent: "Criteria unmet",
+  },
+  voiceScreen: {
+    summary: "State",
+    activeDiar: "Active diarization model",
+    activeFingerprint: "Active fingerprint model (read only)",
+    measured: "Measured precision",
+    autoHint:
+      "Never enabled on its own: only you can turn it on, after a confirmation. Human validations are never overwritten.",
+    enableTitle: "Enable automatic attribution?",
+    enableText:
+      "Voices recognised with enough confidence will be attributed without asking. You can disable it at any time.",
+    enableMeasure: "Measured precision: {value}.",
+    noWorker: "No Worker yet: install one to analyse voices.",
+    noneReady: "No Worker has voice ready: voice jobs wait.",
+    offline: "{count} Worker(s) offline.",
+    tokenMissing:
+      "A Worker is missing its Hugging Face token: see the model card below.",
+    accessDenied:
+      "Hugging Face refused access to a model: accept its terms with the token's account.",
+    pending: "{count} voice job(s) waiting for a ready Worker.",
+    advanced: "Advanced settings",
+    advancedHint: "Thresholds and criteria",
+    autoThresholdHint:
+      "Similarity above which a voice is attributed automatically (when enabled).",
+    suggestionHint:
+      "Similarity above which a person is suggested for you to confirm.",
+    marginHint:
+      "Minimum gap with the second candidate, otherwise the voice is ambiguous.",
+    candidatesHint: "Number of people proposed for a voice.",
+    fingerprintSettings: "Voice fingerprints",
+    fingerprintHint:
+      "Short or poor-quality extracts do not produce a fingerprint. Saving creates a new pipeline version.",
+    automationSettings: "Automation criteria",
+    precisionHint: "Measured precision required before activation is proposed.",
+    confirmationsHint: "Human confirmations required before activation.",
+    reset: "Reset to default values",
+    resetTitle: "Reset these settings?",
+    resetText:
+      "Matching thresholds, fingerprint settings and activation criteria go back to the installation values. Automatic attribution stays as it is.",
+    resetConfirm: "Reset",
   },
   members: {
     title: "Members",
