@@ -142,6 +142,12 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	// Legacy per-Worker fields only bootstrap an unconfigured Snitch; once the
+	// Administrator has chosen settings they must never be overwritten or diverge silently.
+	if mode != "unconfigured" && (input.TranscriptionURL != "" || input.Transcription != nil) {
+		fail(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
 	// Validate transcription config if provided (for bootstrap only)
 	var profile *transcriptionPipeline
 	if input.Transcription != nil {
