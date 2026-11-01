@@ -31,6 +31,7 @@ export function WorkerCreateForm({
   const [failure, setFailure] = useState<string>();
   const [created, setCreated] = useState<WorkerRegistration>();
   const [copied, setCopied] = useState(false);
+  const [allowInsecure, setAllowInsecure] = useState(false);
 
   if (state.status === "loading")
     return <p role="status">{t("workers.loading")}</p>;
@@ -48,6 +49,7 @@ export function WorkerCreateForm({
     setFailure(undefined);
     const result = await actions.create({
       name: (name ?? `worker-${page.items.length + 1}`).trim(),
+      allowInsecureInstall: insecure && allowInsecure,
     });
     setBusy(false);
     if (result.ok) setCreated(result.value);
@@ -58,6 +60,9 @@ export function WorkerCreateForm({
     return (
       <div className="flex max-w-xl flex-col gap-4">
         <StatusNotice>{t("workers.create.shownOnce")}</StatusNotice>
+        {!created.install_command && (
+          <ErrorAlert>{t("workers.create.insecureUnavailable")}</ErrorAlert>
+        )}
         <p>{t("workers.create.installLead")}</p>
         <textarea
           readOnly
@@ -141,6 +146,26 @@ export function WorkerCreateForm({
         >
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
           {t("workers.create.insecure")}
+        </p>
+      )}
+      {insecure && (
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={allowInsecure}
+            onChange={(event) => setAllowInsecure(event.target.checked)}
+          />
+          <span>{t("workers.create.allowInsecure")}</span>
+        </label>
+      )}
+      {insecure && allowInsecure && (
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-lg bg-bad-bg px-3 py-2.5 text-bad-fg"
+        >
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          {t("workers.create.allowInsecureWarning")}
         </p>
       )}
       <Field

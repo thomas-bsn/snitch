@@ -181,19 +181,34 @@ func testWorkerInstallInvitation(t *testing.T, pool *pgxpool.Pool) {
 	h.get(h.ts.URL+"/api/worker/transcription-config", "", http.StatusUnauthorized)
 
 	// Lost credentials: a new invitation replaces the token; the old one stops working.
+	// An invitation that was never consumed belongs to the identity being replaced.
+	staleID, _, staleCommand, _ := h.register("")
+	staleURL := h.inviteURL(staleCommand)
 	renewed := h.adminCall(http.MethodPost, "/api/admin/workers/"+id+"/token", nil, http.StatusCreated)
 	var rr struct {
+		ID      string `json:"id"`
 		Token   string `json:"token"`
 		Command string `json:"install_command"`
 	}
 	if err := json.Unmarshal(renewed, &rr); err != nil {
 		t.Fatal(err)
 	}
+	if rr.ID == id {
+		t.Fatal("a lost token must create a new identity")
+	}
+	h.do(h.anon, http.MethodPost, h.ts.URL+"/api/worker/pulse", []byte(`{"capacity":1}`), "", token, false, http.StatusUnauthorized)
+	h.get(h.ts.URL+"/api/worker/transcription-config", token, http.StatusUnauthorized)
+	h.adminCall(http.MethodPost, "/api/admin/workers/"+id+"/token", nil, http.StatusNotFound)
+	h.adminCall(http.MethodPost, "/api/admin/workers/"+staleID+"/token", nil, http.StatusCreated)
+	if resp, err := h.anon.Get(staleURL); err != nil || resp.StatusCode == http.StatusOK {
+		t.Fatalf("unconsumed invitation of the replaced identity was served: %v", err)
+	}
 	h.do(h.anon, http.MethodPost, h.ts.URL+"/api/worker/pulse", []byte(`{"capacity":1}`), "", token, false, http.StatusUnauthorized)
 	newScript := string(h.get(h.inviteURL(rr.Command), "", http.StatusOK))
 	if scriptToken(t, newScript) != rr.Token || rr.Token == token {
 		t.Fatal("renewed invitation does not carry the new token")
 	}
+	h.get(h.inviteURL(rr.Command), "", http.StatusGone)
 
 	// Concurrent downloads: exactly one wins.
 	_, _, command3, _ := h.register("")

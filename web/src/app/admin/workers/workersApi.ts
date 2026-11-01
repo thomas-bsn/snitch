@@ -28,6 +28,7 @@ export async function fetchWorker(id: string): Promise<Result<WorkerDetail>> {
 
 export type NewWorker = {
   name: string;
+  allowInsecureInstall?: boolean;
 };
 
 /** The actions of the Workers screens; each one carries the session's CSRF token. */
@@ -37,7 +38,12 @@ export function useWorkerActions() {
     async create(input: NewWorker): Promise<Result<WorkerRegistration>> {
       // Never put the Hugging Face token here: it stays in the browser.
       const { data, error } = await api.POST("/api/admin/workers", {
-        params: { header: mutation(csrf) },
+        params: {
+          header: mutation(csrf),
+          query: input.allowInsecureInstall
+            ? { allow_insecure_install: true }
+            : undefined,
+        },
         body: {
           name: input.name,
           max_concurrency: 1,
@@ -45,9 +51,18 @@ export function useWorkerActions() {
       });
       return data ? { ok: true, value: data } : failure(error);
     },
-    async renewToken(id: string): Promise<Result<WorkerRegistration>> {
+    async renewToken(
+      id: string,
+      allowInsecureInstall = false,
+    ): Promise<Result<WorkerRegistration>> {
       const { data, error } = await api.POST("/api/admin/workers/{id}/token", {
-        params: { path: { id }, header: mutation(csrf) },
+        params: {
+          path: { id },
+          header: mutation(csrf),
+          query: allowInsecureInstall
+            ? { allow_insecure_install: true }
+            : undefined,
+        },
       });
       return data ? { ok: true, value: data } : failure(error);
     },
