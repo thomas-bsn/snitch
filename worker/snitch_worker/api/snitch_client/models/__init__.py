@@ -44,12 +44,15 @@ from .credentials import Credentials
 from .decision_level import DecisionLevel
 from .delete_clip_response_200 import DeleteClipResponse200
 from .delete_member_body import DeleteMemberBody
+from .delete_worker_transcription_override_response_200 import DeleteWorkerTranscriptionOverrideResponse200
 from .embedding_settings import EmbeddingSettings
 from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .get_metadata_location_response_200 import GetMetadataLocationResponse200
 from .get_video_root_response_200 import GetVideoRootResponse200
+from .get_worker_transcription_config_response_200 import GetWorkerTranscriptionConfigResponse200
+from .get_worker_transcription_config_response_200_mode import GetWorkerTranscriptionConfigResponse200Mode
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
 from .job import Job
 from .job_controls import JobControls
@@ -112,15 +115,21 @@ from .person_ref import PersonRef
 from .person_separation_input import PersonSeparationInput
 from .person_voice import PersonVoice
 from .person_voice_list import PersonVoiceList
+from .post_worker_transcription_config_status_body import PostWorkerTranscriptionConfigStatusBody
+from .post_worker_transcription_config_status_body_error_code import PostWorkerTranscriptionConfigStatusBodyErrorCode
+from .post_worker_transcription_config_status_response_200 import PostWorkerTranscriptionConfigStatusResponse200
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .put_clip_metadata_body import PutClipMetadataBody
 from .put_clip_metadata_response_200 import PutClipMetadataResponse200
 from .put_embedding_settings_body import PutEmbeddingSettingsBody
 from .put_metadata_location_body import PutMetadataLocationBody
 from .put_metadata_location_response_200 import PutMetadataLocationResponse200
+from .put_worker_transcription_override_body import PutWorkerTranscriptionOverrideBody
+from .put_worker_transcription_override_response_200 import PutWorkerTranscriptionOverrideResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
 from .reprocess_clip_metadata_response_200 import ReprocessClipMetadataResponse200
+from .request_worker_transcription_test_response_200 import RequestWorkerTranscriptionTestResponse200
 from .scan_source_body import ScanSourceBody
 from .scan_video_selection_body import ScanVideoSelectionBody
 from .scan_video_selection_response_200 import ScanVideoSelectionResponse200
@@ -254,6 +263,7 @@ from .worker_model import WorkerModel
 from .worker_models import WorkerModels
 from .worker_page import WorkerPage
 from .worker_page_transcription import WorkerPageTranscription
+from .worker_page_transcription_mode import WorkerPageTranscriptionMode
 from .worker_pulse_input import WorkerPulseInput
 from .worker_recent_task import WorkerRecentTask
 from .worker_recent_task_kind import WorkerRecentTaskKind
@@ -263,8 +273,8 @@ from .worker_registration_input import WorkerRegistrationInput
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 from .worker_transcription_config import WorkerTranscriptionConfig
+from .worker_transcription_config_error_code import WorkerTranscriptionConfigErrorCode
 from .worker_transcription_profile import WorkerTranscriptionProfile
-from .worker_transcription_state import WorkerTranscriptionState
 from .worker_transcription_status_input import WorkerTranscriptionStatusInput
 from .worker_transcription_status_input_error_code import WorkerTranscriptionStatusInputErrorCode
 from .worker_vocabulary_term import WorkerVocabularyTerm
@@ -318,12 +328,15 @@ __all__ = (
     "DecisionLevel",
     "DeleteClipResponse200",
     "DeleteMemberBody",
+    "DeleteWorkerTranscriptionOverrideResponse200",
     "EmbeddingSettings",
     "Error",
     "ExportSegmentCorrectionsFormat",
     "GetEmbeddingIndexStatusResponse200",
     "GetMetadataLocationResponse200",
     "GetVideoRootResponse200",
+    "GetWorkerTranscriptionConfigResponse200",
+    "GetWorkerTranscriptionConfigResponse200Mode",
     "HeartbeatWorkerJobResponse200",
     "Job",
     "JobControls",
@@ -386,15 +399,21 @@ __all__ = (
     "PersonSeparationInput",
     "PersonVoice",
     "PersonVoiceList",
+    "PostWorkerTranscriptionConfigStatusBody",
+    "PostWorkerTranscriptionConfigStatusBodyErrorCode",
+    "PostWorkerTranscriptionConfigStatusResponse200",
     "PreviewTranscriptionBatchResponse200",
     "PutClipMetadataBody",
     "PutClipMetadataResponse200",
     "PutEmbeddingSettingsBody",
     "PutMetadataLocationBody",
     "PutMetadataLocationResponse200",
+    "PutWorkerTranscriptionOverrideBody",
+    "PutWorkerTranscriptionOverrideResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",
     "ReprocessClipMetadataResponse200",
+    "RequestWorkerTranscriptionTestResponse200",
     "ScanSourceBody",
     "ScanVideoSelectionBody",
     "ScanVideoSelectionResponse200",
@@ -528,6 +547,7 @@ __all__ = (
     "WorkerModels",
     "WorkerPage",
     "WorkerPageTranscription",
+    "WorkerPageTranscriptionMode",
     "WorkerPulseInput",
     "WorkerRecentTask",
     "WorkerRecentTaskKind",
@@ -537,8 +557,8 @@ __all__ = (
     "WorkerResultInput",
     "WorkerResultInputResult",
     "WorkerTranscriptionConfig",
+    "WorkerTranscriptionConfigErrorCode",
     "WorkerTranscriptionProfile",
-    "WorkerTranscriptionState",
     "WorkerTranscriptionStatusInput",
     "WorkerTranscriptionStatusInputErrorCode",
     "WorkerVocabularyTerm",

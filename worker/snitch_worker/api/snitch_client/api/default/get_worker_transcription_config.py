@@ -8,7 +8,8 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.worker_transcription_config import WorkerTranscriptionConfig
+from ...models.error import Error
+from ...models.get_worker_transcription_config_response_200 import GetWorkerTranscriptionConfigResponse200
 from typing import cast
 
 
@@ -32,21 +33,23 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> WorkerTranscriptionConfig | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Error | GetWorkerTranscriptionConfigResponse200:
     if response.status_code == 200:
-        response_200 = WorkerTranscriptionConfig.from_dict(response.json())
+        response_200 = GetWorkerTranscriptionConfigResponse200.from_dict(response.json())
 
 
 
         return response_200
 
-    if client.raise_on_unexpected_status:
-        raise errors.UnexpectedStatus(response.status_code, response.content)
-    else:
-        return None
+    response_default = Error.from_dict(response.json())
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[WorkerTranscriptionConfig]:
+
+    return response_default
+
+
+
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Error | GetWorkerTranscriptionConfigResponse200]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -59,14 +62,15 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
 
-) -> Response[WorkerTranscriptionConfig]:
-    """
+) -> Response[Error | GetWorkerTranscriptionConfigResponse200]:
+    """  Récupère la configuration de transcription pour ce Worker.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[WorkerTranscriptionConfig]
+        Response[Error | GetWorkerTranscriptionConfigResponse200]
      """
 
 
@@ -84,14 +88,15 @@ def sync(
     *,
     client: AuthenticatedClient,
 
-) -> WorkerTranscriptionConfig | None:
-    """
+) -> Error | GetWorkerTranscriptionConfigResponse200 | None:
+    """  Récupère la configuration de transcription pour ce Worker.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        WorkerTranscriptionConfig
+        Error | GetWorkerTranscriptionConfigResponse200
      """
 
 
@@ -104,14 +109,15 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
 
-) -> Response[WorkerTranscriptionConfig]:
-    """
+) -> Response[Error | GetWorkerTranscriptionConfigResponse200]:
+    """  Récupère la configuration de transcription pour ce Worker.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[WorkerTranscriptionConfig]
+        Response[Error | GetWorkerTranscriptionConfigResponse200]
      """
 
 
@@ -129,14 +135,15 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
 
-) -> WorkerTranscriptionConfig | None:
-    """
+) -> Error | GetWorkerTranscriptionConfigResponse200 | None:
+    """  Récupère la configuration de transcription pour ce Worker.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        WorkerTranscriptionConfig
+        Error | GetWorkerTranscriptionConfigResponse200
      """
 
 

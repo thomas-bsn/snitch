@@ -10,11 +10,7 @@ from ..types import UNSET, Unset
 
 from ..models.transcription_settings_state_mode import TranscriptionSettingsStateMode
 from ..models.transcription_settings_state_status import TranscriptionSettingsStateStatus
-from ..types import UNSET, Unset
-from typing import cast
 
-if TYPE_CHECKING:
-  from ..models.worker_transcription_state import WorkerTranscriptionState
 
 
 
@@ -34,7 +30,6 @@ class TranscriptionSettingsState:
             model (str):
             language (str):
             version (str):
-            workers (list[WorkerTranscriptionState] | Unset):
      """
 
     mode: TranscriptionSettingsStateMode
@@ -43,7 +38,6 @@ class TranscriptionSettingsState:
     model: str
     language: str
     version: str
-    workers: list[WorkerTranscriptionState] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -51,7 +45,6 @@ class TranscriptionSettingsState:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.worker_transcription_state import WorkerTranscriptionState # noqa: PLC0415
         mode = self.mode.value
 
         status = self.status.value
@@ -64,15 +57,6 @@ class TranscriptionSettingsState:
 
         version = self.version
 
-        workers: list[dict[str, Any]] | Unset = UNSET
-        if not isinstance(self.workers, Unset):
-            workers = []
-            for workers_item_data in self.workers:
-                workers_item = workers_item_data.to_dict()
-                workers.append(workers_item)
-
-
-
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -84,8 +68,6 @@ class TranscriptionSettingsState:
             "language": language,
             "version": version,
         })
-        if workers is not UNSET:
-            field_dict["workers"] = workers
 
         return field_dict
 
@@ -93,7 +75,6 @@ class TranscriptionSettingsState:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.worker_transcription_state import WorkerTranscriptionState # noqa: PLC0415
         d = dict(src_dict)
         mode = TranscriptionSettingsStateMode(d.pop("mode"))
 
@@ -113,18 +94,6 @@ class TranscriptionSettingsState:
 
         version = d.pop("version")
 
-        _workers = d.pop("workers", UNSET)
-        workers: list[WorkerTranscriptionState] | Unset = UNSET
-        if _workers is not UNSET:
-            workers = []
-            for workers_item_data in _workers:
-                workers_item = WorkerTranscriptionState.from_dict(workers_item_data)
-
-
-
-                workers.append(workers_item)
-
-
         transcription_settings_state = cls(
             mode=mode,
             status=status,
@@ -132,7 +101,6 @@ class TranscriptionSettingsState:
             model=model,
             language=language,
             version=version,
-            workers=workers,
         )
 
 

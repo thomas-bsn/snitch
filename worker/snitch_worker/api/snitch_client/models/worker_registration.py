@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
@@ -36,6 +37,8 @@ class WorkerRegistration:
             token (str):
             bundle (WorkerBundle): Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus
                 ensuite. Le .env contient le jeton.
+            install_command (str | Unset): Commande d'installation Linux à copier une fois ; le code d'invitation éphémère
+                n'est pas le jeton du Worker.
      """
 
     id: str
@@ -47,6 +50,7 @@ class WorkerRegistration:
     revoked_at: datetime.datetime | None
     token: str
     bundle: WorkerBundle
+    install_command: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -81,6 +85,8 @@ class WorkerRegistration:
 
         bundle = self.bundle.to_dict()
 
+        install_command = self.install_command
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -95,6 +101,8 @@ class WorkerRegistration:
             "token": token,
             "bundle": bundle,
         })
+        if install_command is not UNSET:
+            field_dict["install_command"] = install_command
 
         return field_dict
 
@@ -160,6 +168,8 @@ class WorkerRegistration:
 
 
 
+        install_command = d.pop("install_command", UNSET)
+
         worker_registration = cls(
             id=id,
             name=name,
@@ -170,6 +180,7 @@ class WorkerRegistration:
             revoked_at=revoked_at,
             token=token,
             bundle=bundle,
+            install_command=install_command,
         )
 
 

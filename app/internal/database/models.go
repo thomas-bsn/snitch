@@ -605,6 +605,19 @@ type Worker struct {
 	RemoteAddress       string             `json:"remote_address"`
 }
 
+type WorkerInstallInvite struct {
+	CodeHash              []byte             `json:"code_hash"`
+	WorkerID              string             `json:"worker_id"`
+	EncryptedToken        []byte             `json:"encrypted_token"`
+	ApiUrl                string             `json:"api_url"`
+	Image                 string             `json:"image"`
+	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
+	TranscriptionMode     string             `json:"transcription_mode"`
+	TranscriptionEndpoint string             `json:"transcription_endpoint"`
+	TranscriptionModel    string             `json:"transcription_model"`
+	TranscriptionLanguage string             `json:"transcription_language"`
+}
+
 type WorkerTranscriptionConfig struct {
 	WorkerID         string             `json:"worker_id"`
 	ReceivedVersion  string             `json:"received_version"`

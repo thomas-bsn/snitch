@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.worker_transcription_config_error_code import WorkerTranscriptionConfigErrorCode
 from ..types import UNSET, Unset
 
 
@@ -21,53 +22,55 @@ T = TypeVar("T", bound="WorkerTranscriptionConfig")
 
 @_attrs_define
 class WorkerTranscriptionConfig:
-    """
+    """ Statut de synchronisation de la configuration de transcription pour un Worker.
+
         Attributes:
-            mode (str):
-            endpoint (str):
-            model (str):
-            language (str):
-            version (str):
-            test_requested (bool | Unset):
+            received_version (str | Unset): Version de configuration reçue par le Worker.
+            tested_version (str | Unset): Version de configuration testée par le Worker.
+            active_version (str | Unset): Version de configuration active (validée) pour ce Worker.
+            error_code (WorkerTranscriptionConfigErrorCode | Unset): Code d'erreur du dernier test.
+            endpoint_override (str | Unset): Adresse Whisper propre à ce Worker, si définie.
      """
 
-    mode: str
-    endpoint: str
-    model: str
-    language: str
-    version: str
-    test_requested: bool | Unset = UNSET
-    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+    received_version: str | Unset = UNSET
+    tested_version: str | Unset = UNSET
+    active_version: str | Unset = UNSET
+    error_code: WorkerTranscriptionConfigErrorCode | Unset = UNSET
+    endpoint_override: str | Unset = UNSET
 
 
 
 
 
     def to_dict(self) -> dict[str, Any]:
-        mode = self.mode
+        received_version = self.received_version
 
-        endpoint = self.endpoint
+        tested_version = self.tested_version
 
-        model = self.model
+        active_version = self.active_version
 
-        language = self.language
+        error_code: str | Unset = UNSET
+        if not isinstance(self.error_code, Unset):
+            error_code = self.error_code.value
 
-        version = self.version
 
-        test_requested = self.test_requested
+        endpoint_override = self.endpoint_override
 
 
         field_dict: dict[str, Any] = {}
-        field_dict.update(self.additional_properties)
+
         field_dict.update({
-            "mode": mode,
-            "endpoint": endpoint,
-            "model": model,
-            "language": language,
-            "version": version,
         })
-        if test_requested is not UNSET:
-            field_dict["test_requested"] = test_requested
+        if received_version is not UNSET:
+            field_dict["received_version"] = received_version
+        if tested_version is not UNSET:
+            field_dict["tested_version"] = tested_version
+        if active_version is not UNSET:
+            field_dict["active_version"] = active_version
+        if error_code is not UNSET:
+            field_dict["error_code"] = error_code
+        if endpoint_override is not UNSET:
+            field_dict["endpoint_override"] = endpoint_override
 
         return field_dict
 
@@ -76,43 +79,30 @@ class WorkerTranscriptionConfig:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        mode = d.pop("mode")
+        received_version = d.pop("received_version", UNSET)
 
-        endpoint = d.pop("endpoint")
+        tested_version = d.pop("tested_version", UNSET)
 
-        model = d.pop("model")
+        active_version = d.pop("active_version", UNSET)
 
-        language = d.pop("language")
+        _error_code = d.pop("error_code", UNSET)
+        error_code: WorkerTranscriptionConfigErrorCode | Unset
+        if isinstance(_error_code,  Unset):
+            error_code = UNSET
+        else:
+            error_code = WorkerTranscriptionConfigErrorCode(_error_code)
 
-        version = d.pop("version")
 
-        test_requested = d.pop("test_requested", UNSET)
+
+
+        endpoint_override = d.pop("endpoint_override", UNSET)
 
         worker_transcription_config = cls(
-            mode=mode,
-            endpoint=endpoint,
-            model=model,
-            language=language,
-            version=version,
-            test_requested=test_requested,
+            received_version=received_version,
+            tested_version=tested_version,
+            active_version=active_version,
+            error_code=error_code,
+            endpoint_override=endpoint_override,
         )
 
-
-        worker_transcription_config.additional_properties = d
         return worker_transcription_config
-
-    @property
-    def additional_keys(self) -> list[str]:
-        return list(self.additional_properties.keys())
-
-    def __getitem__(self, key: str) -> Any:
-        return self.additional_properties[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.additional_properties[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self.additional_properties[key]
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.additional_properties
