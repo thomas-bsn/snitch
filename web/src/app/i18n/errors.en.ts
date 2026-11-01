@@ -135,6 +135,8 @@ export const errorsEn = {
   invalid_transcription_model: "This model name is not valid.",
   invalid_transcription_url:
     "This Whisper address is not valid. Use an http or https address without credentials.",
+  invalid_transcription_endpoint:
+    "This Whisper address is not valid. Use an http or https address without credentials.",
   transcription_language_required: "Choose the language of the library.",
   transcription_model_required: "Enter the model of the library.",
   transcription_profile_already_set:
