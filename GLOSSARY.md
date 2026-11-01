@@ -44,6 +44,12 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Configuration de transcription active** : La version des réglages qu'un Worker a testée et utilise pour les nouveaux travaux. Une version demandée peut être différente tant que sa validation n'a pas réussi.
 
+**Invitation d'installation** : Un accès à usage unique et de courte durée, généré par un administrateur, qui permet à une machine de s'installer comme Worker. Une fois utilisée ou expirée, il faut en générer une nouvelle.
+_Avoid_ : Jeton du Worker (qui désigne l'accès durable du Worker installé).
+
+**Voix prête** : État d'un Worker dont les modèles vocaux sont présents et dont une inférence de test a réussi. Des modèles simplement téléchargés ne suffisent pas.
+_Avoid_ : Modèles prêts, voix installée.
+
 **Transcription désactivée** : Choix explicite de ne pas produire de transcription pour la bibliothèque. Il se distingue d'un réglage encore incomplet ou non testé.
 
 **Correction** : Le texte, ou le locuteur, qu'un utilisateur donne à un segment à la place de ce que Snitch avait compris. Elle recouvre la transcription d'origine sans la remplacer ; chaque changement garde ancienne valeur, nouvelle valeur, auteur et date, et peut être restauré. Une correction n'est ni une validation vocale ni une attribution.

@@ -30,6 +30,15 @@ async function expectTouchTargets(page: Page) {
         if (element.classList.contains("sr-only")) {
           return [];
         }
+        // A form-only input (e.g. Base UI's hidden combobox value) is neither
+        // reachable nor exposed: it is not a touch target.
+        if (
+          element.tagName === "INPUT" &&
+          element.getAttribute("aria-hidden") === "true" &&
+          element.getAttribute("tabindex") === "-1"
+        ) {
+          return [];
+        }
         let target = element;
         if (
           element.tagName === "INPUT" &&

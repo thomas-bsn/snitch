@@ -106,7 +106,7 @@ export const errorsEn = {
   invalid_source_id: "This folder identifier is not valid.",
   invalid_transcription_pipeline: "These transcription settings are not valid.",
   invalid_transcription_settings:
-    "Enter a valid Whisper/Speaches URL, model and language.",
+    "Enter a valid Whisper/Speaches URL and model, and choose a language from the list.",
   invalid_transcription_config_status:
     "The Worker configuration status is invalid.",
   stale_transcription_config:
@@ -126,12 +126,14 @@ export const errorsEn = {
   invalid_worker: "This worker is not valid.",
   invalid_worker_capabilities: "These worker capabilities are not valid.",
   invalid_worker_capacity: "This worker capacity is not valid.",
+  invalid_revoke_reason:
+    "The reason must be 200 characters or fewer, on a single line.",
   invalid_worker_models: "These worker models are not valid.",
   clip_delete_failed:
     "The video could not be deleted completely. Check its files and permissions, then retry.",
   super_administrator_required: "Only the Super-administrator can do this.",
   invalid_transcription_language:
-    "This language code is not valid (two or three lowercase letters, for example fr).",
+    "Choose one of the languages Whisper supports, by its code (for example fr).",
   invalid_transcription_model: "This model name is not valid.",
   invalid_transcription_url:
     "This Whisper address is not valid. Use an http or https address without credentials.",
@@ -198,6 +200,9 @@ export const errorsEn = {
     "Access to the voice models has not been confirmed.",
   voice_profile_deleted: "This voice profile was deleted.",
   worker_not_found: "This worker does not exist.",
+  install_invite_used:
+    "The installation invitation was already used. Generate a new installation command in Admin > Workers.",
+  invalid_install_event: "This installation event is not valid.",
   worker_token_invalid: "This worker token is not valid.",
   worker_token_required: "A worker token is required.",
 };

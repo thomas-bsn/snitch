@@ -30,7 +30,8 @@ class TranscriptionSettingsInput:
             mode (TranscriptionSettingsInputMode):
             endpoint (str):
             model (str):
-            language (str):
+            language (str): Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper
+                tels quels, par exemple jw pour le javanais, haw, yue). Ignoré si mode vaut disabled.
             profile (TranscriptionPipeline | Unset):
      """
 

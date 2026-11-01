@@ -590,19 +590,32 @@ type VoiceSample struct {
 }
 
 type Worker struct {
-	ID                  string             `json:"id"`
-	Name                string             `json:"name"`
-	TokenHash           []byte             `json:"token_hash"`
-	MaxConcurrency      int32              `json:"max_concurrency"`
-	ReportedConcurrency int32              `json:"reported_concurrency"`
-	LastSeenAt          pgtype.Timestamptz `json:"last_seen_at"`
-	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	SupportedSteps      []string           `json:"supported_steps"`
-	Models              []byte             `json:"models"`
-	TranscriptionModel  string             `json:"transcription_model"`
-	Machine             []byte             `json:"machine"`
-	RemoteAddress       string             `json:"remote_address"`
+	ID                       string             `json:"id"`
+	Name                     string             `json:"name"`
+	TokenHash                []byte             `json:"token_hash"`
+	MaxConcurrency           int32              `json:"max_concurrency"`
+	ReportedConcurrency      int32              `json:"reported_concurrency"`
+	LastSeenAt               pgtype.Timestamptz `json:"last_seen_at"`
+	RevokedAt                pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	SupportedSteps           []string           `json:"supported_steps"`
+	Models                   []byte             `json:"models"`
+	TranscriptionModel       string             `json:"transcription_model"`
+	Machine                  []byte             `json:"machine"`
+	RemoteAddress            string             `json:"remote_address"`
+	FirstPulseAt             pgtype.Timestamptz `json:"first_pulse_at"`
+	RevokeReason             string             `json:"revoke_reason"`
+	RevocationAcknowledgedAt pgtype.Timestamptz `json:"revocation_acknowledged_at"`
+}
+
+type WorkerInstallEvent struct {
+	ID         int64              `json:"id"`
+	WorkerID   string             `json:"worker_id"`
+	Phase      string             `json:"phase"`
+	Status     string             `json:"status"`
+	CauseCode  string             `json:"cause_code"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	ReceivedAt pgtype.Timestamptz `json:"received_at"`
 }
 
 type WorkerInstallInvite struct {
@@ -616,6 +629,7 @@ type WorkerInstallInvite struct {
 	TranscriptionEndpoint string             `json:"transcription_endpoint"`
 	TranscriptionModel    string             `json:"transcription_model"`
 	TranscriptionLanguage string             `json:"transcription_language"`
+	UsedAt                pgtype.Timestamptz `json:"used_at"`
 }
 
 type WorkerTranscriptionConfig struct {

@@ -65,6 +65,10 @@ func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	if err = s.withInstallProgress(r, items, false); err != nil {
+		s.internal(w, err)
+		return
+	}
 	var version string
 	var raw []byte
 	if err = s.Pool.QueryRow(r.Context(), `SELECT v.version,v.config FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&version, &raw); err != nil {
@@ -96,8 +100,7 @@ func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
 }
 
 var (
-	transcriptionLanguagePattern = regexp.MustCompile(`^[a-z]{2,3}$`)
-	transcriptionModelPattern    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,99}$`)
+	transcriptionModelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,99}$`)
 )
 
 // validWhisperURL accepts an http(s) address without credentials, query or fragment.
@@ -162,7 +165,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		case !transcriptionModelPattern.MatchString(model):
 			fail(w, http.StatusBadRequest, "invalid_transcription_model")
 			return
-		case !transcriptionLanguagePattern.MatchString(language):
+		case !validTranscriptionLanguage(language):
 			fail(w, http.StatusBadRequest, "invalid_transcription_language")
 			return
 		}
@@ -232,7 +235,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 	if image == "" {
 		image = config.DefaultWorkerImage
 	}
-	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), installMode, installEndpoint, installModel, installLanguage)
+	registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", installMode, installEndpoint, installModel, installLanguage)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -252,17 +255,27 @@ func (s *Server) getWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	one := []workers.Worker{detail.Worker}
+	if err = s.withInstallProgress(r, one, true); err != nil {
+		s.internal(w, err)
+		return
+	}
+	detail.Install = one[0].Install
 	// The token is never readable: the deployment file carries a placeholder.
 	bundle, err := s.workerBundle(r, workers.Placeholder, "")
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{
+	result := map[string]any{
 		"id": detail.ID, "name": detail.Name, "max_concurrency": detail.MaxConcurrency, "reported_concurrency": detail.ReportedConcurrency,
-		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "connected": detail.Connected,
-		"models": detail.Models, "transcription_model": detail.TranscriptionModel, "machine": detail.Machine, "remote_address": detail.RemoteAddress, "recent_tasks": detail.RecentTasks, "bundle": bundle,
-	})
+		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "revoke_reason": detail.RevokeReason, "revocation_acknowledged_at": detail.RevocationAcknowledgedAt, "connected": detail.Connected,
+		"models": detail.Models, "transcription_model": detail.TranscriptionModel, "machine": detail.Machine, "remote_address": detail.RemoteAddress, "install": detail.Install, "transcription_config_ready": detail.TranscriptionConfigReady, "recent_tasks": detail.RecentTasks, "bundle": bundle,
+	}
+	if detail.TranscriptionConfig != nil {
+		result["transcription_config"] = detail.TranscriptionConfig
+	}
+	reply(w, http.StatusOK, result)
 }
 
 func (s *Server) putWorkerTranscriptionModel(w http.ResponseWriter, r *http.Request) {
@@ -322,7 +335,7 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 	if image == "" {
 		image = config.DefaultWorkerImage
 	}
-	registration.InstallCommand, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), mode, endpoint, model, language)
+	registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", mode, endpoint, model, language)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -331,9 +344,19 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
-	err := s.Workers.Revoke(r.Context(), r.PathValue("id"))
+	var input struct {
+		Reason string `json:"reason"`
+	}
+	if r.ContentLength != 0 && !decode(w, r, &input) {
+		return
+	}
+	err := s.Workers.Revoke(r.Context(), r.PathValue("id"), input.Reason)
 	if errors.Is(err, workers.ErrNotFound) {
 		fail(w, http.StatusNotFound, "worker_not_found")
+		return
+	}
+	if errors.Is(err, workers.ErrInvalidInput) {
+		fail(w, http.StatusBadRequest, "invalid_revoke_reason")
 		return
 	}
 	if err != nil {
@@ -341,6 +364,32 @@ func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// workerRevocation lets the local launcher learn that its identity is revoked. It is deliberately
+// outside workerOnly: a revoked token is accepted here and nowhere else, and the answer carries
+// no configuration and enables no action.
+func (s *Server) workerRevocation(w http.ResponseWriter, r *http.Request) {
+	authorization := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(authorization, "Bearer ")
+	if !strings.HasPrefix(authorization, "Bearer ") || token == "" || strings.ContainsAny(token, " \t\r\n") {
+		fail(w, http.StatusUnauthorized, "worker_token_required")
+		return
+	}
+	revoked, at, err := s.Workers.RevocationStatus(r.Context(), token)
+	if errors.Is(err, workers.ErrUnauthorized) {
+		fail(w, http.StatusUnauthorized, "worker_token_invalid")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !revoked {
+		reply(w, http.StatusOK, map[string]any{"revoked": false})
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"revoked": true, "revoked_at": at})
 }
 
 func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {

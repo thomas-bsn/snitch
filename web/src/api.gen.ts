@@ -687,7 +687,7 @@ export interface paths {
     get: operations["getWorker"];
     put?: never;
     post?: never;
-    /** @description Administrateurs uniquement. L’historique du worker est conservé. */
+    /** @description Administrateurs uniquement. Supprime le Worker : son jeton est révoqué immédiatement et pour toujours, ses tâches en cours reviennent aussitôt dans la file, ses résultats tardifs sont refusés, et seul l'audit minimal (nom, date, motif facultatif) est conservé. Le disque local n'est pas effacé. Une seconde suppression est sans effet et garde le premier audit. */
     delete: operations["revokeWorker"];
     options?: never;
     head?: never;
@@ -746,6 +746,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/worker/install/{code}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Lanceur d'installation Linux. L'invitation est à usage unique : consommée dès la demande acceptée ; 404 si inconnue ou expirée, 410 install_invite_used si déjà utilisée. Le script transporte le jeton durable du Worker, jamais redonné. */
+    get: operations["downloadWorkerInstaller"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/worker/pulse": {
     parameters: {
       query?: never;
@@ -756,6 +773,40 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["workerPulse"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/revocation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Confirmation étroite pour le Worker et son lanceur local, seul endroit où un jeton révoqué est accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une réponse révoquée est enregistrée comme confirmation : le Worker efface alors le contenu de son volume de modèles et cesse tout appel, le lanceur supprime le conteneur. Un 401 sans cette confirmation n'efface rien. Un jeton inconnu reçoit worker_token_invalid. */
+    get: operations["getWorkerRevocation"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/install-events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Événements d'installation envoyés par le lanceur avec le jeton du Worker. Chaque événement porte uniquement une phase, un statut, un code de cause stable et son horodatage d'origine : aucun texte libre, aucun secret. Les événements mis en file hors ligne arrivent plus tard avec leur horodatage d'origine et sont marqués « reçus plus tard ». Un lot invalide est refusé en entier (invalid_install_event). */
+    post: operations["postWorkerInstallEvents"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2269,7 +2320,8 @@ export interface components {
         | "admin_relaunched"
         | "cancelled"
         | "completed"
-        | "lease_expired";
+        | "lease_expired"
+        | "worker_revoked";
       cycle: number;
       attempt: number | null;
       /** @enum {string} */
@@ -2337,6 +2389,7 @@ export interface components {
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
+      install?: components["schemas"]["WorkerInstall"];
       machine?: components["schemas"]["WorkerMachine"];
       /** @description Adresse IP de connexion observée par Snitch, sans port. */
       remote_address?: string;
@@ -2350,9 +2403,97 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       revoked_at: string | null;
+      /** @description Motif facultatif de suppression, conservé dans l'audit minimal. */
+      revoke_reason: string;
+      /**
+       * Format: date-time
+       * @description Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
+       */
+      revocation_acknowledged_at: string | null;
       connected: boolean;
       /** @description Modèles déclarés par le worker à son dernier pouls, visibles des administrateurs. Un rôle absent est « non déclaré ». */
       models?: components["schemas"]["WorkerModels"];
+    };
+    /** @enum {string} */
+    WorkerInstallPhase:
+      | "prerequisites"
+      | "registration"
+      | "image"
+      | "permissions"
+      | "gpu"
+      | "voice-models"
+      | "voice-test"
+      | "service";
+    /**
+     * @description Codes de cause stables du lanceur.
+     * @enum {string}
+     */
+    WorkerInstallCause:
+      | "unsupported_platform"
+      | "docker_unavailable"
+      | "registration_rejected"
+      | "network_unreachable"
+      | "image_pull_failed"
+      | "volume_not_writable"
+      | "hf_cache_not_writable"
+      | "gpu_unavailable"
+      | "service_start_failed"
+      | "hf_access_denied"
+      | "unknown";
+    WorkerInstallEventInput: {
+      phase: components["schemas"]["WorkerInstallPhase"];
+      /** @enum {string} */
+      status: "started" | "succeeded" | "failed";
+      /** @description Obligatoire (un code de WorkerInstallCause) si le statut est failed, vide sinon. */
+      cause_code?: string;
+      /**
+       * Format: date-time
+       * @description Horodatage d'origine, conservé même si l'événement a été mis en file hors ligne.
+       */
+      occurred_at: string;
+    };
+    WorkerInstallEvent: {
+      phase: components["schemas"]["WorkerInstallPhase"];
+      /** @enum {string} */
+      status: "started" | "succeeded" | "failed";
+      cause_code: string;
+      /** Format: date-time */
+      occurred_at: string;
+      /** Format: date-time */
+      received_at: string;
+      /** @description Vrai si l'événement a été mis en file hors ligne et reçu longtemps après son horodatage d'origine. */
+      received_later: boolean;
+    };
+    WorkerInstallVoice: {
+      /**
+       * @description ready seulement après une inférence synthétique réussie.
+       * @enum {string}
+       */
+      state: "pending" | "ready" | "unavailable";
+      cause_code: string;
+    };
+    /** @description Progression d'installation, indépendante de la transcription (transcription_config) et de la voix (voice). */
+    WorkerInstall: {
+      /**
+       * @description connected = premier pouls ; voice_ready = connecté et inférence synthétique réussie ; never_connected = aucun pouls après 24 h.
+       * @enum {string}
+       */
+      state:
+        | "installing"
+        | "connected"
+        | "voice_ready"
+        | "failed"
+        | "never_connected";
+      failed_phase: string;
+      cause_code: string;
+      voice: components["schemas"]["WorkerInstallVoice"];
+      last_event: components["schemas"]["WorkerInstallEvent"] | null;
+      /** Format: date-time */
+      last_activity_at: string | null;
+      /** @description Absence de nouvelles, distincte du dernier événement reçu. */
+      no_news: boolean;
+      /** @description Historique récent (fiche détaillée seulement). */
+      events?: components["schemas"]["WorkerInstallEvent"][];
     };
     /** @description Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs ressemblant à un secret sont refusées. */
     WorkerModels: {
@@ -2377,6 +2518,7 @@ export interface components {
     };
     WorkerTranscriptionProfile: {
       model: string;
+      /** @description Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). */
       language: string;
     };
     WorkerRecentTask: {
@@ -2399,6 +2541,7 @@ export interface components {
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
+      install?: components["schemas"]["WorkerInstall"];
       machine?: components["schemas"]["WorkerMachine"];
       /** @description Adresse IP de connexion observée par Snitch, sans port. */
       remote_address?: string;
@@ -2412,6 +2555,13 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       revoked_at: string | null;
+      /** @description Motif facultatif de suppression, conservé dans l'audit minimal. */
+      revoke_reason: string;
+      /**
+       * Format: date-time
+       * @description Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
+       */
+      revocation_acknowledged_at: string | null;
       connected: boolean;
       models?: components["schemas"]["WorkerModels"];
       /** @description Dernières tâches de ce worker, une ligne par tâche, la plus récente d'abord. */
@@ -2432,8 +2582,13 @@ export interface components {
       revoked_at: string | null;
       token: string;
       bundle: components["schemas"]["WorkerBundle"];
-      /** @description Commande d'installation Linux à copier une fois ; le code d'invitation éphémère n'est pas le jeton du Worker. */
+      /** @description Commande d'installation Linux à copier une fois ; le code d'invitation éphémère (usage unique, 15 minutes) n'est pas le jeton du Worker. Absente si install_command_unavailable est présent. */
       install_command?: string;
+      /**
+       * @description Raison pour laquelle aucune commande n'a été générée : insecure_origin (adresse http:// sans choix explicite) ou invalid_origin (adresse publique inutilisable).
+       * @enum {string}
+       */
+      install_command_unavailable?: "insecure_origin" | "invalid_origin";
     };
     /** @description Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton. */
     WorkerBundle: {
@@ -2492,6 +2647,7 @@ export interface components {
       mode: "enabled" | "disabled";
       endpoint: string;
       model: string;
+      /** @description Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). Ignoré si mode vaut disabled. */
       language: string;
       profile?: components["schemas"]["TranscriptionPipeline"];
     };
@@ -2509,6 +2665,7 @@ export interface components {
       /** @enum {string} */
       provider: "openai-compatible";
       model: string;
+      /** @description Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). */
       language: string;
       /** @enum {string} */
       preparation: "wav-16khz-mono-v1";
@@ -5448,7 +5605,10 @@ export interface operations {
   };
   registerWorker: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin. */
+        allow_insecure_install?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -5567,7 +5727,13 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": {
+          reason?: string;
+        };
+      };
+    };
     responses: {
       /** @description Jeton révoqué */
       204: {
@@ -5589,7 +5755,10 @@ export interface operations {
   };
   renewWorkerToken: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin. */
+        allow_insecure_install?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -5601,7 +5770,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Nouveau jeton, montré une seule fois ; l'ancien cesse de fonctionner */
+      /** @description Jeton perdu : l'identité actuelle est révoquée (tâches en cours remises en file, invitations non consommées supprimées, audit minimal conservé) et une nouvelle identité est créée avec sa commande d'installation à usage unique ; le jeton et la commande sont montrés une seule fois. L'id de la réponse est celui de la nouvelle identité. */
       201: {
         headers: {
           [name: string]: unknown;
@@ -5771,6 +5940,37 @@ export interface operations {
       };
     };
   };
+  downloadWorkerInstaller: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        code: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Script shell */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/x-shellscript": string;
+        };
+      };
+      /** @description Invitation inconnue, expirée ou déjà utilisée */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   workerPulse: {
     parameters: {
       query?: never;
@@ -5794,6 +5994,72 @@ export interface operations {
         };
       };
       /** @description Jeton invalide ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerRevocation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de révocation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            revoked: boolean;
+            /** Format: date-time */
+            revoked_at?: string;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerInstallEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          events: components["schemas"]["WorkerInstallEventInput"][];
+        };
+      };
+    };
+    responses: {
+      /** @description Événements enregistrés */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

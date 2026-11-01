@@ -23,7 +23,8 @@ class WorkerTranscriptionProfile:
     """
         Attributes:
             model (str):
-            language (str):
+            language (str): Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper
+                tels quels, par exemple jw pour le javanais, haw, yue).
      """
 
     model: str

@@ -11,6 +11,7 @@ from ... import errors
 from ...models.error import Error
 from ...models.worker_registration import WorkerRegistration
 from ...models.worker_registration_input import WorkerRegistrationInput
+from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -18,6 +19,7 @@ from typing import cast
 def _get_kwargs(
     *,
     body: WorkerRegistrationInput,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -31,11 +33,18 @@ def _get_kwargs(
 
 
 
+    params: dict[str, Any] = {}
+
+    params["allow_insecure_install"] = allow_insecure_install
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
 
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/api/admin/workers",
+        "params": params,
     }
 
     _kwargs["json"] = body.to_dict()
@@ -76,6 +85,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: WorkerRegistrationInput,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -83,6 +93,7 @@ def sync_detailed(
     """  Administrateurs uniquement.
 
     Args:
+        allow_insecure_install (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
         body (WorkerRegistrationInput):
@@ -98,6 +109,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+allow_insecure_install=allow_insecure_install,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -113,6 +125,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: WorkerRegistrationInput,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -120,6 +133,7 @@ def sync(
     """  Administrateurs uniquement.
 
     Args:
+        allow_insecure_install (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
         body (WorkerRegistrationInput):
@@ -136,6 +150,7 @@ def sync(
     return sync_detailed(
         client=client,
 body=body,
+allow_insecure_install=allow_insecure_install,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -145,6 +160,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: WorkerRegistrationInput,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -152,6 +168,7 @@ async def asyncio_detailed(
     """  Administrateurs uniquement.
 
     Args:
+        allow_insecure_install (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
         body (WorkerRegistrationInput):
@@ -167,6 +184,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+allow_insecure_install=allow_insecure_install,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -182,6 +200,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: WorkerRegistrationInput,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -189,6 +208,7 @@ async def asyncio(
     """  Administrateurs uniquement.
 
     Args:
+        allow_insecure_install (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
         body (WorkerRegistrationInput):
@@ -205,6 +225,7 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 body=body,
+allow_insecure_install=allow_insecure_install,
 origin=origin,
 x_csrf_token=x_csrf_token,
 

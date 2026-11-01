@@ -33,6 +33,7 @@ export const fr: Messages = {
       cancelled: "Annulée",
       completed: "Terminée",
       lease_expired: "Bail expiré",
+      worker_revoked: "Worker supprimé, tâche remise en file",
     },
     schedule: "Planifier une tâche",
     clip: "ID du clip",
@@ -172,6 +173,9 @@ export const fr: Messages = {
       "Version {version}. Les résultats existants restent inchangés ; le retraitement se fait à la demande.",
     model: "Modèle de la bibliothèque",
     language: "Langue",
+    languageSearch: "Rechercher par nom ou code",
+    languageShowAll: "Afficher toutes les langues",
+    languageEmpty: "Aucune langue trouvée.",
     vad: "Détection de parole",
     mode: "Mode de détection",
     off: "Désactivée",
@@ -765,6 +769,106 @@ export const fr: Messages = {
       revoked: "Révoqué",
     },
     never: "Jamais",
+    install: {
+      title: "Installation",
+      column: "Installation",
+      state: {
+        installing: "Installation en cours",
+        connected: "Connecté",
+        voice_ready: "Voix prête",
+        failed: "Échec",
+        never_connected: "Jamais connecté",
+      },
+      stateHint: {
+        installing: "En attente du premier pouls du Worker.",
+        connected: "Le Worker a envoyé son premier pouls.",
+        voice_ready: "Le Worker a réussi un test vocal synthétique.",
+        failed:
+          "L’installation s’est arrêtée à une étape. Voir l’action de reprise ci-dessous.",
+        never_connected:
+          "Aucun pouls depuis plus de 24 heures après la création. Supprimez ce Worker et générez une nouvelle commande.",
+      },
+      phase: {
+        prerequisites: "Prérequis",
+        registration: "Enregistrement",
+        image: "Image",
+        permissions: "Permissions",
+        gpu: "GPU",
+        "voice-models": "Modèles vocaux",
+        "voice-test": "Test vocal",
+        service: "Service",
+      },
+      status: {
+        started: "démarré",
+        succeeded: "réussi",
+        failed: "échec",
+      },
+      cause: {
+        unsupported_platform: "Système non pris en charge",
+        docker_unavailable: "Docker indisponible",
+        registration_rejected: "Jeton refusé",
+        network_unreachable: "Snitch injoignable",
+        image_pull_failed: "Téléchargement de l’image impossible",
+        volume_not_writable: "Volume de modèles non inscriptible",
+        hf_cache_not_writable: "Cache Hugging Face non inscriptible",
+        gpu_unavailable: "GPU inaccessible à Docker",
+        service_start_failed: "Le service ne démarre pas",
+        hf_access_denied: "Accès Hugging Face refusé",
+        unknown: "Cause inconnue",
+      },
+      recovery: {
+        unsupported_platform: "Lancez la commande sur une machine Linux.",
+        docker_unavailable:
+          "Installez et démarrez Docker Engine, donnez accès à cet utilisateur, puis relancez la commande.",
+        registration_rejected:
+          "Générez une nouvelle commande d’installation : ce jeton a été révoqué ou remplacé.",
+        network_unreachable:
+          "Vérifiez le réseau et l’adresse de Snitch depuis la machine, puis relancez la commande.",
+        image_pull_failed:
+          "Vérifiez le réseau et l’accès au registre, puis relancez la commande.",
+        volume_not_writable:
+          "Vérifiez les droits du stockage Docker pour l’UID 10001, puis relancez la commande.",
+        hf_cache_not_writable:
+          "Supprimez le volume de modèles seulement s’il ne contient aucun modèle utile, puis relancez la commande.",
+        gpu_unavailable:
+          "Installez NVIDIA Container Toolkit pour Docker, redémarrez Docker, puis relancez la commande.",
+        service_start_failed:
+          "Consultez les journaux Docker sur la machine, puis relancez la commande.",
+        hf_access_denied:
+          "Vérifiez le jeton Hugging Face et les conditions du modèle, puis relancez la commande. La transcription n’est pas touchée.",
+        unknown:
+          "Consultez la sortie du terminal sur la machine, puis relancez la commande.",
+      },
+      failedAt: "Échec à l’étape {phase} : {cause}",
+      recovery_label: "Action de reprise",
+      lastEvent: "Dernier événement",
+      lastEventValue: "{phase}, {status}",
+      occurredAt: "survenu {date}",
+      receivedLater: "reçu plus tard",
+      noEvent: "Aucun événement d’installation reçu pour l’instant.",
+      noNews: "Pas de nouvelles depuis {date}",
+      noNewsNever: "Pas de nouvelles depuis la création du Worker",
+      newsOk: "Des nouvelles ont été reçues récemment",
+      news: "Nouvelles",
+      history: "Historique des événements",
+      transcription: "Transcription",
+      transcriptionState: {
+        active: "Configuration active",
+        error: "Test de configuration en échec",
+        waiting: "Pas encore validée (cela ne bloque pas l’installation)",
+      },
+      transcriptionError: {
+        connection_failed:
+          "Le Worker ne joint pas le service de transcription.",
+        model_missing: "Le modèle de transcription est absent.",
+      },
+      voice: "Voix",
+      voiceState: {
+        ready: "Prête (inférence synthétique réussie)",
+        unavailable: "Indisponible : {cause}",
+        pending: "Pas encore prête (aucun test synthétique réussi)",
+      },
+    },
     notDeclared: "Non déclaré",
     models: {
       transcription: "Transcription",
@@ -806,23 +910,31 @@ export const fr: Messages = {
         "Placez les deux fichiers dans un même dossier de la machine, puis lancez docker compose up -d.",
       tokenHidden:
         "Le jeton n’est jamais réaffiché. Les fichiers ci-dessous contiennent un emplacement : générez un nouveau jeton pour obtenir des fichiers utilisables.",
-      regenerate: "Générer un nouveau jeton…",
-      regenerateTitle: "Générer un nouveau jeton ?",
+      regenerate: "Jeton perdu : remplacer ce Worker…",
+      regenerateTitle: "Remplacer ce Worker ?",
       regenerateBody:
-        "Le jeton actuel cesse de fonctionner immédiatement. Vous devrez poser les nouveaux fichiers sur la machine du Worker.",
-      regenerateConfirm: "Générer",
+        "Un jeton perdu est irrécupérable. Ce Worker est révoqué maintenant (ses tâches en cours reviennent dans la file, son historique est supprimé) et un nouveau Worker, avec une nouvelle identité et une commande d’installation à usage unique, est créé.",
+      regenerateConfirm: "Remplacer",
+      replacedTitle: "Worker de remplacement",
+      openReplacement: "Ouvrir le nouveau Worker",
       newToken:
-        "Nouveau jeton généré. Copiez les fichiers maintenant : le jeton ne sera plus affiché.",
-      revoke: "Révocation",
+        "Nouveau Worker créé. Copiez la commande maintenant : elle ne fonctionne qu’une fois et ne sera plus affichée.",
+      revoke: "Suppression",
       revokeBody:
-        "Un Worker révoqué ne peut plus prendre de tâches. Son historique est conservé.",
-      revokeButton: "Révoquer ce Worker…",
-      revokeTitle: "Révoquer {name} ?",
-      revokeConfirm: "Révoquer",
+        "Supprimer un Worker révoque son accès tout de suite et définitivement : ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. Seuls son nom, la date de suppression et le motif sont conservés. Quand le Worker détecte la suppression, il efface lui-même ses modèles et caches de son volume et cesse de contacter Snitch. Le volume Docker vide, le conteneur inactif et le dossier du lanceur restent sur sa machine : le conteneur ne peut pas les supprimer.",
+      revokeButton: "Supprimer ce Worker…",
+      revokeTitle: "Supprimer {name} ?",
+      revokeConfirm: "Supprimer",
       revokeConfirmBody:
-        "Ce Worker cessera de recevoir des tâches. Cette action est irréversible.",
+        "L’accès est révoqué immédiatement et ne peut pas être réactivé. À son prochain contact avec Snitch, le Worker efface lui-même ses modèles et caches puis devient inactif, sans commande à relancer. Il ne peut pas supprimer le volume Docker vide, son propre conteneur ni le dossier du lanceur : retirez-les sur la machine si vous le souhaitez. Si le Worker est hors ligne, il reste révoqué ici et le nettoyage local reste en attente jusqu’à son retour.",
+      revokeReason: "Motif (facultatif)",
       revokedNotice:
-        "Ce Worker a été révoqué le {date}. Il ne peut plus prendre de tâches.",
+        "Ce Worker a été supprimé le {date}. Son accès est révoqué définitivement.",
+      revokedReason: "Motif : {reason}",
+      cleanupPending:
+        "Nettoyage local en attente : le Worker n’a pas encore confirmé la révocation. Il effacera lui-même ses modèles et caches à son prochain contact avec Snitch.",
+      cleanupDone:
+        "La machine du Worker a confirmé la révocation le {date}. Un Worker en marche efface alors lui-même ses modèles et caches de son volume et cesse de contacter Snitch ; si seul le lanceur a confirmé, il a supprimé le conteneur et le volume garde son contenu. Hors de portée du conteneur, le volume Docker, le conteneur inactif (s’il n’a pas été supprimé) et le dossier du lanceur restent sur cette machine.",
     },
     create: {
       title: "Ajouter un Worker",
@@ -834,7 +946,13 @@ export const fr: Messages = {
       snitchHint:
         "Renseignée par Snitch depuis son adresse publique. Modifiez PUBLIC_URL dans le déploiement du serveur si nécessaire.",
       insecure:
-        "Cette adresse n’est pas en HTTPS et le Worker refuse le HTTP. Configurez l’adresse publique dans le déploiement du serveur Snitch.",
+        "Cette adresse n’est pas en HTTPS. Sans votre choix explicite ci-dessous, Snitch ne génère pas de commande d’installation. Configurez l’adresse publique dans le déploiement du serveur Snitch.",
+      allowInsecure:
+        "Autoriser une commande d’installation en HTTP non chiffré (réseau local de confiance uniquement)",
+      allowInsecureWarning:
+        "Attention : en HTTP, le script, le jeton du Worker et la référence de l’image circulent sans chiffrement. Toute personne sur le chemin réseau peut les lire ou les modifier. Activez ceci uniquement sur un réseau de confiance.",
+      insecureUnavailable:
+        "Aucune commande d’installation n’a été générée car l’adresse n’est pas en HTTPS. Cochez l’option HTTP non chiffré et créez de nouveau le Worker.",
       whisper: "Adresse du serveur Whisper",
       whisperHint:
         "Réglée dans Administration, Transcription. Cette adresse doit être accessible depuis la machine du Worker.",

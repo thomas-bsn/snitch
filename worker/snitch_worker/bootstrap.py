@@ -21,7 +21,7 @@ import os
 import sys
 from typing import Any, Callable, Mapping
 
-from snitch_worker import voice_manifest
+from snitch_worker import revocation, voice_manifest
 
 DIARIZATION_REPO = "pyannote/speaker-diarization-community-1"
 EMBEDDING_REPO = "pyannote/wespeaker-voxceleb-resnet34-LM"
@@ -36,21 +36,40 @@ def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _cause(error: BaseException) -> str:
-    """A fixed, readable cause. Never includes the exception text (it may echo the token)."""
+# Closed vocabulary shared with the installer launcher and the install-events contract.
+CAUSE_CODES = ("hf_access_denied", "network_unreachable", "volume_not_writable", "hf_cache_not_writable", "gpu_unavailable", "unknown")
+CAUSE_TEXT = {
+    "hf_access_denied": "access refused: check that the token is valid and that the model terms were accepted with the account that owns it",
+    "network_unreachable": "network unreachable (huggingface.co could not be contacted)",
+    "volume_not_writable": "models directory is not writable (mount it read-write for the first download)",
+    "hf_cache_not_writable": "the Hugging Face/Xet cache is not writable (check the models volume ownership)",
+    "gpu_unavailable": "no usable NVIDIA GPU for the voice models",
+    "unknown": "unexpected bootstrap error",
+}
+
+
+def cause_code(error: BaseException, environ: Mapping[str, str] | None = None) -> str:
+    """A stable code. Never derived from, nor containing, the exception text (it may echo the token)."""
     names = {cls.__name__ for cls in type(error).__mro__}
     status = getattr(getattr(error, "response", None), "status_code", None)
-    if "GatedRepoError" in names or status in (401, 403):
-        return "access refused: check that the token is valid and that the model terms were accepted with the account that owns it"
-    if "RepositoryNotFoundError" in names or status == 404:
-        return "model repository not found or not visible to this token (terms not accepted?)"
+    if "GatedRepoError" in names or "RepositoryNotFoundError" in names or status in (401, 403, 404):
+        return "hf_access_denied"
     if names & {"ConnectionError", "Timeout", "TimeoutError", "OfflineModeIsEnabled", "ConnectTimeout", "ReadTimeout", "gaierror"}:
-        return "network unreachable (huggingface.co could not be contacted)"
-    if names & {"PermissionError", "FileNotFoundError", "NotADirectoryError"} or getattr(error, "errno", None) in (1, 13, 30):
-        return "models directory is not writable (mount it read-write for the first download)"
-    if "ImportError" in names or "ModuleNotFoundError" in names:
-        return "huggingface_hub is not installed in this image"
-    return "unexpected error (" + type(error).__name__ + ")"
+        return "network_unreachable"
+    if names & {"PermissionError", "FileNotFoundError", "NotADirectoryError", "OSError"} and (
+        names & {"PermissionError", "FileNotFoundError", "NotADirectoryError"} or getattr(error, "errno", None) in (1, 13, 28, 30)
+    ):
+        env = os.environ if environ is None else environ
+        path = os.path.abspath(str(getattr(error, "filename", "") or ""))
+        cache_roots = [env.get("HF_XET_CACHE", ""), env.get("HF_HOME", ""), env.get("XDG_CACHE_HOME", "")]
+        if any(root and (path == root or path.startswith(root.rstrip("/") + "/")) for root in cache_roots):
+            return "hf_cache_not_writable"
+        return "volume_not_writable"
+    return "unknown"
+
+
+def _cause(error: BaseException, environ: Mapping[str, str] | None = None) -> str:
+    return CAUSE_TEXT[cause_code(error, environ)]
 
 
 def _paths(environ: Mapping[str, str]) -> tuple[str, str]:
@@ -83,6 +102,10 @@ def models_present(environ: Mapping[str, str]) -> bool:
     return True
 
 
+def _gpu_available() -> bool:  # pragma: no cover - host dependent
+    return os.path.exists("/dev/nvidiactl")
+
+
 def _default_downloader(**kwargs: Any) -> Any:  # pragma: no cover - needs network
     from huggingface_hub import snapshot_download  # lazy: only an opted-in download needs it
 
@@ -103,8 +126,14 @@ def run_bootstrap(
     downloader: Downloader | None = None,
     resolve_revision: RevisionResolver | None = None,
     log: Callable[[str], None] | None = None,
+    report: dict[str, str] | None = None,
+    gpu_available: Callable[[], bool] | None = None,
 ) -> str:
-    """Return a status: disabled, present, terms_not_confirmed, token_missing, downloaded, failed."""
+    """Return a status: disabled, present, terms_not_confirmed, token_missing, downloaded, failed.
+
+    ``report`` receives ``cause_code`` (one of CAUSE_CODES) when the status is ``failed``.
+    """
+    report = report if report is not None else {}
     token = environ.get("HF_TOKEN", "").strip()
 
     def say(message: str) -> None:
@@ -124,6 +153,10 @@ def run_bootstrap(
         say("voice models missing, not downloaded: HF_TOKEN is not set; voice steps stay provider_unavailable")
         return "token_missing"
 
+    if _truthy(environ.get("SNITCH_VOICE_REQUIRE_GPU")) and not (gpu_available or _gpu_available)():
+        report["cause_code"] = "gpu_unavailable"
+        say("no usable NVIDIA GPU: " + CAUSE_TEXT["gpu_unavailable"] + "; voice steps stay provider_unavailable")
+        return "failed"
     # Hugging Face reads its offline switch at import: allow network for this process only.
     if downloader is None:
         os.environ["HF_HUB_OFFLINE"] = "0"
@@ -140,14 +173,16 @@ def run_bootstrap(
         except BaseException as error:  # noqa: BLE001 - never let a library message through
             if isinstance(error, (KeyboardInterrupt, SystemExit)):
                 raise
-            say(f"download of {repo} failed: {_cause(error)}; the worker starts anyway, voice steps stay provider_unavailable")
+            report["cause_code"] = cause_code(error, environ)
+            say(f"download of {repo} failed: {CAUSE_TEXT[report['cause_code']]}; the worker starts anyway, voice steps stay provider_unavailable")
             return "failed"
         entries[key] = {"repo": repo, "revision": revision}
         say(f"downloaded {repo} at revision {revision}")
     try:
         voice_manifest.write_manifest(environ, entries)
     except OSError as error:
-        say(f"models downloaded but the version marker could not be written: {_cause(error)}")
+        report["cause_code"] = cause_code(error, environ)
+        say(f"models downloaded but the version marker could not be written: {CAUSE_TEXT[report['cause_code']]}")
         return "failed"
     say("voice models ready; the worker will run offline")
     return "downloaded"
@@ -172,6 +207,10 @@ def main(
     log: Callable[[str], None] | None = None,
 ) -> None:
     env = dict(os.environ if environ is None else environ)
+    if revocation.is_revoked(revocation.models_dir(env)):
+        # Deleted in Snitch: download nothing; the runner stays inert without any network call.
+        (exec_worker or _exec_worker)(worker_environment(env))
+        return
     try:
         run_bootstrap(env, downloader, resolve_revision, log)
     except Exception as error:  # noqa: BLE001 - the worker must start regardless
@@ -179,5 +218,32 @@ def main(
     (exec_worker or _exec_worker)(worker_environment(env))
 
 
-if __name__ == "__main__":
+def cli(
+    argv: list[str],
+    environ: Mapping[str, str] | None = None,
+    downloader: Downloader | None = None,
+    resolve_revision: RevisionResolver | None = None,
+    log: Callable[[str], None] | None = None,
+) -> int:
+    """Launcher entry points. ``check``: 0 when valid models are present. ``provision``: explicit
+    download; prints only ``cause=<code>`` on stdout and exits 1 when it failed."""
+    env = dict(os.environ if environ is None else environ)
+    if argv[:1] == ["check"]:
+        return 0 if models_present(env) else 1
+    if argv[:1] == ["provision"]:
+        report: dict[str, str] = {}
+        try:
+            status = run_bootstrap(env, downloader, resolve_revision, log, report)
+        except Exception as error:  # noqa: BLE001
+            report["cause_code"] = cause_code(error, env)
+            status = "failed"
+        if status == "failed":
+            print("cause=" + report.get("cause_code", "unknown"), flush=True)
+            return 1
+        return 0 if status in {"downloaded", "present"} else 2
     main()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(cli(sys.argv[1:]))

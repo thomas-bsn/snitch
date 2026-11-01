@@ -33,6 +33,7 @@ export const en = {
       cancelled: "Cancelled",
       completed: "Completed",
       lease_expired: "Lease expired",
+      worker_revoked: "Worker deleted, task requeued",
     },
     schedule: "Schedule task",
     clip: "Clip ID",
@@ -169,6 +170,9 @@ export const en = {
       "Version {version}. Existing results remain unchanged; reprocessing is on demand.",
     model: "Library model",
     language: "Language",
+    languageSearch: "Search by name or code",
+    languageShowAll: "Show all languages",
+    languageEmpty: "No language found.",
     vad: "Speech detection",
     mode: "Detection mode",
     off: "Off",
@@ -751,6 +755,105 @@ export const en = {
     },
     never: "Never",
     notDeclared: "Not declared",
+    install: {
+      title: "Installation",
+      column: "Installation",
+      state: {
+        installing: "Installing",
+        connected: "Connected",
+        voice_ready: "Voice ready",
+        failed: "Failed",
+        never_connected: "Never connected",
+      },
+      stateHint: {
+        installing: "Waiting for the first pulse of the Worker.",
+        connected: "The Worker sent its first pulse.",
+        voice_ready: "The Worker passed a synthetic voice test.",
+        failed:
+          "The installation stopped at a step. See the recovery action below.",
+        never_connected:
+          "No pulse for more than 24 hours since creation. Delete this Worker and generate a new command.",
+      },
+      phase: {
+        prerequisites: "Prerequisites",
+        registration: "Registration",
+        image: "Image",
+        permissions: "Permissions",
+        gpu: "GPU",
+        "voice-models": "Voice models",
+        "voice-test": "Voice test",
+        service: "Service",
+      },
+      status: {
+        started: "started",
+        succeeded: "succeeded",
+        failed: "failed",
+      },
+      cause: {
+        unsupported_platform: "Unsupported system",
+        docker_unavailable: "Docker unavailable",
+        registration_rejected: "Credential rejected",
+        network_unreachable: "Snitch unreachable",
+        image_pull_failed: "Image download failed",
+        volume_not_writable: "Model volume not writable",
+        hf_cache_not_writable: "Hugging Face cache not writable",
+        gpu_unavailable: "GPU unavailable to Docker",
+        service_start_failed: "Service did not start",
+        hf_access_denied: "Hugging Face access denied",
+        unknown: "Unknown cause",
+      },
+      recovery: {
+        unsupported_platform: "Run the command on a Linux machine.",
+        docker_unavailable:
+          "Install and start Docker Engine, give this user access, then rerun the command.",
+        registration_rejected:
+          "Generate a new installation command: this credential was revoked or replaced.",
+        network_unreachable:
+          "Check the network and the Snitch address on the machine, then rerun the command.",
+        image_pull_failed:
+          "Check the network and registry access, then rerun the command.",
+        volume_not_writable:
+          "Check Docker storage ownership for UID 10001, then rerun the command.",
+        hf_cache_not_writable:
+          "Remove the model volume only if it holds no models you need, then rerun the command.",
+        gpu_unavailable:
+          "Install NVIDIA Container Toolkit for Docker, restart Docker, then rerun the command.",
+        service_start_failed:
+          "Inspect the Docker logs on the machine, then rerun the command.",
+        hf_access_denied:
+          "Check the Hugging Face token and the model terms, then rerun the command. Transcription is not affected.",
+        unknown:
+          "Inspect the terminal output on the machine, then rerun the command.",
+      },
+      failedAt: "Failed at {phase}: {cause}",
+      recovery_label: "Recovery action",
+      lastEvent: "Latest event",
+      lastEventValue: "{phase}, {status}",
+      occurredAt: "happened {date}",
+      receivedLater: "received later",
+      noEvent: "No installation event received yet.",
+      noNews: "No news since {date}",
+      noNewsNever: "No news since the Worker was created",
+      newsOk: "News received recently",
+      news: "News",
+      history: "Event history",
+      transcription: "Transcription",
+      transcriptionState: {
+        active: "Configuration active",
+        error: "Configuration test failed",
+        waiting: "Not validated yet (this does not block the installation)",
+      },
+      transcriptionError: {
+        connection_failed: "The Worker cannot reach the transcription service.",
+        model_missing: "The transcription model is missing.",
+      },
+      voice: "Voice",
+      voiceState: {
+        ready: "Ready (synthetic inference passed)",
+        unavailable: "Unavailable: {cause}",
+        pending: "Not ready yet (no synthetic test passed)",
+      },
+    },
     models: {
       transcription: "Transcription",
       diarization: "Diarization",
@@ -791,23 +894,31 @@ export const en = {
         "Put both files in one folder on the machine, then run docker compose up -d.",
       tokenHidden:
         "The token is never shown again. The files below hold a placeholder: generate a new token to get working files.",
-      regenerate: "Generate a new token…",
-      regenerateTitle: "Generate a new token?",
+      regenerate: "Lost token: replace this Worker…",
+      regenerateTitle: "Replace this Worker?",
       regenerateBody:
-        "The current token stops working immediately. You will have to put the new files on the Worker's machine.",
-      regenerateConfirm: "Generate",
+        "A lost token cannot be recovered. This Worker is revoked now (its running tasks return to the queue, its history is removed) and a new Worker with a new identity and a single-use installation command is created.",
+      regenerateConfirm: "Replace",
+      replacedTitle: "Replacement Worker",
+      openReplacement: "Open the new Worker",
       newToken:
-        "New token generated. Copy the files now: the token will not be shown again.",
-      revoke: "Revoke",
+        "New Worker created. Copy the command now: it works once and is not shown again.",
+      revoke: "Delete",
       revokeBody:
-        "A revoked Worker can no longer take tasks. Its history stays.",
-      revokeButton: "Revoke this Worker…",
-      revokeTitle: "Revoke {name}?",
-      revokeConfirm: "Revoke",
+        "Deleting a Worker revokes its access at once and for good: its running tasks go back in the queue and its late results are refused. Only its name, deletion date and reason are kept. When the Worker detects the deletion, it erases its models and caches from its volume by itself and stops contacting Snitch. The empty Docker volume, the idle container and the launcher folder stay on its machine: the container cannot remove them.",
+      revokeButton: "Delete this Worker…",
+      revokeTitle: "Delete {name}?",
+      revokeConfirm: "Delete",
       revokeConfirmBody:
-        "This Worker will stop receiving tasks. You cannot undo this.",
+        "Access is revoked immediately and cannot be reactivated. At its next contact with Snitch, the Worker erases its models and caches by itself and goes idle, with no command to run. It cannot remove the empty Docker volume, its own container or the launcher folder: remove them on the machine if you wish. If the Worker is offline, it stays revoked here and local cleanup stays pending until it comes back.",
+      revokeReason: "Reason (optional)",
       revokedNotice:
-        "This Worker was revoked on {date}. It cannot take tasks any more.",
+        "This Worker was deleted on {date}. Its access is revoked for good.",
+      revokedReason: "Reason: {reason}",
+      cleanupPending:
+        "Local cleanup pending: the Worker has not confirmed the revocation yet. It erases its models and caches by itself at its next contact with Snitch.",
+      cleanupDone:
+        "The Worker's machine confirmed the revocation on {date}. A running Worker then erases its models and caches from its volume by itself and stops contacting Snitch; if only the launcher confirmed, it removed the container and the volume keeps its content. Out of the container's reach, the Docker volume, the idle container (unless removed) and the launcher folder stay on that machine.",
     },
     create: {
       title: "Add a Worker",
@@ -819,7 +930,13 @@ export const en = {
       snitchHint:
         "Filled in by Snitch from its public address. Change PUBLIC_URL in the server deployment if needed.",
       insecure:
-        "This address is not HTTPS and the Worker refuses plain HTTP. Configure the public address in the Snitch server deployment.",
+        "This address is not HTTPS. Without your explicit choice below, Snitch will not generate an installation command. Configure the public address in the Snitch server deployment.",
+      allowInsecure:
+        "Allow an installation command over plain HTTP (trusted local network only)",
+      allowInsecureWarning:
+        "Warning: over HTTP, the script, the Worker token and the image reference travel unencrypted. Anyone on the network path can read or alter them. Enable this only on a network you fully trust.",
+      insecureUnavailable:
+        "No installation command was generated because the address is not HTTPS. Tick the plain HTTP option and create the Worker again.",
       whisper: "Whisper server address",
       whisperHint:
         "Set in Administration, Transcription. This address must be reachable from the Worker machine.",

@@ -8,6 +8,7 @@ class JobEventEvent(StrEnum):
     LEASE_EXPIRED = "lease_expired"
     MARKED_DEAD = "marked_dead"
     RETRY_SCHEDULED = "retry_scheduled"
+    WORKER_REVOKED = "worker_revoked"
 
     def __str__(self) -> str:
         return str(self.value)

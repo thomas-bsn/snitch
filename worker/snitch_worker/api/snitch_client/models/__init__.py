@@ -51,6 +51,7 @@ from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .get_metadata_location_response_200 import GetMetadataLocationResponse200
 from .get_video_root_response_200 import GetVideoRootResponse200
+from .get_worker_revocation_response_200 import GetWorkerRevocationResponse200
 from .get_worker_transcription_config_response_200 import GetWorkerTranscriptionConfigResponse200
 from .get_worker_transcription_config_response_200_mode import GetWorkerTranscriptionConfigResponse200Mode
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
@@ -115,6 +116,7 @@ from .person_ref import PersonRef
 from .person_separation_input import PersonSeparationInput
 from .person_voice import PersonVoice
 from .person_voice_list import PersonVoiceList
+from .post_worker_install_events_body import PostWorkerInstallEventsBody
 from .post_worker_transcription_config_status_body import PostWorkerTranscriptionConfigStatusBody
 from .post_worker_transcription_config_status_body_error_code import PostWorkerTranscriptionConfigStatusBodyErrorCode
 from .post_worker_transcription_config_status_response_200 import PostWorkerTranscriptionConfigStatusResponse200
@@ -130,6 +132,7 @@ from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
 from .reprocess_clip_metadata_response_200 import ReprocessClipMetadataResponse200
 from .request_worker_transcription_test_response_200 import RequestWorkerTranscriptionTestResponse200
+from .revoke_worker_body import RevokeWorkerBody
 from .scan_source_body import ScanSourceBody
 from .scan_video_selection_body import ScanVideoSelectionBody
 from .scan_video_selection_response_200 import ScanVideoSelectionResponse200
@@ -256,6 +259,16 @@ from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
 from .worker_detail import WorkerDetail
 from .worker_failure_input import WorkerFailureInput
+from .worker_install import WorkerInstall
+from .worker_install_cause import WorkerInstallCause
+from .worker_install_event import WorkerInstallEvent
+from .worker_install_event_input import WorkerInstallEventInput
+from .worker_install_event_input_status import WorkerInstallEventInputStatus
+from .worker_install_event_status import WorkerInstallEventStatus
+from .worker_install_phase import WorkerInstallPhase
+from .worker_install_state import WorkerInstallState
+from .worker_install_voice import WorkerInstallVoice
+from .worker_install_voice_state import WorkerInstallVoiceState
 from .worker_job_input import WorkerJobInput
 from .worker_job_input_tracks_item import WorkerJobInputTracksItem
 from .worker_machine import WorkerMachine
@@ -270,6 +283,7 @@ from .worker_recent_task_kind import WorkerRecentTaskKind
 from .worker_recent_task_outcome import WorkerRecentTaskOutcome
 from .worker_registration import WorkerRegistration
 from .worker_registration_input import WorkerRegistrationInput
+from .worker_registration_install_command_unavailable import WorkerRegistrationInstallCommandUnavailable
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 from .worker_transcription_config import WorkerTranscriptionConfig
@@ -335,6 +349,7 @@ __all__ = (
     "GetEmbeddingIndexStatusResponse200",
     "GetMetadataLocationResponse200",
     "GetVideoRootResponse200",
+    "GetWorkerRevocationResponse200",
     "GetWorkerTranscriptionConfigResponse200",
     "GetWorkerTranscriptionConfigResponse200Mode",
     "HeartbeatWorkerJobResponse200",
@@ -399,6 +414,7 @@ __all__ = (
     "PersonSeparationInput",
     "PersonVoice",
     "PersonVoiceList",
+    "PostWorkerInstallEventsBody",
     "PostWorkerTranscriptionConfigStatusBody",
     "PostWorkerTranscriptionConfigStatusBodyErrorCode",
     "PostWorkerTranscriptionConfigStatusResponse200",
@@ -414,6 +430,7 @@ __all__ = (
     "Redirect",
     "ReprocessClipMetadataResponse200",
     "RequestWorkerTranscriptionTestResponse200",
+    "RevokeWorkerBody",
     "ScanSourceBody",
     "ScanVideoSelectionBody",
     "ScanVideoSelectionResponse200",
@@ -540,6 +557,16 @@ __all__ = (
     "WorkerClaim",
     "WorkerDetail",
     "WorkerFailureInput",
+    "WorkerInstall",
+    "WorkerInstallCause",
+    "WorkerInstallEvent",
+    "WorkerInstallEventInput",
+    "WorkerInstallEventInputStatus",
+    "WorkerInstallEventStatus",
+    "WorkerInstallPhase",
+    "WorkerInstallState",
+    "WorkerInstallVoice",
+    "WorkerInstallVoiceState",
     "WorkerJobInput",
     "WorkerJobInputTracksItem",
     "WorkerMachine",
@@ -554,6 +581,7 @@ __all__ = (
     "WorkerRecentTaskOutcome",
     "WorkerRegistration",
     "WorkerRegistrationInput",
+    "WorkerRegistrationInstallCommandUnavailable",
     "WorkerResultInput",
     "WorkerResultInputResult",
     "WorkerTranscriptionConfig",

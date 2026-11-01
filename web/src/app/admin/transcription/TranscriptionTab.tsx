@@ -9,6 +9,7 @@ import { Modal } from "../../components/Modal";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
 import { fetchWorkers, type Worker } from "../workers/workersApi";
+import { WhisperLanguageField } from "./WhisperLanguageField";
 
 type Pipeline = components["schemas"]["TranscriptionPipeline"];
 type Settings = components["schemas"]["TranscriptionSettingsState"];
@@ -315,12 +316,11 @@ export function TranscriptionTab() {
           value={config.model}
           onChange={(event) => change({ model: event.target.value })}
         />
-        <Field
+        <WhisperLanguageField
           label={t("transAdmin.language")}
           required={settings.mode !== "disabled"}
-          maxLength={32}
           value={config.language}
-          onChange={(event) => change({ language: event.target.value })}
+          onChange={(language) => change({ language })}
         />
         <details className="rounded-lg border border-line p-4">
           <summary className="cursor-pointer font-medium">

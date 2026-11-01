@@ -63,7 +63,13 @@ func TestFoundation(t *testing.T) {
 	if err != nil || len(replay) != 0 {
 		t.Fatal("migration replay", err)
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+	// Fixed small pool: CI runners have 4 CPUs (pgx default), laptops more. Pool-exhaustion deadlocks must reproduce everywhere.
+	poolConfig, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	poolConfig.MaxConns = 4
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,6 +316,26 @@ func TestFoundation(t *testing.T) {
 	t.Run("worker authentication and registration", func(t *testing.T) {
 		reset(t)
 		testWorkerRegistration(t, pool)
+	})
+	t.Run("worker install invitation", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallInvitation(t, pool)
+	})
+	t.Run("worker revocation", func(t *testing.T) {
+		reset(t)
+		testWorkerRevocation(t, pool)
+	})
+	t.Run("worker install progress", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallProgress(t, pool)
+	})
+	t.Run("worker install never connected and silence", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallNeverConnectedAndSilence(t, pool)
+	})
+	t.Run("worker install refuses insecure origin", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallRefusesInsecureOrigin(t, pool)
 	})
 	t.Run("worker declared models", func(t *testing.T) {
 		reset(t)
@@ -594,6 +620,7 @@ func TestFoundation(t *testing.T) {
 		}
 		workerToken = contractWorker.Token
 		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.synthetic"}}, "", 200)
+		call(client, "POST", "/api/worker/install-events", map[string]any{"events": []map[string]any{{"phase": "service", "status": "succeeded", "occurred_at": time.Now().UTC().Format(time.RFC3339)}}}, "", 204)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {
 			LeaseToken string `json:"lease_token"`
@@ -772,7 +799,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") {
+				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" {
 					continue // These contract operations are covered by their upload, search, worker, member, account, embedding and transcription suites.
 				}
 				if !seen[method+" "+path] {

@@ -115,7 +115,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_transcription_pipeline:
     "Ces réglages de transcription ne sont pas valides.",
   invalid_transcription_settings:
-    "Saisissez une URL Whisper/Speaches, un modèle et une langue valides.",
+    "Saisissez une URL Whisper/Speaches et un modèle valides, et choisissez une langue dans la liste.",
   invalid_transcription_config_status:
     "L'état de configuration du Worker est invalide.",
   stale_transcription_config:
@@ -138,12 +138,14 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker: "Ce Worker n’est pas valide.",
   invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
+  invalid_revoke_reason:
+    "Le motif doit faire 200 caractères au plus, sur une seule ligne.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
   clip_delete_failed:
     "La vidéo ne peut pas être supprimée complètement. Vérifiez les fichiers et les permissions, puis réessayez.",
   super_administrator_required: "Seul le Super-administrateur peut faire cela.",
   invalid_transcription_language:
-    "Ce code de langue n’est pas valide (deux ou trois lettres minuscules, par exemple fr).",
+    "Choisissez une des langues prises en charge par Whisper, par son code (par exemple fr).",
   invalid_transcription_model: "Ce nom de modèle n’est pas valide.",
   invalid_transcription_url:
     "Cette adresse Whisper n’est pas valide. Utilisez une adresse http ou https sans identifiants.",
@@ -211,6 +213,9 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "L’accès aux modèles de voix n’a pas été confirmé.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
   worker_not_found: "Ce Worker n’existe pas.",
+  install_invite_used:
+    "Cette invitation d’installation a déjà été utilisée. Générez une nouvelle commande dans Admin > Workers.",
+  invalid_install_event: "Cet événement d’installation n’est pas valide.",
   worker_token_invalid: "Ce jeton de Worker n’est pas valide.",
   worker_token_required: "Un jeton de Worker est requis.",
 };
