@@ -266,7 +266,8 @@ func (s *Server) serveWorkerInstall(w http.ResponseWriter, r *http.Request) {
 	err = tx.QueryRow(r.Context(), `UPDATE worker_install_invites i SET used_at=now() FROM workers w WHERE w.id=i.worker_id AND i.code_hash=$1 AND i.used_at IS NULL AND i.expires_at>now() AND w.revoked_at IS NULL RETURNING i.worker_id,i.encrypted_token,i.api_url,i.image,i.transcription_mode,i.transcription_endpoint,i.transcription_model,i.transcription_language`, auth.Hash(code)).Scan(&workerID, &sealed, &apiURL, &image, &transcriptionMode, &transcriptionEndpoint, &transcriptionModel, &transcriptionLanguage)
 	if errors.Is(err, pgx.ErrNoRows) {
 		var used bool
-		if e := s.Pool.QueryRow(r.Context(), `SELECT used_at IS NOT NULL FROM worker_install_invites WHERE code_hash=$1`, auth.Hash(code)).Scan(&used); e == nil && used {
+		// Same transaction: a second pool connection here deadlocks the pool when concurrent losers hold all of them.
+		if e := tx.QueryRow(r.Context(), `SELECT used_at IS NOT NULL FROM worker_install_invites WHERE code_hash=$1`, auth.Hash(code)).Scan(&used); e == nil && used {
 			fail(w, http.StatusGone, "install_invite_used")
 			return
 		}

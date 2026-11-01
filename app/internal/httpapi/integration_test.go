@@ -63,7 +63,13 @@ func TestFoundation(t *testing.T) {
 	if err != nil || len(replay) != 0 {
 		t.Fatal("migration replay", err)
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+	// Fixed small pool: CI runners have 4 CPUs (pgx default), laptops more. Pool-exhaustion deadlocks must reproduce everywhere.
+	poolConfig, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	poolConfig.MaxConns = 4
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
