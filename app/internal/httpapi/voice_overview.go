@@ -31,7 +31,7 @@ type voiceInventory struct {
 	} `json:"active_models"`
 	WorkersTotal      int `json:"workers_total"`
 	WorkersVoiceReady int `json:"workers_voice_ready"`
-	// PendingVoiceJobs counts voice jobs waiting while no Worker is ready; zero otherwise.
+	// PendingVoiceJobs counts voice jobs waiting while no Worker is ready (real provider only); zero otherwise.
 	PendingVoiceJobs int                    `json:"pending_voice_jobs"`
 	Workers          []voiceInventoryWorker `json:"workers"`
 }
@@ -89,8 +89,9 @@ func (s *Server) getVoiceOverview(w http.ResponseWriter, r *http.Request) {
 		out.Workers = append(out.Workers, row)
 	}
 	out.WorkersTotal = len(live)
-	if out.WorkersVoiceReady == 0 {
-		if err = s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM jobs WHERE status='pending' AND step LIKE 'voice.%'`).Scan(&out.PendingVoiceJobs); err != nil {
+	// Only the steps Claim gates on a model can be blocked: the synthetic provider never waits.
+	if real && out.WorkersVoiceReady == 0 {
+		if err = s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM jobs WHERE status='pending' AND (step LIKE 'voice.diarization.%' OR step LIKE 'voice.fingerprint.%')`).Scan(&out.PendingVoiceJobs); err != nil {
 			s.internal(w, err)
 			return
 		}

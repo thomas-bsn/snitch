@@ -193,4 +193,10 @@ func testVoiceOverview(t *testing.T, pool *pgxpool.Pool) {
 	if failed.VoiceState != "unavailable" || failed.CauseCode != "gpu_unavailable" || o.WorkersVoiceReady != 0 || o.PendingVoiceJobs != 1 {
 		t.Fatalf("after a failed test: %+v / %+v", o, failed)
 	}
+
+	// The synthetic provider needs no model: its pending jobs are never blocked on a Worker.
+	h.putPipeline(fakePipeline(2))
+	if got := h.overview().PendingVoiceJobs; got != 0 {
+		t.Fatalf("with the synthetic provider %d jobs reported waiting", got)
+	}
 }

@@ -314,13 +314,15 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 	return nil
 }
 
-// Claim leases the highest-priority available task without exceeding the
-// worker's configured or currently reported concurrency.
-// For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
 // ActiveEmbeddingModel is the speaker embedding model every fingerprint job runs with. It is a
 // constant until the catalogue of voice models makes the embedder selectable.
 const ActiveEmbeddingModel = "pyannote/wespeaker-voxceleb-resnet34-LM"
 
+// Claim leases the highest-priority available task without exceeding the
+// worker's configured or currently reported concurrency.
+// For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
+// With the pyannote voice provider active, a voice job only goes to a worker that declares the
+// active model of its kind.
 func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -375,7 +377,8 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	// The real voice provider only runs on a Worker that holds the active models: a declaration
 	// naming another model, or none, never receives a voice job. The fake provider has no model.
 	var voiceProvider, diarizationModel string
-	if err = tx.QueryRow(ctx, `SELECT COALESCE(v.config->>'provider',''),COALESCE(v.config->>'model','') FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&voiceProvider, &diarizationModel); err != nil {
+	// A missing pipeline row must never stop transcription claims: no provider means no voice rule.
+	if err = tx.QueryRow(ctx, `SELECT COALESCE(v.config->>'provider',''),COALESCE(v.config->>'model','') FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&voiceProvider, &diarizationModel); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("read active voice pipeline for claim: %w", err)
 	}
 	// Build the job selection query. For transcription jobs, require matching active_version.
