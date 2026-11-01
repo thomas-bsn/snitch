@@ -106,7 +106,7 @@ export const errorsEn = {
   invalid_source_id: "This folder identifier is not valid.",
   invalid_transcription_pipeline: "These transcription settings are not valid.",
   invalid_transcription_settings:
-    "Enter a valid Whisper/Speaches URL, model and language.",
+    "Enter a valid Whisper/Speaches URL and model, and choose a language from the list.",
   invalid_transcription_config_status:
     "The Worker configuration status is invalid.",
   stale_transcription_config:
@@ -133,7 +133,7 @@ export const errorsEn = {
     "The video could not be deleted completely. Check its files and permissions, then retry.",
   super_administrator_required: "Only the Super-administrator can do this.",
   invalid_transcription_language:
-    "This language code is not valid (two or three lowercase letters, for example fr).",
+    "Choose one of the languages Whisper supports, by its code (for example fr).",
   invalid_transcription_model: "This model name is not valid.",
   invalid_transcription_url:
     "This Whisper address is not valid. Use an http or https address without credentials.",

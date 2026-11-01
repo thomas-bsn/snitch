@@ -4,7 +4,8 @@
 
 export const THEMES = ["light", "dark", "system"] as const;
 export type Theme = (typeof THEMES)[number];
-export const DEFAULT_THEME: Theme = "light";
+// Without a choice remembered on this device, the theme follows the device.
+export const DEFAULT_THEME: Theme = "system";
 
 export const LANGUAGES = ["en", "fr"] as const;
 export type Language = (typeof LANGUAGES)[number];

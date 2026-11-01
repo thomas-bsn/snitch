@@ -100,8 +100,7 @@ func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
 }
 
 var (
-	transcriptionLanguagePattern = regexp.MustCompile(`^[a-z]{2,3}$`)
-	transcriptionModelPattern    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,99}$`)
+	transcriptionModelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,99}$`)
 )
 
 // validWhisperURL accepts an http(s) address without credentials, query or fragment.
@@ -166,7 +165,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		case !transcriptionModelPattern.MatchString(model):
 			fail(w, http.StatusBadRequest, "invalid_transcription_model")
 			return
-		case !transcriptionLanguagePattern.MatchString(language):
+		case !validTranscriptionLanguage(language):
 			fail(w, http.StatusBadRequest, "invalid_transcription_language")
 			return
 		}

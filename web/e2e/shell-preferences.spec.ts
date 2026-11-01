@@ -104,7 +104,79 @@ test.describe.serial("langue et thème de la nouvelle interface", () => {
     await device.close();
   });
 
-  test("le thème clair est le défaut ; sombre et système s'appliquent et sont retenus", async ({
+  test("sans choix enregistré, le thème suit le système, dès le premier affichage", async ({
+    browser,
+  }) => {
+    for (const colorScheme of ["dark", "light"] as const) {
+      const context = await browser.newContext({
+        storageState: await sessionFor(MEMBER),
+        colorScheme,
+      });
+      const page = await context.newPage();
+      // Read before the application runs: the pre-paint script alone must get it right.
+      const firstPaint: string[] = [];
+      await page.exposeFunction("recordTheme", (value: string) =>
+        firstPaint.push(value),
+      );
+      await page.addInitScript(() => {
+        // The first theme set on <html>, i.e. by preferences-init.js before the app loads.
+        const observer = new MutationObserver(() => {
+          observer.disconnect();
+          (
+            window as unknown as { recordTheme: (value: string) => void }
+          ).recordTheme(
+            document.documentElement.getAttribute("data-theme") ?? "",
+          );
+        });
+        observer.observe(document, {
+          subtree: true,
+          attributeFilter: ["data-theme"],
+        });
+      });
+      await page.goto("/library");
+      const theme = () => page.locator("html").getAttribute("data-theme");
+      await expect.poll(theme).toBe(colorScheme);
+      expect(firstPaint).toEqual([colorScheme]);
+      // The account menu shows that the device is followed.
+      await page
+        .getByRole("button", { name: /Account menu|Menu du compte/ })
+        .click();
+      await expect(
+        page.getByRole("menuitemradio", { name: "System" }),
+      ).toBeChecked();
+      await page.keyboard.press("Escape");
+      // The device changing while the page is open is followed too.
+      const other = colorScheme === "dark" ? "light" : "dark";
+      await page.emulateMedia({ colorScheme: other });
+      await expect.poll(theme).toBe(other);
+      await context.close();
+    }
+  });
+
+  test("un thème déjà enregistré reste respecté, quel que soit le système", async ({
+    browser,
+  }) => {
+    for (const [stored, colorScheme] of [
+      ["light", "dark"],
+      ["dark", "light"],
+    ] as const) {
+      const context = await browser.newContext({
+        storageState: await sessionFor(MEMBER),
+        colorScheme,
+      });
+      await context.addInitScript((value) => {
+        localStorage.setItem("snitch-ui-theme", value);
+      }, stored);
+      const page = await context.newPage();
+      await page.goto("/library");
+      await expect
+        .poll(() => page.locator("html").getAttribute("data-theme"))
+        .toBe(stored);
+      await context.close();
+    }
+  });
+
+  test("sombre, clair et système s'appliquent et sont retenus", async ({
     browser,
   }) => {
     const context = await browser.newContext({

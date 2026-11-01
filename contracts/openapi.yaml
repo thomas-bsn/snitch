@@ -6372,7 +6372,8 @@
           },
           "language": {
             "type": "string",
-            "pattern": "^[a-z]{2,3}$"
+            "pattern": "^[a-z]{2,3}$",
+            "description": "Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue)."
           }
         }
       },
@@ -6746,7 +6747,7 @@
       },
       "TranscriptionSettingsInput": {
         "type": "object", "required": ["mode", "endpoint", "model", "language"],
-        "properties": {"mode": {"type": "string", "enum": ["enabled", "disabled"]}, "endpoint": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string"}, "profile": {"$ref": "#/components/schemas/TranscriptionPipeline"}}
+        "properties": {"mode": {"type": "string", "enum": ["enabled", "disabled"]}, "endpoint": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string", "description": "Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). Ignoré si mode vaut disabled."}, "profile": {"$ref": "#/components/schemas/TranscriptionPipeline"}}
       },
       "TranscriptionSettingsState": {
         "type": "object", "required": ["mode", "status", "endpoint", "model", "language", "version"],
@@ -6758,7 +6759,7 @@
         "properties": {
           "provider": {"type": "string", "enum": ["openai-compatible"]},
           "model": {"type": "string", "minLength": 1, "maxLength": 100},
-          "language": {"type": "string", "minLength": 1, "maxLength": 32},
+          "language": {"type": "string", "minLength": 1, "maxLength": 32, "description": "Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue)."},
           "preparation": {"type": "string", "enum": ["wav-16khz-mono-v1"]},
           "vad": {"type": "object", "required": ["mode", "version"], "properties": {"mode": {"type": "string", "enum": ["off", "energy"]}, "version": {"type": "string"}, "threshold": {"type": "number", "minimum": 0, "maximum": 1}, "min_speech_ms": {"type": "integer", "minimum": 1, "maximum": 5000}, "min_silence_ms": {"type": "integer", "minimum": 1, "maximum": 10000}, "padding_ms": {"type": "integer", "minimum": 0, "maximum": 2000}}}
         }

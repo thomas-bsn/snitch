@@ -4,11 +4,12 @@
 // src/app/preferences.ts.
 (function () {
   var root = document.documentElement;
-  var theme = "light";
+  // Without a remembered choice, the theme follows the device.
+  var theme = "system";
   var language = "en";
   try {
     var storedTheme = localStorage.getItem("snitch-ui-theme");
-    if (storedTheme === "dark" || storedTheme === "system") theme = storedTheme;
+    if (storedTheme === "light" || storedTheme === "dark") theme = storedTheme;
     var storedLanguage = localStorage.getItem("snitch-ui-language");
     if (storedLanguage === "fr") language = storedLanguage;
   } catch (e) {

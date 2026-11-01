@@ -6,6 +6,7 @@ import { ErrorAlert, StatusNotice } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
+import { whisperLanguageLabel } from "../transcription/whisperLanguages";
 import { DeploymentFiles } from "./DeploymentFiles";
 import {
   fetchWorkers,
@@ -23,7 +24,7 @@ export function WorkerCreateForm({
   onDone,
   secondaryAction,
 }: WorkerCreateFormProps) {
-  const { t, error } = useI18n();
+  const { t, error, language } = useI18n();
   const actions = useWorkerActions();
   const { state } = useLoaded(fetchWorkers);
   const [name, setName] = useState<string>();
@@ -183,7 +184,7 @@ export function WorkerCreateForm({
       <Field
         label={t("workers.create.language")}
         hint={t("workers.create.languageHint")}
-        value={enabled ? profile.language : ""}
+        value={enabled ? whisperLanguageLabel(profile.language, language) : ""}
         readOnly
       />
       <Link className="text-sm text-accent underline" to="/admin/transcription">

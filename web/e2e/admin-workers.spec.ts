@@ -114,7 +114,12 @@ test.describe.serial("administration et Workers", () => {
       .getByLabel("Whisper/Speaches server URL")
       .fill("http://host.docker.internal:8000");
     await page.getByLabel("Library model").fill("whisper-large-v3");
-    await page.getByLabel("Language").fill("fr");
+    const language = page.getByRole("combobox", { name: "Language" });
+    await language.fill("french");
+    await expect(
+      page.getByRole("option", { name: "French (fr)" }),
+    ).toHaveAttribute("data-highlighted", "");
+    await language.press("Enter");
     await page.getByRole("button", { name: "Save and version" }).click();
     await expect(
       page.getByText("Saved, not yet tested from a Worker."),
@@ -179,7 +184,7 @@ test.describe.serial("administration et Workers", () => {
     await expect(libraryModel).toHaveValue("whisper-large-v3");
     await expect(libraryModel).toHaveAttribute("readonly", "");
     const language = page.getByLabel("Language");
-    await expect(language).toHaveValue("fr");
+    await expect(language).toHaveValue("French (fr)");
     await expect(language).toHaveAttribute("readonly", "");
     await expectNoViolations(page);
 
@@ -263,7 +268,7 @@ test.describe.serial("administration et Workers", () => {
     await expect(libraryModel).toHaveValue("whisper-large-v3");
     await expect(libraryModel).toHaveAttribute("readonly", "");
     const language = page.getByLabel("Language");
-    await expect(language).toHaveValue("fr");
+    await expect(language).toHaveValue("French (fr)");
     await expect(language).toHaveAttribute("readonly", "");
     await expectNoViolations(page);
     await context.close();

@@ -1,8 +1,20 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 
 const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+/** Picks the library language in the searchable list, by keyboard: the first match is highlighted. */
+async function chooseLanguage(page: Page, search: string, option: string) {
+  const language = page.getByRole("combobox", { name: "Language" });
+  await language.fill(search);
+  await expect(page.getByRole("option", { name: option })).toHaveAttribute(
+    "data-highlighted",
+    "",
+  );
+  await language.press("Enter");
+  await expect(language).toHaveValue(option);
+}
 
 test("le profil de bibliothèque et le nom propre du Worker", async ({
   browser,
@@ -20,7 +32,7 @@ test("le profil de bibliothèque et le nom propre du Worker", async ({
     .getByLabel("Whisper/Speaches server URL")
     .fill("http://fixture:8000");
   await page.getByLabel("Library model").fill("library-model");
-  await page.getByLabel("Language").fill("fr");
+  await chooseLanguage(page, "fren", "French (fr)");
   await page.getByRole("button", { name: "Save and version" }).click();
   await expect(
     page.getByText("Saved, not yet tested from a Worker."),
@@ -116,7 +128,7 @@ test("bouton Test indisponible pour un Worker hors ligne", async ({
     .getByLabel("Whisper/Speaches server URL")
     .fill("http://fixture:8000");
   await page.getByLabel("Library model").fill("library-model");
-  await page.getByLabel("Language").fill("fr");
+  await chooseLanguage(page, "fren", "French (fr)");
   await page.getByRole("button", { name: "Save and version" }).click();
   await expect(
     page.getByText("Saved, not yet tested from a Worker."),
@@ -161,7 +173,7 @@ test("Workers synthétiques hors ligne", async ({ browser }) => {
     .getByLabel("Whisper/Speaches server URL")
     .fill("http://fixture:8000");
   await page.getByLabel("Library model").fill("library-model");
-  await page.getByLabel("Language").fill("fr");
+  await chooseLanguage(page, "fren", "French (fr)");
   await page.getByRole("button", { name: "Save and version" }).click();
 
   // Create two Workers to test different error states
@@ -192,5 +204,109 @@ test("Workers synthétiques hors ligne", async ({ browser }) => {
   expect(
     (await new AxeBuilder({ page }).withTags(tags).analyze()).violations,
   ).toEqual([]);
+  await context.close();
+});
+
+test("la langue de la bibliothèque se choisit dans la liste des langues de Whisper", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+  });
+  const page = await context.newPage();
+  await page.goto("/admin/transcription");
+  await page
+    .getByLabel("Whisper/Speaches server URL")
+    .fill("http://fixture:8000");
+  await page.getByLabel("Library model").fill("library-model");
+
+  // Opening the list shows every language Whisper supports, by name and code.
+  const language = page.getByRole("combobox", { name: "Language" });
+  await language.click();
+  await expect(language).toHaveAttribute("aria-expanded", "true");
+  const listbox = page.getByRole("listbox");
+  await expect(listbox.getByRole("option")).toHaveCount(100);
+  await expect(
+    listbox.getByRole("option", { name: "Hawaiian (haw)" }),
+  ).toBeVisible();
+  // While the list is open, Base UI hides the rest of the page from assistive technology
+  // (aria-hidden), so the open state is checked on the field and its list; the whole page
+  // is checked again once the list is closed.
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(tags)
+        .include('[role="combobox"]')
+        .include('[role="listbox"]')
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+
+  // The search matches the code as well as the name; nothing found is said.
+  await language.fill("yue");
+  await expect(listbox.getByRole("option")).toHaveCount(1);
+  await language.fill("klingon");
+  await expect(page.getByText("No language found.")).toBeVisible();
+  await language.press("Escape");
+  await expect(language).toHaveAttribute("aria-expanded", "false");
+  // Leaving without choosing puts back the saved choice (or nothing).
+  await expect(language).not.toHaveValue("klingon");
+
+  // Keyboard only: search, move, pick.
+  await language.fill("norw");
+  await expect(listbox.getByRole("option")).toHaveText([
+    "Norwegian (no)",
+    "Norwegian Nynorsk (nn)",
+  ]);
+  // The highlighted option is announced from the field (aria-activedescendant).
+  const highlighted = async (name: string) => {
+    const option = listbox.getByRole("option", { name });
+    await expect(option).toHaveAttribute("data-highlighted", "");
+    await expect(language).toHaveAttribute(
+      "aria-activedescendant",
+      (await option.getAttribute("id"))!,
+    );
+  };
+  await highlighted("Norwegian (no)");
+  await language.press("ArrowDown");
+  await highlighted("Norwegian Nynorsk (nn)");
+  await language.press("Enter");
+  await expect(language).toHaveValue("Norwegian Nynorsk (nn)");
+  await chooseLanguage(page, "canto", "Cantonese (yue)");
+  await page.getByRole("button", { name: "Save and version" }).click();
+  await expect(
+    page.getByText("Settings saved for future transcriptions."),
+  ).toBeVisible();
+  // The server receives the Whisper code.
+  const saved = await page.request.get("/api/admin/transcription-settings");
+  expect((await saved.json()).language).toBe("yue");
+  await page.reload();
+  await expect(language).toHaveValue("Cantonese (yue)");
+  expect(
+    (await new AxeBuilder({ page }).withTags(tags).analyze()).violations,
+  ).toEqual([]);
+
+  // Names follow the interface language (here in the dark theme).
+  await page.evaluate(() => {
+    localStorage.setItem("snitch-ui-language", "fr");
+    localStorage.setItem("snitch-ui-theme", "dark");
+  });
+  await page.reload();
+  const langue = page.getByRole("combobox", { name: "Langue" });
+  await expect(langue).toHaveValue("Cantonais (yue)");
+  await langue.fill("franç");
+  await expect(
+    page.getByRole("option", { name: "Français (fr)" }),
+  ).toBeVisible();
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(tags)
+        .include('[role="combobox"]')
+        .include('[role="listbox"]')
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await langue.press("Escape");
   await context.close();
 });
