@@ -918,20 +918,20 @@ export const fr: Messages = {
         "Nouveau Worker créé. Copiez la commande maintenant : elle ne fonctionne qu’une fois et ne sera plus affichée.",
       revoke: "Suppression",
       revokeBody:
-        "Supprimer un Worker révoque son accès tout de suite et définitivement : ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. Seuls son nom, la date de suppression et le motif sont conservés. Les fichiers et modèles de la machine du Worker ne sont pas effacés.",
+        "Supprimer un Worker révoque son accès tout de suite et définitivement : ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. Seuls son nom, la date de suppression et le motif sont conservés. Quand le Worker détecte la suppression, il efface lui-même ses modèles et caches de son volume et cesse de contacter Snitch. Le volume Docker vide, le conteneur inactif et le dossier du lanceur restent sur sa machine : le conteneur ne peut pas les supprimer.",
       revokeButton: "Supprimer ce Worker…",
       revokeTitle: "Supprimer {name} ?",
       revokeConfirm: "Supprimer",
       revokeConfirmBody:
-        "L’accès est révoqué immédiatement et ne peut pas être réactivé. Le disque de la machine du Worker n’est pas effacé : retirez vous-même le service, le volume et les modèles. Si le Worker est hors ligne, il reste révoqué ici et le nettoyage local reste en attente jusqu’au prochain lancement de son lanceur.",
+        "L’accès est révoqué immédiatement et ne peut pas être réactivé. À son prochain contact avec Snitch, le Worker efface lui-même ses modèles et caches puis devient inactif, sans commande à relancer. Il ne peut pas supprimer le volume Docker vide, son propre conteneur ni le dossier du lanceur : retirez-les sur la machine si vous le souhaitez. Si le Worker est hors ligne, il reste révoqué ici et le nettoyage local reste en attente jusqu’à son retour.",
       revokeReason: "Motif (facultatif)",
       revokedNotice:
         "Ce Worker a été supprimé le {date}. Son accès est révoqué définitivement.",
       revokedReason: "Motif : {reason}",
       cleanupPending:
-        "Nettoyage local en attente : le Worker n’a pas confirmé la révocation. Sa machine garde le service, le volume et les modèles jusqu’au prochain lancement du lanceur.",
+        "Nettoyage local en attente : le Worker n’a pas encore confirmé la révocation. Il effacera lui-même ses modèles et caches à son prochain contact avec Snitch.",
       cleanupDone:
-        "Le lanceur local a confirmé la révocation le {date} et arrêté le service. Le volume et les modèles de cette machine ne sont pas effacés.",
+        "La machine du Worker a confirmé la révocation le {date}. Un Worker en marche efface alors lui-même ses modèles et caches de son volume et cesse de contacter Snitch ; si seul le lanceur a confirmé, il a supprimé le conteneur et le volume garde son contenu. Hors de portée du conteneur, le volume Docker, le conteneur inactif (s’il n’a pas été supprimé) et le dossier du lanceur restent sur cette machine.",
     },
     create: {
       title: "Ajouter un Worker",

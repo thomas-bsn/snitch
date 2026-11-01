@@ -902,20 +902,20 @@ export const en = {
         "New Worker created. Copy the command now: it works once and is not shown again.",
       revoke: "Delete",
       revokeBody:
-        "Deleting a Worker revokes its access at once and for good: its running tasks go back in the queue and its late results are refused. Only its name, deletion date and reason are kept. Files and models on the Worker's machine are not erased.",
+        "Deleting a Worker revokes its access at once and for good: its running tasks go back in the queue and its late results are refused. Only its name, deletion date and reason are kept. When the Worker detects the deletion, it erases its models and caches from its volume by itself and stops contacting Snitch. The empty Docker volume, the idle container and the launcher folder stay on its machine: the container cannot remove them.",
       revokeButton: "Delete this Worker…",
       revokeTitle: "Delete {name}?",
       revokeConfirm: "Delete",
       revokeConfirmBody:
-        "Access is revoked immediately and cannot be reactivated. The disk of the Worker's machine is not erased: remove the service, volume and models there yourself. If the Worker is offline, it stays revoked here and local cleanup stays pending until its launcher runs again.",
+        "Access is revoked immediately and cannot be reactivated. At its next contact with Snitch, the Worker erases its models and caches by itself and goes idle, with no command to run. It cannot remove the empty Docker volume, its own container or the launcher folder: remove them on the machine if you wish. If the Worker is offline, it stays revoked here and local cleanup stays pending until it comes back.",
       revokeReason: "Reason (optional)",
       revokedNotice:
         "This Worker was deleted on {date}. Its access is revoked for good.",
       revokedReason: "Reason: {reason}",
       cleanupPending:
-        "Local cleanup pending: the Worker has not confirmed the revocation. Its machine keeps the service, volume and models until the launcher runs again.",
+        "Local cleanup pending: the Worker has not confirmed the revocation yet. It erases its models and caches by itself at its next contact with Snitch.",
       cleanupDone:
-        "The local launcher confirmed the revocation on {date} and stopped the service. The volume and models on that machine are not erased.",
+        "The Worker's machine confirmed the revocation on {date}. A running Worker then erases its models and caches from its volume by itself and stops contacting Snitch; if only the launcher confirmed, it removed the container and the volume keeps its content. Out of the container's reach, the Docker volume, the idle container (unless removed) and the launcher folder stay on that machine.",
     },
     create: {
       title: "Add a Worker",

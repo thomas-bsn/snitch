@@ -21,7 +21,7 @@ import os
 import sys
 from typing import Any, Callable, Mapping
 
-from snitch_worker import voice_manifest
+from snitch_worker import revocation, voice_manifest
 
 DIARIZATION_REPO = "pyannote/speaker-diarization-community-1"
 EMBEDDING_REPO = "pyannote/wespeaker-voxceleb-resnet34-LM"
@@ -207,6 +207,10 @@ def main(
     log: Callable[[str], None] | None = None,
 ) -> None:
     env = dict(os.environ if environ is None else environ)
+    if revocation.is_revoked(revocation.models_dir(env)):
+        # Deleted in Snitch: download nothing; the runner stays inert without any network call.
+        (exec_worker or _exec_worker)(worker_environment(env))
+        return
     try:
         run_bootstrap(env, downloader, resolve_revision, log)
     except Exception as error:  # noqa: BLE001 - the worker must start regardless

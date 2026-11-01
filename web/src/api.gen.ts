@@ -786,7 +786,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Confirmation étroite pour le lanceur local, seul endroit où un jeton révoqué est accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une réponse révoquée est enregistrée comme confirmation du lanceur, qui arrête alors le service. Un jeton inconnu reçoit worker_token_invalid. */
+    /** @description Confirmation étroite pour le Worker et son lanceur local, seul endroit où un jeton révoqué est accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une réponse révoquée est enregistrée comme confirmation : le Worker efface alors le contenu de son volume de modèles et cesse tout appel, le lanceur supprime le conteneur. Un 401 sans cette confirmation n'efface rien. Un jeton inconnu reçoit worker_token_invalid. */
     get: operations["getWorkerRevocation"];
     put?: never;
     post?: never;
@@ -2407,7 +2407,7 @@ export interface components {
       revoke_reason: string;
       /**
        * Format: date-time
-       * @description Date à laquelle le lanceur local a confirmé la révocation et arrêté le service. Absente : le nettoyage local reste en attente. Ne dit jamais que le disque local est effacé.
+       * @description Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
        */
       revocation_acknowledged_at: string | null;
       connected: boolean;
@@ -2558,7 +2558,7 @@ export interface components {
       revoke_reason: string;
       /**
        * Format: date-time
-       * @description Date à laquelle le lanceur local a confirmé la révocation et arrêté le service. Absente : le nettoyage local reste en attente. Ne dit jamais que le disque local est effacé.
+       * @description Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
        */
       revocation_acknowledged_at: string | null;
       connected: boolean;
