@@ -179,7 +179,7 @@ test.describe.serial("administration et Workers", () => {
     await expect(libraryModel).toHaveValue("whisper-large-v3");
     await expect(libraryModel).toHaveAttribute("readonly", "");
     const language = page.getByLabel("Language");
-    await expect(language).toHaveValue("fr");
+    await expect(language).toHaveValue("French (fr)");
     await expect(language).toHaveAttribute("readonly", "");
     await expectNoViolations(page);
 
@@ -263,7 +263,7 @@ test.describe.serial("administration et Workers", () => {
     await expect(libraryModel).toHaveValue("whisper-large-v3");
     await expect(libraryModel).toHaveAttribute("readonly", "");
     const language = page.getByLabel("Language");
-    await expect(language).toHaveValue("fr");
+    await expect(language).toHaveValue("French (fr)");
     await expect(language).toHaveAttribute("readonly", "");
     await expectNoViolations(page);
     await context.close();

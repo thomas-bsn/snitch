@@ -80,7 +80,7 @@ func (s *Server) putTranscriptionSettings(w http.ResponseWriter, r *http.Request
 		fail(w, http.StatusBadRequest, "invalid_transcription_settings")
 		return
 	}
-	if input.Mode == "enabled" && (!validWhisperURL(input.Endpoint) || !transcriptionModelPattern.MatchString(input.Model) || !transcriptionLanguagePattern.MatchString(input.Language)) {
+	if input.Mode == "enabled" && (!validWhisperURL(input.Endpoint) || !transcriptionModelPattern.MatchString(input.Model) || !validTranscriptionLanguage(input.Language)) {
 		fail(w, http.StatusBadRequest, "invalid_transcription_settings")
 		return
 	}

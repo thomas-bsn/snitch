@@ -2518,6 +2518,7 @@ export interface components {
     };
     WorkerTranscriptionProfile: {
       model: string;
+      /** @description Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). */
       language: string;
     };
     WorkerRecentTask: {
@@ -2646,6 +2647,7 @@ export interface components {
       mode: "enabled" | "disabled";
       endpoint: string;
       model: string;
+      /** @description Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). Ignoré si mode vaut disabled. */
       language: string;
       profile?: components["schemas"]["TranscriptionPipeline"];
     };
@@ -2663,6 +2665,7 @@ export interface components {
       /** @enum {string} */
       provider: "openai-compatible";
       model: string;
+      /** @description Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). */
       language: string;
       /** @enum {string} */
       preparation: "wav-16khz-mono-v1";

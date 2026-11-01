@@ -86,7 +86,7 @@ func (s *Server) putTranscriptionPipeline(w http.ResponseWriter, r *http.Request
 func validPipeline(p *transcriptionPipeline) bool {
 	p.Provider, p.Model, p.Language, p.Preparation = strings.TrimSpace(p.Provider), strings.TrimSpace(p.Model), strings.TrimSpace(p.Language), strings.TrimSpace(p.Preparation)
 	p.VAD.Mode, p.VAD.Version = strings.TrimSpace(p.VAD.Mode), strings.TrimSpace(p.VAD.Version)
-	if p.Provider != "openai-compatible" || p.Model == "" || len(p.Model) > 100 || p.Language == "" || p.Preparation != "wav-16khz-mono-v1" || (p.VAD.Mode != "off" && p.VAD.Mode != "energy") {
+	if p.Provider != "openai-compatible" || p.Model == "" || len(p.Model) > 100 || !validTranscriptionLanguage(p.Language) || p.Preparation != "wav-16khz-mono-v1" || (p.VAD.Mode != "off" && p.VAD.Mode != "energy") {
 		return false
 	}
 	if p.VAD.Mode == "energy" {

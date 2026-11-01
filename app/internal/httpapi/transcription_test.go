@@ -174,6 +174,17 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("unexpected saved settings: %+v", savedSettings)
 	}
 	call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://bad:8000/path?token=secret", "model": "fixture-model", "language": "fr"}, session.CSRF, http.StatusBadRequest)
+	// The library language is one of the languages Whisper supports, by its Whisper code.
+	for _, language := range []string{"en", "haw", "yue", "jw", "nn"} {
+		call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://fixture-whisper:8000", "model": "fixture-model", "language": language}, session.CSRF, http.StatusOK)
+	}
+	for _, language := range []string{"zz", "fra", "FR", "auto", "jv", ""} {
+		out := call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://fixture-whisper:8000", "model": "fixture-model", "language": language}, session.CSRF, http.StatusBadRequest)
+		if !bytes.Contains(out, []byte(`"invalid_transcription_settings"`)) {
+			t.Fatalf("language %q: %s", language, out)
+		}
+		call(admin, http.MethodPut, "/api/admin/transcription-pipeline", map[string]any{"provider": "openai-compatible", "model": "fixture-model", "language": language, "preparation": "wav-16khz-mono-v1", "vad": map[string]any{"mode": "off"}}, session.CSRF, http.StatusBadRequest)
+	}
 	var disabledSettings struct {
 		Mode     string `json:"mode"`
 		Status   string `json:"status"`

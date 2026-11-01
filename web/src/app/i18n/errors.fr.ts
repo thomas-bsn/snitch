@@ -115,7 +115,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_transcription_pipeline:
     "Ces réglages de transcription ne sont pas valides.",
   invalid_transcription_settings:
-    "Saisissez une URL Whisper/Speaches, un modèle et une langue valides.",
+    "Saisissez une URL Whisper/Speaches et un modèle valides, et choisissez une langue dans la liste.",
   invalid_transcription_config_status:
     "L'état de configuration du Worker est invalide.",
   stale_transcription_config:
@@ -145,7 +145,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "La vidéo ne peut pas être supprimée complètement. Vérifiez les fichiers et les permissions, puis réessayez.",
   super_administrator_required: "Seul le Super-administrateur peut faire cela.",
   invalid_transcription_language:
-    "Ce code de langue n’est pas valide (deux ou trois lettres minuscules, par exemple fr).",
+    "Choisissez une des langues prises en charge par Whisper, par son code (par exemple fr).",
   invalid_transcription_model: "Ce nom de modèle n’est pas valide.",
   invalid_transcription_url:
     "Cette adresse Whisper n’est pas valide. Utilisez une adresse http ou https sans identifiants.",
