@@ -891,13 +891,15 @@ export const en = {
         "Put both files in one folder on the machine, then run docker compose up -d.",
       tokenHidden:
         "The token is never shown again. The files below hold a placeholder: generate a new token to get working files.",
-      regenerate: "Generate a new token…",
-      regenerateTitle: "Generate a new token?",
+      regenerate: "Lost token: replace this Worker…",
+      regenerateTitle: "Replace this Worker?",
       regenerateBody:
-        "The current token stops working immediately. You will have to put the new files on the Worker's machine.",
-      regenerateConfirm: "Generate",
+        "A lost token cannot be recovered. This Worker is revoked now (its running tasks return to the queue, its history is removed) and a new Worker with a new identity and a single-use installation command is created.",
+      regenerateConfirm: "Replace",
+      replacedTitle: "Replacement Worker",
+      openReplacement: "Open the new Worker",
       newToken:
-        "New token generated. Copy the files now: the token will not be shown again.",
+        "New Worker created. Copy the command now: it works once and is not shown again.",
       revoke: "Delete",
       revokeBody:
         "Deleting a Worker revokes its access at once and for good: its running tasks go back in the queue and its late results are refused. Only its name, deletion date and reason are kept. Files and models on the Worker's machine are not erased.",
@@ -925,7 +927,13 @@ export const en = {
       snitchHint:
         "Filled in by Snitch from its public address. Change PUBLIC_URL in the server deployment if needed.",
       insecure:
-        "This address is not HTTPS and the Worker refuses plain HTTP. Configure the public address in the Snitch server deployment.",
+        "This address is not HTTPS. Without your explicit choice below, Snitch will not generate an installation command. Configure the public address in the Snitch server deployment.",
+      allowInsecure:
+        "Allow an installation command over plain HTTP (trusted local network only)",
+      allowInsecureWarning:
+        "Warning: over HTTP, the script, the Worker token and the image reference travel unencrypted. Anyone on the network path can read or alter them. Enable this only on a network you fully trust.",
+      insecureUnavailable:
+        "No installation command was generated because the address is not HTTPS. Tick the plain HTTP option and create the Worker again.",
       whisper: "Whisper server address",
       whisperHint:
         "Set in Administration, Transcription. This address must be reachable from the Worker machine.",

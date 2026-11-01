@@ -11,7 +11,11 @@ import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
 import { DeploymentFiles } from "./DeploymentFiles";
 import { InstallProgress } from "./InstallProgress";
-import { fetchWorker, useWorkerActions, type WorkerBundle } from "./workersApi";
+import {
+  fetchWorker,
+  useWorkerActions,
+  type WorkerRegistration,
+} from "./workersApi";
 import { ROLES, declaredModelText, workerStatus } from "./workerView";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -55,10 +59,12 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const { state, reload } = useLoaded(load);
   const [confirm, setConfirm] = useState<"token" | "revoke" | null>(null);
   const [reason, setReason] = useState("");
+  const [allowInsecure, setAllowInsecure] = useState(false);
+  const insecure = window.location.protocol !== "https:";
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
-  // Shown once: the files of a freshly generated token, dropped when the page is left.
-  const [fresh, setFresh] = useState<WorkerBundle>();
+  // Shown once: the replacement identity and its single-use command, dropped when the page is left.
+  const [fresh, setFresh] = useState<WorkerRegistration>();
   useDocumentTitle(
     state.status === "ready" ? state.value.name : t("workers.title"),
   );
@@ -95,11 +101,13 @@ export function WorkerDetailPage({ id }: { id: string }) {
   async function renew() {
     setBusy(true);
     setFailure(undefined);
-    const result = await actions.renewToken(id);
+    const result = await actions.renewToken(id, insecure && allowInsecure);
     setBusy(false);
     setConfirm(null);
-    if (result.ok) setFresh(result.value.bundle);
-    else setFailure(result.code);
+    if (result.ok) {
+      setFresh(result.value);
+      reload();
+    } else setFailure(result.code);
   }
 
   async function revoke() {
@@ -113,8 +121,6 @@ export function WorkerDetailPage({ id }: { id: string }) {
       reload();
     } else setFailure(result.code);
   }
-
-  const bundle = fresh ?? worker.bundle;
 
   return (
     <div className="flex flex-col gap-4">
@@ -278,20 +284,41 @@ export function WorkerDetailPage({ id }: { id: string }) {
         <p className="text-sm text-mute">{t("workers.machine.systemHint")}</p>
       </Section>
 
+      {fresh && (
+        <Section title={t("workers.detail.replacedTitle")}>
+          <p
+            role="status"
+            className="rounded-lg bg-warn-bg px-3 py-2.5 text-warn-fg"
+          >
+            {t("workers.detail.newToken")}
+          </p>
+          {!fresh.install_command && (
+            <ErrorAlert>{t("workers.create.insecureUnavailable")}</ErrorAlert>
+          )}
+          <textarea
+            readOnly
+            aria-label={t("workers.create.installCommand")}
+            value={fresh.install_command ?? ""}
+            rows={4}
+            className="w-full resize-y rounded-lg border border-line-strong bg-side p-3 font-mono text-xs text-ink"
+          />
+          <Link
+            to={`/admin/workers/${fresh.id}`}
+            className="text-accent-ink underline"
+          >
+            {t("workers.detail.openReplacement")}
+          </Link>
+        </Section>
+      )}
+
       {!revoked && (
         <Section title={t("workers.detail.deployment")}>
           <p className="text-mute">{t("workers.detail.deploymentLead")}</p>
-          {fresh ? (
-            <p
-              role="status"
-              className="rounded-lg bg-warn-bg px-3 py-2.5 text-warn-fg"
-            >
-              {t("workers.detail.newToken")}
-            </p>
-          ) : (
-            <p className="text-mute">{t("workers.detail.tokenHidden")}</p>
-          )}
-          <DeploymentFiles env={bundle.env} compose={bundle.compose} />
+          <p className="text-mute">{t("workers.detail.tokenHidden")}</p>
+          <DeploymentFiles
+            env={worker.bundle.env}
+            compose={worker.bundle.compose}
+          />
           <div>
             <button
               type="button"
@@ -329,6 +356,27 @@ export function WorkerDetailPage({ id }: { id: string }) {
         busy={busy}
       >
         <p>{t("workers.detail.regenerateBody")}</p>
+        {insecure && (
+          <>
+            <label className="mt-3 flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={allowInsecure}
+                onChange={(event) => setAllowInsecure(event.target.checked)}
+              />
+              <span>{t("workers.create.allowInsecure")}</span>
+            </label>
+            {allowInsecure && (
+              <p
+                role="alert"
+                className="mt-2 rounded-lg bg-bad-bg px-3 py-2.5 text-bad-fg"
+              >
+                {t("workers.create.allowInsecureWarning")}
+              </p>
+            )}
+          </>
+        )}
       </ConfirmDialog>
       <ConfirmDialog
         open={confirm === "revoke"}

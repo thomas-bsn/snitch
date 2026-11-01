@@ -220,19 +220,44 @@ func taskOutcome(event string) string {
 	return "started"
 }
 
-// RenewToken replaces the token of an active worker; the old one stops working at once.
+// RenewReason is the audit reason kept on an identity replaced after a lost token.
+const RenewReason = "token_renewed"
+
+// RenewToken answers a lost token: the token is unrecoverable, so the active identity is revoked
+// (running tasks return to the queue, unconsumed invitations are deleted, minimal audit kept) and
+// a new identity with the same name and concurrency is created, in one transaction. The caller
+// then issues a new single-use invitation for the new identity.
 func (s *Service) RenewToken(ctx context.Context, id string) (Registration, error) {
 	if !validID(id) {
 		return Registration{}, ErrNotFound
 	}
-	token := "rw_" + auth.Token()
-	var worker Worker
-	err := s.pool.QueryRow(ctx, `UPDATE workers SET token_hash=$2 WHERE id=$1 AND revoked_at IS NULL RETURNING id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at`, id, auth.Hash(token)).Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Registration{}, fmt.Errorf("begin worker renewal: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var name string
+	var maxConcurrency int
+	var revoked bool
+	err = tx.QueryRow(ctx, `SELECT name,max_concurrency,revoked_at IS NOT NULL FROM workers WHERE id=$1 FOR UPDATE`, id).Scan(&name, &maxConcurrency, &revoked)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && revoked) {
 		return Registration{}, ErrNotFound
 	}
 	if err != nil {
-		return Registration{}, fmt.Errorf("renew worker token: %w", err)
+		return Registration{}, fmt.Errorf("lock worker for renewal: %w", err)
+	}
+	if err = revokeTx(ctx, tx, id, RenewReason); err != nil {
+		return Registration{}, err
+	}
+	newID := "wk_" + auth.Token()[:28]
+	token := "rw_" + auth.Token()
+	var worker Worker
+	err = tx.QueryRow(ctx, `INSERT INTO workers(id,name,token_hash,max_concurrency) VALUES($1,$2,$3,$4) RETURNING id,name,max_concurrency,reported_concurrency,last_seen_at,created_at,revoked_at`, newID, name, auth.Hash(token), maxConcurrency).Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt)
+	if err != nil {
+		return Registration{}, fmt.Errorf("create replacement worker: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Registration{}, fmt.Errorf("commit worker renewal: %w", err)
 	}
 	return Registration{Worker: worker, Token: token}, nil
 }
@@ -294,6 +319,18 @@ func (s *Service) Revoke(ctx context.Context, id, reason string) error {
 		return fmt.Errorf("begin worker revocation: %w", err)
 	}
 	defer tx.Rollback(ctx)
+	if err = revokeTx(ctx, tx, id, reason); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit worker revocation: %w", err)
+	}
+	return nil
+}
+
+// revokeTx applies the revocation inside the caller's transaction.
+func revokeTx(ctx context.Context, tx pgx.Tx, id, reason string) error {
+	var err error
 	var already bool
 	if err = tx.QueryRow(ctx, `SELECT revoked_at IS NOT NULL FROM workers WHERE id=$1 FOR UPDATE`, id).Scan(&already); errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
@@ -322,9 +359,6 @@ func (s *Service) Revoke(ctx context.Context, id, reason string) error {
 		if _, err = tx.Exec(ctx, statement, id); err != nil {
 			return fmt.Errorf("delete revoked worker details: %w", err)
 		}
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit worker revocation: %w", err)
 	}
 	return nil
 }

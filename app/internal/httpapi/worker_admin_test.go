@@ -291,14 +291,24 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 	if err = json.Unmarshal(call(admin, http.MethodPost, "/api/admin/workers/"+first.ID+"/token", nil, me.CSRF, "", http.StatusCreated), &renewed); err != nil {
 		t.Fatal(err)
 	}
-	if renewed.ID != first.ID || !strings.HasPrefix(renewed.Token, "rw_") || renewed.Token == first.Token || !strings.Contains("\n"+renewed.Bundle.Env+"\n", "\nSNITCH_WORKER_TOKEN="+renewed.Token+"\n") {
+	if renewed.ID == first.ID || !strings.HasPrefix(renewed.Token, "rw_") || renewed.Token == first.Token || !strings.Contains("\n"+renewed.Bundle.Env+"\n", "\nSNITCH_WORKER_TOKEN="+renewed.Token+"\n") {
 		t.Fatalf("unexpected renewed token: %+v", renewed)
 	}
 	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"fixture.*"}}, "", first.Token, http.StatusUnauthorized)
 	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"fixture.*"}}, "", renewed.Token, http.StatusOK)
-	if bytes.Contains(call(admin, http.MethodGet, "/api/admin/workers/"+first.ID, nil, "", "", http.StatusOK), []byte(renewed.Token)) {
+	if bytes.Contains(call(admin, http.MethodGet, "/api/admin/workers/"+renewed.ID, nil, "", "", http.StatusOK), []byte(renewed.Token)) {
 		t.Fatal("the Worker detail exposed the new token")
 	}
+	// A lost token means a new identity: the old one is revoked with a minimal audit and cannot be renewed again.
+	var old struct {
+		RevokedAt    *string `json:"revoked_at"`
+		RevokeReason string  `json:"revoke_reason"`
+	}
+	if err = json.Unmarshal(call(admin, http.MethodGet, "/api/admin/workers/"+first.ID, nil, "", "", http.StatusOK), &old); err != nil || old.RevokedAt == nil || old.RevokeReason != "token_renewed" {
+		t.Fatalf("old identity must be revoked by the renewal: %v %+v", err, old)
+	}
+	call(admin, http.MethodPost, "/api/admin/workers/"+first.ID+"/token", nil, me.CSRF, "", http.StatusNotFound)
+	first.ID = renewed.ID
 
 	// Revocation takes effect at once and leaves the Worker (and its history) visible; a revoked
 	// Worker cannot get a new token.

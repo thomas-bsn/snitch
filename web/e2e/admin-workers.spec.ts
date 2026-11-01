@@ -183,6 +183,13 @@ test.describe.serial("administration et Workers", () => {
     await expect(language).toHaveAttribute("readonly", "");
     await expectNoViolations(page);
 
+    // Plain HTTP needs an explicit, visibly warned opt-in; without it no command is generated.
+    const optIn = page.getByRole("checkbox", {
+      name: /Allow an installation command over plain HTTP/,
+    });
+    await expect(optIn).not.toBeChecked();
+    await optIn.check();
+    await expect(page.getByText(/unencrypted/)).toBeVisible();
     await page.getByLabel("Worker name").fill("gaming-pc");
     await page.getByRole("button", { name: "Create the Worker" }).click();
 
@@ -194,6 +201,7 @@ test.describe.serial("administration et Workers", () => {
       .getByRole("textbox", { name: "Worker installation command" })
       .inputValue();
     expect(command).not.toContain(HF_TOKEN);
+    expect(command).toContain("/api/worker/install/");
     await expectNoViolations(page);
 
     await page.getByRole("button", { name: "Copy command" }).click();
@@ -383,27 +391,36 @@ test.describe.serial("administration et Workers", () => {
     );
     await expectNoViolations(page);
 
-    // A new token: confirmation, then the old one stops working.
-    await page.getByRole("button", { name: "Generate a new token…" }).click();
+    // A lost token: confirmation, then the identity is replaced (new Worker, single-use command).
+    await page
+      .getByRole("button", { name: "Lost token: replace this Worker…" })
+      .click();
     await expect(page.getByRole("alertdialog")).toContainText(
-      "stops working immediately",
+      "cannot be recovered",
     );
     await page.getByRole("button", { name: "Cancel" }).click();
     expect(await pulse(firstToken)).toBe(200);
-    await page.getByRole("button", { name: "Generate a new token…" }).click();
-    await page.getByRole("button", { name: "Generate", exact: true }).click();
-    await expect(page.getByText("New token generated.")).toBeVisible();
-    const renewed = /^SNITCH_WORKER_TOKEN=(\S+)$/m.exec(
-      await env.inputValue(),
-    )![1];
-    expect(renewed).toMatch(/^rw_/);
-    expect(renewed).not.toBe(firstToken);
+    await page
+      .getByRole("button", { name: "Lost token: replace this Worker…" })
+      .click();
+    await page
+      .getByRole("checkbox", {
+        name: /Allow an installation command over plain HTTP/,
+      })
+      .check();
+    await page.getByRole("button", { name: "Replace", exact: true }).click();
+    await expect(page.getByText("New Worker created.")).toBeVisible();
+    const replacement = await page
+      .getByRole("textbox", { name: "Worker installation command" })
+      .inputValue();
+    expect(replacement).toContain("/api/worker/install/");
     expect(await pulse(firstToken)).toBe(401);
-    expect(await pulse(renewed)).toBe(200);
-    await page.reload();
-    expect(
-      await page.getByRole("textbox", { name: "Content of .env" }).inputValue(),
-    ).not.toContain(renewed);
+    await page.getByRole("link", { name: "Open the new Worker" }).click();
+    await expect(page).toHaveURL(/\/admin\/workers\/wk_/);
+    expect(page.url().split("/").pop()).not.toBe(firstId);
+    await expect(
+      page.getByRole("heading", { name: "gaming-pc" }),
+    ).toBeVisible();
 
     // Revocation: confirmation, then the Worker is revoked and its token refused.
     await page.getByRole("button", { name: "Delete this Worker…" }).click();
@@ -416,7 +433,7 @@ test.describe.serial("administration et Workers", () => {
     await expect(
       page.getByRole("button", { name: "Delete this Worker…" }),
     ).toHaveCount(0);
-    expect(await pulse(renewed)).toBe(401);
+    expect(await pulse(firstToken)).toBe(401);
     await context.close();
   });
 });

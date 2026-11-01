@@ -907,13 +907,15 @@ export const fr: Messages = {
         "Placez les deux fichiers dans un même dossier de la machine, puis lancez docker compose up -d.",
       tokenHidden:
         "Le jeton n’est jamais réaffiché. Les fichiers ci-dessous contiennent un emplacement : générez un nouveau jeton pour obtenir des fichiers utilisables.",
-      regenerate: "Générer un nouveau jeton…",
-      regenerateTitle: "Générer un nouveau jeton ?",
+      regenerate: "Jeton perdu : remplacer ce Worker…",
+      regenerateTitle: "Remplacer ce Worker ?",
       regenerateBody:
-        "Le jeton actuel cesse de fonctionner immédiatement. Vous devrez poser les nouveaux fichiers sur la machine du Worker.",
-      regenerateConfirm: "Générer",
+        "Un jeton perdu est irrécupérable. Ce Worker est révoqué maintenant (ses tâches en cours reviennent dans la file, son historique est supprimé) et un nouveau Worker, avec une nouvelle identité et une commande d’installation à usage unique, est créé.",
+      regenerateConfirm: "Remplacer",
+      replacedTitle: "Worker de remplacement",
+      openReplacement: "Ouvrir le nouveau Worker",
       newToken:
-        "Nouveau jeton généré. Copiez les fichiers maintenant : le jeton ne sera plus affiché.",
+        "Nouveau Worker créé. Copiez la commande maintenant : elle ne fonctionne qu’une fois et ne sera plus affichée.",
       revoke: "Suppression",
       revokeBody:
         "Supprimer un Worker révoque son accès tout de suite et définitivement : ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. Seuls son nom, la date de suppression et le motif sont conservés. Les fichiers et modèles de la machine du Worker ne sont pas effacés.",
@@ -941,7 +943,13 @@ export const fr: Messages = {
       snitchHint:
         "Renseignée par Snitch depuis son adresse publique. Modifiez PUBLIC_URL dans le déploiement du serveur si nécessaire.",
       insecure:
-        "Cette adresse n’est pas en HTTPS et le Worker refuse le HTTP. Configurez l’adresse publique dans le déploiement du serveur Snitch.",
+        "Cette adresse n’est pas en HTTPS. Sans votre choix explicite ci-dessous, Snitch ne génère pas de commande d’installation. Configurez l’adresse publique dans le déploiement du serveur Snitch.",
+      allowInsecure:
+        "Autoriser une commande d’installation en HTTP non chiffré (réseau local de confiance uniquement)",
+      allowInsecureWarning:
+        "Attention : en HTTP, le script, le jeton du Worker et la référence de l’image circulent sans chiffrement. Toute personne sur le chemin réseau peut les lire ou les modifier. Activez ceci uniquement sur un réseau de confiance.",
+      insecureUnavailable:
+        "Aucune commande d’installation n’a été générée car l’adresse n’est pas en HTTPS. Cochez l’option HTTP non chiffré et créez de nouveau le Worker.",
       whisper: "Adresse du serveur Whisper",
       whisperHint:
         "Réglée dans Administration, Transcription. Cette adresse doit être accessible depuis la machine du Worker.",

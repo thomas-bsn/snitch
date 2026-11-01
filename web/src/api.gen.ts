@@ -5767,7 +5767,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Nouveau jeton, montré une seule fois ; l'ancien cesse de fonctionner */
+      /** @description Jeton perdu : l'identité actuelle est révoquée (tâches en cours remises en file, invitations non consommées supprimées, audit minimal conservé) et une nouvelle identité est créée avec sa commande d'installation à usage unique ; le jeton et la commande sont montrés une seule fois. L'id de la réponse est celui de la nouvelle identité. */
       201: {
         headers: {
           [name: string]: unknown;

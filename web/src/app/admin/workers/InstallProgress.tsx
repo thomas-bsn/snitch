@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { StatusPill } from "../../components/StatusPill";
 import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
@@ -6,7 +6,22 @@ import type { WorkerDetail } from "./workersApi";
 import { installCause, installStatus, transcriptionState } from "./workerView";
 
 type Install = NonNullable<WorkerDetail["install"]>;
-type Phase = Install["failed_phase"];
+type Phase = NonNullable<Install["events"]>[number]["phase"];
+
+const PHASES: readonly Phase[] = [
+  "prerequisites",
+  "registration",
+  "image",
+  "permissions",
+  "gpu",
+  "voice-models",
+  "voice-test",
+  "service",
+];
+
+function isPhase(value: string): value is Phase {
+  return (PHASES as readonly string[]).includes(value);
+}
 
 /** Installation progress of a Worker: state, latest event, absence of news, transcription and voice, apart. */
 export function InstallProgress({
@@ -24,8 +39,12 @@ export function InstallProgress({
   const last = install.last_event;
   const cause = installCause(install.cause_code);
   const transcription = transcriptionState(transcriptionConfig);
-  const phaseName = (phase: Phase) =>
-    t(`workers.install.phase.${phase as "image"}`);
+  const phaseName = (phase: string) =>
+    isPhase(phase) ? t(`workers.install.phase.${phase}`) : phase;
+  const newestFirst = useMemo(
+    () => [...(install.events ?? [])].reverse(),
+    [install.events],
+  );
   const causeName = (code: string) =>
     t(`workers.install.cause.${installCause(code)}`);
 
@@ -115,14 +134,17 @@ export function InstallProgress({
         </Row>
       </dl>
 
-      {install.events && install.events.length > 0 && (
+      {newestFirst.length > 0 && (
         <details>
           <summary className="cursor-pointer text-accent-ink">
             {t("workers.install.history")}
           </summary>
           <ul className="mt-2 flex flex-col gap-1">
-            {[...install.events].reverse().map((event, index) => (
-              <li key={index} className="text-mute">
+            {newestFirst.map((event) => (
+              <li
+                key={`${event.received_at}|${event.occurred_at}|${event.phase}|${event.status}`}
+                className="text-mute"
+              >
                 {formatDate(event.occurred_at)} · {phaseName(event.phase)} ·{" "}
                 {t(`workers.install.status.${event.status}`)}
                 {event.cause_code && ` · ${causeName(event.cause_code)}`}
