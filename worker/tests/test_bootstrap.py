@@ -175,6 +175,114 @@ class BootstrapTests(unittest.TestCase):
             os.chmod(readonly_root.name, stat.S_IRWXU)
 
 
+class StableCauseTests(unittest.TestCase):
+    """Cause codes are the closed vocabulary shared with the launcher and the events contract."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.env = {
+            "SNITCH_VOICE_DIARIZATION_MODEL_PATH": os.path.join(self.tmp.name, "d"),
+            "SNITCH_VOICE_EMBEDDING_MODEL_PATH": os.path.join(self.tmp.name, "e"),
+            "HF_HOME": "/models/.cache/huggingface",
+            "HF_XET_CACHE": "/models/.cache/huggingface/xet",
+            "SNITCH_VOICE_DOWNLOAD_ON_START": "1",
+            "SNITCH_VOICE_CONFIRM_TERMS": "1",
+            "HF_TOKEN": SECRET,
+        }
+
+    def code_for(self, error, env=None):
+        logs = []
+        report = {}
+        status = bootstrap.run_bootstrap(env or self.env, Fakes(fail=error).downloader, Fakes().resolve, logs.append, report)
+        self.assertEqual(status, "failed")
+        self.assertNotIn(SECRET, "\n".join(logs))
+        self.assertIn(report["cause_code"], bootstrap.CAUSE_CODES)
+        return report["cause_code"]
+
+    def test_gated_repo_and_http_denials_are_hf_access_denied(self):
+        class GatedRepoError(Exception):
+            pass
+
+        class Resp:
+            status_code = 401
+
+        class HTTPError(Exception):
+            response = Resp()
+
+        self.assertEqual(self.code_for(GatedRepoError(SECRET)), "hf_access_denied")
+        self.assertEqual(self.code_for(HTTPError(SECRET)), "hf_access_denied")
+
+    def test_network_errors(self):
+        self.assertEqual(self.code_for(ConnectionError(SECRET)), "network_unreachable")
+
+    def test_models_volume_vs_hf_cache_permission(self):
+        models = PermissionError(13, "denied", "/models/diarization/x")
+        cache = PermissionError(13, "denied", "/models/.cache/huggingface/xet/chunk")
+        self.assertEqual(self.code_for(models), "volume_not_writable")
+        self.assertEqual(self.code_for(cache), "hf_cache_not_writable")
+
+    def test_unknown_error_has_unknown_code_and_no_text(self):
+        self.assertEqual(self.code_for(RuntimeError(SECRET)), "unknown")
+
+    def test_missing_gpu_is_gpu_unavailable(self):
+        self.assertEqual(self.code_for(RuntimeError("CUDA error: no CUDA-capable device " + SECRET)), "unknown")
+        report = {}
+        self.assertEqual(
+            bootstrap.run_bootstrap({**self.env, "SNITCH_VOICE_REQUIRE_GPU": "1"}, Fakes().downloader, Fakes().resolve, lambda _l: None, report, gpu_available=lambda: False),
+            "failed",
+        )
+        self.assertEqual(report["cause_code"], "gpu_unavailable")
+
+    def test_cli_provision_prints_only_the_code(self):
+        import io
+        from contextlib import redirect_stdout
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = bootstrap.cli(["provision"], self.env, Fakes(fail=ConnectionError(SECRET)).downloader, Fakes().resolve, lambda _l: None)
+        self.assertEqual(rc, 1)
+        self.assertEqual(out.getvalue().strip(), "cause=network_unreachable")
+
+    def test_cli_check_reflects_manifest(self):
+        self.assertEqual(bootstrap.cli(["check"], self.env), 1)
+        bootstrap.run_bootstrap(self.env, Fakes().downloader, Fakes().resolve, lambda _l: None)
+        self.assertEqual(bootstrap.cli(["check"], self.env), 0)
+
+
+class ResumeTests(unittest.TestCase):
+    def test_partial_download_resumes_in_place_and_never_wipes_files(self):
+        with tempfile.TemporaryDirectory() as root:
+            env = {
+                "SNITCH_VOICE_DIARIZATION_MODEL_PATH": os.path.join(root, "d"),
+                "SNITCH_VOICE_EMBEDDING_MODEL_PATH": os.path.join(root, "e"),
+                "SNITCH_VOICE_DOWNLOAD_ON_START": "1",
+                "SNITCH_VOICE_CONFIRM_TERMS": "1",
+                "HF_TOKEN": SECRET,
+            }
+            seen = []
+
+            def flaky(repo_id, local_dir, token, revision):
+                os.makedirs(local_dir, exist_ok=True)
+                part = os.path.join(local_dir, "weights.bin.incomplete")
+                seen.append(os.path.exists(part))
+                if len(seen) == 1:
+                    with open(part, "w") as handle:
+                        handle.write("half")
+                    raise ConnectionError(SECRET)
+                with open(os.path.join(local_dir, "weights.bin"), "w") as handle:
+                    handle.write("x")
+
+            resolve = Fakes().resolve
+            logs = []
+            self.assertEqual(bootstrap.run_bootstrap(env, flaky, resolve, logs.append), "failed")
+            self.assertIsNone(voice_manifest.read_manifest(env))  # partial is never "ready"
+            self.assertFalse(bootstrap.models_present(env))
+            self.assertEqual(bootstrap.run_bootstrap(env, flaky, resolve, logs.append), "downloaded")
+            self.assertTrue(seen[1], "the second run must start from the partial file, not wipe it")
+            self.assertNotIn(SECRET, "\n".join(logs))
+
+
 class VersionFromManifestTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,6 +35,11 @@ func newInstallerRun(t *testing.T) *installerRun {
 	}
 	write("docker", `echo "$*" >> "$FAKE_LOG"
 if [ -n "${FAKE_DOCKER_FAIL:-}" ] && [[ "$*" =~ $FAKE_DOCKER_FAIL ]]; then exit 1; fi
+if [[ "$*" == *"snitch_worker.bootstrap check"* ]]; then exit "${FAKE_CHECK_RC:-1}"; fi
+if [[ "$*" == *"snitch_worker.bootstrap provision"* ]]; then
+ prev=''; for a in "$@"; do [ "$prev" = --env-file ] && cp "$a" "$FAKE_LOG.provision-env"; prev=$a; done
+ printf '%s' "${FAKE_PROVISION_OUT:-}"; exit "${FAKE_PROVISION_RC:-0}"
+fi
 if [ "$1 $2" = "container inspect" ] && [ ! -e "$FAKE_LOG.container" ]; then exit 1; fi
 if [ "$1" = run ] && [[ "$*" == *" -d "* ]]; then : > "$FAKE_LOG.container"; fi
 if [ "$1" = rm ]; then rm -f "$FAKE_LOG.container"; fi
@@ -262,6 +268,189 @@ func TestInstallerReportsFailuresToSnitchOnceReachable(t *testing.T) {
 	}
 	if !strings.Contains(r.events(), `"phase":"image","status":"failed"`) || !strings.Contains(r.events(), `"cause_code":"image_pull_failed"`) {
 		t.Fatalf("failure not reported:\n%s", r.events())
+	}
+}
+
+// Terminal driver: runs the launcher under a real pseudo-terminal (python3 pty) so that the
+// /dev/tty prompts execute. answers are typed after each prompt; typed text is never echoed
+// for the hidden token, so the transcript must not contain it.
+const ptyDriver = `import os, pty, sys, time, select
+script, answers = sys.argv[1], sys.argv[2:]
+pid, fd = pty.fork()
+if pid == 0:
+    os.execvp("bash", ["bash", script])
+out = b""
+queue = list(answers)
+deadline = time.time() + 20
+prompts = [b"[y/N] ", b"account: ", b"(hidden): "]
+pos = 0
+fed = 0
+while time.time() < deadline:
+    r, _, _ = select.select([fd], [], [], 0.2)
+    if r:
+        try:
+            data = os.read(fd, 4096)
+        except OSError:
+            break
+        if not data:
+            break
+        out += data
+    if fed < len(queue) and fed < len(prompts):
+        i = out.find(prompts[fed], pos)
+        if i >= 0:
+            pos = i + len(prompts[fed])
+            time.sleep(0.2)
+            os.write(fd, (queue[fed] + "\n").encode())
+            fed += 1
+try:
+    os.kill(pid, 9)
+except OSError:
+    pass
+_, status = os.waitpid(pid, 0)
+sys.stdout.buffer.write(out)
+sys.exit(os.waitstatus_to_exitcode(status))
+`
+
+func (r *installerRun) runTTY(t *testing.T, token string, answers []string, env ...string) (transcript string, err error) {
+	t.Helper()
+	if _, lookErr := exec.LookPath("python3"); lookErr != nil {
+		t.Skip("python3 required for the pseudo-terminal driver")
+	}
+	var script bytes.Buffer
+	b64 := func(v string) string { return base64.StdEncoding.EncodeToString([]byte(v)) }
+	if err = workerInstallScript.Execute(&script, map[string]string{
+		"WorkerID": "wk_syntheticFixtureWorker123", "APIURL": b64("https://snitch.example.org"), "Token": b64(token),
+		"Image": b64("ghcr.io/thomas-bsn/snitch-worker:fixture"), "TranscriptionMode": "unconfigured",
+		"TranscriptionEndpoint": b64(""), "TranscriptionModel": b64(""), "TranscriptionLanguage": b64(""),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	scriptPath, driverPath := filepath.Join(dir, "install.sh"), filepath.Join(dir, "driver.py")
+	if err = os.WriteFile(scriptPath, script.Bytes(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(driverPath, []byte(ptyDriver), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(r.bin, "nvidia-smi"), []byte("#!/usr/bin/env bash\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("python3", append([]string{"-I", driverPath, scriptPath}, answers...)...)
+	cmd.Env = append([]string{"HOME=" + r.home, "PATH=" + r.bin + ":/usr/bin:/bin:/opt/homebrew/bin", "FAKE_LOG=" + r.log, "FAKE_CURL_BODY=" + fakeConfig}, env...)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+const hfFixtureToken = "hf_SyntheticFixtureToken0123456789"
+
+func TestInstallerVoiceHappyPathOnTerminal(t *testing.T) {
+	r := newInstallerRun(t)
+	out, err := r.runTTY(t, "rw_synthetic-fixture-token", []string{"y", "accept", hfFixtureToken})
+	if err != nil {
+		t.Fatalf("run failed: %v\n%s", err, out)
+	}
+	if strings.Contains(out, hfFixtureToken) {
+		t.Fatal("the token was echoed on the terminal")
+	}
+	envFile, _ := os.ReadFile(r.log + ".provision-env")
+	if !strings.Contains(string(envFile), "HF_TOKEN="+hfFixtureToken) || !strings.Contains(string(envFile), "SNITCH_VOICE_CONFIRM_TERMS=1") {
+		t.Fatalf("provisioning did not receive the token through its private env file:\n%s", envFile)
+	}
+	workerEnv, _ := os.ReadFile(filepath.Join(r.home, ".local/share/snitch-worker/wk_syntheticFixtureWorker123/worker.env"))
+	if strings.Contains(string(workerEnv), "HF_TOKEN") || strings.Contains(string(workerEnv), hfFixtureToken) {
+		t.Fatal("the token reached the normal runtime configuration")
+	}
+	if strings.Contains(r.dockerLog()+r.events()+r.queue(), hfFixtureToken) {
+		t.Fatal("the token is in a command line or event")
+	}
+	files, _ := filepath.Glob(filepath.Join(r.home, ".local/share/snitch-worker/wk_syntheticFixtureWorker123/bootstrap.*"))
+	if len(files) != 0 {
+		t.Fatalf("temporary token file left behind: %v", files)
+	}
+	events := r.events()
+	for _, want := range []string{`"phase":"voice-models","status":"succeeded"`, `"phase":"voice-test","status":"succeeded"`} {
+		if !strings.Contains(events, want) {
+			t.Errorf("events lack %s:\n%s", want, events)
+		}
+	}
+	if !strings.Contains(r.dockerLog(), "snitch_worker.voice_selftest") {
+		t.Error("synthetic inference was not run")
+	}
+}
+
+func TestInstallerVoiceFailuresKeepTranscriptionAndNameTheCause(t *testing.T) {
+	for _, cause := range []string{"hf_access_denied", "network_unreachable", "volume_not_writable", "hf_cache_not_writable", "gpu_unavailable"} {
+		t.Run(cause, func(t *testing.T) {
+			r := newInstallerRun(t)
+			out, err := r.runTTY(t, "rw_synthetic-fixture-token", []string{"y", "accept", hfFixtureToken}, "FAKE_PROVISION_RC=1", "FAKE_PROVISION_OUT=cause="+cause+"\n")
+			if err != nil {
+				t.Fatalf("voice failure must not fail the installation: %v\n%s", err, out)
+			}
+			events := r.events()
+			if !strings.Contains(events, fmt.Sprintf(`"phase":"voice-models","status":"failed","occurred_at":`)) || !strings.Contains(events, `"cause_code":"`+cause+`"`) {
+				t.Errorf("cause %s not reported:\n%s", cause, events)
+			}
+			if strings.Contains(events, `"phase":"voice-test"`) {
+				t.Error("voice-test must not run after a failed download")
+			}
+			if !strings.Contains(events, `"phase":"service","status":"succeeded"`) || strings.Contains(out+events, hfFixtureToken) {
+				t.Errorf("service must start and nothing may leak:\n%s\n%s", out, events)
+			}
+		})
+	}
+	t.Run("unexpected output is unknown", func(t *testing.T) {
+		r := newInstallerRun(t)
+		if _, err := r.runTTY(t, "rw_synthetic-fixture-token", []string{"y", "accept", hfFixtureToken}, "FAKE_PROVISION_RC=1", "FAKE_PROVISION_OUT=cause=hf_SyntheticFixtureToken0123456789"); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(r.events(), `"cause_code":"unknown"`) || strings.Contains(r.events(), hfFixtureToken) {
+			t.Fatalf("unknown cause not normalised:\n%s", r.events())
+		}
+	})
+}
+
+func TestInstallerVoiceRequiresExplicitTermsAcceptance(t *testing.T) {
+	r := newInstallerRun(t)
+	out, err := r.runTTY(t, "rw_synthetic-fixture-token", []string{"y", "no"})
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if strings.Contains(r.dockerLog(), "bootstrap provision") || strings.Contains(out, "(hidden)") {
+		t.Fatal("the token was requested or a download started without explicit terms acceptance")
+	}
+	if !strings.Contains(r.events(), `"phase":"service","status":"succeeded"`) {
+		t.Error("installation must still complete")
+	}
+}
+
+func TestInstallerVoiceDeclinedAndModelsAlreadyPresent(t *testing.T) {
+	r := newInstallerRun(t)
+	if out, err := r.runTTY(t, "rw_synthetic-fixture-token", []string{"n"}); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if strings.Contains(r.dockerLog(), "bootstrap provision") || strings.Contains(r.dockerLog(), "voice_selftest") {
+		t.Fatal("declining must download and test nothing")
+	}
+	// Models present (manifest reuse): no prompt, no token, no download, but the synthetic inference still runs.
+	r2 := newInstallerRun(t)
+	out, err := r2.runTTY(t, "rw_synthetic-fixture-token", nil, "FAKE_CHECK_RC=0")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if strings.Contains(out, "[y/N]") || strings.Contains(r2.dockerLog(), "bootstrap provision") || !strings.Contains(r2.dockerLog(), "voice_selftest") {
+		t.Fatalf("existing models must be reused and still verified:\n%s\n%s", out, r2.dockerLog())
+	}
+}
+
+func TestInstallerVoiceSelftestFailureIsNotReady(t *testing.T) {
+	r := newInstallerRun(t)
+	if out, err := r.runTTY(t, "rw_synthetic-fixture-token", []string{"y", "accept", hfFixtureToken}, "FAKE_DOCKER_FAIL=voice_selftest"); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	events := r.events()
+	if !strings.Contains(events, `"phase":"voice-models","status":"succeeded"`) || !strings.Contains(events, `"phase":"voice-test","status":"failed"`) || strings.Contains(events, `"phase":"voice-test","status":"succeeded"`) {
+		t.Fatalf("models downloaded without a passing inference must not count as ready:\n%s", events)
 	}
 }
 
