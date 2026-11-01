@@ -37,6 +37,10 @@ class Worker:
             last_seen_at (datetime.datetime | None):
             created_at (datetime.datetime):
             revoked_at (datetime.datetime | None):
+            revoke_reason (str): Motif facultatif de suppression, conservé dans l'audit minimal.
+            revocation_acknowledged_at (datetime.datetime | None): Date à laquelle le lanceur local a confirmé la révocation
+                et arrêté le service. Absente : le nettoyage local reste en attente. Ne dit jamais que le disque local est
+                effacé.
             connected (bool):
             supported_steps (list[str] | None | Unset): Last reported task capabilities; a worker that never reported has
                 none; revoked workers must not be selected.
@@ -62,6 +66,8 @@ class Worker:
     last_seen_at: datetime.datetime | None
     created_at: datetime.datetime
     revoked_at: datetime.datetime | None
+    revoke_reason: str
+    revocation_acknowledged_at: datetime.datetime | None
     connected: bool
     supported_steps: list[str] | None | Unset = UNSET
     transcription_model: str | Unset = UNSET
@@ -103,6 +109,14 @@ class Worker:
             revoked_at = self.revoked_at.isoformat()
         else:
             revoked_at = self.revoked_at
+
+        revoke_reason = self.revoke_reason
+
+        revocation_acknowledged_at: None | str
+        if isinstance(self.revocation_acknowledged_at, datetime.datetime):
+            revocation_acknowledged_at = self.revocation_acknowledged_at.isoformat()
+        else:
+            revocation_acknowledged_at = self.revocation_acknowledged_at
 
         connected = self.connected
 
@@ -149,6 +163,8 @@ class Worker:
             "last_seen_at": last_seen_at,
             "created_at": created_at,
             "revoked_at": revoked_at,
+            "revoke_reason": revoke_reason,
+            "revocation_acknowledged_at": revocation_acknowledged_at,
             "connected": connected,
         })
         if supported_steps is not UNSET:
@@ -228,6 +244,26 @@ class Worker:
         revoked_at = _parse_revoked_at(d.pop("revoked_at"))
 
 
+        revoke_reason = d.pop("revoke_reason")
+
+        def _parse_revocation_acknowledged_at(data: object) -> datetime.datetime | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                revocation_acknowledged_at_type_0 = datetime.datetime.fromisoformat(data)
+
+
+
+                return revocation_acknowledged_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None, data)
+
+        revocation_acknowledged_at = _parse_revocation_acknowledged_at(d.pop("revocation_acknowledged_at"))
+
+
         connected = d.pop("connected")
 
         def _parse_supported_steps(data: object) -> list[str] | None | Unset:
@@ -302,6 +338,8 @@ class Worker:
             last_seen_at=last_seen_at,
             created_at=created_at,
             revoked_at=revoked_at,
+            revoke_reason=revoke_reason,
+            revocation_acknowledged_at=revocation_acknowledged_at,
             connected=connected,
             supported_steps=supported_steps,
             transcription_model=transcription_model,

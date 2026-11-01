@@ -33,6 +33,7 @@ export const en = {
       cancelled: "Cancelled",
       completed: "Completed",
       lease_expired: "Lease expired",
+      worker_revoked: "Worker deleted, task requeued",
     },
     schedule: "Schedule task",
     clip: "Clip ID",
@@ -897,16 +898,22 @@ export const en = {
       regenerateConfirm: "Generate",
       newToken:
         "New token generated. Copy the files now: the token will not be shown again.",
-      revoke: "Revoke",
+      revoke: "Delete",
       revokeBody:
-        "A revoked Worker can no longer take tasks. Its history stays.",
-      revokeButton: "Revoke this Worker…",
-      revokeTitle: "Revoke {name}?",
-      revokeConfirm: "Revoke",
+        "Deleting a Worker revokes its access at once and for good: its running tasks go back in the queue and its late results are refused. Only its name, deletion date and reason are kept. Files and models on the Worker's machine are not erased.",
+      revokeButton: "Delete this Worker…",
+      revokeTitle: "Delete {name}?",
+      revokeConfirm: "Delete",
       revokeConfirmBody:
-        "This Worker will stop receiving tasks. You cannot undo this.",
+        "Access is revoked immediately and cannot be reactivated. The disk of the Worker's machine is not erased: remove the service, volume and models there yourself. If the Worker is offline, it stays revoked here and local cleanup stays pending until its launcher runs again.",
+      revokeReason: "Reason (optional)",
       revokedNotice:
-        "This Worker was revoked on {date}. It cannot take tasks any more.",
+        "This Worker was deleted on {date}. Its access is revoked for good.",
+      revokedReason: "Reason: {reason}",
+      cleanupPending:
+        "Local cleanup pending: the Worker has not confirmed the revocation. Its machine keeps the service, volume and models until the launcher runs again.",
+      cleanupDone:
+        "The local launcher confirmed the revocation on {date} and stopped the service. The volume and models on that machine are not erased.",
     },
     create: {
       title: "Add a Worker",

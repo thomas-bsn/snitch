@@ -51,6 +51,7 @@ from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .get_metadata_location_response_200 import GetMetadataLocationResponse200
 from .get_video_root_response_200 import GetVideoRootResponse200
+from .get_worker_revocation_response_200 import GetWorkerRevocationResponse200
 from .get_worker_transcription_config_response_200 import GetWorkerTranscriptionConfigResponse200
 from .get_worker_transcription_config_response_200_mode import GetWorkerTranscriptionConfigResponse200Mode
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
@@ -131,6 +132,7 @@ from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
 from .reprocess_clip_metadata_response_200 import ReprocessClipMetadataResponse200
 from .request_worker_transcription_test_response_200 import RequestWorkerTranscriptionTestResponse200
+from .revoke_worker_body import RevokeWorkerBody
 from .scan_source_body import ScanSourceBody
 from .scan_video_selection_body import ScanVideoSelectionBody
 from .scan_video_selection_response_200 import ScanVideoSelectionResponse200
@@ -347,6 +349,7 @@ __all__ = (
     "GetEmbeddingIndexStatusResponse200",
     "GetMetadataLocationResponse200",
     "GetVideoRootResponse200",
+    "GetWorkerRevocationResponse200",
     "GetWorkerTranscriptionConfigResponse200",
     "GetWorkerTranscriptionConfigResponse200Mode",
     "HeartbeatWorkerJobResponse200",
@@ -427,6 +430,7 @@ __all__ = (
     "Redirect",
     "ReprocessClipMetadataResponse200",
     "RequestWorkerTranscriptionTestResponse200",
+    "RevokeWorkerBody",
     "ScanSourceBody",
     "ScanVideoSelectionBody",
     "ScanVideoSelectionResponse200",

@@ -406,15 +406,15 @@ test.describe.serial("administration et Workers", () => {
     ).not.toContain(renewed);
 
     // Revocation: confirmation, then the Worker is revoked and its token refused.
-    await page.getByRole("button", { name: "Revoke this Worker…" }).click();
+    await page.getByRole("button", { name: "Delete this Worker…" }).click();
     await expect(page.getByRole("alertdialog")).toContainText(
-      "Revoke gaming-pc?",
+      "Delete gaming-pc?",
     );
     await expectNoViolations(page);
-    await page.getByRole("button", { name: "Revoke", exact: true }).click();
-    await expect(page.getByText(/This Worker was revoked on/)).toBeVisible();
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(page.getByText(/This Worker was deleted on/)).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Revoke this Worker…" }),
+      page.getByRole("button", { name: "Delete this Worker…" }),
     ).toHaveCount(0);
     expect(await pulse(renewed)).toBe(401);
     await context.close();

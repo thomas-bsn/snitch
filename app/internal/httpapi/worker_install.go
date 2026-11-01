@@ -128,7 +128,18 @@ stage=registration
 status=$(printf 'header = "Authorization: Bearer %s"\n' "$worker_token" | curl -sS --max-time 20 -K - -o "$dir/config.json" -w '%{http_code}' "$api_url/api/worker/transcription-config" 2>/dev/null || true)
 case "$status" in
  200) ;;
- 401) fail registration_rejected 'Snitch rejected this Worker credential (revoked or replaced). Generate a new installation command in Admin > Workers.' 'Snitch a refusé ce jeton de Worker (révoqué ou remplacé). Générez une nouvelle commande dans Admin > Workers.' ;;
+ 401)
+  # A deleted Worker is told so by the narrow confirmation endpoint: the launcher stops the service and nothing else.
+  # The local volume, models and files stay on this machine; removing them is up to the administrator.
+  revoked=$(printf 'header = "Authorization: Bearer %s"\n' "$worker_token" | curl -sS --max-time 20 -K - -o "$dir/revocation.json" -w '%{http_code}' "$api_url/api/worker/revocation" 2>/dev/null || true)
+  if [ "$revoked" = 200 ] && grep -q '"revoked":true' "$dir/revocation.json" 2>/dev/null; then
+   rm -f "$dir/revocation.json" "$queue"
+   docker rm -f "snitch-worker-$worker_id" >/dev/null 2>&1 || true
+   printf 'This Worker was deleted in Snitch and its access is revoked for good. The service was stopped.\nThe local volume, models and files were NOT erased: remove them yourself if you no longer need them (docker volume rm snitch-models-%s; rm -r %s).\nCe Worker a été supprimé dans Snitch et son accès est révoqué définitivement. Le service a été arrêté.\nLe volume, les modèles et les fichiers locaux n’ont PAS été effacés : supprimez-les vous-même si vous n’en avez plus besoin (docker volume rm snitch-models-%s ; rm -r %s).\n' "$worker_id" "$dir" "$worker_id" "$dir"
+   exit 0
+  fi
+  rm -f "$dir/revocation.json"
+  fail registration_rejected 'Snitch rejected this Worker credential (revoked or replaced). Generate a new installation command in Admin > Workers.' 'Snitch a refusé ce jeton de Worker (révoqué ou remplacé). Générez une nouvelle commande dans Admin > Workers.' ;;
  *) fail network_unreachable 'Could not reach Snitch to register this Worker. Check the network and the Snitch address, then rerun.' 'Impossible de joindre Snitch pour enregistrer ce Worker. Vérifiez le réseau et l’adresse de Snitch, puis relancez.' ;;
 esac
 json_field() { sed -n 's/.*"'"$1"'":"\([^"]*\)".*/\1/p' "$dir/config.json" | head -n1 | sed 's/\\u0026/\&/g' | tr -d '\r\n'; }

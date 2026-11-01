@@ -42,6 +42,8 @@ type Worker struct {
 	LastSeenAt               *time.Time                 `json:"last_seen_at"`
 	CreatedAt                time.Time                  `json:"created_at"`
 	RevokedAt                *time.Time                 `json:"revoked_at"`
+	RevokeReason             string                     `json:"revoke_reason"`
+	RevocationAcknowledgedAt *time.Time                 `json:"revocation_acknowledged_at"`
 	Connected                bool                       `json:"connected"`
 	Models                   Models                     `json:"models"`
 	TranscriptionModel       string                     `json:"transcription_model"`
@@ -147,7 +149,7 @@ func (s *Service) Get(ctx context.Context, id string) (Detail, error) {
 	var d Detail
 	var receivedVersion, testedVersion, activeVersion, errorCode, endpointOverride string
 	var supportedSteps []string
-	err := s.pool.QueryRow(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,w.machine,w.remote_address,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.Connected, &d.Models, &d.TranscriptionModel, &supportedSteps, &d.Machine, &d.RemoteAddress, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride)
+	err := s.pool.QueryRow(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,w.revoke_reason,w.revocation_acknowledged_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,w.machine,w.remote_address,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.RevokeReason, &d.RevocationAcknowledgedAt, &d.Connected, &d.Models, &d.TranscriptionModel, &supportedSteps, &d.Machine, &d.RemoteAddress, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrNotFound
 	}
@@ -236,7 +238,7 @@ func (s *Service) RenewToken(ctx context.Context, id string) (Registration, erro
 }
 
 func (s *Service) List(ctx context.Context) ([]Worker, error) {
-	rows, err := s.pool.Query(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($1 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id ORDER BY w.created_at,w.id`, int64(ConnectedWindow.Seconds()))
+	rows, err := s.pool.Query(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,w.revoke_reason,w.revocation_acknowledged_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($1 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id ORDER BY w.created_at,w.id`, int64(ConnectedWindow.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("list workers: %w", err)
 	}
@@ -245,7 +247,7 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 	for rows.Next() {
 		var worker Worker
 		var receivedVersion, testedVersion, activeVersion, errorCode, endpointOverride string
-		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.Connected, &worker.Models, &worker.TranscriptionModel, &worker.SupportedSteps, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride); err != nil {
+		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.RevokeReason, &worker.RevocationAcknowledgedAt, &worker.Connected, &worker.Models, &worker.TranscriptionModel, &worker.SupportedSteps, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride); err != nil {
 			return nil, fmt.Errorf("scan worker: %w", err)
 		}
 		if receivedVersion != "" || testedVersion != "" || activeVersion != "" || errorCode != "" || endpointOverride != "" {
@@ -272,18 +274,80 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 	return items, nil
 }
 
-func (s *Service) Revoke(ctx context.Context, id string) error {
+// MaxRevokeReason bounds the optional reason kept in the deletion audit.
+const MaxRevokeReason = 200
+
+// Revoke removes a worker for good, in one transaction: the identity stops authenticating, its
+// running tasks return to the queue at once, and everything but the minimal audit (name, date,
+// optional reason) is deleted. Revoking twice keeps the first audit. A revoked identity is never
+// reactivated: only an installation invitation creates a new one.
+func (s *Service) Revoke(ctx context.Context, id, reason string) error {
+	reason = strings.TrimSpace(reason)
 	if !validID(id) {
 		return ErrNotFound
 	}
-	result, err := s.pool.Exec(ctx, `UPDATE workers SET revoked_at=COALESCE(revoked_at,now()) WHERE id=$1`, id)
+	if len([]rune(reason)) > MaxRevokeReason || strings.ContainsAny(reason, "\r\n\x00") {
+		return ErrInvalidInput
+	}
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
+		return fmt.Errorf("begin worker revocation: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var already bool
+	if err = tx.QueryRow(ctx, `SELECT revoked_at IS NOT NULL FROM workers WHERE id=$1 FOR UPDATE`, id).Scan(&already); errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	} else if err != nil {
+		return fmt.Errorf("lock worker for revocation: %w", err)
+	}
+	if already {
+		return nil
+	}
+	if _, err = tx.Exec(ctx, `UPDATE workers SET revoked_at=now(),revoke_reason=$2,reported_concurrency=0,supported_steps='{}',models='{}',machine='{}',remote_address='' WHERE id=$1`, id, reason); err != nil {
 		return fmt.Errorf("revoke worker: %w", err)
 	}
-	if result.RowsAffected() == 0 {
-		return ErrNotFound
+	// A revocation is not the task's fault: the interrupted attempt is not counted.
+	if _, err = tx.Exec(ctx, `WITH released AS (
+		UPDATE jobs SET status='pending',attempts=GREATEST(attempts-1,0),lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='worker_revoked',updated_at=now()
+		 WHERE status='leased' AND lease_owner=$1
+		 RETURNING id,cycle
+	) INSERT INTO job_events(job_id,event,cycle,actor,actor_id,error_code) SELECT id,'worker_revoked',cycle,'system',$1,'worker_revoked' FROM released`, id); err != nil {
+		return fmt.Errorf("requeue revoked worker tasks: %w", err)
+	}
+	for _, statement := range []string{
+		`DELETE FROM worker_install_events WHERE worker_id=$1`,
+		`DELETE FROM worker_install_invites WHERE worker_id=$1`,
+		`DELETE FROM worker_transcription_config WHERE worker_id=$1`,
+	} {
+		if _, err = tx.Exec(ctx, statement, id); err != nil {
+			return fmt.Errorf("delete revoked worker details: %w", err)
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit worker revocation: %w", err)
 	}
 	return nil
+}
+
+// RevocationStatus answers the local launcher. It reveals only whether this token belongs to a
+// revoked identity and when; an unknown token is unauthorized. A revoked answer is recorded as
+// the launcher's acknowledgement (it then stops the service), never as a local erasure.
+func (s *Service) RevocationStatus(ctx context.Context, token string) (bool, time.Time, error) {
+	if !strings.HasPrefix(token, "rw_") || len(token) > 128 {
+		return false, time.Time{}, ErrUnauthorized
+	}
+	var revokedAt *time.Time
+	err := s.pool.QueryRow(ctx, `UPDATE workers SET revocation_acknowledged_at=CASE WHEN revoked_at IS NOT NULL THEN COALESCE(revocation_acknowledged_at,now()) END WHERE token_hash=$1 RETURNING revoked_at`, auth.Hash(token)).Scan(&revokedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, time.Time{}, ErrUnauthorized
+	}
+	if err != nil {
+		return false, time.Time{}, fmt.Errorf("read worker revocation: %w", err)
+	}
+	if revokedAt == nil {
+		return false, time.Time{}, nil
+	}
+	return true, *revokedAt, nil
 }
 
 func (s *Service) Authenticate(ctx context.Context, token string) (Worker, error) {

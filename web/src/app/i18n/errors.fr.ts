@@ -138,6 +138,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker: "Ce Worker n’est pas valide.",
   invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
+  invalid_revoke_reason:
+    "Le motif doit faire 200 caractères au plus, sur une seule ligne.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
   clip_delete_failed:
     "La vidéo ne peut pas être supprimée complètement. Vérifiez les fichiers et les permissions, puis réessayez.",

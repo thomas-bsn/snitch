@@ -51,9 +51,10 @@ export function useWorkerActions() {
       });
       return data ? { ok: true, value: data } : failure(error);
     },
-    async revoke(id: string): Promise<Result<null>> {
+    async revoke(id: string, reason: string): Promise<Result<null>> {
       const { error } = await api.DELETE("/api/admin/workers/{id}", {
         params: { path: { id }, header: mutation(csrf) },
+        body: reason.trim() ? { reason: reason.trim() } : undefined,
       });
       return error ? failure(error) : { ok: true, value: null };
     },
