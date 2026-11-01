@@ -7,6 +7,7 @@ import { buttonClass } from "../../components/buttons";
 import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
+import { VoiceInventory } from "./VoiceInventory";
 
 type Pipeline = components["schemas"]["VoicePipeline"];
 type Matching = components["schemas"]["VoiceMatchingSettings"];
@@ -156,6 +157,7 @@ export function VoiceTab() {
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <h2 className="text-lg font-semibold">{t("voiceAdmin.title")}</h2>
+      <VoiceInventory />
       {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
       {notice && <StatusNotice>{t("voiceAdmin.saved")}</StatusNotice>}
       <section className="rounded-xl border border-line p-4">

@@ -4545,6 +4545,14 @@
         "security": [{"session": []}]
       }
     },
+    "/api/admin/voice-overview": {
+      "get": {
+        "operationId": "getVoiceOverview",
+        "responses": {"200": {"description": "Inventaire vocal", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceOverview"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Les modèles vocaux que chaque Worker déclare réellement (jamais une saisie), leur état et le nombre de travaux vocaux en attente d'un Worker prêt. Un Worker n'est prêt que s'il détient les modèles actifs et qu'une inférence de test a réussi.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/clips/{id}/voice": {
       "post": {
         "operationId": "scheduleVoice",
@@ -6778,6 +6786,8 @@
           "fake": {"type": "object", "additionalProperties": false, "required": ["speakers", "dimensions"], "properties": {"speakers": {"type": "integer", "minimum": 1, "maximum": 8}, "dimensions": {"type": "integer", "minimum": 2, "maximum": 512}}, "description": "Réglages du fournisseur factice déterministe, réservés aux tests."}
         }
       },
+      "VoiceOverviewWorker": {"type": "object", "required": ["id", "name", "connected", "voice_state", "cause_code", "diarization", "fingerprint", "holds_active_diarization", "holds_active_fingerprint"], "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "connected": {"type": "boolean"}, "voice_state": {"type": "string", "enum": ["ready", "untested", "unavailable", "models_missing"], "description": "ready : détient les modèles actifs et l'inférence de test a réussi ; untested : détient les modèles sans preuve d'inférence ; unavailable : un téléchargement ou un test a échoué (voir cause_code) ; models_missing : ne déclare pas les modèles actifs."}, "cause_code": {"type": "string"}, "diarization": {"nullable": true, "allOf": [{"$ref": "#/components/schemas/WorkerModel"}]}, "fingerprint": {"nullable": true, "allOf": [{"$ref": "#/components/schemas/WorkerModel"}]}, "holds_active_diarization": {"type": "boolean"}, "holds_active_fingerprint": {"type": "boolean"}}},
+      "VoiceOverview": {"type": "object", "required": ["provider", "active_models", "workers_total", "workers_voice_ready", "pending_voice_jobs", "workers"], "properties": {"provider": {"type": "string", "enum": ["fake", "pyannote"]}, "active_models": {"type": "object", "required": ["diarization", "fingerprint"], "properties": {"diarization": {"type": "string"}, "fingerprint": {"type": "string"}}}, "workers_total": {"type": "integer"}, "workers_voice_ready": {"type": "integer"}, "pending_voice_jobs": {"type": "integer", "description": "Travaux vocaux en attente tant qu'aucun Worker n'est prêt ; 0 sinon."}, "workers": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceOverviewWorker"}}}},
       "VoicePipelineState": {"type": "object", "required": ["version", "config"], "properties": {"version": {"type": "string"}, "config": {"$ref": "#/components/schemas/VoicePipeline"}}},
       "VoiceScheduleInput": {"type": "object", "properties": {"audio_stream_index": {"type": "integer", "minimum": 0}}},
       "ScheduledVoice": {"type": "object", "required": ["job"], "properties": {"job": {"$ref": "#/components/schemas/Job"}}},

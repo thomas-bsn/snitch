@@ -1408,6 +1408,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-overview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Les modèles vocaux que chaque Worker déclare réellement (jamais une saisie), leur état et le nombre de travaux vocaux en attente d'un Worker prêt. Un Worker n'est prêt que s'il détient les modèles actifs et qu'une inférence de test a réussi. */
+    get: operations["getVoiceOverview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/voice": {
     parameters: {
       query?: never;
@@ -2697,6 +2714,34 @@ export interface components {
         speakers: number;
         dimensions: number;
       };
+    };
+    VoiceOverviewWorker: {
+      id: string;
+      name: string;
+      connected: boolean;
+      /**
+       * @description ready : détient les modèles actifs et l'inférence de test a réussi ; untested : détient les modèles sans preuve d'inférence ; unavailable : un téléchargement ou un test a échoué (voir cause_code) ; models_missing : ne déclare pas les modèles actifs.
+       * @enum {string}
+       */
+      voice_state: "ready" | "untested" | "unavailable" | "models_missing";
+      cause_code: string;
+      diarization: components["schemas"]["WorkerModel"] | null;
+      fingerprint: components["schemas"]["WorkerModel"] | null;
+      holds_active_diarization: boolean;
+      holds_active_fingerprint: boolean;
+    };
+    VoiceOverview: {
+      /** @enum {string} */
+      provider: "fake" | "pyannote";
+      active_models: {
+        diarization: string;
+        fingerprint: string;
+      };
+      workers_total: number;
+      workers_voice_ready: number;
+      /** @description Travaux vocaux en attente tant qu'aucun Worker n'est prêt ; 0 sinon. */
+      pending_voice_jobs: number;
+      workers: components["schemas"]["VoiceOverviewWorker"][];
     };
     VoicePipelineState: {
       version: string;
@@ -7817,6 +7862,35 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoicePipelineState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceOverview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Inventaire vocal */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceOverview"];
         };
       };
       /** @description Erreur */

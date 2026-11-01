@@ -243,6 +243,26 @@ export const en = {
     remove: "Delete",
     empty: "No vocabulary terms yet.",
   },
+  voiceInventory: {
+    title: "Worker voice models",
+    hint: "What each Worker really holds, reported by the Worker itself.",
+    ready: "Workers with voice ready",
+    pending: "Voice jobs waiting for a ready Worker",
+    empty: "No Worker yet. Install one to analyse voices.",
+    offline: "Offline",
+    none: "Not installed",
+    diarization: "Diarization model",
+    fingerprint: "Fingerprint model",
+    missing:
+      "This Worker does not hold the active model {model}, so it takes no voice job.",
+    cause: "Cause: {code}",
+    state: {
+      ready: "Voice ready",
+      untested: "Not tested",
+      unavailable: "Unavailable",
+      models_missing: "Active model missing",
+    },
+  },
   voiceAdmin: {
     title: "Voice processing",
     saved: "Settings saved.",

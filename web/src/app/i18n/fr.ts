@@ -248,6 +248,27 @@ export const fr: Messages = {
     remove: "Supprimer",
     empty: "Aucun terme enregistré.",
   },
+  voiceInventory: {
+    title: "Modèles vocaux des Workers",
+    hint: "Ce que chaque Worker détient réellement, déclaré par le Worker lui-même.",
+    ready: "Workers Voix prête",
+    pending: "Travaux vocaux en attente d'un Worker prêt",
+    empty:
+      "Aucun Worker pour l'instant. Installez-en un pour analyser les voix.",
+    offline: "Hors ligne",
+    none: "Non installé",
+    diarization: "Modèle de diarisation",
+    fingerprint: "Modèle d'empreinte",
+    missing:
+      "Ce Worker ne détient pas le modèle actif {model} : il ne prend aucun travail vocal.",
+    cause: "Cause : {code}",
+    state: {
+      ready: "Voix prête",
+      untested: "Non testé",
+      unavailable: "Indisponible",
+      models_missing: "Modèle actif absent",
+    },
+  },
   voiceAdmin: {
     title: "Traitement vocal",
     saved: "Réglages enregistrés.",

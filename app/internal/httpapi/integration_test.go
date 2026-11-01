@@ -190,6 +190,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelDispatch(t, pool)
 	})
+	t.Run("voice overview", func(t *testing.T) {
+		reset(t)
+		testVoiceOverview(t, pool)
+	})
 	t.Run("persons and attributions", func(t *testing.T) {
 		reset(t)
 		testPersonValidation(t, pool)
@@ -506,6 +510,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", nil, me.CSRF, 200)
 		// Voice endpoints: contract conformity here, full behavior in the voice suite.
 		call(client, "GET", "/api/admin/voice-pipeline", nil, "", 200)
+		call(client, "GET", "/api/admin/voice-overview", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "access_confirmed": false, "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/voice", nil, "", 200)
