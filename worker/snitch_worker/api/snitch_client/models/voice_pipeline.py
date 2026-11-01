@@ -30,8 +30,6 @@ class VoicePipeline:
             provider (VoicePipelineProvider):
             model (str):
             model_version (str):
-            access_confirmed (bool): Confirmation explicite par l'administrateur du jeton et des conditions d'accès du
-                modèle.
             min_fingerprint_seconds (float):
             min_quality (float):
             fake (VoicePipelineFake | Unset): Réglages du fournisseur factice déterministe, réservés aux tests.
@@ -40,7 +38,6 @@ class VoicePipeline:
     provider: VoicePipelineProvider
     model: str
     model_version: str
-    access_confirmed: bool
     min_fingerprint_seconds: float
     min_quality: float
     fake: VoicePipelineFake | Unset = UNSET
@@ -57,8 +54,6 @@ class VoicePipeline:
 
         model_version = self.model_version
 
-        access_confirmed = self.access_confirmed
-
         min_fingerprint_seconds = self.min_fingerprint_seconds
 
         min_quality = self.min_quality
@@ -74,7 +69,6 @@ class VoicePipeline:
             "provider": provider,
             "model": model,
             "model_version": model_version,
-            "access_confirmed": access_confirmed,
             "min_fingerprint_seconds": min_fingerprint_seconds,
             "min_quality": min_quality,
         })
@@ -98,8 +92,6 @@ class VoicePipeline:
 
         model_version = d.pop("model_version")
 
-        access_confirmed = d.pop("access_confirmed")
-
         min_fingerprint_seconds = d.pop("min_fingerprint_seconds")
 
         min_quality = d.pop("min_quality")
@@ -118,7 +110,6 @@ class VoicePipeline:
             provider=provider,
             model=model,
             model_version=model_version,
-            access_confirmed=access_confirmed,
             min_fingerprint_seconds=min_fingerprint_seconds,
             min_quality=min_quality,
             fake=fake,

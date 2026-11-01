@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import signal
@@ -30,6 +31,7 @@ from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
 from snitch_worker import revocation
+from snitch_worker import voice_models
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
 from snitch_worker.transcription_config import active_configuration, sync_configuration
@@ -311,7 +313,7 @@ def run_once(
             body=WorkerPulseInput(
                 capacity=capacity,
                 supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
-                models=declared_models(os.environ),
+                models=declared_models(os.environ, voice_models.active_repo()),
                 machine=declared_machine(),
             ),
         ),
@@ -321,6 +323,10 @@ def run_once(
         return False
     if isinstance(client, AuthenticatedClient):
         sync_configuration(client)
+        try:
+            voice_models.sync_voice_models(client, voice_models.default_manager())
+        except Exception:  # noqa: BLE001 - the model manager must never stop claiming
+            logging.getLogger(__name__).warning("voice model synchronisation failed")
     claim = _require_response(claim_job(client=client), "claim")
     if claim is None or claim.job is None:
         return False

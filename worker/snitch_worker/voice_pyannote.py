@@ -19,7 +19,7 @@ import os
 import threading
 from typing import Any, Callable, MutableMapping
 
-from snitch_worker import voice_manifest
+from snitch_worker import voice_manifest, voice_models
 from snitch_worker.voice import (
     VoiceProviderUnavailable,
     diarization_from_turns,
@@ -93,6 +93,7 @@ class PyannoteProvider:
         self._pipeline: Callable[[str], Any] | None = None
         self._open_audio: Callable[[str], Callable[[float, float], Any]] | None = None
         self._device: str | None = None
+        self._pipeline_path: str | None = None
 
     # -- configuration -------------------------------------------------
 
@@ -101,6 +102,13 @@ class PyannoteProvider:
         if not path or not os.path.exists(path):
             raise VoiceProviderUnavailable("model_path_missing")
         return path
+
+    def _diarization_path(self, config: dict[str, Any]) -> str:
+        """The active model's own directory on the models volume, else the legacy single path."""
+        repo, revision = str(config.get("model") or ""), str(config.get("model_version") or "")
+        if voice_models.is_ready(self._environ, repo, revision):
+            return voice_models.model_path(self._environ, repo, revision)
+        return self._path(DIARIZATION_PATH_ENV)
 
     def _embedding_identity(self) -> tuple[str, str]:
         version = self._environ.get(EMBEDDING_VERSION_ENV, "").strip()
@@ -112,7 +120,7 @@ class PyannoteProvider:
 
     def ensure_ready(self, config: dict[str, Any]) -> None:
         """Cheap checks only: nothing is imported, loaded or downloaded."""
-        self._path(DIARIZATION_PATH_ENV)
+        self._diarization_path(config)
         self._path(EMBEDDING_PATH_ENV)
         self._embedding_identity()
 
@@ -136,14 +144,16 @@ class PyannoteProvider:
 
     # -- lazy, cached model loading -------------------------------------
 
-    def _pipeline_loaded(self) -> Callable[[str], Any]:
+    def _pipeline_loaded(self, config: dict[str, Any]) -> Callable[[str], Any]:
         with self._load_lock:
-            if self._pipeline is None:
-                path = self._path(DIARIZATION_PATH_ENV)
+            path = self._diarization_path(config)
+            if self._pipeline is None or self._pipeline_path != path:
+                self._pipeline = None
                 device = self._resolve_device()
                 self._offline()
                 try:
                     self._pipeline = self._load_pipeline(path, device)
+                    self._pipeline_path = path
                 except VoiceProviderUnavailable:
                     raise
                 except ImportError:
@@ -171,7 +181,7 @@ class PyannoteProvider:
     # -- steps ------------------------------------------------------------
 
     def diarize(self, config: dict[str, Any], audio_path: str, stream_index: int) -> dict[str, Any]:
-        pipeline = self._pipeline_loaded()
+        pipeline = self._pipeline_loaded(config)
         try:
             with self._inference_lock:
                 output = pipeline(audio_path)

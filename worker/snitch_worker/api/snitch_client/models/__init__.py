@@ -242,6 +242,15 @@ from .voice_group_naming_input import VoiceGroupNamingInput
 from .voice_matching_input import VoiceMatchingInput
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_summary import VoiceMatchingSummary
+from .voice_model import VoiceModel
+from .voice_model_candidate import VoiceModelCandidate
+from .voice_model_choice import VoiceModelChoice
+from .voice_model_kind import VoiceModelKind
+from .voice_model_retry import VoiceModelRetry
+from .voice_model_worker_state import VoiceModelWorkerState
+from .voice_model_worker_state_cause_code import VoiceModelWorkerStateCauseCode
+from .voice_model_worker_state_state import VoiceModelWorkerStateState
+from .voice_models import VoiceModels
 from .voice_overview import VoiceOverview
 from .voice_overview_active_models import VoiceOverviewActiveModels
 from .voice_overview_provider import VoiceOverviewProvider
@@ -301,6 +310,12 @@ from .worker_voice_input import WorkerVoiceInput
 from .worker_voice_input_diarization import WorkerVoiceInputDiarization
 from .worker_voice_input_diarization_speakers_item import WorkerVoiceInputDiarizationSpeakersItem
 from .worker_voice_input_diarization_speakers_item_turns_item import WorkerVoiceInputDiarizationSpeakersItemTurnsItem
+from .worker_voice_model import WorkerVoiceModel
+from .worker_voice_model_role import WorkerVoiceModelRole
+from .worker_voice_model_status import WorkerVoiceModelStatus
+from .worker_voice_model_status_cause_code import WorkerVoiceModelStatusCauseCode
+from .worker_voice_model_status_state import WorkerVoiceModelStatusState
+from .worker_voice_models import WorkerVoiceModels
 
 __all__ = (
     "AccountPreferences",
@@ -545,6 +560,15 @@ __all__ = (
     "VoiceMatchingInput",
     "VoiceMatchingSettings",
     "VoiceMatchingSummary",
+    "VoiceModel",
+    "VoiceModelCandidate",
+    "VoiceModelChoice",
+    "VoiceModelKind",
+    "VoiceModelRetry",
+    "VoiceModels",
+    "VoiceModelWorkerState",
+    "VoiceModelWorkerStateCauseCode",
+    "VoiceModelWorkerStateState",
     "VoiceOverview",
     "VoiceOverviewActiveModels",
     "VoiceOverviewProvider",
@@ -604,4 +628,10 @@ __all__ = (
     "WorkerVoiceInputDiarization",
     "WorkerVoiceInputDiarizationSpeakersItem",
     "WorkerVoiceInputDiarizationSpeakersItemTurnsItem",
+    "WorkerVoiceModel",
+    "WorkerVoiceModelRole",
+    "WorkerVoiceModels",
+    "WorkerVoiceModelStatus",
+    "WorkerVoiceModelStatusCauseCode",
+    "WorkerVoiceModelStatusState",
 )

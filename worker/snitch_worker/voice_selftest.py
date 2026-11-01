@@ -36,6 +36,14 @@ def write_synthetic_audio(path: str, seconds: float = 3.0, rate: int = 16000) ->
         out.writeframes(b"".join(struct.pack("<h", f) for f in frames))
 
 
+def diarize_synthetic(provider: Any) -> None:
+    """Diarize a synthetic tone with ``provider``: raises VoiceProviderUnavailable when the model cannot run."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "synthetic.wav")
+        write_synthetic_audio(path)
+        provider.diarize(CONFIG, path, 0)
+
+
 def run_selftest(providers: Mapping[str, Any] | None = None) -> bool:
     """True when diarization ran end to end on synthetic audio."""
     available = providers or voice.default_providers()

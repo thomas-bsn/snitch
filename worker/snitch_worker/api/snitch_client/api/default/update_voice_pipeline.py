@@ -80,8 +80,8 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | VoicePipelineState]:
-    """  Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur
-    factice peut s'exécuter sans access_confirmed.
+    """  Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Un modèle pyannote
+    doit appartenir au catalogue ; l'état réel des Workers remplace toute confirmation saisie.
 
     Args:
         origin (str):
@@ -118,8 +118,8 @@ def sync(
     x_csrf_token: str,
 
 ) -> Error | VoicePipelineState | None:
-    """  Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur
-    factice peut s'exécuter sans access_confirmed.
+    """  Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Un modèle pyannote
+    doit appartenir au catalogue ; l'état réel des Workers remplace toute confirmation saisie.
 
     Args:
         origin (str):
@@ -151,8 +151,8 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | VoicePipelineState]:
-    """  Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur
-    factice peut s'exécuter sans access_confirmed.
+    """  Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Un modèle pyannote
+    doit appartenir au catalogue ; l'état réel des Workers remplace toute confirmation saisie.
 
     Args:
         origin (str):
@@ -189,8 +189,8 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> Error | VoicePipelineState | None:
-    """  Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur
-    factice peut s'exécuter sans access_confirmed.
+    """  Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Un modèle pyannote
+    doit appartenir au catalogue ; l'état réel des Workers remplace toute confirmation saisie.
 
     Args:
         origin (str):

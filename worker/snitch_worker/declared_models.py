@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 from snitch_client.models.worker_model import WorkerModel
 from snitch_client.models.worker_models import WorkerModels
 
-from snitch_worker import voice_manifest
+from snitch_worker import voice_manifest, voice_models
 
 _REVISION_LENGTH = 12
 
@@ -71,7 +71,7 @@ def _model(
     return declared
 
 
-def declared_models(env: Mapping[str, str]) -> WorkerModels:
+def declared_models(env: Mapping[str, str], active_diarization: str = "") -> WorkerModels:
     """Build the declaration from the worker environment; absent roles stay unset."""
     models = WorkerModels()
     transcription = _model(
@@ -89,7 +89,15 @@ def declared_models(env: Mapping[str, str]) -> WorkerModels:
         ("diarization", "diarization", "SNITCH_VOICE_DIARIZATION", "pyannote/speaker-diarization-community-1"),
         ("fingerprint", "embedding", "SNITCH_VOICE_EMBEDDING", "pyannote/wespeaker-voxceleb-resnet34-LM"),
     )
+    # A verified copy of the active diarization model on the models volume wins over the legacy layout.
+    held = voice_models.ready_revision(env, active_diarization) if active_diarization else ""
+    if held:
+        voice = _model("pyannote", active_diarization, held[:_REVISION_LENGTH])
+        if voice is not None:
+            models.diarization = voice
     for role, manifest_key, prefix, default_name in voice_roles:
+        if role == "diarization" and held:
+            continue
         if not env.get(prefix + "_MODEL_PATH", "").strip():
             continue
         entry = manifest.get(manifest_key)
