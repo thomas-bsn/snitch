@@ -28,9 +28,6 @@ export async function fetchWorker(id: string): Promise<Result<WorkerDetail>> {
 
 export type NewWorker = {
   name: string;
-  whisperUrl: string;
-  /** Only the first Worker sets the library's model and language. */
-  transcription?: { model: string; language: string };
 };
 
 /** The actions of the Workers screens; each one carries the session's CSRF token. */
@@ -44,10 +41,6 @@ export function useWorkerActions() {
         body: {
           name: input.name,
           max_concurrency: 1,
-          ...(input.whisperUrl ? { transcription_url: input.whisperUrl } : {}),
-          ...(input.transcription
-            ? { transcription: input.transcription }
-            : {}),
         },
       });
       return data ? { ok: true, value: data } : failure(error);

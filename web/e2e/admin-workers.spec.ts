@@ -97,6 +97,32 @@ test.describe.serial("administration et Workers", () => {
     await context.close();
   });
 
+  test("configurer la transcription avant le premier Worker", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      storageState: await sessionFor(ADMIN),
+    });
+    const page = await context.newPage();
+    await page.goto("/admin/transcription");
+    // Initially unconfigured
+    await expect(
+      page.getByText("Transcription needs configuration."),
+    ).toBeVisible();
+    // Configure transcription
+    await page
+      .getByLabel("Whisper/Speaches server URL")
+      .fill("http://host.docker.internal:8000");
+    await page.getByLabel("Library model").fill("whisper-large-v3");
+    await page.getByLabel("Language").fill("fr");
+    await page.getByRole("button", { name: "Save and version" }).click();
+    await expect(
+      page.getByText("Saved, not yet tested from a Worker."),
+    ).toBeVisible();
+    await expectNoViolations(page);
+    await context.close();
+  });
+
   test("la barre d'onglets, le premier Worker et son jeton Hugging Face", async ({
     browser,
   }) => {
@@ -136,14 +162,6 @@ test.describe.serial("administration et Workers", () => {
     await expect(page.getByText("No Worker yet.")).toBeVisible();
     await expectNoViolations(page);
 
-    // Sub-sections show as pills under the bar.
-    await tabs.getByRole("link", { name: "Transcription" }).click();
-    await expect(page).toHaveURL(/\/admin\/transcription$/);
-    await expect(
-      page.getByRole("navigation", { name: "Subsections" }).getByRole("link"),
-    ).toHaveText(["Model", "Vocabulary"]);
-    await tabs.getByRole("link", { name: "Workers" }).click();
-
     await page.getByRole("link", { name: "Add a Worker" }).click();
     await expect(page).toHaveURL(/\/admin\/workers\/new$/);
     // The address of Snitch is filled in and read-only; plain HTTP is flagged.
@@ -151,45 +169,54 @@ test.describe.serial("administration et Workers", () => {
     await expect(snitch).toHaveValue(process.env.SNITCH_TEST_URL!);
     await expect(snitch).toHaveAttribute("readonly", "");
     await expect(page.getByText("This address is not HTTPS")).toBeVisible();
+    // Transcription settings are read-only and pre-filled from central config.
+    const whisperEndpoint = page.getByLabel("Whisper server address");
+    await expect(whisperEndpoint).toHaveValue(
+      "http://host.docker.internal:8000",
+    );
+    await expect(whisperEndpoint).toHaveAttribute("readonly", "");
+    const libraryModel = page.getByLabel("Library model");
+    await expect(libraryModel).toHaveValue("whisper-large-v3");
+    await expect(libraryModel).toHaveAttribute("readonly", "");
+    const language = page.getByLabel("Language");
+    await expect(language).toHaveValue("fr");
+    await expect(language).toHaveAttribute("readonly", "");
     await expectNoViolations(page);
 
     await page.getByLabel("Worker name").fill("gaming-pc");
-    await page
-      .getByLabel("Whisper server address")
-      .fill("http://host.docker.internal:8000");
-    await page.getByLabel("Whisper model name").fill("whisper-large-v3");
-    await page.getByLabel("Language").selectOption("fr");
-    await page.getByLabel("Hugging Face token").fill(HF_TOKEN);
     await page.getByRole("button", { name: "Create the Worker" }).click();
 
-    // The first Worker engages the whole library: a confirmation says so.
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toContainText("every future Worker");
-    await expect(dialog).toContainText("whisper-large-v3 · fr");
+    // One command to run; the files are kept under "Advanced". Secrets never go through the form.
+    await expect(
+      page.getByText("Copy the installation command now."),
+    ).toBeVisible();
+    const command = await page
+      .getByRole("textbox", { name: "Worker installation command" })
+      .inputValue();
+    expect(command).not.toContain(HF_TOKEN);
     await expectNoViolations(page);
-    await page.keyboard.press("Escape");
-    await expect(dialog).toHaveCount(0);
-    await page.getByRole("button", { name: "Create the Worker" }).click();
-    await page.getByRole("button", { name: "Confirm and create" }).click();
 
-    // Files: the token of the Worker is shown once; the Hugging Face token is in the .env only.
-    await expect(page.getByText("Copy both files now.")).toBeVisible();
+    await page.getByRole("button", { name: "Copy command" }).click();
+    await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      command,
+    );
+
+    await page.getByText("Advanced: deployment files").click();
     const env = page.getByRole("textbox", { name: "Content of .env" });
     const text = await env.inputValue();
-    expect(text).toContain("HF_TOKEN=" + HF_TOKEN);
+    // The Hugging Face token is never typed in Snitch: the file only carries a placeholder to fill by hand.
+    expect(text).toContain("HF_TOKEN=A_RENSEIGNER");
+    expect(text).not.toContain(HF_TOKEN);
     expect(text).toContain(
       "TRANSCRIPTION_API_URL=http://host.docker.internal:8000",
     );
+    // Model and language are managed by Snitch once the Worker is connected: not pinned in the file.
     expect(text).not.toMatch(/^TRANSCRIPTION_MODEL=/m);
+    expect(text).not.toMatch(/^TRANSCRIPTION_LANGUAGE=/m);
     firstToken = /^SNITCH_WORKER_TOKEN=(\S+)$/m.exec(text)![1];
     expect(firstToken).toMatch(/^rw_/);
-    await expectNoViolations(page);
-
-    await page.getByRole("button", { name: "Copy" }).first().click();
-    await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-      text,
-    );
+    expect(command).not.toContain(firstToken);
 
     const download = page.waitForEvent("download");
     await page
@@ -204,14 +231,14 @@ test.describe.serial("administration et Workers", () => {
     expect(compose).toContain("TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:-}");
     expect(compose).not.toContain(firstToken);
 
-    await page.getByRole("button", { name: "I copied the files" }).click();
+    await page.getByRole("button", { name: "Done" }).click();
     await expect(page).toHaveURL(/\/admin\/workers\/wk_/);
     firstId = page.url().split("/").pop()!;
     expect(leaked).toEqual([]);
     await context.close();
   });
 
-  test("le Worker suivant affiche le modèle et la langue en lecture seule", async ({
+  test("le Worker suivant affiche les réglages de transcription en lecture seule", async ({
     browser,
   }) => {
     const context = await browser.newContext({
@@ -219,11 +246,17 @@ test.describe.serial("administration et Workers", () => {
     });
     const page = await context.newPage();
     await page.goto("/admin/workers/new");
-    const library = page.getByLabel("Library model");
-    await expect(library).toHaveValue("whisper-large-v3 · fr");
-    await expect(library).toHaveAttribute("readonly", "");
-    await expect(page.getByLabel("Whisper model name")).toHaveCount(0);
-    await expect(page.getByLabel("Language")).toHaveCount(0);
+    const whisperEndpoint = page.getByLabel("Whisper server address");
+    await expect(whisperEndpoint).toHaveValue(
+      "http://host.docker.internal:8000",
+    );
+    await expect(whisperEndpoint).toHaveAttribute("readonly", "");
+    const libraryModel = page.getByLabel("Library model");
+    await expect(libraryModel).toHaveValue("whisper-large-v3");
+    await expect(libraryModel).toHaveAttribute("readonly", "");
+    const language = page.getByLabel("Language");
+    await expect(language).toHaveValue("fr");
+    await expect(language).toHaveAttribute("readonly", "");
     await expectNoViolations(page);
     await context.close();
   });

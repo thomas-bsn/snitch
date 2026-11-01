@@ -154,6 +154,17 @@ export const fr: Messages = {
     },
   },
   transAdmin: {
+    configureBeforeWorker:
+      "Réglez la transcription ici avant d'ajouter votre premier Worker.",
+    transcriptionMode: "Transcription",
+    enabled: "Activée",
+    disabled: "Désactivée volontairement",
+    endpoint: "URL du serveur Whisper/Speaches",
+    settingsStatus: {
+      unconfigured: "La transcription reste à configurer.",
+      untested: "Enregistrée, pas encore testée depuis un Worker.",
+      disabled: "La transcription est désactivée volontairement.",
+    },
     empty: "Créez un Worker pour définir le profil de transcription.",
     create: "Créer un Worker",
     title: "Profil de transcription de la bibliothèque",
@@ -172,12 +183,25 @@ export const fr: Messages = {
     save: "Enregistrer et versionner",
     saved: "Réglages enregistrés pour les prochaines transcriptions.",
     workers: "Workers",
+    sync: {
+      notReceived: "Configuration non reçue",
+      pending: "En attente d'un test réussi",
+      connectionFailed: "Serveur Whisper inaccessible depuis ce Worker",
+      modelMissing: "Modèle de bibliothèque absent du serveur Whisper",
+      active: "Configuration active",
+      versions: "Reçue : {received} · Testée : {tested} · Active : {active}",
+      test: "Tester depuis le Worker",
+    },
     columns: {
       name: "Worker",
       server: "Serveur Whisper",
       sent: "Modèle envoyé",
       language: "Langue",
       status: "État",
+      receivedVersion: "Reçue",
+      testedVersion: "Testée",
+      activeVersion: "Active",
+      error: "Erreur",
     },
     undeclared: "Non déclaré",
     online: "Connecté",
@@ -187,6 +211,21 @@ export const fr: Messages = {
       "Laissez vide pour utiliser le modèle de la bibliothèque. Ce nom est envoyé uniquement au serveur de ce Worker.",
     override: "Nom du modèle du Worker",
     saveSimple: "Enregistrer",
+    endpointOverride: "Adresse Whisper du Worker",
+    endpointOverrideHint:
+      "Laissez vide pour utiliser l'adresse commune. Une adresse propre s'applique seulement à ce Worker et n'est pas modifiée quand l'adresse commune change.",
+    endpointOverridePlaceholder: "ex. http://192.168.1.50:8000",
+    testFromWorker: "Tester depuis le Worker",
+    testing: "Test en cours…",
+    statusReceived: "Configuration reçue",
+    statusAwaitingTest: "En attente d'un test réussi",
+    statusActive: "Active",
+    statusError: "Test échoué : {error}",
+    errorConnectionFailed:
+      "Connexion échouée — vérifiez l'adresse et le réseau",
+    errorModelMissing: "Modèle indisponible sur le serveur",
+    noOverride: "Adresse commune utilisée",
+    removeOverride: "Retirer l'adresse propre",
   },
   vocabAdmin: {
     title: "Vocabulaire de transcription",
@@ -787,17 +826,18 @@ export const fr: Messages = {
     },
     create: {
       title: "Ajouter un Worker",
-      lead: "Indiquez à Snitch où ce Worker trouve son serveur Whisper. Snitch écrit les fichiers de déploiement pour sa machine.",
+      lead: "Snitch renseigne la connexion et les réglages de la bibliothèque. Créez un Worker, puis copiez une seule commande d’installation.",
       name: "Nom du Worker",
       nameHint:
         "1 à 64 caractères. Lettres, chiffres, espaces, points, tirets et soulignés.",
       snitch: "Adresse de Snitch",
-      snitchHint: "Renseignée par Snitch : l’adresse que le Worker appellera.",
+      snitchHint:
+        "Renseignée par Snitch depuis son adresse publique. Modifiez PUBLIC_URL dans le déploiement du serveur si nécessaire.",
       insecure:
-        "Cette adresse n’est pas en HTTPS et le Worker refuse le HTTP. Ouvrez Snitch en HTTPS, ou corrigez SNITCH_API_URL dans le fichier .env.",
+        "Cette adresse n’est pas en HTTPS et le Worker refuse le HTTP. Configurez l’adresse publique dans le déploiement du serveur Snitch.",
       whisper: "Adresse du serveur Whisper",
       whisperHint:
-        "Tout serveur qui répond à POST /v1/audio/transcriptions. Sur le PC de jeu lui-même : http://host.docker.internal:8000",
+        "Réglée dans Administration, Transcription. Cette adresse doit être accessible depuis la machine du Worker.",
       model: "Nom du modèle Whisper",
       modelHint:
         "Le modèle de toute la bibliothèque. Le premier Worker le fixe ; vous pourrez le changer ensuite dans Administration, Transcription.",
@@ -805,7 +845,7 @@ export const fr: Messages = {
       languageHint: "Une seule langue pour toute la bibliothèque.",
       libraryModel: "Modèle de la bibliothèque",
       libraryModelHint:
-        "Fixé à la création du premier Worker, partagé par tous les Workers. À changer dans Administration, Transcription.",
+        "Partagé par tous les Workers. À changer dans Administration, Transcription.",
       hf: "Jeton Hugging Face",
       hfHint:
         "Acceptez d’abord les conditions de pyannote sur Hugging Face, puis collez un jeton en lecture seule. Il ne sert qu’à télécharger les modèles de voix au premier démarrage. Snitch ne le reçoit jamais et ne le conserve pas : il est écrit dans le fichier .env ci-dessous, dans votre navigateur.",
@@ -818,14 +858,27 @@ export const fr: Messages = {
       confirmBack: "Retour",
       confirmSubmit: "Confirmer et créer",
       shownOnce:
-        "Copiez les deux fichiers maintenant. Le jeton du Worker n’est affiché qu’une fois et Snitch ne pourra plus le montrer.",
+        "Copiez maintenant la commande d’installation. Son invitation expire ; le jeton du Worker n’apparaît jamais dans l’historique du terminal.",
       secret:
         "Le fichier .env contient le jeton du Worker et votre jeton Hugging Face : ne le partagez ni ne le versionnez jamais.",
       hfMissing:
         "Aucun jeton Hugging Face n’a été donné : renseignez HF_TOKEN à la main dans le fichier .env.",
       whisperMissing:
         "Aucune adresse Whisper n’a été donnée : renseignez TRANSCRIPTION_API_URL à la main dans le fichier .env.",
-      done: "J’ai copié les fichiers",
+      publicAddressLink: "Où modifier l’adresse publique de Snitch",
+      editTranscription: "Modifier dans Transcription",
+      transcriptionDisabled:
+        "La transcription est désactivée. Vous pouvez installer ce Worker pour d’autres tâches ; il ne recevra pas de jobs de transcription.",
+      transcriptionUnconfigured:
+        "La transcription n’est pas encore configurée. Réglez-la dans Transcription avant que ce Worker reçoive des jobs de transcription.",
+      hfTerminalHint:
+        "Les modèles vocaux sont facultatifs. Si vous les activez, l’installateur demande le jeton Hugging Face de façon masquée dans le terminal. Snitch ne le reçoit jamais.",
+      installLead:
+        "Lancez cette seule commande sur la machine Linux avec Docker. L’installateur vérifie les prérequis, prépare le stockage et démarre le Worker.",
+      installCommand: "Commande d’installation du Worker",
+      copyCommand: "Copier la commande",
+      advancedFiles: "Avancé : fichiers de déploiement",
+      done: "Terminé",
     },
     files: {
       tabsLabel: "Fichiers de déploiement",

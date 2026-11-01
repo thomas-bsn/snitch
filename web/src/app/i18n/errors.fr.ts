@@ -114,6 +114,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_source_id: "Cet identifiant de dossier n’est pas valide.",
   invalid_transcription_pipeline:
     "Ces réglages de transcription ne sont pas valides.",
+  invalid_transcription_settings:
+    "Saisissez une URL Whisper/Speaches, un modèle et une langue valides.",
+  invalid_transcription_config_status:
+    "L'état de configuration du Worker est invalide.",
+  stale_transcription_config:
+    "La configuration de transcription a changé. Réessayez.",
   invalid_transcription_result:
     "Ce résultat de transcription n’est pas valide.",
   invalid_turn: "Ce tour de parole n’est pas valide.",
@@ -140,6 +146,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Ce code de langue n’est pas valide (deux ou trois lettres minuscules, par exemple fr).",
   invalid_transcription_model: "Ce nom de modèle n’est pas valide.",
   invalid_transcription_url:
+    "Cette adresse Whisper n’est pas valide. Utilisez une adresse http ou https sans identifiants.",
+  invalid_transcription_endpoint:
     "Cette adresse Whisper n’est pas valide. Utilisez une adresse http ou https sans identifiants.",
   transcription_language_required: "Choisissez la langue de la bibliothèque.",
   transcription_model_required: "Indiquez le modèle de la bibliothèque.",

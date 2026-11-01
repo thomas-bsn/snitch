@@ -151,6 +151,17 @@ export const en = {
     },
   },
   transAdmin: {
+    configureBeforeWorker:
+      "Set transcription here before adding your first Worker.",
+    transcriptionMode: "Transcription",
+    enabled: "Enabled",
+    disabled: "Disabled intentionally",
+    endpoint: "Whisper/Speaches server URL",
+    settingsStatus: {
+      unconfigured: "Transcription needs configuration.",
+      untested: "Saved, not yet tested from a Worker.",
+      disabled: "Transcription is disabled intentionally.",
+    },
     empty: "Create a Worker to set the transcription profile.",
     create: "Create a Worker",
     title: "Library transcription profile",
@@ -169,12 +180,25 @@ export const en = {
     save: "Save and version",
     saved: "Settings saved for future transcriptions.",
     workers: "Workers",
+    sync: {
+      notReceived: "Configuration not received",
+      pending: "Awaiting a successful test",
+      connectionFailed: "Whisper server unreachable from this Worker",
+      modelMissing: "Library model missing on the Whisper server",
+      active: "Configuration active",
+      versions: "Received: {received} · Tested: {tested} · Active: {active}",
+      test: "Test from Worker",
+    },
     columns: {
       name: "Worker",
       server: "Whisper server",
       sent: "Model sent",
       language: "Language",
       status: "Status",
+      receivedVersion: "Received",
+      testedVersion: "Tested",
+      activeVersion: "Active",
+      error: "Error",
     },
     undeclared: "Not declared",
     online: "Connected",
@@ -184,6 +208,20 @@ export const en = {
       "Leave empty to use the library model. This name is only sent to this Worker's server.",
     override: "Worker model name",
     saveSimple: "Save",
+    endpointOverride: "Worker Whisper server address",
+    endpointOverrideHint:
+      "Leave empty to use the common address. A custom address applies only to this Worker and is not changed when the common address is updated.",
+    endpointOverridePlaceholder: "e.g. http://192.168.1.50:8000",
+    testFromWorker: "Test from Worker",
+    testing: "Testing…",
+    statusReceived: "Configuration received",
+    statusAwaitingTest: "Awaiting a successful test",
+    statusActive: "Active",
+    statusError: "Test failed: {error}",
+    errorConnectionFailed: "Connection failed — check the address and network",
+    errorModelMissing: "Model not available on the server",
+    noOverride: "Using common address",
+    removeOverride: "Remove custom address",
   },
   vocabAdmin: {
     title: "Transcription vocabulary",
@@ -773,17 +811,18 @@ export const en = {
     },
     create: {
       title: "Add a Worker",
-      lead: "Tell Snitch where this Worker finds its Whisper server. Snitch writes the deployment files for its machine.",
+      lead: "Snitch fills in the connection and library settings. Create a Worker, then copy one installation command.",
       name: "Worker name",
       nameHint:
         "1 to 64 characters. Letters, digits, spaces, dots, dashes and underscores.",
       snitch: "Snitch address",
-      snitchHint: "Filled in by Snitch: the address the Worker will call.",
+      snitchHint:
+        "Filled in by Snitch from its public address. Change PUBLIC_URL in the server deployment if needed.",
       insecure:
-        "This address is not HTTPS and the Worker refuses plain HTTP. Open Snitch over HTTPS, or fix SNITCH_API_URL in the .env file.",
+        "This address is not HTTPS and the Worker refuses plain HTTP. Configure the public address in the Snitch server deployment.",
       whisper: "Whisper server address",
       whisperHint:
-        "Any server that answers POST /v1/audio/transcriptions. On the gaming PC itself: http://host.docker.internal:8000",
+        "Set in Administration, Transcription. This address must be reachable from the Worker machine.",
       model: "Whisper model name",
       modelHint:
         "The model for the whole library. The first Worker sets it; you can change it later in Administration, Transcription.",
@@ -791,7 +830,7 @@ export const en = {
       languageHint: "One language for the whole library.",
       libraryModel: "Library model",
       libraryModelHint:
-        "Set when the first Worker was created, shared by every Worker. Change it in Administration, Transcription.",
+        "Shared by every Worker. Change it in Administration, Transcription.",
       hf: "Hugging Face token",
       hfHint:
         "Accept the pyannote conditions on Hugging Face first, then paste a read-only token. It only serves to download the voice models on the first start. Snitch never receives it and does not keep it: it is written into the .env file below, in your browser.",
@@ -804,14 +843,27 @@ export const en = {
       confirmBack: "Back",
       confirmSubmit: "Confirm and create",
       shownOnce:
-        "Copy both files now. The Worker token is shown only once and Snitch cannot show it again.",
+        "Copy the installation command now. Its invitation expires; the Worker token is never put in your shell history.",
       secret:
         "The .env file holds the Worker token and your Hugging Face token: never share it, never commit it.",
       hfMissing:
         "No Hugging Face token was given: fill in HF_TOKEN by hand in the .env file.",
       whisperMissing:
         "No Whisper address was given: fill in TRANSCRIPTION_API_URL by hand in the .env file.",
-      done: "I copied the files",
+      publicAddressLink: "Where to change Snitch’s public address",
+      editTranscription: "Change in Transcription",
+      transcriptionDisabled:
+        "Transcription is disabled. You can install this Worker for other tasks; it will not receive transcription jobs.",
+      transcriptionUnconfigured:
+        "Transcription is not configured yet. Set it in Transcription before this Worker receives transcription jobs.",
+      hfTerminalHint:
+        "Voice models are optional. If you enable them, the installer asks for a Hugging Face token privately in your terminal. Snitch never receives it.",
+      installLead:
+        "Run this single command on the Linux machine with Docker. The installer checks prerequisites, prepares storage, and starts the Worker.",
+      installCommand: "Worker installation command",
+      copyCommand: "Copy command",
+      advancedFiles: "Advanced: deployment files",
+      done: "Done",
     },
     files: {
       tabsLabel: "Deployment files",

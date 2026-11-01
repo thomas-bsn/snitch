@@ -316,6 +316,7 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
+// For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
 func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -346,7 +347,8 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	}
 	var maximum, reported int
 	var supportedSteps []string
-	err = tx.QueryRow(ctx, `SELECT max_concurrency,reported_concurrency,supported_steps FROM workers WHERE id=$1 AND revoked_at IS NULL FOR UPDATE`, workerID).Scan(&maximum, &reported, &supportedSteps)
+	var activeVersion string
+	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE OF w`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -365,7 +367,27 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if capacity < 1 || active >= capacity || globalActive >= globalCapacity {
 		return nil, tx.Commit(ctx)
 	}
-	job, err := scanJob(tx.QueryRow(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle FROM jobs j WHERE j.status='pending' AND j.next_attempt_at<=now() AND EXISTS (SELECT 1 FROM unnest($1::text[]) AS capability WHERE CASE WHEN right(capability,2)='.*' THEN left(j.step,length(capability)-1)=left(capability,length(capability)-1) ELSE j.step=capability END) ORDER BY j.priority DESC,j.created_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1`, supportedSteps))
+	// Build the job selection query. For transcription jobs, require matching active_version.
+	// Extract pipeline version from input_version (format: t4-a{idx}-r{rule}-v{vocab}-p{pipeline})
+	// Workers that have not reported an active_version (legacy) stay eligible; only a diverging version is excluded.
+	job, err := scanJob(tx.QueryRow(ctx, `
+		SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,
+		       j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle
+		FROM jobs j
+		WHERE j.status='pending' AND j.next_attempt_at<=now()
+		  AND EXISTS (
+		      SELECT 1 FROM unnest($1::text[]) AS capability
+		      WHERE CASE WHEN right(capability,2)='.*'
+		            THEN left(j.step,length(capability)-1)=left(capability,length(capability)-1)
+		            ELSE j.step=capability END
+		  )
+		  AND (
+		      j.step NOT LIKE 'transcription.%'
+		      OR $2::text = '' OR substring(j.input_version FROM '-p([^-]+)$') = $2::text
+		  )
+		ORDER BY j.priority DESC,j.created_at,j.id
+		FOR UPDATE OF j SKIP LOCKED LIMIT 1
+	`, supportedSteps, activeVersion))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}

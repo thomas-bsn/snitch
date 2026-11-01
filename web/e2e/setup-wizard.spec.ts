@@ -183,12 +183,7 @@ test.describe.serial("assistant d'installation", () => {
       page.getByRole("button", { name: "Skip for now" }),
     ).toBeVisible();
     await page.getByLabel("Worker name").fill("gaming-pc");
-    await page
-      .getByLabel("Whisper server address")
-      .fill("http://host.docker.internal:8000");
-    await page.getByLabel("Whisper model name").fill("whisper-large-v3");
-    await page.getByRole("main").getByLabel("Language").selectOption("fr");
-    await page.getByLabel("Hugging Face token").fill(HF_TOKEN);
+    await expect(page.getByLabel("Whisper server address")).toHaveValue("");
     await page.getByRole("button", { name: "Back", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Semantic search" }),
@@ -199,19 +194,19 @@ test.describe.serial("assistant d'installation", () => {
       .focus();
     await page.keyboard.press("Enter");
     await expect(page.getByLabel("Worker name")).toHaveValue("gaming-pc");
-    await expect(page.getByLabel("Hugging Face token")).toHaveValue(HF_TOKEN);
     await page.getByRole("button", { name: "Create the Worker" }).click();
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toContainText("whisper-large-v3 · fr");
-    await page.getByRole("button", { name: "Confirm and create" }).click();
-    await expect(page.getByText("Copy both files now.")).toBeVisible();
+    await expect(
+      page.getByText("Copy the installation command now."),
+    ).toBeVisible();
+    await page.getByText("Advanced: deployment files").click();
     const env = await page
       .getByRole("textbox", { name: "Content of .env" })
       .inputValue();
-    expect(env).toContain("HF_TOKEN=" + HF_TOKEN);
+    expect(env).toContain("HF_TOKEN=A_RENSEIGNER");
+    expect(env).not.toContain(HF_TOKEN);
     expect(env).toMatch(/^SNITCH_WORKER_TOKEN=rw_\S+$/m);
     await expectNoViolations(page);
-    await page.getByRole("button", { name: "I copied the files" }).click();
+    await page.getByRole("button", { name: "Done" }).click();
 
     await expect(
       page.getByRole("heading", { name: "Import your first videos" }),

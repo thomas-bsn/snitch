@@ -126,6 +126,27 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	if !bytes.Contains(pulseBody, []byte(`"connected":true`)) {
 		t.Fatalf("worker pulse did not report connected: %s", pulseBody)
 	}
+	settings := call(admin, http.MethodPut, "/api/admin/transcription-settings", mustJSON(t, map[string]any{"mode": "enabled", "endpoint": "http://127.0.0.1:9000", "model": "fixture-model", "language": "fr"}), me.CSRF, "", true, http.StatusOK)
+	var desired struct {
+		Version string `json:"version"`
+	}
+	if err = json.Unmarshal(settings, &desired); err != nil {
+		t.Fatal(err)
+	}
+	configuration := call(anon, http.MethodGet, "/api/worker/transcription-config", nil, "", registration.Token, false, http.StatusOK)
+	if !bytes.Contains(configuration, []byte(desired.Version)) || !bytes.Contains(configuration, []byte(`"model":"fixture-model"`)) {
+		t.Fatalf("worker did not receive desired configuration: %s", configuration)
+	}
+	call(anon, http.MethodPost, "/api/worker/transcription-config/status", mustJSON(t, map[string]any{"version": desired.Version, "error_code": "model_missing"}), "", registration.Token, false, http.StatusOK)
+	status := call(admin, http.MethodGet, "/api/admin/transcription-settings", nil, "", "", false, http.StatusOK)
+	if !bytes.Contains(status, []byte(`"error_code":"model_missing"`)) {
+		t.Fatalf("admin cannot see failed worker test: %s", status)
+	}
+	call(anon, http.MethodPost, "/api/worker/transcription-config/status", mustJSON(t, map[string]any{"version": desired.Version, "active": true}), "", registration.Token, false, http.StatusOK)
+	status = call(admin, http.MethodGet, "/api/admin/transcription-settings", nil, "", "", false, http.StatusOK)
+	if !bytes.Contains(status, []byte(`"active_version":"`+desired.Version+`"`)) {
+		t.Fatalf("admin cannot see active worker version: %s", status)
+	}
 	call(anon, http.MethodGet, "/api/admin/workers", nil, "", registration.Token, false, http.StatusUnauthorized)
 	call(anon, http.MethodGet, "/api/admin/jobs", nil, "", registration.Token, false, http.StatusUnauthorized)
 	call(anon, http.MethodGet, "/api/clips", nil, "", registration.Token, false, http.StatusUnauthorized)

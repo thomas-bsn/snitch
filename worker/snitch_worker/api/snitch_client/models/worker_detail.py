@@ -17,6 +17,7 @@ if TYPE_CHECKING:
   from ..models.worker_machine import WorkerMachine
   from ..models.worker_models import WorkerModels
   from ..models.worker_recent_task import WorkerRecentTask
+  from ..models.worker_transcription_config import WorkerTranscriptionConfig
 
 
 
@@ -43,6 +44,10 @@ class WorkerDetail:
             bundle (WorkerBundle): Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus
                 ensuite. Le .env contient le jeton.
             transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
+            transcription_config (WorkerTranscriptionConfig | Unset): Statut de synchronisation de la configuration de
+                transcription pour un Worker.
+            transcription_config_ready (bool | Unset): Indique si le Worker supporte la configuration de transcription
+                centralisée (capability transcription.config.v1).
             machine (WorkerMachine | Unset): Informations non secrètes déclarées par le Worker ; le système est celui du
                 conteneur.
             remote_address (str | Unset): Adresse IP de connexion observée par Snitch, sans port.
@@ -62,6 +67,8 @@ class WorkerDetail:
     recent_tasks: list[WorkerRecentTask]
     bundle: WorkerBundle
     transcription_model: str | Unset = UNSET
+    transcription_config: WorkerTranscriptionConfig | Unset = UNSET
+    transcription_config_ready: bool | Unset = UNSET
     machine: WorkerMachine | Unset = UNSET
     remote_address: str | Unset = UNSET
     models: WorkerModels | Unset = UNSET
@@ -76,6 +83,7 @@ class WorkerDetail:
         from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
+        from ..models.worker_transcription_config import WorkerTranscriptionConfig # noqa: PLC0415
         id = self.id
 
         name = self.name
@@ -111,6 +119,12 @@ class WorkerDetail:
 
         transcription_model = self.transcription_model
 
+        transcription_config: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.transcription_config, Unset):
+            transcription_config = self.transcription_config.to_dict()
+
+        transcription_config_ready = self.transcription_config_ready
+
         machine: dict[str, Any] | Unset = UNSET
         if not isinstance(self.machine, Unset):
             machine = self.machine.to_dict()
@@ -138,6 +152,10 @@ class WorkerDetail:
         })
         if transcription_model is not UNSET:
             field_dict["transcription_model"] = transcription_model
+        if transcription_config is not UNSET:
+            field_dict["transcription_config"] = transcription_config
+        if transcription_config_ready is not UNSET:
+            field_dict["transcription_config_ready"] = transcription_config_ready
         if machine is not UNSET:
             field_dict["machine"] = machine
         if remote_address is not UNSET:
@@ -155,6 +173,7 @@ class WorkerDetail:
         from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
+        from ..models.worker_transcription_config import WorkerTranscriptionConfig # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -224,6 +243,18 @@ class WorkerDetail:
 
         transcription_model = d.pop("transcription_model", UNSET)
 
+        _transcription_config = d.pop("transcription_config", UNSET)
+        transcription_config: WorkerTranscriptionConfig | Unset
+        if isinstance(_transcription_config,  Unset):
+            transcription_config = UNSET
+        else:
+            transcription_config = WorkerTranscriptionConfig.from_dict(_transcription_config)
+
+
+
+
+        transcription_config_ready = d.pop("transcription_config_ready", UNSET)
+
         _machine = d.pop("machine", UNSET)
         machine: WorkerMachine | Unset
         if isinstance(_machine,  Unset):
@@ -258,6 +289,8 @@ class WorkerDetail:
             recent_tasks=recent_tasks,
             bundle=bundle,
             transcription_model=transcription_model,
+            transcription_config=transcription_config,
+            transcription_config_ready=transcription_config_ready,
             machine=machine,
             remote_address=remote_address,
             models=models,

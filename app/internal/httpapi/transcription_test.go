@@ -151,6 +151,41 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if pipelineState.Version != "pipeline-v1" || pipelineState.Config.VAD.Mode != "off" {
 		t.Fatalf("unexpected default pipeline: %+v", pipelineState)
 	}
+	var initialSettings struct {
+		Mode   string `json:"mode"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/transcription-settings", nil, "", http.StatusOK), &initialSettings); err != nil {
+		t.Fatal(err)
+	}
+	if initialSettings.Mode != "unconfigured" || initialSettings.Status != "unconfigured" {
+		t.Fatalf("implicit profile must not count as configured: %+v", initialSettings)
+	}
+	var savedSettings struct {
+		Mode     string `json:"mode"`
+		Status   string `json:"status"`
+		Endpoint string `json:"endpoint"`
+		Version  string `json:"version"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://fixture-whisper:8000", "model": "fixture-model", "language": "fr"}, session.CSRF, http.StatusOK), &savedSettings); err != nil {
+		t.Fatal(err)
+	}
+	if savedSettings.Mode != "enabled" || savedSettings.Status != "untested" || savedSettings.Endpoint != "http://fixture-whisper:8000" || savedSettings.Version == "" {
+		t.Fatalf("unexpected saved settings: %+v", savedSettings)
+	}
+	call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://bad:8000/path?token=secret", "model": "fixture-model", "language": "fr"}, session.CSRF, http.StatusBadRequest)
+	var disabledSettings struct {
+		Mode     string `json:"mode"`
+		Status   string `json:"status"`
+		Endpoint string `json:"endpoint"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "disabled", "endpoint": "", "model": "", "language": ""}, session.CSRF, http.StatusOK), &disabledSettings); err != nil {
+		t.Fatal(err)
+	}
+	if disabledSettings.Mode != "disabled" || disabledSettings.Status != "disabled" || disabledSettings.Endpoint != "" {
+		t.Fatalf("disabled mode not explicit: %+v", disabledSettings)
+	}
+	call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://fixture-whisper:8000", "model": "fixture-model", "language": "fr"}, session.CSRF, http.StatusOK)
 	updatedPipeline := map[string]any{"provider": "openai-compatible", "model": "test-profile", "language": "fr", "preparation": "wav-16khz-mono-v1", "vad": map[string]any{"mode": "energy", "version": "energy-v1", "threshold": 0.02, "min_speech_ms": 100, "min_silence_ms": 300, "padding_ms": 100}}
 	var newPipeline struct {
 		Version string `json:"version"`

@@ -105,6 +105,12 @@ export const errorsEn = {
   invalid_sort: "This sort order is not valid.",
   invalid_source_id: "This folder identifier is not valid.",
   invalid_transcription_pipeline: "These transcription settings are not valid.",
+  invalid_transcription_settings:
+    "Enter a valid Whisper/Speaches URL, model and language.",
+  invalid_transcription_config_status:
+    "The Worker configuration status is invalid.",
+  stale_transcription_config:
+    "The transcription configuration changed. Try again.",
   invalid_transcription_result: "This transcription result is not valid.",
   invalid_turn: "This speaker turn is not valid.",
   invalid_upload: "This upload is not valid.",
@@ -128,6 +134,8 @@ export const errorsEn = {
     "This language code is not valid (two or three lowercase letters, for example fr).",
   invalid_transcription_model: "This model name is not valid.",
   invalid_transcription_url:
+    "This Whisper address is not valid. Use an http or https address without credentials.",
+  invalid_transcription_endpoint:
     "This Whisper address is not valid. Use an http or https address without credentials.",
   transcription_language_required: "Choose the language of the library.",
   transcription_model_required: "Enter the model of the library.",

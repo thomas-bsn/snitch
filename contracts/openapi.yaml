@@ -2382,6 +2382,193 @@
         "description": "Administrateurs uniquement. Refusé (404) pour un worker révoqué."
       }
     },
+    "/api/admin/workers/{id}/transcription/test": {
+      "post": {
+        "operationId": "requestWorkerTranscriptionTest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Test demandé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["test_requested"],
+                  "properties": {"test_requested": {"type": "boolean"}}
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Worker introuvable",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Demande un test de configuration au Worker."
+      }
+    },
+    "/api/admin/workers/{id}/transcription/override": {
+      "put": {
+        "operationId": "putWorkerTranscriptionOverride",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["endpoint_override"],
+                "properties": {"endpoint_override": {"type": "string", "maxLength": 300}}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Adresse propre enregistrée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["endpoint_override"],
+                  "properties": {"endpoint_override": {"type": "string"}}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Adresse invalide",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          },
+          "404": {
+            "description": "Worker introuvable",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Définit ou supprime l'adresse Whisper propre à ce Worker (vide pour supprimer)."
+      },
+      "delete": {
+        "operationId": "deleteWorkerTranscriptionOverride",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Adresse propre supprimée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["endpoint_override"],
+                  "properties": {"endpoint_override": {"type": "string"}}
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Worker introuvable",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Supprime l'adresse Whisper propre à ce Worker."
+      }
+    },
     "/api/worker/pulse": {
       "post": {
         "operationId": "workerPulse",
@@ -2422,6 +2609,120 @@
             }
           }
         }
+      }
+    },
+    "/api/worker/transcription-config": {
+      "get": {
+        "operationId": "getWorkerTranscriptionConfig",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration de transcription pour ce Worker",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "mode",
+                    "endpoint",
+                    "model",
+                    "language",
+                    "version",
+                    "test_requested",
+                    "endpoint_override"
+                  ],
+                  "properties": {
+                    "mode": {"type": "string", "enum": ["unconfigured", "enabled", "disabled"]},
+                    "endpoint": {"type": "string"},
+                    "model": {"type": "string"},
+                    "language": {"type": "string"},
+                    "version": {"type": "string"},
+                    "test_requested": {"type": "boolean"},
+                    "endpoint_override": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        },
+        "description": "Récupère la configuration de transcription pour ce Worker."
+      }
+    },
+    "/api/worker/transcription-config/status": {
+      "post": {
+        "operationId": "postWorkerTranscriptionConfigStatus",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["version", "active"],
+                "properties": {
+                  "version": {"type": "string"},
+                  "active": {"type": "boolean"},
+                  "error_code": {"type": "string", "enum": ["connection_failed", "model_missing"]}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Statut enregistré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["received_version", "tested_version", "active_version", "error_code"],
+                  "properties": {
+                    "received_version": {"type": "string"},
+                    "tested_version": {"type": "string"},
+                    "active_version": {"type": "string"},
+                    "error_code": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version obsolète",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Error"}
+              }
+            }
+          }
+        },
+        "description": "Envoie le résultat du test de configuration depuis le Worker."
       }
     },
     "/api/worker/jobs/claim": {
@@ -4152,6 +4453,21 @@
         ]
       }
     },
+    "/api/admin/transcription-settings": {
+      "get": {
+        "operationId": "getTranscriptionSettings",
+        "responses": {"200": {"description": "Configuration centrale", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionSettingsState"}}}}},
+        "description": "Administrateurs uniquement, y compris avant le premier Worker.",
+        "security": [{"session": []}]
+      },
+      "put": {
+        "operationId": "updateTranscriptionSettings",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionSettingsInput"}}}},
+        "responses": {"200": {"description": "Configuration souhaitée enregistrée, non testée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TranscriptionSettingsState"}}}}, "400": {"description": "Configuration invalide"}},
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/transcription-pipeline": {
       "get": {
         "operationId": "getTranscriptionPipeline",
@@ -5820,6 +6136,27 @@
       },
       "Member": {"type":"object","required":["id","username","role","created_at","clip_count"],"properties":{"id":{"type":"integer","format":"int64"},"username":{"type":"string"},"role":{"type":"string","enum":["user","admin","super_admin"]},"created_at":{"type":"string","format":"date-time"},"clip_count":{"type":"integer","format":"int64"}}},
       "WorkerMachine": {"type": "object", "additionalProperties": false, "description": "Informations non secrètes déclarées par le Worker ; le système est celui du conteneur.", "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "system": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "processor": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "gpu_name": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "gpu_driver": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "worker_version": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.,:+()/-]{0,127}$"}, "memory_bytes": {"type": "integer", "format": "int64", "minimum": 1, "maximum": 109951162777600}, "gpu_memory_bytes": {"type": "integer", "format": "int64", "minimum": 1, "maximum": 109951162777600}}},
+      "WorkerTranscriptionConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Statut de synchronisation de la configuration de transcription pour un Worker.",
+        "properties": {
+          "received_version": {"type": "string", "description": "Version de configuration reçue par le Worker."},
+          "tested_version": {"type": "string", "description": "Version de configuration testée par le Worker."},
+          "active_version": {"type": "string", "description": "Version de configuration active (validée) pour ce Worker."},
+          "error_code": {"type": "string", "enum": ["connection_failed", "model_missing"], "description": "Code d'erreur du dernier test."},
+          "endpoint_override": {"type": "string", "description": "Adresse Whisper propre à ce Worker, si définie."}
+        }
+      },
+      "WorkerTranscriptionStatusInput": {
+        "type": "object",
+        "required": ["version", "active", "error_code"],
+        "properties": {
+          "version": {"type": "string"},
+          "active": {"type": "boolean"},
+          "error_code": {"type": "string", "enum": ["", "connection_failed", "model_missing"]}
+        }
+      },
       "Worker": {
         "type": "object",
         "required": [
@@ -5835,6 +6172,8 @@
         "properties": {
 "supported_steps":{"type": "array", "items": {"type": "string"}, "nullable": true, "description": "Last reported task capabilities; a worker that never reported has none; revoked workers must not be selected."},
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
+          "transcription_config": {"$ref": "#/components/schemas/WorkerTranscriptionConfig", "nullable": true, "description": "Statut de synchronisation de la configuration de transcription pour ce Worker."},
+          "transcription_config_ready": {"type": "boolean", "description": "Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1)."},
           "machine": {"$ref": "#/components/schemas/WorkerMachine"},
           "remote_address": {"type": "string", "description": "Adresse IP de connexion observée par Snitch, sans port."},
 
@@ -5945,11 +6284,11 @@
           "transcription_url": {
             "type": "string",
             "maxLength": 300,
-            "description": "Adresse du serveur Whisper de ce worker (http ou https, sans identifiants). Écrite dans le fichier d'environnement généré ; non conservée."
+            "description": "Obsolète : l'adresse est gérée dans Admin → Transcription. Refusée lors de la création."
           },
           "transcription": {
             "$ref": "#/components/schemas/WorkerTranscriptionProfile",
-            "description": "Modèle et langue de la bibliothèque : réservés au premier worker, qui crée le profil de transcription (refus transcription_profile_already_set ensuite). Le jeton Hugging Face n'est jamais envoyé à Snitch."
+            "description": "Obsolète : modèle et langue sont gérés dans Admin → Transcription. Refusés lors de la création. Le jeton Hugging Face n'est jamais envoyé à Snitch."
           }
         }
       },
@@ -6033,6 +6372,8 @@
         ],
         "properties": {
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
+          "transcription_config": {"$ref": "#/components/schemas/WorkerTranscriptionConfig", "nullable": true, "description": "Statut de synchronisation de la configuration de transcription pour ce Worker."},
+          "transcription_config_ready": {"type": "boolean", "description": "Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1)."},
           "machine": {"$ref": "#/components/schemas/WorkerMachine"},
           "remote_address": {"type": "string", "description": "Adresse IP de connexion observée par Snitch, sans port."},
 
@@ -6135,6 +6476,10 @@
           },
           "bundle": {
             "$ref": "#/components/schemas/WorkerBundle"
+          },
+          "install_command": {
+            "type": "string",
+            "description": "Commande d'installation Linux à copier une fois ; le code d'invitation éphémère n'est pas le jeton du Worker."
           }
         }
       },
@@ -6170,7 +6515,7 @@
         "properties": {
           "first_worker": {
             "type": "boolean",
-            "description": "Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de la bibliothèque."
+            "description": "Vrai tant qu'aucun Worker n'a jamais été créé. La configuration de transcription est indépendante."
           },
           "snitch_url": {
             "type": "string",
@@ -6180,11 +6525,17 @@
             "type": "object",
             "description": "Profil de transcription actif de la bibliothèque.",
             "required": [
+              "mode",
+              "endpoint",
+              "settings_version",
               "model",
               "language",
               "version"
             ],
             "properties": {
+              "mode": { "type": "string", "enum": ["unconfigured", "enabled", "disabled"] },
+              "endpoint": { "type": "string" },
+              "settings_version": { "type": "string" },
               "model": {
                 "type": "string"
               },
@@ -6307,6 +6658,14 @@
           "pipeline_version": {"type": "string"},
           "voice": {"$ref": "#/components/schemas/WorkerVoiceInput"}
         }
+      },
+      "TranscriptionSettingsInput": {
+        "type": "object", "required": ["mode", "endpoint", "model", "language"],
+        "properties": {"mode": {"type": "string", "enum": ["enabled", "disabled"]}, "endpoint": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string"}, "profile": {"$ref": "#/components/schemas/TranscriptionPipeline"}}
+      },
+      "TranscriptionSettingsState": {
+        "type": "object", "required": ["mode", "status", "endpoint", "model", "language", "version"],
+        "properties": {"mode": {"type": "string", "enum": ["unconfigured", "enabled", "disabled"]}, "status": {"type": "string", "enum": ["unconfigured", "untested", "disabled"]}, "endpoint": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string"}, "version": {"type": "string"}}
       },
       "TranscriptionPipeline": {
         "type": "object", "additionalProperties": false,

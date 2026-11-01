@@ -418,6 +418,14 @@ type TranscriptionPipelineVersion struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type TranscriptionSetting struct {
+	ID        bool               `json:"id"`
+	Mode      string             `json:"mode"`
+	Endpoint  string             `json:"endpoint"`
+	Version   string             `json:"version"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type TranscriptionVocabularyTerm struct {
 	ID                int64              `json:"id"`
 	Term              string             `json:"term"`
@@ -595,4 +603,29 @@ type Worker struct {
 	TranscriptionModel  string             `json:"transcription_model"`
 	Machine             []byte             `json:"machine"`
 	RemoteAddress       string             `json:"remote_address"`
+}
+
+type WorkerInstallInvite struct {
+	CodeHash              []byte             `json:"code_hash"`
+	WorkerID              string             `json:"worker_id"`
+	EncryptedToken        []byte             `json:"encrypted_token"`
+	ApiUrl                string             `json:"api_url"`
+	Image                 string             `json:"image"`
+	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
+	TranscriptionMode     string             `json:"transcription_mode"`
+	TranscriptionEndpoint string             `json:"transcription_endpoint"`
+	TranscriptionModel    string             `json:"transcription_model"`
+	TranscriptionLanguage string             `json:"transcription_language"`
+}
+
+type WorkerTranscriptionConfig struct {
+	WorkerID         string             `json:"worker_id"`
+	ReceivedVersion  string             `json:"received_version"`
+	TestedVersion    string             `json:"tested_version"`
+	ActiveVersion    string             `json:"active_version"`
+	ErrorCode        string             `json:"error_code"`
+	TestRequestedAt  pgtype.Timestamptz `json:"test_requested_at"`
+	TestedAt         pgtype.Timestamptz `json:"tested_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	EndpointOverride string             `json:"endpoint_override"`
 }
