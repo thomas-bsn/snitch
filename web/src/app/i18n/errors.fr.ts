@@ -211,6 +211,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "L’accès aux modèles de voix n’a pas été confirmé.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
   worker_not_found: "Ce Worker n’existe pas.",
+  install_invite_used:
+    "Cette invitation d’installation a déjà été utilisée. Générez une nouvelle commande dans Admin > Workers.",
   worker_token_invalid: "Ce jeton de Worker n’est pas valide.",
   worker_token_required: "Un jeton de Worker est requis.",
 };

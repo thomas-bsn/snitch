@@ -746,6 +746,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/worker/install/{code}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Lanceur d'installation Linux. L'invitation est à usage unique : consommée dès la demande acceptée ; 404 si inconnue ou expirée, 410 install_invite_used si déjà utilisée. Le script transporte le jeton durable du Worker, jamais redonné. */
+    get: operations["downloadWorkerInstaller"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/worker/pulse": {
     parameters: {
       query?: never;
@@ -2432,8 +2449,13 @@ export interface components {
       revoked_at: string | null;
       token: string;
       bundle: components["schemas"]["WorkerBundle"];
-      /** @description Commande d'installation Linux à copier une fois ; le code d'invitation éphémère n'est pas le jeton du Worker. */
+      /** @description Commande d'installation Linux à copier une fois ; le code d'invitation éphémère (usage unique, 15 minutes) n'est pas le jeton du Worker. Absente si install_command_unavailable est présent. */
       install_command?: string;
+      /**
+       * @description Raison pour laquelle aucune commande n'a été générée : insecure_origin (adresse http:// sans choix explicite) ou invalid_origin (adresse publique inutilisable).
+       * @enum {string}
+       */
+      install_command_unavailable?: "insecure_origin" | "invalid_origin";
     };
     /** @description Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton. */
     WorkerBundle: {
@@ -5448,7 +5470,10 @@ export interface operations {
   };
   registerWorker: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin. */
+        allow_insecure_install?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -5589,7 +5614,10 @@ export interface operations {
   };
   renewWorkerToken: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin. */
+        allow_insecure_install?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -5761,6 +5789,37 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  downloadWorkerInstaller: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        code: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Script shell */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/x-shellscript": string;
+        };
+      };
+      /** @description Invitation inconnue, expirée ou déjà utilisée */
       default: {
         headers: {
           [name: string]: unknown;

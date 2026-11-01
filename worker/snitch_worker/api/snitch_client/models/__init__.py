@@ -270,6 +270,7 @@ from .worker_recent_task_kind import WorkerRecentTaskKind
 from .worker_recent_task_outcome import WorkerRecentTaskOutcome
 from .worker_registration import WorkerRegistration
 from .worker_registration_input import WorkerRegistrationInput
+from .worker_registration_install_command_unavailable import WorkerRegistrationInstallCommandUnavailable
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 from .worker_transcription_config import WorkerTranscriptionConfig
@@ -554,6 +555,7 @@ __all__ = (
     "WorkerRecentTaskOutcome",
     "WorkerRegistration",
     "WorkerRegistrationInput",
+    "WorkerRegistrationInstallCommandUnavailable",
     "WorkerResultInput",
     "WorkerResultInputResult",
     "WorkerTranscriptionConfig",
