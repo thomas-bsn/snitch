@@ -40,7 +40,7 @@ if [ "$1" = rm ]; then rm -f "$FAKE_LOG.container"; fi
 if [ "$1" = inspect ]; then echo sha256:previous; fi
 exit 0
 `)
-	write("uname", `echo "${FAKE_UNAME:-Linux}"`)
+	write("uname", `if [ "${1:-}" = -r ]; then echo "${FAKE_UNAME_R:-6.8.0-generic}"; else echo "${FAKE_UNAME:-Linux}"; fi`)
 	write("curl", `out=''; data=''; url=''; while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift;; --data-binary) data=${2#@}; shift;; http*) url=$1;; esac; shift; done
 cat >/dev/null
 status=${FAKE_CURL_STATUS:-200}
@@ -279,7 +279,12 @@ func TestInstallerQueuesEventsOfflineAndSendsThemWithOriginalTimestamp(t *testin
 	if !strings.Contains(queued, " registration failed network_unreachable") || r.events() != "" {
 		t.Fatalf("offline failure not queued (events=%q):\n%s", r.events(), queued)
 	}
-	original := strings.Fields(strings.Split(strings.TrimSpace(queued), "\n")[0])[0]
+	var original string
+	for _, line := range strings.Split(strings.TrimSpace(queued), "\n") {
+		if f := strings.Fields(line); len(f) == 4 && f[1] == "registration" {
+			original = f[0]
+		}
+	}
 	// Back online: the queued event goes out first, with the timestamp it had when it happened.
 	if stdout, stderr, err := r.run(t, token, "FAKE_CURL_BODY="+fakeConfig); err != nil {
 		t.Fatalf("rerun failed: %v\n%s\n%s", err, stdout, stderr)
@@ -300,5 +305,132 @@ func TestInstallerReportsFailuresToSnitchOnceReachable(t *testing.T) {
 	}
 	if !strings.Contains(r.events(), `"phase":"image","status":"failed"`) || !strings.Contains(r.events(), `"cause_code":"image_pull_failed"`) {
 		t.Fatalf("failure not reported:\n%s", r.events())
+	}
+}
+
+const wsl2Release = "5.15.153.1-microsoft-standard-WSL2"
+
+func (r *installerRun) fakeNvidia(t *testing.T) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(r.bin, "nvidia-smi"), []byte("#!/usr/bin/env bash\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestInstallerNativeLinuxRunsNoWSLPreflight(t *testing.T) {
+	r := newInstallerRun(t)
+	r.fakeNvidia(t)
+	if stdout, stderr, err := r.run(t, "rw_synthetic-fixture-token", "FAKE_CURL_BODY="+fakeConfig); err != nil {
+		t.Fatalf("install failed: %v\n%s\n%s", err, stdout, stderr)
+	}
+	if log := r.dockerLog(); strings.Contains(log, "urlopen") || strings.Contains(log, "libcuda") {
+		t.Fatalf("native Linux must keep the P0 contract, WSL preflights ran:\n%s", log)
+	}
+}
+
+func TestInstallerWSL2DetectionAndHappyPath(t *testing.T) {
+	r := newInstallerRun(t)
+	r.fakeNvidia(t)
+	stdout, stderr, err := r.run(t, "rw_synthetic-fixture-token", "FAKE_CURL_BODY="+fakeConfig, "FAKE_UNAME_R="+wsl2Release)
+	if err != nil {
+		t.Fatalf("WSL2 install failed: %v\n%s\n%s", err, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "WSL2 detected") {
+		t.Errorf("WSL2 not announced:\n%s", stdout)
+	}
+	log := r.dockerLog()
+	for _, want := range []string{"urlopen", "snitch.example.org", "gpu.local:9000", "libcuda", "-d --name"} {
+		if !strings.Contains(log, want) {
+			t.Errorf("docker log lacks %q:\n%s", want, log)
+		}
+	}
+}
+
+func TestInstallerWSL2DetectionFromProcVersion(t *testing.T) {
+	r := newInstallerRun(t)
+	proc := filepath.Join(t.TempDir(), "version")
+	if err := os.WriteFile(proc, []byte("Linux version 5.15.0 (root@build) #1 SMP microsoft-standard-WSL2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, err := r.run(t, "rw_synthetic-fixture-token", "FAKE_CURL_BODY="+fakeConfig, "SNITCH_PROC_VERSION="+proc)
+	if err != nil || !strings.Contains(stdout, "WSL2 detected") {
+		t.Fatalf("proc/version detection failed: %v\n%s\n%s", err, stdout, stderr)
+	}
+}
+
+func TestInstallerWSL1IsRefused(t *testing.T) {
+	r := newInstallerRun(t)
+	_, stderr, err := r.run(t, "rw_synthetic-fixture-token", "FAKE_CURL_BODY="+fakeConfig, "FAKE_UNAME_R=4.4.0-19041-Microsoft")
+	if err == nil {
+		t.Fatal("WSL1 must be refused")
+	}
+	for _, want := range []string{`step "prerequisites"`, "[unsupported_platform]", "wsl --set-version", "wsl --set-version"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, stderr)
+		}
+	}
+	if strings.Contains(r.dockerLog(), "pull") {
+		t.Error("nothing must run after the refusal")
+	}
+}
+
+func TestInstallerWSL2DiagnosticsNamePreflightAndRecovery(t *testing.T) {
+	cases := []struct {
+		name, stage, code, preflight, recoveryEN, recoveryFR string
+		env                                                  []string
+	}{
+		{"docker integration", "prerequisites", "docker_unavailable", "wsl-docker", "WSL integration", "intégration WSL", []string{"FAKE_DOCKER_FAIL=^info"}},
+		{"snitch unreachable from runtime", "image", "network_unreachable", "snitch-reachability", "from inside Docker", "depuis Docker", []string{`FAKE_DOCKER_FAIL=urlopen.*snitch\.example\.org`}},
+		{"transcription unreachable from runtime", "image", "network_unreachable", "transcription-reachability", "transcription endpoint", "point d’accès de transcription", []string{`FAKE_DOCKER_FAIL=urlopen.*gpu\.local`}},
+		{"cuda", "gpu", "gpu_unavailable", "docker-cuda", "Windows NVIDIA driver", "pilote NVIDIA Windows", []string{"FAKE_DOCKER_FAIL=libcuda"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := newInstallerRun(t)
+			r.fakeNvidia(t)
+			_, stderr, err := r.run(t, "rw_synthetic-fixture-token", append([]string{"FAKE_CURL_BODY=" + fakeConfig, "FAKE_UNAME_R=" + wsl2Release}, c.env...)...)
+			if err == nil {
+				t.Fatal("expected failure")
+			}
+			for _, want := range []string{`step "` + c.stage + `"`, "[" + c.code + "]", "preflight " + c.preflight, c.recoveryEN, c.recoveryFR} {
+				if !strings.Contains(stderr, want) {
+					t.Errorf("stderr lacks %q:\n%s", want, stderr)
+				}
+			}
+			// Before registration the failure is queued locally (ADR 0021); afterwards Snitch receives it.
+			if reported := r.events() + r.queue(); !strings.Contains(reported, c.code) {
+				t.Errorf("failure not recorded with %s:\n%s", c.code, reported)
+			}
+		})
+	}
+}
+
+func TestInstallerWSL2LoopbackEndpointGetsAHint(t *testing.T) {
+	r := newInstallerRun(t)
+	body := strings.Replace(fakeConfig, "http://gpu.local:9000?a=1\\u0026b=2", "http://localhost:9000", 1)
+	_, stderr, err := r.run(t, "rw_synthetic-fixture-token", "FAKE_CURL_BODY="+body, "FAKE_UNAME_R="+wsl2Release, `FAKE_DOCKER_FAIL=urlopen.*localhost`)
+	if err == nil || !strings.Contains(stderr, "localhost") || !strings.Contains(stderr, "host.docker.internal") {
+		t.Fatalf("loopback hint missing: %v\n%s", err, stderr)
+	}
+}
+
+func TestInstallerWSL2RefusesWindowsMountStorage(t *testing.T) {
+	r := newInstallerRun(t)
+	// Synthetic Windows-mounted home: the launcher state must live on the Linux filesystem.
+	mnt := filepath.Join(t.TempDir(), "mnt", "c", "Users", "fixture")
+	if err := os.MkdirAll(mnt, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, stderr, err := r.run(t, "rw_synthetic-fixture-token", "FAKE_CURL_BODY="+fakeConfig, "FAKE_UNAME_R="+wsl2Release, "SNITCH_WSL_MOUNT_PREFIX="+filepath.Dir(filepath.Dir(filepath.Dir(mnt)))+"/", "HOME="+mnt)
+	if err == nil {
+		t.Fatal("expected refusal on /mnt/c storage")
+	}
+	for _, want := range []string{`step "prerequisites"`, "[volume_not_writable]", "preflight wsl-storage", "cd ~", "cd ~"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, stderr)
+		}
+	}
+	if !strings.Contains(stderr, "Linux home") || !strings.Contains(stderr, "dossier personnel Linux") {
+		t.Errorf("recovery text missing:\n%s", stderr)
 	}
 }
