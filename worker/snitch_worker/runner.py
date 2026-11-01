@@ -29,6 +29,7 @@ from snitch_client.models.worker_pulse_input import WorkerPulseInput
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
+from snitch_worker import revocation
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
 from snitch_worker.transcription_config import active_configuration, sync_configuration
@@ -258,7 +259,13 @@ def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: d
     return metadata
 
 
+class WorkerUnauthorized(RuntimeError):
+    """Snitch refused the Worker token (401). Not a revocation until the narrow endpoint confirms it."""
+
+
 def _require_response(value: Any, operation: str) -> Any:
+    if isinstance(value, Error) and value.error == "worker_token_invalid":
+        raise WorkerUnauthorized(f"worker API {operation} refused the token")
     if value is None or isinstance(value, Error):
         raise RuntimeError(f"worker API {operation} failed")
     return value
@@ -441,10 +448,18 @@ def _worker_loop(
     stop: threading.Event,
     poll_interval: float,
     heartbeat_interval: float,
+    guard: revocation.RevocationGuard | None = None,
 ) -> None:
     while not stop.is_set():
+        if guard is not None and guard.revoked.is_set():
+            return
         try:
             completed = run_once(client, capacity, heartbeat_interval, stop)
+        except WorkerUnauthorized:
+            if guard is not None and guard.on_unauthorized(client):
+                stop.set()
+                return
+            completed = False
         except (httpx.HTTPError, RuntimeError):
             # Network outages are retried on the next poll. Do not log exception
             # details because HTTP client errors can include sensitive URLs.
@@ -459,13 +474,17 @@ def run_until_stopped(
     stop: threading.Event,
     poll_interval: float = 5.0,
     heartbeat_interval: float = 45.0,
-) -> None:
-    """Run a bounded pool; stop claiming on shutdown and drain active tasks."""
+    models_dir: str | None = None,
+) -> bool:
+    """Run a bounded pool; stop claiming on shutdown and drain active tasks.
+
+    Return True when Snitch confirmed this Worker's deletion (the models volume is then erased)."""
     if capacity < 1 or capacity > 4:
         raise ValueError("worker capacity must be an integer from 1 to 4")
     if poll_interval <= 0 or heartbeat_interval <= 0:
         raise ValueError("worker intervals must be positive")
 
+    guard = revocation.RevocationGuard(models_dir or revocation.models_dir(os.environ))
     with ThreadPoolExecutor(max_workers=capacity) as executor:
         workers = [
             executor.submit(
@@ -475,6 +494,7 @@ def run_until_stopped(
                 stop,
                 poll_interval,
                 heartbeat_interval,
+                guard,
             )
             for _ in range(capacity)
         ]
@@ -482,9 +502,23 @@ def run_until_stopped(
             pass
         for worker in workers:
             worker.result()
+    return guard.revoked.is_set()
 
 
 def main() -> None:
+    shutdown = threading.Event()
+
+    def request_shutdown(_signum: int, _frame: object) -> None:
+        shutdown.set()
+
+    models_dir = revocation.models_dir(os.environ)
+    if revocation.is_revoked(models_dir):
+        # Deleted in Snitch earlier: no client, no network call. Staying alive keeps the restart
+        # policy from looping, and a valid Worker (no marker) still restarts after a host reboot.
+        signal.signal(signal.SIGTERM, request_shutdown)
+        signal.signal(signal.SIGINT, request_shutdown)
+        revocation.wait_inert(shutdown)
+        return
     api_url = os.environ.get("SNITCH_API_URL", os.environ.get("RECEIPTS_API_URL", "")).strip()
     token = os.environ.get("SNITCH_WORKER_TOKEN", os.environ.get("RECEIPTS_WORKER_TOKEN", "")).strip()
     capacity_text = os.environ.get("SNITCH_WORKER_CAPACITY", os.environ.get("RECEIPTS_WORKER_CAPACITY", "1"))
@@ -516,10 +550,13 @@ def main() -> None:
 
         def request_stop(_signum: int, _frame: object) -> None:
             stop.set()
+            shutdown.set()
 
         signal.signal(signal.SIGTERM, request_stop)
         signal.signal(signal.SIGINT, request_stop)
-        run_until_stopped(client, capacity, stop)
+        revoked = run_until_stopped(client, capacity, stop, models_dir=models_dir)
+    if revoked:
+        revocation.wait_inert(shutdown)
 
 
 if __name__ == "__main__":
