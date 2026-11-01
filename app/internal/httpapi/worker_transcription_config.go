@@ -105,7 +105,7 @@ func (s *Server) requestWorkerTranscriptionTest(w http.ResponseWriter, r *http.R
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusAccepted, map[string]string{"status": "pending"})
+	reply(w, http.StatusOK, map[string]bool{"test_requested": true})
 }
 
 // Admin endpoints for worker-specific transcription endpoint override

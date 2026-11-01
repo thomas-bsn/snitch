@@ -316,7 +316,7 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
-// For transcription jobs, only workers with a matching active_version can claim.
+// For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
 func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -369,7 +369,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	}
 	// Build the job selection query. For transcription jobs, require matching active_version.
 	// Extract pipeline version from input_version (format: t4-a{idx}-r{rule}-v{vocab}-p{pipeline})
-	// Workers without active_version cannot claim transcription jobs.
+	// Workers that have not reported an active_version (legacy) stay eligible; only a diverging version is excluded.
 	job, err := scanJob(tx.QueryRow(ctx, `
 		SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,
 		       j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle
@@ -383,7 +383,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		  )
 		  AND (
 		      j.step NOT LIKE 'transcription.%'
-		      OR ($2 <> '' AND substring(j.input_version FROM '-p([^-]+)$') = $2)
+		      OR $2::text = '' OR substring(j.input_version FROM '-p([^-]+)$') = $2::text
 		  )
 		ORDER BY j.priority DESC,j.created_at,j.id
 		FOR UPDATE OF j SKIP LOCKED LIMIT 1
