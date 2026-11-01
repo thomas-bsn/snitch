@@ -186,6 +186,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceDiarization(t, pool)
 	})
+	t.Run("voice model dispatch", func(t *testing.T) {
+		reset(t)
+		testVoiceModelDispatch(t, pool)
+	})
 	t.Run("persons and attributions", func(t *testing.T) {
 		reset(t)
 		testPersonValidation(t, pool)
