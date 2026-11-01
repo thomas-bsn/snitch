@@ -9,8 +9,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // installerRun renders the launcher and runs it with fake docker, curl, uname and nvidia-smi
@@ -314,51 +316,8 @@ func TestInstallerReportsFailuresToSnitchOnceReachable(t *testing.T) {
 	}
 }
 
-// Terminal driver: runs the launcher under a real pseudo-terminal (python3 pty) so that the
-// /dev/tty prompts execute. answers are typed after each prompt; typed text is never echoed
-// for the hidden token, so the transcript must not contain it.
-const ptyDriver = `import os, pty, sys, time, select
-script, answers = sys.argv[1], sys.argv[2:]
-pid, fd = pty.fork()
-if pid == 0:
-    os.execvp("bash", ["bash", script])
-out = b""
-queue = list(answers)
-deadline = time.time() + 20
-prompts = [b"[y/N] ", b"account: ", b"(hidden): "]
-pos = 0
-fed = 0
-while time.time() < deadline:
-    r, _, _ = select.select([fd], [], [], 0.2)
-    if r:
-        try:
-            data = os.read(fd, 4096)
-        except OSError:
-            break
-        if not data:
-            break
-        out += data
-    if fed < len(queue) and fed < len(prompts):
-        i = out.find(prompts[fed], pos)
-        if i >= 0:
-            pos = i + len(prompts[fed])
-            time.sleep(0.2)
-            os.write(fd, (queue[fed] + "\n").encode())
-            fed += 1
-try:
-    os.kill(pid, 9)
-except OSError:
-    pass
-_, status = os.waitpid(pid, 0)
-sys.stdout.buffer.write(out)
-sys.exit(os.waitstatus_to_exitcode(status))
-`
-
 func (r *installerRun) runTTY(t *testing.T, token string, answers []string, env ...string) (transcript string, err error) {
 	t.Helper()
-	if _, lookErr := exec.LookPath("python3"); lookErr != nil {
-		t.Skip("python3 required for the pseudo-terminal driver")
-	}
 	var script bytes.Buffer
 	b64 := func(v string) string { return base64.StdEncoding.EncodeToString([]byte(v)) }
 	if err = workerInstallScript.Execute(&script, map[string]string{
@@ -369,20 +328,98 @@ func (r *installerRun) runTTY(t *testing.T, token string, answers []string, env 
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	scriptPath, driverPath := filepath.Join(dir, "install.sh"), filepath.Join(dir, "driver.py")
+	scriptPath := filepath.Join(dir, "install.sh")
 	if err = os.WriteFile(scriptPath, script.Bytes(), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err = os.WriteFile(driverPath, []byte(ptyDriver), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err = os.WriteFile(filepath.Join(r.bin, "nvidia-smi"), []byte("#!/usr/bin/env bash\nexit 0\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("python3", append([]string{"-I", driverPath, scriptPath}, answers...)...)
+	cmd := exec.Command("bash", scriptPath)
 	cmd.Env = append([]string{"HOME=" + r.home, "PATH=" + r.bin + ":/usr/bin:/bin:/opt/homebrew/bin", "FAKE_LOG=" + r.log, "FAKE_CURL_BODY=" + fakeConfig}, env...)
-	out, err := cmd.CombinedOutput()
-	return string(out), err
+	return driveOnPTY(t, cmd, answers)
+}
+
+// driveOnPTY runs cmd under a real pseudo-terminal (opened in Go, no external interpreter) so
+// that the /dev/tty prompts execute. answers are typed after each prompt; typed text is never
+// echoed for the hidden token, so the transcript must not contain it.
+func driveOnPTY(t *testing.T, cmd *exec.Cmd, answers []string) (string, error) {
+	t.Helper()
+	master, slavePath, err := openPTY()
+	if err != nil {
+		t.Fatalf("cannot open a pseudo-terminal: %v", err)
+	}
+	defer master.Close()
+	slave, err := os.OpenFile(slavePath, os.O_RDWR|syscall.O_NOCTTY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = slave, slave, slave
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
+	if err = cmd.Start(); err != nil {
+		slave.Close()
+		t.Fatal(err)
+	}
+	slave.Close()
+
+	var mu sync.Mutex
+	var out []byte
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		buf := make([]byte, 4096)
+		for {
+			n, rerr := master.Read(buf)
+			mu.Lock()
+			out = append(out, buf[:n]...)
+			mu.Unlock()
+			if rerr != nil {
+				return
+			}
+		}
+	}()
+	waitDone := make(chan error, 1)
+	go func() { waitDone <- cmd.Wait() }()
+
+	prompts := []string{"[y/N] ", "account: ", "(hidden): "}
+	pos, fed := 0, 0
+	deadline := time.After(20 * time.Second)
+	tick := time.NewTicker(50 * time.Millisecond)
+	defer tick.Stop()
+	var waitErr error
+loop:
+	for {
+		select {
+		case waitErr = <-waitDone:
+			break loop
+		case <-deadline:
+			_ = cmd.Process.Kill()
+			waitErr = <-waitDone
+			break loop
+		case <-tick.C:
+			if fed < len(answers) && fed < len(prompts) {
+				mu.Lock()
+				i := strings.Index(string(out[pos:]), prompts[fed])
+				if i >= 0 {
+					pos += i + len(prompts[fed])
+				}
+				mu.Unlock()
+				if i >= 0 {
+					time.Sleep(200 * time.Millisecond)
+					_, _ = master.Write([]byte(answers[fed] + "\n"))
+					fed++
+				}
+			}
+		}
+	}
+	// The child is gone: wait for the reader to drain the pty (best effort).
+	select {
+	case <-readDone:
+	case <-time.After(time.Second):
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	return string(out), waitErr
 }
 
 const hfFixtureToken = "hf_SyntheticFixtureToken0123456789"
