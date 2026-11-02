@@ -388,6 +388,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,
 		       j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle
 		FROM jobs j
+		LEFT JOIN voice_pipeline_versions pin ON pin.version=substring(j.input_version FROM '-p(voice-[0-9a-f]+)')
 		WHERE j.status='pending' AND j.next_attempt_at<=now()
 		  AND EXISTS (
 		      SELECT 1 FROM unnest($1::text[]) AS capability
@@ -400,9 +401,10 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		      OR $2::text = '' OR substring(j.input_version FROM '-p([^-]+)$') = $2::text
 		  )
 		  AND (
-		      j.step NOT LIKE 'voice.%' OR $3::text NOT IN ('pyannote','nemo')
+		      j.step NOT LIKE 'voice.%'
 		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%')
-		      OR (j.step LIKE 'voice.diarization.%' AND $4::jsonb->'diarization'->>'model' = $5::text)
+		      OR COALESCE(pin.config->>'provider',$3::text) NOT IN ('pyannote','nemo')
+		      OR (j.step LIKE 'voice.diarization.%' AND $4::jsonb->'diarization'->>'model' = COALESCE(pin.config->>'model',$5::text))
 		      OR (j.step LIKE 'voice.fingerprint.%' AND $4::jsonb->'fingerprint'->>'model' = $6::text)
 		  )
 		  AND (

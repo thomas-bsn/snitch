@@ -28,11 +28,11 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from snitch_worker import voice_manifest
+from snitch_worker.voice_download import TOKEN_FILE_ENV, without_token
 
 logger = logging.getLogger(__name__)
 
 READY_MARKER = ".snitch-ready"
-TOKEN_FILE_ENV = "SNITCH_HF_TOKEN_FILE"
 _REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
 _REVISION = re.compile(r"^[0-9a-f]{40}$")
 
@@ -88,7 +88,7 @@ def engine_of(path: str) -> str:
 
 def inference_environment(environ: Mapping[str, str]) -> dict[str, str]:
     """What the inference process may see: never the token, nor the path of its secret file."""
-    env = {k: v for k, v in environ.items() if k not in {"HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", TOKEN_FILE_ENV}}
+    env = without_token(environ)
     env["HF_HUB_OFFLINE"] = "1"
     env["TRANSFORMERS_OFFLINE"] = "1"
     return env
@@ -258,10 +258,18 @@ def sync_voice_models(client: Any, manager: ModelManager) -> None:
     manager.apply(desired, post)
 
 
-def _subprocess_download(repo: str, revision: str, target: str, progress: Progress) -> None:  # pragma: no cover - needs network
-    """Run the download in a subprocess: it alone reads the token file."""
-    env = {k: v for k, v in os.environ.items() if k not in {"HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"}}
+def download_environment(token_file: str) -> dict[str, str]:
+    """The download subprocess alone receives the path of the token file, explicitly."""
+    env = without_token(os.environ)
     env["HF_HUB_OFFLINE"] = "0"
+    if token_file:
+        env[TOKEN_FILE_ENV] = token_file
+    return env
+
+
+def _subprocess_download(repo: str, revision: str, target: str, progress: Progress, token_file: str = "") -> None:  # pragma: no cover - needs network
+    """Run the download in a subprocess: it alone reads the token file."""
+    env = download_environment(token_file)
     process = subprocess.Popen(
         [sys.executable, "-m", "snitch_worker.voice_download", repo, revision, target],
         stdout=subprocess.PIPE,
@@ -300,5 +308,12 @@ _manager: ModelManager | None = None
 def default_manager() -> ModelManager:  # pragma: no cover - wires the real download and inference
     global _manager
     if _manager is None:
-        _manager = ModelManager(os.environ, _subprocess_download, _inference_verify)
+        # The manager is the only reader of the token file path: it leaves the process environment, so nothing
+        # started later from this process (inference, tools) can inherit it.
+        token_file = os.environ.pop(TOKEN_FILE_ENV, "")
+
+        def download(repo: str, revision: str, target: str, progress: Progress) -> None:
+            _subprocess_download(repo, revision, target, progress, token_file)
+
+        _manager = ModelManager(os.environ, download, _inference_verify)
     return _manager

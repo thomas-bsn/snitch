@@ -41,19 +41,30 @@ type voiceTrialView struct {
 	Status           string              `json:"status"`
 	Speakers         []voiceTrialSpeaker `json:"speakers"`
 	CreatedAt        string              `json:"created_at"`
+	// hasResult: Speakers holds a finished run; during a rerun it is the previous one.
+	hasResult bool
 }
 
 func voiceTrialStep(id int64) string { return fmt.Sprintf("voicetrial.diarization.%d", id) }
 
-// voiceTrialJobStatus is the state of a trial without result, from its latest job: pending, running or failed.
-func (s *Server) voiceTrialJobStatus(ctx context.Context, clipID, trialID int64) (string, error) {
+// voiceTrialJobStatus is the state of a trial from its latest job: pending, running, failed or done. A trial
+// that already holds a result keeps showing it while a rerun is pending, running or failed.
+func (s *Server) voiceTrialJobStatus(ctx context.Context, clipID, trialID int64, hasResult bool) (string, error) {
 	var status string
 	err := s.Pool.QueryRow(ctx, `SELECT status FROM jobs WHERE clip_id=$1 AND step=$2 ORDER BY id DESC LIMIT 1`, clipID, voiceTrialStep(trialID)).Scan(&status)
 	if errors.Is(err, pgx.ErrNoRows) {
+		if hasResult {
+			return "done", nil
+		}
 		return "failed", nil
 	}
 	switch status {
-	case "pending", "retry_wait", "done":
+	case "pending", "retry_wait":
+		return "pending", err
+	case "done":
+		if hasResult {
+			return "done", err
+		}
 		return "pending", err
 	case "leased":
 		return "running", err
@@ -90,13 +101,13 @@ func (s *Server) listVoiceTrials(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if raw != nil {
-			v.Status = "done"
 			var stored struct {
 				Speakers []voiceTrialSpeaker `json:"speakers"`
 			}
 			if err = json.Unmarshal(raw, &stored); err == nil && stored.Speakers != nil {
 				v.Speakers = stored.Speakers
 			}
+			v.hasResult = true
 		}
 		trials = append(trials, v)
 	}
@@ -106,10 +117,7 @@ func (s *Server) listVoiceTrials(w http.ResponseWriter, r *http.Request) {
 	}
 	rows.Close()
 	for i := range trials {
-		if trials[i].Status == "done" {
-			continue
-		}
-		if trials[i].Status, err = s.voiceTrialJobStatus(r.Context(), clipID, trials[i].ID); err != nil {
+		if trials[i].Status, err = s.voiceTrialJobStatus(r.Context(), clipID, trials[i].ID, trials[i].hasResult); err != nil {
 			s.internal(w, err)
 			return
 		}
@@ -220,9 +228,10 @@ func (s *Server) createVoiceTrial(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		run = 1
-		err = tx.QueryRow(r.Context(), `INSERT INTO voice_diarization_trials(clip_id,audio_stream_index,model_id,model_repo,model_revision,num_speakers,min_speakers,max_speakers,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`, clipID, *index, entry.ID, entry.Repo, entry.Revision, input.NumSpeakers, input.MinSpeakers, input.MaxSpeakers, s.authorOf(r).Username).Scan(&id)
+		err = tx.QueryRow(r.Context(), `INSERT INTO voice_diarization_trials(clip_id,audio_stream_index,model_id,model_repo,model_revision,model_engine,num_speakers,min_speakers,max_speakers,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`, clipID, *index, entry.ID, entry.Repo, entry.Revision, entry.Engine, input.NumSpeakers, input.MinSpeakers, input.MaxSpeakers, s.authorOf(r).Username).Scan(&id)
 	case err == nil:
-		// The same (clip, model, options) is kept once: running it again replaces its result.
+		// The same (clip, model, options) is kept once: running it again replaces its result only when the
+		// new run succeeds, so the previous one stays visible meanwhile.
 		var running bool
 		if err = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM jobs WHERE clip_id=$1 AND step=$2 AND status IN ('pending','leased','retry_wait'))`, clipID, voiceTrialStep(id)).Scan(&running); err == nil && running {
 			fail(w, http.StatusConflict, "voice_trial_running")
@@ -230,7 +239,7 @@ func (s *Server) createVoiceTrial(w http.ResponseWriter, r *http.Request) {
 		}
 		run++
 		if err == nil {
-			_, err = tx.Exec(r.Context(), `UPDATE voice_diarization_trials SET run=$2,result=NULL,completed_at=NULL,model_repo=$3,model_revision=$4,created_at=now() WHERE id=$1`, id, run, entry.Repo, entry.Revision)
+			_, err = tx.Exec(r.Context(), `UPDATE voice_diarization_trials SET run=$2,model_repo=$3,model_revision=$4,model_engine=$5,created_at=now() WHERE id=$1`, id, run, entry.Repo, entry.Revision, entry.Engine)
 		}
 	}
 	if err != nil {
@@ -308,14 +317,14 @@ func (s *Server) completeVoiceTrial(w http.ResponseWriter, r *http.Request, id i
 			fail(w, http.StatusBadRequest, "invalid_voice_result")
 			return
 		}
-		var repo, revision string
+		var repo, revision, engine string
 		var index int
-		if err = s.Pool.QueryRow(r.Context(), `SELECT model_repo,model_revision,audio_stream_index FROM voice_diarization_trials WHERE id=$1 AND clip_id=$2`, trialID, leased.Job.ClipID).Scan(&repo, &revision, &index); err != nil {
+		if err = s.Pool.QueryRow(r.Context(), `SELECT model_repo,model_revision,model_engine,audio_stream_index FROM voice_diarization_trials WHERE id=$1 AND clip_id=$2`, trialID, leased.Job.ClipID).Scan(&repo, &revision, &engine, &index); err != nil {
 			// The trial was deleted while the Worker ran: its result has nowhere to go.
 			fail(w, http.StatusConflict, "voice_trial_not_found")
 			return
 		}
-		parsed, valid := parseDiarization(result, voicePipeline{Provider: "pyannote", Model: repo, ModelVersion: revision}, index)
+		parsed, valid := parseDiarization(result, voicePipeline{Provider: engine, Model: repo, ModelVersion: revision}, index)
 		if !valid {
 			fail(w, http.StatusBadRequest, "invalid_voice_result")
 			return

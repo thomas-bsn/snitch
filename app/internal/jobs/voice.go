@@ -38,13 +38,13 @@ func (s *Service) trialInput(ctx context.Context, input *Input) error {
 	if err != nil {
 		return fmt.Errorf("voice trial step: %w", err)
 	}
-	var repo, revision string
+	var repo, revision, engine string
 	var stream int
 	var num, minimum, maximum *int
-	if err = s.pool.QueryRow(ctx, `SELECT model_repo,model_revision,audio_stream_index,num_speakers,min_speakers,max_speakers FROM voice_diarization_trials WHERE id=$1 AND clip_id=$2`, id, input.Job.ClipID).Scan(&repo, &revision, &stream, &num, &minimum, &maximum); err != nil {
+	if err = s.pool.QueryRow(ctx, `SELECT model_repo,model_revision,model_engine,audio_stream_index,num_speakers,min_speakers,max_speakers FROM voice_diarization_trials WHERE id=$1 AND clip_id=$2`, id, input.Job.ClipID).Scan(&repo, &revision, &engine, &stream, &num, &minimum, &maximum); err != nil {
 		return fmt.Errorf("read voice trial: %w", err)
 	}
-	config := map[string]any{"provider": "pyannote", "model": repo, "model_version": revision}
+	config := map[string]any{"provider": engine, "model": repo, "model_version": revision}
 	for key, value := range map[string]*int{"num_speakers": num, "min_speakers": minimum, "max_speakers": maximum} {
 		if value != nil {
 			config[key] = *value

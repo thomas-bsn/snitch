@@ -1,10 +1,14 @@
 package httpapi
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"snitch/internal/workers"
 )
 
 // The voice model manager (ADR 0022): the administrator picks a candidate in the catalogue, every Worker
@@ -141,6 +145,66 @@ func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, out)
 }
 
+// pgQuerier is what a query helper needs: the pool or a transaction.
+type pgQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+var errVoiceModelNotReady = errors.New("voice model not ready")
+
+// withVoiceModelLock runs one change of the voice model state in a transaction that holds the row of the
+// active pipeline: choosing, cancelling, activating, removing and retrying are serialised, so what an
+// operation read (active, candidate, ready) is still true when it writes.
+func (s *Server) withVoiceModelLock(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var version string
+	if err = tx.QueryRow(ctx, `SELECT version FROM voice_pipeline_active WHERE id=true FOR UPDATE`).Scan(&version); err != nil {
+		return err
+	}
+	if err = fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func voiceActiveModelIDIn(ctx context.Context, db pgQuerier) (string, error) {
+	var raw []byte
+	if err := db.QueryRow(ctx, `SELECT v.config FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&raw); err != nil {
+		return "", err
+	}
+	var pipeline voicePipeline
+	if err := json.Unmarshal(raw, &pipeline); err != nil {
+		return "", err
+	}
+	if !voiceRealProvider(pipeline.Provider) {
+		return "", nil
+	}
+	entry, _ := voiceCatalogByRepo("diarization", pipeline.Model)
+	return entry.ID, nil
+}
+
+func voiceCandidateIDIn(ctx context.Context, db pgQuerier) (string, error) {
+	var id string
+	err := db.QueryRow(ctx, `SELECT model_id FROM voice_model_candidate WHERE id=true`).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
+}
+
+// voiceModelReadyIn tells whether a Worker that is connected right now holds the model ready.
+func voiceModelReadyIn(ctx context.Context, db pgQuerier, modelID string) (bool, error) {
+	var ready bool
+	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_voice_models m JOIN workers w ON w.id=m.worker_id WHERE m.model_id=$1 AND m.state='ready' AND m.removal_requested=false AND w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'))`,
+		modelID, int64(workers.ConnectedWindow.Seconds())).Scan(&ready)
+	return ready, err
+}
+
 func (s *Server) chooseVoiceModelCandidate(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		ModelID string `json:"model_id"`
@@ -153,31 +217,27 @@ func (s *Server) chooseVoiceModelCandidate(w http.ResponseWriter, r *http.Reques
 		fail(w, http.StatusBadRequest, "invalid_voice_model")
 		return
 	}
-	active, err := s.activeVoiceModelID(r)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if active == entry.ID {
+	errActive := errors.New("already active")
+	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+		active, err := voiceActiveModelIDIn(r.Context(), tx)
+		if err != nil {
+			return err
+		}
+		if active == entry.ID {
+			return errActive
+		}
+		if _, err = tx.Exec(r.Context(), `INSERT INTO voice_model_candidate(id,model_id) VALUES(true,$1) ON CONFLICT(id) DO UPDATE SET model_id=EXCLUDED.model_id,chosen_at=now()`, entry.ID); err != nil {
+			return err
+		}
+		// Choosing a model again withdraws a pending removal request.
+		_, err = tx.Exec(r.Context(), `UPDATE worker_voice_models SET removal_requested=false WHERE model_id=$1`, entry.ID)
+		return err
+	})
+	if errors.Is(err, errActive) {
 		fail(w, http.StatusConflict, "voice_model_already_active")
 		return
 	}
-	tx, err := s.Pool.Begin(r.Context())
 	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	defer tx.Rollback(r.Context())
-	if _, err = tx.Exec(r.Context(), `INSERT INTO voice_model_candidate(id,model_id) VALUES(true,$1) ON CONFLICT(id) DO UPDATE SET model_id=EXCLUDED.model_id,chosen_at=now()`, entry.ID); err != nil {
-		s.internal(w, err)
-		return
-	}
-	// Choosing a model again withdraws a pending removal request.
-	if _, err = tx.Exec(r.Context(), `UPDATE worker_voice_models SET removal_requested=false WHERE model_id=$1`, entry.ID); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if err = tx.Commit(r.Context()); err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -185,11 +245,53 @@ func (s *Server) chooseVoiceModelCandidate(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) cancelVoiceModelCandidate(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.Pool.Exec(r.Context(), `DELETE FROM voice_model_candidate WHERE id=true`); err != nil {
+	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(r.Context(), `DELETE FROM voice_model_candidate WHERE id=true`)
+		return err
+	})
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// switchVoicePipeline is the single way a catalogue model becomes the active one: the administrator's
+// "activate" and a typed pipeline apply the same rule. A real model needs a connected Worker that holds it
+// ready; the synthetic provider (entry nil) has no model to hold. build receives the active configuration
+// read under the lock, so thresholds are never lost to a concurrent change.
+func (s *Server) switchVoicePipeline(ctx context.Context, entry *voiceCatalogEntry, build func(current voicePipeline) voicePipeline) (string, voicePipeline, error) {
+	var version string
+	var config voicePipeline
+	err := s.withVoiceModelLock(ctx, func(tx pgx.Tx) error {
+		if entry != nil {
+			ready, err := voiceModelReadyIn(ctx, tx, entry.ID)
+			if err != nil {
+				return err
+			}
+			if !ready {
+				return errVoiceModelNotReady
+			}
+		}
+		var raw []byte
+		if err := tx.QueryRow(ctx, `SELECT v.config FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&raw); err != nil {
+			return err
+		}
+		var current voicePipeline
+		if err := json.Unmarshal(raw, &current); err != nil {
+			return err
+		}
+		config = build(current)
+		var err error
+		if version, err = saveVoicePipelineIn(ctx, tx, config); err != nil {
+			return err
+		}
+		if entry != nil {
+			_, err = tx.Exec(ctx, `DELETE FROM voice_model_candidate WHERE model_id=$1`, entry.ID)
+		}
+		return err
+	})
+	return version, config, err
 }
 
 func (s *Server) activateVoiceModel(w http.ResponseWriter, r *http.Request) {
@@ -202,32 +304,20 @@ func (s *Server) activateVoiceModel(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_voice_model")
 		return
 	}
-	var ready bool
-	if err := s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM worker_voice_models m JOIN workers w ON w.id=m.worker_id WHERE m.model_id=$1 AND m.state='ready' AND m.removal_requested=false AND w.revoked_at IS NULL)`, entry.ID).Scan(&ready); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if !ready {
+	// The thresholds stay; only the model changes, and the model version is the pinned revision.
+	version, config, err := s.switchVoicePipeline(r.Context(), &entry, func(current voicePipeline) voicePipeline {
+		current.Provider, current.Model, current.ModelVersion, current.Fake = entry.Engine, entry.Repo, entry.Revision, nil
+		return current
+	})
+	if errors.Is(err, errVoiceModelNotReady) {
 		fail(w, http.StatusConflict, "voice_model_not_ready")
 		return
 	}
-	_, current, err := s.activeVoicePipeline(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	// The thresholds stay; only the model changes, and the model version is the pinned revision.
-	current.Provider, current.Model, current.ModelVersion, current.Fake = entry.Engine, entry.Repo, entry.Revision, nil
-	version, err := s.saveVoicePipeline(r, current)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if _, err = s.Pool.Exec(r.Context(), `DELETE FROM voice_model_candidate WHERE model_id=$1`, entry.ID); err != nil {
-		s.internal(w, err)
-		return
-	}
-	reply(w, http.StatusOK, map[string]any{"version": version, "config": current})
+	reply(w, http.StatusOK, map[string]any{"version": version, "config": config})
 }
 
 func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
@@ -236,21 +326,27 @@ func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "voice_model_not_found")
 		return
 	}
-	active, err := s.activeVoiceModelID(r)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	candidate, err := s.candidateVoiceModelID(r)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if entry.ID == active || entry.ID == candidate {
+	errInUse := errors.New("in use")
+	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+		active, err := voiceActiveModelIDIn(r.Context(), tx)
+		if err != nil {
+			return err
+		}
+		candidate, err := voiceCandidateIDIn(r.Context(), tx)
+		if err != nil {
+			return err
+		}
+		if entry.ID == active || entry.ID == candidate {
+			return errInUse
+		}
+		_, err = tx.Exec(r.Context(), `UPDATE worker_voice_models SET removal_requested=true WHERE model_id=$1`, entry.ID)
+		return err
+	})
+	if errors.Is(err, errInUse) {
 		fail(w, http.StatusConflict, "voice_model_in_use")
 		return
 	}
-	if _, err = s.Pool.Exec(r.Context(), `UPDATE worker_voice_models SET removal_requested=true WHERE model_id=$1`, entry.ID); err != nil {
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -268,18 +364,27 @@ func (s *Server) retryWorkerVoiceModel(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "worker_not_found")
 		return
 	}
-	candidate, err := s.candidateVoiceModelID(r)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	tag, err := s.Pool.Exec(r.Context(), `UPDATE worker_voice_models SET retry_requested=true WHERE worker_id=$1 AND model_id=$2 AND state='failed'`, id, candidate)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if candidate == "" || tag.RowsAffected() != 1 {
+	errNone := errors.New("no candidate")
+	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+		candidate, err := voiceCandidateIDIn(r.Context(), tx)
+		if err != nil {
+			return err
+		}
+		tag, err := tx.Exec(r.Context(), `UPDATE worker_voice_models SET retry_requested=true WHERE worker_id=$1 AND model_id=$2 AND state='failed'`, id, candidate)
+		if err != nil {
+			return err
+		}
+		if candidate == "" || tag.RowsAffected() != 1 {
+			return errNone
+		}
+		return nil
+	})
+	if errors.Is(err, errNone) {
 		fail(w, http.StatusConflict, "no_voice_candidate")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
 		return
 	}
 	reply(w, http.StatusOK, map[string]bool{"retry_requested": true})

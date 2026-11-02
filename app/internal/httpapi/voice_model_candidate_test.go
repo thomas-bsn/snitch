@@ -120,6 +120,7 @@ func (h *voiceHarness) pipelineVersion() string {
 func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
 	withSecondCatalogModel(t)
+	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent) // a real model is only activated once a connected Worker holds it
 	h.putPipeline(map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": communityRevision, "min_fingerprint_seconds": 1.0, "min_quality": 0.5})
 	h.transcribe()
 

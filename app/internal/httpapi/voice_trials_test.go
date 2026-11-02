@@ -190,8 +190,8 @@ func testVoiceTrials(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("expected two trials: %+v", list)
 	}
 	for _, item := range list {
-		if item.NumSpeakers != nil && *item.NumSpeakers == 3 && (item.Status != "pending" || len(item.Speakers) != 0) {
-			t.Fatalf("a rerun must replace the previous result: %+v", item)
+		if item.NumSpeakers != nil && *item.NumSpeakers == 3 && (item.Status != "pending" || len(item.Speakers) != 3) {
+			t.Fatalf("a rerun keeps the previous result visible until the new one succeeds: %+v", item)
 		}
 	}
 

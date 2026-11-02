@@ -202,6 +202,18 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelSortformer(t, pool)
 	})
+	for name, run := range map[string]func(*testing.T, *pgxpool.Pool){
+		"voice pipeline activation rule": testVoicePipelineActivationRule,
+		"voice claim pinned version":     testVoiceClaimPinnedVersion,
+		"voice model concurrency":        testVoiceModelConcurrency,
+		"voice trial engine":             testVoiceTrialEngine,
+		"voice archived speakers filter": testVoiceArchivedSpeakersFilter,
+	} {
+		t.Run(name, func(t *testing.T) {
+			reset(t)
+			run(t, pool)
+		})
+	}
 	t.Run("voice trials", func(t *testing.T) {
 		reset(t)
 		testVoiceTrials(t, pool)

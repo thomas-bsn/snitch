@@ -17,6 +17,15 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 TOKEN_FILE_ENV = "SNITCH_HF_TOKEN_FILE"
+# The only places the token may travel: the Hugging Face variables are never passed on, and the file path
+# only to the download subprocess.
+TOKEN_ENV_NAMES = frozenset({"HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"})
+
+
+def without_token(environ: Mapping[str, str], *, keep_file: bool = False) -> dict[str, str]:
+    """A copy of the environment without the token variables, and without the token file path unless kept."""
+    dropped = TOKEN_ENV_NAMES if keep_file else TOKEN_ENV_NAMES | {TOKEN_FILE_ENV}
+    return {key: value for key, value in environ.items() if key not in dropped}
 
 Snapshot = Callable[[str, str, str, str, Callable[[int, int], None]], None]
 Sizer = Callable[[str, str, str], int]

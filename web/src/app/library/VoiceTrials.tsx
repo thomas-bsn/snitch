@@ -256,7 +256,7 @@ function TrialsSection({
                   : t("voiceTrial.automatic")}
                 {` · ${t(`voiceTrial.status.${trial.status}`)}`}
               </p>
-              {trial.status === "done" && (
+              {trial.speakers.length > 0 && (
                 <>
                   <p className="m-0 text-xs font-medium">
                     {t("voiceTrial.count", { count: trial.speakers.length })}

@@ -80,6 +80,7 @@ func (s *Server) putVoicePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.Model, p.ModelVersion = strings.TrimSpace(p.Model), strings.TrimSpace(p.ModelVersion)
+	var entry *voiceCatalogEntry
 	valid := (p.Provider == "fake" || voiceRealProvider(p.Provider)) && p.Model != "" && len(p.Model) <= 100 && p.ModelVersion != "" && len(p.ModelVersion) <= 64 &&
 		p.MinFingerprintSeconds >= 0.1 && p.MinFingerprintSeconds <= 60 && p.MinQuality >= 0 && p.MinQuality <= 1
 	if valid && p.Provider == "fake" {
@@ -89,38 +90,39 @@ func (s *Server) putVoicePipeline(w http.ResponseWriter, r *http.Request) {
 		valid = p.Fake.Speakers >= 1 && p.Fake.Speakers <= 8 && p.Fake.Dimensions >= 2 && p.Fake.Dimensions <= 512
 	} else if valid {
 		// A real model is chosen from the catalogue, never typed: its pinned revision is the version.
-		entry, known := voiceCatalogByRepo("diarization", p.Model)
-		valid = p.Fake == nil && known && p.ModelVersion == entry.Revision && p.Provider == entry.Engine
+		found, known := voiceCatalogByRepo("diarization", p.Model)
+		valid = p.Fake == nil && known && p.ModelVersion == found.Revision && p.Provider == found.Engine
+		entry = &found
 	}
 	if !valid {
 		fail(w, http.StatusBadRequest, "invalid_voice_pipeline")
 		return
 	}
-	version, err := s.saveVoicePipeline(r, p)
+	// A catalogue model follows the same rule as "activate": a connected Worker must hold it ready.
+	version, config, err := s.switchVoicePipeline(r.Context(), entry, func(voicePipeline) voicePipeline { return p })
+	if errors.Is(err, errVoiceModelNotReady) {
+		fail(w, http.StatusConflict, "voice_model_not_ready")
+		return
+	}
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{"version": version, "config": p})
+	reply(w, http.StatusOK, map[string]any{"version": version, "config": config})
 }
 
-// saveVoicePipeline stores an immutable snapshot and makes it the active version for new voice steps.
-func (s *Server) saveVoicePipeline(r *http.Request, p voicePipeline) (string, error) {
+// saveVoicePipelineIn stores an immutable snapshot and makes it the active version for new voice steps.
+func saveVoicePipelineIn(ctx context.Context, db pgQuerier, p voicePipeline) (string, error) {
 	raw, _ := json.Marshal(p)
 	hash := sha256.Sum256(raw)
 	version := "voice-" + hex.EncodeToString(hash[:10])
-	tx, err := s.Pool.Begin(r.Context())
-	if err != nil {
+	if _, err := db.Exec(ctx, `INSERT INTO voice_pipeline_versions(version,config) VALUES($1,$2) ON CONFLICT(version) DO NOTHING`, version, raw); err != nil {
 		return "", err
 	}
-	defer tx.Rollback(r.Context())
-	if _, err = tx.Exec(r.Context(), `INSERT INTO voice_pipeline_versions(version,config) VALUES($1,$2) ON CONFLICT(version) DO NOTHING`, version, raw); err != nil {
+	if _, err := db.Exec(ctx, `UPDATE voice_pipeline_active SET version=$1 WHERE id=true`, version); err != nil {
 		return "", err
 	}
-	if _, err = tx.Exec(r.Context(), `UPDATE voice_pipeline_active SET version=$1 WHERE id=true`, version); err != nil {
-		return "", err
-	}
-	return version, tx.Commit(r.Context())
+	return version, nil
 }
 
 // scheduleVoice is the only way voice processing starts: an explicit admin action

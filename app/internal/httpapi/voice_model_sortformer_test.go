@@ -20,6 +20,7 @@ const (
 // through the same mechanism as pyannote; the previous model stays installed and can come back.
 func testVoiceModelSortformer(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent) // a real model is only activated once a connected Worker holds it
 	h.putPipeline(map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": communityRevision, "min_fingerprint_seconds": 1.0, "min_quality": 0.5})
 	h.transcribe()
 

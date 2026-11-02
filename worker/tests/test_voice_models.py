@@ -3,7 +3,7 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from snitch_worker import declared_models, voice_download, voice_models
 from snitch_worker.voice import VoiceProviderUnavailable
@@ -164,6 +164,27 @@ class RemovalTests(unittest.TestCase):
         self.assertFalse(os.path.exists(path))
         self.assertEqual(h.reports[-1]["state"], "removed")
         self.assertFalse(voice_models.is_ready(h.env, REPO, REVISION))
+
+
+class TokenHygieneTests(unittest.TestCase):
+    def test_the_manager_takes_the_token_file_out_of_the_process_environment(self):
+        env = {"SNITCH_HF_TOKEN_FILE": "/run/secrets/hf", "HF_TOKEN": SECRET, "PATH": "/bin"}
+        with patch.dict(os.environ, env, clear=True), patch.object(voice_models, "_manager", None):
+            voice_models.default_manager()
+            self.assertNotIn("SNITCH_HF_TOKEN_FILE", os.environ)
+            # Only the download subprocess gets the path, explicitly, and never the token variables.
+            download = voice_models.download_environment("/run/secrets/hf")
+            self.assertEqual(download["SNITCH_HF_TOKEN_FILE"], "/run/secrets/hf")
+            self.assertNotIn("HF_TOKEN", download)
+            self.assertNotIn("HUGGING_FACE_HUB_TOKEN", download)
+            self.assertEqual(download["HF_HUB_OFFLINE"], "0")
+            self.assertNotIn("SNITCH_HF_TOKEN_FILE", voice_models.download_environment(""))
+
+    def test_one_filter_serves_every_environment(self):
+        env = {"HF_TOKEN": "a", "HUGGING_FACE_HUB_TOKEN": "b", "SNITCH_HF_TOKEN_FILE": "/p", "X": "1"}
+        self.assertEqual(voice_download.without_token(env), {"X": "1"})
+        self.assertEqual(voice_download.without_token(env, keep_file=True), {"SNITCH_HF_TOKEN_FILE": "/p", "X": "1"})
+        self.assertIs(voice_models.TOKEN_FILE_ENV, voice_download.TOKEN_FILE_ENV)
 
 
 class DownloadProcessTests(unittest.TestCase):
