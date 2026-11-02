@@ -51,6 +51,8 @@ export const en = {
       tasksHint:
         "Technical tasks that no analysis follows. They stay here until they finish.",
       openClip: "Open clip",
+      showMore: "Show {n} more ({left} left in this column)",
+      hiddenCards: "{n} more cards in this column are not shown yet.",
       trunk: "Preparation and transcription",
       branchSearch: "Search branch",
       branchVoices: "Voice branch",

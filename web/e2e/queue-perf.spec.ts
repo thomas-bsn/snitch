@@ -46,6 +46,14 @@ test("the page of a queue of thousands of runs", async ({ browser }) => {
   const initialLong = await page.evaluate(
     () => (window as unknown as { __long: number[] }).__long,
   );
+  // Updates pushed by the stream: a step changes every half second.
+  await page.evaluate(() => {
+    (window as unknown as { __long: number[] }).__long = [];
+  });
+  await page.waitForTimeout(4000);
+  const streamLong = await page.evaluate(
+    () => (window as unknown as { __long: number[] }).__long,
+  );
   // An update: the stream is replaced by the polling fallback when the tab is shown again.
   await page.evaluate(() => {
     (window as unknown as { __long: number[] }).__long = [];
@@ -59,6 +67,6 @@ test("the page of a queue of thousands of runs", async ({ browser }) => {
   console.log(
     `PERF page: first_card_ms=${firstCard} dom_nodes=${first.nodes} run_cards=${first.cards} js_heap_mb=${heapMb.toFixed(1)} ` +
       `load_long_tasks=${initialLong.length} load_long_ms=${sum(initialLong)} load_max_ms=${Math.round(Math.max(0, ...initialLong))} ` +
-      `update_long_tasks=${updateLong.length} update_long_ms=${sum(updateLong)} update_max_ms=${Math.round(Math.max(0, ...updateLong))}`,
+      `stream_long_tasks=${streamLong.length} stream_long_ms=${sum(streamLong)} stream_max_ms=${Math.round(Math.max(0, ...streamLong))} refetch_long_tasks=${updateLong.length} refetch_long_ms=${sum(updateLong)} refetch_max_ms=${Math.round(Math.max(0, ...updateLong))}`,
   );
 });

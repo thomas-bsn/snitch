@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import type { components } from "../../../api.gen";
 import { useI18n } from "../../i18n";
@@ -143,7 +143,8 @@ export function IdentificationBadge({
   );
 }
 
-function RunCard({ run }: { run: QueueRun }) {
+// A card is redrawn only when its own run changed: a delta leaves the other runs untouched.
+const RunCard = memo(function RunCard({ run }: { run: QueueRun }) {
   const { t } = useI18n();
   const title = run.clip_name || `Clip #${run.clip_id}`;
   const tone =
@@ -215,7 +216,7 @@ function RunCard({ run }: { run: QueueRun }) {
       </article>
     </li>
   );
-}
+});
 
 /** The load of the queue at a glance, as the scheduler counts it. */
 export function QueueSummaryBar({ summary }: { summary: Queue["summary"] }) {
@@ -247,8 +248,15 @@ export function QueueSummaryBar({ summary }: { summary: Queue["summary"] }) {
   );
 }
 
+/** Cards a column draws at first, and how many more each request adds; the count above is never limited. */
+export const CARDS_AT_FIRST = 50;
+export const CARDS_PER_REQUEST = 100;
+
 function BoardColumn({ id, runs }: { id: Column; runs: QueueRun[] }) {
   const { t } = useI18n();
+  const [shown, setShown] = useState(CARDS_AT_FIRST);
+  const visible = runs.slice(0, shown);
+  const left = runs.length - visible.length;
   return (
     <section
       data-column={id}
@@ -271,10 +279,27 @@ function BoardColumn({ id, runs }: { id: Column; runs: QueueRun[] }) {
         <p className="m-0 px-1 text-xs text-mute">{t("queue.board.empty")}</p>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
-          {runs.map((run) => (
+          {visible.map((run) => (
             <RunCard key={run.id} run={run} />
           ))}
         </ul>
+      )}
+      {left > 0 && (
+        <div data-column-more className="flex flex-col gap-1 px-1">
+          <p className="m-0 text-xs text-mute">
+            {t("queue.board.hiddenCards", { n: left })}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShown((n) => n + CARDS_PER_REQUEST)}
+            className="rounded-lg border border-line px-2 py-1 text-sm text-accent-ink"
+          >
+            {t("queue.board.showMore", {
+              n: Math.min(left, CARDS_PER_REQUEST),
+              left,
+            })}
+          </button>
+        </div>
       )}
     </section>
   );

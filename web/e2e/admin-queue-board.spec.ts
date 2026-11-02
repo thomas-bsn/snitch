@@ -251,6 +251,76 @@ test("plus de vingt analyses actives sont toutes affichées, sans pagination", a
   await a.api.dispose();
 });
 
+test("une colonne très chargée n'affiche d'abord qu'une fenêtre de cartes et dit combien en restent", async ({
+  browser,
+}) => {
+  // A synthetic queue of 130 runs at the same step, served in place of the real one: no clip
+  // is created, the stream is refused so the page reads the snapshot.
+  const now = new Date().toISOString();
+  const run = (id: number) => ({
+    id,
+    clip_id: id,
+    clip_name: `synthetic-window-${id}.mp4`,
+    scope: "full",
+    status: "active",
+    started_by: null,
+    created_at: now,
+    updated_at: now,
+    finished_at: null,
+    mode: "",
+    forced_steps: [],
+    confirmed_replace_corrections: false,
+    confirmed_replace_validations: false,
+    confirmed_stake_at: null,
+    pending_voices: 0,
+    steps: ["preparation", "transcription"].map((step, i) => ({
+      step,
+      status: i === 0 ? "done" : "waiting",
+      reason: i === 0 ? "completed" : "awaiting_worker",
+      job_id: null,
+      attempt: i === 0 ? 1 : 0,
+      started_at: null,
+      finished_at: null,
+      updated_at: now,
+    })),
+  });
+  const queue = {
+    active: Array.from({ length: 130 }, (_, i) => run(i + 1)),
+    completed: [],
+    tasks: [],
+    summary: {
+      running_tasks: 0,
+      waiting_clips: 130,
+      max_concurrency: 1,
+      paused: false,
+    },
+  };
+  await setAccountLanguage(ADMIN, "en");
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+  });
+  const page = await context.newPage();
+  await page.route("**/api/admin/analysis/queue/events*", (route) =>
+    route.abort(),
+  );
+  await page.route("**/api/admin/analysis/queue", (route) =>
+    route.fulfill({ json: queue }),
+  );
+  await page.goto("/admin/queue");
+  const transcription = column(page, "transcription");
+  await expect(transcription.locator("[data-column-count]")).toHaveText("130", {
+    timeout: 20000,
+  });
+  // Only a window of cards is drawn, and the rest is said, never hidden.
+  await expect(transcription.locator("[data-run-card]")).toHaveCount(50);
+  const more = transcription.locator("[data-column-more]");
+  await expect(more).toContainText("80 more cards in this column");
+  await more.getByRole("button", { name: /Show 80 more/ }).click();
+  await expect(transcription.locator("[data-run-card]")).toHaveCount(130);
+  await expect(more).toHaveCount(0);
+  await context.close();
+});
+
 for (const language of ["en", "fr"] as const) {
   test(`une cause d'échec montre son texte, son code et l'action conseillée (${language})`, async ({
     browser,
@@ -330,8 +400,10 @@ test("la reconnexion garde la dernière vue et le repli est suspendu onglet cach
   let streamCut = true;
   let pollCut = false;
   const polls: number[] = [];
-  await context.route(/\/api\/admin\/analysis\/queue\/events$/, (route) =>
-    streamCut ? route.abort("connectionrefused") : route.continue(),
+  await context.route(
+    /\/api\/admin\/analysis\/queue\/events(\?.*)?$/,
+    (route) =>
+      streamCut ? route.abort("connectionrefused") : route.continue(),
   );
   await context.route(/\/api\/admin\/analysis\/queue$/, (route) => {
     polls.push(Date.now());
@@ -558,7 +630,7 @@ test("toutes les colonnes, une étape inconnue et une tâche non suivie restent 
   const context = await browser.newContext({
     storageState: await sessionFor(ADMIN),
   });
-  await context.route("**/api/admin/analysis/queue/events", (route) =>
+  await context.route("**/api/admin/analysis/queue/events*", (route) =>
     route.fulfill({
       status: 200,
       contentType: "text/event-stream",

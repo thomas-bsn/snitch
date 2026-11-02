@@ -2665,6 +2665,16 @@ export interface components {
       completed: components["schemas"]["AnalysisQueueRun"][];
       tasks: components["schemas"]["AnalysisQueueTask"][];
     };
+    /** @description Ce qui a changé dans la file depuis l'état précédent du flux : l'ordre des exécutions actives, le contenu de celles qui sont nouvelles ou modifiées, le reste en entier. */
+    AnalysisQueueDelta: {
+      /** @description Toutes les exécutions actives, dans l'ordre de la file. */
+      active_ids: number[];
+      /** @description Les exécutions de active_ids nouvelles ou modifiées depuis l'état précédent. */
+      active: components["schemas"]["AnalysisQueueRun"][];
+      completed: components["schemas"]["AnalysisQueueRun"][];
+      tasks: components["schemas"]["AnalysisQueueTask"][];
+      summary: components["schemas"]["AnalysisQueueSummary"];
+    };
     ClipAnalysisConflict: {
       error: string;
       run?: components["schemas"]["ClipAnalysisRun"];
@@ -8348,14 +8358,17 @@ export interface operations {
   };
   streamAnalysisQueueEvents: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vaut 1 pour recevoir, après le premier snapshot, des évènements `delta` plutôt que l'état complet à chaque changement. */
+        delta?: 0 | 1;
+      };
       header?: never;
       path?: never;
       cookie?: never;
     };
     requestBody?: never;
     responses: {
-      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: AnalysisQueue} : l'état complet, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      /** @description Flux text/event-stream. Sans `delta`, chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: AnalysisQueue} : l'état complet, jamais un delta. Avec delta=1, le premier évènement est un `snapshot` complet, les suivants des évènements `delta` {seq, base, delta: AnalysisQueueDelta} : base est la séquence de l'évènement précédent ; un client qui ne détient pas exactement cet état relit l'état complet (GET /api/admin/analysis/queue). Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
       200: {
         headers: {
           [name: string]: unknown;
