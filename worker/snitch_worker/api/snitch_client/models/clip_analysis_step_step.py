@@ -1,6 +1,10 @@
 from enum import StrEnum
 
 class ClipAnalysisStepStep(StrEnum):
+    DIARIZATION = "diarization"
+    FINGERPRINTS = "fingerprints"
+    INDEXING = "indexing"
+    MATCHING = "matching"
     PREPARATION = "preparation"
     TRANSCRIPTION = "transcription"
 

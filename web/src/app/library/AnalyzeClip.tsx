@@ -1,3 +1,5 @@
+import { Menu } from "@base-ui/react/menu";
+import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "../../api.gen";
 import { api, errorCode, mutation } from "../api/client";
@@ -10,6 +12,7 @@ import { useSession } from "../session";
 
 type Run = components["schemas"]["ClipAnalysisRun"];
 type MediaTrack = components["schemas"]["MediaTrack"];
+type Scope = Run["scope"];
 
 const pollMs = 3000;
 
@@ -20,12 +23,10 @@ const pollMs = 3000;
  */
 export function AnalyzeClip({
   clipId,
-  hasTranscription,
   audioTracks,
   onChanged,
 }: {
   clipId: number;
-  hasTranscription: boolean;
   audioTracks: MediaTrack[];
   onChanged: () => void;
 }) {
@@ -69,11 +70,8 @@ export function AnalyzeClip({
   }, [active, refresh]);
 
   if (!admin || !loaded) return null;
-  const finished = run && !active;
-  if (!run && hasTranscription) return null;
-  if (finished && run.status === "completed" && hasTranscription) return null;
 
-  async function start() {
+  async function start(scope: Scope) {
     setBusy(true);
     setFailure(undefined);
     try {
@@ -82,7 +80,7 @@ export function AnalyzeClip({
           path: { id: clipId },
           header: mutation(session?.csrf_token),
         },
-        body: {},
+        body: { scope },
       });
       if (r.data) apply(r.data.run ?? null);
       else setFailure(errorCode(r.error) ?? "unknown");
@@ -121,16 +119,43 @@ export function AnalyzeClip({
       aria-label={t("clip.analysis.label")}
       className="flex flex-col gap-3 rounded-xl border border-line p-3"
     >
-      {(!run || !active) && (
-        <div>
+      {!active && (
+        <div className="flex items-center gap-1">
           <button
             type="button"
             disabled={busy}
-            onClick={() => void start()}
+            onClick={() => void start("full")}
             className={buttonClass()}
           >
-            {run ? t("clip.analysis.again") : t("clip.analysis.start")}
+            {t("clip.analysis.full")}
           </button>
+          <Menu.Root>
+            <Menu.Trigger
+              aria-label={t("clip.analysis.more")}
+              disabled={busy}
+              className={buttonClass("secondary")}
+            >
+              <ChevronDown aria-hidden="true" className="size-4" />
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner align="start" sideOffset={6} className="z-50">
+                <Menu.Popup className="w-56 rounded-xl border border-line bg-surface p-1.5 text-ink shadow-pop outline-none">
+                  <Menu.Item
+                    onClick={() => void start("transcription")}
+                    className="flex min-h-11 cursor-pointer items-center rounded-lg px-3 text-sm outline-none data-[highlighted]:bg-side"
+                  >
+                    {t("clip.analysis.transcription")}
+                  </Menu.Item>
+                  <Menu.Item
+                    onClick={() => void start("voice")}
+                    className="flex min-h-11 cursor-pointer items-center rounded-lg px-3 text-sm outline-none data-[highlighted]:bg-side"
+                  >
+                    {t("clip.analysis.voice")}
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
         </div>
       )}
       {run && (
@@ -152,6 +177,9 @@ export function AnalyzeClip({
             </li>
           ))}
         </ol>
+      )}
+      {run?.status === "incomplete" && (
+        <p className="m-0 text-sm text-mute">{t("clip.analysis.incomplete")}</p>
       )}
       {selection && (
         <div className="flex gap-2">

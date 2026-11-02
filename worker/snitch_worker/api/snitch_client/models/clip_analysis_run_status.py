@@ -5,6 +5,7 @@ class ClipAnalysisRunStatus(StrEnum):
     CANCELLED = "cancelled"
     COMPLETED = "completed"
     FAILED = "failed"
+    INCOMPLETE = "incomplete"
 
     def __str__(self) -> str:
         return str(self.value)

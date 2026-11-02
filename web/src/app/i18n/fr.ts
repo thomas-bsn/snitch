@@ -1384,10 +1384,21 @@ export const fr: Messages = {
     },
     analysis: {
       label: "Analyse du clip",
-      start: "Analyser",
-      again: "Analyser à nouveau",
       steps: "Étapes de l’analyse",
-      step: { preparation: "Préparation", transcription: "Transcription" },
+      full: "Tout analyser",
+      more: "Autres options d’analyse",
+      transcription: "Transcrire seulement",
+      voice: "Détection des voix",
+      incomplete:
+        "Analyse terminée : les étapes de voix et d’indexation ne sont pas encore disponibles.",
+      step: {
+        preparation: "Préparation",
+        transcription: "Transcription",
+        indexing: "Indexation",
+        diarization: "Détection des voix",
+        fingerprints: "Empreintes vocales",
+        matching: "Rapprochement des voix",
+      },
       status: {
         waiting: "En attente",
         running: "En cours",
@@ -1396,6 +1407,7 @@ export const fr: Messages = {
         failed: "Échec",
         done: "Terminé",
         not_applicable: "Non applicable",
+        not_yet_supported: "Pas encore disponible",
       },
       reason: {
         awaiting_preparation: "En attente que le clip soit prêt.",
@@ -1416,6 +1428,11 @@ export const fr: Messages = {
         job_cancelled: "La transcription a été annulée.",
         job_failed: "La transcription a échoué.",
         outside_scope: "Hors du périmètre de cette analyse.",
+        transcription_required:
+          "La détection des voix exige une transcription valide : transcrivez d’abord le clip.",
+        awaiting_transcription: "En attente de la transcription.",
+        orchestration_pending:
+          "Cette étape n’est pas encore disponible dans l’analyse.",
       },
       track: "Piste audio",
       trackPlaceholder: "Choisir une piste…",

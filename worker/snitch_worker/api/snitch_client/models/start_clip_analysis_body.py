@@ -24,7 +24,10 @@ T = TypeVar("T", bound="StartClipAnalysisBody")
 class StartClipAnalysisBody:
     """
         Attributes:
-            scope (StartClipAnalysisBodyScope | Unset): Dernière étape à atteindre. Default:
+            scope (StartClipAnalysisBodyScope | Unset): transcription : préparation et transcription seulement. voice :
+                détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de
+                transcription implicite). full : transcription, indexation et voix. Les étapes d'indexation et de voix ne sont
+                pas encore orchestrées : elles restent not_yet_supported et l'exécution se termine incomplete. Default:
                 StartClipAnalysisBodyScope.TRANSCRIPTION.
      """
 

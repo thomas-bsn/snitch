@@ -15,15 +15,20 @@ test("analyser un clip jusqu'à sa transcription, durablement", async ({
   await page.goto(`/clips/${clipId}`);
 
   const analysis = page.getByRole("region", { name: "Clip analysis" });
-  await analysis.getByRole("button", { name: "Analyze", exact: true }).click();
+  // Voice detection never transcribes behind the scenes: it explains what is missing.
+  await analysis.getByRole("button", { name: "More analysis options" }).click();
+  await page.getByRole("menuitem", { name: "Detect voices" }).click();
+  await expect(page.getByRole("alert")).toContainText("transcribed first");
+  await analysis.getByRole("button", { name: "More analysis options" }).click();
+  await page.getByRole("menuitem", { name: "Transcribe only" }).click();
   await expect(analysis).toContainText("Choose the audio track to transcribe.");
   await analysis.getByLabel("Audio track").selectOption({ index: 1 });
   await analysis.getByRole("button", { name: "Confirm track" }).click();
   await expect(analysis).toContainText("Waiting for a compatible Worker.");
   // No second run can start while this one is active.
-  await expect(analysis.getByRole("button", { name: /Analyze/ })).toHaveCount(
-    0,
-  );
+  await expect(
+    analysis.getByRole("button", { name: /Analyze all/ }),
+  ).toHaveCount(0);
 
   // The state survives closing the page.
   await page.reload();
@@ -39,8 +44,14 @@ test("analyser un clip jusqu'à sa transcription, durablement", async ({
   await expect(page.getByText("Bonjour").first()).toBeVisible({
     timeout: 15000,
   });
-  await expect(page.getByRole("region", { name: "Clip analysis" })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole("region", { name: "Clip analysis" }),
+  ).toContainText("Done");
+  // With a transcription in place, the voice detection starts and says what is not available yet.
+  const again = page.getByRole("region", { name: "Clip analysis" });
+  await again.getByRole("button", { name: "More analysis options" }).click();
+  await page.getByRole("menuitem", { name: "Detect voices" }).click();
+  await expect(again).toContainText("Not available yet");
+  await expect(again).toContainText("not available yet.");
   await context.close();
 });

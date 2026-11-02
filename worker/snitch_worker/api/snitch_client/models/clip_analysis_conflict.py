@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -26,11 +27,11 @@ class ClipAnalysisConflict:
     """
         Attributes:
             error (str):
-            run (ClipAnalysisRun):
+            run (ClipAnalysisRun | Unset):
      """
 
     error: str
-    run: ClipAnalysisRun
+    run: ClipAnalysisRun | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -41,15 +42,18 @@ class ClipAnalysisConflict:
         from ..models.clip_analysis_run import ClipAnalysisRun # noqa: PLC0415
         error = self.error
 
-        run = self.run.to_dict()
+        run: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.run, Unset):
+            run = self.run.to_dict()
 
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "error": error,
-            "run": run,
         })
+        if run is not UNSET:
+            field_dict["run"] = run
 
         return field_dict
 
@@ -61,7 +65,12 @@ class ClipAnalysisConflict:
         d = dict(src_dict)
         error = d.pop("error")
 
-        run = ClipAnalysisRun.from_dict(d.pop("run"))
+        _run = d.pop("run", UNSET)
+        run: ClipAnalysisRun | Unset
+        if isinstance(_run,  Unset):
+            run = UNSET
+        else:
+            run = ClipAnalysisRun.from_dict(_run)
 
 
 

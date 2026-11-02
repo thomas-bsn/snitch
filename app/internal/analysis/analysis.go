@@ -17,41 +17,72 @@ import (
 	"snitch/internal/jobs"
 )
 
-// Scopes: the last step a run goes to. A later ticket adds wider scopes.
+// Scopes: what the administrator asks for. transcription stops after the transcription;
+// voice runs the voice detection on a valid transcription (it never transcribes); full is
+// the transcription, its indexing and the voices.
 const (
-	ScopePreparation   = "preparation"
 	ScopeTranscription = "transcription"
+	ScopeVoice         = "voice"
+	ScopeFull          = "full"
 )
 
-// Steps of a run, in dependency order.
+// Steps of a run, in dependency order. Every run lists all of them; the ones outside its
+// scope are not applicable.
 const (
 	StepPreparation   = "preparation"
 	StepTranscription = "transcription"
+	StepIndexing      = "indexing"
+	StepDiarization   = "diarization"
+	StepFingerprints  = "fingerprints"
+	StepMatching      = "matching"
 )
+
+var stepOrder = []string{StepPreparation, StepTranscription, StepIndexing, StepDiarization, StepFingerprints, StepMatching}
+
+// laterSteps are the steps that follow the transcription. Their orchestration is not wired
+// yet (indexing, voices): they show not_yet_supported rather than a false success.
+var laterSteps = []string{StepIndexing, StepDiarization, StepFingerprints, StepMatching}
+
+func applicable(scope, step string) bool {
+	switch step {
+	case StepPreparation:
+		return true
+	case StepTranscription:
+		return true
+	case StepIndexing:
+		return scope == ScopeFull
+	default:
+		return scope == ScopeVoice || scope == ScopeFull
+	}
+}
 
 // Step statuses. Reasons are stable codes the interface translates.
 const (
-	StatusWaiting       = "waiting"
-	StatusRunning       = "running"
-	StatusRetry         = "retry"
-	StatusBlocked       = "blocked"
-	StatusFailed        = "failed"
-	StatusDone          = "done"
-	StatusNotApplicable = "not_applicable"
+	StatusWaiting         = "waiting"
+	StatusRunning         = "running"
+	StatusRetry           = "retry"
+	StatusBlocked         = "blocked"
+	StatusFailed          = "failed"
+	StatusDone            = "done"
+	StatusNotApplicable   = "not_applicable"
+	StatusNotYetSupported = "not_yet_supported"
 )
 
 // Run statuses.
 const (
 	RunActive    = "active"
 	RunCompleted = "completed"
-	RunFailed    = "failed"
-	RunCancelled = "cancelled"
+	// RunIncomplete: every step that can run is done, the others are not yet supported.
+	RunIncomplete = "incomplete"
+	RunFailed     = "failed"
+	RunCancelled  = "cancelled"
 )
 
 var (
-	ErrClipNotFound  = errors.New("clip not found")
-	ErrInvalidScope  = errors.New("invalid analysis scope")
-	ErrScopeConflict = errors.New("another analysis scope is active")
+	ErrClipNotFound          = errors.New("clip not found")
+	ErrInvalidScope          = errors.New("invalid analysis scope")
+	ErrScopeConflict         = errors.New("another analysis scope is active")
+	ErrTranscriptionRequired = errors.New("a valid transcription is required")
 )
 
 type Step struct {
@@ -95,6 +126,8 @@ type Hooks interface {
 	// Transcribe finds the job to follow, or schedules it. Jobs created before since that
 	// ended without success are ignored (a new run starts afresh); valid results are reused.
 	Transcribe(ctx context.Context, clipID int64, since time.Time) (Transcription, error)
+	// HasTranscription tells whether the clip has a valid transcription to build on.
+	HasTranscription(ctx context.Context, clipID int64) (bool, error)
 }
 
 type Service struct {
@@ -107,7 +140,9 @@ func New(pool *pgxpool.Pool, hooks Hooks, log *slog.Logger) *Service {
 	return &Service{pool: pool, hooks: hooks, log: log}
 }
 
-func validScope(scope string) bool { return scope == ScopePreparation || scope == ScopeTranscription }
+func validScope(scope string) bool {
+	return scope == ScopeTranscription || scope == ScopeVoice || scope == ScopeFull
+}
 
 const runColumns = `id,clip_id,scope,status,started_by,created_at,updated_at,finished_at`
 
@@ -140,14 +175,23 @@ func (s *Service) Start(ctx context.Context, clipID int64, scope string, adminID
 		}
 		return Run{}, false, err
 	}
+	if created && scope == ScopeVoice {
+		has, hasErr := s.hooks.HasTranscription(ctx, clipID)
+		if hasErr != nil {
+			return Run{}, false, hasErr
+		}
+		if !has {
+			return Run{}, false, ErrTranscriptionRequired
+		}
+	}
 	if created {
-		for _, step := range []string{StepPreparation, StepTranscription} {
-			status, reason := StatusWaiting, "awaiting_preparation"
-			if step == StepTranscription {
-				reason = "awaiting_previous_step"
-				if scope == ScopePreparation {
-					status, reason = StatusNotApplicable, "outside_scope"
-				}
+		for _, step := range stepOrder {
+			status, reason := StatusWaiting, "awaiting_previous_step"
+			switch {
+			case !applicable(scope, step):
+				status, reason = StatusNotApplicable, "outside_scope"
+			case step == StepPreparation:
+				reason = "awaiting_preparation"
 			}
 			if _, err = tx.Exec(ctx, `INSERT INTO clip_analysis_steps(run_id,step,status,reason,finished_at) VALUES($1,$2,$3,$4,CASE WHEN $3='not_applicable' THEN now() END)`, run.ID, step, status, reason); err != nil {
 				return Run{}, false, err
@@ -182,7 +226,7 @@ func (s *Service) Latest(ctx context.Context, clipID int64) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT step,status,reason,job_id,attempt,started_at,finished_at,updated_at FROM clip_analysis_steps WHERE run_id=$1 ORDER BY CASE step WHEN 'preparation' THEN 0 ELSE 1 END,step`, run.ID)
+	rows, err := s.pool.Query(ctx, `SELECT step,status,reason,job_id,attempt,started_at,finished_at,updated_at FROM clip_analysis_steps WHERE run_id=$1 ORDER BY array_position($2::text[],step)`, run.ID, stepOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -269,19 +313,42 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 		return err
 	}
 	states := map[string]stepState{StepPreparation: {status: prep.Status, reason: prep.Reason}}
+	for _, step := range stepOrder[1:] {
+		if !applicable(run.Scope, step) {
+			states[step] = stepState{status: StatusNotApplicable, reason: "outside_scope"}
+		}
+	}
 	switch {
-	case run.Scope == ScopePreparation:
-		states[StepTranscription] = stepState{status: StatusNotApplicable, reason: "outside_scope"}
+	case run.Scope == ScopeVoice:
+		has, hasErr := s.hooks.HasTranscription(ctx, run.ClipID)
+		if hasErr != nil {
+			return hasErr
+		}
+		if has {
+			states[StepTranscription] = stepState{status: StatusDone, reason: "reused_existing"}
+		} else {
+			states[StepTranscription] = stepState{status: StatusBlocked, reason: "transcription_required"}
+		}
 	case prep.Status != StatusDone:
 		states[StepTranscription] = stepState{status: StatusWaiting, reason: "awaiting_preparation"}
 	default:
-		tr, err := s.hooks.Transcribe(ctx, run.ClipID, run.CreatedAt)
-		if err != nil {
-			return err
+		tr, trErr := s.hooks.Transcribe(ctx, run.ClipID, run.CreatedAt)
+		if trErr != nil {
+			return trErr
 		}
 		states[StepTranscription] = transcriptionState(tr, run.CreatedAt)
 	}
-	failed, finished := false, true
+	for _, step := range laterSteps {
+		if !applicable(run.Scope, step) {
+			continue
+		}
+		if states[StepTranscription].status == StatusDone {
+			states[step] = stepState{status: StatusNotYetSupported, reason: "orchestration_pending"}
+		} else {
+			states[step] = stepState{status: StatusWaiting, reason: "awaiting_transcription"}
+		}
+	}
+	failed, finished, unsupported := false, true, false
 	for step, st := range states {
 		if _, err = s.pool.Exec(ctx, `UPDATE clip_analysis_steps SET status=$3,reason=$4,job_id=$5,attempt=$6,updated_at=now(),
  started_at=COALESCE(started_at,CASE WHEN $3 IN ('running','retry','done','failed') THEN now() END),
@@ -290,11 +357,14 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 			return err
 		}
 		failed = failed || st.status == StatusFailed
-		finished = finished && (st.status == StatusDone || st.status == StatusNotApplicable)
+		unsupported = unsupported || st.status == StatusNotYetSupported
+		finished = finished && (st.status == StatusDone || st.status == StatusNotApplicable || st.status == StatusNotYetSupported)
 	}
 	switch {
 	case failed:
 		_, err = s.pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='failed',updated_at=now(),finished_at=now() WHERE id=$1 AND status='active'`, run.ID)
+	case finished && unsupported:
+		_, err = s.pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='incomplete',updated_at=now(),finished_at=now() WHERE id=$1 AND status='active'`, run.ID)
 	case finished:
 		_, err = s.pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='completed',updated_at=now(),finished_at=now() WHERE id=$1 AND status='active'`, run.ID)
 	}

@@ -2280,7 +2280,13 @@ export interface components {
     };
     ClipAnalysisStep: {
       /** @enum {string} */
-      step: "preparation" | "transcription";
+      step:
+        | "preparation"
+        | "transcription"
+        | "indexing"
+        | "diarization"
+        | "fingerprints"
+        | "matching";
       /** @enum {string} */
       status:
         | "waiting"
@@ -2289,8 +2295,9 @@ export interface components {
         | "blocked"
         | "failed"
         | "done"
-        | "not_applicable";
-      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope. */
+        | "not_applicable"
+        | "not_yet_supported";
+      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, orchestration_pending. */
       reason: string;
       /** Format: int64 */
       job_id: number | null;
@@ -2308,9 +2315,9 @@ export interface components {
       /** Format: int64 */
       clip_id: number;
       /** @enum {string} */
-      scope: "preparation" | "transcription";
+      scope: "transcription" | "voice" | "full";
       /** @enum {string} */
-      status: "active" | "completed" | "failed" | "cancelled";
+      status: "active" | "completed" | "incomplete" | "failed" | "cancelled";
       /** Format: int64 */
       started_by: number | null;
       /** Format: date-time */
@@ -2326,7 +2333,7 @@ export interface components {
     };
     ClipAnalysisConflict: {
       error: string;
-      run: components["schemas"]["ClipAnalysisRun"];
+      run?: components["schemas"]["ClipAnalysisRun"];
     };
     Error: {
       error: string;
@@ -7629,11 +7636,11 @@ export interface operations {
       content: {
         "application/json": {
           /**
-           * @description Dernière étape à atteindre.
+           * @description transcription : préparation et transcription seulement. voice : détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de transcription implicite). full : transcription, indexation et voix. Les étapes d'indexation et de voix ne sont pas encore orchestrées : elles restent not_yet_supported et l'exécution se termine incomplete.
            * @default transcription
            * @enum {string}
            */
-          scope?: "preparation" | "transcription";
+          scope?: "transcription" | "voice" | "full";
         };
       };
     };
@@ -7656,7 +7663,7 @@ export interface operations {
           "application/json": components["schemas"]["ClipAnalysisResponse"];
         };
       };
-      /** @description analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) */
+      /** @description analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) ; transcription_required : le périmètre voice exige une transcription valide */
       409: {
         headers: {
           [name: string]: unknown;

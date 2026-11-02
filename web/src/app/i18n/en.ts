@@ -1363,10 +1363,21 @@ export const en = {
     },
     analysis: {
       label: "Clip analysis",
-      start: "Analyze",
-      again: "Analyze again",
       steps: "Analysis steps",
-      step: { preparation: "Preparation", transcription: "Transcription" },
+      full: "Analyze all",
+      more: "More analysis options",
+      transcription: "Transcribe only",
+      voice: "Detect voices",
+      incomplete:
+        "Analysis ended: the voice and indexing steps are not available yet.",
+      step: {
+        preparation: "Preparation",
+        transcription: "Transcription",
+        indexing: "Indexing",
+        diarization: "Voice detection",
+        fingerprints: "Voice fingerprints",
+        matching: "Voice matching",
+      },
       status: {
         waiting: "Waiting",
         running: "Running",
@@ -1375,6 +1386,7 @@ export const en = {
         failed: "Failed",
         done: "Done",
         not_applicable: "Not applicable",
+        not_yet_supported: "Not available yet",
       },
       reason: {
         awaiting_preparation: "Waiting for the clip to be ready.",
@@ -1394,6 +1406,11 @@ export const en = {
         job_cancelled: "The transcription was cancelled.",
         job_failed: "The transcription failed.",
         outside_scope: "Not part of this analysis.",
+        transcription_required:
+          "Voice detection needs a valid transcription: transcribe the clip first.",
+        awaiting_transcription: "Waiting for the transcription.",
+        orchestration_pending:
+          "This step is not available in the analysis yet.",
       },
       track: "Audio track",
       trackPlaceholder: "Choose a track…",

@@ -62,6 +62,11 @@ func (h analysisHooks) Transcribe(ctx context.Context, clipID int64, since time.
 	return analysis.Transcription{Job: job}, err
 }
 
+func (h analysisHooks) HasTranscription(ctx context.Context, clipID int64) (bool, error) {
+	_, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
+	return ok, err
+}
+
 func (s *Server) readJob(ctx context.Context, id int64) (jobs.Job, error) {
 	var j jobs.Job
 	err := s.Pool.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,attempts,created_at FROM jobs WHERE id=$1`, id).Scan(&j.ID, &j.ClipID, &j.Step, &j.InputVersion, &j.Status, &j.Attempts, &j.CreatedAt)
@@ -95,6 +100,8 @@ func (s *Server) startClipAnalysis(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, analysis.ErrInvalidScope):
 		fail(w, http.StatusBadRequest, "invalid_analysis_scope")
+	case errors.Is(err, analysis.ErrTranscriptionRequired):
+		fail(w, http.StatusConflict, "transcription_required")
 	case errors.Is(err, analysis.ErrClipNotFound):
 		fail(w, http.StatusNotFound, "clip_not_found")
 	case errors.Is(err, analysis.ErrScopeConflict):

@@ -1,8 +1,9 @@
 from enum import StrEnum
 
 class ClipAnalysisRunScope(StrEnum):
-    PREPARATION = "preparation"
+    FULL = "full"
     TRANSCRIPTION = "transcription"
+    VOICE = "voice"
 
     def __str__(self) -> str:
         return str(self.value)

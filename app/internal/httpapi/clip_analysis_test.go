@@ -77,6 +77,12 @@ func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodPost, "/api/admin/clips/99999/analysis", map[string]any{}, http.StatusNotFound)
 	h.adminCall(http.MethodPost, h.analysisPath(), map[string]any{"scope": "everything"}, http.StatusBadRequest)
 
+	// Voice detection never transcribes: without a valid transcription it explains the prerequisite.
+	h.adminCall(http.MethodPost, h.analysisPath(), map[string]any{"scope": "voice"}, http.StatusConflict)
+	if h.analysis() != nil {
+		t.Fatal("a refused voice analysis must not leave a run")
+	}
+
 	// The analysis waits for a track choice, and its dependent step waits behind it.
 	run := h.startAnalysis(map[string]any{}, http.StatusCreated)
 	if run.Status != "active" || run.Scope != "transcription" || run.step("preparation").Status != "blocked" || run.step("preparation").Reason != "audio_track_selection_required" || run.step("transcription").Status != "waiting" {
@@ -116,7 +122,7 @@ func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	if n := h.count(`SELECT count(*) FROM clip_analysis_runs WHERE clip_id=$1`, h.clipID); n != 1 {
 		t.Fatalf("%d runs for one clip", n)
 	}
-	h.adminCall(http.MethodPost, h.analysisPath(), map[string]any{"scope": "preparation"}, http.StatusConflict)
+	h.adminCall(http.MethodPost, h.analysisPath(), map[string]any{"scope": "full"}, http.StatusConflict)
 
 	// Choosing the track plans the transcription; the run follows the job.
 	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/clips/%d/audio-track", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusOK)
@@ -167,10 +173,14 @@ func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	if run2.ID == run.ID || run2.Status != "completed" || run2.step("transcription").Reason != "reused_existing" || h.count(`SELECT count(*) FROM jobs WHERE clip_id=$1`, h.clipID) != jobs {
 		t.Fatalf("valid results must be reused: %+v", run2)
 	}
-	// A narrower scope shows the later step as not applicable.
-	run3 := h.startAnalysis(map[string]any{"scope": "preparation"}, http.StatusCreated)
-	if run3.Status != "completed" || run3.step("transcription").Status != "not_applicable" || run3.step("transcription").Reason != "outside_scope" {
-		t.Fatalf("unexpected preparation run: %+v", run3)
+	// Voice scope builds on the existing transcription; steps not wired yet say so, and the run is incomplete, never a false success.
+	run3 := h.startAnalysis(map[string]any{"scope": "voice"}, http.StatusCreated)
+	if run3.Status != "incomplete" || run3.step("transcription").Reason != "reused_existing" || run3.step("indexing").Status != "not_applicable" || run3.step("diarization").Status != "not_yet_supported" || run3.step("matching").Status != "not_yet_supported" {
+		t.Fatalf("unexpected voice run: %+v", run3)
+	}
+	run5 := h.startAnalysis(map[string]any{"scope": "full"}, http.StatusCreated)
+	if run5.Status != "incomplete" || run5.step("indexing").Status != "not_yet_supported" || run5.step("indexing").Reason != "orchestration_pending" || run5.step("diarization").Status != "not_yet_supported" {
+		t.Fatalf("unexpected full run: %+v", run5)
 	}
 
 	// A job that dies fails the step and the run, and frees the clip for a new analysis.

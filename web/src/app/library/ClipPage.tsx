@@ -133,7 +133,6 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
           <ProgressBanner clip={clip} voice={voiceData} />
           <AnalyzeClip
             clipId={clip.id}
-            hasTranscription={clip.transcription !== undefined}
             audioTracks={clip.tracks?.filter((t) => t.type === "audio") ?? []}
             onChanged={onChanged}
           />
