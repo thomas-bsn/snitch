@@ -701,6 +701,10 @@ export const en = {
     incidentModel:
       "A required model is missing on the worker ({count} jobs affected)",
     incidentJob: "{count} jobs failed at step {step}",
+    incidentBlockedMismatch:
+      "{count} jobs cannot start: no worker has validated the current transcription configuration",
+    incidentBlockedNotValidated:
+      "{count} jobs cannot start: the transcription configuration failed its test on the workers",
     incidentGeneric:
       "A technical incident is slowing processing down. Administrators have been notified.",
     incidentResolved: "Technical incident resolved",
@@ -843,7 +847,14 @@ export const en = {
       status: "Status",
       url: "Embeddings service address",
       model: "Embeddings model",
-      save: "Test and save",
+      test: "Test",
+      testing: "Testing…",
+      save: "Save",
+      notValidated: "Not validated",
+      validated: "Validated",
+      tested:
+        "Service reachable, {dimensions}-dimension vectors received. Nothing is saved yet: press Save to apply.",
+      expired: "The validation has expired. Test again before saving.",
       saved: "Semantic search settings saved.",
       environment: "This value is set by the deployment and takes priority.",
       ownerOnly: "Only the Super-administrator can change these settings.",
@@ -1357,9 +1368,20 @@ export const en = {
     viewInLibrary: "Open the library",
     doneAnnouncement: "“{name}” was checked and added to the library.",
     destination: {
-      label: "Destination subfolder",
+      label: "Destination folder",
       root: "Root of the video folder",
       choose: "Choose a folder",
+      menu: "Choose the destination folder",
+      filter: "Filter folders",
+      path: "Path of the current folder",
+      rootName: "Video root",
+      rootChosen: "Video root",
+      useRoot: "Use the video root",
+      none: "No folder chosen yet. Nothing is sent until you choose one.",
+      selected: "Videos will be added to {path}",
+      required: "Choose a destination folder first. No file was queued.",
+      missing:
+        "The folder “{path}” is no longer available. Choose another folder before sending.",
       use: "Use this folder",
       up: "Parent folder",
       empty: "No subfolder here.",
@@ -1630,6 +1652,12 @@ export const en = {
           "A compatible Worker is connected but busy; the task starts as soon as it is free.",
         awaiting_compatible_worker:
           "Waiting for a compatible Worker: none is connected. The analysis resumes by itself when one returns.",
+        queue_paused:
+          "The queue is paused: nothing starts until an administrator resumes it.",
+        transcription_version_mismatch:
+          "No Worker has validated the current transcription configuration. Open the Workers page and validate it on a Worker.",
+        transcription_not_validated:
+          "The transcription configuration failed its test on the connected Workers. Fix it on the Workers page; the task then starts by itself.",
         run_cancelled: "Cancelled: this step will not run.",
         running: "A Worker is transcribing the clip.",
         retry_scheduled: "The attempt failed; a new one is planned.",
@@ -2049,8 +2077,23 @@ export const en = {
       container: "Video file",
       filename: "Filename",
       manual: "Manual correction",
+      label: "Added",
     },
     dateOrigin: "Date source",
+    editAction: "Edit metadata",
+    titleRequired:
+      "The title cannot be empty. Use “Use the file name” to remove the custom title.",
+    noRename:
+      "The file on the storage is not renamed and the tags inside the video are not changed: only what Snitch displays.",
+    titleLabel: "Displayed title",
+    fileKept: "File name: {name} (unchanged)",
+    useFileName: "Use the file name",
+    detectedValue: "Detected value: {value}",
+    restore: "Restore",
+    technical: "Technical information",
+    readOnly: "read-only",
+    fileName: "File name",
+    codecs: "Codecs",
     detected: "Detected by Snitch",
     uploaded: "Uploaded by {name}",
     date: "Recording date",

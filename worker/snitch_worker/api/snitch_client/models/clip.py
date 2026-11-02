@@ -15,6 +15,7 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.audio_track_selection import AudioTrackSelection
+  from ..models.clip_detected_type_0 import ClipDetectedType0
   from ..models.clip_origins_item import ClipOriginsItem
   from ..models.clip_person import ClipPerson
   from ..models.clip_progress import ClipProgress
@@ -37,6 +38,10 @@ class Clip:
             owner_id (int):
             owner (str):
             visibility (ClipVisibility):
+            display_title (None | str): Titre affiché choisi par un administrateur ; absent, le nom du fichier
+                (original_name) sert de titre. original_name reste le nom physique, jamais modifié.
+            detected (ClipDetectedType0 | None): Valeurs détectées automatiquement, conservées à la première modification
+                manuelle pour pouvoir les restaurer ; une valeur n'est restaurable que si son indicateur *_available est vrai.
             original_name (str):
             size_bytes (int):
             discovered_at (datetime.datetime):
@@ -67,6 +72,8 @@ class Clip:
     owner_id: int
     owner: str
     visibility: ClipVisibility
+    display_title: None | str
+    detected: ClipDetectedType0 | None
     original_name: str
     size_bytes: int
     discovered_at: datetime.datetime
@@ -97,6 +104,7 @@ class Clip:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
+        from ..models.clip_detected_type_0 import ClipDetectedType0 # noqa: PLC0415
         from ..models.clip_origins_item import ClipOriginsItem # noqa: PLC0415
         from ..models.clip_person import ClipPerson # noqa: PLC0415
         from ..models.clip_progress import ClipProgress # noqa: PLC0415
@@ -109,6 +117,15 @@ class Clip:
         owner = self.owner
 
         visibility = self.visibility.value
+
+        display_title: None | str
+        display_title = self.display_title
+
+        detected: dict[str, Any] | None
+        if isinstance(self.detected, ClipDetectedType0):
+            detected = self.detected.to_dict()
+        else:
+            detected = self.detected
 
         original_name = self.original_name
 
@@ -213,6 +230,8 @@ class Clip:
             "owner_id": owner_id,
             "owner": owner,
             "visibility": visibility,
+            "display_title": display_title,
+            "detected": detected,
             "original_name": original_name,
             "size_bytes": size_bytes,
             "discovered_at": discovered_at,
@@ -256,6 +275,7 @@ class Clip:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
+        from ..models.clip_detected_type_0 import ClipDetectedType0 # noqa: PLC0415
         from ..models.clip_origins_item import ClipOriginsItem # noqa: PLC0415
         from ..models.clip_person import ClipPerson # noqa: PLC0415
         from ..models.clip_progress import ClipProgress # noqa: PLC0415
@@ -271,6 +291,32 @@ class Clip:
         visibility = ClipVisibility(d.pop("visibility"))
 
 
+
+
+        def _parse_display_title(data: object) -> None | str:
+            if data is None:
+                return data
+            return cast(None | str, data)
+
+        display_title = _parse_display_title(d.pop("display_title"))
+
+
+        def _parse_detected(data: object) -> ClipDetectedType0 | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                detected_type_0 = ClipDetectedType0.from_dict(data)
+
+
+
+                return detected_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(ClipDetectedType0 | None, data)
+
+        detected = _parse_detected(d.pop("detected"))
 
 
         original_name = d.pop("original_name")
@@ -427,6 +473,8 @@ class Clip:
             owner_id=owner_id,
             owner=owner,
             visibility=visibility,
+            display_title=display_title,
+            detected=detected,
             original_name=original_name,
             size_bytes=size_bytes,
             discovered_at=discovered_at,

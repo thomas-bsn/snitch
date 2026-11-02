@@ -221,7 +221,7 @@ type notificationListView struct {
 func (s *Server) notificationList(ctx context.Context, userID int64, admin bool, page notificationPage) (notificationListView, error) {
 	where := `x.user_id=$1 AND x.deleted_at IS NULL AND ` + notificationVisible + ` AND ($3='all' OR n.state=$3) AND ` + notificationFilterSQL(page.Filter)
 	out := notificationListView{Items: []notificationView{}}
-	rows, err := s.Pool.Query(ctx, `SELECT n.id,n.kind,n.state,n.clip_id,COALESCE(c.original_name,''),n.pending_count,x.read_at IS NOT NULL,n.created_at,n.updated_at,n.resolved_at,n.job_id,n.step,n.error_code
+	rows, err := s.Pool.Query(ctx, `SELECT n.id,n.kind,n.state,n.clip_id,COALESCE(c.display_title,c.original_name,''),n.pending_count,x.read_at IS NOT NULL,n.created_at,n.updated_at,n.resolved_at,n.job_id,n.step,n.error_code
 FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
 WHERE `+where+`
 ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4 OFFSET $5`, userID, admin, page.State, page.Limit, page.Offset)

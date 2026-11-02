@@ -23,6 +23,8 @@ const (
 	kindProviderUnavailable = "provider_unavailable"
 	kindModelMissing        = "model_missing"
 	kindJobFailed           = "job_failed"
+	// kindJobBlocked: a Worker is connected, yet the job can never start until someone fixes a configuration.
+	kindJobBlocked = "job_blocked"
 	// kindTechnicalIncident is what a non-administrator sees whatever the incident.
 	kindTechnicalIncident = "technical_incident"
 
@@ -58,6 +60,13 @@ WHERE j.status IN ('pending','retry_wait') AND j.created_at < now()-($1 * interv
 	if n > 0 {
 		out = append(out, incident{kind: kindWorkerUnavailable, cause: kindWorkerUnavailable, count: n, jobID: id, clipID: clip})
 	}
+	// Blocked jobs: a compatible Worker is connected but none is eligible (incompatible or unvalidated transcription
+	// configuration) for longer than the grace period. A busy queue or a paused one is not an incident.
+	blocked, err := s.blockedJobIncidents(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, blocked...)
 	// Failing jobs (dead, or retrying for a provider/model cause), grouped by cause. A failed
 	// job superseded by a later successful one of the same step is no longer an incident.
 	rows, err := tx.Query(ctx, `SELECT CASE WHEN j.last_error IN ('provider_unavailable','model_missing') THEN j.last_error ELSE 'job_failed' END AS kind,
@@ -161,4 +170,57 @@ func (s *Server) serveIncidents(ctx context.Context, every time.Duration) {
 		case <-ticker.C:
 		}
 	}
+}
+
+// blockedJobIncidents groups the jobs waiting past the grace period by the durable cause that keeps them from starting.
+func (s *Server) blockedJobIncidents(ctx context.Context, tx pgx.Tx) ([]incident, error) {
+	rows, err := tx.Query(ctx, `SELECT step,count(*)::int,max(id),(array_agg(clip_id ORDER BY id DESC))[1] FROM jobs
+WHERE status IN ('pending','retry_wait') AND created_at < now()-($1 * interval '1 second') GROUP BY step ORDER BY step`, int64(workerGrace.Seconds()))
+	if err != nil {
+		return nil, err
+	}
+	type waiting struct {
+		step          string
+		count         int
+		jobID, clipID int64
+	}
+	var steps []waiting
+	for rows.Next() {
+		var w waiting
+		if err = rows.Scan(&w.step, &w.count, &w.jobID, &w.clipID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		steps = append(steps, w)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	byCause := map[string]*incident{}
+	var order []string
+	for _, w := range steps {
+		cause, err := jobs.StepWaitCause(ctx, tx, w.step, workers.ConnectedWindow)
+		if err != nil {
+			return nil, err
+		}
+		if !jobs.DurableCause(cause) {
+			continue
+		}
+		in := byCause[cause]
+		if in == nil {
+			in = &incident{kind: kindJobBlocked, cause: kindJobBlocked + ":" + cause, code: cause, step: w.step}
+			byCause[cause] = in
+			order = append(order, cause)
+		}
+		in.count += w.count
+		if w.jobID > in.jobID { // the clip is that of the same, latest job
+			in.jobID, in.clipID = w.jobID, w.clipID
+		}
+	}
+	out := make([]incident, 0, len(order))
+	for _, cause := range order {
+		out = append(out, *byCause[cause])
+	}
+	return out, nil
 }

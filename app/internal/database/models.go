@@ -54,6 +54,8 @@ type Clip struct {
 	CaptureTimeOrigin   pgtype.Text        `json:"capture_time_origin"`
 	GameEdited          bool               `json:"game_edited"`
 	CaptureTimeEdited   bool               `json:"capture_time_edited"`
+	DisplayTitle        pgtype.Text        `json:"display_title"`
+	DetectedMetadata    []byte             `json:"detected_metadata"`
 }
 
 type ClipAnalysisRun struct {
@@ -157,6 +159,15 @@ type EmbeddingTask struct {
 	Error              pgtype.Text        `json:"error"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	LeaseExpiresAt     pgtype.Timestamptz `json:"lease_expires_at"`
+}
+
+type EmbeddingValidation struct {
+	TokenHash []byte             `json:"token_hash"`
+	UserID    int64              `json:"user_id"`
+	Url       string             `json:"url"`
+	Model     string             `json:"model"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type Event struct {

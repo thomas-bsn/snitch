@@ -15,13 +15,30 @@ test("la configuration sémantique signale un fournisseur indisponible", async (
     .getByLabel("Embeddings service address")
     .fill("http://127.0.0.1:1/v1/embeddings");
   await page.getByLabel("Embeddings model").fill("synthetic-model");
-  await page.getByRole("button", { name: "Test and save" }).click();
+  const save = page.getByRole("button", { name: "Save", exact: true });
+  const test = page.getByRole("button", { name: "Test", exact: true });
+  // Nothing is saveable before a successful Test.
+  await expect(save).toBeDisabled();
+  await test.click();
   await expect(page.getByRole("alert")).toContainText("could not be reached");
+  await expect(save).toBeDisabled();
   await page
     .getByLabel("Embeddings service address")
     .fill(process.env.SNITCH_TEST_EMBEDDINGS_URL!);
-  await page.getByRole("button", { name: "Test and save" }).click();
-  await expect(page.getByRole("status")).toContainText("saved");
+  await expect(save).toBeDisabled();
+  await test.click();
+  await expect(page.getByText("Service reachable")).toBeVisible();
+  await expect(save).toBeEnabled();
+  // Changing a single character voids the validation.
+  await page.getByLabel("Embeddings model").fill("synthetic-model-x");
+  await expect(save).toBeDisabled();
+  await page.getByLabel("Embeddings model").fill("synthetic-model");
+  await expect(save).toBeDisabled();
+  await test.click();
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(page.getByText("settings saved")).toBeVisible();
+  await expect(save).toBeDisabled();
   await page.reload();
   await expect(page.getByLabel("Embeddings model")).toHaveValue(
     "synthetic-model",

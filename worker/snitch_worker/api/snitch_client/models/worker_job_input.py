@@ -17,6 +17,7 @@ if TYPE_CHECKING:
   from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem
   from ..models.worker_vocabulary_term import WorkerVocabularyTerm
   from ..models.worker_voice_input import WorkerVoiceInput
+  from ..models.worker_voice_trial_input import WorkerVoiceTrialInput
 
 
 
@@ -43,6 +44,8 @@ class WorkerJobInput:
             pipeline (TranscriptionPipeline | Unset):
             pipeline_version (str | Unset):
             voice (WorkerVoiceInput | Unset):
+            voice_trial (WorkerVoiceTrialInput | Unset): Entrée d'un essai de diarisation (étapes voicetrial.*) : le modèle
+                du catalogue et les options choisis pour l'essai, jamais la configuration active ni une version de pipeline.
      """
 
     job: Job
@@ -58,6 +61,7 @@ class WorkerJobInput:
     pipeline: TranscriptionPipeline | Unset = UNSET
     pipeline_version: str | Unset = UNSET
     voice: WorkerVoiceInput | Unset = UNSET
+    voice_trial: WorkerVoiceTrialInput | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -70,6 +74,7 @@ class WorkerJobInput:
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         from ..models.worker_voice_input import WorkerVoiceInput # noqa: PLC0415
+        from ..models.worker_voice_trial_input import WorkerVoiceTrialInput # noqa: PLC0415
         job = self.job.to_dict()
 
         original_name = self.original_name
@@ -114,6 +119,10 @@ class WorkerJobInput:
         if not isinstance(self.voice, Unset):
             voice = self.voice.to_dict()
 
+        voice_trial: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.voice_trial, Unset):
+            voice_trial = self.voice_trial.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -137,6 +146,8 @@ class WorkerJobInput:
             field_dict["pipeline_version"] = pipeline_version
         if voice is not UNSET:
             field_dict["voice"] = voice
+        if voice_trial is not UNSET:
+            field_dict["voice_trial"] = voice_trial
 
         return field_dict
 
@@ -149,6 +160,7 @@ class WorkerJobInput:
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         from ..models.worker_voice_input import WorkerVoiceInput # noqa: PLC0415
+        from ..models.worker_voice_trial_input import WorkerVoiceTrialInput # noqa: PLC0415
         d = dict(src_dict)
         job = Job.from_dict(d.pop("job"))
 
@@ -219,6 +231,16 @@ class WorkerJobInput:
 
 
 
+        _voice_trial = d.pop("voice_trial", UNSET)
+        voice_trial: WorkerVoiceTrialInput | Unset
+        if isinstance(_voice_trial,  Unset):
+            voice_trial = UNSET
+        else:
+            voice_trial = WorkerVoiceTrialInput.from_dict(_voice_trial)
+
+
+
+
         worker_job_input = cls(
             job=job,
             original_name=original_name,
@@ -233,6 +255,7 @@ class WorkerJobInput:
             pipeline=pipeline,
             pipeline_version=pipeline_version,
             voice=voice,
+            voice_trial=voice_trial,
         )
 
 

@@ -2448,9 +2448,26 @@ export interface paths {
     };
     /** @description Configuration effective du service d'embeddings, consultable par les Administrateurs. */
     get: operations["getEmbeddingSettings"];
-    /** @description Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables d'environnement restent prioritaires. */
+    /** @description Enregistre l'adresse et le modèle ; réservé aux Administrateurs. Exige la preuve (validation_token) d'un test réussi de cette configuration exacte, à usage unique et de courte durée, rendue par testEmbeddingSettings : sinon 409 embedding_validation_required, embedding_validation_expired ou embedding_validation_mismatch. Les variables d'environnement restent prioritaires. */
     put: operations["putEmbeddingSettings"];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/embeddings/settings/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Teste l'adresse et le modèle contre le vrai service, sans rien enregistrer ni toucher à l'index ; réservé aux Administrateurs. En cas de succès, rend une preuve de validation liée aux valeurs effectives et à l'utilisateur, valable quelques minutes et à usage unique. */
+    post: operations["testEmbeddingSettings"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2579,6 +2596,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    EmbeddingValidation: {
+      validation_token: string;
+      dimensions: number;
+      model: string;
+      /** Format: date-time */
+      expires_at: string;
+    };
     EmbeddingSettings: {
       url: string;
       model: string;
@@ -2604,7 +2628,7 @@ export interface components {
         | "done"
         | "not_applicable"
         | "not_yet_supported";
-      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
+      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, queue_paused, transcription_version_mismatch, transcription_not_validated, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
       reason: string;
       /** Format: int64 */
       job_id: number | null;
@@ -3364,6 +3388,7 @@ export interface components {
       pipeline?: components["schemas"]["TranscriptionPipeline"];
       pipeline_version?: string;
       voice?: components["schemas"]["WorkerVoiceInput"];
+      voice_trial?: components["schemas"]["WorkerVoiceTrialInput"];
     };
     TranscriptionSettingsInput: {
       /** @enum {string} */
@@ -3947,6 +3972,7 @@ export interface components {
         | "provider_unavailable"
         | "model_missing"
         | "job_failed"
+        | "job_blocked"
         | "technical_incident";
       /**
        * @description Partagé : une action résolue l'est pour tous.
@@ -3973,7 +3999,7 @@ export interface components {
       job_id: number | null;
       /** @description Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret. */
       step: string;
-      /** @description Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted), jamais l'erreur brute. */
+      /** @description Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated), jamais l'erreur brute. */
       error_code: string;
       /** @description Vrai pour le message générique sûr vu par un non-administrateur. */
       generic: boolean;
@@ -4341,6 +4367,22 @@ export interface components {
       /** @description Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie. */
       history: components["schemas"]["VoiceHistoryEntry"][];
     };
+    /** @description Entrée d'un essai de diarisation (étapes voicetrial.*) : le modèle du catalogue et les options choisis pour l'essai, jamais la configuration active ni une version de pipeline. */
+    WorkerVoiceTrialInput: {
+      config: components["schemas"]["VoiceTrialConfig"];
+      trial: {
+        audio_stream_index: number;
+      };
+    };
+    VoiceTrialConfig: {
+      /** @enum {string} */
+      provider: "pyannote" | "nemo";
+      model: string;
+      model_version: string;
+      num_speakers?: number;
+      min_speakers?: number;
+      max_speakers?: number;
+    };
     WorkerVoiceInput: {
       pipeline_version: string;
       config: components["schemas"]["VoicePipeline"];
@@ -4488,6 +4530,18 @@ export interface components {
       owner: string;
       /** @enum {string} */
       visibility: "private" | "shared";
+      /** @description Titre affiché choisi par un administrateur ; absent, le nom du fichier (original_name) sert de titre. original_name reste le nom physique, jamais modifié. */
+      display_title: string | null;
+      /** @description Valeurs détectées automatiquement, conservées à la première modification manuelle pour pouvoir les restaurer ; une valeur n'est restaurable que si son indicateur *_available est vrai. */
+      detected: {
+        game_available: boolean;
+        game: string | null;
+        game_origin: string | null;
+        recorded_at_available: boolean;
+        /** Format: date-time */
+        recorded_at: string | null;
+        recorded_at_origin: string | null;
+      } | null;
       original_name: string;
       /** Format: int64 */
       size_bytes: number;
@@ -4933,9 +4987,16 @@ export interface operations {
         "application/json": {
           game_changed?: boolean;
           recorded_at_changed?: boolean;
-          game: string | null;
+          /** @description Titre affiché (200 caractères au plus, sans caractère de contrôle) ; vide ou absent pour le retirer. N'agit que si display_title_changed est vrai ; ne renomme jamais le fichier. */
+          display_title?: string | null;
+          display_title_changed?: boolean;
+          /** @description Restaure le jeu détecté automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec game_changed. */
+          game_reset?: boolean;
+          /** @description Restaure la date détectée automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec recorded_at_changed. */
+          recorded_at_reset?: boolean;
+          game?: string | null;
           /** Format: date-time */
-          recorded_at: string | null;
+          recorded_at?: string | null;
         };
       };
     };
@@ -11534,6 +11595,7 @@ export interface operations {
         "application/json": {
           url: string;
           model: string;
+          validation_token: string;
         };
       };
     };
@@ -11545,6 +11607,45 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EmbeddingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  testEmbeddingSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          url: string;
+          model: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Service joignable */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EmbeddingValidation"];
         };
       };
       /** @description Erreur */

@@ -718,6 +718,10 @@ export const fr: Messages = {
     incidentModel:
       "Un modèle requis est absent du worker ({count} jobs concernés)",
     incidentJob: "{count} jobs en échec à l’étape {step}",
+    incidentBlockedMismatch:
+      "{count} jobs ne peuvent pas démarrer : aucun worker n’a validé la configuration de transcription actuelle",
+    incidentBlockedNotValidated:
+      "{count} jobs ne peuvent pas démarrer : la configuration de transcription a échoué à son test sur les workers",
     incidentGeneric:
       "Un incident technique ralentit le traitement. Les administrateurs ont été prévenus.",
     incidentResolved: "Incident technique résolu",
@@ -861,7 +865,14 @@ export const fr: Messages = {
       status: "État",
       url: "Adresse du service d’embeddings",
       model: "Modèle d’embeddings",
-      save: "Tester et enregistrer",
+      test: "Tester",
+      testing: "Test en cours…",
+      save: "Enregistrer",
+      notValidated: "Non validé",
+      validated: "Validé",
+      tested:
+        "Service joignable, vecteurs de {dimensions} dimensions reçus. Rien n’est encore enregistré : appuyez sur Enregistrer pour appliquer.",
+      expired: "La validation a expiré. Testez à nouveau avant d’enregistrer.",
       saved: "Réglages de la recherche sémantique enregistrés.",
       environment:
         "Cette valeur est définie par le déploiement et reste prioritaire.",
@@ -1383,9 +1394,21 @@ export const fr: Messages = {
     viewInLibrary: "Ouvrir la bibliothèque",
     doneAnnouncement: "« {name} » a été vérifiée et ajoutée à la bibliothèque.",
     destination: {
-      label: "Sous-dossier de destination",
+      label: "Dossier de destination",
       root: "Racine du dossier vidéo",
       choose: "Choisir un dossier",
+      menu: "Choisir le dossier de destination",
+      filter: "Filtrer les dossiers",
+      path: "Chemin du dossier courant",
+      rootName: "Racine vidéo",
+      rootChosen: "Racine vidéo",
+      useRoot: "Utiliser la racine vidéo",
+      none: "Aucun dossier choisi. Rien n’est envoyé tant que vous n’en choisissez pas un.",
+      selected: "Les vidéos seront ajoutées dans {path}",
+      required:
+        "Choisissez d’abord un dossier de destination. Aucun fichier n’a été mis en file.",
+      missing:
+        "Le dossier « {path} » n’existe plus. Choisissez un autre dossier avant d’envoyer.",
       use: "Utiliser ce dossier",
       up: "Dossier parent",
       empty: "Aucun sous-dossier ici.",
@@ -1657,6 +1680,12 @@ export const fr: Messages = {
           "Un Worker compatible est connecté mais occupé ; la tâche démarre dès qu’il est libre.",
         awaiting_compatible_worker:
           "En attente d’un Worker compatible : aucun n’est connecté. L’analyse reprend d’elle-même à son retour.",
+        queue_paused:
+          "La file est en pause : rien ne démarre tant qu’un administrateur ne la relance pas.",
+        transcription_version_mismatch:
+          "Aucun Worker n’a validé la configuration de transcription actuelle. Ouvrez la page Workers et validez-la sur un Worker.",
+        transcription_not_validated:
+          "La configuration de transcription a échoué à son test sur les Workers connectés. Corrigez-la sur la page Workers ; la tâche démarre ensuite d’elle-même.",
         run_cancelled: "Annulée : cette étape ne sera pas exécutée.",
         running: "Un Worker transcrit le clip.",
         retry_scheduled: "La tentative a échoué ; une nouvelle est prévue.",
@@ -2084,8 +2113,23 @@ export const fr: Messages = {
       container: "Fichier vidéo",
       filename: "Nom du fichier",
       manual: "Correction manuelle",
+      label: "Ajouté",
     },
     dateOrigin: "Origine de la date",
+    editAction: "Modifier les métadonnées",
+    titleRequired:
+      "Le titre ne peut pas être vide. Utilisez « Utiliser le nom du fichier » pour retirer le titre personnalisé.",
+    noRename:
+      "Le fichier sur le stockage n’est pas renommé et les tags internes de la vidéo ne sont pas modifiés : seul l’affichage dans Snitch change.",
+    titleLabel: "Titre affiché",
+    fileKept: "Nom du fichier : {name} (inchangé)",
+    useFileName: "Utiliser le nom du fichier",
+    detectedValue: "Valeur détectée : {value}",
+    restore: "Réinitialiser",
+    technical: "Informations techniques",
+    readOnly: "lecture seule",
+    fileName: "Nom du fichier",
+    codecs: "Codecs",
     detected: "Détecté par Snitch",
     uploaded: "Importé par {name}",
     date: "Date d’enregistrement",

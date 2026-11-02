@@ -2,12 +2,15 @@ package httpapi
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"snitch/internal/library"
@@ -46,6 +49,50 @@ func (s *Server) putMetadataLocation(w http.ResponseWriter, r *http.Request) {
 	}
 	reply(w, 200, v)
 }
+
+// detectedMetadata keeps what was detected automatically (container tags, file name) the first time a field is
+// edited by hand, so the edit can be undone. A field is restorable only when its *Available flag is set.
+type detectedMetadata struct {
+	GameAvailable       bool       `json:"game_available"`
+	Game                *string    `json:"game"`
+	GameOrigin          *string    `json:"game_origin"`
+	RecordedAtAvailable bool       `json:"recorded_at_available"`
+	RecordedAt          *time.Time `json:"recorded_at"`
+	RecordedAtOrigin    *string    `json:"recorded_at_origin"`
+}
+
+func decodeDetected(raw []byte) *detectedMetadata {
+	if len(raw) == 0 {
+		return nil
+	}
+	var d detectedMetadata
+	if json.Unmarshal(raw, &d) != nil {
+		return nil
+	}
+	return &d
+}
+
+// maxClipTitleRunes bounds the display title in characters, not bytes.
+const maxClipTitleRunes = 200
+
+// spoofingRune is a character a title must not carry: control characters, line/paragraph separators and the
+// bidirectional overrides and isolates that reorder or hide the text around them. Joiners stay (emoji sequences).
+func spoofingRune(r rune) bool {
+	return unicode.IsControl(r) || r == '\u2028' || r == '\u2029' || (r >= '\u202a' && r <= '\u202e') || (r >= '\u2066' && r <= '\u2069')
+}
+
+// cleanClipTitle trims a display title and refuses control characters and over-long values; "" clears it.
+func cleanClipTitle(raw string) (*string, bool) {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		return nil, true
+	}
+	if !utf8.ValidString(v) || utf8.RuneCountInString(v) > maxClipTitleRunes || strings.IndexFunc(v, spoofingRune) >= 0 {
+		return nil, false
+	}
+	return &v, true
+}
+
 func (s *Server) putClipMetadata(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id < 1 {
@@ -53,12 +100,20 @@ func (s *Server) putClipMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Game              *string    `json:"game"`
-		RecordedAt        *time.Time `json:"recorded_at"`
-		GameChanged       bool       `json:"game_changed"`
-		RecordedAtChanged bool       `json:"recorded_at_changed"`
+		Game                *string    `json:"game"`
+		RecordedAt          *time.Time `json:"recorded_at"`
+		GameChanged         bool       `json:"game_changed"`
+		RecordedAtChanged   bool       `json:"recorded_at_changed"`
+		DisplayTitle        *string    `json:"display_title"`
+		DisplayTitleChanged bool       `json:"display_title_changed"`
+		GameReset           bool       `json:"game_reset"`
+		RecordedAtReset     bool       `json:"recorded_at_reset"`
 	}
 	if !decode(w, r, &in) {
+		return
+	}
+	if (in.GameReset && in.GameChanged) || (in.RecordedAtReset && in.RecordedAtChanged) {
+		fail(w, 400, "invalid_metadata_request")
 		return
 	}
 	if in.Game != nil {
@@ -73,17 +128,94 @@ func (s *Server) putClipMetadata(w http.ResponseWriter, r *http.Request) {
 			in.Game = &v
 		}
 	}
-	tag, err := s.Pool.Exec(r.Context(), `UPDATE clips SET game=CASE WHEN $4 THEN $2 ELSE game END,game_origin=CASE WHEN $4 THEN 'manual' ELSE game_origin END,game_edited=game_edited OR $4,capture_time=CASE WHEN $5 THEN $3 ELSE capture_time END,capture_time_origin=CASE WHEN $5 THEN 'manual' ELSE capture_time_origin END,capture_time_edited=capture_time_edited OR $5 WHERE id=$1`, id, in.Game, in.RecordedAt, in.GameChanged, in.RecordedAtChanged)
+	var title *string
+	if in.DisplayTitleChanged {
+		raw := ""
+		if in.DisplayTitle != nil {
+			raw = *in.DisplayTitle
+		}
+		var ok bool
+		if title, ok = cleanClipTitle(raw); !ok {
+			fail(w, 400, "invalid_clip_title")
+			return
+		}
+	}
+	ctx := r.Context()
+	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	if tag.RowsAffected() == 0 {
+	defer tx.Rollback(ctx)
+	var game, gameOrigin, timeOrigin *string
+	var captured *time.Time
+	var gameEdited, timeEdited bool
+	var rawDetected []byte
+	err = tx.QueryRow(ctx, `SELECT game,game_origin,game_edited,capture_time,capture_time_origin,capture_time_edited,detected_metadata FROM clips WHERE id=$1 FOR UPDATE`, id).
+		Scan(&game, &gameOrigin, &gameEdited, &captured, &timeOrigin, &timeEdited, &rawDetected)
+	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, 404, "clip_not_found")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	detected := decodeDetected(rawDetected)
+	if detected == nil {
+		detected = &detectedMetadata{}
+	}
+	// The first manual edit of a field saves its automatically detected value.
+	if in.GameChanged && !gameEdited && !detected.GameAvailable {
+		detected.GameAvailable, detected.Game, detected.GameOrigin = true, game, gameOrigin
+	}
+	if in.RecordedAtChanged && !timeEdited && !detected.RecordedAtAvailable {
+		detected.RecordedAtAvailable, detected.RecordedAt, detected.RecordedAtOrigin = true, captured, timeOrigin
+	}
+	switch {
+	case in.GameReset:
+		if !detected.GameAvailable {
+			fail(w, 409, "metadata_reset_unavailable")
+			return
+		}
+		game, gameOrigin, gameEdited = detected.Game, detected.GameOrigin, false
+		// Back on the automatic value: the snapshot is stale as soon as a rescan may change it, so the next
+		// manual edit takes a fresh one.
+		detected.GameAvailable, detected.Game, detected.GameOrigin = false, nil, nil
+	case in.GameChanged:
+		game, gameOrigin, gameEdited = in.Game, ptr("manual"), true
+	}
+	switch {
+	case in.RecordedAtReset:
+		if !detected.RecordedAtAvailable {
+			fail(w, 409, "metadata_reset_unavailable")
+			return
+		}
+		captured, timeOrigin, timeEdited = detected.RecordedAt, detected.RecordedAtOrigin, false
+		detected.RecordedAtAvailable, detected.RecordedAt, detected.RecordedAtOrigin = false, nil, nil
+	case in.RecordedAtChanged:
+		captured, timeOrigin, timeEdited = in.RecordedAt, ptr("manual"), true
+	}
+	var encoded []byte
+	if detected.GameAvailable || detected.RecordedAtAvailable {
+		if encoded, err = json.Marshal(detected); err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
+	if _, err = tx.Exec(ctx, `UPDATE clips SET game=$2,game_origin=$3,game_edited=$4,capture_time=$5,capture_time_origin=$6,capture_time_edited=$7,display_title=CASE WHEN $8 THEN $9 ELSE display_title END,detected_metadata=$10 WHERE id=$1`,
+		id, game, gameOrigin, gameEdited, captured, timeOrigin, timeEdited, in.DisplayTitleChanged, title, encoded); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if err = tx.Commit(ctx); err != nil {
+		s.internal(w, err)
 		return
 	}
 	reply(w, 200, map[string]string{"status": "ok"})
 }
+
+func ptr[T any](v T) *T { return &v }
 
 // Reprocess one clip per request so the server's write timeout cannot cut off
 // a large library halfway through a single response. The caller advances by ID.

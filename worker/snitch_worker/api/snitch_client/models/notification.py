@@ -42,7 +42,8 @@ class Notification:
             job_id (int | None): Incident : dernier job concerné (administrateurs uniquement).
             step (str): Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret.
             error_code (str): Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input,
-                worker_failed, retries_exhausted), jamais l'erreur brute.
+                worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated), jamais l'erreur
+                brute.
             generic (bool): Vrai pour le message générique sûr vu par un non-administrateur.
      """
 

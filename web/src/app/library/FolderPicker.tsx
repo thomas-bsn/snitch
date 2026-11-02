@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Folder } from "lucide-react";
+import { Popover } from "@base-ui/react/popover";
+import { ChevronDown, ChevronRight, Folder } from "lucide-react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import { useSession } from "../session";
@@ -7,22 +8,26 @@ import { useSession } from "../session";
 type Entry = { path: string; directory: boolean; size_bytes: number };
 
 /**
- * Picks an existing subfolder of the managed video root as the upload
- * destination. Browsing only reads the root: nothing is scanned.
+ * Picks the upload destination among the folders of the managed video root, in a compact menu: a filter,
+ * the path to the current folder, and a list that scrolls inside the menu. `value` is undefined until a
+ * folder was chosen on purpose; the empty string is the video root, chosen explicitly.
  */
 export function FolderPicker({
   value,
   onChange,
 }: {
-  value: string;
+  value: string | undefined;
   onChange: (path: string) => void;
 }) {
   const { t, error } = useI18n();
   const { session } = useSession();
   const csrf = session?.csrf_token ?? "";
+  const labelId = useId();
+  const valueId = useId();
   const [open, setOpen] = useState(false);
   const [directory, setDirectory] = useState("");
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [filter, setFilter] = useState("");
   const [failure, setFailure] = useState("");
 
   const load = useCallback(
@@ -47,75 +52,141 @@ export function FolderPicker({
     if (open) void load(directory);
   }, [open, directory, load]);
 
+  function openChange(next: boolean) {
+    setOpen(next);
+    if (next) {
+      setDirectory(value ?? "");
+      setFilter("");
+    }
+  }
+
+  function choose(path: string) {
+    onChange(path);
+    setOpen(false);
+  }
+
+  const parts = directory ? directory.split("/") : [];
+  const shown = entries.filter((entry) =>
+    (entry.path.split("/").pop() ?? "")
+      .toLowerCase()
+      .includes(filter.trim().toLowerCase()),
+  );
+  const label =
+    value === undefined
+      ? t("import.destination.choose")
+      : value === ""
+        ? t("import.destination.rootChosen")
+        : `/${value}`;
+
   return (
-    <div className="flex max-w-xl flex-col gap-2">
-      <span className="font-medium">{t("import.destination.label")}</span>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="break-all text-sm text-mute">
-          {value ? `/${value}` : t("import.destination.root")}
-        </span>
-        <button
-          type="button"
-          className={buttonClass("secondary")}
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
+    <div className="flex max-w-xl flex-col gap-1.5">
+      <span className="font-medium" id={labelId}>
+        {t("import.destination.label")}
+      </span>
+      <Popover.Root open={open} onOpenChange={openChange}>
+        <Popover.Trigger
+          aria-labelledby={`${labelId} ${valueId}`}
+          className={`${buttonClass("secondary")} justify-between ${value === undefined ? "text-mute" : ""}`}
         >
-          {t("import.destination.choose")}
-        </button>
-      </div>
-      {open && (
-        <div className="flex flex-col gap-2 rounded-lg border border-line p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="break-all text-sm">/{directory}</span>
-            {directory && (
-              <button
-                type="button"
-                className={buttonClass("secondary")}
-                onClick={() =>
-                  setDirectory(directory.split("/").slice(0, -1).join("/"))
-                }
-              >
-                <ArrowLeft size={16} />
-                {t("import.destination.up")}
-              </button>
-            )}
-            <button
-              type="button"
-              className={buttonClass("primary")}
-              onClick={() => {
-                onChange(directory);
-                setOpen(false);
-              }}
+          <span id={valueId} className="break-all text-left">
+            {label}
+          </span>
+          <ChevronDown className="size-4 shrink-0" aria-hidden="true" />
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Positioner align="start" sideOffset={6} className="z-50">
+            <Popover.Popup
+              aria-label={t("import.destination.menu")}
+              className="flex max-h-[min(30rem,var(--available-height))] w-[min(28rem,calc(100vw-2rem))] flex-col gap-2 rounded-xl border border-line bg-surface p-3 text-ink shadow-pop outline-none"
             >
-              {t("import.destination.use")}
-            </button>
-          </div>
-          <ul className="divide-y divide-line">
-            {entries.map((entry) => (
-              <li key={entry.path} className="flex min-h-11 items-center gap-2">
-                <Folder size={18} />
+              <input
+                type="search"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                aria-label={t("import.destination.filter")}
+                placeholder={t("import.destination.filter")}
+                className="h-11 rounded-lg border border-line-strong bg-canvas px-3 md:h-9"
+              />
+              <nav
+                aria-label={t("import.destination.path")}
+                className="flex flex-wrap items-center gap-1 text-xs text-mute"
+              >
                 <button
                   type="button"
-                  className="min-h-11 break-all text-left text-accent-ink"
-                  onClick={() => setDirectory(entry.path)}
+                  className="min-h-8 text-accent-ink underline underline-offset-2"
+                  onClick={() => setDirectory("")}
                 >
-                  {entry.path.split("/").pop()}
+                  {t("import.destination.rootName")}
                 </button>
-              </li>
-            ))}
-            {!entries.length && (
-              <li className="py-2 text-sm text-mute">
-                {t("import.destination.empty")}
-              </li>
-            )}
-          </ul>
-          {failure && (
-            <p role="alert" className="text-sm text-danger">
-              {error(failure)}
-            </p>
-          )}
-        </div>
-      )}
+                {parts.map((part, index) => (
+                  <span key={parts.slice(0, index + 1).join("/")}>
+                    <ChevronRight
+                      className="inline size-3"
+                      aria-hidden="true"
+                    />{" "}
+                    <button
+                      type="button"
+                      className="min-h-8 text-accent-ink underline underline-offset-2"
+                      onClick={() =>
+                        setDirectory(parts.slice(0, index + 1).join("/"))
+                      }
+                    >
+                      {part}
+                    </button>
+                  </span>
+                ))}
+              </nav>
+              <button
+                type="button"
+                className={buttonClass("primary")}
+                onClick={() => choose(directory)}
+              >
+                {directory
+                  ? t("import.destination.use")
+                  : t("import.destination.useRoot")}
+              </button>
+              <ul className="min-h-24 flex-1 divide-y divide-line overflow-y-auto">
+                {shown.map((entry) => (
+                  <li key={entry.path}>
+                    <button
+                      type="button"
+                      className="flex min-h-11 w-full items-center gap-2 break-all text-left text-accent-ink"
+                      onClick={() => {
+                        setDirectory(entry.path);
+                        setFilter("");
+                      }}
+                    >
+                      <Folder
+                        size={18}
+                        className="shrink-0"
+                        aria-hidden="true"
+                      />
+                      {entry.path.split("/").pop()}
+                    </button>
+                  </li>
+                ))}
+                {!shown.length && (
+                  <li className="py-2 text-sm text-mute">
+                    {t("import.destination.empty")}
+                  </li>
+                )}
+              </ul>
+              {failure && (
+                <p role="alert" className="text-sm text-bad-fg">
+                  {error(failure)}
+                </p>
+              )}
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+      <p className="break-all text-sm text-mute">
+        {value === undefined
+          ? t("import.destination.none")
+          : t("import.destination.selected", {
+              path: value === "" ? "/" : `/${value}`,
+            })}
+      </p>
     </div>
   );
 }
