@@ -36,6 +36,9 @@ class ClipAnalysisStep:
                 matching_failed, upstream_failed.
             job_id (int | None):
             attempt (int):
+            input_version (None | str): Version d'entrée du job suivi par l'étape (historique).
+            profile (None | str): Profil (pipeline) du job suivi par l'étape.
+            forced (bool): Étape relancée par une réanalyse, malgré un résultat valide.
             started_at (datetime.datetime | None):
             finished_at (datetime.datetime | None):
             updated_at (datetime.datetime):
@@ -46,6 +49,9 @@ class ClipAnalysisStep:
     reason: str
     job_id: int | None
     attempt: int
+    input_version: None | str
+    profile: None | str
+    forced: bool
     started_at: datetime.datetime | None
     finished_at: datetime.datetime | None
     updated_at: datetime.datetime
@@ -66,6 +72,14 @@ class ClipAnalysisStep:
         job_id = self.job_id
 
         attempt = self.attempt
+
+        input_version: None | str
+        input_version = self.input_version
+
+        profile: None | str
+        profile = self.profile
+
+        forced = self.forced
 
         started_at: None | str
         if isinstance(self.started_at, datetime.datetime):
@@ -90,6 +104,9 @@ class ClipAnalysisStep:
             "reason": reason,
             "job_id": job_id,
             "attempt": attempt,
+            "input_version": input_version,
+            "profile": profile,
+            "forced": forced,
             "started_at": started_at,
             "finished_at": finished_at,
             "updated_at": updated_at,
@@ -123,6 +140,24 @@ class ClipAnalysisStep:
 
 
         attempt = d.pop("attempt")
+
+        def _parse_input_version(data: object) -> None | str:
+            if data is None:
+                return data
+            return cast(None | str, data)
+
+        input_version = _parse_input_version(d.pop("input_version"))
+
+
+        def _parse_profile(data: object) -> None | str:
+            if data is None:
+                return data
+            return cast(None | str, data)
+
+        profile = _parse_profile(d.pop("profile"))
+
+
+        forced = d.pop("forced")
 
         def _parse_started_at(data: object) -> datetime.datetime | None:
             if data is None:
@@ -171,6 +206,9 @@ class ClipAnalysisStep:
             reason=reason,
             job_id=job_id,
             attempt=attempt,
+            input_version=input_version,
+            profile=profile,
+            forced=forced,
             started_at=started_at,
             finished_at=finished_at,
             updated_at=updated_at,

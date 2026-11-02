@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -35,13 +36,15 @@ func (h analysisHooks) Prepare(ctx context.Context, clipID int64) (analysis.Prep
 	return analysis.Preparation{Status: analysis.StatusDone, Reason: "clip_ready"}, nil
 }
 
-func (h analysisHooks) Transcribe(ctx context.Context, clipID int64, since time.Time) (analysis.Transcription, error) {
+func (h analysisHooks) Transcribe(ctx context.Context, clipID int64, since time.Time, force bool) (analysis.Transcription, error) {
 	plan, err := h.s.planTranscription(ctx, clipID, nil, true)
 	if err != nil {
 		return analysis.Transcription{}, err
 	}
 	var jobID int64
-	err = h.s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND (status IN ('pending','leased','retry_wait','done') OR created_at>=$4) ORDER BY id DESC LIMIT 1`, clipID, plan.step, plan.version, since).Scan(&jobID)
+	// A forced transcription replaces the valid result: only the jobs of this run count, and
+	// the corrections were confirmed before the run started, so nothing is kept for them.
+	err = h.s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND ((NOT $5 AND status IN ('pending','leased','retry_wait','done')) OR created_at>=$4) ORDER BY id DESC LIMIT 1`, clipID, plan.step, plan.version, since, force).Scan(&jobID)
 	if err == nil {
 		job, readErr := h.s.readJob(ctx, jobID)
 		return analysis.Transcription{Job: job}, readErr
@@ -52,7 +55,7 @@ func (h analysisHooks) Transcribe(ctx context.Context, clipID int64, since time.
 	// A transcription of an older input version stays when corrections would be replaced.
 	if _, found, corrErr := h.s.clipCorrections(ctx, clipID); corrErr != nil {
 		return analysis.Transcription{}, corrErr
-	} else if found {
+	} else if found && !force {
 		if visible, ok, visErr := h.s.visibleTranscription(ctx, h.s.Pool, clipID); visErr != nil {
 			return analysis.Transcription{}, visErr
 		} else if ok {
@@ -100,8 +103,9 @@ func (h analysisHooks) Index(ctx context.Context, clipID int64) (analysis.StepRe
 // Voice runs the voice branch of a clip: the microphone designation is applied (a
 // designated track is attributed directly and never diarized), then the diarization and
 // its fingerprints are followed. An existing diarization is reused, never replaced by a
-// run: a change of model does not re-diarize clips by itself.
-func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time) (analysis.VoiceSteps, error) {
+// run unless the administrator forced the diarization (and confirmed its consequences): a
+// change of model does not re-diarize clips by itself.
+func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time, force bool) (analysis.VoiceSteps, error) {
 	s := h.s
 	waiting := func(r analysis.StepResult) analysis.VoiceSteps {
 		after := analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_previous_step"}
@@ -133,7 +137,7 @@ func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time)
 	}
 	diarStep := fmt.Sprintf("voice.diarization.%d", index)
 	var diarID int64
-	err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND status='done' ORDER BY updated_at DESC,id DESC LIMIT 1`, clipID, diarStep).Scan(&diarID)
+	err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND status='done' AND (NOT $3 OR created_at>=$4) ORDER BY updated_at DESC,id DESC LIMIT 1`, clipID, diarStep, force, since).Scan(&diarID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND (status IN ('pending','leased','retry_wait') OR created_at>=$3) ORDER BY id DESC LIMIT 1`, clipID, diarStep, since).Scan(&diarID)
 	}
@@ -182,6 +186,15 @@ func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time)
 	return analysis.VoiceSteps{Diarization: diarResult, Fingerprints: analysis.JobResult(fp, since)}, nil
 }
 
+func (h analysisHooks) Reindex(ctx context.Context, clipID int64) error {
+	visible, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
+	if err != nil || !ok {
+		return err
+	}
+	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id=$1 AND state IN ('done','failed') AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, visible.JobID)
+	return err
+}
+
 func (h analysisHooks) RetryIndex(ctx context.Context, clipID int64) error {
 	visible, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
 	if err != nil || !ok {
@@ -216,7 +229,11 @@ func (s *Server) startClipAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		Scope string `json:"scope"`
+		Scope                     string   `json:"scope"`
+		Mode                      string   `json:"mode"`
+		Steps                     []string `json:"steps"`
+		ConfirmReplaceCorrections bool     `json:"confirm_replace_corrections"`
+		ConfirmReplaceValidations bool     `json:"confirm_replace_validations"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -224,11 +241,17 @@ func (s *Server) startClipAnalysis(w http.ResponseWriter, r *http.Request) {
 	if input.Scope == "" {
 		input.Scope = analysis.ScopeTranscription
 	}
+	opts := analysis.Options{Mode: input.Mode, Steps: input.Steps, ConfirmReplaceCorrections: input.ConfirmReplaceCorrections, ConfirmReplaceValidations: input.ConfirmReplaceValidations}
+	if !s.reanalysisConfirmed(w, r, clipID, input.Scope, opts) {
+		return
+	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	run, created, err := s.Analysis.Start(r.Context(), clipID, input.Scope, ss.User.ID)
+	run, created, err := s.Analysis.StartWith(r.Context(), clipID, input.Scope, ss.User.ID, opts)
 	switch {
 	case errors.Is(err, analysis.ErrInvalidScope):
 		fail(w, http.StatusBadRequest, "invalid_analysis_scope")
+	case errors.Is(err, analysis.ErrInvalidReanalysis):
+		fail(w, http.StatusBadRequest, "invalid_reanalysis")
 	case errors.Is(err, analysis.ErrTranscriptionRequired):
 		fail(w, http.StatusConflict, "transcription_required")
 	case errors.Is(err, analysis.ErrClipNotFound):
@@ -343,4 +366,99 @@ func (s *Server) clipAnalysisEvents(w http.ResponseWriter, r *http.Request) {
 			return map[string]any{"run": run}, err
 		},
 	})
+}
+
+// reanalysisStake is what forced steps would make obsolete: the corrections of the visible
+// transcription (a retranscription, ADR 0012) and the validations of the speakers (a new
+// diarization, #114). Nothing of it is deleted: histories and validated samples stay.
+type reanalysisStake struct {
+	Corrections *correctionsAtStake      `json:"corrections"`
+	Voice       *voiceRediarizationStake `json:"voice"`
+}
+
+// reanalysisConfirmed answers 409 reanalysis_confirmation_required, with the consequences,
+// when the forced steps would replace human work that the request did not confirm. It
+// returns true when the caller may start the run. An active run is never changed by a start,
+// so nothing is asked in that case.
+func (s *Server) reanalysisConfirmed(w http.ResponseWriter, r *http.Request, clipID int64, scope string, opts analysis.Options) bool {
+	forced, err := analysis.ForcedSteps(scope, opts)
+	if err != nil {
+		fail(w, http.StatusBadRequest, "invalid_reanalysis")
+		return false
+	}
+	if len(forced) == 0 {
+		return true
+	}
+	var active bool
+	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clip_analysis_runs WHERE clip_id=$1 AND status='active')`, clipID).Scan(&active); err != nil {
+		s.internal(w, err)
+		return false
+	}
+	if active {
+		return true
+	}
+	var stake reanalysisStake
+	if slices.Contains(forced, analysis.StepTranscription) && !opts.ConfirmReplaceCorrections {
+		at, found, corrErr := s.clipCorrections(r.Context(), clipID)
+		if corrErr != nil {
+			s.internal(w, corrErr)
+			return false
+		}
+		if found {
+			stake.Corrections = &at
+		}
+	}
+	if slices.Contains(forced, analysis.StepDiarization) && !opts.ConfirmReplaceValidations {
+		tracks, trErr := s.clipAudioTracks(r.Context(), clipID)
+		if trErr != nil && !errors.Is(trErr, pgx.ErrNoRows) {
+			s.internal(w, trErr)
+			return false
+		}
+		if trErr == nil {
+			selection, selErr := s.audioSelection(r.Context(), clipID, tracks)
+			if selErr != nil {
+				s.internal(w, selErr)
+				return false
+			}
+			if selection.AudioStreamIndex != nil {
+				voice, found, voiceErr := s.voiceRediarizationStake(r.Context(), clipID, *selection.AudioStreamIndex)
+				if voiceErr != nil {
+					s.internal(w, voiceErr)
+					return false
+				}
+				if found {
+					stake.Voice = &voice
+				}
+			}
+		}
+	}
+	if stake.Corrections == nil && stake.Voice == nil {
+		return true
+	}
+	reply(w, http.StatusConflict, map[string]any{"error": "reanalysis_confirmation_required", "stake": stake})
+	return false
+}
+
+// getClipAnalysisHistory lists the recent runs of a clip with the versions each step followed.
+func (s *Server) getClipAnalysisHistory(w http.ResponseWriter, r *http.Request) {
+	clipID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || clipID < 1 {
+		fail(w, http.StatusBadRequest, "invalid_clip_id")
+		return
+	}
+	var exists bool
+	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clips WHERE id=$1)`, clipID).Scan(&exists); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !exists {
+		fail(w, http.StatusNotFound, "clip_not_found")
+		return
+	}
+	runs, err := s.Analysis.History(r.Context(), clipID, 20)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"runs": runs})
 }

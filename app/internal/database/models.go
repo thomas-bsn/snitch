@@ -57,14 +57,18 @@ type Clip struct {
 }
 
 type ClipAnalysisRun struct {
-	ID         int64              `json:"id"`
-	ClipID     int64              `json:"clip_id"`
-	Scope      string             `json:"scope"`
-	Status     string             `json:"status"`
-	StartedBy  pgtype.Int8        `json:"started_by"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ID                          int64              `json:"id"`
+	ClipID                      int64              `json:"clip_id"`
+	Scope                       string             `json:"scope"`
+	Status                      string             `json:"status"`
+	StartedBy                   pgtype.Int8        `json:"started_by"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	FinishedAt                  pgtype.Timestamptz `json:"finished_at"`
+	Mode                        string             `json:"mode"`
+	ForcedSteps                 []string           `json:"forced_steps"`
+	ConfirmedReplaceCorrections bool               `json:"confirmed_replace_corrections"`
+	ConfirmedReplaceValidations bool               `json:"confirmed_replace_validations"`
 }
 
 type ClipAnalysisStep struct {
