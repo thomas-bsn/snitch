@@ -22,6 +22,7 @@ def _get_kwargs(
     proposed: bool | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
+    voice: int | Unset = UNSET,
 
 ) -> dict[str, Any]:
 
@@ -41,6 +42,8 @@ def _get_kwargs(
     params["page"] = page
 
     params["page_size"] = page_size
+
+    params["voice"] = voice
 
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -89,6 +92,7 @@ def sync_detailed(
     proposed: bool | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
+    voice: int | Unset = UNSET,
 
 ) -> Response[Error | VoiceGroupList]:
     """  Utilisateurs connectés. Une voix inconnue (non validée par un humain, non attribuée automatiquement)
@@ -101,6 +105,7 @@ def sync_detailed(
         proposed (bool | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 20.
+        voice (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -116,6 +121,7 @@ def sync_detailed(
 proposed=proposed,
 page=page,
 page_size=page_size,
+voice=voice,
 
     )
 
@@ -132,6 +138,7 @@ def sync(
     proposed: bool | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
+    voice: int | Unset = UNSET,
 
 ) -> Error | VoiceGroupList | None:
     """  Utilisateurs connectés. Une voix inconnue (non validée par un humain, non attribuée automatiquement)
@@ -144,6 +151,7 @@ def sync(
         proposed (bool | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 20.
+        voice (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -160,6 +168,7 @@ sort=sort,
 proposed=proposed,
 page=page,
 page_size=page_size,
+voice=voice,
 
     ).parsed
 
@@ -170,6 +179,7 @@ async def asyncio_detailed(
     proposed: bool | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
+    voice: int | Unset = UNSET,
 
 ) -> Response[Error | VoiceGroupList]:
     """  Utilisateurs connectés. Une voix inconnue (non validée par un humain, non attribuée automatiquement)
@@ -182,6 +192,7 @@ async def asyncio_detailed(
         proposed (bool | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 20.
+        voice (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -197,6 +208,7 @@ async def asyncio_detailed(
 proposed=proposed,
 page=page,
 page_size=page_size,
+voice=voice,
 
     )
 
@@ -213,6 +225,7 @@ async def asyncio(
     proposed: bool | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
+    voice: int | Unset = UNSET,
 
 ) -> Error | VoiceGroupList | None:
     """  Utilisateurs connectés. Une voix inconnue (non validée par un humain, non attribuée automatiquement)
@@ -225,6 +238,7 @@ async def asyncio(
         proposed (bool | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 20.
+        voice (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -241,5 +255,6 @@ sort=sort,
 proposed=proposed,
 page=page,
 page_size=page_size,
+voice=voice,
 
     )).parsed

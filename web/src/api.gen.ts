@@ -1875,6 +1875,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/local-speakers/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés, pour un clip visible : mêmes règles de visibilité que le reste. Cible des liens directs de Vérification : dit si la voix reste à trancher, ou qui l'a attribuée à qui et quand. Un clip invisible ne fuit jamais : 404 identique à celui d'un identifiant inexistant. */
+    get: operations["getLocalSpeaker"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/local-speakers/{id}/history": {
     parameters: {
       query?: never;
@@ -3344,6 +3361,27 @@ export interface components {
       group_voice_count: number;
       /** @description Clips distincts du groupe : la fréquence qui ordonne les cas. */
       group_clip_count: number;
+    };
+    LocalSpeakerRead: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+      decision_level: components["schemas"]["DecisionLevel"];
+      /** @description Attribution effective (validation humaine d'abord, sinon rapprochement) ; null sans attribution. Author et decided_at disent qui l'a décidée et quand. */
+      attribution: components["schemas"]["Attribution"] | null;
+      /**
+       * Format: int64
+       * @description Présent seulement pour une voix à trancher (inconnue ou ambiguë) : groupe proposé de la voix.
+       */
+      group_id?: number;
+      /** @description Présent avec group_id. */
+      group_voice_count?: number;
+      /** @description Présent avec group_id. */
+      group_clip_count?: number;
     };
     /** @description Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base. */
     VoiceVerificationCounts: {
@@ -9539,6 +9577,46 @@ export interface operations {
       };
     };
   };
+  getLocalSpeaker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Locuteur local, son niveau de décision, l'attribution effective et son clip */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LocalSpeakerRead"];
+        };
+      };
+      /** @description local_speaker_not_found : même réponse pour un Locuteur local inexistant et pour celui d'un clip invisible */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getLocalSpeakerHistory: {
     parameters: {
       query?: never;
@@ -9821,6 +9899,8 @@ export interface operations {
         proposed?: boolean;
         page?: number;
         page_size?: number;
+        /** @description Identifiant d'un Locuteur local : ne retourne que le groupe qui contient cette voix visible, ou une liste vide. */
+        voice?: number;
       };
       header?: never;
       path?: never;

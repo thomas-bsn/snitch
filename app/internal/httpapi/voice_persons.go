@@ -21,6 +21,7 @@ func (s *Server) registerPersonRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/persons/{id}", s.protected(false, http.HandlerFunc(s.getPerson)))
 	mux.Handle("POST /api/local-speakers/{id}/validation", s.protected(false, http.HandlerFunc(s.validateLocalSpeaker)))
 	mux.Handle("POST /api/local-speakers/{id}/correction", s.protected(false, http.HandlerFunc(s.correctLocalSpeaker)))
+	mux.Handle("GET /api/local-speakers/{id}", s.protected(false, http.HandlerFunc(s.getLocalSpeaker)))
 	mux.Handle("GET /api/local-speakers/{id}/history", s.protected(false, http.HandlerFunc(s.localSpeakerHistory)))
 	mux.Handle("GET /api/local-speakers/{id}/excerpt", s.protected(false, http.HandlerFunc(s.localSpeakerExcerpt)))
 }

@@ -246,6 +246,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceVerification(t, pool)
 	})
+	t.Run("local speaker read", func(t *testing.T) {
+		reset(t)
+		testLocalSpeakerRead(t, pool)
+	})
+	t.Run("voice group by voice", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupByVoice(t, pool)
+	})
 	t.Run("microphone track", func(t *testing.T) {
 		reset(t)
 		testMicrophoneTrack(t, pool)
