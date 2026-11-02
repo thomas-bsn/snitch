@@ -11,8 +11,13 @@
 # de démarrage (python -m snitch_worker.bootstrap) télécharge les modèles manquants dans le
 # volume, puis lance le worker SANS HF_TOKEN et hors ligne. Sans opt-in, rien n'est téléchargé :
 # les modèles doivent déjà être dans le volume (worker/scripts/download_models.py).
+# Rotation des logs Docker (10 Mo x 5 fichiers par service) : le NAS ne se remplit pas.
+x-logging: &logging
+  driver: json-file
+  options: {max-size: 10m, max-file: "5"}
 services:
   worker:
+    logging: *logging
     build:
       context: ../..
       dockerfile: deploy/docker/worker.Dockerfile
@@ -31,6 +36,8 @@ services:
       SNITCH_WORKER_CA_BUNDLE: ${SNITCH_WORKER_CA_BUNDLE:-}
       # Tâches simultanées (1 à 4) ; 1 recommandé pour garder la VRAM disponible.
       SNITCH_WORKER_CAPACITY: ${SNITCH_WORKER_CAPACITY:-1}
+      # Niveau de log : ERROR, WARN, INFO (défaut) ou DEBUG.
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SNITCH_WORKER_MACHINE_NAME: ${SNITCH_WORKER_MACHINE_NAME:-}
       # Fournisseur de transcription compatible OpenAI (Whisper local par exemple).
       TRANSCRIPTION_API_URL: ${TRANSCRIPTION_API_URL:-}

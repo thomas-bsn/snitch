@@ -1,7 +1,12 @@
+# Rotation des logs Docker (10 Mo x 5 fichiers par service) : le NAS ne se remplit pas.
+x-logging: &logging
+  driver: json-file
+  options: {max-size: 10m, max-file: "5"}
 services:
   # Tâche unique : produit le mot de passe de la base au premier démarrage (ou reprend POSTGRES_PASSWORD s'il
   # est fourni) et le conserve dans le volume secrets. Elle ne l'affiche jamais.
   secrets:
+    logging: *logging
     image: ${SNITCH_IMAGE:-ghcr.io/thomas-bsn/snitch:latest}
     command: [init-secrets]
     environment:
@@ -10,6 +15,7 @@ services:
     restart: "no"
     x-forgeyard: {memory: 64}
   postgres:
+    logging: *logging
     image: ${POSTGRES_IMAGE:-pgvector/pgvector:0.8.7-pg18-bookworm@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11}
     environment:
       POSTGRES_USER: receipts
@@ -29,6 +35,7 @@ services:
       memory: 512
       backup: {type: postgres}
   migrate:
+    logging: *logging
     image: ${SNITCH_IMAGE:-ghcr.io/thomas-bsn/snitch:latest}
     command: [migrate]
     environment:
@@ -40,6 +47,7 @@ services:
     restart: "no"
     x-forgeyard: {memory: 256}
   app:
+    logging: *logging
     image: ${SNITCH_IMAGE:-ghcr.io/thomas-bsn/snitch:latest}
     command: [serve]
     environment:
@@ -64,6 +72,8 @@ services:
       EMBEDDINGS_URL: ${EMBEDDINGS_URL:-}
       EMBEDDINGS_DEFAULT_URL: http://embed:11434/v1/embeddings
       EMBEDDINGS_MODEL: ${EMBEDDINGS_MODEL:-}
+      # Niveau de log : ERROR, WARN, INFO (défaut) ou DEBUG.
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       GOMEMLIMIT: 300MiB
     depends_on:
       postgres: {condition: service_healthy}
@@ -79,6 +89,7 @@ services:
       memory: 384
       expose: {port: 8080}
   embed:
+    logging: *logging
     image: ${EMBED_IMAGE:-ollama/ollama:0.40.10@sha256:4c5b27871a3239a717048f9b93057680a51b60c8119a7016aebb57f938e25e35}
     environment:
       OLLAMA_HOST: 0.0.0.0:11434

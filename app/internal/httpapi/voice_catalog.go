@@ -63,4 +63,6 @@ func voiceCatalogByRepo(kind, repo string) (voiceCatalogEntry, bool) {
 // voiceFailureCauses is the closed vocabulary a Worker may report for a failed preparation.
 var voiceFailureCauses = map[string]bool{
 	"hf_token_missing": true, "hf_access_denied": true, "disk_full": true, "runtime_incompatible": true, "inference_failed": true,
+	// Hugging Face failure families of the failure catalogue (ADR 0023); hf_access_denied is kept for older Workers.
+	"hf_auth_required": true, "hf_not_found": true, "hf_network": true, "models_volume_unwritable": true, "hf_cache_error": true,
 }

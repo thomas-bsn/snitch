@@ -1,11 +1,14 @@
 """The Worker's voice model manager: prepares the desired models, reports honestly, never leaks the token."""
 
+import io
+import json
+import logging
 import os
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from snitch_worker import declared_models, voice_download, voice_models
+from snitch_worker import declared_models, log, voice_download, voice_models
 from snitch_worker.voice import VoiceProviderUnavailable
 from snitch_worker.voice_pyannote import PyannoteProvider
 
@@ -239,7 +242,7 @@ class DownloadProcessTests(unittest.TestCase):
         class GatedRepoError(Exception):
             pass
 
-        for error, cause in ((GatedRepoError(f"denied {SECRET}"), "hf_access_denied"), (OSError(28, "full"), "disk_full"), (ValueError(SECRET), "runtime_incompatible")):
+        for error, cause in ((GatedRepoError(f"denied {SECRET}"), "hf_auth_required"), (OSError(28, "full"), "disk_full"), (ValueError(SECRET), "runtime_incompatible")):
             def snapshot(*_args, error=error):
                 raise error
 
@@ -247,6 +250,119 @@ class DownloadProcessTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertIn(f'"{cause}"', lines[-1])
             self.assertNotIn(SECRET, "".join(lines))
+
+
+class _Http(Exception):
+    def __init__(self, status):
+        super().__init__(f"{status} for https://cdn.example/signed?X-Amz-Signature=abc {SECRET}")
+        self.response = Mock(status_code=status)
+
+
+class HuggingFaceFailureFamilyTests(unittest.TestCase):
+    """Each simulated failure family of the download gets its own catalogue code, never the library text."""
+
+    def run_failing(self, error):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = os.path.join(directory.name, "hf-token")
+        with open(path, "w") as handle:
+            handle.write(SECRET)
+
+        def snapshot(*_args):
+            raise error
+
+        lines: list[str] = []
+        code = voice_download.run(REPO, REVISION, os.path.join(directory.name, "t"), {"SNITCH_HF_TOKEN_FILE": path, "HF_HOME": "/models/.cache/huggingface"}, snapshot, lambda *_: 1, lines.append)
+        self.assertEqual(code, 1)
+        self.assertNotIn(SECRET, "".join(lines))
+        self.assertNotIn("Signature", "".join(lines))
+        return json.loads(lines[-1])["error"]
+
+    def test_every_family_has_a_distinct_code(self):
+        class ConnectError(Exception):
+            pass
+
+        env_cache = "/models/.cache/huggingface"
+        cases = [
+            (_Http(401), "hf_auth_required"),
+            (_Http(403), "hf_auth_required"),
+            (_Http(404), "hf_not_found"),
+            (ConnectError(SECRET), "hf_network"),
+            (TimeoutError(SECRET), "hf_network"),
+            (PermissionError(13, "denied", "/models/catalog/x/y/weights.bin"), "models_volume_unwritable"),
+            (OSError(30, "read-only", "/models/catalog/x"), "models_volume_unwritable"),
+            (PermissionError(13, "denied", env_cache + "/xet/chunk"), "hf_cache_error"),
+        ]
+        for error, expected in cases:
+            self.assertEqual(self.run_failing(error), expected, repr(error))
+
+
+def _logged(test, level="DEBUG"):
+    stream = io.StringIO()
+    log.configure(level, stream=stream)
+    test.addCleanup(log.configure, "INFO", io.StringIO())
+    return lambda: [json.loads(line) for line in stream.getvalue().splitlines() if line.strip()]
+
+
+class DownloadMilestoneTests(unittest.TestCase):
+    def events(self, lines, name):
+        return [e for e in lines if e["event"] == name]
+
+    def test_a_successful_activation_leaves_the_milestones_with_the_revision(self):
+        lines = _logged(self)
+        h = Harness(self)
+        h.sync([{**MODEL, "role": "active"}])
+        names = [e["event"] for e in lines() if e["event"].startswith("voice_model_")]
+        self.assertEqual([n for n in names if n != "voice_model_download_progress"], ["voice_model_download_started", "voice_model_validated", "voice_model_activated"])
+        for e in lines():
+            if e["event"].startswith("voice_model_"):
+                self.assertEqual((e["model_id"], e["revision"]), ("test-b", REVISION))
+                self.assertEqual(e["level"], "DEBUG" if e["event"] == "voice_model_download_progress" else "INFO")
+
+    def test_progress_is_debug_only_and_bounded_to_steps(self):
+        def download(repo, revision, target, progress):
+            os.makedirs(target, exist_ok=True)
+            for received in range(0, 1001):
+                progress(received, 1000)
+
+        lines = _logged(self)
+        Harness(self, download=download).sync([MODEL])
+        progress = self.events(lines(), "voice_model_download_progress")
+        self.assertLessEqual(len(progress), 5)
+        self.assertEqual(progress[-1]["percent"], 100)
+        info = _logged(self, "INFO")
+        Harness(self, download=download).sync([MODEL])
+        self.assertEqual(self.events(info(), "voice_model_download_progress"), [])
+
+    def test_a_download_in_an_existing_directory_is_logged_as_resumed(self):
+        lines = _logged(self)
+        h = Harness(self)
+        target = voice_models.model_path(h.env, REPO, REVISION)
+        os.makedirs(target)
+        open(os.path.join(target, "partial.bin"), "w").close()
+        h.sync([MODEL])
+        self.assertEqual(len(self.events(lines(), "voice_model_download_resumed")), 1)
+        self.assertEqual(self.events(lines(), "voice_model_download_started"), [])
+
+    def test_a_failure_logs_the_code_and_never_the_library_text(self):
+        lines = _logged(self)
+
+        def failing(repo, revision, target, progress):
+            raise _Http(404)
+
+        Harness(self, download=failing).sync([MODEL])
+        [failed] = self.events(lines(), "voice_model_failed")
+        self.assertEqual((failed["cause_code"], failed["level"], failed["revision"]), ("hf_not_found", "INFO", REVISION))
+        self.assertNotIn(SECRET, json.dumps(lines()))
+        self.assertNotIn("Signature", json.dumps(lines()))
+
+    def test_the_launcher_reads_the_codes_of_the_download_process(self):
+        seen = []
+        for code in ("hf_auth_required", "hf_not_found", "hf_network", "models_volume_unwritable", "hf_cache_error", "disk_full"):
+            stdout = [json.dumps({"received": 5, "total": 10}), "not json " + SECRET, json.dumps({"error": code})]
+            self.assertEqual(voice_models.read_download_output(stdout, lambda r, t: seen.append((r, t))), code)
+        self.assertEqual(voice_models.read_download_output([json.dumps({"error": "something " + SECRET})], lambda *_: None), "runtime_incompatible")
+        self.assertEqual(seen[0], (5, 10))
 
 
 class SyncTests(unittest.TestCase):

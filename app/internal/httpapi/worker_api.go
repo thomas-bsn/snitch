@@ -363,6 +363,7 @@ func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	s.Log.Info("worker_revoked", "worker_id", r.PathValue("id"))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -440,6 +441,7 @@ func (s *Server) claimWorkerJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if job == nil {
+		s.Log.Debug("claim_empty", "worker_id", currentWorker(r).ID)
 		reply(w, http.StatusOK, map[string]any{"job": nil, "lease_token": ""})
 		return
 	}
@@ -525,6 +527,7 @@ func (s *Server) workerJobHeartbeat(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		s.internal(w, err)
 	} else {
+		s.Log.Debug("job_heartbeat", "job_id", id, "worker_id", currentWorker(r).ID)
 		reply(w, http.StatusOK, map[string]bool{"renewed": true})
 	}
 }
@@ -588,12 +591,17 @@ func (s *Server) failWorkerJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		Error string `json:"error"`
+		Error      string  `json:"error"`
+		Provider   *string `json:"provider"`
+		Model      *string `json:"model"`
+		Revision   *string `json:"revision"`
+		HTTPStatus *int    `json:"http_status"`
+		DurationMS *int    `json:"duration_ms"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	job, err := s.Jobs.Fail(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.Error)
+	job, err := s.Jobs.Fail(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.Error, jobs.Diagnostic{Provider: input.Provider, Model: input.Model, Revision: input.Revision, HTTPStatus: input.HTTPStatus, DurationMS: input.DurationMS})
 	if errors.Is(err, jobs.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_job_error")
 	} else if errors.Is(err, jobs.ErrLeaseNotOwned) {

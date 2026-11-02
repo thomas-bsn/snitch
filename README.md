@@ -67,6 +67,10 @@ Les administrateurs peuvent ajouter des dossiers sous les racines configurées. 
 
 Les vérifications utilisent des fixtures et des répertoires temporaires synthétiques. Aucun déploiement NAS ni scan de bibliothèque réelle n’a été réalisé. Les phases 0 à 2 sont validées ; les phases 3 à 5 sont implémentées, la phase 5 attendant la validation utilisateur. Voir les bilans de [phase 3](docs/phase-3-report.md), [phase 4](docs/phase-4-report.md) et [phase 5](docs/phase-5-report.md). Les données de test de la phase 5 sont synthétiques ; la précision d’identification réelle n’est pas mesurée. Le benchmark réel de phase 7 demande une autorisation séparée.
 
+### Logs structurés
+
+Le serveur et le Worker écrivent des logs JSON de même schéma (`timestamp`, `level`, `service`, `event`, puis clip, job, cycle, tentative et Worker du claim). `LOG_LEVEL` (ERROR, WARN, INFO par défaut, DEBUG) règle chaque service ; INFO ne garde que les transitions, les heartbeats et claims vides passent en DEBUG. Jetons, en-têtes, cookies, transcriptions et empreintes ne sont jamais journalisés. Les trois fichiers compose bornent les logs Docker à 10 Mo × 5 fichiers. Voir l’[ADR 0023](docs/adr/0023-diagnostic-par-causes-d-echec-persistees.md) et le guide de diagnostic d'un clip entre le NAS et un Worker WSL2/GPU, avec le catalogue des causes d'échec : [docs/diagnostic-logs.md](docs/diagnostic-logs.md).
+
 ### File de tâches par clip
 
 L’administration présente les traitements par clip, les trois derniers clips terminés et un historique paginé. La planification calcule la version automatiquement et propose les traitements compatibles avec les workers déclarés. Voir [le bilan #98](docs/issue-98-report.md).

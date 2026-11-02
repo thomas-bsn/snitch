@@ -230,6 +230,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceMatching(t, pool)
 	})
+	t.Run("voice matching diagnostics", func(t *testing.T) {
+		reset(t)
+		testVoiceMatchingDiagnostics(t, pool)
+	})
 	t.Run("voice automation", func(t *testing.T) {
 		reset(t)
 		testVoiceAutomation(t, pool)
@@ -336,6 +340,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice result with expired lease", func(t *testing.T) {
 		reset(t)
 		testVoiceResultWithExpiredLease(t, pool)
+	})
+	t.Run("simulated failure trace stays clean", func(t *testing.T) {
+		reset(t)
+		testSimulatedFailureTraceIsClean(t, pool)
 	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)

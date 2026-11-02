@@ -15,11 +15,14 @@ Design constraints (see docs/real-voice-worker.md):
 
 from __future__ import annotations
 
+import logging
 import os
+import re
 import threading
+import time
 from typing import Any, Callable, MutableMapping
 
-from snitch_worker import voice_manifest, voice_models
+from snitch_worker import log, voice_manifest, voice_models
 from snitch_worker.voice import (
     VoiceProviderUnavailable,
     diarization_from_turns,
@@ -37,6 +40,41 @@ SPEAKER_OPTIONS = ("num_speakers", "min_speakers", "max_speakers")
 
 PipelineLoader = Callable[[str, str], Callable[[str], Any]]
 EmbedderLoader = Callable[[str, str], Callable[[str], Callable[[float, float], Any]]]
+
+
+_STATUS_TEXT = re.compile(r"(?<![\w.-])(401|403)(?![\w.-])")
+_STATUS_CONTEXT = ("http", "status", "client error", "unauthorized", "forbidden", "access")
+
+
+def _http_status(exc: BaseException) -> int | None:
+    for holder in (exc, getattr(exc, "response", None)):
+        for name in ("status_code", "status"):
+            value = getattr(holder, name, None)
+            if isinstance(value, int) and not isinstance(value, bool):
+                return value
+    return None
+
+
+def _classify(exc: BaseException, default: str) -> str:
+    """A stable reason for a library failure: exception type and HTTP status first.
+
+    The text is read, lowercased and never kept or logged, only as a last resort when neither the type
+    nor a status says anything; a number is a status only next to an HTTP-looking word.
+    """
+    kind = type(exc).__name__.lower()
+    if isinstance(exc, MemoryError) or "outofmemory" in kind:
+        return "gpu_out_of_memory"
+    if isinstance(exc, PermissionError) or "gatedrepo" in kind or "unauthorized" in kind or "forbidden" in kind:
+        return "model_access_denied"
+    status = _http_status(exc)
+    if status is not None:
+        return "model_access_denied" if status in (401, 403) else default
+    text = str(exc).lower()
+    if "out of memory" in text:
+        return "gpu_out_of_memory"
+    if _STATUS_TEXT.search(text) and any(word in text for word in _STATUS_CONTEXT):
+        return "model_access_denied"
+    return default
 
 
 def _probe_device() -> str:
@@ -157,6 +195,7 @@ class PyannoteProvider:
                 self._pipeline = None
                 device = self._resolve_device()
                 self._offline()
+                started = time.monotonic()
                 try:
                     self._pipeline = self._load_pipeline(path, device)
                     self._pipeline_path = path
@@ -164,8 +203,9 @@ class PyannoteProvider:
                     raise
                 except ImportError:
                     raise VoiceProviderUnavailable("ml_libraries_missing") from None
-                except Exception:  # noqa: BLE001 - library messages may carry paths or tokens
-                    raise VoiceProviderUnavailable("model_load_failed") from None
+                except Exception as exc:  # noqa: BLE001 - library messages may carry paths or tokens
+                    raise VoiceProviderUnavailable(_classify(exc, "model_load_failed")) from None
+                log.emit(logging.INFO, "diarization_model_loaded", device=device, load_ms=int((time.monotonic() - started) * 1000))
             return self._pipeline
 
     def _audio_opener(self) -> Callable[[str], Callable[[float, float], Any]]:
@@ -189,6 +229,7 @@ class PyannoteProvider:
     def diarize(self, config: dict[str, Any], audio_path: str, stream_index: int) -> dict[str, Any]:
         pipeline = self._pipeline_loaded(config)
         options = {name: int(config[name]) for name in SPEAKER_OPTIONS if config.get(name)}
+        started = time.monotonic()
         try:
             with self._inference_lock:
                 output = pipeline(audio_path, **options)
@@ -196,8 +237,9 @@ class PyannoteProvider:
             turns = [(segment.start, segment.end, label) for segment, _track, label in annotation.itertracks(yield_label=True)]
         except VoiceProviderUnavailable:
             raise
-        except Exception:  # noqa: BLE001
-            raise VoiceProviderUnavailable("inference_failed") from None
+        except Exception as exc:  # noqa: BLE001
+            raise VoiceProviderUnavailable(_classify(exc, "inference_failed")) from None
+        log.emit(logging.INFO, "diarization_inference_done", device=self._device, inference_ms=int((time.monotonic() - started) * 1000))
         return diarization_from_turns(config, turns, stream_index)
 
     def fingerprint(self, config: dict[str, Any], diarization: dict[str, Any], audio_path: str, stream_index: int) -> dict[str, Any]:

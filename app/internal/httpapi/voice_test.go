@@ -166,6 +166,12 @@ func newVoiceHarness(t *testing.T, pool *pgxpool.Pool) *voiceHarness {
 // (matching) can be exercised; clipID is the first one found.
 func newVoiceHarnessClips(t *testing.T, pool *pgxpool.Pool, clips int) *voiceHarness {
 	t.Helper()
+	return newVoiceHarnessLogged(t, pool, clips, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+}
+
+// newVoiceHarnessLogged is newVoiceHarnessClips with a logger the test can capture.
+func newVoiceHarnessLogged(t *testing.T, pool *pgxpool.Pool, clips int, logger *slog.Logger) *voiceHarness {
+	t.Helper()
 	sourceRoot := t.TempDir()
 	for i := 0; i < clips; i++ {
 		name := "voice-clip.mp4"
@@ -181,7 +187,7 @@ func newVoiceHarnessClips(t *testing.T, pool *pgxpool.Pool, clips int) *voiceHar
 		t.Fatal(err)
 	}
 	ffmpegPath, ffmpegLog := syntheticFFmpegFixture(t)
-	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ProbePath: syntheticProbeFixture(t), FFmpegPath: ffmpegPath, ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ProbePath: syntheticProbeFixture(t), FFmpegPath: ffmpegPath, ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, logger)
 	if err = api.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
