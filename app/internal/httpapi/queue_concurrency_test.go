@@ -106,6 +106,11 @@ func testQueueConcurrency(t *testing.T, pool *pgxpool.Pool) {
 	for i := 0; i < 4; i++ {
 		schedule(clip(fmt.Sprintf("ready-%d.mp4", i)), fmt.Sprintf("fixture.ready%d", i), 5-i)
 	}
+	// A clip in retry counts as waiting; a finished clip counts for nothing.
+	retryClip, finishedClip := clip("retry.mp4"), clip("finished.mp4")
+	if _, err = pool.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,status,next_attempt_at) VALUES($1,'fixture.retry','v1','retry_wait',now()+interval '1 hour'),($2,'fixture.done','v1','done',now())`, retryClip, finishedClip); err != nil {
+		t.Fatal(err)
+	}
 	call(admin, http.MethodPut, "/api/admin/job-controls", map[string]any{"paused": false, "max_concurrency": 3}, "", "", http.StatusOK)
 	var registration struct {
 		Token string `json:"token"`
@@ -146,7 +151,7 @@ func testQueueConcurrency(t *testing.T, pool *pgxpool.Pool) {
 		}
 		return &lease{r.Job.ID, r.LeaseToken}
 	}
-	if v := bar(); v.Queue.Running != 0 || v.Queue.MaxConcurrency != 3 || v.Queue.Waiting != 6 || v.Queue.Paused {
+	if v := bar(); v.Queue.Running != 0 || v.Queue.MaxConcurrency != 3 || v.Queue.Waiting != 7 || v.Queue.Paused {
 		t.Fatalf("idle bar: %+v", v.Queue)
 	}
 	// Ceiling 3 with two suspended clips: the ready tasks use the free slots.
@@ -161,7 +166,7 @@ func testQueueConcurrency(t *testing.T, pool *pgxpool.Pool) {
 	if l := claim(); l != nil {
 		t.Fatalf("ceiling exceeded: %d", l.id)
 	}
-	if v := bar(); v.Queue.Running != 3 || v.Queue.Waiting != 3 {
+	if v := bar(); v.Queue.Running != 3 || v.Queue.Waiting != 4 {
 		t.Fatalf("bar at the ceiling: %+v", v.Queue)
 	}
 	// Pause: no new launch, started tasks finish.

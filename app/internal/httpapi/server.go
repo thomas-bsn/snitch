@@ -52,6 +52,8 @@ type Server struct {
 	embeddingWG        sync.WaitGroup
 	passwordSlots      chan struct{}
 	dummyPassword      string
+	// cardFault lets a test make the derivation of one task card fail.
+	cardFault func(clipID int64) error
 }
 type session struct {
 	User             database.GetUserRow

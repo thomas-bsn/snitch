@@ -6,12 +6,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,7 +55,8 @@ func testTaskCards(t *testing.T, pool *pgxpool.Pool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	logs := &syncBuffer{}
+	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}, slog.New(slog.NewJSONHandler(logs, nil)))
 	ts := httptest.NewUnstartedServer(server.Handler())
 	server.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
@@ -236,6 +240,18 @@ func testTaskCards(t *testing.T, pool *pgxpool.Pool) {
 	if card := find(b.Cards, voiceWait); card == nil || card.State != "waiting_worker" || card.Column != "voices" || card.Action != "start_worker" {
 		t.Fatalf("voice card without a capable Worker: %+v", card)
 	}
+	// A pending task whose retry is deferred cannot be claimed yet: it is not
+	// waiting for a Worker, it stays queued.
+	deferred := clip("voice-deferred.mp4")
+	job(deferred, "transcription.audio.1", "done")
+	job(deferred, "voice.diarization.1", "pending")
+	if _, err = pool.Exec(ctx, `UPDATE jobs SET next_attempt_at=now()+interval '1 hour' WHERE clip_id=$1 AND step='voice.diarization.1'`, deferred); err != nil {
+		t.Fatal(err)
+	}
+	b = board()
+	if card := find(b.Cards, deferred); card == nil || card.State != "queued" || card.Action != "" {
+		t.Fatalf("a deferred pending task must stay queued: %+v", card)
+	}
 	if _, err = pool.Exec(ctx, `UPDATE workers SET last_seen_at=now()-interval '10 minutes'`); err != nil {
 		t.Fatal(err)
 	}
@@ -297,4 +313,74 @@ func testTaskCards(t *testing.T, pool *pgxpool.Pool) {
 	if card := find(b.Cards, mystery); card == nil || card.UnknownStep == nil || card.UnknownStep.Step != "mystery.step.1" || card.UnknownStep.LastError != "synthetic mystery error" {
 		t.Fatalf("unknown step card: %+v", card)
 	}
+
+	// A pending track selection keeps an applicable step: a clip with two audio
+	// tracks and no choice, transcribed and diarized, still owes its voice
+	// fingerprints and must not be completed.
+	twoAudio := `[{"index":1,"type":"audio","title":"","language":"fra","channels":2,"channel_layout":"stereo"},{"index":2,"type":"audio","title":"","language":"fra","channels":2,"channel_layout":"stereo"}]`
+	pendingSelection := clip("selection-pending.mp4")
+	if _, err = pool.Exec(ctx, `UPDATE clips SET tracks=$2::jsonb WHERE id=$1`, pendingSelection, twoAudio); err != nil {
+		t.Fatal(err)
+	}
+	job(pendingSelection, "transcription.audio.1", "done")
+	job(pendingSelection, "voice.diarization.1", "done")
+	if _, err = pool.Exec(ctx, `INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count) SELECT $1,1,id,'SPEAKER_00',0,1,1 FROM jobs WHERE clip_id=$1 AND step='voice.diarization.1'`, pendingSelection); err != nil {
+		t.Fatal(err)
+	}
+	b = board()
+	if find(b.Completed, pendingSelection) != nil {
+		t.Fatalf("a clip with a pending track selection and an applicable step left must not be completed: %+v", b.Completed)
+	}
+
+	// A clip whose derivation fails stays on the board with an explicit alert,
+	// never completed and never dropped; the failure is logged with the clip id
+	// and without the raw error text; the other cards are unaffected.
+	broken, brokenFinished := clip("derivation-fails.mp4"), clip("derivation-fails-finished.mp4")
+	job(broken, "transcription.audio.1", "pending")
+	microphone(brokenFinished)
+	job(brokenFinished, "transcription.audio.1", "done")
+	server.cardFault = func(id int64) error {
+		if id == broken || id == brokenFinished {
+			return errors.New("synthetic secret derivation text")
+		}
+		return nil
+	}
+	defer func() { server.cardFault = nil }()
+	b = board()
+	for _, id := range []int64{broken, brokenFinished} {
+		card := find(b.Cards, id)
+		if card == nil || card.State != "failed" || card.UnknownStep == nil || card.UnknownStep.Step != "derivation_failed" || card.OriginalName == "" {
+			t.Fatalf("a clip whose derivation fails must stay visible with an alert: %+v", card)
+		}
+		if find(b.Completed, id) != nil {
+			t.Fatalf("a clip whose derivation fails must never be completed: %d", id)
+		}
+		if !strings.Contains(logs.String(), fmt.Sprintf(`"clip_id":%d`, id)) {
+			t.Fatalf("the derivation failure must be logged with the clip id: %s", logs.String())
+		}
+	}
+	if strings.Contains(logs.String(), "synthetic secret derivation text") {
+		t.Fatalf("raw error text must not be logged: %s", logs.String())
+	}
+	if find(b.Cards, transcribing) == nil {
+		t.Fatal("the other cards must stay on the board")
+	}
+}
+
+// syncBuffer is a log sink safe for the server goroutines and the test.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }

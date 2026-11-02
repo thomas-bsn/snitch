@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"snitch/internal/jobs"
+	"snitch/internal/logging"
 	"snitch/internal/workers"
 )
 
@@ -29,6 +30,9 @@ const (
 	stepDiarization   = "diarization"
 	stepFingerprint   = "fingerprint"
 	stepRecognition   = "recognition"
+
+	// stepDerivationFailed marks the alert of a card that could not be computed.
+	stepDerivationFailed = "derivation_failed"
 
 	cardQueued        = "queued"
 	cardWaitingWorker = "waiting_worker"
@@ -189,7 +193,7 @@ func acceptsGzip(r *http.Request) bool {
 }
 
 func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT ON (clip_id,step) id,clip_id,step,status,attempts,max_attempts,lease_owner,next_attempt_at,last_error,updated_at FROM jobs WHERE step NOT LIKE 'voicetrial.%' ORDER BY clip_id,step,id DESC`)
+	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT ON (clip_id,step) id,clip_id,step,status,attempts,max_attempts,lease_owner,next_attempt_at,last_error,updated_at,next_attempt_at>now() FROM jobs WHERE step NOT LIKE 'voicetrial.%' ORDER BY clip_id,step,id DESC`)
 	if err != nil {
 		return taskCardBoard{}, err
 	}
@@ -205,10 +209,12 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 	byClip := map[int64][]cardJob{}
 	for rows.Next() {
 		var j cardJob
-		if err = rows.Scan(&j.id, &j.clipID, &j.step, &j.status, &j.attempts, &j.maxAttempts, &j.leaseOwner, &j.nextAttempt, &j.lastError, &j.updatedAt); err != nil {
+		var deferred bool
+		if err = rows.Scan(&j.id, &j.clipID, &j.step, &j.status, &j.attempts, &j.maxAttempts, &j.leaseOwner, &j.nextAttempt, &j.lastError, &j.updatedAt, &deferred); err != nil {
 			return taskCardBoard{}, err
 		}
-		j.noWorker = j.status == "pending" && !capable(j.step)
+		// A deferred retry is not claimable yet, so it waits for time, not for a Worker.
+		j.noWorker = j.status == "pending" && !deferred && !capable(j.step)
 		byClip[j.clipID] = append(byClip[j.clipID], j)
 	}
 	if err = rows.Err(); err != nil {
@@ -222,23 +228,16 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 			if j.status != "done" {
 				unfinished = true
 			}
-			if j.updatedAt.After(latest[id]) {
-				latest[id] = j.updatedAt
-			}
 		}
 		// A waiting, running or failed indexing is an unfinished task too.
-		if idx, ok := indexing[id]; ok {
-			if idx.state != cardDone {
-				unfinished = true
-			}
-			if idx.updatedAt.After(latest[id]) {
-				latest[id] = idx.updatedAt
-			}
+		if idx, ok := indexing[id]; ok && idx.state != cardDone {
+			unfinished = true
 		}
 		if unfinished {
 			active = append(active, id)
 		} else {
 			finished = append(finished, id)
+			latest[id] = completionTime(list, indexing[id])
 		}
 	}
 	sort.Slice(active, func(a, b int) bool { return active[a] < active[b] })
@@ -258,7 +257,7 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 		return taskCardBoard{}, err
 	}
 	for _, id := range active {
-		card, complete, err := s.buildTaskCard(ctx, inputs, id, byClip[id], indexing[id])
+		card, complete, err := s.safeTaskCard(ctx, inputs, id, byClip[id], indexing[id])
 		if err != nil {
 			return taskCardBoard{}, err
 		}
@@ -270,12 +269,15 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 		if len(board.Completed) == completedCardLimit {
 			break
 		}
-		card, complete, err := s.buildTaskCard(ctx, inputs, id, byClip[id], indexing[id])
+		card, complete, err := s.safeTaskCard(ctx, inputs, id, byClip[id], indexing[id])
 		if err != nil {
 			return taskCardBoard{}, err
 		}
 		if complete {
 			board.Completed = append(board.Completed, card)
+		} else if card.UnknownStep != nil && card.UnknownStep.Step == stepDerivationFailed {
+			// A finished clip whose card cannot be computed is never dropped silently.
+			board.Cards = append(board.Cards, card)
 		}
 	}
 	if err = s.explainFailures(ctx, &board); err != nil {
@@ -392,14 +394,51 @@ func (s *Server) explainFailures(ctx context.Context, board *taskCardBoard) erro
 	return nil
 }
 
+// safeTaskCard derives a card; when the derivation of that one clip fails, the
+// board is not lost: the clip stays visible with an explicit alert, never
+// completed, and the failure is logged with the clip id and no raw text.
+func (s *Server) safeTaskCard(ctx context.Context, in *cardInputs, clipID int64, jobs []cardJob, index cardIndex) (taskCard, bool, error) {
+	card, complete, err := s.buildTaskCard(ctx, in, clipID, jobs, index)
+	if err == nil {
+		return card, complete, nil
+	}
+	if ctx.Err() != nil {
+		return taskCard{}, false, err
+	}
+	if s.Log != nil {
+		s.Log.Error("task card derivation", append([]any{"clip_id", clipID}, logging.Failure(err)...)...)
+	}
+	var newest time.Time
+	for _, j := range jobs {
+		if j.updatedAt.After(newest) {
+			newest = j.updatedAt
+		}
+	}
+	return taskCard{
+		ClipID: clipID, OriginalName: in.names[clipID], Column: columnTranscription, State: cardFailed,
+		CurrentStep: stepTranscription, Steps: []taskCardStep{}, UpdatedAt: newest,
+		UnknownStep: &unknownStepRef{Step: stepDerivationFailed, State: cardFailed},
+	}, false, nil
+}
+
 // buildTaskCard derives the stages of one clip. complete is true when every
 // applicable stage is finished and no task is left unfinished.
 func (s *Server) buildTaskCard(ctx context.Context, in *cardInputs, clipID int64, jobs []cardJob, index cardIndex) (taskCard, bool, error) {
+	if s.cardFault != nil {
+		if err := s.cardFault(clipID); err != nil {
+			return taskCard{}, false, err
+		}
+	}
 	name := in.names[clipID]
 	var selected *int
+	// A pending selection (ADR 0011) does not make the voice steps not applicable:
+	// once a track is chosen they apply, so the clip is not finished meanwhile.
+	selectionPending := false
 	if len(in.tracks[clipID]) > 0 {
 		if selection := in.selection(clipID); selection.Status == "selected" {
 			selected = selection.AudioStreamIndex
+		} else {
+			selectionPending = true
 		}
 	}
 	microphoneTrack := false
@@ -447,11 +486,19 @@ func (s *Server) buildTaskCard(ctx context.Context, in *cardInputs, clipID int64
 	}
 	transcription, diarization, fingerprint := stages[stepTranscription], stages[stepDiarization], stages[stepFingerprint]
 	transcription.settle(true, cardReady)
-	diarizationApplicable := selected != nil && !microphoneTrack && transcription.state == cardDone
+	diarizationApplicable := (selected != nil || selectionPending) && !microphoneTrack && transcription.state == cardDone
 	diarization.settle(diarizationApplicable, cardReady)
 	speakers := 0
-	if diarization.state == cardDone && selected != nil {
-		speakers = in.diarizedCount[[2]int64{clipID, int64(*selected)}]
+	if diarization.state == cardDone {
+		if selected != nil {
+			speakers = in.diarizedCount[[2]int64{clipID, int64(*selected)}]
+		} else if selectionPending {
+			for key, count := range in.diarizedCount {
+				if key[0] == clipID {
+					speakers += count
+				}
+			}
+		}
 	}
 	// Indexing is not a task of the job queue: its state is the index state.
 	indexingStage := &cardStage{key: stepIndexing, state: cardNotApplicable}
@@ -483,7 +530,7 @@ func (s *Server) buildTaskCard(ctx context.Context, in *cardInputs, clipID int64
 		}
 	}
 	if current == nil {
-		completed := newest
+		completed := completionTime(jobs, index)
 		card.Column, card.State, card.CurrentStep, card.CompletedAt = columnCompleted, cardDone, stepRecognition, &completed
 		if err := s.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.clip_id=$1 AND `+unknownSpeakerPredicate+` AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.decision_level='suggestion'))`, clipID).Scan(&card.VoicesToReview); err != nil {
 			return taskCard{}, false, err
@@ -507,6 +554,22 @@ func (s *Server) buildTaskCard(ctx context.Context, in *cardInputs, clipID int64
 		}
 	}
 	return card, false, nil
+}
+
+// completionTime is the end of the last finished step, indexing included. It
+// is the one date both the order and the display of the completed column use,
+// and it never comes from a failed or cancelled task.
+func completionTime(list []cardJob, index cardIndex) time.Time {
+	var at time.Time
+	for _, j := range list {
+		if j.status == "done" && j.updatedAt.After(at) {
+			at = j.updatedAt
+		}
+	}
+	if index.state == cardDone && index.updatedAt.After(at) {
+		at = index.updatedAt
+	}
+	return at
 }
 
 func (c *cardStage) add(j cardJob) {
@@ -568,8 +631,15 @@ func (s *Server) cardIndexing(ctx context.Context) (map[int64]cardIndex, error) 
 			idx.state = cardRunning
 		case "failed":
 			idx.state = cardFailed
-		default:
+		case "dead":
+			idx.state = cardDead
+		case "cancelled":
+			idx.state = cardCancelled
+		case "pending", "":
 			idx.state = cardQueued
+		default:
+			// An unknown state is an alert, never silently a queued task.
+			idx.state = cardFailed
 		}
 		out[clipID] = idx
 	}

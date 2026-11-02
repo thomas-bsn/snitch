@@ -118,6 +118,8 @@ Les Administrateurs voient, sur le clip et dans la Task Queue, l'étape, l'heure
 ## Limites connues
 
 - L'attente d'un Worker capable (aucun Worker ne peut prendre une tâche en attente) n'est pas journalisée avec sa durée ; elle se lit dans l'interface (travaux en attente) et par l'absence de `job_claimed`.
+- Sur le tableau des cartes (#117), « en attente de Worker » est dérivé d'un seul critère : aucun Worker vu récemment ne déclare l'étape (liste exacte ou préfixe `.*`) et la tâche est réclamable (reprise non différée). La règle de capacité ne regarde ni la version de pipeline ni le modèle : un Worker qui déclare l'étape mais ne dispose pas du modèle ou de la version voulus n'est pas détecté et la carte reste « en file ». Ce raffinement est hors périmètre de #117.
+- Si le calcul de la carte d'un clip échoue, le clip reste sur le tableau avec une alerte « Carte non calculable » (jamais terminé) et le serveur journalise `task card derivation` avec `clip_id` et le code d'échec, sans texte brut d'erreur.
 - Pas de panneau de logs dans l'interface ni d'export expurgé (hors périmètre de #122).
 - Deux vocabulaires de causes coexistent pour Hugging Face. Les échecs de tâches et d'état des modèles vocaux emploient le catalogue ci-dessus (`hf_auth_required`, `hf_not_found`, `hf_network`…). L'installation du Worker (`bootstrap`) garde ses propres codes (`hf_access_denied`, `network_unreachable`, `volume_not_writable`…), qui passent par le contrat des événements d'installation et fusionnent 401, 403 et 404 en `hf_access_denied`. Ils ne sont pas unifiés : ce serait une évolution de ce contrat, hors de #122.
 

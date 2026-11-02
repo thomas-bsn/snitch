@@ -250,7 +250,12 @@ export function JobWorkflow({
                             className="absolute right-2 top-2 text-warn-fg"
                             aria-label={
                               card.unknown_step
-                                ? tr("Étape inconnue", "Unknown step")
+                                ? card.unknown_step.step === "derivation_failed"
+                                  ? tr(
+                                      "Carte non calculable",
+                                      "Card could not be computed",
+                                    )
+                                  : tr("Étape inconnue", "Unknown step")
                                 : stateLabel(card.state, language)
                             }
                           />
@@ -294,10 +299,19 @@ export function JobWorkflow({
                           role="alert"
                           className="break-words rounded-lg bg-warn-bg p-2 text-warn-fg"
                         >
-                          {tr("Étape inconnue", "Unknown step")} ·{" "}
-                          <code>{card.unknown_step.step}</code>
-                          {card.unknown_step.last_error &&
-                            ` · ${card.unknown_step.last_error}`}
+                          {card.unknown_step.step === "derivation_failed" ? (
+                            tr(
+                              "La carte de ce clip n’a pas pu être calculée. Consultez les journaux du serveur.",
+                              "This clip’s card could not be computed. Check the server logs.",
+                            )
+                          ) : (
+                            <>
+                              {tr("Étape inconnue", "Unknown step")} ·{" "}
+                              <code>{card.unknown_step.step}</code>
+                              {card.unknown_step.last_error &&
+                                ` · ${card.unknown_step.last_error}`}
+                            </>
+                          )}
                         </p>
                       )}
                       {card.last_error && (
