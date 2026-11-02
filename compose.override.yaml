@@ -1,24 +1,33 @@
 # Développement uniquement. Forgeyard importe compose.yaml seul.
 # Les images PostgreSQL et Ollama viennent des défauts de compose.yaml (épinglés par digest).
+# Rotation des logs Docker (10 Mo x 5 fichiers par service) : le NAS ne se remplit pas.
+x-logging: &logging
+  driver: json-file
+  options: {max-size: 10m, max-file: "5"}
 services:
   secrets:
+    logging: *logging
     build:
       context: .
       dockerfile: deploy/docker/app.Dockerfile
     mem_limit: 64m
   postgres:
+    logging: *logging
     ports: ["127.0.0.1:55432:5432"]
     mem_limit: 512m
   migrate:
+    logging: *logging
     build:
       context: .
       dockerfile: deploy/docker/app.Dockerfile
     mem_limit: 256m
   app:
+    logging: *logging
     build:
       context: .
       dockerfile: deploy/docker/app.Dockerfile
     ports: ["127.0.0.1:8080:8080"]
     mem_limit: 384m
   embed:
+    logging: *logging
     mem_limit: 1536m

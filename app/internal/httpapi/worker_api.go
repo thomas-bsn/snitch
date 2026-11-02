@@ -363,6 +363,7 @@ func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	s.Log.Info("worker_revoked", "worker_id", r.PathValue("id"))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -440,6 +441,7 @@ func (s *Server) claimWorkerJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if job == nil {
+		s.Log.Debug("claim_empty", "worker_id", currentWorker(r).ID)
 		reply(w, http.StatusOK, map[string]any{"job": nil, "lease_token": ""})
 		return
 	}
@@ -525,6 +527,7 @@ func (s *Server) workerJobHeartbeat(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		s.internal(w, err)
 	} else {
+		s.Log.Debug("job_heartbeat", "job_id", id, "worker_id", currentWorker(r).ID)
 		reply(w, http.StatusOK, map[string]bool{"renewed": true})
 	}
 }

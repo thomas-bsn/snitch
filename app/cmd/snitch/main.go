@@ -21,6 +21,7 @@ import (
 	"github.com/pressly/goose/v3/database"
 	"snitch/internal/config"
 	"snitch/internal/httpapi"
+	"snitch/internal/logging"
 	"snitch/internal/secrets"
 	"snitch/internal/setup"
 	"snitch/migrations"
@@ -33,7 +34,7 @@ func main() {
 	}
 }
 func run() error {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	slog.SetDefault(logging.New(os.Stdout, "snitch", os.Getenv("LOG_LEVEL")))
 	if len(os.Args) == 4 && os.Args[1] == "probe-smoke" {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
