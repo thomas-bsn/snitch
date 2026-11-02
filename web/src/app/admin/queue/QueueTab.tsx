@@ -40,12 +40,14 @@ export function QueueTab() {
   const { state, reload } = useLoaded(load);
   const [queue, setQueue] = useState<Queue>();
   // The server pushes the whole queue on every change; polling only covers a stream that is down.
+  // A failed refresh keeps the last known view and never raises the global unreachable screen:
+  // the page says it is reconnecting and the next snapshot or poll replaces the view.
   const refreshQueue = useCallback(async () => {
     try {
-      const result = await api.GET("/api/admin/analysis/queue");
-      if (result.data) setQueue(result.data);
+      const response = await fetch("/api/admin/analysis/queue");
+      if (response.ok) setQueue((await response.json()) as Queue);
     } catch {
-      // The next snapshot or poll replaces the view.
+      // Still offline.
     }
   }, []);
   const stream = useEventStream<Queue>(
@@ -405,16 +407,7 @@ export function QueueTab() {
                     const memory = machine?.gpu_memory_bytes
                       ? `${Math.round(machine.gpu_memory_bytes / 1024 ** 3)} ${language === "fr" ? "Go" : "GB"}`
                       : undefined;
-                    const running =
-                      (queue?.tasks.filter((job) => job.status === "leased")
-                        .length ?? 0) +
-                      (queue?.active.reduce(
-                        (n, run) =>
-                          n +
-                          run.steps.filter((st) => st.status === "running")
-                            .length,
-                        0,
-                      ) ?? 0);
+                    const running = queue?.summary.running_tasks ?? 0;
                     return [
                       machine?.gpu_name,
                       memory,
