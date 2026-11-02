@@ -20,6 +20,7 @@ const (
 	columnCompleted     = "completed"
 
 	stepTranscription = "transcription"
+	stepIndexing      = "indexing"
 	stepDiarization   = "diarization"
 	stepFingerprint   = "fingerprint"
 	stepRecognition   = "recognition"
@@ -136,6 +137,10 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 		return taskCardBoard{}, err
 	}
 	defer rows.Close()
+	indexing, err := s.cardIndexing(ctx)
+	if err != nil {
+		return taskCardBoard{}, err
+	}
 	byClip := map[int64][]cardJob{}
 	for rows.Next() {
 		var j cardJob
@@ -157,6 +162,15 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 			}
 			if j.updatedAt.After(latest[id]) {
 				latest[id] = j.updatedAt
+			}
+		}
+		// A waiting, running or failed indexing is an unfinished task too.
+		if idx, ok := indexing[id]; ok {
+			if idx.state != cardDone {
+				unfinished = true
+			}
+			if idx.updatedAt.After(latest[id]) {
+				latest[id] = idx.updatedAt
 			}
 		}
 		if unfinished {
@@ -192,7 +206,7 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 		return taskCardBoard{}, err
 	}
 	for _, id := range active {
-		card, complete, err := s.buildTaskCard(ctx, id, names[id], byClip[id])
+		card, complete, err := s.buildTaskCard(ctx, id, names[id], byClip[id], indexing[id])
 		if err != nil {
 			return taskCardBoard{}, err
 		}
@@ -204,7 +218,7 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 		if len(board.Completed) == completedCardLimit {
 			break
 		}
-		card, complete, err := s.buildTaskCard(ctx, id, names[id], byClip[id])
+		card, complete, err := s.buildTaskCard(ctx, id, names[id], byClip[id], indexing[id])
 		if err != nil {
 			return taskCardBoard{}, err
 		}
@@ -217,7 +231,7 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 
 // buildTaskCard derives the stages of one clip. complete is true when every
 // applicable stage is finished and no task is left unfinished.
-func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, jobs []cardJob) (taskCard, bool, error) {
+func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, jobs []cardJob, index cardIndex) (taskCard, bool, error) {
 	tracks, err := s.clipAudioTracks(ctx, clipID)
 	if err != nil {
 		tracks = nil
@@ -279,6 +293,11 @@ func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, j
 			return taskCard{}, false, err
 		}
 	}
+	// Indexing is not a task of the job queue: its state is the index state.
+	indexingStage := &cardStage{key: stepIndexing, state: cardNotApplicable}
+	if index.state != "" {
+		indexingStage.state = index.state
+	}
 	fingerprint.settle(diarization.state == cardDone && speakers > 0, cardReady)
 	// Voice recognition is not a task: it runs right after a fingerprint finishes
 	// and keeps no state of its own, so it is derived from the fingerprints.
@@ -289,7 +308,7 @@ func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, j
 			recognition.state = cardDone
 		}
 	}
-	ordered := []*cardStage{transcription, diarization, fingerprint, recognition}
+	ordered := []*cardStage{transcription, indexingStage, diarization, fingerprint, recognition}
 	card := taskCard{ClipID: clipID, OriginalName: name, Steps: []taskCardStep{}, UpdatedAt: newest, CurrentStep: stepTranscription, Column: columnTranscription, State: cardDone}
 	var current *cardStage
 	for _, stage := range ordered {
@@ -310,7 +329,9 @@ func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, j
 	}
 	card.CurrentStep, card.State = current.key, current.state
 	card.Column = columnTranscription
-	if current.key == stepDiarization || current.key == stepFingerprint {
+	if current.key == stepIndexing {
+		card.Column = columnSearch
+	} else if current.key == stepDiarization || current.key == stepFingerprint {
 		card.Column = columnVoices
 	} else if current.key == stepRecognition {
 		card.Column = columnRecognition
@@ -334,6 +355,62 @@ func (c *cardStage) add(j cardJob) {
 		job := j
 		c.job = &job
 	}
+}
+
+// cardIndex is the semantic indexing of a clip's visible transcription. An empty
+// state means the step does not apply: indexing disabled or no transcription.
+type cardIndex struct {
+	state     string
+	updatedAt time.Time
+}
+
+// cardIndexing reads the index state of every clip with a visible transcription
+// in one query, with the rule of clipProgress: disabled when the embeddings URL
+// is empty or no profile is active; otherwise the state of the task of the
+// active profile for the visible transcription, a missing task being queued.
+func (s *Server) cardIndexing(ctx context.Context) (map[int64]cardIndex, error) {
+	out := map[int64]cardIndex{}
+	settings, err := s.embeddingSettings(ctx)
+	if err != nil || settings.URL == "" {
+		return out, err
+	}
+	var profileID *int64
+	if err = s.Pool.QueryRow(ctx, `SELECT active_profile_id FROM embedding_index_state WHERE id=1`).Scan(&profileID); err != nil || profileID == nil {
+		return out, err
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT v.clip_id,COALESCE(t.state,''),COALESCE(t.updated_at,v.updated_at),
+		EXISTS(SELECT 1 FROM segment_corrections c WHERE c.transcription_job_id=v.id AND c.reindex_pending AND c.stale_at IS NULL)
+		FROM (SELECT DISTINCT ON (clip_id) clip_id,id,updated_at FROM jobs WHERE step LIKE 'transcription.audio.%' AND status='done' ORDER BY clip_id,updated_at DESC,id DESC) v
+		LEFT JOIN embedding_tasks t ON t.profile_id=$1 AND t.transcription_job_id=v.id`, *profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var clipID int64
+		var state string
+		var updated time.Time
+		var reindex bool
+		if err = rows.Scan(&clipID, &state, &updated, &reindex); err != nil {
+			return nil, err
+		}
+		idx := cardIndex{updatedAt: updated}
+		switch state {
+		case "done":
+			idx.state = cardDone
+			if reindex {
+				idx.state = cardQueued
+			}
+		case "leased":
+			idx.state = cardRunning
+		case "failed":
+			idx.state = cardFailed
+		default:
+			idx.state = cardQueued
+		}
+		out[clipID] = idx
+	}
+	return out, rows.Err()
 }
 
 // settle fixes the stage state: an unfinished task always shows itself, even

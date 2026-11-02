@@ -176,6 +176,9 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   await expect(cardB).toContainText("Relaunched by administrator");
   await cardB.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(cardB).toContainText("Cancelled");
+  // Semantic indexing is not configured here: the Search step is not applicable.
+  await openCard(cardB);
+  await expect(cardB).toContainText("Search · Not applicable");
 
   // One card per clip in the columns of the cards contract; no "other tasks"
   // column and no pagination of the active cards.

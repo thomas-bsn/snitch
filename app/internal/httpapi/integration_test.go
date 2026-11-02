@@ -353,6 +353,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testTaskCards(t, pool)
 	})
+	t.Run("task cards indexing", func(t *testing.T) {
+		reset(t)
+		testTaskCardsIndexing(t, pool)
+	})
 	t.Run("job retry and cancellation", func(t *testing.T) {
 		reset(t)
 		testJobRetryOperations(t, pool)
