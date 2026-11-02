@@ -73,6 +73,19 @@ class StructuredLogTests(unittest.TestCase):
             self.assertEqual((lines[1]["error_code"], lines[1]["error_category"]), ("operation_error", "internal"))
             self.assertEqual((lines[2]["error_code"], lines[2]["error_category"]), ("timeout", "timeout"))
 
+    def test_non_string_values_under_error_keys_are_replaced_by_code_and_category(self):
+        stream = io.StringIO()
+        log.configure("DEBUG", stream=stream)
+        log.emit(logging.ERROR, "trap", error=RuntimeError("provider said sk-synthetic-123"), detail={"body": "ann@example.test"},
+                 reason=["sig=abc"], exception=TimeoutError("slow"))
+        output = stream.getvalue()
+        for leaked in ("sk-synthetic", "ann@example.test", "sig=abc", "provider said", "RuntimeError"):
+            self.assertNotIn(leaked, output)
+        line = read(stream)[0]
+        for key in ("error", "detail", "reason"):
+            self.assertEqual(line[key], {"code": "operation_error", "category": "internal"})
+        self.assertEqual(line["exception"], {"code": "timeout", "category": "timeout"})
+
 
 if __name__ == "__main__":
     unittest.main()

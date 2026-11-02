@@ -55,6 +55,27 @@ func TestFailureGivesCodeAndCategory(t *testing.T) {
 	}
 }
 
+func TestNonStringValueUnderRawErrorKeyIsReplacedByCodeAndCategory(t *testing.T) {
+	type payload struct{ Body string }
+	var buf bytes.Buffer
+	l := New(&buf, "snitch", "DEBUG")
+	l.Error("a", "error", payload{Body: "provider said sk-synthetic-123"}, "detail", &payload{Body: "ann@example.test"},
+		"reason", []string{"sk-synthetic-123"}, "exception", map[string]string{"k": "sig=abc"})
+	out := buf.String()
+	for _, leaked := range []string{"sk-synthetic", "ann@example.test", "sig=abc", "provider said"} {
+		if strings.Contains(out, leaked) {
+			t.Fatalf("leaked %q in %s", leaked, out)
+		}
+	}
+	got := lines(t, &buf)[0]
+	for _, key := range []string{"error", "detail", "reason", "exception"} {
+		group, ok := got[key].(map[string]any)
+		if !ok || group["code"] != "operation_error" || group["category"] != "internal" {
+			t.Fatalf("%s = %v, want code and category", key, got[key])
+		}
+	}
+}
+
 // ADR 0006: the one-time installation code is the only value shown whatever LOG_LEVEL is.
 func TestInstallationCodeIsShownAtEveryLevel(t *testing.T) {
 	for _, level := range []string{"ERROR", "WARN", "INFO", "DEBUG", "", "garbage"} {
