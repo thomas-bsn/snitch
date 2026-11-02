@@ -77,7 +77,7 @@ test.describe.serial("paramètres du compte", () => {
     await expect(page).toHaveURL(/\/account\/voice$/);
     await expect(
       page.getByRole("heading", {
-        level: 2,
+        level: 3,
         name: "Link my account to a person",
         exact: true,
       }),
