@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/config"
 	"snitch/internal/setup"
@@ -221,10 +222,16 @@ func testFolderSources(t *testing.T, pool *pgxpool.Pool) {
 	if !bytes.Contains(out, []byte(`"updated":1`)) {
 		t.Fatalf("intact copy should be reprocessed: %s", out)
 	}
-	if _, err = pool.Exec(context.Background(), `DELETE FROM source_files WHERE source_id=$1`, secondSource); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(context.Background(), `DELETE FROM clip_sources WHERE id=$1`, secondSource); err != nil {
+	// The background reconciliation scans every source and may index copy.mp4 again between two
+	// separate deletes: the source row is locked first, so a concurrent insert waits and then fails.
+	if err = pgx.BeginFunc(context.Background(), pool, func(tx pgx.Tx) error {
+		for _, q := range []string{`SELECT id FROM clip_sources WHERE id=$1 FOR UPDATE`, `DELETE FROM source_files WHERE source_id=$1`, `DELETE FROM clip_sources WHERE id=$1`} {
+			if _, e := tx.Exec(context.Background(), q, secondSource); e != nil {
+				return e
+			}
+		}
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(media, []byte("synthetic-video-fixture"), 0600); err != nil {
