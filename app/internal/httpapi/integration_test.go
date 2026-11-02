@@ -939,7 +939,7 @@ func TestFoundation(t *testing.T) {
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
 			"admin-workers.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
-			"people-groups.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
+			"people-groups.spec.ts", "people-directory.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
 			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-trial.spec.ts",
 		}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
@@ -1027,7 +1027,7 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"people.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PEOPLE") == "1" {
-			suites = []string{"people.spec.ts"}
+			suites = []string{"people.spec.ts", "people-directory.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PEOPLE_GROUPS") == "1" {
 			suites = []string{"people-groups.spec.ts"}
