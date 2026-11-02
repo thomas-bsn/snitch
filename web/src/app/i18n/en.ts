@@ -1480,20 +1480,19 @@ export const en = {
       lead: "Most frequent voices first: naming one removes the most uncertainty. Deciding is always a human confirmation.",
       toDecide: "To decide",
       countersLabel: "Voices by state",
-      listLabel: "Voices to decide",
       empty: "Nothing left to decide here.",
-      pageStatus: "Page {page} of {pages}",
-      previous: "More frequent",
-      next: "Less frequent",
       heardIn: "Heard in {clips} clip(s), {voices} voice(s) in the group",
       single: "A single voice",
       clipLine: "{clip} · {speech}",
       speech: "{seconds} s of speech",
       candidates: "Closest people",
-      similar: "{percent}% similar",
-      play: "Play the excerpt of {label} in {clip}",
-      decide: "Decide",
-      decideFor: "Decide who {label} is",
+      similar: "{percent}% proximity",
+      caseLabel: "Voice to decide",
+      position: "{total} voice(s) left to decide in this view.",
+      suggestion:
+        "Proximity is only a suggestion: nothing is attributed until you confirm.",
+      shortcuts:
+        "Shortcuts: 1 to 9 choose a candidate, Enter confirms, S skips.",
       saved: "Saved: {label} is {person}. Matching will be recomputed.",
       alreadyValidated:
         "Already confirmed as {person}. The first confirmation stands.",
@@ -1507,7 +1506,6 @@ export const en = {
       openClip: "Open {clip}",
     },
     decide: {
-      title: "Who is {label}?",
       close: "Close",
       closest: "Closest matches",
       existing: "Existing people",
@@ -1520,7 +1518,6 @@ export const en = {
       newName: "Name of the new person",
       skip: "Skip for now",
       confirm: "Confirm",
-      saving: "Saving…",
     },
     groups: {
       lead: "Voices that sound alike, found across clips. Snitch only proposes: no group is ever confirmed automatically, and nothing is attributed until you name it.",

@@ -1,20 +1,20 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOutletContext } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
-import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
-import { DecidePanel } from "./DecidePanel";
-import { ExcerptDialog, ExcerptThumb } from "./ExcerptThumb";
 import { useFailureText } from "./failureText";
 import { LevelBadge } from "./LevelBadge";
+import type { PeopleOutlet } from "./PeopleLayout";
 import {
-  fetchPersons,
   fetchVerification,
   type VerificationCase,
   type VerificationFilter,
 } from "./peopleApi";
+import { VerificationCaseCard } from "./VerificationCaseCard";
 
-const PAGE_SIZE = 10;
+// The most a page of the server holds: settled cases leave, so the next ones come in.
+const QUEUE_SIZE = 100;
 
 const filterClass = (pressed: boolean) =>
   `inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium md:min-h-9 ${
@@ -24,48 +24,67 @@ const filterClass = (pressed: boolean) =>
   }`;
 
 /**
- * The Verification section: unknown and ambiguous voices, most frequent first. The counters
- * filter the list; settling a case is the ordinary human validation of the voice.
+ * The Verification section: one case at a time, the most frequent voices first. The
+ * counters filter the queue. "Skip" only reorders it for this session; settling a case is
+ * the ordinary human validation of the voice, then the next case comes by itself.
  */
 export function VerificationTab() {
   const { t } = useI18n();
   const failureText = useFailureText();
+  const outlet = useOutletContext<PeopleOutlet | null>();
   const [filter, setFilter] = useState<VerificationFilter>("all");
-  const [page, setPage] = useState(1);
   const load = useCallback(
-    () => fetchVerification(filter, page, PAGE_SIZE),
-    [filter, page],
+    () => fetchVerification(filter, 1, QUEUE_SIZE),
+    [filter],
   );
   const { state, reload } = useLoaded(load);
-  const people = useLoaded(fetchPersons);
-  const [previewing, setPreviewing] = useState<VerificationCase>();
-  const [deciding, setDeciding] = useState<VerificationCase>();
+  // Local to the session: nothing of this is written to the server.
+  const [skipped, setSkipped] = useState<number[]>([]);
+  const [gone, setGone] = useState<number[]>([]);
   const [notice, setNotice] = useState<string>();
 
   const data = state.status === "ready" ? state.value : undefined;
   const counts = data?.counts;
-  const pages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
+  const toDecide = counts ? counts.unknown + counts.ambiguous : undefined;
+  const report = outlet?.reportToDecide;
+  useEffect(() => {
+    if (toDecide !== undefined) report?.(toDecide);
+  }, [toDecide, report]);
+
+  // The queue: what was not skipped first, then the skipped ones in the order they were.
+  const queue = useMemo(() => {
+    const items = (data?.items ?? []).filter(
+      (item) => !gone.includes(item.local_speaker_id),
+    );
+    const rank = (item: VerificationCase) =>
+      skipped.indexOf(item.local_speaker_id);
+    return [
+      ...items.filter((item) => rank(item) < 0),
+      ...items
+        .filter((item) => rank(item) >= 0)
+        .sort((a, b) => rank(a) - rank(b)),
+    ];
+  }, [data, skipped, gone]);
+  const current = queue[0];
 
   function choose(next: VerificationFilter) {
     setFilter(next);
-    setPage(1);
+    setNotice(undefined);
   }
 
-  function settled(message: string) {
-    setDeciding(undefined);
-    setPreviewing(undefined);
+  function settled(item: VerificationCase, message: string) {
+    setGone((ids) => [...ids, item.local_speaker_id]);
     setNotice(message);
-    // The counters and the list are read back from the server; a page that is now past
-    // the end goes back to the last one.
-    if (data && page > 1 && data.items.length === 1) setPage(page - 1);
-    else reload();
-    people.reload();
+    reload();
   }
 
-  const open = (item: VerificationCase) => {
-    setPreviewing(undefined);
-    setDeciding(item);
-  };
+  function skip(item: VerificationCase) {
+    setSkipped((ids) => [
+      ...ids.filter((id) => id !== item.local_speaker_id),
+      item.local_speaker_id,
+    ]);
+    setNotice(undefined);
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -116,108 +135,26 @@ export function VerificationTab() {
       {state.status === "failed" && (
         <ErrorAlert>{failureText(state.code)}</ErrorAlert>
       )}
-      {data && data.items.length === 0 && (
+      {data && !current && (
         <p className="rounded-xl border border-dashed border-line-strong p-6 text-center text-mute">
           {t("people.verification.empty")}
         </p>
       )}
-      {data && data.items.length > 0 && (
-        <ul
-          aria-label={t("people.verification.listLabel")}
-          className="m-0 flex list-none flex-col gap-2 p-0"
-        >
-          {data.items.map((item) => (
-            <li
-              key={item.local_speaker_id}
-              className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface p-3"
-            >
-              <ExcerptThumb item={item} onOpen={() => setPreviewing(item)} />
-              <div className="flex min-w-0 flex-1 basis-60 flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <b>{item.label}</b>
-                  <LevelBadge level={item.decision_level} />
-                </div>
-                <span className="truncate text-mute">
-                  {t("people.verification.clipLine", {
-                    clip: item.clip_name,
-                    speech: t("people.verification.speech", {
-                      seconds: item.speaking_seconds.toFixed(1),
-                    }),
-                  })}
-                </span>
-                <span className="text-mute">
-                  {item.group_voice_count > 1
-                    ? t("people.verification.heardIn", {
-                        clips: item.group_clip_count,
-                        voices: item.group_voice_count,
-                      })
-                    : t("people.verification.single")}
-                </span>
-                {item.candidates.length > 0 && (
-                  <ul
-                    aria-label={t("people.verification.candidates")}
-                    className="m-0 flex list-none flex-wrap gap-1.5 p-0"
-                  >
-                    {item.candidates.map((candidate) => (
-                      <li
-                        key={candidate.person.id}
-                        className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent-ink"
-                      >
-                        {candidate.person.display_name}{" "}
-                        {Math.round(candidate.score * 100)}%
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <button
-                type="button"
-                aria-label={t("people.verification.decideFor", {
-                  label: item.label,
-                })}
-                onClick={() => open(item)}
-                className={buttonClass("primary")}
-              >
-                {t("people.verification.decide")}
-              </button>
-            </li>
-          ))}
-        </ul>
+      {current && (
+        <VerificationCaseCard
+          // Mounted per case, so a new case starts without a choice.
+          key={current.local_speaker_id}
+          item={current}
+          total={queue.length}
+          canSkip={queue.length > 1}
+          onSkip={() => skip(current)}
+          onSettled={(message) => settled(current, message)}
+          onTaken={(message) => {
+            // Someone else settled it meanwhile: nothing was written, the queue is read again.
+            settled(current, message);
+          }}
+        />
       )}
-      {pages > 1 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-            className={buttonClass("secondary")}
-          >
-            {t("people.verification.previous")}
-          </button>
-          <span className="text-mute">
-            {t("people.verification.pageStatus", { page, pages })}
-          </span>
-          <button
-            type="button"
-            disabled={page >= pages}
-            onClick={() => setPage(page + 1)}
-            className={buttonClass("secondary")}
-          >
-            {t("people.verification.next")}
-          </button>
-        </div>
-      )}
-      <ExcerptDialog
-        item={previewing}
-        onClose={() => setPreviewing(undefined)}
-        onDecide={open}
-      />
-      <DecidePanel
-        item={deciding}
-        persons={people.state.status === "ready" ? people.state.value : []}
-        onClose={() => setDeciding(undefined)}
-        onSettled={settled}
-      />
     </div>
   );
 }
