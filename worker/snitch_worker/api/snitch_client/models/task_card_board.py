@@ -12,6 +12,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.task_card import TaskCard
+  from ..models.task_queue_summary import TaskQueueSummary
 
 
 
@@ -25,10 +26,13 @@ T = TypeVar("T", bound="TaskCardBoard")
 class TaskCardBoard:
     """
         Attributes:
+            queue (TaskQueueSummary): What the queue bar shows. running counts only leased tasks with an unexpired lease,
+                which is what fills the ceiling; waiting counts clips queued, ready, in retry or waiting, which occupy no slot.
             cards (list[TaskCard]):
             completed (list[TaskCard]):
      """
 
+    queue: TaskQueueSummary
     cards: list[TaskCard]
     completed: list[TaskCard]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -39,6 +43,9 @@ class TaskCardBoard:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.task_card import TaskCard # noqa: PLC0415
+        from ..models.task_queue_summary import TaskQueueSummary # noqa: PLC0415
+        queue = self.queue.to_dict()
+
         cards = []
         for cards_item_data in self.cards:
             cards_item = cards_item_data.to_dict()
@@ -57,6 +64,7 @@ class TaskCardBoard:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "queue": queue,
             "cards": cards,
             "completed": completed,
         })
@@ -68,7 +76,13 @@ class TaskCardBoard:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.task_card import TaskCard # noqa: PLC0415
+        from ..models.task_queue_summary import TaskQueueSummary # noqa: PLC0415
         d = dict(src_dict)
+        queue = TaskQueueSummary.from_dict(d.pop("queue"))
+
+
+
+
         cards = []
         _cards = d.pop("cards")
         for cards_item_data in (_cards):
@@ -90,6 +104,7 @@ class TaskCardBoard:
 
 
         task_card_board = cls(
+            queue=queue,
             cards=cards,
             completed=completed,
         )

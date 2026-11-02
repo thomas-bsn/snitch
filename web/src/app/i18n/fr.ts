@@ -59,6 +59,29 @@ export const fr: Messages = {
     job: "Tâche {id} · clip {clip} · {status}",
     history: "Historique",
     retry: "Relancer",
+    scheduleHint: "Choisissez un clip à analyser.",
+    scheduleSubmit: "Planifier",
+    advancedTitle: "Option avancée : tâche unitaire",
+    advancedHint:
+      "Lancer une seule étape sur ce clip au lieu de l’analyse complète.",
+    stepRequired:
+      "Ouvrez l’option avancée et choisissez une étape à planifier.",
+    noCompatibleWorker:
+      "Aucun worker n’a déclaré de traitement compatible. Démarrez un worker puis actualisez cette page.",
+    stepTranscription: "Étape 0 · Transcription",
+    stepTranscriptionHint: "Écrire les paroles du clip",
+    stepVoice: "Étape 1 · Analyse des voix",
+    stepVoiceHint: "Nécessite une transcription",
+    controlsTitle: "File et parallélisme",
+    runningLabel: "En cours",
+    runningValue: "{running} sur {max}",
+    runningHint:
+      "Tâches prises par un worker. Seules elles occupent le plafond.",
+    waitingLabel: "Clips en attente",
+    waitingHint:
+      "Les clips en attente n’occupent aucun emplacement : les tâches prêtes peuvent démarrer.",
+    pausedBanner:
+      "File en pause : aucune nouvelle tâche ne démarre, celles commencées se terminent.",
   },
   folders: {
     correctedSkipped:

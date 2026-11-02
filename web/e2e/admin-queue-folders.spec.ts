@@ -36,12 +36,22 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   const cardOf = (clipId: number) =>
     queue.locator("details").filter({ hasText: `#${clipId}` });
 
-  // Concurrency controls, collapsed behind a disclosure panel.
+  // The schedule form sits above the board and is visible without scrolling;
+  // the queue bar is always on screen.
   await page.goto("/admin/queue");
-  await page
-    .locator("summary")
-    .filter({ hasText: "Concurrency settings" })
-    .click();
+  const scheduleForm = page.getByRole("form", { name: "Schedule task" });
+  await expect(scheduleForm).toBeVisible();
+  const formBox = (await scheduleForm.boundingBox())!;
+  const gridBox = (await queue.boundingBox())!;
+  expect(formBox.y + formBox.height).toBeLessThanOrEqual(gridBox.y);
+  expect(formBox.y + formBox.height).toBeLessThanOrEqual(
+    page.viewportSize()!.height,
+  );
+  const bar = page.getByRole("region", { name: "Queue and concurrency" });
+  await expect(bar).toContainText("0 of 1");
+  await expect(bar.getByText("Queue paused")).toHaveCount(0);
+
+  // Concurrency controls, in the queue bar.
   await page.getByLabel("Global concurrency").fill("3");
   await page.getByLabel("Pause new acquisitions").check();
   const firstSave = page.waitForResponse(
@@ -52,11 +62,8 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   );
   await page.getByRole("button", { name: "Save controls" }).click();
   await firstSave;
+  await expect(bar).toContainText("Queue paused");
   await page.reload();
-  await page
-    .locator("summary")
-    .filter({ hasText: "Concurrency settings" })
-    .click();
   await expect(page.getByLabel("Global concurrency")).toHaveValue("3");
   await expect(page.getByLabel("Pause new acquisitions")).toBeChecked();
   await page.getByLabel("Pause new acquisitions").uncheck();
@@ -68,6 +75,8 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   );
   await page.getByRole("button", { name: "Save controls" }).click();
   await saved;
+  await expect(bar).toContainText("0 of 3");
+  await expect(bar.getByText("Queue paused")).toHaveCount(0);
 
   // A worker that can transcribe makes the transcription step available in the form.
   await upload(page, "synthetic-a.mp4", 1);
@@ -117,8 +126,15 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     ).ok(),
   ).toBe(true);
   await page.goto("/admin/queue");
-  await page.locator("summary").filter({ hasText: "Schedule task" }).click();
+  await expect(page.getByRole("radio")).toHaveCount(0);
   await page.getByLabel("Clip ID", { exact: true }).fill(String(clipA));
+  await expect(
+    page.getByRole("button", { name: "Schedule", exact: true }),
+  ).toBeDisabled();
+  await page
+    .locator("summary")
+    .filter({ hasText: "Advanced option: single task" })
+    .click();
   await page
     .locator("label")
     .filter({ hasText: "Step 0 · Transcription" })
@@ -136,6 +152,8 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   expect([200, 201], await response.text()).toContain(response.status());
   const cardA = cardOf(clipA);
   await expect(cardA).toContainText("Queued");
+  await expect(bar).toContainText("Waiting clips");
+  await expect(bar.getByTestId("waiting-count")).toHaveText("1");
   await openCard(cardA);
   await cardA.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(cardA).toContainText("Cancelled");

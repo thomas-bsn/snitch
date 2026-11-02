@@ -2514,7 +2514,15 @@ export interface components {
       /** @default 3 */
       max_attempts: number;
     };
+    /** @description What the queue bar shows. running counts only leased tasks with an unexpired lease, which is what fills the ceiling; waiting counts clips queued, ready, in retry or waiting, which occupy no slot. */
+    TaskQueueSummary: {
+      running: number;
+      waiting: number;
+      max_concurrency: number;
+      paused: boolean;
+    };
     TaskCardBoard: {
+      queue: components["schemas"]["TaskQueueSummary"];
       cards: components["schemas"]["TaskCard"][];
       completed: components["schemas"]["TaskCard"][];
     };
