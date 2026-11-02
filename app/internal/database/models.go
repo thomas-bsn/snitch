@@ -550,6 +550,7 @@ type User struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	Language     pgtype.Text        `json:"language"`
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
+	DiscordName  pgtype.Text        `json:"discord_name"`
 }
 
 type VoiceAutomationEvent struct {

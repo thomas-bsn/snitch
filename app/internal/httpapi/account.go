@@ -47,7 +47,7 @@ func (s *Server) putAccountPreferences(w http.ResponseWriter, r *http.Request) {
 // The predicate is repeated in the UPDATE so a stale UI state cannot lock out an account.
 func (s *Server) unlinkDiscord(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	tag, err := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=NULL WHERE id=$1 AND discord_id IS NOT NULL AND password_hash IS NOT NULL`, ss.User.ID)
+	tag, err := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=NULL,discord_name=NULL WHERE id=$1 AND discord_id IS NOT NULL AND password_hash IS NOT NULL`, ss.User.ID)
 	if err != nil {
 		s.internal(w, err)
 		return

@@ -5848,6 +5848,11 @@
           "can_unlink_discord": {
             "type": "boolean",
             "description": "True only when Discord is linked and a local password is configured."
+          },
+          "discord_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Display name of the linked Discord identity (global name, else username); null when unlinked or linked before it was kept. Read-only."
           }
         }
       },

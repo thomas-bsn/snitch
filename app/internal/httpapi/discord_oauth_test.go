@@ -36,6 +36,8 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	identity.Store("123456")
 	var mode atomic.Value
 	mode.Store("ok")
+	var globalName atomic.Value
+	globalName.Store("Fixture Display")
 	entered := make(chan struct{}, 2)
 	release := make(chan struct{})
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +61,7 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 			reply(w, 200, map[string]string{"id": ""})
 			return
 		}
-		reply(w, 200, map[string]string{"id": identity.Load().(string), "username": "administrator"})
+		reply(w, 200, map[string]string{"id": identity.Load().(string), "username": "administrator", "global_name": globalName.Load().(string)})
 	}))
 	defer provider.Close()
 	s.Config.DiscordTokenURL = provider.URL + "/token"
@@ -403,6 +405,18 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	if relinked.Header.Get("Location") != "/account?notice=discord_linked" {
 		t.Fatalf("link return: %s", relinked.Header.Get("Location"))
 	}
+	// Only the display name is kept, read-only: global_name, else the username. No token is ever stored.
+	_, body = call(locals[winner], "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(body, []byte(`"discord_name":"Fixture Display"`)) || bytes.Contains(body, []byte("fixture-token")) {
+		t.Fatalf("linked Discord name: %s", body)
+	}
+	globalName.Store("")
+	call(locals[winner], "GET", start(locals[winner], true), "", "", 303)
+	_, body = call(locals[winner], "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(body, []byte(`"discord_name":"administrator"`)) {
+		t.Fatalf("username fallback: %s", body)
+	}
+	globalName.Store("Fixture Display")
 	call(reconnect, "GET", start(reconnect, false), "", "", 303)
 	s.Config.DiscordTokenURL = ":invalid-provider-url"
 	unavailable := client()
