@@ -99,6 +99,8 @@ Le catalogue est fermé et déclaré dans le contrat (`FailureCode`). Le Worker 
 
 Un nouveau mode d'échec exige un nouveau code, donc une évolution du contrat.
 
+Dans la Task Queue (`GET /api/admin/analysis/queue`, Administrateurs), chaque étape en échec porte `failure_code` et `recommended_action`, lus dans le dernier événement d'échec persisté de la tâche qu'elle suit ; jamais de texte brut. Une étape qui attend un Worker (`awaiting_worker`, `awaiting_compatible_worker`) porte l'action `start_worker`, sauf pour une reprise différée. Les tâches mortes ou en échec qu'aucune analyse ne suit restent listées avec les mêmes champs. Le résumé (`summary`) donne les tâches en cours (baux non expirés, comme l'ordonnanceur), les clips en attente, le plafond de concurrence et la pause.
+
 ## Rotation des logs
 
 Les trois fichiers compose (`compose.yaml`, `compose.override.yaml`, `deploy/worker/compose.yaml`) appliquent à chaque service le pilote Docker `json-file` avec 10 Mo par fichier et 5 fichiers, soit 50 Mo au plus par service. Aucun Loki ni ELK n'est nécessaire. `scripts/check_compose.py` vérifie cette configuration.

@@ -1310,7 +1310,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events. */
+    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les tâches non terminées, mortes ou en échec qu'aucune analyse ne suit (jamais supprimées en silence), avec leur Cause d'échec et l'action conseillée ; un résumé de charge (summary). Repli du flux GET /api/admin/analysis/queue/events. */
     get: operations["getAnalysisQueue"];
     put?: never;
     post?: never;
@@ -2547,6 +2547,10 @@ export interface components {
       profile: string | null;
       /** @description Étape relancée par une réanalyse, malgré un résultat valide. */
       forced: boolean;
+      /** @description File de tâches seulement, étape en échec : Cause d'échec persistée du dernier échec du job suivi (jamais de texte brut) ; absente sans cause connue. */
+      failure_code?: components["schemas"]["FailureCode"];
+      /** @description File de tâches seulement : code de l'action conseillée, décidé par le serveur. Étape en échec : action de la Cause d'échec (catalogue des jobs). Attente de Worker (awaiting_worker, awaiting_compatible_worker) d'un job prêt : start_worker ; jamais pour une reprise différée. */
+      recommended_action?: string;
       /** Format: date-time */
       started_at: string | null;
       /** Format: date-time */
@@ -2642,8 +2646,21 @@ export interface components {
     };
     AnalysisQueueTask: components["schemas"]["Job"] & {
       clip_name: string;
+      /** @description Cause d'échec persistée du dernier échec ; last_error est ramené à ce code, jamais un texte brut. */
+      failure_code?: components["schemas"]["FailureCode"];
+      /** @description Action de reprise conseillée pour cette cause. */
+      recommended_action?: string;
+    };
+    /** @description Charge de la file. running_tasks suit la règle de l'ordonnanceur : seuls les jobs leased au bail non expiré occupent un emplacement. */
+    AnalysisQueueSummary: {
+      running_tasks: number;
+      /** @description Clips dont l'analyse est active et qui n'occupent aucun emplacement (attente, reprise différée ou suspendus). */
+      waiting_clips: number;
+      max_concurrency: number;
+      paused: boolean;
     };
     AnalysisQueue: {
+      summary: components["schemas"]["AnalysisQueueSummary"];
       active: components["schemas"]["AnalysisQueueRun"][];
       completed: components["schemas"]["AnalysisQueueRun"][];
       tasks: components["schemas"]["AnalysisQueueTask"][];

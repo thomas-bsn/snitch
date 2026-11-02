@@ -65,7 +65,9 @@ def sync_detailed(
 ) -> Response[AnalysisQueue | Error]:
     """  Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les
     trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les
-    tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events.
+    tâches non terminées, mortes ou en échec qu'aucune analyse ne suit (jamais supprimées en silence),
+    avec leur Cause d'échec et l'action conseillée ; un résumé de charge (summary). Repli du flux GET
+    /api/admin/analysis/queue/events.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -93,7 +95,9 @@ def sync(
 ) -> AnalysisQueue | Error | None:
     """  Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les
     trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les
-    tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events.
+    tâches non terminées, mortes ou en échec qu'aucune analyse ne suit (jamais supprimées en silence),
+    avec leur Cause d'échec et l'action conseillée ; un résumé de charge (summary). Repli du flux GET
+    /api/admin/analysis/queue/events.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -116,7 +120,9 @@ async def asyncio_detailed(
 ) -> Response[AnalysisQueue | Error]:
     """  Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les
     trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les
-    tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events.
+    tâches non terminées, mortes ou en échec qu'aucune analyse ne suit (jamais supprimées en silence),
+    avec leur Cause d'échec et l'action conseillée ; un résumé de charge (summary). Repli du flux GET
+    /api/admin/analysis/queue/events.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -144,7 +150,9 @@ async def asyncio(
 ) -> AnalysisQueue | Error | None:
     """  Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les
     trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les
-    tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events.
+    tâches non terminées, mortes ou en échec qu'aucune analyse ne suit (jamais supprimées en silence),
+    avec leur Cause d'échec et l'action conseillée ; un résumé de charge (summary). Repli du flux GET
+    /api/admin/analysis/queue/events.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
