@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"io"
 	"log/slog"
@@ -115,7 +116,7 @@ func testTaskCardsPerformance(t *testing.T, pool *pgxpool.Pool) {
 	measure := func(label string, total int) {
 		t.Helper()
 		var durations []time.Duration
-		var size, queries int
+		var size, gzipped, queries int
 		var cards, completed int
 		for i := 0; i < 5; i++ {
 			counter.reset()
@@ -133,6 +134,11 @@ func testTaskCardsPerformance(t *testing.T, pool *pgxpool.Pool) {
 				t.Fatalf("%s: status %d: %s", label, resp.StatusCode, data)
 			}
 			size = len(data)
+			var packed bytes.Buffer
+			zw := gzip.NewWriter(&packed)
+			_, _ = zw.Write(data)
+			_ = zw.Close()
+			gzipped = packed.Len()
 			if dump := os.Getenv("SNITCH_PERF_DUMP"); dump != "" && strings.HasPrefix(label, "B") && i == 0 {
 				if e = os.WriteFile(dump, data, 0o600); e != nil {
 					t.Fatal(e)
@@ -158,7 +164,7 @@ func testTaskCardsPerformance(t *testing.T, pool *pgxpool.Pool) {
 		}
 		counter.mu.Unlock()
 		sort.Slice(top, func(a, b int) bool { return top[a].n > top[b].n })
-		t.Logf("PERF %s: clips=%d clip_id_occurrences=%d median=%v min=%v max=%v sql_queries=%d bytes=%d", label, total, completed, durations[len(durations)/2].Round(time.Millisecond), durations[0].Round(time.Millisecond), durations[len(durations)-1].Round(time.Millisecond), queries, size)
+		t.Logf("PERF %s: clips=%d clip_id_occurrences=%d median=%v min=%v max=%v sql_queries=%d bytes=%d gzip_bytes=%d", label, total, completed, durations[len(durations)/2].Round(time.Millisecond), durations[0].Round(time.Millisecond), durations[len(durations)-1].Round(time.Millisecond), queries, size, gzipped)
 		for i, entry := range top {
 			if i == 5 {
 				break
