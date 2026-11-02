@@ -72,7 +72,8 @@ Le volume de modèles n'est plus monté en lecture seule dans le compose, pour p
 Choisir un autre modèle dans Administration › Traitement vocal fait télécharger ce modèle par le Worker. Le téléchargement lit le jeton dans un fichier privé du volume des modèles, `/models/.secrets/hf_token` (dossier `0700`, fichier `0600`), que seul le sous-processus de téléchargement ouvre : le jeton ne passe jamais par Snitch, ni par l'API, ni par l'environnement du processus d'inférence. Le fichier vit dans le volume : supprimer le Worker dans Snitch le vide avec le reste.
 
 - **À l'installation** (commande unique, `compose.yaml` généré, `install.py`) : le jeton saisi pour le premier téléchargement est gardé dans ce fichier par le Worker, sans réglage supplémentaire.
-- **Worker déjà installé, sans fichier** : l'écran affiche « Jeton Hugging Face absent sur ce Worker ». Enregistrez-le une fois, depuis la machine du Worker, en le passant sur l'entrée standard (jamais en argument ni en variable) :
+- **Compose ou `.env`** : `HF_TOKEN` n'est lu qu'au démarrage ; une fois le jeton gardé dans le volume, vous pouvez le retirer du `.env`. La commande unique ne l'y laisse jamais.
+- **Worker déjà installé, sans fichier** : l'écran affiche « Jeton Hugging Face absent sur ce Worker ». Enregistrez-le une fois, depuis la machine du Worker (bash), en le passant sur l'entrée standard (jamais en argument ni en variable). Le nom de l'image s'obtient avec `docker inspect -f '{{.Config.Image}}' snitch-worker-<id du Worker>` :
 
 ```bash
 read -rs HF && printf '%s' "$HF" | docker run -i --rm --user 10001:10001 \

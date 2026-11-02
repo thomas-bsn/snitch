@@ -378,6 +378,22 @@ class TokenFileTests(unittest.TestCase):
         self.assertIn("cause=invalid_token", out.getvalue())
         self.assertNotIn("oops", out.getvalue())
 
+    def test_a_deleted_worker_keeps_no_token(self):
+        with open(os.path.join(self.root, revocation.MARKER_NAME), "w", encoding="utf-8") as handle:
+            handle.write("revoked")
+        out = io.StringIO()
+        code = bootstrap.cli(["store-token"], self.env, stdin=io.StringIO(self.TOKEN), stdout=out)
+        self.assertEqual(code, 1)
+        self.assertIn("cause=worker_revoked", out.getvalue())
+        self.assertFalse(os.path.exists(self.path))
+
+    def test_downloading_does_not_load_the_api_client(self):
+        import subprocess
+        import sys
+
+        code = "import sys, snitch_worker.voice_download; sys.exit(int('snitch_worker.revocation' in sys.modules))"
+        self.assertEqual(subprocess.run([sys.executable, "-c", code]).returncode, 0)
+
     def test_the_default_path_lives_in_the_models_volume(self):
         self.assertEqual(voice_download.default_token_file(self.env), self.path)
         self.assertEqual(voice_download.default_token_file({}), "/models/.secrets/hf_token")

@@ -18,7 +18,6 @@ import tempfile
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from snitch_worker import revocation
 
 TOKEN_FILE_ENV = "SNITCH_HF_TOKEN_FILE"
 # Where the installation keeps the token: a private file of the models volume (the host uid cannot read
@@ -37,7 +36,12 @@ def valid_token(token: str) -> bool:
 def default_token_file(environ: Mapping[str, str]) -> str:
     """The token file: the explicit path, else the one of the models volume."""
     explicit = environ.get(TOKEN_FILE_ENV, "").strip()
-    return explicit or os.path.join(revocation.models_dir(environ), TOKEN_SUBPATH)
+    if explicit:
+        return explicit
+    # Imported here: the download subprocess never needs the API client behind this module.
+    from snitch_worker import revocation
+
+    return os.path.join(revocation.models_dir(environ), TOKEN_SUBPATH)
 
 
 def persist_token(path: str, token: str) -> bool:

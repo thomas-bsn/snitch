@@ -201,6 +201,10 @@ def _keep_token(environ: Mapping[str, str], token: str, say: Callable[[str], Non
 
 def store_token(environ: Mapping[str, str], stdin: Any, stdout: Any) -> int:
     """``store-token``: read a token from standard input (never argv or the environment) and keep it."""
+    if revocation.is_revoked(revocation.models_dir(environ)):
+        # A deleted Worker keeps nothing: its volume was wiped with the token file.
+        print("cause=worker_revoked", file=stdout, flush=True)
+        return 1
     token = stdin.readline().strip()
     if not voice_download.valid_token(token):
         print("cause=invalid_token", file=stdout, flush=True)
