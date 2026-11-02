@@ -2503,7 +2503,7 @@ export interface components {
       clip_id: number;
       original_name: string;
       /**
-       * @description search est réservée à la colonne Recherche, qui n'a pas encore d'état calculé.
+       * @description search porte l'état de l'indexation sémantique réelle du clip, étape applicable seulement quand l'indexation est active.
        * @enum {string}
        */
       column:
@@ -2527,6 +2527,7 @@ export interface components {
       /** @enum {string} */
       current_step:
         | "transcription"
+        | "indexing"
         | "diarization"
         | "fingerprint"
         | "recognition";
@@ -2548,7 +2549,12 @@ export interface components {
     };
     TaskCardStep: {
       /** @enum {string} */
-      key: "transcription" | "diarization" | "fingerprint" | "recognition";
+      key:
+        | "transcription"
+        | "indexing"
+        | "diarization"
+        | "fingerprint"
+        | "recognition";
       /** @enum {string} */
       state:
         | "queued"

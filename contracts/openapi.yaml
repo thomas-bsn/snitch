@@ -6184,7 +6184,7 @@
               "recognition",
               "completed"
             ],
-            "description": "search est réservée à la colonne Recherche, qui n'a pas encore d'état calculé."
+            "description": "search porte l'état de l'indexation sémantique réelle du clip, étape applicable seulement quand l'indexation est active."
           },
           "state": {
             "type": "string",
@@ -6205,6 +6205,7 @@
             "type": "string",
             "enum": [
               "transcription",
+              "indexing",
               "diarization",
               "fingerprint",
               "recognition"
@@ -6266,6 +6267,7 @@
             "type": "string",
             "enum": [
               "transcription",
+              "indexing",
               "diarization",
               "fingerprint",
               "recognition"

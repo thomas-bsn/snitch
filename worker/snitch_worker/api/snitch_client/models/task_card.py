@@ -32,7 +32,8 @@ class TaskCard:
         Attributes:
             clip_id (int):
             original_name (str):
-            column (TaskCardColumn): search est réservée à la colonne Recherche, qui n'a pas encore d'état calculé.
+            column (TaskCardColumn): search porte l'état de l'indexation sémantique réelle du clip, étape applicable
+                seulement quand l'indexation est active.
             state (TaskCardState):
             current_step (TaskCardCurrentStep):
             steps (list[TaskCardStep]):

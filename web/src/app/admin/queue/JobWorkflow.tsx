@@ -68,12 +68,14 @@ function stateLabel(state: State, language: string) {
 function stepLabel(key: TaskCard["current_step"], language: string) {
   const fr = {
     transcription: "Paroles en texte",
+    indexing: "Recherche",
     diarization: "Voix distinctes",
     fingerprint: "Empreintes vocales",
     recognition: "Reconnaissance vocale",
   };
   const en = {
     transcription: "Speech to text",
+    indexing: "Search",
     diarization: "Distinct voices",
     fingerprint: "Voice fingerprints",
     recognition: "Voice recognition",
@@ -319,7 +321,11 @@ export function JobWorkflow({
                         </p>
                       )}
                       {card.steps
-                        .filter((step) => step.state !== "not_applicable")
+                        .filter(
+                          (step) =>
+                            step.state !== "not_applicable" ||
+                            step.key === "indexing",
+                        )
                         .map((step) => (
                           <div
                             key={step.key}
