@@ -87,27 +87,34 @@ test("le profil de bibliothèque et le nom propre du Worker", async ({
     .click();
   await expect(page.getByText("FFXIV", { exact: true })).toHaveCount(0);
   await page.goto("/admin/voice");
-  await expect(page.getByLabel("Diarization model")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Diarization model" }),
+  ).toBeVisible();
   await expect(page.getByText("Automatic attribution: disabled")).toBeVisible();
+  await page.locator("summary").click();
   await page.getByLabel("Suggestion threshold").fill("0.70");
   await page.getByRole("button", { name: "Save thresholds" }).click();
-  await expect(page.getByRole("status")).toContainText("saved");
+  await expect(page.getByText("Settings saved.")).toBeVisible();
   await page.reload();
+  await page.locator("summary").click();
   await expect(page.getByLabel("Suggestion threshold")).toHaveValue("0.7");
   await page.getByLabel("Minimum confirmations").fill("1");
   await page.getByRole("button", { name: "Save activation criteria" }).click();
-  await expect(page.getByRole("status")).toContainText("saved");
+  await expect(page.getByText("Settings saved.")).toBeVisible();
+  const toggle = page.getByRole("switch", {
+    name: "Automatic voice attribution",
+  });
+  await toggle.click();
+  const dialog = page.getByRole("alertdialog");
   await expect(
-    page.getByRole("button", { name: "Enable automatic attribution" }),
+    dialog.getByRole("button", { name: "Enable automatic attribution" }),
   ).toBeDisabled();
-  await page.getByLabel("Enable even though criteria are unmet").check();
-  await page
+  await dialog.getByLabel("Enable even though criteria are unmet").check();
+  await dialog
     .getByRole("button", { name: "Enable automatic attribution" })
     .click();
   await expect(page.getByText("Automatic attribution: enabled")).toBeVisible();
-  await page
-    .getByRole("button", { name: "Disable automatic attribution" })
-    .click();
+  await toggle.click();
   await expect(page.getByText("Automatic attribution: disabled")).toBeVisible();
   expect(
     (await new AxeBuilder({ page }).withTags(tags).analyze()).violations,
