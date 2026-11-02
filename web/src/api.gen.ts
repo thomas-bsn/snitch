@@ -1621,7 +1621,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références). */
+    /** @description Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références). Sans page ni page_size : les 500 premières Personnes, sans total (comportement historique). Avec page ou page_size : une page triée par nom puis identifiant, et le total des Personnes correspondant à q. */
     get: operations["listPersons"];
     put?: never;
     /** @description Utilisateurs connectés. Une Personne est une identité, jamais un compte. */
@@ -3221,6 +3221,8 @@ export interface components {
     };
     PersonList: {
       items: components["schemas"]["Person"][];
+      /** @description Présent seulement lorsque la liste est paginée : nombre de Personnes correspondant à q. */
+      total?: number;
     };
     AttributionAuthor: {
       /** Format: int64 */
@@ -8702,6 +8704,10 @@ export interface operations {
     parameters: {
       query?: {
         q?: string;
+        /** @description Active la pagination (défaut 1). */
+        page?: number;
+        /** @description Active la pagination (défaut 20). */
+        page_size?: number;
       };
       header?: never;
       path?: never;

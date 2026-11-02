@@ -18,6 +18,8 @@ from typing import cast
 def _get_kwargs(
     *,
     q: str | Unset = UNSET,
+    page: int | Unset = UNSET,
+    page_size: int | Unset = UNSET,
 
 ) -> dict[str, Any]:
 
@@ -27,6 +29,10 @@ def _get_kwargs(
     params: dict[str, Any] = {}
 
     params["q"] = q
+
+    params["page"] = page
+
+    params["page_size"] = page_size
 
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -72,13 +78,19 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     q: str | Unset = UNSET,
+    page: int | Unset = UNSET,
+    page_size: int | Unset = UNSET,
 
 ) -> Response[Error | PersonList]:
     """  Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs
-    (références).
+    (références). Sans page ni page_size : les 500 premières Personnes, sans total (comportement
+    historique). Avec page ou page_size : une page triée par nom puis identifiant, et le total des
+    Personnes correspondant à q.
 
     Args:
         q (str | Unset):
+        page (int | Unset):
+        page_size (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -91,6 +103,8 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         q=q,
+page=page,
+page_size=page_size,
 
     )
 
@@ -104,13 +118,19 @@ def sync(
     *,
     client: AuthenticatedClient,
     q: str | Unset = UNSET,
+    page: int | Unset = UNSET,
+    page_size: int | Unset = UNSET,
 
 ) -> Error | PersonList | None:
     """  Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs
-    (références).
+    (références). Sans page ni page_size : les 500 premières Personnes, sans total (comportement
+    historique). Avec page ou page_size : une page triée par nom puis identifiant, et le total des
+    Personnes correspondant à q.
 
     Args:
         q (str | Unset):
+        page (int | Unset):
+        page_size (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,6 +144,8 @@ def sync(
     return sync_detailed(
         client=client,
 q=q,
+page=page,
+page_size=page_size,
 
     ).parsed
 
@@ -131,13 +153,19 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     q: str | Unset = UNSET,
+    page: int | Unset = UNSET,
+    page_size: int | Unset = UNSET,
 
 ) -> Response[Error | PersonList]:
     """  Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs
-    (références).
+    (références). Sans page ni page_size : les 500 premières Personnes, sans total (comportement
+    historique). Avec page ou page_size : une page triée par nom puis identifiant, et le total des
+    Personnes correspondant à q.
 
     Args:
         q (str | Unset):
+        page (int | Unset):
+        page_size (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -150,6 +178,8 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         q=q,
+page=page,
+page_size=page_size,
 
     )
 
@@ -163,13 +193,19 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     q: str | Unset = UNSET,
+    page: int | Unset = UNSET,
+    page_size: int | Unset = UNSET,
 
 ) -> Error | PersonList | None:
     """  Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs
-    (références).
+    (références). Sans page ni page_size : les 500 premières Personnes, sans total (comportement
+    historique). Avec page ou page_size : une page triée par nom puis identifiant, et le total des
+    Personnes correspondant à q.
 
     Args:
         q (str | Unset):
+        page (int | Unset):
+        page_size (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -183,5 +219,7 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 q=q,
+page=page,
+page_size=page_size,
 
     )).parsed

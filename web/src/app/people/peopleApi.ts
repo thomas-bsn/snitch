@@ -41,6 +41,31 @@ export const fetchPersons = () =>
     return data ? { ok: true, value: data.items } : failure(error);
   });
 
+/** A page of Persons by name; the search and the paging are done by the server. */
+export type PersonPage = { items: Person[]; total: number };
+
+export const fetchPersonPage = (
+  query: string,
+  page: number,
+  pageSize: number,
+) =>
+  guard<PersonPage>(async () => {
+    const { data, error } = await api.GET("/api/persons", {
+      params: { query: { q: query, page, page_size: pageSize } },
+    });
+    return data
+      ? { ok: true, value: { items: data.items, total: data.total ?? 0 } }
+      : failure(error);
+  });
+
+export const fetchPerson = (id: number) =>
+  guard<Person>(async () => {
+    const { data, error } = await api.GET("/api/persons/{id}", {
+      params: { path: { id } },
+    });
+    return data ? { ok: true, value: data } : failure(error);
+  });
+
 export const fetchPersonVoices = (id: number) =>
   guard(async () => {
     const { data, error } = await api.GET("/api/persons/{id}/voices", {

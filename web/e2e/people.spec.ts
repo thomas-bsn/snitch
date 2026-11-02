@@ -116,11 +116,19 @@ test.describe.serial("personnes et vérification", () => {
     ).toBeVisible();
   });
 
-  test("personnes : création, fusion, séparation et suppression", async () => {
+  test("personnes : liste, fiche, création, fusion, séparation et suppression", async () => {
     await page.goto("/people");
-    const table = page.getByRole("table", { name: "People" });
-    await expect(table).toContainText("Claire Synthétique");
+    const list = page.getByRole("list", { name: "People", exact: true });
+    await expect(list).toContainText("Claire Synthétique");
     await expect(page.getByText("No person yet")).toHaveCount(0);
+    await expect(page.getByRole("table")).toHaveCount(0);
+
+    // The record of a Person shows its real counts.
+    await list.getByRole("link", { name: /Claire Synthétique/ }).click();
+    const claire = page.getByRole("region", { name: "Claire Synthétique" });
+    await expect(claire).toContainText("1 voice(s)");
+    await expect(claire).toContainText("1 validated sample(s)");
+    const claireUrl = page.url();
 
     // Creation.
     await page.getByRole("button", { name: "New person" }).click();
@@ -131,16 +139,20 @@ test.describe.serial("personnes et vérification", () => {
     await expect(page.getByRole("status")).toContainText(
       "Alicia Synthétique was created.",
     );
-    await expect(table).toContainText("Alicia Synthétique");
+    await expect(list).toContainText("Alicia Synthétique");
     await expectNoViolations(page);
 
-    // The list is searchable.
+    // The list is searchable; a Person without a validated sample has no reference.
     await page.getByRole("searchbox", { name: "Search people" }).fill("alicia");
-    await expect(table.locator("tbody tr")).toHaveCount(1);
+    await expect(list.getByRole("listitem")).toHaveCount(1);
+    await expect(list).toContainText("No reference");
     await page.getByRole("searchbox", { name: "Search people" }).fill("");
+    await list.getByRole("link", { name: /Alicia Synthétique/ }).click();
+    const alicia = page.getByRole("region", { name: "Alicia Synthétique" });
+    await expect(alicia).toContainText("No reference");
 
     // Merge: nothing happens until the confirmation, then the merged person disappears.
-    await page
+    await alicia
       .getByRole("button", { name: "Merge Alicia Synthétique" })
       .click();
     const merge = page.getByRole("dialog", {
@@ -149,20 +161,17 @@ test.describe.serial("personnes et vérification", () => {
     await expect(
       merge.getByRole("button", { name: "Merge", exact: true }),
     ).toBeDisabled();
-    await merge
-      .getByLabel("Merge into")
-      .selectOption({ label: "Claire Synthétique" });
+    await merge.getByRole("searchbox", { name: "Merge into" }).fill("claire");
+    await merge.getByRole("radio", { name: "Claire Synthétique" }).check();
     await expectNoViolations(page);
     await merge.getByRole("button", { name: "Merge", exact: true }).click();
     await expect(page.getByRole("status")).toContainText(
       "Alicia Synthétique was merged into Claire Synthétique",
     );
-    await expect(table).not.toContainText("Alicia Synthétique");
+    await expect(page).toHaveURL(claireUrl);
+    await expect(list).not.toContainText("Alicia Synthétique");
 
-    // Separation: the voice list, a cancelled then a confirmed separation.
-    await page
-      .getByRole("button", { name: "Voices of Claire Synthétique" })
-      .click();
+    // Separation: the voices are on the record, a cancelled then a confirmed separation.
     const voices = page.getByRole("group", {
       name: "Confirmed voices of Claire Synthétique",
     });
@@ -188,6 +197,7 @@ test.describe.serial("personnes et vérification", () => {
       "SPEAKER_00 was separated from Claire Synthétique: it is unknown again.",
     );
     await expect(voices).toContainText("No confirmed voice you can see.");
+    await expect(claire).toContainText("0 voice(s)");
 
     // The corrections are kept in the log.
     await page.getByRole("button", { name: "Corrections log" }).click();
@@ -203,8 +213,8 @@ test.describe.serial("personnes et vérification", () => {
       page.getByRole("button", { name: "Decide who SPEAKER_00 is" }),
     ).toBeVisible();
 
-    // Deletion, after a confirmation.
-    await page.goto("/people");
+    // Deletion, from the address of the record, after a confirmation.
+    await page.goto(claireUrl);
     await page
       .getByRole("button", { name: "Delete Claire Synthétique" })
       .click();
@@ -213,7 +223,7 @@ test.describe.serial("personnes et vérification", () => {
     });
     await expectNoViolations(page);
     await deletion.getByRole("button", { name: "Cancel" }).click();
-    await expect(table).toContainText("Claire Synthétique");
+    await expect(claire).toBeVisible();
     await page
       .getByRole("button", { name: "Delete Claire Synthétique" })
       .click();
@@ -221,7 +231,10 @@ test.describe.serial("personnes et vérification", () => {
     await expect(page.getByRole("status")).toContainText(
       "Claire Synthétique was deleted",
     );
+    await expect(page).toHaveURL(/\/people$/);
     await expect(page.getByText("No person yet")).toBeVisible();
+    await page.goto(claireUrl);
+    await expect(page.getByText("Person not found")).toBeVisible();
   });
 
   test("personnes et vérification en thème sombre et à 390 pixels", async () => {
