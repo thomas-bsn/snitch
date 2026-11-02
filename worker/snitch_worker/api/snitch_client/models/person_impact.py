@@ -27,10 +27,18 @@ class PersonImpact:
             has_hidden_voices (bool): Vrai lorsque la Personne est attribuée sur un clip que l'appelant ne peut pas voir
                 (toujours faux pour un administrateur) : une fusion ou une suppression serait refusée
                 (person_has_hidden_voices).
+            voice_samples (int): Échantillons vocaux validés (actifs et retirés) qu'effacerait la suppression du profil
+                vocal.
+            fingerprints (int): Empreintes qu'effacerait la suppression du profil vocal.
+            attributions (int): Attributions qu'effacerait la suppression du profil vocal ; les voix correspondantes
+                redeviendraient inconnues.
      """
 
     microphone_rules: int
     has_hidden_voices: bool
+    voice_samples: int
+    fingerprints: int
+    attributions: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -42,12 +50,21 @@ class PersonImpact:
 
         has_hidden_voices = self.has_hidden_voices
 
+        voice_samples = self.voice_samples
+
+        fingerprints = self.fingerprints
+
+        attributions = self.attributions
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "microphone_rules": microphone_rules,
             "has_hidden_voices": has_hidden_voices,
+            "voice_samples": voice_samples,
+            "fingerprints": fingerprints,
+            "attributions": attributions,
         })
 
         return field_dict
@@ -61,9 +78,18 @@ class PersonImpact:
 
         has_hidden_voices = d.pop("has_hidden_voices")
 
+        voice_samples = d.pop("voice_samples")
+
+        fingerprints = d.pop("fingerprints")
+
+        attributions = d.pop("attributions")
+
         person_impact = cls(
             microphone_rules=microphone_rules,
             has_hidden_voices=has_hidden_voices,
+            voice_samples=voice_samples,
+            fingerprints=fingerprints,
+            attributions=attributions,
         )
 
 
