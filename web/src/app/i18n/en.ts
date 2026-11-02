@@ -1463,6 +1463,23 @@ export const en = {
     folders: "Folders",
     allClips: "All clips",
     parentFolder: "Parent folder",
+    privateFolder: {
+      label: "(private folder)",
+      lockedHint:
+        "Private folder: only the Super-administrator can browse its clips.",
+      makePrivate: "Make the folder {name} private",
+      makeVisible: "Make the folder {name} visible",
+      makePrivateTitle: "Make the folder {name} private?",
+      makeVisibleTitle: "Make the folder {name} visible?",
+      makePrivateBody:
+        "Other users will still see the folder's name with a lock, but will no longer be able to browse it or open its clips, in the library, search or any other screen. A clip stays visible to its owner, and to everyone it is shared with when it is also present in another visible folder or was uploaded directly.",
+      makeVisibleBody:
+        "Users will be able to browse this folder and open its clips again, according to each clip's own visibility.",
+      distinctFromClip:
+        "This setting is separate from the visibility of each clip (shared or private), which it does not change.",
+      confirmPrivate: "Make private",
+      confirmVisible: "Make visible",
+    },
   },
   search: {
     prompt:

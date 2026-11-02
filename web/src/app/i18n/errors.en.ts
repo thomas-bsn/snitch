@@ -116,6 +116,7 @@ export const errorsEn = {
   invalid_metadata_request: "This metadata change is not valid.",
   invalid_embedding_model: "This embedding model is not valid.",
   invalid_filter: "One of the filters is not valid.",
+  invalid_folder: "This folder name is not valid.",
   invalid_format: "This format is not valid.",
   invalid_id: "This identifier is not valid.",
   invalid_job: "This task is not valid.",

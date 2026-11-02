@@ -23,7 +23,8 @@ const kindSpeakerReview = "needs_speaker_review"
 // notificationVisible is the access rule, re-checked on every read ($1 user, $2 administrator):
 // a recipient who lost access to the clip no longer sees its notifications, history included.
 // An incident is administrators' business; the owner of the clip concerned keeps a generic view.
-const notificationVisible = `(CASE WHEN n.kind='needs_speaker_review' THEN (c.visibility='shared' OR c.owner_id=$1 OR $2) ELSE ($2 OR c.owner_id=$1) END)`
+// A clip in a private folder (#93) hides its notifications from administrators who cannot open it.
+const notificationVisible = `(CASE WHEN n.kind='needs_speaker_review' THEN clip_readable(c.id,c.owner_id,c.visibility,$1,$2) ELSE (c.owner_id=$1 OR ($2 AND (c.id IS NULL OR clip_readable(c.id,c.owner_id,c.visibility,$1,$2)))) END)`
 
 // pendingVoicesSQL counts the voices of clip $1 that still need a decision: unknown or
 // ambiguous, neither validated nor automatically attributed (the Verification list).

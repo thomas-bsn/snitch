@@ -553,7 +553,7 @@ func (s *Server) clipReadable(ctx context.Context, r *http.Request, clipID int64
 		return err
 	}
 	var ok bool
-	if err = s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM clips c WHERE c.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3))`, clipID, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&ok); err != nil {
+	if err = s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM clips c WHERE c.id=$1 AND clip_readable(c.id,c.owner_id,c.visibility,$2,$3))`, clipID, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&ok); err != nil {
 		return err
 	}
 	if !ok {
