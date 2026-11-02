@@ -1424,7 +1424,41 @@ export const en = {
       notFoundBody: "This person does not exist, or no longer does.",
       merge: "Merge {name}",
       delete: "Delete {name}",
+      separate: "Separate voices of {name}",
       created: "{name} was created.",
+    },
+    actions: {
+      label: "Actions on {name}",
+      notDone: "Nothing was changed. {reason}",
+      reasons: {
+        mergeLinked:
+          "Linked to an account, {name} cannot be merged away. Open the other person and merge it into {name} instead.",
+        mergeHidden:
+          "Some voices of {name} are on clips you cannot see: only someone who can see them can merge {name}.",
+        mergeProfileDeleted:
+          "The voice profile of {name} was deleted: merging would rebuild it.",
+        deleteLinked:
+          "Linked to an account, {name} cannot be deleted here. Delete the voice profile from the account instead.",
+        deleteHidden:
+          "Some voices of {name} are on clips you cannot see: only someone who can see them can delete {name}.",
+        separateNone: "{name} has no confirmed voice to separate.",
+        separateHidden:
+          "The confirmed voices of {name} are on clips you cannot see.",
+      },
+    },
+    separate: {
+      title: "Separate voices of {name}",
+      body: "Choose the voices that are not {name}.",
+      legend: "Voices to separate from {name}",
+      voice: "{label} · {clip}",
+      voices: "{count} voice(s) become unknown again and can be named again.",
+      samples: "{count} validated sample(s) leave the references.",
+      intact:
+        "{name}, the clips and the voice fingerprints are kept. Voices are matched again.",
+      choose: "Choose at least one voice.",
+      submit: "Separate",
+      cancel: "Cancel",
+      done: "{count} voice(s) were separated from {name}: they are unknown again.",
     },
     create: {
       title: "New person",
@@ -1441,10 +1475,22 @@ export const en = {
       submit: "Merge",
       cancel: "Cancel",
       done: "{name} was merged into {target}: {summary}",
+      voices:
+        "{count} confirmed voice(s) of {name} are now confirmed as {target}.",
+      samples:
+        "{count} validated sample(s) of {name} become references of {target}.",
+      rules:
+        "{count} microphone track rule(s) naming {name} now name {target}.",
+      intact:
+        "{name} disappears. The clips, the voice fingerprints and what {target} already has are untouched. Voices are matched again. This cannot be undone.",
     },
     delete: {
       title: "Delete {name}?",
-      body: "The voices confirmed for {name} become unknown again and their samples leave the references. The clips are never deleted. This cannot be undone.",
+      voices: "{count} voice(s) confirmed for {name} become unknown again.",
+      samples: "{count} validated sample(s) leave the references.",
+      rules: "{count} microphone track rule(s) naming {name} are removed.",
+      intact:
+        "The clips, the voice fingerprints and the other people are untouched. Voices are matched again. This cannot be undone.",
       submit: "Delete",
       cancel: "Cancel",
       done: "{name} was deleted: {summary}",
@@ -1457,13 +1503,6 @@ export const en = {
       empty: "No confirmed voice you can see.",
       excerpt: "Excerpt of {label} in {clip}",
       speech: "{seconds} s of speech",
-      separate: "Separate {label} from {name}",
-      separateTitle: "Separate this voice?",
-      separateBody:
-        "{label} ({clip}) will no longer be confirmed as {name}: it becomes unknown again and its sample leaves the references. {name} is kept.",
-      separateSubmit: "Separate",
-      separateCancel: "Cancel",
-      separated: "{label} was separated from {name}: it is unknown again.",
     },
     log: {
       show: "Corrections log",

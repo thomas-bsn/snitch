@@ -6,7 +6,12 @@ import { Field } from "../components/Field";
 import { Modal } from "../components/Modal";
 import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
-import { fetchPersonPage, usePersonActions, type Person } from "./peopleApi";
+import {
+  fetchPersonPage,
+  usePersonActions,
+  type Person,
+  type PersonImpact,
+} from "./peopleApi";
 
 /** Asks for a name and creates the Person. */
 export function NewPersonDialog({
@@ -85,12 +90,18 @@ export function NewPersonDialog({
 /** Chooses, by a search done on the server, the Person that absorbs another one, then merges. */
 export function MergeDialog({
   person,
+  impact,
   onClose,
   onMerged,
+  onFailed,
 }: {
   person: Person | undefined;
+  /** What the merge also touches (microphone track rules), counted by the server. */
+  impact: PersonImpact;
   onClose: () => void;
-  onMerged: (source: Person, target: Person, summary: string) => void;
+  onMerged: (target: Person, summary: string) => void;
+  /** The server refused: the caller loads the record again. */
+  onFailed: () => void;
 }) {
   const { t } = useI18n();
   const failureText = useFailureText();
@@ -138,11 +149,11 @@ export function MergeDialog({
     setBusy(false);
     if (!result.ok) {
       setFailure(result.code);
+      onFailed();
       return;
     }
     reset();
     onMerged(
-      person,
       target,
       t("people.summary", {
         attributions: result.value.attributions,
@@ -205,7 +216,44 @@ export function MergeDialog({
             <p className="text-mute">{t("people.persons.noMatch")}</p>
           )}
         </div>
-        {failure && <ErrorAlert>{failureText(failure)}</ErrorAlert>}
+        {person && target && (
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            <li>
+              {t("people.merge.voices", {
+                count: person.local_speaker_count,
+                name: person.display_name,
+                target: target.display_name,
+              })}
+            </li>
+            <li>
+              {t("people.merge.samples", {
+                count: person.validated_sample_count,
+                name: person.display_name,
+                target: target.display_name,
+              })}
+            </li>
+            <li>
+              {t("people.merge.rules", {
+                count: impact.microphone_rules,
+                name: person.display_name,
+                target: target.display_name,
+              })}
+            </li>
+          </ul>
+        )}
+        {person && target && (
+          <p className="text-mute">
+            {t("people.merge.intact", {
+              name: person.display_name,
+              target: target.display_name,
+            })}
+          </p>
+        )}
+        {failure && (
+          <ErrorAlert>
+            {t("people.actions.notDone", { reason: failureText(failure) })}
+          </ErrorAlert>
+        )}
         <div className="flex justify-end gap-2">
           <button
             type="button"

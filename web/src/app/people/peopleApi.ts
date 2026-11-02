@@ -5,6 +5,7 @@ import { useSession } from "../session";
 
 export type Person = components["schemas"]["Person"];
 export type PersonVoice = components["schemas"]["PersonVoice"];
+export type PersonImpact = components["schemas"]["PersonImpact"];
 export type PersonEvent = components["schemas"]["PersonEvent"];
 export type PersonCorrectionResult =
   components["schemas"]["PersonCorrectionResult"];
@@ -61,6 +62,15 @@ export const fetchPersonPage = (
 export const fetchPerson = (id: number) =>
   guard<Person>(async () => {
     const { data, error } = await api.GET("/api/persons/{id}", {
+      params: { path: { id } },
+    });
+    return data ? { ok: true, value: data } : failure(error);
+  });
+
+/** What a merge or a deletion would touch besides the counts of the Person itself. */
+export const fetchPersonImpact = (id: number) =>
+  guard<PersonImpact>(async () => {
+    const { data, error } = await api.GET("/api/persons/{id}/impact", {
       params: { path: { id } },
     });
     return data ? { ok: true, value: data } : failure(error);
@@ -155,11 +165,11 @@ export function usePersonActions() {
         });
         return data ? { ok: true, value: data } : failure(error);
       }),
-    separate: (id: number, localSpeakerId: number) =>
+    separate: (id: number, localSpeakerIds: number[]) =>
       guard<PersonCorrectionResult>(async () => {
         const { data, error } = await api.POST("/api/persons/{id}/separation", {
           params: { path: { id }, header },
-          body: { local_speaker_ids: [localSpeakerId] },
+          body: { local_speaker_ids: localSpeakerIds },
         });
         return data ? { ok: true, value: data } : failure(error);
       }),

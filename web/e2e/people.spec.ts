@@ -1,7 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { adminApi, transcribeAndDiarize, uploadClip } from "./library-fixture";
-import { createPersons } from "./people-fixture";
+import {
+  adminApi,
+  nameVoice,
+  transcribeAndDiarize,
+  uploadClip,
+} from "./library-fixture";
+import { createPersons, linkAccount } from "./people-fixture";
+import { createApprovedMember, MEMBER, sessionFor } from "./shell-fixture";
 import { prepareDiarizedClip } from "./voice-fixture";
 
 // The People screen of the new interface: the list of Persons with its corrections, and the
@@ -224,7 +230,8 @@ test.describe.serial("personnes et vérification", () => {
     await expect(legend).toHaveCount(0);
     await badge.click();
     await expect(legend).toBeVisible();
-    await page.getByRole("heading", { level: 1 }).click();
+    // The right margin is free whatever the height of the record puts under the legend.
+    await page.mouse.click(1275, 360);
     await expect(legend).toHaveCount(0);
 
     // The excerpt played is the right one, and a second one stops the first.
@@ -304,6 +311,14 @@ test.describe.serial("personnes et vérification", () => {
     ).toBeDisabled();
     await merge.getByRole("searchbox", { name: "Merge into" }).fill("claire");
     await merge.getByRole("radio", { name: "Claire Synthétique" }).check();
+    // The consequences are counted, with what stays intact; no name to type.
+    await expect(merge).toContainText(
+      "0 confirmed voice(s) of Alicia Synthétique are now confirmed as Claire Synthétique.",
+    );
+    await expect(merge).toContainText("0 validated sample(s) of Alicia");
+    await expect(merge).toContainText("0 microphone track rule(s) naming");
+    await expect(merge).toContainText("The clips, the voice fingerprints");
+    await expect(merge.getByRole("textbox")).toHaveCount(0);
     await expectNoViolations(page);
     await merge.getByRole("button", { name: "Merge", exact: true }).click();
     await expect(page.getByRole("status")).toContainText(
@@ -312,33 +327,50 @@ test.describe.serial("personnes et vérification", () => {
     await expect(page).toHaveURL(claireUrl);
     await expect(list).not.toContainText("Alicia Synthétique");
 
-    // Separation: the voices are on the record, a cancelled then a confirmed separation.
+    // Separation: an action of the header, which counts what it does.
     const voices = page.getByRole("group", {
       name: "Confirmed voices of Claire Synthétique",
     });
     await expect(voices).toContainText("SPEAKER_00");
+    await expect(voices.getByRole("button", { name: /^Separate/ })).toHaveCount(
+      0,
+    );
     await expectNoViolations(page);
-    await voices
-      .getByRole("button", {
-        name: "Separate SPEAKER_00 from Claire Synthétique",
-      })
-      .click();
-    const confirmation = page.getByRole("alertdialog", {
-      name: "Separate this voice?",
+    const separate = claire.getByRole("button", {
+      name: "Separate voices of Claire Synthétique",
     });
-    await confirmation.getByRole("button", { name: "Cancel" }).click();
+    await expect(separate).toHaveAttribute("aria-disabled", "false");
+    await separate.click();
+    const separation = page.getByRole("dialog", {
+      name: "Separate voices of Claire Synthétique",
+    });
+    const confirm = separation.getByRole("button", {
+      name: "Separate",
+      exact: true,
+    });
+    await expect(confirm).toBeDisabled();
+    await separation.getByRole("checkbox", { name: /SPEAKER_00/ }).check();
+    await expect(separation).toContainText("1 voice(s) become unknown again");
+    await expect(separation).toContainText(
+      "1 validated sample(s) leave the references",
+    );
+    await expect(separation).toContainText("Claire Synthétique, the clips");
+    await expectNoViolations(page);
+    await separation.getByRole("button", { name: "Cancel" }).click();
     await expect(voices).toContainText("SPEAKER_00");
-    await voices
-      .getByRole("button", {
-        name: "Separate SPEAKER_00 from Claire Synthétique",
-      })
-      .click();
-    await confirmation.getByRole("button", { name: "Separate" }).click();
+    await separate.click();
+    await separation.getByRole("checkbox", { name: /SPEAKER_00/ }).check();
+    await confirm.click();
     await expect(page.getByRole("status")).toContainText(
-      "SPEAKER_00 was separated from Claire Synthétique: it is unknown again.",
+      "1 voice(s) were separated from Claire Synthétique: they are unknown again.",
     );
     await expect(voices).toContainText("No confirmed voice you can see.");
     await expect(claire).toContainText("0 voice(s)");
+    // With no voice left, the action stays visible and says why.
+    await expect(separate).toHaveAttribute("aria-disabled", "true");
+    await expect(separate).toHaveAccessibleDescription(
+      "Claire Synthétique has no confirmed voice to separate.",
+    );
 
     // The corrections are kept in the log.
     await page.getByRole("button", { name: "Corrections log" }).click();
@@ -364,6 +396,11 @@ test.describe.serial("personnes et vérification", () => {
     const deletion = page.getByRole("alertdialog", {
       name: "Delete Claire Synthétique?",
     });
+    await expect(deletion).toContainText("0 voice(s) confirmed for Claire");
+    await expect(deletion).toContainText("0 validated sample(s) leave");
+    await expect(deletion).toContainText("0 microphone track rule(s) naming");
+    await expect(deletion).toContainText("The clips, the voice fingerprints");
+    await expect(deletion.getByRole("textbox")).toHaveCount(0);
     await expectNoViolations(page);
     await deletion.getByRole("button", { name: "Cancel" }).click();
     await expect(claire).toBeVisible();
@@ -378,6 +415,147 @@ test.describe.serial("personnes et vérification", () => {
     await expect(page.getByText("No person yet")).toBeVisible();
     await page.goto(claireUrl);
     await expect(page.getByText("Person not found")).toBeVisible();
+  });
+
+  test("actions bloquées : raison écrite, conséquences chiffrées et refus du serveur", async ({
+    browser,
+  }) => {
+    test.setTimeout(120_000);
+    const [linked, target] = await createPersons([
+      "Liée Synthétique",
+      "Cible Synthétique",
+    ]);
+    await createApprovedMember();
+    await linkAccount(linked, MEMBER.username);
+    const record = (name: string) => page.getByRole("region", { name });
+
+    // A Person linked to an account: merge and deletion stay visible, disabled, with the reason.
+    await page.goto(`/people/${linked}`);
+    const lockedRecord = record("Liée Synthétique");
+    const merge = lockedRecord.getByRole("button", {
+      name: "Merge Liée Synthétique",
+    });
+    const remove = lockedRecord.getByRole("button", {
+      name: "Delete Liée Synthétique",
+    });
+    await expect(merge).toHaveAttribute("aria-disabled", "true");
+    await expect(merge).toHaveAccessibleDescription(
+      "Linked to an account, Liée Synthétique cannot be merged away. Open the other person and merge it into Liée Synthétique instead.",
+    );
+    await expect(remove).toHaveAttribute("aria-disabled", "true");
+    await expect(remove).toHaveAccessibleDescription(
+      "Linked to an account, Liée Synthétique cannot be deleted here. Delete the voice profile from the account instead.",
+    );
+    // Reachable by keyboard, and activating it opens nothing.
+    await merge.focus();
+    await expect(merge).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    // The actions are in the header, never in the list.
+    await expect(
+      page
+        .getByRole("list", { name: "People", exact: true })
+        .getByRole("button"),
+    ).toHaveCount(0);
+    await expectNoViolations(page);
+
+    // A voice on a clip that starts shared and becomes private under the feet of a member.
+    const clip = await uploadClip("tour-prive.mp4", "shared");
+    const [first] = await transcribeAndDiarize(clip, {
+      secondFingerprintEnd: 4.2,
+    });
+    await nameVoice(first, "Voix Bascule");
+    const admin = await adminApi();
+    const found = (await (
+      await admin.api.get("/api/persons?q=Voix%20Bascule")
+    ).json()) as { items: { id: number }[] };
+    const bascule = found.items[0].id;
+
+    const context = await browser.newContext();
+    await context.addCookies((await sessionFor(MEMBER)).cookies);
+    const member = await context.newPage();
+    await member.goto(`/people/${bascule}`);
+    const memberRecord = member.getByRole("region", { name: "Voix Bascule" });
+    await expect(
+      memberRecord.getByRole("button", { name: "Delete Voix Bascule" }),
+    ).toHaveAttribute("aria-disabled", "false");
+
+    // The clip becomes private after the record was loaded: the server refuses (409).
+    const me = await (await admin.api.get("/api/auth/me")).json();
+    const patched = await admin.api.patch(`/api/clips/${clip}`, {
+      data: { visibility: "private" },
+      headers: {
+        Origin: new URL(member.url()).origin,
+        "X-CSRF-Token": me.csrf_token,
+      },
+    });
+    expect(patched.ok()).toBe(true);
+    await memberRecord
+      .getByRole("button", { name: "Delete Voix Bascule" })
+      .click();
+    const deletion = member.getByRole("alertdialog", {
+      name: "Delete Voix Bascule?",
+    });
+    await expect(deletion).toContainText("1 voice(s) confirmed for Voix");
+    await expect(deletion).toContainText("1 validated sample(s) leave");
+    await deletion.getByRole("button", { name: "Delete", exact: true }).click();
+    // A precise message, the record stays open, and it now explains the refusal.
+    await expect(member.getByRole("alert")).toContainText(
+      "Nothing was changed. This person still has hidden voices.",
+    );
+    await expect(memberRecord).toBeVisible();
+    await expect(member).toHaveURL(new RegExp(`/people/${bascule}$`));
+    const blocked = memberRecord.getByRole("button", {
+      name: "Delete Voix Bascule",
+    });
+    await expect(blocked).toHaveAttribute("aria-disabled", "true");
+    await expect(blocked).toHaveAccessibleDescription(
+      "Some voices of Voix Bascule are on clips you cannot see: only someone who can see them can delete Voix Bascule.",
+    );
+    await expect(
+      memberRecord.getByRole("button", { name: "Merge Voix Bascule" }),
+    ).toHaveAccessibleDescription(
+      "Some voices of Voix Bascule are on clips you cannot see: only someone who can see them can merge Voix Bascule.",
+    );
+    // Its confirmed voices are hidden from the member: the separation says so.
+    await expect(
+      memberRecord.getByRole("button", {
+        name: "Separate voices of Voix Bascule",
+      }),
+    ).toHaveAccessibleDescription(
+      "The confirmed voices of Voix Bascule are on clips you cannot see.",
+    );
+    await expectNoViolations(member);
+    await context.close();
+
+    // The administrator sees every clip: the same Person can be merged, with its counts.
+    await page.goto(`/people/${bascule}`);
+    await record("Voix Bascule")
+      .getByRole("button", { name: "Merge Voix Bascule" })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Merge Voix Bascule" });
+    await dialog.getByRole("searchbox", { name: "Merge into" }).fill("Cible");
+    await dialog.getByRole("radio", { name: "Cible Synthétique" }).check();
+    await expect(dialog).toContainText(
+      "1 confirmed voice(s) of Voix Bascule are now confirmed as Cible Synthétique.",
+    );
+    await expect(dialog).toContainText(
+      "1 validated sample(s) of Voix Bascule become references of Cible Synthétique.",
+    );
+    await dialog.getByRole("button", { name: "Merge", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/people/${target}$`));
+    await expect(record("Cible Synthétique")).toContainText("1 voice(s)");
+
+    // Back to the instance the next journeys expect: no reference and no extra clip.
+    const headers = {
+      Origin: new URL(page.url()).origin,
+      "X-CSRF-Token": me.csrf_token,
+    };
+    for (const path of [`/api/persons/${target}`, `/api/admin/clips/${clip}`]) {
+      expect((await admin.api.delete(path, { headers })).ok()).toBe(true);
+    }
+    await admin.api.dispose();
   });
 
   test("personnes et vérification en thème sombre et à 390 pixels", async () => {
@@ -399,6 +577,28 @@ test.describe.serial("personnes et vérification", () => {
     await expect(confirm).toBeVisible();
     expect((await confirm.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await expectNoViolations(page);
+
+    // The record with its actions and written reasons, on a phone, in the dark.
+    await page.goto("/people");
+    await page
+      .getByRole("list", { name: "People", exact: true })
+      .getByRole("link", { name: /Liée Synthétique/ })
+      .click();
+    const merge = page.getByRole("button", { name: "Merge Liée Synthétique" });
+    await expect(merge).toBeVisible();
+    await expect(merge).toHaveAccessibleDescription(/Linked to an account/);
+    for (const button of await page
+      .getByRole("group", { name: "Actions on Liée Synthétique" })
+      .getByRole("button")
+      .all()) {
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    await expectNoViolations(page);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
   });
 
   test("la légende des badges reste lisible en thème sombre à 390 pixels", async () => {

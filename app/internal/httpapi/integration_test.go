@@ -341,6 +341,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonCorrectionsRespectVisibility(t, pool)
 	})
+	t.Run("person impact", func(t *testing.T) {
+		reset(t)
+		testPersonImpact(t, pool)
+	})
 	t.Run("voice result with expired lease", func(t *testing.T) {
 		reset(t)
 		testVoiceResultWithExpiredLease(t, pool)
@@ -577,6 +581,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/persons?q=contract", nil, "", 200)
 		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID), nil, "", 200)
 		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID)+"/voices", nil, "", 200)
+		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID)+"/impact", nil, "", 200) // counters: person impact suite
 		call(client, "GET", "/api/clip-filters", nil, "", 200)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"person_id": contractPerson.ID}, me.CSRF, 201)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"new_person_name": "Late"}, me.CSRF, 409)
