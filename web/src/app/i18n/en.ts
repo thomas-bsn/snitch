@@ -1249,6 +1249,11 @@ export const en = {
       revokedNotice:
         "This Worker was deleted on {date}. Its access is revoked for good.",
       revokedReason: "Reason: {reason}",
+      forget: "Remove from the list",
+      forgetBody:
+        "The machine confirmed the revocation. Removing this entry deletes it from the list for good; the history of the tasks it ran is kept, without the Worker's name.",
+      forgetTitle: "Remove {name} from the list?",
+      forgetConfirm: "Remove",
       cleanupPending:
         "Local cleanup pending: the Worker has not confirmed the revocation yet. It erases its models and caches by itself at its next contact with Snitch.",
       cleanupDone:

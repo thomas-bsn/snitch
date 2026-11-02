@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useId, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
@@ -55,9 +55,12 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const { t, error } = useI18n();
   const formatDate = useFormatDate();
   const actions = useWorkerActions();
+  const navigate = useNavigate();
   const load = useCallback(() => fetchWorker(id), [id]);
   const { state, reload } = useLoaded(load);
-  const [confirm, setConfirm] = useState<"token" | "revoke" | null>(null);
+  const [confirm, setConfirm] = useState<"token" | "revoke" | "forget" | null>(
+    null,
+  );
   const [reason, setReason] = useState("");
   const [allowInsecure, setAllowInsecure] = useState(false);
   const insecure = window.location.protocol !== "https:";
@@ -108,6 +111,16 @@ export function WorkerDetailPage({ id }: { id: string }) {
       setFresh(result.value);
       reload();
     } else setFailure(result.code);
+  }
+
+  async function forget() {
+    setBusy(true);
+    setFailure(undefined);
+    const result = await actions.forget(id);
+    setBusy(false);
+    setConfirm(null);
+    if (result.ok) navigate("/admin/workers");
+    else setFailure(result.code);
   }
 
   async function revoke() {
@@ -331,6 +344,21 @@ export function WorkerDetailPage({ id }: { id: string }) {
         </Section>
       )}
 
+      {revoked && worker.revocation_acknowledged_at && (
+        <Section title={t("workers.detail.forget")}>
+          <p className="text-mute">{t("workers.detail.forgetBody")}</p>
+          <div>
+            <button
+              type="button"
+              className={buttonClass("danger")}
+              onClick={() => setConfirm("forget")}
+            >
+              {t("workers.detail.forget")}
+            </button>
+          </div>
+        </Section>
+      )}
+
       {!revoked && (
         <Section title={t("workers.detail.revoke")}>
           <p className="text-mute">{t("workers.detail.revokeBody")}</p>
@@ -377,6 +405,18 @@ export function WorkerDetailPage({ id }: { id: string }) {
             )}
           </>
         )}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={confirm === "forget"}
+        onOpenChange={(open) => !open && setConfirm(null)}
+        title={t("workers.detail.forgetTitle", { name: worker.name })}
+        cancelLabel={t("workers.dialog.cancel")}
+        confirmLabel={t("workers.detail.forgetConfirm")}
+        onConfirm={() => void forget()}
+        danger
+        busy={busy}
+      >
+        <p>{t("workers.detail.forgetBody")}</p>
       </ConfirmDialog>
       <ConfirmDialog
         open={confirm === "revoke"}

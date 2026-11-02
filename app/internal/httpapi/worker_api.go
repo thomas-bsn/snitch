@@ -367,6 +367,23 @@ func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// forgetWorker removes a revoked Worker, whose machine confirmed the revocation, from the list.
+func (s *Server) forgetWorker(w http.ResponseWriter, r *http.Request) {
+	switch err := s.Workers.Forget(r.Context(), r.PathValue("id")); {
+	case errors.Is(err, workers.ErrNotFound):
+		fail(w, http.StatusNotFound, "worker_not_found")
+	case errors.Is(err, workers.ErrNotRevoked):
+		fail(w, http.StatusConflict, "worker_not_revoked")
+	case errors.Is(err, workers.ErrCleanupPending):
+		fail(w, http.StatusConflict, "worker_cleanup_pending")
+	case err != nil:
+		s.internal(w, err)
+	default:
+		s.Log.Info("worker_removed", "worker_id", r.PathValue("id"))
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 // workerRevocation lets the local launcher learn that its identity is revoked. It is deliberately
 // outside workerOnly: a revoked token is accepted here and nowhere else, and the answer carries
 // no configuration and enables no action.

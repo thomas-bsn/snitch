@@ -18,6 +18,8 @@ var (
 	ErrInvalidInput       = errors.New("invalid worker input")
 	ErrNotFound           = errors.New("worker not found")
 	ErrUnauthorized       = errors.New("worker unauthorized")
+	ErrNotRevoked         = errors.New("worker is not revoked")
+	ErrCleanupPending     = errors.New("worker local cleanup is not confirmed")
 	namePattern           = regexp.MustCompile(`^[\pL\pN][\pL\pN _.-]{0,63}$`)
 	stepCapabilityPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,127}(\.\*)?$`)
 )
@@ -326,6 +328,39 @@ func (s *Service) Revoke(ctx context.Context, id, reason string) error {
 		return fmt.Errorf("commit worker revocation: %w", err)
 	}
 	return nil
+}
+
+// Forget deletes the row of a revoked Worker so it leaves the list. Only a revoked identity whose
+// machine confirmed the revocation can go: until then the launcher still needs the row to learn
+// it must clean up. Jobs and events keep their history; the Worker's name is no longer resolved.
+func (s *Service) Forget(ctx context.Context, id string) error {
+	if !validID(id) {
+		return ErrNotFound
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin worker removal: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var revoked, acknowledged bool
+	if err = tx.QueryRow(ctx, `SELECT revoked_at IS NOT NULL,revocation_acknowledged_at IS NOT NULL FROM workers WHERE id=$1 FOR UPDATE`, id).Scan(&revoked, &acknowledged); errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	} else if err != nil {
+		return fmt.Errorf("lock worker for removal: %w", err)
+	}
+	if !revoked {
+		return ErrNotRevoked
+	}
+	if !acknowledged {
+		return ErrCleanupPending
+	}
+	if _, err = tx.Exec(ctx, `UPDATE jobs SET lease_owner=NULL WHERE lease_owner=$1`, id); err != nil {
+		return fmt.Errorf("release worker references: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM workers WHERE id=$1`, id); err != nil {
+		return fmt.Errorf("delete worker: %w", err)
+	}
+	return tx.Commit(ctx)
 }
 
 // revokeTx applies the revocation inside the caller's transaction.

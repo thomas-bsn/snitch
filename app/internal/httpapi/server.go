@@ -236,6 +236,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.getWorker)))
 	mux.Handle("POST /api/admin/workers/{id}/token", s.protected(true, http.HandlerFunc(s.renewWorkerToken)))
 	mux.Handle("DELETE /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.revokeWorker)))
+	mux.Handle("DELETE /api/admin/workers/{id}/record", s.protected(true, http.HandlerFunc(s.forgetWorker)))
 	mux.Handle("POST /api/admin/workers/{id}/transcription/test", s.protected(true, http.HandlerFunc(s.requestWorkerTranscriptionTest)))
 	mux.Handle("PUT /api/admin/workers/{id}/transcription/override", s.protected(true, http.HandlerFunc(s.putWorkerTranscriptionOverride)))
 	mux.Handle("DELETE /api/admin/workers/{id}/transcription/override", s.protected(true, http.HandlerFunc(s.deleteWorkerTranscriptionOverride)))
