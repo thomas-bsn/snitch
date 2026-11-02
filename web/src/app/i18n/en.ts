@@ -1532,6 +1532,63 @@ export const en = {
       cancel: "Cancel analysis",
       cancelled:
         "Analysis cancelled. Valid results are kept; start a new analysis to continue.",
+      failure: {
+        label: "Failure details",
+        step: "Step",
+        when: "When",
+        cause: "Cause",
+        action: "Recommended action",
+        unknownCause: "Unknown cause.",
+        unknownAction: "Unknown action.",
+        causes: {
+          worker_failed: "The Worker reported an unspecified failure.",
+          provider_unavailable: "The transcription service is unavailable.",
+          invalid_input: "The clip's media could not be processed.",
+          audio_preparation_failed:
+            "The audio of the clip could not be prepared.",
+          lease_expired: "The Worker stopped answering while running the task.",
+          max_attempts_exhausted: "Every attempt failed.",
+          cancelled_by_admin: "An Administrator cancelled the task.",
+          input_version_superseded: "The task was replaced by a newer one.",
+          worker_revoked: "The Worker was revoked while running the task.",
+          whisper_network: "The transcription service could not be reached.",
+          whisper_timeout: "The transcription service took too long to answer.",
+          whisper_http_error:
+            "The transcription service answered with an error.",
+          whisper_model_missing: "The transcription model is not installed.",
+          whisper_invalid_response:
+            "The transcription service sent an unusable answer.",
+          pyannote_model_missing: "The voice detection model is not installed.",
+          pyannote_access_denied:
+            "Access to the voice detection model was denied.",
+          gpu_unavailable: "No GPU is available on the Worker.",
+          gpu_out_of_memory: "The GPU ran out of memory.",
+          diarization_inference_failed: "Voice detection failed while running.",
+          hf_auth_required:
+            "The model repository requires a valid access token.",
+          hf_not_found: "The model was not found in its repository.",
+          hf_network: "The model repository could not be reached.",
+          models_volume_unwritable:
+            "The Worker cannot write to its models volume.",
+          hf_cache_error: "The Worker's model cache is damaged.",
+        },
+        actions: {
+          check_worker_logs: "Check the Worker logs.",
+          check_transcription_service: "Check the transcription service.",
+          check_clip_media: "Check the clip's media file.",
+          check_worker_connection: "Check the Worker's connection.",
+          relaunch_job: "Relaunch the step.",
+          none: "Nothing to do.",
+          install_transcription_model: "Install the transcription model.",
+          install_voice_model: "Install the voice detection model.",
+          check_huggingface_token:
+            "Check the access token of the model repository.",
+          check_gpu: "Check the Worker's GPU.",
+          check_voice_model_repository: "Check the voice model repository.",
+          check_worker_network: "Check the Worker's network access.",
+          check_models_volume: "Check the Worker's models volume.",
+        },
+      },
       retry: "Retry {step}",
       viewTask: "View task #{id}",
       forced: "(run again)",

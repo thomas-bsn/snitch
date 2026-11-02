@@ -76,6 +76,19 @@ func testClipAnalysisReadOnlyView(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("the read-only view leaks %q: %s", leak, raw)
 		}
 	}
+	// A dead job with a recorded cause stays invisible to the member; the Administrator reads it.
+	if _, err := pool.Exec(ctx, `UPDATE jobs SET status='dead',last_error='whisper_model_missing' WHERE clip_id=$1`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,error_code,step) SELECT id,'marked_dead',cycle,1,'worker','whisper_model_missing',step FROM jobs WHERE clip_id=$1`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	_, dead := view(alice)
+	for _, leak := range []string{"whisper", "recommended_action", "install_transcription_model", "marked_dead"} {
+		if strings.Contains(dead, leak) {
+			t.Fatalf("the read-only view of a failed step leaks %q: %s", leak, dead)
+		}
+	}
 	reasons := map[string]string{}
 	for _, st := range out.Run.Steps {
 		reasons[st.Step] = st.Status + "/" + st.Reason

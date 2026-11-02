@@ -1558,6 +1558,66 @@ export const fr: Messages = {
       cancel: "Annuler l’analyse",
       cancelled:
         "Analyse annulée. Les résultats valides sont conservés ; relancez une analyse pour continuer.",
+      failure: {
+        label: "Détails de l'échec",
+        step: "Étape",
+        when: "Quand",
+        cause: "Cause",
+        action: "Action conseillée",
+        unknownCause: "Cause inconnue.",
+        unknownAction: "Action inconnue.",
+        causes: {
+          worker_failed: "Le Worker a signalé un échec non précisé.",
+          provider_unavailable: "Le service de transcription est indisponible.",
+          invalid_input: "Le média du clip n'a pas pu être traité.",
+          audio_preparation_failed: "L'audio du clip n'a pas pu être préparé.",
+          lease_expired: "Le Worker a cessé de répondre pendant la tâche.",
+          max_attempts_exhausted: "Toutes les tentatives ont échoué.",
+          cancelled_by_admin: "Un Administrateur a annulé la tâche.",
+          input_version_superseded:
+            "La tâche a été remplacée par une plus récente.",
+          worker_revoked: "Le Worker a été révoqué pendant la tâche.",
+          whisper_network: "Le service de transcription est injoignable.",
+          whisper_timeout:
+            "Le service de transcription a mis trop de temps à répondre.",
+          whisper_http_error:
+            "Le service de transcription a répondu par une erreur.",
+          whisper_model_missing:
+            "Le modèle de transcription n'est pas installé.",
+          whisper_invalid_response:
+            "Le service de transcription a envoyé une réponse inexploitable.",
+          pyannote_model_missing:
+            "Le modèle de détection des voix n'est pas installé.",
+          pyannote_access_denied:
+            "L'accès au modèle de détection des voix a été refusé.",
+          gpu_unavailable: "Aucun GPU n'est disponible sur le Worker.",
+          gpu_out_of_memory: "Le GPU est à court de mémoire.",
+          diarization_inference_failed:
+            "La détection des voix a échoué pendant son exécution.",
+          hf_auth_required: "Le dépôt du modèle exige un jeton d'accès valide.",
+          hf_not_found: "Le modèle est introuvable dans son dépôt.",
+          hf_network: "Le dépôt du modèle est injoignable.",
+          models_volume_unwritable:
+            "Le Worker ne peut pas écrire dans son volume de modèles.",
+          hf_cache_error: "Le cache de modèles du Worker est endommagé.",
+        },
+        actions: {
+          check_worker_logs: "Consulter les journaux du Worker.",
+          check_transcription_service: "Vérifier le service de transcription.",
+          check_clip_media: "Vérifier le fichier média du clip.",
+          check_worker_connection: "Vérifier la connexion du Worker.",
+          relaunch_job: "Relancer l'étape.",
+          none: "Rien à faire.",
+          install_transcription_model: "Installer le modèle de transcription.",
+          install_voice_model: "Installer le modèle de détection des voix.",
+          check_huggingface_token:
+            "Vérifier le jeton d'accès du dépôt de modèles.",
+          check_gpu: "Vérifier le GPU du Worker.",
+          check_voice_model_repository: "Vérifier le dépôt du modèle de voix.",
+          check_worker_network: "Vérifier l'accès réseau du Worker.",
+          check_models_volume: "Vérifier le volume de modèles du Worker.",
+        },
+      },
       retry: "Réessayer : {step}",
       viewTask: "Voir la tâche n°{id}",
       forced: "(relancée)",
