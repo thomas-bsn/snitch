@@ -160,6 +160,14 @@ func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 	// A failure carries a stable cause; unknown causes and a failure without cause are refused.
 	h.reportModel(secondID, "failed", "hf_token_missing", 0, 0, http.StatusNoContent)
 	h.reportModel(secondID, "failed", "free text with hf_secret", 0, 0, http.StatusBadRequest)
+	// Every Hugging Face failure family of the catalogue travels as its own code.
+	for _, code := range []string{"hf_auth_required", "hf_not_found", "hf_network", "models_volume_unwritable", "hf_cache_error"} {
+		h.reportModel(secondID, "failed", code, 0, 0, http.StatusNoContent)
+		if w := h.voiceModels().model(t, secondID).Workers[0]; w.State != "failed" || w.CauseCode != code {
+			t.Fatalf("cause %s not kept: %+v", code, w)
+		}
+	}
+	h.reportModel(secondID, "failed", "hf_token_missing", 0, 0, http.StatusNoContent)
 	h.reportModel(secondID, "failed", "", 0, 0, http.StatusBadRequest)
 	h.reportModel(secondID, "ready", "disk_full", 0, 0, http.StatusBadRequest)
 	if w := h.voiceModels().model(t, secondID).Workers[0]; w.State != "failed" || w.CauseCode != "hf_token_missing" {

@@ -66,6 +66,7 @@ from .delete_worker_transcription_override_response_200 import DeleteWorkerTrans
 from .embedding_settings import EmbeddingSettings
 from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
+from .failure_code import FailureCode
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .get_metadata_location_response_200 import GetMetadataLocationResponse200
 from .get_video_root_response_200 import GetVideoRootResponse200
@@ -422,6 +423,7 @@ __all__ = (
     "EmbeddingSettings",
     "Error",
     "ExportSegmentCorrectionsFormat",
+    "FailureCode",
     "GetEmbeddingIndexStatusResponse200",
     "GetMetadataLocationResponse200",
     "GetVideoRootResponse200",

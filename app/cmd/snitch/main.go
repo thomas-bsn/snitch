@@ -21,6 +21,7 @@ import (
 	"github.com/pressly/goose/v3/database"
 	"snitch/internal/config"
 	"snitch/internal/httpapi"
+	"snitch/internal/logging"
 	"snitch/internal/secrets"
 	"snitch/internal/setup"
 	"snitch/migrations"
@@ -28,12 +29,14 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("command failed", "reason", err.Error())
+		// Every error returned by run is a fixed sentence written for the operator
+		// (never a wrapped driver or provider error), so the message stays readable.
+		slog.Error("command failed", append(logging.Failure(err), "message", err.Error())...)
 		os.Exit(1)
 	}
 }
 func run() error {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	slog.SetDefault(logging.New(os.Stdout, "snitch", os.Getenv("LOG_LEVEL")))
 	if len(os.Args) == 4 && os.Args[1] == "probe-smoke" {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -145,7 +148,7 @@ func run() error {
 			_, port, _ := net.SplitHostPort(c.Address)
 			address = "http://localhost:" + port
 		}
-		slog.Warn("one-time installation code: open "+address+" and enter "+code+" (valid 15 minutes, works once)", "code", code, "url", address, "expires_in_minutes", 15)
+		logging.InstallationCode(slog.Default(), address, code)
 	}
 	// Expired transient rows do not accumulate during normal service operation.
 	go func() {

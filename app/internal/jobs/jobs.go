@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -80,6 +82,14 @@ type Event struct {
 	ActorID   string    `json:"actor_id"`
 	ErrorCode string    `json:"error_code"`
 	CreatedAt time.Time `json:"created_at"`
+	// Diagnostic of a worker failure; absent on older rows and on events without a failure.
+	Step              *string `json:"step,omitempty"`
+	Provider          *string `json:"provider,omitempty"`
+	Model             *string `json:"model,omitempty"`
+	Revision          *string `json:"revision,omitempty"`
+	HTTPStatus        *int    `json:"http_status,omitempty"`
+	DurationMS        *int    `json:"duration_ms,omitempty"`
+	RecommendedAction string  `json:"recommended_action,omitempty"`
 }
 
 type Filter struct {
@@ -120,9 +130,32 @@ type VocabularyTerm struct {
 	PreferredSpelling string   `json:"preferred_spelling"`
 }
 
-type Service struct{ pool *pgxpool.Pool }
+type Service struct {
+	pool *pgxpool.Pool
+	// Log receives the job transitions; nil discards them.
+	Log *slog.Logger
+}
 
 func New(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
+
+// NewWithLog returns a Service that reports job transitions to log.
+func NewWithLog(pool *pgxpool.Pool, log *slog.Logger) *Service { return &Service{pool: pool, Log: log} }
+
+func (s *Service) logger() *slog.Logger {
+	if s.Log == nil {
+		return slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	return s.Log
+}
+
+// jobFields is the correlation context shared with the Worker's logs. It never includes the lease token.
+func jobFields(job Job, workerID string) []any {
+	fields := []any{"clip_id", job.ClipID, "job_id", job.ID, "step", job.Step, "cycle", job.Cycle, "attempt", job.Attempts}
+	if workerID != "" {
+		fields = append(fields, "worker_id", workerID)
+	}
+	return fields
+}
 
 // Schedule creates one active job per clip, step, and input version. Concurrent
 // callers receive the same persisted job rather than creating duplicate work.
@@ -227,7 +260,7 @@ func (s *Service) History(ctx context.Context, jobID int64) ([]Event, error) {
 	if !exists {
 		return nil, ErrJobNotFound
 	}
-	rows, err := s.pool.Query(ctx, `SELECT id,event,cycle,attempt,actor,actor_id,error_code,created_at FROM job_events WHERE job_id=$1 ORDER BY id`, jobID)
+	rows, err := s.pool.Query(ctx, `SELECT id,event,cycle,attempt,actor,actor_id,error_code,created_at,step,provider,model,revision,http_status,duration_ms FROM job_events WHERE job_id=$1 ORDER BY id`, jobID)
 	if err != nil {
 		return nil, fmt.Errorf("read job history: %w", err)
 	}
@@ -235,9 +268,10 @@ func (s *Service) History(ctx context.Context, jobID int64) ([]Event, error) {
 	events := []Event{}
 	for rows.Next() {
 		var event Event
-		if err = rows.Scan(&event.ID, &event.Event, &event.Cycle, &event.Attempt, &event.Actor, &event.ActorID, &event.ErrorCode, &event.CreatedAt); err != nil {
+		if err = rows.Scan(&event.ID, &event.Event, &event.Cycle, &event.Attempt, &event.Actor, &event.ActorID, &event.ErrorCode, &event.CreatedAt, &event.Step, &event.Provider, &event.Model, &event.Revision, &event.HTTPStatus, &event.DurationMS); err != nil {
 			return nil, fmt.Errorf("scan job history: %w", err)
 		}
+		event.RecommendedAction = RecommendedAction(event.ErrorCode)
 		events = append(events, event)
 	}
 	if err = rows.Err(); err != nil {
@@ -287,8 +321,10 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 	}
 	defer tx.Rollback(ctx)
 	var cycle, attempt int
+	var clipID int64
+	var step string
 	var status Status
-	err = tx.QueryRow(ctx, `SELECT cycle,attempts,status FROM jobs WHERE id=$1 FOR UPDATE`, jobID).Scan(&cycle, &attempt, &status)
+	err = tx.QueryRow(ctx, `SELECT cycle,attempts,status,clip_id,step FROM jobs WHERE id=$1 FOR UPDATE`, jobID).Scan(&cycle, &attempt, &status, &clipID, &step)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrJobNotFound
 	}
@@ -311,6 +347,7 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit job cancellation: %w", err)
 	}
+	s.logger().Info("job_cancelled", "clip_id", clipID, "job_id", jobID, "step", step, "cycle", cycle, "attempt", attempt, "actor", "admin", "actor_id", adminID, "error_code", "cancelled_by_admin")
 	return nil
 }
 
@@ -323,7 +360,7 @@ const ActiveEmbeddingModel = "pyannote/wespeaker-voxceleb-resnet34-LM"
 // For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
 // With a real voice provider (pyannote, nemo) active, a voice job only goes to a worker that declares the
 // active model of its kind.
-func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, error) {
+func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assignment, err error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("begin job claim: %w", err)
@@ -339,15 +376,52 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if paused {
 		return nil, tx.Commit(ctx)
 	}
-	if _, err = tx.Exec(ctx, `WITH expired AS (
+	type expiredLease struct {
+		job      Job
+		event    string
+		code     string
+		workerID string
+	}
+	var expiredLeases []expiredLease
+	expiredRows, err := tx.Query(ctx, `WITH expired AS (
 		UPDATE jobs SET status=CASE WHEN attempts>=max_attempts THEN 'dead' ELSE 'pending' END,
 		 lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='lease_expired',updated_at=now()
-		 WHERE status='leased' AND lease_expires_at<=now()
-		 RETURNING id,attempts,cycle,status
-	) INSERT INTO job_events(job_id,event,cycle,attempt,actor,error_code)
-	  SELECT id,CASE WHEN status='dead' THEN 'marked_dead' ELSE 'lease_expired' END,cycle,attempts,'system',CASE WHEN status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END FROM expired`); err != nil {
+		 FROM (SELECT id AS prior_id,lease_owner AS prior_owner FROM jobs WHERE status='leased' AND lease_expires_at<=now() FOR UPDATE) prior
+		 WHERE jobs.id=prior.prior_id
+		 RETURNING jobs.id,jobs.clip_id,jobs.step,jobs.attempts,jobs.cycle,jobs.status,prior.prior_owner
+	), recorded AS (
+	  INSERT INTO job_events(job_id,event,cycle,attempt,actor,error_code)
+	  SELECT id,CASE WHEN status='dead' THEN 'marked_dead' ELSE 'lease_expired' END,cycle,attempts,'system',CASE WHEN status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END FROM expired
+	  RETURNING job_id
+	) SELECT e.id,e.clip_id,e.step,e.cycle,e.attempts,CASE WHEN e.status='dead' THEN 'job_dead' ELSE 'job_lease_expired' END,CASE WHEN e.status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END,COALESCE(e.prior_owner,'') FROM expired e JOIN recorded r ON r.job_id=e.id`)
+	if err != nil {
 		return nil, fmt.Errorf("recover expired job leases: %w", err)
 	}
+	for expiredRows.Next() {
+		var item expiredLease
+		if err = expiredRows.Scan(&item.job.ID, &item.job.ClipID, &item.job.Step, &item.job.Cycle, &item.job.Attempts, &item.event, &item.code, &item.workerID); err != nil {
+			expiredRows.Close()
+			return nil, fmt.Errorf("read expired job lease: %w", err)
+		}
+		expiredLeases = append(expiredLeases, item)
+	}
+	expiredRows.Close()
+	if err = expiredRows.Err(); err != nil {
+		return nil, fmt.Errorf("recover expired job leases: %w", err)
+	}
+	// The recovery is committed with the claim attempt; it is reported once the transaction is over.
+	defer func() {
+		if err != nil {
+			return
+		}
+		for _, item := range expiredLeases {
+			level := slog.LevelInfo
+			if item.event == "job_dead" {
+				level = slog.LevelWarn
+			}
+			s.logger().Log(ctx, level, item.event, append(jobFields(item.job, item.workerID), "error_code", item.code)...)
+		}
+	}()
 	if _, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',updated_at=now() WHERE status='retry_wait' AND next_attempt_at<=now()`); err != nil {
 		return nil, fmt.Errorf("activate due job retries: %w", err)
 	}
@@ -435,6 +509,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit job claim: %w", err)
 	}
+	s.logger().Info("job_claimed", jobFields(job, workerID)...)
 	return &Assignment{Job: job, LeaseToken: leaseToken}, nil
 }
 
@@ -593,19 +668,22 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 	if err = tx.Commit(ctx); err != nil {
 		return Job{}, fmt.Errorf("commit job completion: %w", err)
 	}
+	if newlyCompleted {
+		s.logger().Info("job_completed", jobFields(job, workerID)...)
+	}
 	return job, nil
 }
 
-func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, message string) (Job, error) {
+func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, message string, detail Diagnostic) (Job, error) {
 	if !validLeaseToken(leaseToken) {
 		return Job{}, ErrLeaseNotOwned
 	}
-	if len(message) > 256 || strings.TrimSpace(message) != message {
+	if len(message) > 256 || strings.TrimSpace(message) != message || !detail.valid() {
 		return Job{}, ErrInvalidInput
 	}
-	// Never persist worker-provided stack traces, paths, or arbitrary details.
+	// Never persist worker-provided stack traces, paths, or arbitrary details: only a code of the closed catalogue.
 	code := "worker_failed"
-	if message == "provider_unavailable" || message == "model_missing" || message == "invalid_input" {
+	if knownFailureCode(message) {
 		code = message
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -633,11 +711,18 @@ func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, mess
 	if status == Dead {
 		event = "marked_dead"
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id,error_code) VALUES($1,$2,$3,$4,'worker',$5,$6)`, id, event, job.Cycle, job.Attempts, workerID, code); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id,error_code,step,provider,model,revision,http_status,duration_ms) VALUES($1,$2,$3,$4,'worker',$5,$6,$7,$8,$9,$10,$11,$12)`, id, event, job.Cycle, job.Attempts, workerID, code, job.Step, detail.Provider, detail.Model, detail.Revision, detail.HTTPStatus, detail.DurationMS); err != nil {
 		return Job{}, fmt.Errorf("record worker job failure: %w", err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return Job{}, fmt.Errorf("commit worker job failure: %w", err)
+	}
+	fields := append(jobFields(job, workerID), "error_code", code)
+	s.logger().Warn("job_failed", fields...)
+	if status == Dead {
+		s.logger().Warn("job_dead", fields...)
+	} else {
+		s.logger().Info("job_retry_scheduled", append(jobFields(job, workerID), "error_code", code, "delay_ms", delay.Milliseconds())...)
 	}
 	return job, nil
 }

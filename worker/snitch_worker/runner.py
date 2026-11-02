@@ -10,6 +10,7 @@ import ssl
 import subprocess
 import tempfile
 import threading
+import time
 import wave
 import struct
 from concurrent.futures import ThreadPoolExecutor
@@ -30,12 +31,12 @@ from snitch_client.models.worker_pulse_input import WorkerPulseInput
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
-from snitch_worker import revocation
+from snitch_worker import log, revocation
 from snitch_worker import voice_models
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
 from snitch_worker.transcription_config import active_configuration, sync_configuration
-from snitch_worker.voice import ensure_provider_ready, is_trial_step, is_voice_step, process_trial_step, process_voice_step, requires_audio
+from snitch_worker.voice import DIARIZATION_STEP, TRIAL_STEP, VoiceProviderUnavailable, ensure_provider_ready, is_trial_step, is_voice_step, process_trial_step, process_voice_step, requires_audio
 
 
 def fake_provider(step: str) -> dict[str, Any]:
@@ -46,6 +47,36 @@ def fake_provider(step: str) -> dict[str, Any]:
         "provider": "fixture",
         "step": step,
     }
+
+
+class TranscriptionError(RuntimeError):
+    """A categorised Whisper failure. It carries a catalogue code and a status, never the provider text."""
+
+    def __init__(self, code: str, http_status: int | None = None) -> None:
+        super().__init__(code)
+        self.code = code
+        self.http_status = http_status
+
+
+# Provider reasons of a diarization step mapped to the catalogue; other reasons keep the generic code.
+DIARIZATION_FAILURE_CODES = {
+    "model_path_missing": "pyannote_model_missing",
+    "model_access_denied": "pyannote_access_denied",
+    "cuda_unavailable": "gpu_unavailable",
+    "gpu_out_of_memory": "gpu_out_of_memory",
+    "model_load_failed": "diarization_inference_failed",
+    "inference_failed": "diarization_inference_failed",
+}
+
+
+def _is_diarization_step(step: str) -> bool:
+    return bool(DIARIZATION_STEP.fullmatch(step) or TRIAL_STEP.fullmatch(step))
+
+
+def _voice_config(task_input: Any) -> dict[str, Any]:
+    voice_value = getattr(task_input, "voice", None)
+    voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
+    return voice_input.get("config") or {}
 
 
 class Transcriber(Protocol):
@@ -64,6 +95,21 @@ class OpenAICompatibleTranscriber:
 
     def transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None = None, language: str = "fr") -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        try:
+            return self._transcribe(wav_path, vocabulary, language, headers)
+        except TranscriptionError:
+            raise
+        except httpx.TimeoutException as exc:
+            raise TranscriptionError("whisper_timeout") from exc
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            raise TranscriptionError("whisper_model_missing" if status == 404 else "whisper_http_error", status) from exc
+        except httpx.TransportError as exc:
+            raise TranscriptionError("whisper_network") from exc
+        except (TypeError, ValueError, KeyError, AttributeError) as exc:
+            raise TranscriptionError("whisper_invalid_response") from exc
+
+    def _transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None, language: str, headers: dict[str, str]) -> dict[str, Any]:
         with open(wav_path, "rb") as audio:
             response = httpx.post(
                 self.endpoint + "/v1/audio/transcriptions",
@@ -280,6 +326,7 @@ def _heartbeat_loop(
     interval: float,
     stop: threading.Event,
     errors: list[Exception],
+    context: dict[str, Any] | None = None,
 ) -> None:
     while not stop.wait(interval):
         try:
@@ -291,6 +338,7 @@ def _heartbeat_loop(
                 ),
                 "heartbeat",
             )
+            log.emit(logging.DEBUG, "job_heartbeat", **(context or {}))
         except (httpx.HTTPError, RuntimeError) as exc:
             errors.append(exc)
             return
@@ -326,12 +374,25 @@ def run_once(
         try:
             voice_models.sync_voice_models(client, voice_models.default_manager())
         except Exception:  # noqa: BLE001 - the model manager must never stop claiming
-            logging.getLogger(__name__).warning("voice model synchronisation failed")
+            log.emit(logging.WARNING, "voice_model_sync_failed")
     claim = _require_response(claim_job(client=client), "claim")
     if claim is None or claim.job is None:
+        log.emit(logging.DEBUG, "claim_empty")
         return False
     job = claim.job
     lease_token = claim.lease_token
+    # Correlation context taken from the claim; the lease token is never part of it.
+    context = {
+        "clip_id": getattr(job, "clip_id", None),
+        "job_id": job.id,
+        "step": job.step,
+        "cycle": getattr(job, "cycle", None),
+        "attempt": getattr(job, "attempts", None),
+        "worker_id": getattr(job, "lease_owner", None),
+    }
+    started = time.monotonic()
+    log.emit(logging.INFO, "job_claimed", **context)
+    active_transcriber: Transcriber | None = None
     heartbeat_stop = threading.Event()
     heartbeat_errors: list[Exception] = []
     heartbeater = threading.Thread(
@@ -343,10 +404,12 @@ def run_once(
             heartbeat_interval,
             heartbeat_stop,
             heartbeat_errors,
+            context,
         ),
         daemon=True,
     )
     heartbeater.start()
+    log.emit(logging.INFO, "job_started", **context)
     try:
         task_input = _require_response(
             get_job_input(
@@ -412,6 +475,20 @@ def run_once(
         heartbeater.join()
         if heartbeat_errors:
             raise RuntimeError("worker lease lost")
+        if _is_diarization_step(job.step):
+            config = _voice_config(task_input)
+            speakers = result.get("speakers") or []
+            log.emit(
+                logging.INFO,
+                "diarization_done",
+                provider=config.get("provider"),
+                model=config.get("model"),
+                revision=config.get("model_version"),
+                speakers=len(speakers),
+                segments=sum(len(speaker.get("turns") or []) for speaker in speakers),
+                duration_ms=int((time.monotonic() - started) * 1000),
+                **context,
+            )
         result_model = WorkerResultInputResult()
         result_model.additional_properties.update(result)
         _require_response(
@@ -425,6 +502,7 @@ def run_once(
             ),
             "complete",
         )
+        log.emit(logging.INFO, "job_completed", duration_ms=int((time.monotonic() - started) * 1000), **context)
     except (
         httpx.HTTPError,
         KeyError,
@@ -436,17 +514,44 @@ def run_once(
     ) as exc:
         heartbeat_stop.set()
         heartbeater.join()
-        error_code = (
-            "audio_preparation_failed"
-            if isinstance(exc, (OSError, subprocess.SubprocessError))
-            else "provider_unavailable"
+        diagnostic: dict[str, Any] = {}
+        if isinstance(exc, TranscriptionError):
+            error_code = exc.code
+            diagnostic = {"provider": "openai-compatible", "duration_ms": int((time.monotonic() - started) * 1000)}
+            model = getattr(transcriber, "model", None) or getattr(active_transcriber, "model", None)
+            if isinstance(model, str) and model:
+                diagnostic["model"] = model
+            if exc.http_status is not None:
+                diagnostic["http_status"] = exc.http_status
+        elif isinstance(exc, VoiceProviderUnavailable) and _is_diarization_step(job.step) and exc.reason in DIARIZATION_FAILURE_CODES:
+            error_code = DIARIZATION_FAILURE_CODES[exc.reason]
+            voice_config = _voice_config(task_input)
+            diagnostic = {"duration_ms": int((time.monotonic() - started) * 1000)}
+            for field, key in (("provider", "provider"), ("model", "model"), ("revision", "model_version")):
+                value = voice_config.get(key)
+                if isinstance(value, str) and value:
+                    diagnostic[field] = value
+        else:
+            error_code = (
+                "audio_preparation_failed"
+                if isinstance(exc, (OSError, subprocess.SubprocessError))
+                else "provider_unavailable"
+            )
+        # Only the code and the exception class: the raw text can echo URLs, paths or tokens.
+        log.emit(
+            logging.WARNING,
+            "job_failed",
+            error_code=error_code,
+            error_class=type(exc).__name__,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            **context,
         )
         try:
             _require_response(
                 fail_job(
                     client=client,
                     id=job.id,
-                    body=WorkerFailureInput(error=error_code),
+                    body=WorkerFailureInput(error=error_code, **diagnostic),
                     x_worker_lease_token=lease_token,
                 ),
                 "fail",
@@ -454,7 +559,7 @@ def run_once(
         except (httpx.HTTPError, RuntimeError):
             # The lease may have expired or moved while the provider was busy.
             # In that case the old attempt must not mutate the recovered task.
-            pass
+            log.emit(logging.WARNING, "job_failure_not_recorded", **context)
     return True
 
 
@@ -522,6 +627,7 @@ def run_until_stopped(
 
 
 def main() -> None:
+    log.configure()
     shutdown = threading.Event()
 
     def request_shutdown(_signum: int, _frame: object) -> None:

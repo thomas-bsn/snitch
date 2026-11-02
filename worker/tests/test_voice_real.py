@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import subprocess
@@ -231,7 +232,7 @@ class RobustnessTests(unittest.TestCase):
 
     def test_loader_errors_are_redacted(self):
         def broken(path, device):
-            raise OSError("401 token hf_SECRET at /private/models/x")
+            raise OSError("disk token hf_SECRET at /private/models/x")
 
         with model_dirs() as env:
             p = provider(env, load_pipeline=broken)
@@ -245,7 +246,7 @@ class RobustnessTests(unittest.TestCase):
     def test_inference_errors_are_redacted(self):
         def load_pipeline(path, device):
             def run(audio):
-                raise RuntimeError("CUDA out of memory /secret")
+                raise RuntimeError("tensor shape mismatch /secret")
 
             return run
 
@@ -365,6 +366,158 @@ class RunnerAudioTests(unittest.TestCase):
         self.assertEqual(streamed, [])
         self.assertEqual(prepared, [])
         self.assertEqual(fail.call_args.kwargs["body"].error, "provider_unavailable")
+
+
+class DiarizationDiagnosticTests(RunnerAudioTests):
+    """A diarization failure has its own catalogue code and typed diagnostic; a run logs what ran, never content."""
+
+    PRIVATE = "synthetic words token=hf_secret /tmp/private/audio.wav"
+
+    def capture_logs(self):
+        import io
+        import json as jsonlib
+
+        from snitch_worker import log
+
+        stream = io.StringIO()
+        log.configure("DEBUG", stream=stream)
+        self.addCleanup(log.configure, "INFO", io.StringIO())
+        return lambda: [jsonlib.loads(line) for line in stream.getvalue().splitlines()]
+
+    def test_each_diarization_failure_has_its_own_code_and_diagnostic(self):
+        for reason, expected in (
+            ("model_path_missing", "pyannote_model_missing"),
+            ("model_access_denied", "pyannote_access_denied"),
+            ("cuda_unavailable", "gpu_unavailable"),
+            ("gpu_out_of_memory", "gpu_out_of_memory"),
+            ("inference_failed", "diarization_inference_failed"),
+        ):
+            with self.subTest(reason):
+                logs = self.capture_logs()
+
+                class Failing:
+                    def ensure_ready(self, config):
+                        pass
+
+                    def diarize(self, config, audio_path, stream_index):
+                        raise voice.VoiceProviderUnavailable(reason)
+
+                _complete, fail, _s, _p = self.run_step("voice.diarization.0", CONFIG, {"pyannote": Failing()})
+                payload = fail.call_args.kwargs["body"].to_dict()
+                self.assertEqual(payload["error"], expected)
+                self.assertEqual((payload["provider"], payload["model"], payload["revision"]), ("pyannote", CONFIG["model"], CONFIG["model_version"]))
+                self.assertGreaterEqual(payload["duration_ms"], 0)
+                failed = [line for line in logs() if line["event"] == "job_failed"]
+                self.assertEqual(failed[0]["error_code"], expected)
+
+    def test_a_failed_diarization_leaves_a_trace_without_content_token_signed_url_or_vector(self):
+        logs = self.capture_logs()
+        stream_text = []
+        secrets = ("lt_synthetic-lease-token", "hf_secret", "X-Amz-Signature=abc123", "bonjour tout le monde", "0.31415927")
+
+        class Leaky:
+            def ensure_ready(self, config):
+                pass
+
+            def diarize(self, config, audio_path, stream_index):
+                raise RuntimeError("CUDA out of memory for https://storage.example/a.wav?X-Amz-Signature=abc123 token=hf_secret "
+                                   "transcript=bonjour tout le monde embedding=[0.31415927]")
+
+        _complete, fail, _s, _p = self.run_step("voice.diarization.0", CONFIG, {"pyannote": Leaky()})
+        stream_text.append(json.dumps(logs()))
+        stream_text.append(json.dumps(fail.call_args.kwargs["body"].to_dict()))
+        failed = [line for line in logs() if line["event"] == "job_failed"]
+        self.assertEqual(len(failed), 1)
+        self.assertEqual((failed[0]["job_id"], failed[0]["step"]), (9, "voice.diarization.0"))
+        for text in stream_text:
+            for secret in secrets:
+                self.assertNotIn(secret, text)
+
+    def test_a_preflight_failure_is_categorised_too(self):
+        class Unready:
+            def ensure_ready(self, config):
+                raise voice.VoiceProviderUnavailable("model_path_missing")
+
+        _c, fail, _s, _p = self.run_step("voice.diarization.0", CONFIG, {"pyannote": Unready()})
+        self.assertEqual(fail.call_args.kwargs["body"].error, "pyannote_model_missing")
+
+    def test_a_successful_diarization_logs_provider_model_speakers_and_segments_only(self):
+        logs = self.capture_logs()
+
+        class Ok:
+            def ensure_ready(self, config):
+                pass
+
+            def diarize(self, config, audio_path, stream_index):
+                return {"provider": "pyannote", "speakers": [
+                    {"label": "SPEAKER_00", "turns": [{"start": 0, "end": 1}, {"start": 2, "end": 3}]},
+                    {"label": "SPEAKER_01", "turns": [{"start": 1, "end": 2}]},
+                ]}
+
+        _c, fail, _s, _p = self.run_step("voice.diarization.0", CONFIG, {"pyannote": Ok()})
+        fail.assert_not_called()
+        done = [line for line in logs() if line["event"] == "diarization_done"]
+        self.assertEqual(len(done), 1)
+        self.assertEqual((done[0]["provider"], done[0]["model"], done[0]["revision"]), ("pyannote", CONFIG["model"], CONFIG["model_version"]))
+        self.assertEqual((done[0]["speakers"], done[0]["segments"]), (2, 3))
+        self.assertIn("job_id", done[0])
+        self.assertGreaterEqual(done[0]["duration_ms"], 0)
+
+    def test_provider_logs_device_load_and_inference_times(self):
+        logs = self.capture_logs()
+        with model_dirs() as env:
+            provider(env, load_pipeline=lambda path, device: (lambda audio: Annotation([]))).diarize(CONFIG, "/a.wav", 0)
+        events = {line["event"]: line for line in logs()}
+        self.assertEqual(events["diarization_model_loaded"]["device"], "cpu")
+        self.assertGreaterEqual(events["diarization_model_loaded"]["load_ms"], 0)
+        self.assertGreaterEqual(events["diarization_inference_done"]["inference_ms"], 0)
+        self.assertEqual(events["diarization_inference_done"]["device"], "cpu")
+
+    def test_provider_classifies_memory_and_access_errors_without_their_text(self):
+        class GatedRepoError(Exception):
+            pass
+
+        def oom_load(path, device):
+            raise RuntimeError("CUDA out of memory " + self.PRIVATE)
+
+        def denied_load(path, device):
+            raise GatedRepoError("403 " + self.PRIVATE)
+
+        def oom_run(path, device):
+            def run(audio):
+                raise RuntimeError("CUDA out of memory " + self.PRIVATE)
+
+            return run
+
+        for name, loader, reason in (("oom load", oom_load, "gpu_out_of_memory"), ("denied", denied_load, "model_access_denied"), ("oom inference", oom_run, "gpu_out_of_memory")):
+            with self.subTest(name), model_dirs() as env:
+                with self.assertRaises(voice.VoiceProviderUnavailable) as caught:
+                    provider(env, load_pipeline=loader).diarize(CONFIG, "/a.wav", 0)
+                self.assertEqual(caught.exception.reason, reason)
+
+    def test_classify_prefers_type_and_status_and_ignores_identifiers_that_look_like_a_status(self):
+        class HubError(Exception):
+            def __init__(self, status):
+                super().__init__("opaque " + self.__class__.__name__)
+                self.response = SimpleNamespace(status_code=status)
+
+        cases = (
+            ("status 401 on response", HubError(401), "model_access_denied"),
+            ("status 403 on response", HubError(403), "model_access_denied"),
+            ("status 500 with 401 in text", _with_text(HubError(500), "HTTP 401 echoed"), "inference_failed"),
+            ("memory error type", MemoryError(), "gpu_out_of_memory"),
+            ("identifier holding 401", RuntimeError("clip 401 of batch req-401-x failed"), "inference_failed"),
+            ("identifier glued to 403", RuntimeError("trace a403b2 failed"), "inference_failed"),
+            ("last resort text", RuntimeError("HTTP 401 Client Error"), "model_access_denied"),
+        )
+        for name, exc, expected in cases:
+            with self.subTest(name):
+                self.assertEqual(voice_pyannote._classify(exc, "inference_failed"), expected)
+
+
+def _with_text(exc, text):
+    exc.args = (text,)
+    return exc
 
 
 class DownloadScriptTests(unittest.TestCase):

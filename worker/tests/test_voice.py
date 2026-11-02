@@ -74,7 +74,7 @@ class VoiceRunnerTests(unittest.TestCase):
     def test_runner_reports_only_a_redacted_code_for_unavailable_providers(self):
         complete, fail = self.run_step("voice.diarization.2", {"config": {**CONFIG, "provider": "pyannote"}})
         complete.assert_not_called()
-        self.assertEqual(fail.call_args.kwargs["body"].error, "provider_unavailable")
+        self.assertEqual(fail.call_args.kwargs["body"].error, "pyannote_model_missing")
 
 
 if __name__ == "__main__":

@@ -352,6 +352,14 @@ export const fr: Messages = {
       hf_access_denied:
         "Accès Hugging Face refusé : acceptez les conditions du modèle avec le compte du jeton.",
       disk_full: "Disque plein sur la machine du Worker.",
+      hf_auth_required:
+        "Hugging Face a refusé le jeton : vérifiez-le et acceptez les conditions du modèle avec son compte.",
+      hf_not_found: "Modèle ou révision introuvable sur Hugging Face.",
+      hf_network: "Hugging Face est injoignable depuis ce Worker.",
+      models_volume_unwritable:
+        "Le volume des modèles du Worker n'est pas inscriptible.",
+      hf_cache_error:
+        "Le cache Hugging Face (Xet) du Worker n'est pas utilisable.",
       runtime_incompatible:
         "Ce modèle n'est pas compatible avec l'environnement du Worker.",
       inference_failed: "L'inférence de test a échoué.",

@@ -205,15 +205,21 @@ type JobControl struct {
 }
 
 type JobEvent struct {
-	ID        int64              `json:"id"`
-	JobID     int64              `json:"job_id"`
-	Event     string             `json:"event"`
-	Cycle     int32              `json:"cycle"`
-	Attempt   pgtype.Int4        `json:"attempt"`
-	Actor     string             `json:"actor"`
-	ActorID   string             `json:"actor_id"`
-	ErrorCode string             `json:"error_code"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID         int64              `json:"id"`
+	JobID      int64              `json:"job_id"`
+	Event      string             `json:"event"`
+	Cycle      int32              `json:"cycle"`
+	Attempt    pgtype.Int4        `json:"attempt"`
+	Actor      string             `json:"actor"`
+	ActorID    string             `json:"actor_id"`
+	ErrorCode  string             `json:"error_code"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Step       pgtype.Text        `json:"step"`
+	Provider   pgtype.Text        `json:"provider"`
+	Model      pgtype.Text        `json:"model"`
+	Revision   pgtype.Text        `json:"revision"`
+	HttpStatus pgtype.Int4        `json:"http_status"`
+	DurationMs pgtype.Int4        `json:"duration_ms"`
 }
 
 type LocalSpeaker struct {

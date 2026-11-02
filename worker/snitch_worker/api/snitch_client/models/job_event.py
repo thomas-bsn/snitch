@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 from ..models.job_event_actor import JobEventActor
 from ..models.job_event_event import JobEventEvent
+from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
@@ -32,8 +33,16 @@ class JobEvent:
             attempt (int | None):
             actor (JobEventActor):
             actor_id (str):
-            error_code (str):
+            error_code (str): Cause d'échec (voir FailureCode) ; vide pour un événement sans échec.
             created_at (datetime.datetime):
+            step (str | Unset): Étape du job, présente avec un diagnostic.
+            provider (str | Unset):
+            model (str | Unset):
+            revision (str | Unset):
+            http_status (int | Unset):
+            duration_ms (int | Unset):
+            recommended_action (str | Unset): Code de l'action de reprise conseillée, décidée par le serveur ; absent sans
+                cause connue.
      """
 
     id: int
@@ -44,6 +53,13 @@ class JobEvent:
     actor_id: str
     error_code: str
     created_at: datetime.datetime
+    step: str | Unset = UNSET
+    provider: str | Unset = UNSET
+    model: str | Unset = UNSET
+    revision: str | Unset = UNSET
+    http_status: int | Unset = UNSET
+    duration_ms: int | Unset = UNSET
+    recommended_action: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -68,6 +84,20 @@ class JobEvent:
 
         created_at = self.created_at.isoformat()
 
+        step = self.step
+
+        provider = self.provider
+
+        model = self.model
+
+        revision = self.revision
+
+        http_status = self.http_status
+
+        duration_ms = self.duration_ms
+
+        recommended_action = self.recommended_action
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -81,6 +111,20 @@ class JobEvent:
             "error_code": error_code,
             "created_at": created_at,
         })
+        if step is not UNSET:
+            field_dict["step"] = step
+        if provider is not UNSET:
+            field_dict["provider"] = provider
+        if model is not UNSET:
+            field_dict["model"] = model
+        if revision is not UNSET:
+            field_dict["revision"] = revision
+        if http_status is not UNSET:
+            field_dict["http_status"] = http_status
+        if duration_ms is not UNSET:
+            field_dict["duration_ms"] = duration_ms
+        if recommended_action is not UNSET:
+            field_dict["recommended_action"] = recommended_action
 
         return field_dict
 
@@ -120,6 +164,20 @@ class JobEvent:
 
 
 
+        step = d.pop("step", UNSET)
+
+        provider = d.pop("provider", UNSET)
+
+        model = d.pop("model", UNSET)
+
+        revision = d.pop("revision", UNSET)
+
+        http_status = d.pop("http_status", UNSET)
+
+        duration_ms = d.pop("duration_ms", UNSET)
+
+        recommended_action = d.pop("recommended_action", UNSET)
+
         job_event = cls(
             id=id,
             event=event,
@@ -129,6 +187,13 @@ class JobEvent:
             actor_id=actor_id,
             error_code=error_code,
             created_at=created_at,
+            step=step,
+            provider=provider,
+            model=model,
+            revision=revision,
+            http_status=http_status,
+            duration_ms=duration_ms,
+            recommended_action=recommended_action,
         )
 
 

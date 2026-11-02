@@ -76,3 +76,6 @@ _Avoid_ : Modification de la transcription, édition.
 **Inscription en attente** : Une demande d'accès qui nécessite l'approbation d'un administrateur avant connexion.
 
 **Bibliothèque** : L'ensemble des clips connus de Snitch, y compris ceux dont l'original est introuvable.
+
+**Cause d'échec** : La raison, exprimée dans un vocabulaire fermé et stable, pour laquelle une étape de traitement n'a pas abouti. Elle est accompagnée de l'étape, de l'heure et de l'action de reprise conseillée. Seul un Administrateur la voit ; les autres utilisateurs voient seulement l'état du clip.
+_Avoid_ : Message d'erreur (texte libre, non stable), log.

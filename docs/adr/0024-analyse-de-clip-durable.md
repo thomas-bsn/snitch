@@ -1,6 +1,6 @@
 # Analyse de clip durable
 
-Statut : accepté pour #115 (ticket #165). Complète l'[ADR 0012](0012-corrections-des-segments-transcrits.md) et l'[ADR 0022](0022-modele-vocal-actif-global.md) sans les modifier. Numéro 0023 : les numéros 0020 à 0022 étaient déjà pris sur la branche d'intégration.
+Statut : accepté pour #115 (ticket #165). Complète l'[ADR 0012](0012-corrections-des-segments-transcrits.md) et l'[ADR 0022](0022-modele-vocal-actif-global.md) sans les modifier. Numéro 0024 : les numéros 0020 à 0022 étaient déjà pris sur la branche d'intégration.
 
 ## Contexte
 
