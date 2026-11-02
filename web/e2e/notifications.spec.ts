@@ -45,6 +45,82 @@ test.describe.serial("notifications : voix à vérifier", () => {
     await page.keyboard.press("Escape");
   });
 
+  test("la page dédiée sépare non-lues et actions, filtre, et suit le direct", async () => {
+    await page.goto("/library");
+    await page.getByRole("button", { name: "Notifications" }).click();
+    await page
+      .getByRole("menuitem", { name: "View all notifications" })
+      .click();
+    await expect(page).toHaveURL(/\/notifications$/);
+    await expect(
+      page.getByRole("heading", { name: "Notifications", level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByTestId("count-unread")).toHaveText("0 unread");
+    await expect(page.getByTestId("count-actions")).toHaveText(
+      "1 actions to handle",
+    );
+    const rows = page.getByTestId("notification-row");
+    await expect(rows).toHaveCount(1);
+    // An active action cannot be removed.
+    await expect(
+      page.getByRole("button", { name: "Remove from history" }),
+    ).toHaveCount(0);
+
+    // Unread is individual and does not touch the open action count.
+    await rows.getByRole("button", { name: "Mark as unread" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("count-unread")).toHaveText("1 unread");
+    await expect(page.getByTestId("count-actions")).toHaveText(
+      "1 actions to handle",
+    );
+
+    // Filters.
+    const filters = page.getByRole("group", { name: "Filter notifications" });
+    await filters.getByRole("button", { name: "Errors" }).click();
+    await expect(
+      page.getByText("No notifications match this filter."),
+    ).toBeVisible();
+    await filters.getByRole("button", { name: "Unread" }).click();
+    await expect(rows).toHaveCount(1);
+    await filters.getByRole("button", { name: "Actions required" }).click();
+    await expect(rows).toHaveCount(1);
+    await expect(
+      rows.getByRole("link", { name: "Verify the voices" }),
+    ).toHaveAttribute(
+      "href",
+      new RegExp(`/people/verification\\?clip=${clipId}$`),
+    );
+
+    // Live: a second tab sees the change without reloading.
+    const other = await page.context().newPage();
+    await other.goto("/notifications");
+    await expect(other.getByTestId("count-unread")).toHaveText("1 unread");
+    await page
+      .getByTestId("notification-row")
+      .getByRole("button", { name: "Mark as read" })
+      .click();
+    await expect(page.getByTestId("count-unread")).toHaveText("0 unread");
+    await expect(other.getByTestId("count-unread")).toHaveText("0 unread");
+    await other.close();
+
+    const { violations } = await new AxeBuilder({ page })
+      .withTags(TAGS)
+      .analyze();
+    expect(violations.map((v) => v.id)).toEqual([]);
+
+    // Phone width: no horizontal scroll and still accessible.
+    await page.setViewportSize({ width: 375, height: 700 });
+    await expect(page.getByTestId("notification-row")).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    const phone = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+    expect(phone.violations.map((v) => v.id)).toEqual([]);
+    await page.setViewportSize({ width: 1280, height: 800 });
+  });
+
   test("la notification mène à la vérification filtrée sur le clip, puis se résout", async () => {
     await page.goto("/library");
     await page.getByRole("button", { name: "Notifications" }).click();
@@ -80,5 +156,19 @@ test.describe.serial("notifications : voix à vérifier", () => {
     await expect(menu).toContainText("Voices verified in synthetic-voices.mp4");
     await expect(menu).toContainText("Resolved");
     await expect(menu).not.toContainText("to handle");
+  });
+
+  test("l'historique résolu se vide en une action", async () => {
+    await page.goto("/notifications");
+    await expect(page.getByTestId("count-actions")).toHaveText(
+      "0 actions to handle",
+    );
+    const history = page.getByRole("list", { name: "Resolved notifications" });
+    await expect(history.getByTestId("notification-row")).toHaveCount(1);
+    await page
+      .getByRole("button", { name: "Remove resolved notifications" })
+      .click();
+    await expect(page.getByText("No notifications.")).toBeVisible();
+    await expect(page.getByTestId("notification-row")).toHaveCount(0);
   });
 });

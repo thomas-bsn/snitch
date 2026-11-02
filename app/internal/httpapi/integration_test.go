@@ -266,6 +266,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testNotifications(t, pool)
 	})
+	t.Run("notification events", func(t *testing.T) {
+		reset(t)
+		testNotificationEvents(t, pool)
+	})
 	t.Run("incident notifications", func(t *testing.T) {
 		reset(t)
 		testIncidentNotifications(t, pool)

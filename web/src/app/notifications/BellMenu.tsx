@@ -7,6 +7,7 @@ import {
   useNotificationActions,
 } from "./notificationsApi";
 import type { AppNotification } from "./notificationsApi";
+import { notificationText } from "./notificationText";
 import { useNotifications } from "./useNotifications";
 
 const itemClass =
@@ -20,31 +21,6 @@ export function BellMenu() {
   const actions = useNotificationActions();
   const unread = list?.unread ?? 0;
   const items = list?.items ?? [];
-
-  function text(item: AppNotification) {
-    const clip = item.clip_name;
-    if (item.generic)
-      return item.state === "resolved"
-        ? t("notifications.incidentResolved")
-        : t("notifications.incidentGeneric");
-    if (item.kind !== "needs_speaker_review") {
-      if (item.state === "resolved") return t("notifications.incidentResolved");
-      const count = item.pending_count;
-      const step = item.step;
-      return item.kind === "worker_unavailable"
-        ? t("notifications.incidentWorker", { count })
-        : item.kind === "provider_unavailable"
-          ? t("notifications.incidentProvider", { count })
-          : item.kind === "model_missing"
-            ? t("notifications.incidentModel", { count })
-            : t("notifications.incidentJob", { count, step });
-    }
-    if (item.state === "resolved")
-      return t("notifications.speakerReviewResolved", { clip });
-    return item.pending_count === 1
-      ? t("notifications.speakerReviewOne", { clip })
-      : t("notifications.speakerReview", { clip, count: item.pending_count });
-  }
 
   async function open(item: AppNotification) {
     // Opening reads the notification; the shared action stays pending until handled.
@@ -113,7 +89,7 @@ export function BellMenu() {
                     <span
                       className={`block ${item.read ? "text-mute" : "font-medium"}`}
                     >
-                      {text(item)}
+                      {notificationText(item, t)}
                     </span>
                     {!item.read && (
                       <span className="sr-only">
@@ -138,6 +114,13 @@ export function BellMenu() {
                 </Menu.Item>
               ))}
             </div>
+            <Menu.Separator className="my-1 h-px bg-line" />
+            <Menu.Item
+              className={`${itemClass} items-center font-medium text-accent-ink`}
+              onClick={() => void navigate("/notifications")}
+            >
+              {t("notifications.viewAll")}
+            </Menu.Item>
             {unread > 0 && (
               <>
                 <Menu.Separator className="my-1 h-px bg-line" />

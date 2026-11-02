@@ -550,6 +550,23 @@ export const fr: Messages = {
     history: "Historique",
     actions: "Actions",
     removeFailed: "Cette notification n’a pas pu être retirée.",
+    viewAll: "Voir toutes les notifications",
+    filters: "Filtrer les notifications",
+    filterAll: "Toutes",
+    filterUnread: "Non lues",
+    filterActions: "Actions à traiter",
+    filterErrors: "Erreurs",
+    unreadCount: "{count} non lues",
+    actionsCount: "{count} actions à traiter",
+    actionVerify: "Vérifier les voix",
+    removeResolved: "Retirer les notifications résolues",
+    emptyFiltered: "Aucune notification ne correspond à ce filtre.",
+    activeList: "Notifications actives",
+    historyList: "Notifications résolues",
+    live: "Mises à jour en direct",
+    polling:
+      "Les mises à jour en direct sont suspendues, actualisation régulière.",
+    forbidden: "Votre accès aux notifications a pris fin. Reconnectez-vous.",
     incidentWorker:
       "Aucun worker compatible n’est disponible : {count} jobs attendent",
     incidentProvider:

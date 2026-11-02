@@ -2,11 +2,14 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"snitch/internal/events"
 )
 
 // Notifications are persistent and per recipient. A notification is one shared action: its
@@ -28,6 +31,7 @@ AND COALESCE((SELECT a.decision_level FROM speaker_attributions a WHERE a.local_
 
 func (s *Server) registerNotificationRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/notifications", s.protected(false, http.HandlerFunc(s.listNotifications)))
+	mux.Handle("GET /api/notifications/events", s.protected(false, http.HandlerFunc(s.notificationEvents)))
 	mux.Handle("POST /api/notifications/read", s.protected(false, http.HandlerFunc(s.readAllNotifications)))
 	mux.Handle("PUT /api/notifications/{id}/read", s.protected(false, http.HandlerFunc(s.markNotificationRead)))
 	mux.Handle("DELETE /api/notifications/{id}/read", s.protected(false, http.HandlerFunc(s.markNotificationUnread)))
@@ -157,42 +161,84 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = n
 	}
-	ctx := r.Context()
-	rows, err := s.Pool.Query(ctx, `SELECT n.id,n.kind,n.state,n.clip_id,COALESCE(c.original_name,''),n.pending_count,x.read_at IS NOT NULL,n.created_at,n.updated_at,n.resolved_at,n.job_id,n.step,n.error_code
-FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
-WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible+` AND ($3='all' OR n.state=$3)
-ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4`, ss.User.ID, admin, state, limit)
+	list, err := s.notificationList(r.Context(), ss.User.ID, admin, state, limit)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	items := []notificationView{}
+	reply(w, http.StatusOK, list)
+}
+
+type notificationListView struct {
+	Items   []notificationView `json:"items"`
+	Unread  int                `json:"unread"`
+	Pending int                `json:"pending"`
+}
+
+// notificationList reads the notifications of a recipient, the access rule applied at this
+// very read. The two counters cover everything visible, whatever the page size or filter.
+func (s *Server) notificationList(ctx context.Context, userID int64, admin bool, state string, limit int) (notificationListView, error) {
+	out := notificationListView{Items: []notificationView{}}
+	rows, err := s.Pool.Query(ctx, `SELECT n.id,n.kind,n.state,n.clip_id,COALESCE(c.original_name,''),n.pending_count,x.read_at IS NOT NULL,n.created_at,n.updated_at,n.resolved_at,n.job_id,n.step,n.error_code
+FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
+WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible+` AND ($3='all' OR n.state=$3)
+ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4`, userID, admin, state, limit)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
 	for rows.Next() {
 		var v notificationView
 		if err = rows.Scan(&v.ID, &v.Kind, &v.State, &v.ClipID, &v.ClipName, &v.PendingCount, &v.Read, &v.CreatedAt, &v.UpdatedAt, &v.ResolvedAt, &v.JobID, &v.Step, &v.ErrorCode); err != nil {
-			rows.Close()
-			s.internal(w, err)
-			return
+			return out, err
 		}
 		if v.Kind != kindSpeakerReview && !admin {
 			// A safe generic message: no cause, step, job or counts.
 			v.Kind, v.Generic, v.JobID, v.Step, v.ErrorCode, v.PendingCount = kindTechnicalIncident, true, nil, "", "", 0
 		}
-		items = append(items, v)
+		out.Items = append(out.Items, v)
 	}
 	rows.Close()
 	if err = rows.Err(); err != nil {
-		s.internal(w, err)
-		return
+		return out, err
 	}
-	var unread, pending int
-	if err = s.Pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE x.read_at IS NULL)::int,count(*) FILTER (WHERE n.state='active')::int
+	err = s.Pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE x.read_at IS NULL)::int,count(*) FILTER (WHERE n.state='active')::int
 FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
-WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible, ss.User.ID, admin).Scan(&unread, &pending); err != nil {
-		s.internal(w, err)
-		return
+WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible, userID, admin).Scan(&out.Unread, &out.Pending)
+	return out, err
+}
+
+// notificationEvents streams the caller's notifications: a snapshot, then one per change. The
+// session (and so the role) is read again before every snapshot, so a user who lost access
+// stops receiving what they could see, and a closed session ends the stream.
+func (s *Server) notificationEvents(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(sessionKey{}).(session).User.ID
+	current := func(ctx context.Context) (session, error) {
+		ss, err := s.findSession(r.WithContext(ctx))
+		switch {
+		case errors.Is(err, pgx.ErrNoRows), errors.Is(err, http.ErrNoCookie):
+			return ss, events.ErrForbidden
+		case err != nil:
+			return ss, err
+		case ss.User.ID != userID:
+			return ss, events.ErrForbidden
+		}
+		return ss, nil
 	}
-	reply(w, http.StatusOK, map[string]any{"items": items, "unread": unread, "pending": pending})
+	s.Events.Stream(w, r, events.Topic{
+		Name: "user:" + strconv.FormatInt(userID, 10),
+		Authorize: func(ctx context.Context) error {
+			_, err := current(ctx)
+			return err
+		},
+		Snapshot: func(ctx context.Context) (any, error) {
+			ss, err := current(ctx)
+			if err != nil {
+				return nil, err
+			}
+			return s.notificationList(ctx, userID, isAdministrator(ss.User.Role), "all", 200)
+		},
+	})
 }
 
 // ownNotification reports the state of a notification the caller may act on.
