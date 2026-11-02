@@ -353,6 +353,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testTaskCards(t, pool)
 	})
+	t.Run("task cards performance", func(t *testing.T) {
+		reset(t)
+		testTaskCardsPerformance(t, pool)
+	})
 	t.Run("task cards indexing", func(t *testing.T) {
 		reset(t)
 		testTaskCardsIndexing(t, pool)
