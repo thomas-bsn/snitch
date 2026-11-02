@@ -330,6 +330,13 @@ type PersonLinkRequest struct {
 	DecidedByUsername string             `json:"decided_by_username"`
 }
 
+type PrivateFolder struct {
+	SourceID  int64              `json:"source_id"`
+	Folder    string             `json:"folder"`
+	SetBy     pgtype.Int8        `json:"set_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type SegmentCorrection struct {
 	TranscriptionJobID    int64              `json:"transcription_job_id"`
 	SegmentIndex          int32              `json:"segment_index"`

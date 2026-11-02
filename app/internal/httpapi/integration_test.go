@@ -170,6 +170,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testResumableUploads(t, pool)
 	})
+	t.Run("private folders", func(t *testing.T) {
+		reset(t)
+		testPrivateFolders(t, pool)
+	})
 	t.Run("clip library", func(t *testing.T) {
 		reset(t)
 		testClipLibrary(t, pool)
@@ -849,6 +853,10 @@ func TestFoundation(t *testing.T) {
 			t.Fatalf("source response: %v %s", e, sourceResponse)
 		}
 		call(client, "PUT", "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": "Voice"}, me.CSRF, 200)
+		// Private folders: shape only here; access rules in the private folders suite.
+		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": true}, me.CSRF, 200)
+		call(client, "GET", "/api/library/folders", nil, "", 200)
+		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": false}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
 		call(client, "GET", sourcePath+"/microphone-track", nil, "", 200)
 		call(client, "PUT", sourcePath+"/microphone-track", map[string]any{"title": "Voice", "person_id": contractPerson.ID}, me.CSRF, 200)

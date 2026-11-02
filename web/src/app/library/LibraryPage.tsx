@@ -1,13 +1,18 @@
 import { VideoStorage } from "./VideoStorage";
 import { Link, useLocation } from "react-router";
-import { useCallback, useMemo } from "react";
-import { Folder, ChevronRight } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Folder, ChevronRight, Lock, LockOpen } from "lucide-react";
+import { api, errorCode, mutation } from "../api/client";
+import type { components } from "../../api.gen";
 import { useLoaded, type Result } from "../api/loaded";
 import { useAddressParams } from "../api/useAddressParams";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { isSuperAdministrator } from "../roles";
+import { useSession } from "../session";
 import { ClipCard } from "./ClipCard";
 import { LibraryFilters } from "./LibraryFilters";
 import { LibrarySearchTabs } from "./LibrarySearchTabs";
@@ -47,9 +52,7 @@ function readFilters(params: URLSearchParams): Filters {
 }
 
 /** Build a nested folder tree from flat folder list. */
-function buildFolderTree(
-  folders: { source_id: number; source: string; name: string; path: string }[],
-): FolderNode[] {
+function buildFolderTree(folders: LibraryFolder[]): FolderNode[] {
   const roots = new Map<string, FolderNode>();
 
   for (const f of folders) {
@@ -60,10 +63,12 @@ function buildFolderTree(
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       currentPath = currentPath ? `${currentPath}/${part}` : part;
+      // A top-level folder belongs to one source: its privacy is set per source.
+      const key = i === 0 ? `${f.source_id}:${part}` : part;
 
-      if (!currentMap.has(part)) {
+      if (!currentMap.has(key)) {
         const isLeaf = i === parts.length - 1;
-        currentMap.set(part, {
+        currentMap.set(key, {
           name: part,
           path: currentPath,
           sourceId: f.source_id,
@@ -71,13 +76,15 @@ function buildFolderTree(
           children: new Map(),
           isLeaf,
           clipCount: 0, // We don't have clip counts per folder from the API
+          isPrivate: i === 0 && f.private,
+          locked: i === 0 && f.locked,
         });
       } else if (i === parts.length - 1) {
         // Mark as leaf if this folder has clips directly in it
-        currentMap.get(part)!.isLeaf = true;
+        currentMap.get(key)!.isLeaf = true;
       }
 
-      currentMap = currentMap.get(part)!.children;
+      currentMap = currentMap.get(key)!.children;
     }
   }
 
@@ -92,7 +99,13 @@ type FolderNode = {
   children: Map<string, FolderNode>;
   isLeaf: boolean;
   clipCount: number;
+  /** Made private by the Super-administrator (top-level folders only). */
+  isPrivate: boolean;
+  /** Private and not openable by the current user: only its name is shown. */
+  locked: boolean;
 };
+
+type LibraryFolder = components["schemas"]["LibraryFolder"];
 
 /** Flatten folder tree for rendering with indentation. */
 function flattenFolders(
@@ -123,19 +136,41 @@ export function LibraryPage() {
 
   const clips = useLoaded(useCallback(() => fetchClips(filters), [filters]));
   const choices = useLoaded(fetchFilterOptions);
-  const foldersData = useLoaded<
-    {
-      source_id: number;
-      source: string;
-      name: string;
-      path: string;
-    }[]
-  >(async () => {
-    const response = await fetch("/api/library/folders");
-    if (!response.ok) throw new Error("unavailable");
-    const data = await response.json();
+  const { user, session } = useSession();
+  const canSetPrivacy = user ? isSuperAdministrator(user) : false;
+  const foldersData = useLoaded<LibraryFolder[]>(async () => {
+    const { data, error: failure } = await api.GET("/api/library/folders");
+    if (!data) throw new Error(String(failure ?? "unavailable"));
     return { ok: true, value: data.items };
   });
+  const [privacyTarget, setPrivacyTarget] = useState<FolderNode | null>(null);
+  const [privacyBusy, setPrivacyBusy] = useState(false);
+  const [privacyError, setPrivacyError] = useState<string | null>(null);
+
+  async function applyPrivacy() {
+    if (!privacyTarget) return;
+    setPrivacyBusy(true);
+    setPrivacyError(null);
+    const { error: failure } = await api.PUT(
+      "/api/admin/library/folders/privacy",
+      {
+        params: { header: mutation(session?.csrf_token) } as never,
+        body: {
+          source_id: privacyTarget.sourceId,
+          folder: privacyTarget.name,
+          private: !privacyTarget.isPrivate,
+        },
+      },
+    );
+    setPrivacyBusy(false);
+    if (failure) {
+      setPrivacyError(error(errorCode(failure) ?? "internal_error"));
+      return;
+    }
+    setPrivacyTarget(null);
+    foldersData.reload();
+    clips.reload();
+  }
 
   function change(patch: Partial<Filters>) {
     update((next) => {
@@ -231,7 +266,7 @@ export function LibraryPage() {
                 filters.folder.startsWith(node.path + "/") ||
                 filters.folder === node.path;
               const hasChildren = node.children.size > 0;
-              return (
+              const folderButton = (
                 <button
                   key={`${node.sourceId}:${node.path}`}
                   className={buttonClass(
@@ -243,18 +278,99 @@ export function LibraryPage() {
                       paddingLeft: `${12 + depth * 16}px`,
                     } as React.CSSProperties
                   }
-                  disabled={!node.isLeaf && !hasChildren}
+                  disabled={node.locked || (!node.isLeaf && !hasChildren)}
+                  title={
+                    node.locked
+                      ? t("library.privateFolder.lockedHint")
+                      : undefined
+                  }
                 >
-                  <Folder size={16} aria-hidden="true" />
+                  {node.isPrivate ? (
+                    <Lock size={16} aria-hidden="true" />
+                  ) : (
+                    <Folder size={16} aria-hidden="true" />
+                  )}
                   {node.name}
-                  {hasChildren && !node.isLeaf && (
+                  {node.isPrivate && (
+                    <span className="sr-only">
+                      {t("library.privateFolder.label")}
+                    </span>
+                  )}
+                  {hasChildren && !node.isLeaf && !node.locked && (
                     <ChevronRight size={12} className="ml-1 opacity-50" />
                   )}
                 </button>
               );
+              if (!canSetPrivacy || depth > 0) return folderButton;
+              return (
+                <span
+                  key={`${node.sourceId}:${node.path}`}
+                  className="inline-flex items-center gap-1"
+                >
+                  {folderButton}
+                  <button
+                    type="button"
+                    className={buttonClass("secondary")}
+                    onClick={() => {
+                      setPrivacyError(null);
+                      setPrivacyTarget(node);
+                    }}
+                    aria-label={t(
+                      node.isPrivate
+                        ? "library.privateFolder.makeVisible"
+                        : "library.privateFolder.makePrivate",
+                      { name: node.name },
+                    )}
+                    title={t(
+                      node.isPrivate
+                        ? "library.privateFolder.makeVisible"
+                        : "library.privateFolder.makePrivate",
+                      { name: node.name },
+                    )}
+                  >
+                    {node.isPrivate ? (
+                      <LockOpen size={14} aria-hidden="true" />
+                    ) : (
+                      <Lock size={14} aria-hidden="true" />
+                    )}
+                  </button>
+                </span>
+              );
             })}
           </div>
         </nav>
+      )}
+      {privacyTarget && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPrivacyTarget(null);
+          }}
+          title={t(
+            privacyTarget.isPrivate
+              ? "library.privateFolder.makeVisibleTitle"
+              : "library.privateFolder.makePrivateTitle",
+            { name: privacyTarget.name },
+          )}
+          cancelLabel={t("segmentEdit.cancel")}
+          confirmLabel={t(
+            privacyTarget.isPrivate
+              ? "library.privateFolder.confirmVisible"
+              : "library.privateFolder.confirmPrivate",
+          )}
+          busy={privacyBusy}
+          onConfirm={applyPrivacy}
+        >
+          <p>
+            {t(
+              privacyTarget.isPrivate
+                ? "library.privateFolder.makeVisibleBody"
+                : "library.privateFolder.makePrivateBody",
+            )}
+          </p>
+          <p>{t("library.privateFolder.distinctFromClip")}</p>
+          {privacyError && <p role="alert">{privacyError}</p>}
+        </ConfirmDialog>
       )}
       <LibraryFilters
         filters={filters}

@@ -1467,6 +1467,23 @@ export const fr: Messages = {
     folders: "Dossiers",
     allClips: "Tous les clips",
     parentFolder: "Dossier parent",
+    privateFolder: {
+      label: "(dossier privé)",
+      lockedHint:
+        "Dossier privé : seul le Super-administrateur peut parcourir ses clips.",
+      makePrivate: "Rendre le dossier {name} privé",
+      makeVisible: "Rendre le dossier {name} visible",
+      makePrivateTitle: "Rendre le dossier {name} privé ?",
+      makeVisibleTitle: "Rendre le dossier {name} visible ?",
+      makePrivateBody:
+        "Les autres utilisateurs verront toujours le nom du dossier avec un cadenas, mais ne pourront plus le parcourir ni ouvrir ses clips, que ce soit dans la bibliothèque, la recherche ou tout autre écran. Un clip reste visible pour son propriétaire, et pour ceux avec qui il est partagé s’il se trouve aussi dans un autre dossier visible ou a été déposé directement.",
+      makeVisibleBody:
+        "Les utilisateurs pourront de nouveau parcourir ce dossier et ouvrir ses clips, selon la visibilité propre à chaque clip.",
+      distinctFromClip:
+        "Ce réglage est distinct de la visibilité de chaque clip (partagé ou privé), qu’il ne modifie pas.",
+      confirmPrivate: "Rendre privé",
+      confirmVisible: "Rendre visible",
+    },
   },
   search: {
     prompt:

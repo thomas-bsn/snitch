@@ -77,6 +77,7 @@ from .embedding_settings import EmbeddingSettings
 from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
+from .folder_privacy import FolderPrivacy
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .get_metadata_location_response_200 import GetMetadataLocationResponse200
 from .get_video_root_response_200 import GetVideoRootResponse200
@@ -95,10 +96,12 @@ from .job_input import JobInput
 from .job_page import JobPage
 from .job_result_type_0 import JobResultType0
 from .job_status import JobStatus
+from .library_folder import LibraryFolder
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
 from .list_jobs_workflow import ListJobsWorkflow
+from .list_library_folders_response_200 import ListLibraryFoldersResponse200
 from .list_members_response_200 import ListMembersResponse200
 from .list_notifications_filter import ListNotificationsFilter
 from .list_notifications_state import ListNotificationsState
@@ -448,6 +451,7 @@ __all__ = (
     "Error",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
+    "FolderPrivacy",
     "GetEmbeddingIndexStatusResponse200",
     "GetMetadataLocationResponse200",
     "GetVideoRootResponse200",
@@ -466,10 +470,12 @@ __all__ = (
     "JobPage",
     "JobResultType0",
     "JobStatus",
+    "LibraryFolder",
     "ListClipsStatus",
     "ListClipsVisibility",
     "ListJobsStatus",
     "ListJobsWorkflow",
+    "ListLibraryFoldersResponse200",
     "ListMembersResponse200",
     "ListNotificationsFilter",
     "ListNotificationsState",

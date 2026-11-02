@@ -3496,6 +3496,27 @@
         "description": "Session requise. Ne liste que les Sources et les propriétaires des clips que la visibilité permet à l’appelant de voir : un membre n’apprend l’existence d’aucune Source ni d’aucun compte dont il ne voit aucun clip."
       }
     },
+    "/api/library/folders": {
+      "get": {
+        "operationId": "listLibraryFolders",
+        "summary": "Dossiers de premier niveau parcourables ; un dossier privé apparaît verrouillé pour qui ne peut pas l'ouvrir",
+        "responses": {
+          "200": {"description": "Dossiers", "content": {"application/json": {"schema": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/LibraryFolder"}}}}}}},
+          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/admin/library/folders/privacy": {
+      "put": {
+        "operationId": "putFolderPrivacy",
+        "summary": "Rendre un dossier de premier niveau privé ou visible (super-administrateur)",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderPrivacy"}}}},
+        "responses": {
+          "200": {"description": "Réglage appliqué", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderPrivacy"}}}},
+          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
     "/api/admin/clips/{id}": {
       "delete": {
         "operationId": "deleteClip",
@@ -5691,6 +5712,27 @@
       "ClipAnalysisConflict": {"type": "object", "required": ["error"], "properties": {"error": {"type": "string"}, "run": {"$ref": "#/components/schemas/ClipAnalysisRun"}, "stake": {"$ref": "#/components/schemas/ClipReanalysisStake"}, "stake_at": {"type": "string", "format": "date-time", "description": "Instant où l'enjeu a été lu ; à renvoyer en confirmed_stake_at."}}},
       "ClipReanalysisStake": {"type": "object", "description": "Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés).", "required": ["corrections", "voice"], "properties": {"corrections": {"type": "object", "nullable": true, "description": "Corrections de segments de la transcription visible (retranscription).", "required": ["transcription_job_id", "text_segments", "speaker_segments", "authors", "last_corrected_at"], "properties": {"transcription_job_id": {"type": "integer", "format": "int64"}, "text_segments": {"type": "integer"}, "speaker_segments": {"type": "integer"}, "authors": {"type": "array", "items": {"type": "string"}}, "last_corrected_at": {"type": "string", "nullable": true, "format": "date-time"}}}, "voice": {"type": "object", "nullable": true, "description": "Validations de voix, échantillons et corrections de locuteur (nouvelle diarisation).", "required": ["validated_speakers", "voice_samples", "speaker_corrections"], "properties": {"validated_speakers": {"type": "integer"}, "voice_samples": {"type": "integer"}, "speaker_corrections": {"type": "integer"}}}}},
       "ClipAnalysisHistory": {"type": "object", "required": ["runs"], "properties": {"runs": {"type": "array", "items": {"$ref": "#/components/schemas/ClipAnalysisRun"}}}},
+      "LibraryFolder": {
+        "type": "object",
+        "required": ["source_id", "source", "name", "path", "private", "locked"],
+        "properties": {
+          "source_id": {"type": "integer", "format": "int64"},
+          "source": {"type": "string"},
+          "name": {"type": "string"},
+          "path": {"type": "string"},
+          "private": {"type": "boolean", "description": "Dossier rendu privé par le Super-administrateur"},
+          "locked": {"type": "boolean", "description": "Privé et non ouvrable par l'utilisateur courant : seul son nom est exposé"}
+        }
+      },
+      "FolderPrivacy": {
+        "type": "object",
+        "required": ["source_id", "folder", "private"],
+        "properties": {
+          "source_id": {"type": "integer", "format": "int64", "minimum": 1},
+          "folder": {"type": "string", "minLength": 1, "description": "Nom d'un dossier de premier niveau de la source"},
+          "private": {"type": "boolean"}
+        }
+      },
       "Error": {
         "type": "object",
         "required": [

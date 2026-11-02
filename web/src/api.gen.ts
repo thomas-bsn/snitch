@@ -1046,6 +1046,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/library/folders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Dossiers de premier niveau parcourables ; un dossier privé apparaît verrouillé pour qui ne peut pas l'ouvrir */
+    get: operations["listLibraryFolders"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/folders/privacy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Rendre un dossier de premier niveau privé ou visible (super-administrateur) */
+    put: operations["putFolderPrivacy"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}": {
     parameters: {
       query?: never;
@@ -2746,6 +2780,24 @@ export interface components {
     };
     ClipAnalysisHistory: {
       runs: components["schemas"]["ClipAnalysisRun"][];
+    };
+    LibraryFolder: {
+      /** Format: int64 */
+      source_id: number;
+      source: string;
+      name: string;
+      path: string;
+      /** @description Dossier rendu privé par le Super-administrateur */
+      private: boolean;
+      /** @description Privé et non ouvrable par l'utilisateur courant : seul son nom est exposé */
+      locked: boolean;
+    };
+    FolderPrivacy: {
+      /** Format: int64 */
+      source_id: number;
+      /** @description Nom d'un dossier de premier niveau de la source */
+      folder: string;
+      private: boolean;
     };
     Error: {
       error: string;
@@ -7577,6 +7629,70 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ClipFilterOptions"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listLibraryFolders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Dossiers */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["LibraryFolder"][];
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putFolderPrivacy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FolderPrivacy"];
+      };
+    };
+    responses: {
+      /** @description Réglage appliqué */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FolderPrivacy"];
         };
       };
       /** @description Erreur */
