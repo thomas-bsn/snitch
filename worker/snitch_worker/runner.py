@@ -49,6 +49,15 @@ def fake_provider(step: str) -> dict[str, Any]:
     }
 
 
+class TranscriptionError(RuntimeError):
+    """A categorised Whisper failure. It carries a catalogue code and a status, never the provider text."""
+
+    def __init__(self, code: str, http_status: int | None = None) -> None:
+        super().__init__(code)
+        self.code = code
+        self.http_status = http_status
+
+
 class Transcriber(Protocol):
     def transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None = None) -> dict[str, Any]: ...
 
@@ -65,6 +74,21 @@ class OpenAICompatibleTranscriber:
 
     def transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None = None, language: str = "fr") -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        try:
+            return self._transcribe(wav_path, vocabulary, language, headers)
+        except TranscriptionError:
+            raise
+        except httpx.TimeoutException as exc:
+            raise TranscriptionError("whisper_timeout") from exc
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            raise TranscriptionError("whisper_model_missing" if status == 404 else "whisper_http_error", status) from exc
+        except httpx.TransportError as exc:
+            raise TranscriptionError("whisper_network") from exc
+        except (TypeError, ValueError, KeyError, AttributeError) as exc:
+            raise TranscriptionError("whisper_invalid_response") from exc
+
+    def _transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None, language: str, headers: dict[str, str]) -> dict[str, Any]:
         with open(wav_path, "rb") as audio:
             response = httpx.post(
                 self.endpoint + "/v1/audio/transcriptions",
@@ -347,6 +371,7 @@ def run_once(
     }
     started = time.monotonic()
     log.emit(logging.INFO, "job_claimed", **context)
+    active_transcriber: Transcriber | None = None
     heartbeat_stop = threading.Event()
     heartbeat_errors: list[Exception] = []
     heartbeater = threading.Thread(
@@ -454,11 +479,21 @@ def run_once(
     ) as exc:
         heartbeat_stop.set()
         heartbeater.join()
-        error_code = (
-            "audio_preparation_failed"
-            if isinstance(exc, (OSError, subprocess.SubprocessError))
-            else "provider_unavailable"
-        )
+        diagnostic: dict[str, Any] = {}
+        if isinstance(exc, TranscriptionError):
+            error_code = exc.code
+            diagnostic = {"provider": "openai-compatible", "duration_ms": int((time.monotonic() - started) * 1000)}
+            model = getattr(transcriber, "model", None) or getattr(active_transcriber, "model", None)
+            if isinstance(model, str) and model:
+                diagnostic["model"] = model
+            if exc.http_status is not None:
+                diagnostic["http_status"] = exc.http_status
+        else:
+            error_code = (
+                "audio_preparation_failed"
+                if isinstance(exc, (OSError, subprocess.SubprocessError))
+                else "provider_unavailable"
+            )
         # Only the code and the exception class: the raw text can echo URLs, paths or tokens.
         log.emit(
             logging.WARNING,
@@ -473,7 +508,7 @@ def run_once(
                 fail_job(
                     client=client,
                     id=job.id,
-                    body=WorkerFailureInput(error=error_code),
+                    body=WorkerFailureInput(error=error_code, **diagnostic),
                     x_worker_lease_token=lease_token,
                 ),
                 "fail",

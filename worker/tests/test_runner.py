@@ -1,3 +1,4 @@
+import contextlib
 import io
 import json
 import os
@@ -531,6 +532,98 @@ class RunnerLogTests(unittest.TestCase):
         with patch.object(runner, "pulse", return_value=object()), patch.object(runner, "claim_job", return_value=SimpleNamespace(job=None)):
             self.assertFalse(runner.run_once(self.client))
         self.assertNotIn("claim_empty", self.stream.getvalue())
+
+
+class WhisperFailureTests(unittest.TestCase):
+    """A failing Whisper call is reported with its own cause and a typed diagnostic, never with its text."""
+
+    LEASE = "lt_synthetic-lease-token"
+    PRIVATE = "synthetic transcript words token=hf_secret /tmp/private/audio.wav"
+
+    def run_failure(self, status=None, body=b"{}", post_error=None):
+        stream = io.StringIO()
+        log.configure("DEBUG", stream=stream)
+        self.addCleanup(log.configure, "INFO", io.StringIO())
+        sent = []
+
+        class Whisper(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers["Content-Length"]))
+                self.send_response(status or 200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):
+                pass
+
+        server = HTTPServer(("127.0.0.1", 0), Whisper)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        task = SimpleNamespace(id=7, clip_id=3, step="transcription.audio.0", input_version="v1", cycle=0, attempts=1, lease_owner="wk_synthetic")
+        task_input = SimpleNamespace(media_url="/media", pipeline=None, transcription_model=None, vocabulary=[])
+
+        def prepare(_media, wav_path, _index):
+            with wave.open(wav_path, "wb") as audio:
+                audio.setnchannels(1)
+                audio.setsampwidth(2)
+                audio.setframerate(16000)
+                audio.writeframes(b"\0\0" * 1600)
+
+        def capture(**kwargs):
+            sent.append(kwargs["body"])
+            return object()
+
+        try:
+            transcriber = runner.OpenAICompatibleTranscriber(f"http://127.0.0.1:{server.server_port}", "whisper-synthetic")
+            patches = [
+                patch.object(runner, "pulse", return_value=object()),
+                patch.object(runner, "claim_job", return_value=SimpleNamespace(job=task, lease_token=self.LEASE)),
+                patch.object(runner, "heartbeat_job", return_value=object()),
+                patch.object(runner, "get_job_input", return_value=task_input),
+                patch.object(runner, "download_media"),
+                patch.object(runner, "prepare_audio", side_effect=prepare),
+                patch.object(runner, "fail_job", side_effect=capture),
+            ]
+            if post_error is not None:
+                patches.append(patch.object(runner.httpx, "post", side_effect=post_error))
+            with contextlib.ExitStack() as stack:
+                for active in patches:
+                    stack.enter_context(active)
+                self.assertTrue(runner.run_once(SimpleNamespace(_base_url="https://snitch.example"), transcriber=transcriber))
+        finally:
+            server.shutdown()
+            thread.join()
+            server.server_close()
+        self.assertEqual(len(sent), 1)
+        for leaked in (self.PRIVATE, "hf_secret", "/tmp/private", self.LEASE):
+            self.assertNotIn(leaked, stream.getvalue())
+            self.assertNotIn(leaked, json.dumps(sent[0].to_dict()))
+        return sent[0].to_dict()
+
+    def test_each_whisper_failure_family_has_its_own_code_and_diagnostic(self):
+        for name, expected, extra in (
+            ("network", "whisper_network", {"post_error": httpx.ConnectError(self.PRIVATE)}),
+            ("timeout", "whisper_timeout", {"post_error": httpx.ReadTimeout(self.PRIVATE)}),
+            ("http", "whisper_http_error", {"status": 503, "body": self.PRIVATE.encode()}),
+            ("missing model", "whisper_model_missing", {"status": 404, "body": self.PRIVATE.encode()}),
+            ("invalid response", "whisper_invalid_response", {"body": self.PRIVATE.encode()}),
+            ("no segments", "whisper_invalid_response", {"body": b'{"language":"fr"}'}),
+        ):
+            with self.subTest(name):
+                payload = self.run_failure(**extra)
+                self.assertEqual(payload["error"], expected)
+                self.assertEqual((payload["provider"], payload["model"]), ("openai-compatible", "whisper-synthetic"))
+                self.assertGreaterEqual(payload["duration_ms"], 0)
+                if "status" in extra:
+                    self.assertEqual(payload["http_status"], extra["status"])
+                else:
+                    self.assertNotIn("http_status", payload)
+
+    def test_other_failures_keep_the_generic_provider_code_without_diagnostic(self):
+        payload = self.run_failure(post_error=RuntimeError(self.PRIVATE))
+        self.assertEqual(payload["error"], "provider_unavailable")
+        self.assertNotIn("provider", payload)
 
 
 if __name__ == "__main__":

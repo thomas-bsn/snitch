@@ -141,7 +141,7 @@ func New(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
 // NewWithLog returns a Service that reports job transitions to log.
 func NewWithLog(pool *pgxpool.Pool, log *slog.Logger) *Service { return &Service{pool: pool, Log: log} }
 
-func (s *Service) logger()*slog.Logger {
+func (s *Service) logger() *slog.Logger {
 	if s.Log == nil {
 		return slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
