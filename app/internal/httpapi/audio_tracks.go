@@ -179,14 +179,10 @@ func (s *Server) clipAudioTracks(ctx context.Context, id int64) ([]audioTrack, e
 	return tracks, err
 }
 func (s *Server) audioSelection(ctx context.Context, id int64, tracks []audioTrack) (audioSelection, error) {
-	var index int
-	var overrideVersion int64
-	err := s.Pool.QueryRow(ctx, `SELECT audio_stream_index,version FROM clip_audio_track_overrides WHERE clip_id=$1`, id).Scan(&index, &overrideVersion)
+	var override audioOverride
+	err := s.Pool.QueryRow(ctx, `SELECT audio_stream_index,version FROM clip_audio_track_overrides WHERE clip_id=$1`, id).Scan(&override.index, &override.version)
 	if err == nil {
-		if hasAudioTrack(tracks, index) {
-			return audioSelection{Status: "selected", AudioStreamIndex: &index, Source: "clip_override", RuleVersion: overrideVersion}, nil
-		}
-		return audioSelection{Status: "selection_required"}, nil
+		return selectAudio(tracks, &override, nil), nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return audioSelection{}, err
@@ -196,41 +192,69 @@ func (s *Server) audioSelection(ctx context.Context, id int64, tracks []audioTra
 		return audioSelection{}, err
 	}
 	defer rows.Close()
-	selected := -1
-	version := int64(0)
-	sourceCount := 0
+	var rules []audioSourceRule
 	for rows.Next() {
-		var raw []byte
-		var v int64
-		if err = rows.Scan(&raw, &v); err != nil {
+		var rule audioSourceRule
+		if err = rows.Scan(&rule.raw, &rule.version); err != nil {
 			return audioSelection{}, err
 		}
-		var rule audioTrackRule
-		if json.Unmarshal(raw, &rule) != nil {
-			continue
-		}
-		n, ok := resolveAudioTrack(tracks, rule)
-		if !ok {
-			return audioSelection{Status: "selection_required"}, nil
-		}
-		if selected >= 0 && selected != n {
-			return audioSelection{Status: "selection_required"}, nil
-		}
-		selected = n
-		version += v
-		sourceCount++
+		rules = append(rules, rule)
 	}
 	if err = rows.Err(); err != nil {
 		return audioSelection{}, err
 	}
+	return selectAudio(tracks, nil, rules), nil
+}
+
+// audioOverride is the replacement of a clip; audioSourceRule is the rule of a
+// source the clip belongs to, still in its stored form.
+type audioOverride struct {
+	index   int
+	version int64
+}
+
+type audioSourceRule struct {
+	raw     []byte
+	version int64
+}
+
+// selectAudio is the selection rule over what was read: the clip replacement
+// first, then the rules of its sources in source order, then the only audio track.
+// The same rule serves the single clip and the task card board, which reads
+// the inputs of every clip at once.
+func selectAudio(tracks []audioTrack, override *audioOverride, rules []audioSourceRule) audioSelection {
+	if override != nil {
+		if hasAudioTrack(tracks, override.index) {
+			index := override.index
+			return audioSelection{Status: "selected", AudioStreamIndex: &index, Source: "clip_override", RuleVersion: override.version}
+		}
+		return audioSelection{Status: "selection_required"}
+	}
+	selected := -1
+	version := int64(0)
+	for _, source := range rules {
+		var rule audioTrackRule
+		if json.Unmarshal(source.raw, &rule) != nil {
+			continue
+		}
+		n, ok := resolveAudioTrack(tracks, rule)
+		if !ok {
+			return audioSelection{Status: "selection_required"}
+		}
+		if selected >= 0 && selected != n {
+			return audioSelection{Status: "selection_required"}
+		}
+		selected = n
+		version += source.version
+	}
 	if selected >= 0 {
-		return audioSelection{Status: "selected", AudioStreamIndex: &selected, Source: "source_rule", RuleVersion: version}, nil
+		return audioSelection{Status: "selected", AudioStreamIndex: &selected, Source: "source_rule", RuleVersion: version}
 	}
 	n, ok := resolveAudioTrack(tracks, audioTrackRule{})
 	if !ok {
-		return audioSelection{Status: "selection_required"}, nil
+		return audioSelection{Status: "selection_required"}
 	}
-	return audioSelection{Status: "selected", AudioStreamIndex: &n, Source: "single_audio_track"}, nil
+	return audioSelection{Status: "selected", AudioStreamIndex: &n, Source: "single_audio_track"}
 }
 func (s *Server) scheduleResolvedTranscription(ctx context.Context, id int64, explicit *int, requireReady bool) (jobs.Job, bool, error) {
 	tracks, err := s.clipAudioTracks(ctx, id)
