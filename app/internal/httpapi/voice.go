@@ -139,6 +139,9 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
+	if s.refuseWhileAnalyzing(w, r, id) {
+		return
+	}
 	tracks, err := s.clipAudioTracks(r.Context(), id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "clip_not_found")

@@ -4034,6 +4034,91 @@
         "description": "Administrateurs uniquement. La concurrence globale est bornée à 1–4."
       }
     },
+    "/api/admin/clips/{id}/analysis": {
+      "post": {
+        "operationId": "startClipAnalysis",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"type": "object", "properties": {"scope": {"type": "string", "enum": ["transcription", "voice", "full"], "default": "transcription", "description": "transcription : préparation et transcription seulement. voice : détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de transcription implicite). full : transcription, indexation et voix. L'indexation et les voix avancent indépendamment après la transcription ; une branche en échec n'arrête pas l'autre et l'exécution se termine failed (échec partiel)."}, "mode": {"type": "string", "enum": ["missing", "full", "steps"], "default": "missing", "description": "Réanalyse d'un clip déjà traité. missing : seules les étapes sans résultat valide sont exécutées (les résultats valides sont réutilisés). full : retranscription (périmètres transcription et full) et nouvelle diarisation (périmètres voice et full), l'indexation, les empreintes et la comparaison suivent. steps : relance les seules étapes de steps, quel que soit le résultat valide existant. Sans effet si une analyse est déjà active."}, "steps": {"type": "array", "items": {"type": "string", "enum": ["transcription", "indexing", "diarization"]}, "description": "Avec mode steps : étapes à relancer, applicables au périmètre (sinon 400 invalid_reanalysis)."}, "confirm_replace_corrections": {"type": "boolean", "description": "Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections)."}, "confirmed_stake_at": {"type": "string", "format": "date-time", "description": "Le stake_at du refus reanalysis_confirmation_required que l'administrateur a confirmé (le plus ancien s'il y en a eu plusieurs) : le travail humain créé après n'est jamais rendu obsolète. Par défaut, l'instant de la requête."}, "confirm_replace_validations": {"type": "boolean", "description": "Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice)."}}}}}},
+        "responses": {"201": {"description": "Analyse démarrée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "200": {"description": "Une analyse du même périmètre est déjà active : elle est renvoyée, sans doublon", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "409": {"description": "analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) ; transcription_required : le périmètre voice exige une transcription valide ; reanalysis_confirmation_required : les étapes relancées rendraient du travail humain obsolète, les conséquences sont dans stake", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisConflict"}}}}, "default": {"description": "Erreur (400 invalid_analysis_scope, invalid_reanalysis, invalid_clip_id ; 404 clip_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Lance une analyse durable du clip (préparation puis transcription) ; une seule analyse active par clip, un second appel renvoie l'analyse existante. Les résultats valides sont réutilisés."
+      },
+      "get": {
+        "operationId": "getClipAnalysis",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Analyse active du clip, ou la plus récente ; run vaut null si le clip n'a jamais été analysé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "default": {"description": "Erreur (400 invalid_clip_id ; 404 clip_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Lecture seule : l'état des étapes avec statut et code de raison stables."
+      }
+    },
+    "/api/admin/clips/{id}/analysis/history": {
+      "get": {
+        "operationId": "getClipAnalysisHistory",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Les 20 exécutions les plus récentes, avec versions, profil, étapes relancées et confirmations", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisHistory"}}}}, "default": {"description": "Erreur (400 invalid_clip_id ; 404 clip_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs."
+      }
+    },
+    "/api/admin/clips/{id}/analysis/cancel": {
+      "post": {
+        "operationId": "cancelClipAnalysis",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Analyse annulée (statut cancelled) ; les résultats valides sont conservés", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "default": {"description": "Erreur (400 invalid_clip_id ; 409 analysis_not_active : aucune analyse active)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Arrête la planification des étapes suivantes et annule les jobs en attente ; une étape déjà en cours peut terminer valablement. Une relance (POST analysis) crée une nouvelle exécution qui réutilise les résultats valides."
+      }
+    },
+    "/api/admin/clips/{id}/analysis/steps/{step}/retry": {
+      "post": {
+        "operationId": "retryClipAnalysisStep",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "path", "name": "step", "required": true, "schema": {"type": "string", "enum": ["preparation", "transcription", "indexing", "diarization", "fingerprints", "matching"]}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Étape relancée ; l'analyse est de nouveau active", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "default": {"description": "Erreur (400 invalid_clip_id, invalid_analysis_step ; 404 analysis_not_found ; 409 analysis_not_retryable : analyse terminée ou annulée, relancer une analyse ; 409 analysis_step_not_failed)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Relance une étape en échec définitif : son job échoué est ignoré et remplacé, les résultats valides sont conservés et la politique de retry des jobs s'applique à nouveau."
+      }
+    },
+    "/api/admin/analysis/queue": {
+      "get": {
+        "operationId": "getAnalysisQueue",
+        "responses": {"200": {"description": "État de la Task Queue", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnalysisQueue"}}}}, "default": {"description": "Erreur (401 unauthorized ; 403 forbidden)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events."
+      }
+    },
+    "/api/admin/analysis/history": {
+      "get": {
+        "operationId": "getAnalysisHistory",
+        "parameters": [{"in": "query", "name": "page", "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "q", "description": "Filtre sur le nom du clip", "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Page d'historique", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnalysisRunHistory"}}}}, "default": {"description": "Erreur (400 invalid_page ; 401 unauthorized ; 403 forbidden)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Historique durable de toutes les exécutions terminées (réussies, échouées, annulées) de tous les clips, la plus récente d'abord, avec leurs étapes ; seule partie paginée de la Task Queue (10 par page)."
+      }
+    },
+    "/api/admin/analysis/queue/events": {
+      "get": {
+        "operationId": "streamAnalysisQueueEvents",
+        "responses": {"200": {"description": "Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: AnalysisQueue} : l'état complet, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (401 unauthorized ; 403 forbidden)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Même mécanisme que le flux d'analyse d'un clip, sujet admin:queue ; droits revérifiés avant chaque snapshot."
+      }
+    },
+    "/api/clips/{id}/analysis": {
+      "get": {
+        "operationId": "getClipAnalysisView",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Analyse active du clip, ou la plus récente ; run vaut null si le clip n'a jamais été analysé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisViewResponse"}}}}, "default": {"description": "Erreur (400 invalid_clip_id ; 401 unauthorized ; 404 clip_not_found, aussi pour un clip inaccessible)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Tout utilisateur qui peut ouvrir le clip. Lecture seule : statut et code de raison stables de chaque étape, sans identifiant de job, nom de Worker ni code d'erreur."
+      }
+    },
+    "/api/clips/{id}/analysis/events": {
+      "get": {
+        "operationId": "streamClipAnalysisViewEvents",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Flux text/event-stream de la vue en lecture seule (mêmes évènements que le flux administrateur, snapshot {run} sans détail technique). L'accès au clip est revérifié avant chaque snapshot ; un évènement `forbidden` clôt le flux quand il est perdu.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (400 invalid_clip_id ; 401 unauthorized ; 404 clip_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Tout utilisateur qui peut ouvrir le clip. Repli : GET /api/clips/{id}/analysis."
+      }
+    },
+    "/api/admin/clips/{id}/analysis/events": {
+      "get": {
+        "operationId": "streamClipAnalysisEvents",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: {run}} : l'état complet de l'analyse, jamais un delta, donc une reconnexion ou un évènement perdu converge. Un évènement `forbidden` clôt le flux quand l'accès est perdu (session expirée, rôle retiré) ; les commentaires `: ping` gardent la connexion.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (400 invalid_clip_id ; 401 unauthorized ; 403 forbidden ; 404 clip_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Flux d'évènements serveur authentifié (cookie de session), droits revérifiés avant chaque snapshot. Mécanisme générique (table events, déclenchée par les changements) réutilisable pour d'autres sujets ; repli : GET /api/admin/clips/{id}/analysis."
+      }
+    },
     "/api/admin/clips/{id}/transcription": {
       "post": {
         "operationId": "scheduleTranscription",
@@ -4889,9 +4974,60 @@
     "/api/voice-verification": {
       "get": {
         "operationId": "listVoiceVerification",
-        "parameters": [{"in": "query", "name": "level", "required": false, "schema": {"type": "string", "enum": ["all", "unknown", "ambiguous"], "default": "all"}, "description": "Ne garder que les voix inconnues ou que les voix ambiguës."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
+        "parameters": [{"in": "query", "name": "level", "required": false, "schema": {"type": "string", "enum": ["all", "unknown", "ambiguous"], "default": "all"}, "description": "Ne garder que les voix inconnues ou que les voix ambiguës."}, {"in": "query", "name": "clip", "required": false, "schema": {"type": "integer", "format": "int64", "minimum": 1}, "description": "Ne garder que les voix de ce clip (lien d'une notification)."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
         "responses": {"200": {"description": "Cas à vérifier, du plus fréquent au moins fréquent, et compteurs par niveau de décision", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceVerification"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "description": "Utilisateurs connectés. Vue de vérification : uniquement les voix inconnues ou ambiguës (avec leurs Personnes candidates), sur les clips visibles. Tri par fréquence : clips distincts du groupe proposé de la voix, puis nombre de voix du groupe, puis temps de parole. Trancher un cas est une validation humaine (POST /api/local-speakers/{id}/validation) : cette lecture n'écrit rien. Les compteurs par niveau sont calculés en base. Aucune promesse de qualité n'est dérivée du nombre d'extraits.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "operationId": "listNotifications",
+        "parameters": [{"in": "query", "name": "state", "required": false, "schema": {"type": "string", "enum": ["all", "active", "resolved"], "default": "all"}}, {"in": "query", "name": "filter", "required": false, "description": "Filtre appliqué côté serveur : unread (non lues), actions (en attente), errors (incidents techniques). Indépendant de la taille de page.", "schema": {"type": "string", "enum": ["all", "unread", "actions", "errors"], "default": "all"}}, {"in": "query", "name": "limit", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}}, {"in": "query", "name": "offset", "required": false, "schema": {"type": "integer", "minimum": 0, "default": 0}}],
+        "responses": {"200": {"description": "Notifications du demandeur, actions en attente d'abord", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationList"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore voir (l'accès est revérifié à chaque lecture, historique compris). unread compte les non-lues, pending les actions non résolues : deux compteurs distincts. Aucune écriture.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/notifications/events": {
+      "get": {
+        "operationId": "streamNotificationEvents",
+        "responses": {"200": {"description": "Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: NotificationList} : l'état complet des notifications du demandeur (jusqu'à 200, compteurs unread et pending sur tout le visible), jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (401 unauthorized)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Flux d'évènements serveur du sujet `user:<id>` : session et rôle revérifiés à la connexion, avant chaque snapshot et à chaque battement, accès aux clips revérifié à chaque lecture. Repli : GET /api/notifications.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/notifications/read": {
+      "post": {
+        "operationId": "readAllNotifications",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Notifications marquées lues pour le demandeur seul", "content": {"application/json": {"schema": {"type": "object", "required": ["updated"], "properties": {"updated": {"type": "integer", "format": "int64"}}}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Marque lues toutes les notifications du demandeur ; ne résout aucune action.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "put": {
+        "operationId": "markNotificationRead",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Notification lue (idempotent)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationRead"}}}}, "404": {"description": "notification_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Lecture individuelle : ne résout pas l'action, qui reste partagée.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "markNotificationUnread",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Notification de nouveau non lue (idempotent)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationRead"}}}}, "404": {"description": "notification_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Remet la notification en non lue pour le demandeur seul.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/notifications/{id}": {
+      "delete": {
+        "operationId": "deleteNotification",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"204": {"description": "Notification résolue retirée de l'historique du demandeur seul"}, "404": {"description": "notification_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "notification_active : une action en attente ne se supprime pas, elle disparaît en étant traitée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Seul l'historique résolu est supprimable, par son destinataire ; les autres destinataires le conservent.",
         "security": [{"session": []}]
       }
     },
@@ -5521,6 +5657,18 @@
     },
     "schemas": {
       "EmbeddingSettings": {"type": "object", "required": ["url", "model", "url_from_environment", "model_from_environment"], "properties": {"url": {"type": "string"}, "model": {"type": "string"}, "url_from_environment": {"type": "boolean"}, "model_from_environment": {"type": "boolean"}}},
+      "ClipAnalysisStep": {"type": "object", "required": ["step", "status", "reason", "job_id", "attempt", "input_version", "profile", "forced", "started_at", "finished_at", "updated_at"], "properties": {"step": {"type": "string", "enum": ["preparation", "transcription", "indexing", "diarization", "fingerprints", "matching"]}, "status": {"type": "string", "enum": ["waiting", "running", "retry", "blocked", "failed", "done", "not_applicable", "not_yet_supported"]}, "reason": {"type": "string", "description": "Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed."}, "job_id": {"type": "integer", "nullable": true, "format": "int64"}, "attempt": {"type": "integer"}, "input_version": {"type": "string", "nullable": true, "description": "Version d'entrée du job suivi par l'étape (historique)."}, "profile": {"type": "string", "nullable": true, "description": "Profil (pipeline) du job suivi par l'étape."}, "forced": {"type": "boolean", "description": "Étape relancée par une réanalyse, malgré un résultat valide."}, "started_at": {"type": "string", "nullable": true, "format": "date-time"}, "finished_at": {"type": "string", "nullable": true, "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}}},
+      "ClipAnalysisRun": {"type": "object", "required": ["id", "clip_id", "scope", "status", "started_by", "created_at", "updated_at", "finished_at", "mode", "forced_steps", "confirmed_replace_corrections", "confirmed_replace_validations", "confirmed_stake_at", "pending_voices", "steps"], "properties": {"id": {"type": "integer", "format": "int64"}, "clip_id": {"type": "integer", "format": "int64"}, "scope": {"type": "string", "enum": ["transcription", "voice", "full"]}, "status": {"type": "string", "enum": ["active", "completed", "failed", "cancelled"]}, "started_by": {"type": "integer", "nullable": true, "format": "int64"}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "finished_at": {"type": "string", "nullable": true, "format": "date-time"}, "mode": {"type": "string", "enum": ["missing", "full", "steps"]}, "forced_steps": {"type": "array", "items": {"type": "string", "enum": ["transcription", "indexing", "diarization"]}}, "confirmed_replace_corrections": {"type": "boolean"}, "confirmed_replace_validations": {"type": "boolean"}, "confirmed_stake_at": {"type": "string", "nullable": true, "format": "date-time", "description": "Instant jusqu'auquel le travail humain en jeu a été montré et confirmé : la réanalyse ne rend obsolète que ce qui existait alors (nul sans étape relancée)."}, "pending_voices": {"type": "integer", "minimum": 0, "description": "Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une analyse terminée qui en laisse est seulement partiellement identifiée."}, "steps": {"type": "array", "items": {"$ref": "#/components/schemas/ClipAnalysisStep"}}}},
+      "ClipAnalysisView": {"type": "object", "description": "Vue en lecture seule pour tout utilisateur qui peut ouvrir le clip : état et code de raison stable de chaque étape, sans job, Worker ni détail d'erreur.", "required": ["clip_id", "scope", "status", "created_at", "updated_at", "finished_at", "pending_voices", "steps"], "properties": {"clip_id": {"type": "integer", "format": "int64"}, "scope": {"type": "string", "enum": ["transcription", "voice", "full"]}, "status": {"type": "string", "enum": ["active", "completed", "failed", "cancelled"]}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "finished_at": {"type": "string", "nullable": true, "format": "date-time"}, "pending_voices": {"type": "integer", "minimum": 0}, "steps": {"type": "array", "items": {"type": "object", "required": ["step", "status", "reason", "updated_at"], "properties": {"step": {"type": "string", "enum": ["preparation", "transcription", "indexing", "diarization", "fingerprints", "matching"]}, "status": {"type": "string", "enum": ["waiting", "running", "retry", "blocked", "failed", "done", "not_applicable"]}, "reason": {"type": "string"}, "updated_at": {"type": "string", "format": "date-time"}}}}}},
+      "ClipAnalysisViewResponse": {"type": "object", "required": ["run"], "properties": {"run": {"allOf": [{"$ref": "#/components/schemas/ClipAnalysisView"}], "nullable": true}}},
+      "ClipAnalysisResponse": {"type": "object", "required": ["run"], "properties": {"run": {"allOf": [{"$ref": "#/components/schemas/ClipAnalysisRun"}], "nullable": true}}},
+      "AnalysisQueueRun": {"allOf": [{"$ref": "#/components/schemas/ClipAnalysisRun"}, {"type": "object", "required": ["clip_name", "pending_voices"], "properties": {"clip_name": {"type": "string"}, "pending_voices": {"type": "integer", "minimum": 0, "description": "Voix du clip encore inconnues ou ambiguës (liste de vérification) : une analyse terminée qui en laisse est seulement partiellement identifiée."}}}]},
+      "AnalysisRunHistory": {"type": "object", "required": ["items", "total", "page", "page_size"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/AnalysisQueueRun"}}, "total": {"type": "integer"}, "page": {"type": "integer"}, "page_size": {"type": "integer"}}},
+      "AnalysisQueueTask": {"allOf": [{"$ref": "#/components/schemas/Job"}, {"type": "object", "required": ["clip_name"], "properties": {"clip_name": {"type": "string"}}}]},
+      "AnalysisQueue": {"type": "object", "required": ["active", "completed", "tasks"], "properties": {"active": {"type": "array", "items": {"$ref": "#/components/schemas/AnalysisQueueRun"}}, "completed": {"type": "array", "items": {"$ref": "#/components/schemas/AnalysisQueueRun"}}, "tasks": {"type": "array", "items": {"$ref": "#/components/schemas/AnalysisQueueTask"}}}},
+      "ClipAnalysisConflict": {"type": "object", "required": ["error"], "properties": {"error": {"type": "string"}, "run": {"$ref": "#/components/schemas/ClipAnalysisRun"}, "stake": {"$ref": "#/components/schemas/ClipReanalysisStake"}, "stake_at": {"type": "string", "format": "date-time", "description": "Instant où l'enjeu a été lu ; à renvoyer en confirmed_stake_at."}}},
+      "ClipReanalysisStake": {"type": "object", "description": "Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés).", "required": ["corrections", "voice"], "properties": {"corrections": {"type": "object", "nullable": true, "description": "Corrections de segments de la transcription visible (retranscription).", "required": ["transcription_job_id", "text_segments", "speaker_segments", "authors", "last_corrected_at"], "properties": {"transcription_job_id": {"type": "integer", "format": "int64"}, "text_segments": {"type": "integer"}, "speaker_segments": {"type": "integer"}, "authors": {"type": "array", "items": {"type": "string"}}, "last_corrected_at": {"type": "string", "nullable": true, "format": "date-time"}}}, "voice": {"type": "object", "nullable": true, "description": "Validations de voix, échantillons et corrections de locuteur (nouvelle diarisation).", "required": ["validated_speakers", "voice_samples", "speaker_corrections"], "properties": {"validated_speakers": {"type": "integer"}, "voice_samples": {"type": "integer"}, "speaker_corrections": {"type": "integer"}}}}},
+      "ClipAnalysisHistory": {"type": "object", "required": ["runs"], "properties": {"runs": {"type": "array", "items": {"$ref": "#/components/schemas/ClipAnalysisRun"}}}},
       "Error": {
         "type": "object",
         "required": [
@@ -6999,6 +7147,9 @@
           "unknown": {"type": "integer"}
         }
       },
+      "NotificationRead": {"type": "object", "required": ["id", "read"], "properties": {"id": {"type": "integer", "format": "int64"}, "read": {"type": "boolean"}}},
+      "Notification": {"type": "object", "required": ["id", "kind", "state", "clip_id", "clip_name", "pending_count", "read", "created_at", "updated_at", "resolved_at", "job_id", "step", "error_code", "generic"], "properties": {"id": {"type": "integer", "format": "int64"}, "kind": {"type": "string", "enum": ["needs_speaker_review", "worker_unavailable", "provider_unavailable", "model_missing", "job_failed", "technical_incident"], "description": "Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail."}, "state": {"type": "string", "enum": ["active", "resolved"], "description": "Partagé : une action résolue l'est pour tous."}, "clip_id": {"type": "integer", "format": "int64", "nullable": true}, "clip_name": {"type": "string"}, "pending_count": {"type": "integer", "description": "Voix restant à décider, ou jobs concernés par l'incident."}, "read": {"type": "boolean", "description": "État de lecture du demandeur, indépendant de la résolution."}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "resolved_at": {"type": "string", "format": "date-time", "nullable": true}, "job_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Incident : dernier job concerné (administrateurs uniquement)."}, "step": {"type": "string", "description": "Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret."}, "error_code": {"type": "string", "description": "Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted), jamais l'erreur brute."}, "generic": {"type": "boolean", "description": "Vrai pour le message générique sûr vu par un non-administrateur."}}},
+      "NotificationList": {"type": "object", "required": ["items", "unread", "pending", "total"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Notification"}}, "unread": {"type": "integer"}, "pending": {"type": "integer"}, "total": {"type": "integer", "description": "Nombre de notifications que sélectionnent l'état et le filtre, quelle que soit la page ; sert à proposer « Afficher plus »."}}},
       "VoiceVerification": {
         "type": "object",
         "required": ["items", "total", "counts"],

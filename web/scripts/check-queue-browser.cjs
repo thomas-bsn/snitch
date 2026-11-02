@@ -44,6 +44,15 @@ const { chromium } = require("@playwright/test");
           },
         ],
       };
+    else if (u.pathname === "/api/admin/analysis/queue")
+      data = { active: [], completed: [], tasks: [] };
+    else if (u.pathname === "/api/admin/analysis/history")
+      data = {
+        items: [],
+        total: 25,
+        page: Number(u.searchParams.get("page") || 1),
+        page_size: 10,
+      };
     else if (u.pathname === "/api/admin/jobs") {
       const p = Number(u.searchParams.get("page") || 1);
       data = {
@@ -72,11 +81,12 @@ const { chromium } = require("@playwright/test");
   await page.getByRole("dialog").waitFor();
   await page.getByRole("button", { name: "Next", exact: true }).last().click();
   await page.waitForTimeout(300);
-  if (!(await page.getByText("Page 2 · 25 clips").isVisible()))
+  if (!(await page.getByText("Page 2 · 25 analyses").isVisible()))
     throw Error("history page missing");
   await page.getByRole("button", { name: "Close", exact: true }).click();
-  await page.getByText("Schedule task", { exact: true }).first().click();
+  // The advanced Schedule form is open by default: clicking its summary would close it.
   const select = page.locator('select[name="step"]');
+  await select.waitFor({ state: "visible" });
   if ((await select.locator("option").count()) !== 3)
     throw Error("worker capabilities not reflected");
   await page.setViewportSize({ width: 390, height: 844 });

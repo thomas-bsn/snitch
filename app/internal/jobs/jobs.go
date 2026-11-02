@@ -651,8 +651,10 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 				return Job{}, fmt.Errorf("queue transcript embeddings: %w", err)
 			}
 			// The new transcription replaces the visible text: the corrections of the
-			// previous transcription jobs of the clip become obsolete (kept, never reapplied).
-			if _, err = tx.Exec(ctx, `UPDATE segment_corrections SET stale_at=now() WHERE clip_id=$1 AND transcription_job_id<>$2 AND stale_at IS NULL`, job.ClipID, id); err != nil {
+			// previous transcription jobs of the clip become obsolete (kept, never reapplied). A forced
+			// reanalysis only replaces what existed when its stake was confirmed: later work stays.
+			if _, err = tx.Exec(ctx, `UPDATE segment_corrections SET stale_at=now() WHERE clip_id=$1 AND transcription_job_id<>$2 AND stale_at IS NULL
+ AND COALESCE(GREATEST(text_corrected_at,speaker_corrected_at),updated_at) <= COALESCE((SELECT r.confirmed_stake_at FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id=$2 AND 'transcription'=ANY(r.forced_steps) AND r.confirmed_stake_at IS NOT NULL ORDER BY r.id DESC LIMIT 1),'infinity'::timestamptz)`, job.ClipID, id); err != nil {
 				return Job{}, fmt.Errorf("mark replaced corrections obsolete: %w", err)
 			}
 		}

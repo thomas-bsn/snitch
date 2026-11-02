@@ -176,6 +176,7 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 			// database only. A failure never undoes the stored result.
 			s.matchingChanged(r.Context(), job.ClipID)
 		}
+		s.reconcileAnalysis(r.Context(), job.ClipID)
 		reply(w, http.StatusOK, job)
 	}
 }
@@ -196,6 +197,18 @@ func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result dia
 		return fmt.Errorf("check microphone track: %w", err)
 	}
 	if microphone {
+		return errDiarizationLocked
+	}
+	// A forced reanalysis only replaces the human work it showed: a validation or a speaker
+	// correction made after the confirmation locks the speakers instead of being lost.
+	var newer bool
+	if err := tx.QueryRow(ctx, `WITH cutoff AS (SELECT r.confirmed_stake_at AS at FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id=$3 AND 'diarization'=ANY(r.forced_steps) AND r.confirmed_stake_at IS NOT NULL ORDER BY r.id DESC LIMIT 1)
+SELECT EXISTS(SELECT 1 FROM cutoff, local_speakers ls WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'
+ AND (EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='validated' AND a.decided_at > cutoff.at)
+ OR EXISTS (SELECT 1 FROM segment_corrections sc WHERE sc.speaker_override_id=ls.id AND sc.speaker_corrected_at > cutoff.at)))`, job.ClipID, index, job.ID).Scan(&newer); err != nil {
+		return fmt.Errorf("check human work after confirmation: %w", err)
+	}
+	if newer {
 		return errDiarizationLocked
 	}
 	// Speaker corrections point to the replaced speakers: they become obsolete (history kept).

@@ -303,6 +303,10 @@ func (s *Server) scheduleClipTranscription(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if s.refuseWhileAnalyzing(w, r, v.ID) {
+		return
+	}
+
 	// Check if the clip has existing corrections that would be replaced
 	hasCorrections, err := s.hasUnstaleCorrections(r.Context(), v.ID)
 	if err != nil {

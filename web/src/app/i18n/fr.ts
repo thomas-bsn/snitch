@@ -10,6 +10,40 @@ export const fr: Messages = {
     loading: "Chargement…",
   },
   queue: {
+    board: {
+      live: "Mises à jour en direct activées",
+      offline:
+        "Reconnexion en cours : le tableau s’actualise toutes les quelques secondes.",
+      forbidden:
+        "L’accès à cette vue en direct a été perdu. Rechargez la page pour vous reconnecter.",
+      activeTitle: "Analyses en cours",
+      activeEmpty: "Aucune analyse en cours.",
+      completedTitle: "Derniers clips terminés",
+      completedEmpty: "Aucun clip n’est encore terminé.",
+      tasksTitle: "Tâches hors analyse",
+      tasksHint:
+        "Tâches techniques qu’aucune analyse ne suit. Elles restent ici tant qu’elles ne sont pas terminées.",
+      openClip: "Ouvrir le clip",
+      trunk: "Préparation et transcription",
+      branchSearch: "Branche recherche",
+      branchVoices: "Branche voix",
+      voicesToCheck: "Voix à vérifier ({n})",
+      partiallyIdentified: "Partiellement identifié",
+      identified: "Voix identifiées",
+      attempt: "Tentative {n}",
+      stepsOf: "Étapes de l’analyse de {clip}",
+      scope: {
+        transcription: "Transcription",
+        voice: "Voix",
+        full: "Analyse complète",
+      },
+      run: {
+        active: "En cours",
+        failed: "Échec partiel",
+        completed: "Terminée",
+        cancelled: "Annulée",
+      },
+    },
     voiceStep: "Analyse des voix (après transcription)",
     filterStatus: "Filtrer par état",
     allStatuses: "Tous les états",
@@ -538,6 +572,56 @@ export const fr: Messages = {
     search: "Recherche",
     people: "Personnes",
     import: "Importer",
+  },
+  notifications: {
+    bell: "Notifications",
+    bellUnread: "Notifications, {count} non lues",
+    title: "Notifications",
+    pending: "{count} à traiter",
+    empty: "Aucune notification.",
+    loadFailed: "Impossible de charger les notifications.",
+    speakerReview: "{count} voix à vérifier dans {clip}",
+    speakerReviewOne: "1 voix à vérifier dans {clip}",
+    speakerReviewResolved: "Voix vérifiées dans {clip}",
+    resolved: "Résolue",
+    unread: "Non lue",
+    markRead: "Marquer comme lue",
+    markUnread: "Marquer comme non lue",
+    markAllRead: "Tout marquer comme lu",
+    remove: "Retirer de l’historique",
+    history: "Historique",
+    actions: "Actions",
+    removeFailed: "Cette notification n’a pas pu être retirée.",
+    viewAll: "Voir toutes les notifications",
+    filters: "Filtrer les notifications",
+    filterAll: "Toutes",
+    filterUnread: "Non lues",
+    filterActions: "Actions à traiter",
+    filterErrors: "Erreurs",
+    unreadCount: "{count} non lues",
+    actionsCount: "{count} actions à traiter",
+    actionVerify: "Vérifier les voix",
+    removeResolved: "Retirer les notifications résolues",
+    showMore: "Afficher plus ({shown} sur {total})",
+    emptyFiltered: "Aucune notification ne correspond à ce filtre.",
+    activeList: "Notifications actives",
+    historyList: "Notifications résolues",
+    live: "Mises à jour en direct",
+    polling:
+      "Les mises à jour en direct sont suspendues, actualisation régulière.",
+    forbidden: "Votre accès aux notifications a pris fin. Reconnectez-vous.",
+    incidentWorker:
+      "Aucun worker compatible n’est disponible : {count} jobs attendent",
+    incidentProvider:
+      "Le service de traitement est indisponible ({count} jobs concernés)",
+    incidentModel:
+      "Un modèle requis est absent du worker ({count} jobs concernés)",
+    incidentJob: "{count} jobs en échec à l’étape {step}",
+    incidentGeneric:
+      "Un incident technique ralentit le traitement. Les administrateurs ont été prévenus.",
+    incidentResolved: "Incident technique résolu",
+    incidentWorkerAction: "Vérifier le worker",
+    incidentJobAction: "Voir les jobs",
   },
   header: {
     searchLabel: "Rechercher dans les transcriptions",
@@ -1390,6 +1474,122 @@ export const fr: Messages = {
       before: "Avant",
       after: "Après",
     },
+    analysis: {
+      label: "Analyse du clip",
+      live: "Mises à jour en direct actives",
+      liveOff:
+        "Mises à jour en direct interrompues : reconnexion. L’état affiché est actualisé toutes les quelques secondes.",
+      liveLost:
+        "L’accès à cette vue en direct a été perdu. Rechargez la page pour vous reconnecter.",
+      steps: "Étapes de l’analyse",
+      full: "Tout analyser",
+      more: "Autres options d’analyse",
+      transcription: "Transcrire seulement",
+      voice: "Détection des voix",
+      step: {
+        preparation: "Préparation",
+        transcription: "Transcription",
+        indexing: "Indexation",
+        diarization: "Détection des voix",
+        fingerprints: "Empreintes vocales",
+        matching: "Rapprochement des voix",
+      },
+      status: {
+        waiting: "En attente",
+        running: "En cours",
+        retry: "Nouvel essai prévu",
+        blocked: "Bloqué",
+        failed: "Échec",
+        done: "Terminé",
+        not_applicable: "Non applicable",
+        not_yet_supported: "Pas encore disponible",
+      },
+      reason: {
+        awaiting_preparation: "En attente que le clip soit prêt.",
+        awaiting_previous_step: "En attente de l’étape précédente.",
+        clip_not_ready: "Le clip n’est pas encore prêt.",
+        audio_track_selection_required:
+          "Choisissez la piste audio à transcrire.",
+        clip_ready: "Le clip est prêt.",
+        awaiting_worker:
+          "Un Worker compatible est connecté mais occupé ; la tâche démarre dès qu’il est libre.",
+        awaiting_compatible_worker:
+          "En attente d’un Worker compatible : aucun n’est connecté. L’analyse reprend d’elle-même à son retour.",
+        run_cancelled: "Annulée : cette étape ne sera pas exécutée.",
+        running: "Un Worker transcrit le clip.",
+        retry_scheduled: "La tentative a échoué ; une nouvelle est prévue.",
+        completed: "Transcription terminée.",
+        reused_existing:
+          "Une transcription valide existait déjà et a été réutilisée.",
+        kept_for_corrections:
+          "La transcription existante est conservée pour protéger les corrections humaines.",
+        job_dead: "La transcription a échoué après plusieurs tentatives.",
+        job_cancelled: "La transcription a été annulée.",
+        job_failed: "La transcription a échoué.",
+        outside_scope: "Hors du périmètre de cette analyse.",
+        transcription_required:
+          "La détection des voix exige une transcription valide : transcrivez d’abord le clip.",
+        awaiting_transcription: "En attente de la transcription.",
+        awaiting_indexer: "En attente de l'indexeur de recherche.",
+        semantic_search_unavailable:
+          "La recherche sémantique n'est pas configurée ; la recherche textuelle reste disponible.",
+        semantic_index_failed:
+          "L'indexation sémantique a échoué ; la recherche textuelle reste disponible.",
+        microphone_track:
+          "La piste micro est attribuée directement, sans détection des voix.",
+        microphone_direct_attribution:
+          "La piste micro a été attribuée directement à son propriétaire.",
+        no_speakers: "Aucune voix détectée dans ce clip.",
+        awaiting_fingerprints: "En attente des empreintes vocales.",
+        matching_failed: "La comparaison des voix a échoué.",
+        upstream_failed: "Non exécutée : une étape précédente a échoué.",
+      },
+      track: "Piste audio",
+      trackPlaceholder: "Choisir une piste…",
+      trackConfirm: "Confirmer la piste",
+      cancel: "Annuler l’analyse",
+      cancelled:
+        "Analyse annulée. Les résultats valides sont conservés ; relancez une analyse pour continuer.",
+      retry: "Réessayer : {step}",
+      viewTask: "Voir la tâche n°{id}",
+      forced: "(relancée)",
+      profile: "Profil : {profile}",
+    },
+    reanalyze: {
+      menu: "Réanalyser…",
+      title: "Réanalyser ce clip",
+      close: "Fermer",
+      scopeLabel: "Que faut-il analyser",
+      scope: {
+        full: "Tout : transcription, indexation et voix",
+        transcription: "Transcription seulement",
+        voice: "Voix seulement",
+      },
+      what: "Ce qui est relancé",
+      mode: {
+        missing:
+          "Seulement les étapes manquantes (les résultats valides sont réutilisés)",
+        full: "Tout de nouveau, même là où un résultat valide existe",
+        steps: "Seulement les étapes que je choisis",
+      },
+      noteMissing:
+        "Les résultats valides sont réutilisés : rien n’est remplacé et aucune confirmation n’est nécessaire.",
+      noteTranscription:
+        "Une nouvelle transcription remplace le texte visible une fois réussie. Les corrections de segments deviennent alors obsolètes (leur historique est conservé). Une confirmation vous sera demandée si le clip contient des corrections.",
+      noteDiarization:
+        "Une nouvelle détection des voix remplace les voix de la piste audio une fois réussie. Une confirmation vous sera demandée si le clip contient des voix validées.",
+      cancel: "Annuler",
+      start: "Lancer la réanalyse",
+      confirmIntro:
+        "Cette réanalyse rendra du travail humain obsolète une fois réussie :",
+      stakeCorrections:
+        "{text} textes de segments corrigés et {speaker} corrections de locuteur deviendront obsolètes.",
+      stakeVoice:
+        "{speakers} voix validées, {samples} échantillons de voix et {corrections} corrections de locuteur seront détachés du nouveau résultat.",
+      kept: "Rien n’est supprimé : l’historique des corrections, les échantillons de voix validés et le résultat précédent sont conservés, et le résultat actuel reste visible jusqu’à la réussite du nouveau.",
+      back: "Retour",
+      confirm: "Confirmer et réanalyser",
+    },
     transcribe: {
       button: "Transcrire",
       scheduled: "Transcription planifiée",
@@ -1495,6 +1695,9 @@ export const fr: Messages = {
       deletedUser: "utilisateur supprimé",
     },
     verification: {
+      clipFilter: "Voix de {clip}",
+      clipFilterAny: "Voix d’un seul clip",
+      clearClipFilter: "Afficher tous les clips",
       lead: "Les voix les plus fréquentes d’abord : en nommer une retire le plus d’incertitude. Trancher est toujours une confirmation humaine.",
       toDecide: "À trancher",
       countersLabel: "Voix par état",
