@@ -42,10 +42,12 @@ class AnalysisQueueRun:
             forced_steps (list[ClipAnalysisRunForcedStepsItem]):
             confirmed_replace_corrections (bool):
             confirmed_replace_validations (bool):
-            steps (list[ClipAnalysisStep]):
-            clip_name (str):
+            confirmed_stake_at (datetime.datetime | None): Instant jusqu'auquel le travail humain en jeu a été montré et
+                confirmé : la réanalyse ne rend obsolète que ce qui existait alors (nul sans étape relancée).
             pending_voices (int): Voix du clip encore inconnues ou ambiguës (liste de vérification) : une analyse terminée
                 qui en laisse est seulement partiellement identifiée.
+            steps (list[ClipAnalysisStep]):
+            clip_name (str):
      """
 
     id: int
@@ -60,9 +62,10 @@ class AnalysisQueueRun:
     forced_steps: list[ClipAnalysisRunForcedStepsItem]
     confirmed_replace_corrections: bool
     confirmed_replace_validations: bool
+    confirmed_stake_at: datetime.datetime | None
+    pending_voices: int
     steps: list[ClipAnalysisStep]
     clip_name: str
-    pending_voices: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -105,6 +108,14 @@ class AnalysisQueueRun:
 
         confirmed_replace_validations = self.confirmed_replace_validations
 
+        confirmed_stake_at: None | str
+        if isinstance(self.confirmed_stake_at, datetime.datetime):
+            confirmed_stake_at = self.confirmed_stake_at.isoformat()
+        else:
+            confirmed_stake_at = self.confirmed_stake_at
+
+        pending_voices = self.pending_voices
+
         steps = []
         for steps_item_data in self.steps:
             steps_item = steps_item_data.to_dict()
@@ -113,8 +124,6 @@ class AnalysisQueueRun:
 
 
         clip_name = self.clip_name
-
-        pending_voices = self.pending_voices
 
 
         field_dict: dict[str, Any] = {}
@@ -132,9 +141,10 @@ class AnalysisQueueRun:
             "forced_steps": forced_steps,
             "confirmed_replace_corrections": confirmed_replace_corrections,
             "confirmed_replace_validations": confirmed_replace_validations,
+            "confirmed_stake_at": confirmed_stake_at,
+            "pending_voices": pending_voices,
             "steps": steps,
             "clip_name": clip_name,
-            "pending_voices": pending_voices,
         })
 
         return field_dict
@@ -214,6 +224,26 @@ class AnalysisQueueRun:
 
         confirmed_replace_validations = d.pop("confirmed_replace_validations")
 
+        def _parse_confirmed_stake_at(data: object) -> datetime.datetime | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                confirmed_stake_at_type_0 = datetime.datetime.fromisoformat(data)
+
+
+
+                return confirmed_stake_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None, data)
+
+        confirmed_stake_at = _parse_confirmed_stake_at(d.pop("confirmed_stake_at"))
+
+
+        pending_voices = d.pop("pending_voices")
+
         steps = []
         _steps = d.pop("steps")
         for steps_item_data in (_steps):
@@ -225,8 +255,6 @@ class AnalysisQueueRun:
 
 
         clip_name = d.pop("clip_name")
-
-        pending_voices = d.pop("pending_voices")
 
         analysis_queue_run = cls(
             id=id,
@@ -241,9 +269,10 @@ class AnalysisQueueRun:
             forced_steps=forced_steps,
             confirmed_replace_corrections=confirmed_replace_corrections,
             confirmed_replace_validations=confirmed_replace_validations,
+            confirmed_stake_at=confirmed_stake_at,
+            pending_voices=pending_voices,
             steps=steps,
             clip_name=clip_name,
-            pending_voices=pending_voices,
         )
 
 

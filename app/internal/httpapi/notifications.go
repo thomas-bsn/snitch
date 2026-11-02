@@ -152,7 +152,16 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_filter")
 		return
 	}
-	limit := 50
+	filter := r.URL.Query().Get("filter")
+	switch filter {
+	case "", "all":
+		filter = "all"
+	case "unread", "actions", "errors":
+	default:
+		fail(w, http.StatusBadRequest, "invalid_filter")
+		return
+	}
+	limit, offset := 50, 0
 	if v := r.URL.Query().Get("limit"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 || n > 200 {
@@ -161,7 +170,15 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = n
 	}
-	list, err := s.notificationList(r.Context(), ss.User.ID, admin, state, limit)
+	if v := r.URL.Query().Get("offset"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			fail(w, http.StatusBadRequest, "invalid_page")
+			return
+		}
+		offset = n
+	}
+	list, err := s.notificationList(r.Context(), ss.User.ID, admin, notificationPage{State: state, Filter: filter, Limit: limit, Offset: offset})
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -169,20 +186,44 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, list)
 }
 
+// notificationPage selects a page of the list: State and Filter narrow it on the server (the
+// client never filters a capped copy), Offset pages through the rest.
+type notificationPage struct {
+	State, Filter string
+	Limit, Offset int
+}
+
+// notificationFilterSQL is the condition of a page filter (alias n for the notification, x for
+// its recipient row); the filter name is validated before it reaches here.
+func notificationFilterSQL(filter string) string {
+	switch filter {
+	case "unread":
+		return `x.read_at IS NULL`
+	case "actions":
+		return `n.state='active'`
+	case "errors":
+		return `n.kind<>'needs_speaker_review'`
+	}
+	return `true`
+}
+
 type notificationListView struct {
 	Items   []notificationView `json:"items"`
 	Unread  int                `json:"unread"`
 	Pending int                `json:"pending"`
+	// Total counts everything the state and filter select, whatever the page.
+	Total int `json:"total"`
 }
 
 // notificationList reads the notifications of a recipient, the access rule applied at this
 // very read. The two counters cover everything visible, whatever the page size or filter.
-func (s *Server) notificationList(ctx context.Context, userID int64, admin bool, state string, limit int) (notificationListView, error) {
+func (s *Server) notificationList(ctx context.Context, userID int64, admin bool, page notificationPage) (notificationListView, error) {
+	where := `x.user_id=$1 AND x.deleted_at IS NULL AND ` + notificationVisible + ` AND ($3='all' OR n.state=$3) AND ` + notificationFilterSQL(page.Filter)
 	out := notificationListView{Items: []notificationView{}}
 	rows, err := s.Pool.Query(ctx, `SELECT n.id,n.kind,n.state,n.clip_id,COALESCE(c.original_name,''),n.pending_count,x.read_at IS NOT NULL,n.created_at,n.updated_at,n.resolved_at,n.job_id,n.step,n.error_code
 FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
-WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible+` AND ($3='all' OR n.state=$3)
-ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4`, userID, admin, state, limit)
+WHERE `+where+`
+ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4 OFFSET $5`, userID, admin, page.State, page.Limit, page.Offset)
 	if err != nil {
 		return out, err
 	}
@@ -202,9 +243,9 @@ ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4`, userID, 
 	if err = rows.Err(); err != nil {
 		return out, err
 	}
-	err = s.Pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE x.read_at IS NULL)::int,count(*) FILTER (WHERE n.state='active')::int
+	err = s.Pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE x.read_at IS NULL)::int,count(*) FILTER (WHERE n.state='active')::int,count(*) FILTER (WHERE ($3='all' OR n.state=$3) AND `+notificationFilterSQL(page.Filter)+`)::int
 FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
-WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible, userID, admin).Scan(&out.Unread, &out.Pending)
+WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible, userID, admin, page.State).Scan(&out.Unread, &out.Pending, &out.Total)
 	return out, err
 }
 
@@ -236,7 +277,7 @@ func (s *Server) notificationEvents(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
-			return s.notificationList(ctx, userID, isAdministrator(ss.User.Role), "all", 200)
+			return s.notificationList(ctx, userID, isAdministrator(ss.User.Role), notificationPage{State: "all", Filter: "all", Limit: 200})
 		},
 	})
 }

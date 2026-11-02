@@ -9,6 +9,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error import Error
+from ...models.list_notifications_filter import ListNotificationsFilter
 from ...models.list_notifications_state import ListNotificationsState
 from ...models.notification_list import NotificationList
 from ...types import UNSET, Unset
@@ -19,7 +20,9 @@ from typing import cast
 def _get_kwargs(
     *,
     state: ListNotificationsState | Unset = ListNotificationsState.ALL,
+    filter_: ListNotificationsFilter | Unset = ListNotificationsFilter.ALL,
     limit: int | Unset = 50,
+    offset: int | Unset = 0,
 
 ) -> dict[str, Any]:
 
@@ -34,7 +37,15 @@ def _get_kwargs(
 
     params["state"] = json_state
 
+    json_filter_: str | Unset = UNSET
+    if not isinstance(filter_, Unset):
+        json_filter_ = filter_.value
+
+    params["filter"] = json_filter_
+
     params["limit"] = limit
+
+    params["offset"] = offset
 
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -80,7 +91,9 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     state: ListNotificationsState | Unset = ListNotificationsState.ALL,
+    filter_: ListNotificationsFilter | Unset = ListNotificationsFilter.ALL,
     limit: int | Unset = 50,
+    offset: int | Unset = 0,
 
 ) -> Response[Error | NotificationList]:
     """  Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore
@@ -89,7 +102,9 @@ def sync_detailed(
 
     Args:
         state (ListNotificationsState | Unset):  Default: ListNotificationsState.ALL.
+        filter_ (ListNotificationsFilter | Unset):  Default: ListNotificationsFilter.ALL.
         limit (int | Unset):  Default: 50.
+        offset (int | Unset):  Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -102,7 +117,9 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         state=state,
+filter_=filter_,
 limit=limit,
+offset=offset,
 
     )
 
@@ -116,7 +133,9 @@ def sync(
     *,
     client: AuthenticatedClient,
     state: ListNotificationsState | Unset = ListNotificationsState.ALL,
+    filter_: ListNotificationsFilter | Unset = ListNotificationsFilter.ALL,
     limit: int | Unset = 50,
+    offset: int | Unset = 0,
 
 ) -> Error | NotificationList | None:
     """  Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore
@@ -125,7 +144,9 @@ def sync(
 
     Args:
         state (ListNotificationsState | Unset):  Default: ListNotificationsState.ALL.
+        filter_ (ListNotificationsFilter | Unset):  Default: ListNotificationsFilter.ALL.
         limit (int | Unset):  Default: 50.
+        offset (int | Unset):  Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,7 +160,9 @@ def sync(
     return sync_detailed(
         client=client,
 state=state,
+filter_=filter_,
 limit=limit,
+offset=offset,
 
     ).parsed
 
@@ -147,7 +170,9 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     state: ListNotificationsState | Unset = ListNotificationsState.ALL,
+    filter_: ListNotificationsFilter | Unset = ListNotificationsFilter.ALL,
     limit: int | Unset = 50,
+    offset: int | Unset = 0,
 
 ) -> Response[Error | NotificationList]:
     """  Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore
@@ -156,7 +181,9 @@ async def asyncio_detailed(
 
     Args:
         state (ListNotificationsState | Unset):  Default: ListNotificationsState.ALL.
+        filter_ (ListNotificationsFilter | Unset):  Default: ListNotificationsFilter.ALL.
         limit (int | Unset):  Default: 50.
+        offset (int | Unset):  Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -169,7 +196,9 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         state=state,
+filter_=filter_,
 limit=limit,
+offset=offset,
 
     )
 
@@ -183,7 +212,9 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     state: ListNotificationsState | Unset = ListNotificationsState.ALL,
+    filter_: ListNotificationsFilter | Unset = ListNotificationsFilter.ALL,
     limit: int | Unset = 50,
+    offset: int | Unset = 0,
 
 ) -> Error | NotificationList | None:
     """  Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore
@@ -192,7 +223,9 @@ async def asyncio(
 
     Args:
         state (ListNotificationsState | Unset):  Default: ListNotificationsState.ALL.
+        filter_ (ListNotificationsFilter | Unset):  Default: ListNotificationsFilter.ALL.
         limit (int | Unset):  Default: 50.
+        offset (int | Unset):  Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -206,6 +239,8 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 state=state,
+filter_=filter_,
 limit=limit,
+offset=offset,
 
     )).parsed

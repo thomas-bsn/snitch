@@ -206,6 +206,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipReanalysis(t, pool)
 	})
+	t.Run("clip analysis read-only view", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisReadOnlyView(t, pool)
+	})
+	t.Run("clip reanalysis stake race", func(t *testing.T) {
+		reset(t)
+		testClipReanalysisStakeRace(t, pool)
+	})
 	t.Run("clip progress and filter options", func(t *testing.T) {
 		reset(t)
 		testClipProgress(t, pool)
@@ -282,6 +290,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testNotifications(t, pool)
 	})
+	t.Run("notification filters", func(t *testing.T) {
+		reset(t)
+		testNotificationFilters(t, pool)
+	})
 	t.Run("notification events", func(t *testing.T) {
 		reset(t)
 		testNotificationEvents(t, pool)
@@ -289,6 +301,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("incident notifications", func(t *testing.T) {
 		reset(t)
 		testIncidentNotifications(t, pool)
+	})
+	t.Run("incident error code whitelist", func(t *testing.T) {
+		reset(t)
+		testIncidentErrorCodeWhitelist(t, pool)
 	})
 	t.Run("microphone track", func(t *testing.T) {
 		reset(t)

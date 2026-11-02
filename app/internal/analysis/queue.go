@@ -27,9 +27,6 @@ const HistoryPageSize = 10
 type QueueRun struct {
 	Run
 	ClipName string `json:"clip_name"`
-	// PendingVoices counts the voices of the clip still unknown or ambiguous: a completed
-	// run with some left is only partially identified.
-	PendingVoices int `json:"pending_voices"`
 }
 
 // RunHistory is one page of the finished runs, newest first.
@@ -108,24 +105,33 @@ func (s *Service) scanQueueRuns(ctx context.Context, rows pgx.Rows) ([]QueueRun,
 		return nil, err
 	}
 	steps.Close()
-	pending, err := s.pool.Query(ctx, `SELECT ls.clip_id,count(*)::int FROM local_speakers ls WHERE ls.clip_id=ANY($1) AND `+PendingVoiceCondition+` GROUP BY ls.clip_id`, clips)
+	counts, err := s.pendingVoices(ctx, clips)
 	if err != nil {
-		return nil, fmt.Errorf("count pending voices: %w", err)
-	}
-	defer pending.Close()
-	counts := map[int64]int{}
-	for pending.Next() {
-		var clip int64
-		var n int
-		if err = pending.Scan(&clip, &n); err != nil {
-			return nil, err
-		}
-		counts[clip] = n
+		return nil, err
 	}
 	for i := range out {
 		out[i].PendingVoices = counts[out[i].ClipID]
 	}
-	return out, pending.Err()
+	return out, nil
+}
+
+// pendingVoices counts, per clip, the voices still awaiting a decision (PendingVoiceCondition).
+func (s *Service) pendingVoices(ctx context.Context, clips []int64) (map[int64]int, error) {
+	rows, err := s.pool.Query(ctx, `SELECT ls.clip_id,count(*)::int FROM local_speakers ls WHERE ls.clip_id=ANY($1) AND `+PendingVoiceCondition+` GROUP BY ls.clip_id`, clips)
+	if err != nil {
+		return nil, fmt.Errorf("count pending voices: %w", err)
+	}
+	defer rows.Close()
+	counts := map[int64]int{}
+	for rows.Next() {
+		var clip int64
+		var n int
+		if err = rows.Scan(&clip, &n); err != nil {
+			return nil, err
+		}
+		counts[clip] = n
+	}
+	return counts, rows.Err()
 }
 
 // FinishedRuns lists the finished runs of every clip, newest first, optionally narrowed to the
@@ -156,7 +162,7 @@ func (s *Service) Queue(ctx context.Context) (Queue, error) {
 	if q.Active, err = s.queueRuns(ctx, `r.status IN ('active','failed')`, `r.created_at,r.id`, 100000); err != nil {
 		return q, err
 	}
-	if q.Completed, err = s.queueRuns(ctx, `r.status IN ('completed','incomplete')`, `r.finished_at DESC NULLS LAST,r.id DESC`, CompletedRuns); err != nil {
+	if q.Completed, err = s.queueRuns(ctx, `r.status='completed'`, `r.finished_at DESC NULLS LAST,r.id DESC`, CompletedRuns); err != nil {
 		return q, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.cycle,c.original_name

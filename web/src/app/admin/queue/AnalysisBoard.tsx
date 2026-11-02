@@ -46,9 +46,17 @@ function StepRow({ step }: { step: Step }) {
  * Verification list), never from the run status: a completed run with some left is only
  * partially identified.
  */
-export function IdentificationBadge({ run }: { run: QueueRun }) {
+export function IdentificationBadge({
+  run,
+}: {
+  run: {
+    status: string;
+    pending_voices: number;
+    steps: { step: string; status: string }[];
+  };
+}) {
   const { t } = useI18n();
-  if (run.status !== "completed" && run.status !== "incomplete") return null;
+  if (run.status !== "completed") return null;
   const voices = run.steps.find((s) => s.step === "matching");
   if (run.pending_voices > 0)
     return (

@@ -25,6 +25,7 @@ type notificationsT struct {
 	Items   []notificationT `json:"items"`
 	Unread  int             `json:"unread"`
 	Pending int             `json:"pending"`
+	Total   int             `json:"total"`
 }
 
 func (h *voiceHarness) notifications(u *voiceUser, query string) notificationsT {

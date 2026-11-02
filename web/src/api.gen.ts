@@ -1354,6 +1354,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Tout utilisateur qui peut ouvrir le clip. Lecture seule : statut et code de raison stables de chaque étape, sans identifiant de job, nom de Worker ni code d'erreur. */
+    get: operations["getClipAnalysisView"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/analysis/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Tout utilisateur qui peut ouvrir le clip. Repli : GET /api/clips/{id}/analysis. */
+    get: operations["streamClipAnalysisViewEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/analysis/events": {
     parameters: {
       query?: never;
@@ -2528,7 +2562,7 @@ export interface components {
       /** @enum {string} */
       scope: "transcription" | "voice" | "full";
       /** @enum {string} */
-      status: "active" | "completed" | "incomplete" | "failed" | "cancelled";
+      status: "active" | "completed" | "failed" | "cancelled";
       /** Format: int64 */
       started_by: number | null;
       /** Format: date-time */
@@ -2542,7 +2576,55 @@ export interface components {
       forced_steps: ("transcription" | "indexing" | "diarization")[];
       confirmed_replace_corrections: boolean;
       confirmed_replace_validations: boolean;
+      /**
+       * Format: date-time
+       * @description Instant jusqu'auquel le travail humain en jeu a été montré et confirmé : la réanalyse ne rend obsolète que ce qui existait alors (nul sans étape relancée).
+       */
+      confirmed_stake_at: string | null;
+      /** @description Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une analyse terminée qui en laisse est seulement partiellement identifiée. */
+      pending_voices: number;
       steps: components["schemas"]["ClipAnalysisStep"][];
+    };
+    /** @description Vue en lecture seule pour tout utilisateur qui peut ouvrir le clip : état et code de raison stable de chaque étape, sans job, Worker ni détail d'erreur. */
+    ClipAnalysisView: {
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      scope: "transcription" | "voice" | "full";
+      /** @enum {string} */
+      status: "active" | "completed" | "failed" | "cancelled";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      pending_voices: number;
+      steps: {
+        /** @enum {string} */
+        step:
+          | "preparation"
+          | "transcription"
+          | "indexing"
+          | "diarization"
+          | "fingerprints"
+          | "matching";
+        /** @enum {string} */
+        status:
+          | "waiting"
+          | "running"
+          | "retry"
+          | "blocked"
+          | "failed"
+          | "done"
+          | "not_applicable";
+        reason: string;
+        /** Format: date-time */
+        updated_at: string;
+      }[];
+    };
+    ClipAnalysisViewResponse: {
+      run: components["schemas"]["ClipAnalysisView"] | null;
     };
     ClipAnalysisResponse: {
       run: components["schemas"]["ClipAnalysisRun"] | null;
@@ -2570,6 +2652,11 @@ export interface components {
       error: string;
       run?: components["schemas"]["ClipAnalysisRun"];
       stake?: components["schemas"]["ClipReanalysisStake"];
+      /**
+       * Format: date-time
+       * @description Instant où l'enjeu a été lu ; à renvoyer en confirmed_stake_at.
+       */
+      stake_at?: string;
     };
     /** @description Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés). */
     ClipReanalysisStake: {
@@ -3737,6 +3824,8 @@ export interface components {
       items: components["schemas"]["Notification"][];
       unread: number;
       pending: number;
+      /** @description Nombre de notifications que sélectionnent l'état et le filtre, quelle que soit la page ; sert à proposer « Afficher plus ». */
+      total: number;
     };
     VoiceVerification: {
       items: components["schemas"]["VoiceVerificationCase"][];
@@ -8023,6 +8112,11 @@ export interface operations {
           steps?: ("transcription" | "indexing" | "diarization")[];
           /** @description Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections). */
           confirm_replace_corrections?: boolean;
+          /**
+           * Format: date-time
+           * @description Le stake_at du refus reanalysis_confirmation_required que l'administrateur a confirmé (le plus ancien s'il y en a eu plusieurs) : le travail humain créé après n'est jamais rendu obsolète. Par défaut, l'instant de la requête.
+           */
+          confirmed_stake_at?: string;
           /** @description Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice). */
           confirm_replace_validations?: boolean;
         };
@@ -8254,6 +8348,68 @@ export interface operations {
         };
       };
       /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysisView: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Analyse active du clip, ou la plus récente ; run vaut null si le clip n'a jamais été analysé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisViewResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 404 clip_not_found, aussi pour un clip inaccessible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamClipAnalysisViewEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream de la vue en lecture seule (mêmes évènements que le flux administrateur, snapshot {run} sans détail technique). L'accès au clip est revérifié avant chaque snapshot ; un évènement `forbidden` clôt le flux quand il est perdu. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 404 clip_not_found) */
       default: {
         headers: {
           [name: string]: unknown;
@@ -10758,7 +10914,10 @@ export interface operations {
     parameters: {
       query?: {
         state?: "all" | "active" | "resolved";
+        /** @description Filtre appliqué côté serveur : unread (non lues), actions (en attente), errors (incidents techniques). Indépendant de la taille de page. */
+        filter?: "all" | "unread" | "actions" | "errors";
         limit?: number;
+        offset?: number;
       };
       header?: never;
       path?: never;

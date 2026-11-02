@@ -50,10 +50,10 @@ type Server struct {
 	Uploads            *uploads.Service
 	Workers            *workers.Service
 	rates              sync.Map
-	embeddingCancel    context.CancelFunc
-	embeddingContext   context.Context
+	backgroundCancel   context.CancelFunc
+	backgroundContext  context.Context
 	embeddingStartOnce sync.Once
-	embeddingWG        sync.WaitGroup
+	backgroundWG       sync.WaitGroup
 	incidents          incidentSync
 	passwordSlots      chan struct{}
 	dummyPassword      string
@@ -100,22 +100,22 @@ func (s *Server) Start(ctx context.Context) error {
 		s.Uploads.Close()
 		return fmt.Errorf("start library: %w", err)
 	}
-	s.embeddingContext, s.embeddingCancel = context.WithCancel(ctx)
-	s.embeddingWG.Add(1)
-	go func() { defer s.embeddingWG.Done(); s.Events.Serve(s.embeddingContext) }()
-	s.embeddingWG.Add(1)
-	go func() { defer s.embeddingWG.Done(); s.Analysis.Serve(s.embeddingContext, analysisInterval) }()
-	s.embeddingWG.Add(1)
-	go func() { defer s.embeddingWG.Done(); s.serveIncidents(s.embeddingContext, analysisInterval) }()
-	s.embeddingWG.Add(1)
+	s.backgroundContext, s.backgroundCancel = context.WithCancel(ctx)
+	s.backgroundWG.Add(1)
+	go func() { defer s.backgroundWG.Done(); s.Events.Serve(s.backgroundContext) }()
+	s.backgroundWG.Add(1)
+	go func() { defer s.backgroundWG.Done(); s.Analysis.Serve(s.backgroundContext, analysisInterval) }()
+	s.backgroundWG.Add(1)
+	go func() { defer s.backgroundWG.Done(); s.serveIncidents(s.backgroundContext, analysisInterval) }()
+	s.backgroundWG.Add(1)
 	go func() {
-		defer s.embeddingWG.Done()
+		defer s.backgroundWG.Done()
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 		for {
-			s.resumeUploadPublications(s.embeddingContext)
+			s.resumeUploadPublications(s.backgroundContext)
 			select {
-			case <-s.embeddingContext.Done():
+			case <-s.backgroundContext.Done():
 				return
 			case <-ticker.C:
 			}
@@ -133,21 +133,21 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 func (s *Server) startEmbeddingWorkers() {
-	if s.embeddingContext == nil {
+	if s.backgroundContext == nil {
 		return
 	}
 	s.embeddingStartOnce.Do(func() {
 		for worker := 0; worker < 4; worker++ {
-			s.embeddingWG.Add(1)
-			go func() { defer s.embeddingWG.Done(); s.embeddingLoop(s.embeddingContext) }()
+			s.backgroundWG.Add(1)
+			go func() { defer s.backgroundWG.Done(); s.embeddingLoop(s.backgroundContext) }()
 		}
 	})
 }
 func (s *Server) Close() {
-	if s.embeddingCancel != nil {
-		s.embeddingCancel()
+	if s.backgroundCancel != nil {
+		s.backgroundCancel()
 	}
-	s.embeddingWG.Wait()
+	s.backgroundWG.Wait()
 	s.Library.Close()
 	s.Uploads.Close()
 }
@@ -211,6 +211,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/analysis/history", s.protected(true, http.HandlerFunc(s.adminAnalysisHistory)))
 	mux.Handle("GET /api/admin/analysis/queue/events", s.protected(true, http.HandlerFunc(s.adminQueueEvents)))
 	mux.Handle("GET /api/admin/clips/{id}/analysis/events", s.protected(true, http.HandlerFunc(s.clipAnalysisEvents)))
+	mux.Handle("GET /api/clips/{id}/analysis", s.protected(false, http.HandlerFunc(s.getClipAnalysisView)))
+	mux.Handle("GET /api/clips/{id}/analysis/events", s.protected(false, http.HandlerFunc(s.clipAnalysisViewEvents)))
 	mux.Handle("GET /api/admin/jobs", s.protected(true, http.HandlerFunc(s.listJobs)))
 	mux.Handle("POST /api/admin/jobs", s.protected(true, http.HandlerFunc(s.scheduleJob)))
 	mux.Handle("GET /api/admin/jobs/{id}/history", s.protected(true, http.HandlerFunc(s.jobHistory)))

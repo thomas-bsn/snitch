@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
 from typing import cast
+import datetime
 
 if TYPE_CHECKING:
   from ..models.clip_analysis_run import ClipAnalysisRun
@@ -31,11 +32,13 @@ class ClipAnalysisConflict:
             run (ClipAnalysisRun | Unset):
             stake (ClipReanalysisStake | Unset): Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques,
                 échantillons validés et anciens résultats conservés).
+            stake_at (datetime.datetime | Unset): Instant où l'enjeu a été lu ; à renvoyer en confirmed_stake_at.
      """
 
     error: str
     run: ClipAnalysisRun | Unset = UNSET
     stake: ClipReanalysisStake | Unset = UNSET
+    stake_at: datetime.datetime | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -55,6 +58,10 @@ class ClipAnalysisConflict:
         if not isinstance(self.stake, Unset):
             stake = self.stake.to_dict()
 
+        stake_at: str | Unset = UNSET
+        if not isinstance(self.stake_at, Unset):
+            stake_at = self.stake_at.isoformat()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -65,6 +72,8 @@ class ClipAnalysisConflict:
             field_dict["run"] = run
         if stake is not UNSET:
             field_dict["stake"] = stake
+        if stake_at is not UNSET:
+            field_dict["stake_at"] = stake_at
 
         return field_dict
 
@@ -97,10 +106,21 @@ class ClipAnalysisConflict:
 
 
 
+        _stake_at = d.pop("stake_at", UNSET)
+        stake_at: datetime.datetime | Unset
+        if isinstance(_stake_at,  Unset):
+            stake_at = UNSET
+        else:
+            stake_at = datetime.datetime.fromisoformat(_stake_at)
+
+
+
+
         clip_analysis_conflict = cls(
             error=error,
             run=run,
             stake=stake,
+            stake_at=stake_at,
         )
 
 

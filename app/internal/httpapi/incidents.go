@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"snitch/internal/jobs"
 	"snitch/internal/workers"
 )
 
@@ -61,11 +62,11 @@ WHERE j.status IN ('pending','retry_wait') AND j.created_at < now()-($1 * interv
 	// job superseded by a later successful one of the same step is no longer an incident.
 	rows, err := tx.Query(ctx, `SELECT CASE WHEN j.last_error IN ('provider_unavailable','model_missing') THEN j.last_error ELSE 'job_failed' END AS kind,
  CASE WHEN j.last_error IN ('provider_unavailable','model_missing') THEN '' ELSE j.step END AS grp,
- CASE WHEN j.last_error='' THEN 'retries_exhausted' ELSE j.last_error END AS code,
+ CASE WHEN j.last_error='' THEN 'retries_exhausted' WHEN j.last_error=ANY($1::text[]) THEN j.last_error ELSE 'worker_failed' END AS code,
  count(*)::int,max(j.id),max(j.clip_id)
 FROM jobs j WHERE NOT EXISTS (SELECT 1 FROM jobs d WHERE d.clip_id=j.clip_id AND d.step=j.step AND d.status='done' AND d.id>j.id)
 AND (j.status='dead' OR (j.status='retry_wait' AND j.last_error IN ('provider_unavailable','model_missing')))
-GROUP BY 1,2,3 ORDER BY 1,2,3`)
+GROUP BY 1,2,3 ORDER BY 1,2,3`, jobs.FailureCodes())
 	if err != nil {
 		return nil, err
 	}

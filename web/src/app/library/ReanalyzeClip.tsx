@@ -46,6 +46,8 @@ export function ReanalyzeClip({
   const [mode, setMode] = useState<Mode>("missing");
   const [steps, setSteps] = useState<ForcedStep[]>([]);
   const [stake, setStake] = useState<Stake>();
+  // When the server read the stake it showed: only the work that existed then is replaced.
+  const [stakeAt, setStakeAt] = useState<string>();
   const [failure, setFailure] = useState<string>();
   const [busy, setBusy] = useState(false);
 
@@ -55,6 +57,7 @@ export function ReanalyzeClip({
   function close(next: boolean) {
     if (!next) {
       setStake(undefined);
+      setStakeAt(undefined);
       setFailure(undefined);
     }
     onOpenChange(next);
@@ -74,6 +77,7 @@ export function ReanalyzeClip({
             ? {
                 confirm_replace_corrections: true,
                 confirm_replace_validations: true,
+                ...(stakeAt ? { confirmed_stake_at: stakeAt } : {}),
               }
             : {}),
         },
@@ -84,10 +88,13 @@ export function ReanalyzeClip({
         close(false);
         return;
       }
-      const err = r.error as { error?: string; stake?: Stake } | undefined;
-      if (err?.error === "reanalysis_confirmation_required" && err.stake)
+      const err = r.error as
+        | { error?: string; stake?: Stake; stake_at?: string }
+        | undefined;
+      if (err?.error === "reanalysis_confirmation_required" && err.stake) {
         setStake(err.stake);
-      else setFailure(errorCode(r.error) ?? "unknown");
+        setStakeAt(err.stake_at);
+      } else setFailure(errorCode(r.error) ?? "unknown");
     } catch {
       setFailure("unavailable");
     } finally {

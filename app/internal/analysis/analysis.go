@@ -55,6 +55,9 @@ type Options struct {
 	Steps                     []string
 	ConfirmReplaceCorrections bool
 	ConfirmReplaceValidations bool
+	// ConfirmedStakeAt is when the human work at stake was read and shown; zero means now. The
+	// replacement never makes obsolete what was created after it.
+	ConfirmedStakeAt time.Time
 }
 
 // forceable are the steps a reanalysis can run again: the others follow them (the
@@ -170,7 +173,46 @@ type Run struct {
 	ForcedSteps                 []string `json:"forced_steps"`
 	ConfirmedReplaceCorrections bool     `json:"confirmed_replace_corrections"`
 	ConfirmedReplaceValidations bool     `json:"confirmed_replace_validations"`
-	Steps                       []Step   `json:"steps"`
+	// ConfirmedStakeAt is the instant up to which corrections and validations were confirmed
+	// replaceable; nil for a run that forces nothing.
+	ConfirmedStakeAt *time.Time `json:"confirmed_stake_at"`
+	Steps            []Step     `json:"steps"`
+	// PendingVoices counts the voices of the clip still unknown or ambiguous (the Verification
+	// list): a completed run with some left is only partially identified. It is read live, not stored.
+	PendingVoices int `json:"pending_voices"`
+}
+
+// PublicStep is a step as every user who can open the clip sees it: its state and the stable
+// reason code, never the job, the Worker or an error.
+type PublicStep struct {
+	Step      string    `json:"step"`
+	Status    string    `json:"status"`
+	Reason    string    `json:"reason"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// PublicRun is the read-only view of a run for users who are not administrators.
+type PublicRun struct {
+	ClipID        int64        `json:"clip_id"`
+	Scope         string       `json:"scope"`
+	Status        string       `json:"status"`
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
+	FinishedAt    *time.Time   `json:"finished_at"`
+	PendingVoices int          `json:"pending_voices"`
+	Steps         []PublicStep `json:"steps"`
+}
+
+// Public strips a run down to what a non-administrator may see.
+func (r *Run) Public() *PublicRun {
+	if r == nil {
+		return nil
+	}
+	out := &PublicRun{ClipID: r.ClipID, Scope: r.Scope, Status: r.Status, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, FinishedAt: r.FinishedAt, PendingVoices: r.PendingVoices, Steps: []PublicStep{}}
+	for _, st := range r.Steps {
+		out.Steps = append(out.Steps, PublicStep{Step: st.Step, Status: st.Status, Reason: st.Reason, UpdatedAt: st.UpdatedAt})
+	}
+	return out
 }
 
 // Preparation is what the clip lets a run do: the media must be ready and one audio track
@@ -238,11 +280,11 @@ func validScope(scope string) bool {
 	return scope == ScopeTranscription || scope == ScopeVoice || scope == ScopeFull
 }
 
-const runColumns = `id,clip_id,scope,status,started_by,created_at,updated_at,finished_at,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations`
+const runColumns = `id,clip_id,scope,status,started_by,created_at,updated_at,finished_at,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations,confirmed_stake_at`
 
 func scanRun(row pgx.Row) (Run, error) {
 	var r Run
-	err := row.Scan(&r.ID, &r.ClipID, &r.Scope, &r.Status, &r.StartedBy, &r.CreatedAt, &r.UpdatedAt, &r.FinishedAt, &r.Mode, &r.ForcedSteps, &r.ConfirmedReplaceCorrections, &r.ConfirmedReplaceValidations)
+	err := row.Scan(&r.ID, &r.ClipID, &r.Scope, &r.Status, &r.StartedBy, &r.CreatedAt, &r.UpdatedAt, &r.FinishedAt, &r.Mode, &r.ForcedSteps, &r.ConfirmedReplaceCorrections, &r.ConfirmedReplaceValidations, &r.ConfirmedStakeAt)
 	return r, err
 }
 
@@ -268,12 +310,16 @@ func (s *Service) StartWith(ctx context.Context, clipID int64, scope string, adm
 	if forced == nil {
 		forced = []string{}
 	}
+	var stakeAt *time.Time // nil: the database clock decides (now), the same one that stamps the human work
+	if !opts.ConfirmedStakeAt.IsZero() {
+		stakeAt = &opts.ConfirmedStakeAt
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Run{}, false, err
 	}
 	defer tx.Rollback(ctx)
-	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO clip_analysis_runs(clip_id,scope,started_by,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (clip_id) WHERE status='active' DO NOTHING RETURNING `+runColumns, clipID, scope, adminID, opts.Mode, forced, opts.ConfirmReplaceCorrections, opts.ConfirmReplaceValidations))
+	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO clip_analysis_runs(clip_id,scope,started_by,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations,confirmed_stake_at) VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN cardinality($5::text[])>0 THEN LEAST(COALESCE($8::timestamptz,now()),now()) END) ON CONFLICT (clip_id) WHERE status='active' DO NOTHING RETURNING `+runColumns, clipID, scope, adminID, opts.Mode, forced, opts.ConfirmReplaceCorrections, opts.ConfirmReplaceValidations, stakeAt))
 	created := err == nil
 	if errors.Is(err, pgx.ErrNoRows) {
 		run, err = scanRun(tx.QueryRow(ctx, `SELECT `+runColumns+` FROM clip_analysis_runs WHERE clip_id=$1 AND status='active'`, clipID))
@@ -344,6 +390,11 @@ func (s *Service) Latest(ctx context.Context, clipID int64) (*Run, error) {
 	if err = s.loadSteps(ctx, &run); err != nil {
 		return nil, err
 	}
+	counts, err := s.pendingVoices(ctx, []int64{clipID})
+	if err != nil {
+		return nil, err
+	}
+	run.PendingVoices = counts[clipID]
 	return &run, nil
 }
 
@@ -406,10 +457,15 @@ func (s *Service) History(ctx context.Context, clipID int64, limit int) ([]Run, 
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
+	counts, err := s.pendingVoices(ctx, []int64{clipID})
+	if err != nil {
+		return nil, err
+	}
 	for i := range runs {
 		if err = s.loadSteps(ctx, &runs[i]); err != nil {
 			return nil, err
 		}
+		runs[i].PendingVoices = counts[clipID]
 	}
 	return runs, nil
 }

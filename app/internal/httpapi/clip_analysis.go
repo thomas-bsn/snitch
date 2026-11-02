@@ -235,6 +235,8 @@ func (s *Server) startClipAnalysis(w http.ResponseWriter, r *http.Request) {
 		Steps                     []string `json:"steps"`
 		ConfirmReplaceCorrections bool     `json:"confirm_replace_corrections"`
 		ConfirmReplaceValidations bool     `json:"confirm_replace_validations"`
+		// ConfirmedStakeAt echoes the stake_at of the refusal the administrator confirmed.
+		ConfirmedStakeAt *time.Time `json:"confirmed_stake_at"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -243,6 +245,9 @@ func (s *Server) startClipAnalysis(w http.ResponseWriter, r *http.Request) {
 		input.Scope = analysis.ScopeTranscription
 	}
 	opts := analysis.Options{Mode: input.Mode, Steps: input.Steps, ConfirmReplaceCorrections: input.ConfirmReplaceCorrections, ConfirmReplaceValidations: input.ConfirmReplaceValidations}
+	if input.ConfirmedStakeAt != nil {
+		opts.ConfirmedStakeAt = *input.ConfirmedStakeAt
+	}
 	if !s.reanalysisConfirmed(w, r, clipID, input.Scope, opts) {
 		return
 	}
@@ -268,19 +273,26 @@ func (s *Server) startClipAnalysis(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// clipExists answers 404 clip_not_found (or 500) and returns false when the clip is not there.
+func (s *Server) clipExists(w http.ResponseWriter, r *http.Request, clipID int64) bool {
+	var exists bool
+	if err := s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clips WHERE id=$1)`, clipID).Scan(&exists); err != nil {
+		s.internal(w, err)
+		return false
+	}
+	if !exists {
+		fail(w, http.StatusNotFound, "clip_not_found")
+	}
+	return exists
+}
+
 func (s *Server) getClipAnalysis(w http.ResponseWriter, r *http.Request) {
 	clipID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || clipID < 1 {
 		fail(w, http.StatusBadRequest, "invalid_clip_id")
 		return
 	}
-	var exists bool
-	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clips WHERE id=$1)`, clipID).Scan(&exists); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if !exists {
-		fail(w, http.StatusNotFound, "clip_not_found")
+	if !s.clipExists(w, r, clipID) {
 		return
 	}
 	run, err := s.Analysis.Latest(r.Context(), clipID)
@@ -339,29 +351,12 @@ func (s *Server) clipAnalysisEvents(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_clip_id")
 		return
 	}
-	var exists bool
-	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clips WHERE id=$1)`, clipID).Scan(&exists); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if !exists {
-		fail(w, http.StatusNotFound, "clip_not_found")
+	if !s.clipExists(w, r, clipID) {
 		return
 	}
 	s.Events.Stream(w, r, events.Topic{
-		Name: "clip:" + strconv.FormatInt(clipID, 10),
-		Authorize: func(ctx context.Context) error {
-			ss, err := s.findSession(r.WithContext(ctx))
-			switch {
-			case errors.Is(err, pgx.ErrNoRows), errors.Is(err, http.ErrNoCookie):
-				return events.ErrForbidden
-			case err != nil:
-				return err
-			case !isAdministrator(ss.User.Role):
-				return events.ErrForbidden
-			}
-			return nil
-		},
+		Name:      "clip:" + strconv.FormatInt(clipID, 10),
+		Authorize: s.adminAuthorizer(r),
 		Snapshot: func(ctx context.Context) (any, error) {
 			run, err := s.Analysis.Latest(ctx, clipID)
 			return map[string]any{"run": run}, err
@@ -397,6 +392,12 @@ func (s *Server) reanalysisConfirmed(w http.ResponseWriter, r *http.Request, cli
 	}
 	if active {
 		return true
+	}
+	// The instant is read from the database clock before the stake, so nothing it shows is newer.
+	var stakeAt time.Time
+	if err = s.Pool.QueryRow(r.Context(), `SELECT clock_timestamp()`).Scan(&stakeAt); err != nil {
+		s.internal(w, err)
+		return false
 	}
 	var stake reanalysisStake
 	if slices.Contains(forced, analysis.StepTranscription) && !opts.ConfirmReplaceCorrections {
@@ -436,7 +437,7 @@ func (s *Server) reanalysisConfirmed(w http.ResponseWriter, r *http.Request, cli
 	if stake.Corrections == nil && stake.Voice == nil {
 		return true
 	}
-	reply(w, http.StatusConflict, map[string]any{"error": "reanalysis_confirmation_required", "stake": stake})
+	reply(w, http.StatusConflict, map[string]any{"error": "reanalysis_confirmation_required", "stake": stake, "stake_at": stakeAt})
 	return false
 }
 
@@ -447,13 +448,7 @@ func (s *Server) getClipAnalysisHistory(w http.ResponseWriter, r *http.Request) 
 		fail(w, http.StatusBadRequest, "invalid_clip_id")
 		return
 	}
-	var exists bool
-	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clips WHERE id=$1)`, clipID).Scan(&exists); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if !exists {
-		fail(w, http.StatusNotFound, "clip_not_found")
+	if !s.clipExists(w, r, clipID) {
 		return
 	}
 	runs, err := s.Analysis.History(r.Context(), clipID, 20)
@@ -536,4 +531,57 @@ func (s *Server) refuseWhileAnalyzing(w http.ResponseWriter, r *http.Request, cl
 		fail(w, http.StatusConflict, "analysis_active")
 	}
 	return active
+}
+
+// clipReadable tells whether the session of the request may open the clip: shared, its own, or
+// any clip for an administrator (the rule of authorizedClip).
+func (s *Server) clipReadable(ctx context.Context, r *http.Request, clipID int64) error {
+	ss, err := s.findSession(r.WithContext(ctx))
+	switch {
+	case errors.Is(err, pgx.ErrNoRows), errors.Is(err, http.ErrNoCookie):
+		return events.ErrForbidden
+	case err != nil:
+		return err
+	}
+	var ok bool
+	if err = s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM clips c WHERE c.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3))`, clipID, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&ok); err != nil {
+		return err
+	}
+	if !ok {
+		return events.ErrForbidden
+	}
+	return nil
+}
+
+// getClipAnalysisView is the read-only analysis of a clip for every user who can open it: the
+// status and the stable reason of each step, no job, Worker or error detail.
+func (s *Server) getClipAnalysisView(w http.ResponseWriter, r *http.Request) {
+	v, ok := s.authorizedClip(w, r)
+	if !ok {
+		return
+	}
+	run, err := s.Analysis.Latest(r.Context(), v.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"run": run.Public()})
+}
+
+// clipAnalysisViewEvents streams the read-only analysis: access to the clip is rechecked
+// against the session before every snapshot, so a clip made private stops its stream.
+func (s *Server) clipAnalysisViewEvents(w http.ResponseWriter, r *http.Request) {
+	v, ok := s.authorizedClip(w, r)
+	if !ok {
+		return
+	}
+	clipID := v.ID
+	s.Events.Stream(w, r, events.Topic{
+		Name:      "clip:" + strconv.FormatInt(clipID, 10),
+		Authorize: func(ctx context.Context) error { return s.clipReadable(ctx, r, clipID) },
+		Snapshot: func(ctx context.Context) (any, error) {
+			run, err := s.Analysis.Latest(ctx, clipID)
+			return map[string]any{"run": run.Public()}, err
+		},
+	})
 }

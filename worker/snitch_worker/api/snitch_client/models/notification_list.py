@@ -28,11 +28,14 @@ class NotificationList:
             items (list[Notification]):
             unread (int):
             pending (int):
+            total (int): Nombre de notifications que sélectionnent l'état et le filtre, quelle que soit la page ; sert à
+                proposer « Afficher plus ».
      """
 
     items: list[Notification]
     unread: int
     pending: int
+    total: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -52,6 +55,8 @@ class NotificationList:
 
         pending = self.pending
 
+        total = self.total
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -59,6 +64,7 @@ class NotificationList:
             "items": items,
             "unread": unread,
             "pending": pending,
+            "total": total,
         })
 
         return field_dict
@@ -83,10 +89,13 @@ class NotificationList:
 
         pending = d.pop("pending")
 
+        total = d.pop("total")
+
         notification_list = cls(
             items=items,
             unread=unread,
             pending=pending,
+            total=total,
         )
 
 

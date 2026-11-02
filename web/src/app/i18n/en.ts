@@ -40,7 +40,6 @@ export const en = {
         active: "In progress",
         failed: "Partly failed",
         completed: "Completed",
-        incomplete: "Completed, voices to check",
         cancelled: "Cancelled",
       },
     },
@@ -590,6 +589,7 @@ export const en = {
     actionVerify: "Verify the voices",
     removeResolved: "Remove resolved notifications",
     emptyFiltered: "No notifications match this filter.",
+    showMore: "Show more ({shown} of {total})",
     activeList: "Active notifications",
     historyList: "Resolved notifications",
     live: "Live updates",
@@ -1461,8 +1461,6 @@ export const en = {
       more: "More analysis options",
       transcription: "Transcribe only",
       voice: "Detect voices",
-      incomplete:
-        "Analysis ended: the voice and indexing steps are not available yet.",
       step: {
         preparation: "Preparation",
         transcription: "Transcription",

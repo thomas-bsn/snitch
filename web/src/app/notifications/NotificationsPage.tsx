@@ -1,23 +1,24 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import type { MessageKey } from "../i18n/messages";
 import { Page } from "../pages/pages";
+import { notificationActionLabel, notificationText } from "./notificationText";
 import {
-  isError,
-  notificationActionLabel,
-  notificationText,
-} from "./notificationText";
-import {
+  fetchNotifications,
   notificationAddress,
   useNotificationActions,
   type AppNotification,
+  type NotificationFilter,
 } from "./notificationsApi";
 import { useNotifications } from "./useNotifications";
 
-type Filter = "all" | "unread" | "actions" | "errors";
+type Filter = NotificationFilter;
+
+/** Items fetched per page; "Show more" asks for the next ones. */
+const PAGE = 50;
 
 const FILTERS: { id: Filter; label: MessageKey }[] = [
   { id: "all", label: "notifications.filterAll" },
@@ -25,13 +26,6 @@ const FILTERS: { id: Filter; label: MessageKey }[] = [
   { id: "actions", label: "notifications.filterActions" },
   { id: "errors", label: "notifications.filterErrors" },
 ];
-
-const matches: Record<Filter, (item: AppNotification) => boolean> = {
-  all: () => true,
-  unread: (item) => !item.read,
-  actions: (item) => item.state === "active",
-  errors: isError,
-};
 
 const small = "h-9 px-3 md:h-8";
 const filterClass = (on: boolean) =>
@@ -52,8 +46,61 @@ export function NotificationsPage() {
   const actions = useNotificationActions();
   const [filter, setFilter] = useState<Filter>("all");
   const [removeFailed, setRemoveFailed] = useState(false);
+  // The page asks the server for the filter it shows (and for more of it), instead of
+  // filtering the capped copy the bell keeps: an old unread item or an action is never lost.
+  const [shown, setShown] = useState<AppNotification[]>();
+  const [total, setTotal] = useState(0);
+  const [pageFailed, setPageFailed] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loaded = useRef(PAGE);
 
-  const items = (list?.items ?? []).filter(matches[filter]);
+  const load = useCallback(
+    async (count: number) => {
+      const out: AppNotification[] = [];
+      let all = 0;
+      // The server pages by at most 200; a reload after a change refetches what is on screen.
+      while (out.length < count) {
+        const r = await fetchNotifications({
+          filter,
+          limit: Math.min(200, count - out.length),
+          offset: out.length,
+        });
+        if (!r.ok) {
+          setPageFailed(true);
+          return;
+        }
+        out.push(...r.value.items);
+        all = r.value.total;
+        if (r.value.items.length === 0 || out.length >= all) break;
+      }
+      setPageFailed(false);
+      setShown(out);
+      setTotal(all);
+    },
+    [filter],
+  );
+
+  // A new filter starts from its first page; every change pushed by the stream refreshes the view.
+  useEffect(() => {
+    loaded.current = PAGE;
+    setShown(undefined);
+  }, [filter]);
+  useEffect(() => {
+    void load(loaded.current);
+  }, [load, list]);
+
+  const reload = useCallback(async () => {
+    await Promise.all([load(loaded.current), refresh()]);
+  }, [load, refresh]);
+
+  async function showMore() {
+    setLoadingMore(true);
+    loaded.current += PAGE;
+    await load(loaded.current);
+    setLoadingMore(false);
+  }
+
+  const items = shown ?? [];
   const active = items.filter((i) => i.state === "active");
   const resolved = items.filter((i) => i.state === "resolved");
   const dates = new Intl.DateTimeFormat(language, {
@@ -63,14 +110,14 @@ export function NotificationsPage() {
 
   async function toggle(item: AppNotification) {
     await (item.read ? actions.markUnread(item.id) : actions.markRead(item.id));
-    void refresh();
+    void reload();
   }
 
   async function remove(ids: number[]) {
     setRemoveFailed(false);
     const results = await Promise.all(ids.map((id) => actions.remove(id)));
     if (results.some((r) => !r.ok)) setRemoveFailed(true);
-    void refresh();
+    void reload();
   }
 
   function row(item: AppNotification) {
@@ -151,7 +198,7 @@ export function NotificationsPage() {
             className={`${buttonClass()} ${small}`}
             onClick={async () => {
               await actions.markAllRead();
-              void refresh();
+              void reload();
             }}
           >
             {t("notifications.markAllRead")}
@@ -182,13 +229,13 @@ export function NotificationsPage() {
             ? t("notifications.polling")
             : ""}
       </div>
-      {failed && !list && (
+      {((failed && !list) || (pageFailed && !shown)) && (
         <ErrorAlert>{t("notifications.loadFailed")}</ErrorAlert>
       )}
       {removeFailed && (
         <ErrorAlert>{t("notifications.removeFailed")}</ErrorAlert>
       )}
-      {list && items.length === 0 && (
+      {shown && items.length === 0 && (
         <p className="text-mute">
           {filter === "all"
             ? t("notifications.empty")
@@ -235,6 +282,16 @@ export function NotificationsPage() {
             {resolved.map(row)}
           </ul>
         </section>
+      )}
+      {shown && items.length < total && (
+        <button
+          type="button"
+          disabled={loadingMore}
+          onClick={() => void showMore()}
+          className={`${buttonClass()} ${small} self-start`}
+        >
+          {t("notifications.showMore", { shown: items.length, total })}
+        </button>
       )}
     </Page>
   );

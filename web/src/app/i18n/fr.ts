@@ -41,7 +41,6 @@ export const fr: Messages = {
         active: "En cours",
         failed: "Échec partiel",
         completed: "Terminée",
-        incomplete: "Terminée, voix à vérifier",
         cancelled: "Annulée",
       },
     },
@@ -603,6 +602,7 @@ export const fr: Messages = {
     actionsCount: "{count} actions à traiter",
     actionVerify: "Vérifier les voix",
     removeResolved: "Retirer les notifications résolues",
+    showMore: "Afficher plus ({shown} sur {total})",
     emptyFiltered: "Aucune notification ne correspond à ce filtre.",
     activeList: "Notifications actives",
     historyList: "Notifications résolues",
@@ -1486,8 +1486,6 @@ export const fr: Messages = {
       more: "Autres options d’analyse",
       transcription: "Transcrire seulement",
       voice: "Détection des voix",
-      incomplete:
-        "Analyse terminée : les étapes de voix et d’indexation ne sont pas encore disponibles.",
       step: {
         preparation: "Préparation",
         transcription: "Transcription",

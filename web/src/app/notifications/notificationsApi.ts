@@ -19,12 +19,15 @@ async function guard<T>(call: () => Promise<Result<T>>): Promise<Result<T>> {
   }
 }
 
+export type NotificationFilter = "all" | "unread" | "actions" | "errors";
+
+/** One page of the list; the filter runs on the server, so it never depends on what the client holds. */
 export const fetchNotifications = (
-  state: "all" | "active" | "resolved" = "all",
+  page: { filter?: NotificationFilter; limit?: number; offset?: number } = {},
 ) =>
   guard<NotificationList>(async () => {
     const { data, error } = await api.GET("/api/notifications", {
-      params: { query: { state } },
+      params: { query: page },
     });
     return data ? { ok: true, value: data } : failure(error);
   });

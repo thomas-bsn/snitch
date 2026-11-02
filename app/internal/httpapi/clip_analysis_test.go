@@ -28,6 +28,9 @@ type analysisRunView struct {
 	Scope  string             `json:"scope"`
 	Status string             `json:"status"`
 	Steps  []analysisStepView `json:"steps"`
+	// PendingVoices is the live count of voices still to decide: the clip page and the queue agree.
+	PendingVoices    int     `json:"pending_voices"`
+	ConfirmedStakeAt *string `json:"confirmed_stake_at"`
 }
 
 func (r analysisRunView) step(name string) analysisStepView {

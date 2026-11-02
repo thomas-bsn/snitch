@@ -13,6 +13,7 @@ from ..models.start_clip_analysis_body_scope import StartClipAnalysisBodyScope
 from ..models.start_clip_analysis_body_steps_item import StartClipAnalysisBodyStepsItem
 from ..types import UNSET, Unset
 from typing import cast
+import datetime
 
 
 
@@ -42,6 +43,9 @@ class StartClipAnalysisBody:
             confirm_replace_corrections (bool | Unset): Vrai pour confirmer qu'une retranscription rend obsolètes les
                 corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409
                 reanalysis_confirmation_required (stake.corrections).
+            confirmed_stake_at (datetime.datetime | Unset): Le stake_at du refus reanalysis_confirmation_required que
+                l'administrateur a confirmé (le plus ancien s'il y en a eu plusieurs) : le travail humain créé après n'est
+                jamais rendu obsolète. Par défaut, l'instant de la requête.
             confirm_replace_validations (bool | Unset): Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les
                 corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et
                 l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice).
@@ -51,6 +55,7 @@ class StartClipAnalysisBody:
     mode: StartClipAnalysisBodyMode | Unset = StartClipAnalysisBodyMode.MISSING
     steps: list[StartClipAnalysisBodyStepsItem] | Unset = UNSET
     confirm_replace_corrections: bool | Unset = UNSET
+    confirmed_stake_at: datetime.datetime | Unset = UNSET
     confirm_replace_validations: bool | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -80,6 +85,10 @@ class StartClipAnalysisBody:
 
         confirm_replace_corrections = self.confirm_replace_corrections
 
+        confirmed_stake_at: str | Unset = UNSET
+        if not isinstance(self.confirmed_stake_at, Unset):
+            confirmed_stake_at = self.confirmed_stake_at.isoformat()
+
         confirm_replace_validations = self.confirm_replace_validations
 
 
@@ -95,6 +104,8 @@ class StartClipAnalysisBody:
             field_dict["steps"] = steps
         if confirm_replace_corrections is not UNSET:
             field_dict["confirm_replace_corrections"] = confirm_replace_corrections
+        if confirmed_stake_at is not UNSET:
+            field_dict["confirmed_stake_at"] = confirmed_stake_at
         if confirm_replace_validations is not UNSET:
             field_dict["confirm_replace_validations"] = confirm_replace_validations
 
@@ -139,6 +150,16 @@ class StartClipAnalysisBody:
 
         confirm_replace_corrections = d.pop("confirm_replace_corrections", UNSET)
 
+        _confirmed_stake_at = d.pop("confirmed_stake_at", UNSET)
+        confirmed_stake_at: datetime.datetime | Unset
+        if isinstance(_confirmed_stake_at,  Unset):
+            confirmed_stake_at = UNSET
+        else:
+            confirmed_stake_at = datetime.datetime.fromisoformat(_confirmed_stake_at)
+
+
+
+
         confirm_replace_validations = d.pop("confirm_replace_validations", UNSET)
 
         start_clip_analysis_body = cls(
@@ -146,6 +167,7 @@ class StartClipAnalysisBody:
             mode=mode,
             steps=steps,
             confirm_replace_corrections=confirm_replace_corrections,
+            confirmed_stake_at=confirmed_stake_at,
             confirm_replace_validations=confirm_replace_validations,
         )
 

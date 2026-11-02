@@ -37,6 +37,13 @@ from .clip_analysis_run_status import ClipAnalysisRunStatus
 from .clip_analysis_step import ClipAnalysisStep
 from .clip_analysis_step_status import ClipAnalysisStepStatus
 from .clip_analysis_step_step import ClipAnalysisStepStep
+from .clip_analysis_view import ClipAnalysisView
+from .clip_analysis_view_response import ClipAnalysisViewResponse
+from .clip_analysis_view_scope import ClipAnalysisViewScope
+from .clip_analysis_view_status import ClipAnalysisViewStatus
+from .clip_analysis_view_steps_item import ClipAnalysisViewStepsItem
+from .clip_analysis_view_steps_item_status import ClipAnalysisViewStepsItemStatus
+from .clip_analysis_view_steps_item_step import ClipAnalysisViewStepsItemStep
 from .clip_filter_options import ClipFilterOptions
 from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
 from .clip_filter_options_sources_item import ClipFilterOptionsSourcesItem
@@ -90,6 +97,7 @@ from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
 from .list_jobs_workflow import ListJobsWorkflow
 from .list_members_response_200 import ListMembersResponse200
+from .list_notifications_filter import ListNotificationsFilter
 from .list_notifications_state import ListNotificationsState
 from .list_person_link_requests_status import ListPersonLinkRequestsStatus
 from .list_voice_groups_sort import ListVoiceGroupsSort
@@ -394,6 +402,13 @@ __all__ = (
     "ClipAnalysisStep",
     "ClipAnalysisStepStatus",
     "ClipAnalysisStepStep",
+    "ClipAnalysisView",
+    "ClipAnalysisViewResponse",
+    "ClipAnalysisViewScope",
+    "ClipAnalysisViewStatus",
+    "ClipAnalysisViewStepsItem",
+    "ClipAnalysisViewStepsItemStatus",
+    "ClipAnalysisViewStepsItemStep",
     "ClipFilterOptions",
     "ClipFilterOptionsOwnersItem",
     "ClipFilterOptionsSourcesItem",
@@ -447,6 +462,7 @@ __all__ = (
     "ListJobsStatus",
     "ListJobsWorkflow",
     "ListMembersResponse200",
+    "ListNotificationsFilter",
     "ListNotificationsState",
     "ListPersonLinkRequestsStatus",
     "ListVoiceGroupsSort",

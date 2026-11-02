@@ -9,19 +9,24 @@ import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import type { MessageKey } from "../i18n/messages";
+import { IdentificationBadge } from "../admin/queue/AnalysisBoard";
 import { isAdministrator } from "../roles";
 import { ReanalyzeClip } from "./ReanalyzeClip";
 import { useSession } from "../session";
 
-type Run = components["schemas"]["ClipAnalysisRun"];
+type AdminRun = components["schemas"]["ClipAnalysisRun"];
+type View = components["schemas"]["ClipAnalysisView"];
+// Administrators get the full run; every other reader gets the redacted view.
+type Run = AdminRun | View;
 type MediaTrack = components["schemas"]["MediaTrack"];
-type Scope = Run["scope"];
-type Step = Run["steps"][number];
+type Scope = AdminRun["scope"];
+type Step = AdminRun["steps"][number];
 
 /**
  * The primary action of a clip: one click starts a durable analysis on the server. The
  * state of each step, and why it waits, comes from the server, so it stays the same after
- * the page is closed and opened again. Administrators only.
+ * the page is closed and opened again. Administrators drive it; every other user who can
+ * open the clip follows it read-only (status and reason of each step, live).
  */
 export function AnalyzeClip({
   clipId,
@@ -54,13 +59,17 @@ export function AnalyzeClip({
   );
 
   const refresh = useCallback(async () => {
-    if (!admin) return;
-    const r = await api.GET("/api/admin/clips/{id}/analysis", {
-      params: { path: { id: clipId } },
-    });
+    if (!user) return;
+    const r = admin
+      ? await api.GET("/api/admin/clips/{id}/analysis", {
+          params: { path: { id: clipId } },
+        })
+      : await api.GET("/api/clips/{id}/analysis", {
+          params: { path: { id: clipId } },
+        });
     if (r.data) apply(r.data.run ?? null);
     setLoaded(true);
-  }, [admin, clipId, apply]);
+  }, [user, admin, clipId, apply]);
 
   useEffect(() => {
     void refresh();
@@ -68,7 +77,11 @@ export function AnalyzeClip({
   const active = run?.status === "active";
   // The server pushes each change as a snapshot; polling only covers a stream that is down.
   const stream = useEventStream<{ run: Run | null }>(
-    admin ? `/api/admin/clips/${clipId}/analysis/events` : null,
+    user
+      ? admin
+        ? `/api/admin/clips/${clipId}/analysis/events`
+        : `/api/clips/${clipId}/analysis/events`
+      : null,
     useCallback(
       (snapshot) => {
         apply(snapshot.run ?? null);
@@ -79,7 +92,9 @@ export function AnalyzeClip({
     refresh,
   );
 
-  if (!admin || !loaded) return null;
+  if (!user || !loaded) return null;
+  // A reader without a run has nothing to follow; the controls are administrators'.
+  if (!admin && !run) return null;
 
   async function start(scope: Scope) {
     setBusy(true);
@@ -157,15 +172,15 @@ export function AnalyzeClip({
     }
   }
 
-  const selection = run?.steps.some(
-    (s) => s.reason === "audio_track_selection_required",
-  );
+  const selection =
+    admin &&
+    run?.steps.some((s) => s.reason === "audio_track_selection_required");
   return (
     <section
       aria-label={t("clip.analysis.label")}
       className="flex flex-col gap-3 rounded-xl border border-line p-3"
     >
-      {active && (
+      {admin && active && (
         <div>
           <button
             type="button"
@@ -177,7 +192,7 @@ export function AnalyzeClip({
           </button>
         </div>
       )}
-      {!active && (
+      {admin && !active && (
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -246,7 +261,7 @@ export function AnalyzeClip({
               </span>
               {" · "}
               <span>{t(`clip.analysis.status.${step.status}`)}</span>
-              {step.forced && (
+              {"forced" in step && step.forced && (
                 <span className="ml-1 text-xs text-mute">
                   {t("clip.analysis.forced")}
                 </span>
@@ -254,42 +269,41 @@ export function AnalyzeClip({
               <span className="block text-xs text-mute">
                 {t(`clip.analysis.reason.${step.reason}` as MessageKey)}
               </span>
-              {step.profile && (
+              {"profile" in step && step.profile && (
                 <span className="block text-xs text-mute">
                   {t("clip.analysis.profile", { profile: step.profile })}
                 </span>
               )}
-              {(step.job_id !== null || step.status === "failed") && (
-                <span className="mt-1 flex flex-wrap gap-2">
-                  {step.job_id !== null && (
-                    <Link
-                      to="/admin/queue"
-                      className="text-xs text-accent underline"
-                    >
-                      {t("clip.analysis.viewTask", { id: step.job_id })}
-                    </Link>
-                  )}
-                  {step.status === "failed" && run.status !== "cancelled" && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void retry(step.step)}
-                      className={buttonClass("secondary")}
-                    >
-                      {t("clip.analysis.retry", {
-                        step: t(`clip.analysis.step.${step.step}`),
-                      })}
-                    </button>
-                  )}
-                </span>
-              )}
+              {"job_id" in step &&
+                (step.job_id !== null || step.status === "failed") && (
+                  <span className="mt-1 flex flex-wrap gap-2">
+                    {step.job_id !== null && (
+                      <Link
+                        to="/admin/queue"
+                        className="text-xs text-accent underline"
+                      >
+                        {t("clip.analysis.viewTask", { id: step.job_id })}
+                      </Link>
+                    )}
+                    {step.status === "failed" && run.status !== "cancelled" && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void retry(step.step)}
+                        className={buttonClass("secondary")}
+                      >
+                        {t("clip.analysis.retry", {
+                          step: t(`clip.analysis.step.${step.step}`),
+                        })}
+                      </button>
+                    )}
+                  </span>
+                )}
             </li>
           ))}
         </ol>
       )}
-      {run?.status === "incomplete" && (
-        <p className="m-0 text-sm text-mute">{t("clip.analysis.incomplete")}</p>
-      )}
+      {run && <IdentificationBadge run={run} />}
       {run?.status === "cancelled" && (
         <p className="m-0 text-sm text-mute">{t("clip.analysis.cancelled")}</p>
       )}
@@ -320,12 +334,14 @@ export function AnalyzeClip({
         </div>
       )}
       {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
-      <ReanalyzeClip
-        clipId={clipId}
-        open={reanalyzing}
-        onOpenChange={setReanalyzing}
-        onStarted={apply}
-      />
+      {admin && (
+        <ReanalyzeClip
+          clipId={clipId}
+          open={reanalyzing}
+          onOpenChange={setReanalyzing}
+          onStarted={apply}
+        />
+      )}
     </section>
   );
 }

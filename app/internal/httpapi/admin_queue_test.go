@@ -247,6 +247,9 @@ func testAdminQueuePendingVoices(t *testing.T, pool *pgxpool.Pool) {
 		if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/analysis/queue", nil, http.StatusOK), &q); err != nil || len(q.Completed) != 1 {
 			t.Fatalf("%v %+v", err, q)
 		}
+		if run := h.analysis(); run == nil || run.PendingVoices != q.Completed[0].PendingVoices {
+			t.Fatalf("the clip page and the queue must agree on the voices to check: %+v vs %d", run, q.Completed[0].PendingVoices)
+		}
 		return q.Completed[0].PendingVoices
 	}
 	if got := pending(); got != 0 {

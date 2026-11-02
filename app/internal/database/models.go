@@ -69,6 +69,7 @@ type ClipAnalysisRun struct {
 	ForcedSteps                 []string           `json:"forced_steps"`
 	ConfirmedReplaceCorrections bool               `json:"confirmed_replace_corrections"`
 	ConfirmedReplaceValidations bool               `json:"confirmed_replace_validations"`
+	ConfirmedStakeAt            pgtype.Timestamptz `json:"confirmed_stake_at"`
 }
 
 type ClipAnalysisStep struct {
