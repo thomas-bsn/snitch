@@ -718,6 +718,10 @@ export const fr: Messages = {
     incidentModel:
       "Un modèle requis est absent du worker ({count} jobs concernés)",
     incidentJob: "{count} jobs en échec à l’étape {step}",
+    incidentBlockedMismatch:
+      "{count} jobs ne peuvent pas démarrer : aucun worker n’a validé la configuration de transcription actuelle",
+    incidentBlockedNotValidated:
+      "{count} jobs ne peuvent pas démarrer : la configuration de transcription a échoué à son test sur les workers",
     incidentGeneric:
       "Un incident technique ralentit le traitement. Les administrateurs ont été prévenus.",
     incidentResolved: "Incident technique résolu",
@@ -1640,6 +1644,12 @@ export const fr: Messages = {
           "Un Worker compatible est connecté mais occupé ; la tâche démarre dès qu’il est libre.",
         awaiting_compatible_worker:
           "En attente d’un Worker compatible : aucun n’est connecté. L’analyse reprend d’elle-même à son retour.",
+        queue_paused:
+          "La file est en pause : rien ne démarre tant qu’un administrateur ne la relance pas.",
+        transcription_version_mismatch:
+          "Aucun Worker n’a validé la configuration de transcription actuelle. Ouvrez la page Workers et validez-la sur un Worker.",
+        transcription_not_validated:
+          "La configuration de transcription a échoué à son test sur les Workers connectés. Corrigez-la sur la page Workers ; la tâche démarre ensuite d’elle-même.",
         run_cancelled: "Annulée : cette étape ne sera pas exécutée.",
         running: "Un Worker transcrit le clip.",
         retry_scheduled: "La tentative a échoué ; une nouvelle est prévue.",

@@ -122,6 +122,7 @@ type Input struct {
 	PipelineVersion    string           `json:"pipeline_version"`
 	TranscriptionModel string           `json:"transcription_model"`
 	Voice              json.RawMessage  `json:"voice,omitempty"`
+	VoiceTrial         json.RawMessage  `json:"voice_trial,omitempty"`
 }
 
 type VocabularyTerm struct {
@@ -455,8 +456,9 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 	if err = tx.QueryRow(ctx, `SELECT COALESCE(v.config->>'provider',''),COALESCE(v.config->>'model','') FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&voiceProvider, &diarizationModel); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("read active voice pipeline for claim: %w", err)
 	}
-	// Build the job selection query. For transcription jobs, require matching active_version.
-	// Extract pipeline version from input_version (format: t4-a{idx}-r{rule}-v{vocab}-p{pipeline})
+	// Build the job selection query. A transcription job goes only to a Worker whose validated (active) configuration
+	// is the desired one (transcription_settings.version). The job's own input_version carries the pipeline snapshot
+	// (…-pipeline-<hash>), a different namespace from the Worker's configuration version: they are never compared.
 	// Workers that have not reported an active_version (legacy) stay eligible; only a diverging version is excluded.
 	job, err := scanJob(tx.QueryRow(ctx, `
 		SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,
@@ -472,7 +474,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		  )
 		  AND (
 		      j.step NOT LIKE 'transcription.%'
-		      OR $2::text = '' OR substring(j.input_version FROM '-p([^-]+)$') = $2::text
+		      OR $2::text = '' OR $2::text = (SELECT ts.version FROM transcription_settings ts WHERE ts.id=true)
 		  )
 		  AND (
 		      j.step NOT LIKE 'voice.%'

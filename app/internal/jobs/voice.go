@@ -31,8 +31,8 @@ func VoiceInputVersion(inputVersion string) (pipeline string, diarizationJobID i
 	return pipeline, 0, true
 }
 
-// trialInput gives a diarization trial its pinned model and options. A trial has no pipeline version: it runs
-// the catalogue model chosen for it, never the active configuration.
+// trialInput gives a diarization trial its pinned model and options, under its own contract (voice_trial). A trial has
+// no pipeline version and no fingerprint thresholds: it runs the catalogue model chosen for it, never the active configuration.
 func (s *Service) trialInput(ctx context.Context, input *Input) error {
 	id, err := strconv.ParseInt(strings.TrimPrefix(input.Job.Step, "voicetrial.diarization."), 10, 64)
 	if err != nil {
@@ -54,7 +54,7 @@ func (s *Service) trialInput(ctx context.Context, input *Input) error {
 	if err != nil {
 		return err
 	}
-	input.Voice = encoded
+	input.VoiceTrial = encoded
 	return nil
 }
 

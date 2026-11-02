@@ -39,6 +39,15 @@ from snitch_worker.transcription_config import active_configuration, sync_config
 from snitch_worker.voice import DIARIZATION_STEP, TRIAL_STEP, VoiceProviderUnavailable, ensure_provider_ready, is_trial_step, is_voice_step, process_trial_step, process_voice_step, requires_audio
 
 
+def trial_voice_input(task_input: Any) -> dict[str, Any]:
+    """A diarization trial's own input (``voice_trial``): its pinned model, options and audio stream.
+
+    It is distinct from the regular pipeline input (``voice``), which a trial never receives.
+    """
+    value = getattr(task_input, "voice_trial", None)
+    return value.to_dict() if hasattr(value, "to_dict") else {}
+
+
 def fake_provider(step: str) -> dict[str, Any]:
     """Return fixture metadata only; phase 2 must not inspect task media."""
     if not step.startswith("fixture."):
@@ -460,8 +469,7 @@ def run_once(
             else:
                 result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
         elif is_trial_step(job.step):
-            voice_value = getattr(task_input, "voice", None)
-            voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
+            voice_input = trial_voice_input(task_input)
             trial = voice_input.get("trial") or {}
             with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
                 original = os.path.join(temporary, "original.media")

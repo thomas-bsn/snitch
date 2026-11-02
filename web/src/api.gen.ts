@@ -2570,7 +2570,7 @@ export interface components {
         | "done"
         | "not_applicable"
         | "not_yet_supported";
-      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
+      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, queue_paused, transcription_version_mismatch, transcription_not_validated, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
       reason: string;
       /** Format: int64 */
       job_id: number | null;
@@ -3312,6 +3312,7 @@ export interface components {
       pipeline?: components["schemas"]["TranscriptionPipeline"];
       pipeline_version?: string;
       voice?: components["schemas"]["WorkerVoiceInput"];
+      voice_trial?: components["schemas"]["WorkerVoiceTrialInput"];
     };
     TranscriptionSettingsInput: {
       /** @enum {string} */
@@ -3895,6 +3896,7 @@ export interface components {
         | "provider_unavailable"
         | "model_missing"
         | "job_failed"
+        | "job_blocked"
         | "technical_incident";
       /**
        * @description Partagé : une action résolue l'est pour tous.
@@ -3921,7 +3923,7 @@ export interface components {
       job_id: number | null;
       /** @description Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret. */
       step: string;
-      /** @description Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted), jamais l'erreur brute. */
+      /** @description Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated), jamais l'erreur brute. */
       error_code: string;
       /** @description Vrai pour le message générique sûr vu par un non-administrateur. */
       generic: boolean;
@@ -4288,6 +4290,22 @@ export interface components {
       speakers: components["schemas"]["LocalSpeaker"][];
       /** @description Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie. */
       history: components["schemas"]["VoiceHistoryEntry"][];
+    };
+    /** @description Entrée d'un essai de diarisation (étapes voicetrial.*) : le modèle du catalogue et les options choisis pour l'essai, jamais la configuration active ni une version de pipeline. */
+    WorkerVoiceTrialInput: {
+      config: components["schemas"]["VoiceTrialConfig"];
+      trial: {
+        audio_stream_index: number;
+      };
+    };
+    VoiceTrialConfig: {
+      /** @enum {string} */
+      provider: "pyannote" | "nemo";
+      model: string;
+      model_version: string;
+      num_speakers?: number;
+      min_speakers?: number;
+      max_speakers?: number;
     };
     WorkerVoiceInput: {
       pipeline_version: string;

@@ -106,15 +106,15 @@ func testVoiceTrialEngine(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("the Sortformer trial must be claimable")
 	}
 	var input struct {
-		Voice struct {
+		VoiceTrial struct {
 			Config map[string]any `json:"config"`
-		} `json:"voice"`
+		} `json:"voice_trial"`
 	}
 	if err := json.Unmarshal(h.workerCall(http.MethodGet, fmt.Sprintf("/api/worker/jobs/%d/input", job.ID), nil, job.Lease, http.StatusOK), &input); err != nil {
 		t.Fatal(err)
 	}
-	if input.Voice.Config["provider"] != "nemo" || input.Voice.Config["model"] != sortformerRepo {
-		t.Fatalf("a Sortformer trial must run with the nemo engine: %+v", input.Voice.Config)
+	if input.VoiceTrial.Config["provider"] != "nemo" || input.VoiceTrial.Config["model"] != sortformerRepo {
+		t.Fatalf("a Sortformer trial must run with the nemo engine: %+v", input.VoiceTrial.Config)
 	}
 	// A result from another engine is refused; the right engine is recorded.
 	wrong := diarizationPayload("A", "B")

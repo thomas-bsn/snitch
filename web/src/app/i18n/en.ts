@@ -701,6 +701,10 @@ export const en = {
     incidentModel:
       "A required model is missing on the worker ({count} jobs affected)",
     incidentJob: "{count} jobs failed at step {step}",
+    incidentBlockedMismatch:
+      "{count} jobs cannot start: no worker has validated the current transcription configuration",
+    incidentBlockedNotValidated:
+      "{count} jobs cannot start: the transcription configuration failed its test on the workers",
     incidentGeneric:
       "A technical incident is slowing processing down. Administrators have been notified.",
     incidentResolved: "Technical incident resolved",
@@ -1613,6 +1617,12 @@ export const en = {
           "A compatible Worker is connected but busy; the task starts as soon as it is free.",
         awaiting_compatible_worker:
           "Waiting for a compatible Worker: none is connected. The analysis resumes by itself when one returns.",
+        queue_paused:
+          "The queue is paused: nothing starts until an administrator resumes it.",
+        transcription_version_mismatch:
+          "No Worker has validated the current transcription configuration. Open the Workers page and validate it on a Worker.",
+        transcription_not_validated:
+          "The transcription configuration failed its test on the connected Workers. Fix it on the Workers page; the task then starts by itself.",
         run_cancelled: "Cancelled: this step will not run.",
         running: "A Worker is transcribing the clip.",
         retry_scheduled: "The attempt failed; a new one is planned.",

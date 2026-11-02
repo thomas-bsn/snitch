@@ -14,6 +14,10 @@ export function notificationText(item: AppNotification, t: Translate): string {
     if (item.state === "resolved") return t("notifications.incidentResolved");
     const count = item.pending_count;
     const step = item.step;
+    if (item.kind === "job_blocked")
+      return item.error_code === "transcription_not_validated"
+        ? t("notifications.incidentBlockedNotValidated", { count })
+        : t("notifications.incidentBlockedMismatch", { count });
     return item.kind === "worker_unavailable"
       ? t("notifications.incidentWorker", { count })
       : item.kind === "provider_unavailable"
@@ -35,7 +39,7 @@ export function notificationActionLabel(
 ): MessageKey | undefined {
   if (item.state !== "active" || item.generic) return undefined;
   if (item.kind === "needs_speaker_review") return "notifications.actionVerify";
-  return item.kind === "worker_unavailable"
+  return item.kind === "worker_unavailable" || item.kind === "job_blocked"
     ? "notifications.incidentWorkerAction"
     : "notifications.incidentJobAction";
 }
