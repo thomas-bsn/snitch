@@ -520,6 +520,20 @@ class RunnerLogTests(unittest.TestCase):
         for leaked in (secret, "hf_secret", "/tmp/private", self.LEASE):
             self.assertNotIn(leaked, self.stream.getvalue())
 
+    def test_trapped_provider_and_sql_errors_leak_nothing_at_info_or_debug(self):
+        for text in (
+            "provider said token=hf_secret at https://api.example.test/v1?sig=abc",
+            'duplicate key value violates unique constraint "users_email_key" Key (email)=(ann@example.test)',
+        ):
+            for level in ("INFO", "DEBUG"):
+                self.stream.truncate(0)
+                self.stream.seek(0)
+                self.run_job(level, input_error=RuntimeError(text))
+                output = self.stream.getvalue()
+                self.assertIn("job_failed", output)
+                for leaked in (text, "hf_secret", "sig=abc", "users_email_key", "ann@example.test", self.LEASE):
+                    self.assertNotIn(leaked, output)
+
     def test_heartbeats_and_empty_claims_only_appear_at_debug(self):
         self.run_job("INFO", heartbeat_interval=0.01)
         self.assertNotIn("job_heartbeat", self.stream.getvalue())

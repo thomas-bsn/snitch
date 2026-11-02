@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"snitch/internal/logging"
 	"strings"
 	"time"
 
@@ -202,7 +203,7 @@ func (s *Server) deleteVoiceProfile(w http.ResponseWriter, r *http.Request) {
 	author := s.authorOf(r)
 	for _, clipID := range microphoneClips {
 		if _, applyErr := s.applyMicrophone(ctx, clipID, author); applyErr != nil {
-			s.Log.Error("microphone track update failed after voice profile deletion", "clip_id", clipID, "error", applyErr)
+			s.Log.Error("microphone track update failed after voice profile deletion", append([]any{"clip_id", clipID}, logging.Failure(applyErr)...)...)
 		}
 	}
 	reply(w, http.StatusOK, result)

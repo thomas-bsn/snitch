@@ -2,11 +2,75 @@ package logging
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+// trapped is a synthetic scenario mixing forbidden keys, a SQL error and a provider error.
+func trapped(l *slog.Logger) {
+	sqlErr := &pgconn.PgError{Code: "23505", Message: "duplicate key value violates unique constraint \"users_email_key\"", Detail: "Key (email)=(ann@example.test) already exists."}
+	providerErr := errors.New("provider said: invalid key sk-synthetic-123 for https://api.example.test/v1?sig=abc")
+	for _, emit := range []func(string, ...any){l.Debug, l.Info, l.Warn, l.Error} {
+		emit("trap", "hf_token", "hf_synthetic", "Authorization", "Bearer synthetic", "transcript", "private words",
+			"error", sqlErr, "err", providerErr, "job_id", 9)
+		emit("trap_failure", Failure(sqlErr)...)
+		emit("trap_failure", Failure(providerErr)...)
+	}
+}
+
+func TestTrappedScenarioLeaksNothingAtAnyLevel(t *testing.T) {
+	for _, level := range []string{"DEBUG", "INFO", "WARN", "ERROR"} {
+		var buf bytes.Buffer
+		trapped(New(&buf, "snitch", level))
+		out := buf.String()
+		for _, secret := range []string{"hf_synthetic", "Bearer synthetic", "private words", "users_email_key", "ann@example.test", "sk-synthetic", "sig=abc", "provider said", "duplicate key"} {
+			if strings.Contains(out, secret) {
+				t.Fatalf("level %s: %q leaked: %s", level, secret, out)
+			}
+		}
+		if !strings.Contains(out, `"job_id":9`) {
+			t.Fatalf("level %s: allowed field lost: %s", level, out)
+		}
+	}
+}
+
+func TestFailureGivesCodeAndCategory(t *testing.T) {
+	var buf bytes.Buffer
+	l := New(&buf, "snitch", "INFO")
+	l.Error("a", Failure(&pgconn.PgError{Code: "23505", Message: "x"})...)
+	l.Error("b", Failure(context.DeadlineExceeded)...)
+	l.Error("c", Failure(errors.New("whatever"))...)
+	got := lines(t, &buf)
+	want := [][2]string{{"23505", "database"}, {"timeout", "timeout"}, {"operation_error", "internal"}}
+	for i, w := range want {
+		if got[i]["error_code"] != w[0] || got[i]["error_category"] != w[1] {
+			t.Fatalf("line %d: %v, want %v", i, got[i], w)
+		}
+	}
+}
+
+// ADR 0006: the one-time installation code is the only value shown whatever LOG_LEVEL is.
+func TestInstallationCodeIsShownAtEveryLevel(t *testing.T) {
+	for _, level := range []string{"ERROR", "WARN", "INFO", "DEBUG", "", "garbage"} {
+		var buf bytes.Buffer
+		InstallationCode(New(&buf, "snitch", level), "http://localhost:8080", "ABCD-1234")
+		out := buf.String()
+		if !strings.Contains(out, "ABCD-1234") || !strings.Contains(out, "http://localhost:8080") {
+			t.Fatalf("level %q: installation code not shown: %q", level, out)
+		}
+	}
+	var buf bytes.Buffer
+	New(&buf, "snitch", "ERROR").Warn("other", "code", "ABCD-1234")
+	if buf.Len() != 0 {
+		t.Fatal("only the installation notice bypasses LOG_LEVEL")
+	}
+}
 
 func lines(t *testing.T, buf *bytes.Buffer) []map[string]any {
 	t.Helper()
