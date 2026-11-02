@@ -25,3 +25,4 @@ Une vidéo bloquée ou une erreur entre le NAS et le Worker n'est pas diagnostiq
 - Les migrations de diagnostic arrivent avec #141 ; #142 se limite à l'affichage et aux permissions.
 - Tout nouveau mode d'échec exige un code du catalogue, donc une évolution du contrat.
 - Les anciennes lignes `job_events` restent sans détail de diagnostic.
+- L'installation du Worker garde son vocabulaire d'erreurs propre, distinct du catalogue (contrat des événements d'installation, contrainte SQL dédiée). L'unifier changerait ce contrat ; ce n'est pas fait ici et reste une évolution possible.
