@@ -495,6 +495,30 @@ class DiarizationDiagnosticTests(RunnerAudioTests):
                     provider(env, load_pipeline=loader).diarize(CONFIG, "/a.wav", 0)
                 self.assertEqual(caught.exception.reason, reason)
 
+    def test_classify_prefers_type_and_status_and_ignores_identifiers_that_look_like_a_status(self):
+        class HubError(Exception):
+            def __init__(self, status):
+                super().__init__("opaque " + self.__class__.__name__)
+                self.response = SimpleNamespace(status_code=status)
+
+        cases = (
+            ("status 401 on response", HubError(401), "model_access_denied"),
+            ("status 403 on response", HubError(403), "model_access_denied"),
+            ("status 500 with 401 in text", _with_text(HubError(500), "HTTP 401 echoed"), "inference_failed"),
+            ("memory error type", MemoryError(), "gpu_out_of_memory"),
+            ("identifier holding 401", RuntimeError("clip 401 of batch req-401-x failed"), "inference_failed"),
+            ("identifier glued to 403", RuntimeError("trace a403b2 failed"), "inference_failed"),
+            ("last resort text", RuntimeError("HTTP 401 Client Error"), "model_access_denied"),
+        )
+        for name, exc, expected in cases:
+            with self.subTest(name):
+                self.assertEqual(voice_pyannote._classify(exc, "inference_failed"), expected)
+
+
+def _with_text(exc, text):
+    exc.args = (text,)
+    return exc
+
 
 class DownloadScriptTests(unittest.TestCase):
     def load(self):
