@@ -13,6 +13,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.clip_analysis_run import ClipAnalysisRun
+  from ..models.clip_reanalysis_stake import ClipReanalysisStake
 
 
 
@@ -28,10 +29,13 @@ class ClipAnalysisConflict:
         Attributes:
             error (str):
             run (ClipAnalysisRun | Unset):
+            stake (ClipReanalysisStake | Unset): Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques,
+                échantillons validés et anciens résultats conservés).
      """
 
     error: str
     run: ClipAnalysisRun | Unset = UNSET
+    stake: ClipReanalysisStake | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -40,11 +44,16 @@ class ClipAnalysisConflict:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.clip_analysis_run import ClipAnalysisRun # noqa: PLC0415
+        from ..models.clip_reanalysis_stake import ClipReanalysisStake # noqa: PLC0415
         error = self.error
 
         run: dict[str, Any] | Unset = UNSET
         if not isinstance(self.run, Unset):
             run = self.run.to_dict()
+
+        stake: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.stake, Unset):
+            stake = self.stake.to_dict()
 
 
         field_dict: dict[str, Any] = {}
@@ -54,6 +63,8 @@ class ClipAnalysisConflict:
         })
         if run is not UNSET:
             field_dict["run"] = run
+        if stake is not UNSET:
+            field_dict["stake"] = stake
 
         return field_dict
 
@@ -62,6 +73,7 @@ class ClipAnalysisConflict:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.clip_analysis_run import ClipAnalysisRun # noqa: PLC0415
+        from ..models.clip_reanalysis_stake import ClipReanalysisStake # noqa: PLC0415
         d = dict(src_dict)
         error = d.pop("error")
 
@@ -75,9 +87,20 @@ class ClipAnalysisConflict:
 
 
 
+        _stake = d.pop("stake", UNSET)
+        stake: ClipReanalysisStake | Unset
+        if isinstance(_stake,  Unset):
+            stake = UNSET
+        else:
+            stake = ClipReanalysisStake.from_dict(_stake)
+
+
+
+
         clip_analysis_conflict = cls(
             error=error,
             run=run,
+            stake=stake,
         )
 
 

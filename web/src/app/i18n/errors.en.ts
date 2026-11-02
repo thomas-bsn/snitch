@@ -84,6 +84,9 @@ export const errorsEn = {
     "This analysis is over: start a new analysis instead.",
   analysis_step_not_failed: "This step has not failed.",
   invalid_analysis_step: "This analysis step is not valid.",
+  invalid_reanalysis: "This reanalysis choice is not valid.",
+  reanalysis_confirmation_required:
+    "Confirm the consequences of this reanalysis before it starts.",
   analysis_scope_conflict:
     "Another analysis with a different scope is already active on this clip.",
   invalid_clip_id: "This clip identifier is not valid.",
