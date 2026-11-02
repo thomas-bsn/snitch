@@ -1384,6 +1384,11 @@ export const fr: Messages = {
     },
     analysis: {
       label: "Analyse du clip",
+      live: "Mises à jour en direct actives",
+      liveOff:
+        "Mises à jour en direct interrompues : reconnexion. L’état affiché est actualisé toutes les quelques secondes.",
+      liveLost:
+        "L’accès à cette vue en direct a été perdu. Rechargez la page pour vous reconnecter.",
       steps: "Étapes de l’analyse",
       full: "Tout analyser",
       more: "Autres options d’analyse",

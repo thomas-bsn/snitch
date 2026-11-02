@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"snitch/internal/analysis"
+	"snitch/internal/events"
 	"snitch/internal/jobs"
 )
 
@@ -136,4 +137,42 @@ func (s *Server) getClipAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, http.StatusOK, map[string]any{"run": run})
+}
+
+// clipAnalysisEvents streams the analysis of a clip: a snapshot, then one per change. The
+// administrator role is rechecked against the session before every snapshot.
+func (s *Server) clipAnalysisEvents(w http.ResponseWriter, r *http.Request) {
+	clipID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || clipID < 1 {
+		fail(w, http.StatusBadRequest, "invalid_clip_id")
+		return
+	}
+	var exists bool
+	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clips WHERE id=$1)`, clipID).Scan(&exists); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !exists {
+		fail(w, http.StatusNotFound, "clip_not_found")
+		return
+	}
+	s.Events.Stream(w, r, events.Topic{
+		Name: "clip:" + strconv.FormatInt(clipID, 10),
+		Authorize: func(ctx context.Context) error {
+			ss, err := s.findSession(r.WithContext(ctx))
+			switch {
+			case errors.Is(err, pgx.ErrNoRows), errors.Is(err, http.ErrNoCookie):
+				return events.ErrForbidden
+			case err != nil:
+				return err
+			case !isAdministrator(ss.User.Role):
+				return events.ErrForbidden
+			}
+			return nil
+		},
+		Snapshot: func(ctx context.Context) (any, error) {
+			run, err := s.Analysis.Latest(ctx, clipID)
+			return map[string]any{"run": run}, err
+		},
+	})
 }

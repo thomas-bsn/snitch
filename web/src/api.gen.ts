@@ -1252,6 +1252,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/analysis/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Flux d'évènements serveur authentifié (cookie de session), droits revérifiés avant chaque snapshot. Mécanisme générique (table events, déclenchée par les changements) réutilisable pour d'autres sujets ; repli : GET /api/admin/clips/{id}/analysis. */
+    get: operations["streamClipAnalysisEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/transcription": {
     parameters: {
       query?: never;
@@ -7673,6 +7690,37 @@ export interface operations {
         };
       };
       /** @description Erreur (400 invalid_analysis_scope, invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamClipAnalysisEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: {run}} : l'état complet de l'analyse, jamais un delta, donc une reconnexion ou un évènement perdu converge. Un évènement `forbidden` clôt le flux quand l'accès est perdu (session expirée, rôle retiré) ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 403 forbidden ; 404 clip_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

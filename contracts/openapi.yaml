@@ -4049,6 +4049,14 @@
         "description": "Administrateurs. Lecture seule : l'état des étapes avec statut et code de raison stables."
       }
     },
+    "/api/admin/clips/{id}/analysis/events": {
+      "get": {
+        "operationId": "streamClipAnalysisEvents",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: {run}} : l'état complet de l'analyse, jamais un delta, donc une reconnexion ou un évènement perdu converge. Un évènement `forbidden` clôt le flux quand l'accès est perdu (session expirée, rôle retiré) ; les commentaires `: ping` gardent la connexion.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (400 invalid_clip_id ; 401 unauthorized ; 403 forbidden ; 404 clip_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Flux d'évènements serveur authentifié (cookie de session), droits revérifiés avant chaque snapshot. Mécanisme générique (table events, déclenchée par les changements) réutilisable pour d'autres sujets ; repli : GET /api/admin/clips/{id}/analysis."
+      }
+    },
     "/api/admin/clips/{id}/transcription": {
       "post": {
         "operationId": "scheduleTranscription",

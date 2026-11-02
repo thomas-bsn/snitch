@@ -1363,6 +1363,11 @@ export const en = {
     },
     analysis: {
       label: "Clip analysis",
+      live: "Live updates on",
+      liveOff:
+        "Live updates paused: reconnecting. The state shown refreshes every few seconds.",
+      liveLost:
+        "Access to this live view was lost. Reload the page to sign in again.",
       steps: "Analysis steps",
       full: "Analyze all",
       more: "More analysis options",

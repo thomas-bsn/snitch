@@ -40,7 +40,17 @@ test("analyser un clip jusqu'à sa transcription, durablement", async ({
   const violations = (await new AxeBuilder({ page }).analyze()).violations;
   expect(violations).toEqual([]);
 
+  // A second tab follows the same analysis, live.
+  const other = await context.newPage();
+  await other.goto(`/clips/${clipId}`);
+  await expect(
+    other.getByRole("region", { name: "Clip analysis" }).getByRole("status"),
+  ).toHaveText("Live updates on");
+
   await completeQueuedTranscription();
+  await expect(
+    other.getByRole("region", { name: "Clip analysis" }),
+  ).toContainText("Done", { timeout: 15000 });
   await expect(page.getByText("Bonjour").first()).toBeVisible({
     timeout: 15000,
   });
