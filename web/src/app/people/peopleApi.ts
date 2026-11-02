@@ -13,6 +13,7 @@ export type Verification = components["schemas"]["VoiceVerification"];
 export type VerificationCase = components["schemas"]["VoiceVerificationCase"];
 export type VerificationCounts =
   components["schemas"]["VoiceVerificationCounts"];
+export type LocalSpeakerRead = components["schemas"]["LocalSpeakerRead"];
 export type VoiceGroup = components["schemas"]["VoiceGroup"];
 export type VoiceGroupMember = components["schemas"]["VoiceGroupMember"];
 export type VoiceGroupNaming = components["schemas"]["VoiceGroupNaming"];
@@ -116,24 +117,26 @@ export const fetchVoiceGroups = (page: number, pageSize: number) =>
 /**
  * The Voice group that holds a voice today, or null when it is in none (named, no longer
  * unknown, or its clip is no longer visible). A group has no stable id (ADR 0024), so the
- * groups are read, isolated voices included, until the voice is found.
+ * server finds it from the voice.
  */
 export const fetchVoiceGroupOf = (localSpeakerId: number) =>
   guard<VoiceGroup | null>(async () => {
-    const size = 100;
-    for (let page = 1; ; page++) {
-      const { data, error } = await api.GET("/api/voice-groups", {
-        params: {
-          query: { proposed: false, sort: "clips", page, page_size: size },
-        },
-      });
-      if (!data) return failure(error);
-      const found = data.items.find((group) =>
-        group.members.some((m) => m.local_speaker_id === localSpeakerId),
-      );
-      if (found) return { ok: true, value: found };
-      if (page * size >= data.total) return { ok: true, value: null };
-    }
+    const { data, error } = await api.GET("/api/voice-groups", {
+      params: { query: { voice: localSpeakerId, proposed: false } },
+    });
+    return data ? { ok: true, value: data.items[0] ?? null } : failure(error);
+  });
+
+/**
+ * One Local speaker, for a direct link. A missing voice and one the caller cannot see
+ * fail with the same code, so the screen cannot tell them apart either.
+ */
+export const fetchLocalSpeaker = (id: number) =>
+  guard<LocalSpeakerRead>(async () => {
+    const { data, error } = await api.GET("/api/local-speakers/{id}", {
+      params: { path: { id } },
+    });
+    return data ? { ok: true, value: data } : failure(error);
   });
 
 /** The calls that change something carry the session's CSRF token. */

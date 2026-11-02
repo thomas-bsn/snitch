@@ -4778,6 +4778,15 @@
         "security": [{"session": []}]
       }
     },
+    "/api/local-speakers/{id}": {
+      "get": {
+        "operationId": "getLocalSpeaker",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Locuteur local, son niveau de décision, l'attribution effective et son clip", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/LocalSpeakerRead"}}}}, "404": {"description": "local_speaker_not_found : même réponse pour un Locuteur local inexistant et pour celui d'un clip invisible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible : mêmes règles de visibilité que le reste. Cible des liens directs de Vérification : dit si la voix reste à trancher, ou qui l'a attribuée à qui et quand. Un clip invisible ne fuit jamais : 404 identique à celui d'un identifiant inexistant.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/local-speakers/{id}/history": {
       "get": {
         "operationId": "getLocalSpeakerHistory",
@@ -4854,7 +4863,7 @@
     "/api/voice-groups": {
       "get": {
         "operationId": "listVoiceGroups",
-        "parameters": [{"in": "query", "name": "sort", "required": false, "schema": {"type": "string", "enum": ["clips", "members"], "default": "clips"}, "description": "Tri décroissant par nombre de clips (défaut) ou de voix."}, {"in": "query", "name": "proposed", "required": false, "schema": {"type": "boolean"}, "description": "Vrai : uniquement les groupes proposés (au moins deux voix)."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
+        "parameters": [{"in": "query", "name": "sort", "required": false, "schema": {"type": "string", "enum": ["clips", "members"], "default": "clips"}, "description": "Tri décroissant par nombre de clips (défaut) ou de voix."}, {"in": "query", "name": "proposed", "required": false, "schema": {"type": "boolean"}, "description": "Vrai : uniquement les groupes proposés (au moins deux voix)."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}, {"in": "query", "name": "voice", "required": false, "schema": {"type": "integer", "format": "int64", "minimum": 1}, "description": "Identifiant d'un Locuteur local : ne retourne que le groupe qui contient cette voix visible, ou une liste vide."}],
         "responses": {"200": {"description": "Groupes de voix inconnues visibles par l'utilisateur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupList"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "description": "Utilisateurs connectés. Une voix inconnue (non validée par un humain, non attribuée automatiquement) forme un groupe à elle seule tant qu'un lien de proximité proposé ne la joint pas à une autre. Les groupes ne sont jamais confirmés automatiquement. Nombres de voix et de clips calculés en base sur les seuls clips visibles ; tri par nombre de clips.",
         "security": [{"session": []}]
@@ -6995,6 +7004,22 @@
           "group_id": {"type": "integer", "format": "int64", "description": "Groupe proposé de la voix (voir /api/voice-groups), la voix seule si aucun lien."},
           "group_voice_count": {"type": "integer", "description": "Voix inconnues visibles du groupe, calculé en base."},
           "group_clip_count": {"type": "integer", "description": "Clips distincts du groupe : la fréquence qui ordonne les cas."}
+        }
+      },
+      "LocalSpeakerRead": {
+        "type": "object",
+        "required": ["local_speaker_id", "clip_id", "clip_name", "label", "speaking_seconds", "decision_level", "attribution"],
+        "properties": {
+          "local_speaker_id": {"type": "integer", "format": "int64"},
+          "clip_id": {"type": "integer", "format": "int64"},
+          "clip_name": {"type": "string"},
+          "label": {"type": "string"},
+          "speaking_seconds": {"type": "number"},
+          "decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
+          "attribution": {"allOf": [{"$ref": "#/components/schemas/Attribution"}], "nullable": true, "description": "Attribution effective (validation humaine d'abord, sinon rapprochement) ; null sans attribution. Author et decided_at disent qui l'a décidée et quand."},
+          "group_id": {"type": "integer", "format": "int64", "description": "Présent seulement pour une voix à trancher (inconnue ou ambiguë) : groupe proposé de la voix."},
+          "group_voice_count": {"type": "integer", "description": "Présent avec group_id."},
+          "group_clip_count": {"type": "integer", "description": "Présent avec group_id."}
         }
       },
       "VoiceVerificationCounts": {

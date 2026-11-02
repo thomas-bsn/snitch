@@ -86,6 +86,26 @@ test.describe.serial("personnes et vérification", () => {
     await counters.getByRole("button", { name: /^To decide/ }).click();
     await expect(current).toContainText("2 voice(s) left to decide");
 
+    // A direct link opens its voice first, while the queue alone starts with SPEAKER_00.
+    const { api: voiceApi } = await adminApi();
+    const voices = (await (
+      await voiceApi.get(`/api/clips/${clipId}/voice`)
+    ).json()) as { speakers: { id: number; label: string }[] };
+    await voiceApi.dispose();
+    const idOf = (label: string) =>
+      voices.speakers.find((s) => s.label === label)!.id;
+    await page.goto(`/people/verification?case=${idOf("SPEAKER_01")}`);
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_01",
+    );
+    await expect(current).toContainText("2 voice(s) left to decide");
+    await expect(page.getByText("Already handled")).toHaveCount(0);
+    await expectNoViolations(page);
+    await page.goto("/people/verification");
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_00",
+    );
+
     // The excerpt is listened to in place and served to the session only.
     await expect(
       current.getByRole("button", {
@@ -154,6 +174,28 @@ test.describe.serial("personnes et vérification", () => {
     await expect(
       page.getByRole("link", { name: /^Verification\s*0$/ }),
     ).toBeVisible();
+
+    // A link to the voice that was just settled says who attributed it, to whom, when.
+    await page.goto(`/people/verification?case=${idOf("SPEAKER_00")}`);
+    const handled = page.getByRole("region", {
+      name: "Direct link to a voice",
+    });
+    await expect(handled.getByRole("heading", { level: 2 })).toHaveText(
+      "Already handled",
+    );
+    await expect(handled).toContainText(
+      /SPEAKER_00 was attributed to Claire Synthétique by .+ on .+\./,
+    );
+    await expect(
+      handled.getByRole("link", { name: "Open Claire Synthétique" }),
+    ).toHaveAttribute("href", /^\/people\/\d+$/);
+    await expect(
+      page.getByRole("region", { name: "Voice to decide" }),
+    ).toHaveCount(0);
+    await expectNoViolations(page);
+    await handled.getByRole("button", { name: "Continue the review" }).click();
+    await expect(page).toHaveURL(/\/people\/verification$/);
+    await expect(handled).toHaveCount(0);
   });
 
   test("badges de niveau avec légende et extraits écoutables sur la fiche", async () => {
@@ -705,5 +747,60 @@ test.describe.serial("personnes et vérification", () => {
     expect(twelve.local_speaker_count).toBe(0);
     await api.dispose();
     await expectNoViolations(page);
+  });
+
+  test("liens directs : une voix inexistante et une voix invisible disent la même chose", async ({
+    browser,
+  }) => {
+    // A private clip of the administrator, with its voices, and a member without access.
+    const hiddenClip = await uploadClip("private-secret.mp4", "private");
+    await transcribeAndDiarize(hiddenClip, {});
+    const { api } = await adminApi();
+    const voice = (await (
+      await api.get(`/api/clips/${hiddenClip}/voice`)
+    ).json()) as { speakers: { id: number }[] };
+    await api.dispose();
+    // The member was created by the directory journey above.
+    const context = await browser.newContext({
+      storageState: await sessionFor(MEMBER),
+    });
+    const member = await context.newPage();
+    const messages: string[] = [];
+    for (const id of [voice.speakers[0].id, 999999]) {
+      await member.goto(`/people/verification?case=${id}`);
+      const notice = member.getByRole("region", {
+        name: "Direct link to a voice",
+      });
+      await expect(notice.getByRole("heading", { level: 2 })).toHaveText(
+        "Voice not found or not accessible",
+      );
+      messages.push((await notice.textContent()) ?? "");
+      await expect(member.getByText("private-secret.mp4")).toHaveCount(0);
+      await expect(
+        member.getByRole("region", { name: "Voice to decide" }),
+      ).toHaveCount(0);
+    }
+    expect(messages[0]).toBe(messages[1]);
+    await expectNoViolations(member);
+    // The same message in the dark theme, on a phone.
+    await member.addInitScript(() =>
+      localStorage.setItem("snitch-ui-theme", "dark"),
+    );
+    await member.setViewportSize({ width: 390, height: 780 });
+    await member.goto("/people/verification?case=999999");
+    await expect(
+      member.getByRole("button", { name: "Continue the review" }),
+    ).toBeVisible();
+    const box = await member
+      .getByRole("button", { name: "Continue the review" })
+      .boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await member.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await expectNoViolations(member);
+    await context.close();
   });
 });

@@ -1541,6 +1541,17 @@ export const fr: Messages = {
       deletedUser: "utilisateur supprimé",
     },
     verification: {
+      directTitle: "Lien direct vers une voix",
+      directLoading: "Recherche de la voix…",
+      handledTitle: "Déjà traité",
+      handledBy: "{label} a été attribuée à {person} par {author} le {date}.",
+      handledAuto:
+        "{label} n’est pas dans la vérification : le système l’a rapprochée de {person}, aucune décision humaine n’est attendue ici.",
+      handledNoPerson: "{label} n’attend aucune décision.",
+      openPerson: "Ouvrir {person}",
+      unavailableTitle: "Voix introuvable ou inaccessible",
+      unavailable: "Cette voix n’existe pas, ou vous n’y avez pas accès.",
+      continueReview: "Continuer la vérification",
       lead: "Les voix les plus fréquentes d’abord : en nommer une retire le plus d’incertitude. Trancher est toujours une confirmation humaine.",
       toDecide: "À trancher",
       countersLabel: "Voix par état",

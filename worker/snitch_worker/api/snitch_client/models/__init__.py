@@ -77,6 +77,7 @@ from .list_voice_groups_sort import ListVoiceGroupsSort
 from .list_voice_verification_level import ListVoiceVerificationLevel
 from .local_speaker import LocalSpeaker
 from .local_speaker_kind import LocalSpeakerKind
+from .local_speaker_read import LocalSpeakerRead
 from .local_speaker_state import LocalSpeakerState
 from .master_key_export import MasterKeyExport
 from .master_key_export_origin import MasterKeyExportOrigin
@@ -405,6 +406,7 @@ __all__ = (
     "ListVoiceVerificationLevel",
     "LocalSpeaker",
     "LocalSpeakerKind",
+    "LocalSpeakerRead",
     "LocalSpeakerState",
     "MasterKeyExport",
     "MasterKeyExportOrigin",
