@@ -100,7 +100,8 @@ export function BellMenu() {
                       !item.generic &&
                       item.kind !== "needs_speaker_review" && (
                         <span className="block text-xs text-accent">
-                          {item.kind === "worker_unavailable"
+                          {item.kind === "worker_unavailable" ||
+                          item.kind === "job_blocked"
                             ? t("notifications.incidentWorkerAction")
                             : t("notifications.incidentJobAction")}
                         </span>

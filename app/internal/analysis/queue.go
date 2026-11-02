@@ -140,7 +140,7 @@ func (q Queue) DeltaFrom(previous Queue) QueueDelta {
 }
 
 func (s *Service) queueRuns(ctx context.Context, where, order string, limit int) ([]QueueRun, error) {
-	rows, err := s.pool.Query(ctx, `SELECT r.id,r.clip_id,r.scope,r.status,r.started_by,r.created_at,r.updated_at,r.finished_at,c.original_name
+	rows, err := s.pool.Query(ctx, `SELECT r.id,r.clip_id,r.scope,r.status,r.started_by,r.created_at,r.updated_at,r.finished_at,COALESCE(c.display_title,c.original_name)
 FROM clip_analysis_runs r JOIN clips c ON c.id=r.clip_id
 WHERE r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id) AND (`+where+`) ORDER BY `+order+` LIMIT NULLIF($1,0)`, limit)
 	if err != nil {
@@ -277,11 +277,11 @@ func (s *Service) FinishedRuns(ctx context.Context, q string, page int) (RunHist
 	}
 	h := RunHistory{Page: page, PageSize: HistoryPageSize}
 	like := "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(q) + "%"
-	const where = `r.status<>'active' AND c.original_name ILIKE $1`
+	const where = `r.status<>'active' AND (c.original_name ILIKE $1 OR c.display_title ILIKE $1)`
 	if err := s.pool.QueryRow(ctx, `SELECT count(*)::int FROM clip_analysis_runs r JOIN clips c ON c.id=r.clip_id WHERE `+where, like).Scan(&h.Total); err != nil {
 		return h, fmt.Errorf("count run history: %w", err)
 	}
-	rows, err := s.pool.Query(ctx, `SELECT r.id,r.clip_id,r.scope,r.status,r.started_by,r.created_at,r.updated_at,r.finished_at,c.original_name
+	rows, err := s.pool.Query(ctx, `SELECT r.id,r.clip_id,r.scope,r.status,r.started_by,r.created_at,r.updated_at,r.finished_at,COALESCE(c.display_title,c.original_name)
 FROM clip_analysis_runs r JOIN clips c ON c.id=r.clip_id WHERE `+where+` ORDER BY r.finished_at DESC NULLS LAST,r.id DESC LIMIT $2 OFFSET $3`, like, HistoryPageSize, (page-1)*HistoryPageSize)
 	if err != nil {
 		return h, fmt.Errorf("list run history: %w", err)
@@ -344,7 +344,7 @@ func (s *Service) Queue(ctx context.Context) (Queue, error) {
 	if q.Completed, err = s.queueRuns(ctx, `r.status='completed'`, `r.finished_at DESC NULLS LAST,r.id DESC`, CompletedRuns); err != nil {
 		return q, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.cycle,c.original_name,`+latestFailureCode+`
+	rows, err := s.pool.Query(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.cycle,COALESCE(c.display_title,c.original_name),`+latestFailureCode+`
 FROM jobs j JOIN clips c ON c.id=j.clip_id
 WHERE j.status IN ('pending','leased','retry_wait','dead','failed')
  AND j.id NOT IN (SELECT st.job_id FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id IS NOT NULL AND r.status IN ('active','failed','cancelled') AND r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id))

@@ -141,16 +141,21 @@ func testVoiceTrials(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("expected the trial job, got %+v", job)
 	}
 	var input struct {
-		Voice struct {
+		Voice      map[string]any `json:"voice"`
+		VoiceTrial struct {
 			Config map[string]any `json:"config"`
 			Trial  map[string]any `json:"trial"`
-		} `json:"voice"`
+		} `json:"voice_trial"`
 	}
 	if err := json.Unmarshal(h.workerCall(http.MethodGet, fmt.Sprintf("/api/worker/jobs/%d/input", job.ID), nil, job.Lease, http.StatusOK), &input); err != nil {
 		t.Fatal(err)
 	}
-	if input.Voice.Config["model"] != secondRepo || input.Voice.Config["model_version"] != secondRevision || input.Voice.Config["num_speakers"] != float64(3) || input.Voice.Trial["audio_stream_index"] != float64(2) {
-		t.Fatalf("the trial must carry its model and options: %+v", input.Voice)
+	if input.VoiceTrial.Config["model"] != secondRepo || input.VoiceTrial.Config["model_version"] != secondRevision || input.VoiceTrial.Config["num_speakers"] != float64(3) || input.VoiceTrial.Trial["audio_stream_index"] != float64(2) {
+		t.Fatalf("the trial must carry its model and options: %+v", input.VoiceTrial)
+	}
+	// A trial never goes through the pipeline contract (pipeline_version, fingerprint thresholds).
+	if input.Voice != nil {
+		t.Fatalf("a trial must not carry the regular voice input: %+v", input.Voice)
 	}
 	// A result for another model is refused; the right one is recorded in the trial only.
 	wrong := diarizationPayload("A", "B", "C")

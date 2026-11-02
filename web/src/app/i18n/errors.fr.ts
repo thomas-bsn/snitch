@@ -70,6 +70,18 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Une reconstruction de l’index est déjà en cours.",
   invalid_embedding_settings:
     "Indiquez une adresse de service et un modèle valides.",
+  embedding_validation_required:
+    "Testez d’abord cette configuration : seule une configuration testée peut être enregistrée.",
+  embedding_validation_expired:
+    "La validation a expiré. Testez à nouveau avant d’enregistrer.",
+  embedding_validation_mismatch:
+    "Les valeurs ont changé depuis le test. Testez à nouveau avant d’enregistrer.",
+  embedding_provider_timeout:
+    "Le service d’embeddings n’a pas répondu à temps. Vérifiez son adresse et sa charge, puis testez à nouveau.",
+  embedding_model_not_found:
+    "Le service d’embeddings ne connaît pas ce modèle. Vérifiez le nom du modèle.",
+  embedding_response_invalid:
+    "Le service d’embeddings a répondu, mais pas avec des vecteurs utilisables par Snitch.",
   embedding_provider_unavailable:
     "Le service d’embeddings est inaccessible ou sa réponse est invalide.",
   embeddings_unconfigured: "La recherche sémantique n’est pas configurée.",
@@ -105,6 +117,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Un nom de 3 à 64 caractères et un mot de passe de 12 à 256 caractères sont requis.",
   invalid_credentials_or_pending:
     "Identifiants incorrects ou inscription en attente d’approbation.",
+  invalid_clip_title:
+    "Le titre doit faire de 1 à 200 caractères, sans caractère de contrôle.",
+  metadata_reset_unavailable:
+    "Snitch n’a pas conservé de valeur détectée à restaurer pour ce champ.",
+  invalid_metadata_request:
+    "Cette modification de métadonnées n’est pas valide.",
   invalid_embedding_model: "Ce modèle d’embeddings n’est pas valide.",
   invalid_filter: "Un des filtres n’est pas valide.",
   invalid_folder: "Ce nom de dossier n’est pas valide.",

@@ -24,10 +24,12 @@ class PutEmbeddingSettingsBody:
         Attributes:
             url (str):
             model (str):
+            validation_token (str):
      """
 
     url: str
     model: str
+    validation_token: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -39,12 +41,15 @@ class PutEmbeddingSettingsBody:
 
         model = self.model
 
+        validation_token = self.validation_token
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "url": url,
             "model": model,
+            "validation_token": validation_token,
         })
 
         return field_dict
@@ -58,9 +63,12 @@ class PutEmbeddingSettingsBody:
 
         model = d.pop("model")
 
+        validation_token = d.pop("validation_token")
+
         put_embedding_settings_body = cls(
             url=url,
             model=model,
+            validation_token=validation_token,
         )
 
 

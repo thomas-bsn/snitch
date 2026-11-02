@@ -83,8 +83,8 @@ test("un administrateur essaie un modèle sur un clip et compare au résultat co
       headers: lease,
     })
   ).json();
-  expect(input.voice.config.num_speakers).toBe(3);
-  expect(input.voice.config.model).toBe(REPO);
+  expect(input.voice_trial.config.num_speakers).toBe(3);
+  expect(input.voice_trial.config.model).toBe(REPO);
   const done = await admin.post(`/api/worker/jobs/${claim.job.id}/complete`, {
     headers: lease,
     data: {

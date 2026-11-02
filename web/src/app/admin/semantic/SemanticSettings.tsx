@@ -1,4 +1,10 @@
-import { useCallback, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { api, errorCode, mutation } from "../../api/client";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert, StatusNotice } from "../../components/Alert";
@@ -23,6 +29,14 @@ async function load() {
   };
 }
 
+type Proof = {
+  url: string;
+  model: string;
+  token: string;
+  dimensions: number;
+  expiresAt: number;
+};
+
 export function SemanticSettings({
   onSaved,
   secondaryAction,
@@ -38,6 +52,24 @@ export function SemanticSettings({
   const [failure, setFailure] = useState<string>();
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+  // Only the latest Test counts: a slow answer for older values must not replace a newer proof.
+  const latestTest = useRef(0);
+  // The proof of a successful Test, valid for the exact values tested and for a short time only.
+  const [proof, setProof] = useState<Proof>();
+  const [expired, setExpired] = useState(false);
+  const proofExpiresAt = proof?.expiresAt;
+  useEffect(() => {
+    if (proofExpiresAt === undefined) return;
+    const timer = setTimeout(
+      () => {
+        setProof(undefined);
+        setExpired(true);
+      },
+      Math.max(0, proofExpiresAt - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [proofExpiresAt]);
   if (state.status === "loading")
     return <p role="status">{t("app.loading")}</p>;
   if (state.status === "failed")
@@ -48,20 +80,70 @@ export function SemanticSettings({
       </div>
     );
   const { settings, status } = state.value;
+  const values = {
+    url: (url ?? settings.url).trim(),
+    model: (model ?? settings.model).trim(),
+  };
+  const validated = proof?.url === values.url && proof.model === values.model;
+  // Any edit voids the previous Test: the proof only ever covers what was tested.
+  function edit(change: () => void) {
+    change();
+    latestTest.current += 1; // a Test still running is for values that are gone
+    setTesting(false);
+    setProof(undefined);
+    setExpired(false);
+    setFailure(undefined);
+    setSaved(false);
+  }
+  async function runTest() {
+    const tested = values;
+    const run = ++latestTest.current;
+    setTesting(true);
+    setFailure(undefined);
+    setSaved(false);
+    setExpired(false);
+    setProof(undefined);
+    try {
+      const result = await api.POST("/api/admin/embeddings/settings/test", {
+        params: { header: mutation(session?.csrf_token) },
+        body: tested,
+      });
+      if (run !== latestTest.current) return;
+      if (result.error || !result.data) {
+        setFailure(errorCode(result.error) ?? "unknown");
+        return;
+      }
+      setProof({
+        ...tested,
+        token: result.data.validation_token,
+        dimensions: result.data.dimensions,
+        expiresAt: Date.parse(result.data.expires_at),
+      });
+    } catch {
+      if (run === latestTest.current) setFailure("unavailable");
+    } finally {
+      if (run === latestTest.current) setTesting(false);
+    }
+  }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!proof || !validated || busy) return;
     setBusy(true);
     setFailure(undefined);
     setSaved(false);
     try {
       const result = await api.PUT("/api/admin/embeddings/settings", {
         params: { header: mutation(session?.csrf_token) },
-        body: { url: url ?? settings.url, model: model ?? settings.model },
+        body: { ...values, validation_token: proof.token },
       });
       if (result.error) {
-        setFailure(errorCode(result.error) ?? "unknown");
+        const code = errorCode(result.error) ?? "unknown";
+        // A refused proof is spent or stale: back to "not validated".
+        if (code.startsWith("embedding_validation_")) setProof(undefined);
+        setFailure(code);
         return;
       }
+      setProof(undefined);
       setSaved(true);
       reload();
       await onSaved?.();
@@ -100,7 +182,7 @@ export function SemanticSettings({
           placeholder="http://embed:11434/v1/embeddings"
           required
           value={url ?? settings.url}
-          onChange={(e) => setURL(e.target.value)}
+          onChange={(e) => edit(() => setURL(e.target.value))}
           disabled={settings.url_from_environment}
           hint={
             settings.url_from_environment
@@ -113,7 +195,7 @@ export function SemanticSettings({
           required
           maxLength={128}
           value={model ?? settings.model}
-          onChange={(e) => setModel(e.target.value)}
+          onChange={(e) => edit(() => setModel(e.target.value))}
           disabled={settings.model_from_environment}
           hint={
             settings.model_from_environment
@@ -121,17 +203,45 @@ export function SemanticSettings({
               : undefined
           }
         />
-        {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
-        {saved && <StatusNotice>{t("setup.semantic.saved")}</StatusNotice>}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {secondaryAction}
           <button
+            type="button"
+            disabled={testing || busy}
+            onClick={() => void runTest()}
+            className={buttonClass("secondary")}
+          >
+            {testing ? t("setup.semantic.testing") : t("setup.semantic.test")}
+          </button>
+          <button
             type="submit"
-            disabled={busy}
+            disabled={!validated || busy || testing}
+            aria-describedby="semantic-state"
             className={buttonClass("primary")}
           >
             {t("setup.semantic.save")}
           </button>
+          <span
+            id="semantic-state"
+            className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent-ink"
+          >
+            {validated
+              ? t("setup.semantic.validated")
+              : t("setup.semantic.notValidated")}
+          </span>
+        </div>
+        <div aria-live="polite" className="flex flex-col gap-2">
+          {testing && (
+            <StatusNotice>{t("setup.semantic.testing")}</StatusNotice>
+          )}
+          {validated && proof && (
+            <StatusNotice>
+              {t("setup.semantic.tested", { dimensions: proof.dimensions })}
+            </StatusNotice>
+          )}
+          {expired && <ErrorAlert>{t("setup.semantic.expired")}</ErrorAlert>}
+          {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
+          {saved && <StatusNotice>{t("setup.semantic.saved")}</StatusNotice>}
         </div>
       </form>
     </div>
