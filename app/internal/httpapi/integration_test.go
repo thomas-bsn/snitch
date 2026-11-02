@@ -527,7 +527,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation", nil, me.CSRF, 409)
 		// Diarization trials: behavior in the voice trials suite.
 		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trials", nil, "", 200)
-		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trials", map[string]any{"model_id": "pyannote-community-1"}, me.CSRF, 400)
+		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trials", map[string]any{"model_id": "pyannote-community-1"}, me.CSRF, 409)
 		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trials/999999", nil, me.CSRF, 404)
 		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
