@@ -1484,6 +1484,7 @@ export const fr: Messages = {
       submit: "Séparer",
       cancel: "Annuler",
       done: "{count} voix ont été séparées de {name} : elles sont de nouveau inconnues.",
+      doneOne: "1 voix a été séparée de {name} : elle est de nouveau inconnue.",
     },
     create: {
       title: "Nouvelle Personne",

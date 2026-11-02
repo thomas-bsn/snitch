@@ -215,7 +215,15 @@ func (s *Server) listPersons(w http.ResponseWriter, r *http.Request) {
 		}
 		size = n
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT `+personColumns+` FROM persons p WHERE `+personSearchClause+` ORDER BY lower(p.display_name),p.id LIMIT $2 OFFSET $3`, query, size, (page-1)*size)
+	// Items and total are read in one snapshot: a Person created in between cannot make
+	// them disagree.
+	tx, err := s.Pool.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	rows, err := tx.Query(r.Context(), `SELECT `+personColumns+` FROM persons p WHERE `+personSearchClause+` ORDER BY lower(p.display_name),p.id LIMIT $2 OFFSET $3`, query, size, (page-1)*size)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -239,7 +247,7 @@ func (s *Server) listPersons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var total int
-	if err = s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM persons p WHERE `+personSearchClause, query).Scan(&total); err != nil {
+	if err = tx.QueryRow(r.Context(), `SELECT count(*) FROM persons p WHERE `+personSearchClause, query).Scan(&total); err != nil {
 		s.internal(w, err)
 		return
 	}
