@@ -14,6 +14,14 @@ import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
 import { ClipHistoryDialog } from "./ClipHistoryDialog";
 import { actionText, causeText } from "./failureText";
+import {
+  DEFAULT_THUMBNAIL_SIZE,
+  THUMBNAIL_SIZES,
+  storeThumbnailSize,
+  storedThumbnailSize,
+  type ThumbnailSize,
+} from "../../preferences";
+import { ClipThumbnail } from "./ClipThumbnail";
 import type { components } from "../../../api.gen";
 type Job = components["schemas"]["Job"];
 export type TaskCard = components["schemas"]["TaskCard"];
@@ -83,30 +91,6 @@ function stepLabel(key: TaskCard["current_step"], language: string) {
   };
   return (language === "fr" ? fr : en)[key];
 }
-function ClipArtwork({ id }: { id: number }) {
-  return (
-    <svg
-      viewBox="0 0 80 64"
-      className="h-12 w-14 shrink-0 rounded-md"
-      aria-hidden="true"
-    >
-      <rect width="80" height="64" fill={id % 2 ? "#172a38" : "#24233c"} />
-      <path
-        d="M0 48 20 28 32 38 49 14 80 42V64H0Z"
-        fill={id % 2 ? "#345769" : "#514b77"}
-      />
-      <path d="M0 57 27 41 45 53 63 32 80 46V64H0Z" fill="#101827" />
-      <path
-        d="M39 22v8m0 10v8M26 35h8m10 0h8"
-        stroke="#e9e8f4"
-        strokeWidth="1.5"
-        opacity=".8"
-      />
-      <rect x="5" y="5" width="15" height="3" rx="1.5" fill="#c4b5fd" />
-    </svg>
-  );
-}
-
 export function JobWorkflow({
   board,
   actions,
@@ -146,11 +130,44 @@ export function JobWorkflow({
   };
   const game = (title: string) =>
     title.match(/^(.+?) \d{4}\.\d{2}\.\d{2} - \d{2}\.\d{2}\.\d{2}/)?.[1];
+  const [thumbnailSize, setThumbnailSize] = useState<ThumbnailSize>(
+    () => storedThumbnailSize() ?? DEFAULT_THUMBNAIL_SIZE,
+  );
+  const thumbnailLabels: Record<ThumbnailSize, [string, string]> = {
+    none: ["Aucune", "None"],
+    small: ["Petite", "Small"],
+    large: ["Grande", "Large"],
+  };
   const [historyOpen, setHistoryOpen] = useState(false);
   const all = [...board.cards, ...board.completed];
   return (
     <>
       <div className="mb-3 mt-1 flex flex-wrap items-end justify-end gap-3">
+        <div
+          role="radiogroup"
+          aria-label={tr("Miniatures", "Thumbnails")}
+          className="inline-flex items-center gap-1 rounded-lg border border-line p-1 text-sm"
+        >
+          {THUMBNAIL_SIZES.map((size) => (
+            <label
+              key={size}
+              className="min-h-9 cursor-pointer rounded-md px-3 py-1.5 has-[:checked]:bg-accent-soft has-[:checked]:font-medium has-[:focus-visible]:outline-2"
+            >
+              <input
+                type="radio"
+                name="thumbnail-size"
+                value={size}
+                checked={thumbnailSize === size}
+                onChange={() => {
+                  setThumbnailSize(size);
+                  storeThumbnailSize(size);
+                }}
+                className="sr-only"
+              />
+              {tr(...thumbnailLabels[size])}
+            </label>
+          ))}
+        </div>
         <button onClick={() => setHistoryOpen(true)} className={buttonClass()}>
           {tr("Historique des clips", "Clip history")}
         </button>
@@ -199,8 +216,15 @@ export function JobWorkflow({
                     data-state={card.state}
                     className={`group rounded-xl border bg-surface shadow-sm transition-shadow hover:shadow-md motion-reduce:transition-none ${attention.includes(card.state) ? "border-warn-fg" : "border-line"}`}
                   >
-                    <summary className="relative flex min-h-24 cursor-pointer list-none items-start gap-3 p-2.5 pr-2.5">
-                      <ClipArtwork id={card.clip_id} />
+                    <summary
+                      className={`relative flex min-h-24 cursor-pointer list-none gap-3 p-2.5 pr-2.5 ${thumbnailSize === "large" ? "flex-col" : "items-start"}`}
+                    >
+                      {thumbnailSize !== "none" && (
+                        <ClipThumbnail
+                          clipId={card.clip_id}
+                          size={thumbnailSize}
+                        />
+                      )}
                       <div className="min-w-0 flex-1">
                         <span className="block break-words text-sm font-medium leading-5">
                           {card.original_name || `Clip #${card.clip_id}`}
