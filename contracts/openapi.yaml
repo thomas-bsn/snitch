@@ -6181,8 +6181,16 @@
             "type": "string"
           },
           "error_code": {
-            "type": "string"
+            "type": "string",
+            "description": "Cause d'échec (voir FailureCode) ; vide pour un événement sans échec."
           },
+          "step": {"type": "string", "description": "Étape du job, présente avec un diagnostic."},
+          "provider": {"type": "string"},
+          "model": {"type": "string"},
+          "revision": {"type": "string"},
+          "http_status": {"type": "integer", "minimum": 100, "maximum": 599},
+          "duration_ms": {"type": "integer", "minimum": 0},
+          "recommended_action": {"type": "string", "description": "Code de l'action de reprise conseillée, décidée par le serveur ; absent sans cause connue."},
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -7229,6 +7237,36 @@
           }
         }
       },
+      "FailureCode": {
+        "type": "string",
+        "description": "Catalogue fermé des Causes d'échec d'un job. Un code hors catalogue envoyé par un ancien Worker est enregistré comme worker_failed.",
+        "enum": [
+          "worker_failed",
+          "provider_unavailable",
+          "invalid_input",
+          "audio_preparation_failed",
+          "lease_expired",
+          "max_attempts_exhausted",
+          "cancelled_by_admin",
+          "input_version_superseded",
+          "worker_revoked",
+          "whisper_network",
+          "whisper_timeout",
+          "whisper_http_error",
+          "whisper_model_missing",
+          "whisper_invalid_response",
+          "pyannote_model_missing",
+          "pyannote_access_denied",
+          "gpu_unavailable",
+          "gpu_out_of_memory",
+          "diarization_inference_failed",
+          "hf_auth_required",
+          "hf_not_found",
+          "hf_network",
+          "models_volume_unwritable",
+          "hf_cache_error"
+        ]
+      },
       "WorkerFailureInput": {
         "type": "object",
         "additionalProperties": false,
@@ -7239,7 +7277,38 @@
           "error": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 256
+            "maxLength": 256,
+            "description": "Code de Cause d'échec (voir FailureCode). Un code inconnu est enregistré comme worker_failed."
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "description": "Optionnel. Fournisseur de l'appel en échec."
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$",
+            "description": "Optionnel. Modèle de l'appel en échec."
+          },
+          "revision": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$",
+            "description": "Optionnel. Révision du modèle."
+          },
+          "http_status": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 599,
+            "description": "Optionnel. Statut HTTP renvoyé par le fournisseur."
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400000,
+            "description": "Optionnel. Durée de l'appel en échec."
           }
         }
       },
