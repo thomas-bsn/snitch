@@ -1448,7 +1448,42 @@ export const fr: Messages = {
       notFoundBody: "Cette Personne n’existe pas, ou n’existe plus.",
       merge: "Fusionner {name}",
       delete: "Supprimer {name}",
+      separate: "Séparer des voix de {name}",
       created: "{name} a été créée.",
+    },
+    actions: {
+      label: "Actions sur {name}",
+      notDone: "Rien n’a été modifié. {reason}",
+      reasons: {
+        mergeLinked:
+          "Liée à un compte, {name} ne peut pas être absorbée. Ouvrez l’autre Personne et fusionnez-la dans {name}.",
+        mergeHidden:
+          "Des voix de {name} sont sur des clips que vous ne pouvez pas voir : seule une personne qui peut les voir peut fusionner {name}.",
+        mergeProfileDeleted:
+          "Le profil vocal de {name} a été supprimé : la fusion le reconstituerait.",
+        deleteLinked:
+          "Liée à un compte, {name} ne peut pas être supprimée ici. Supprimez plutôt le profil vocal depuis le compte.",
+        deleteHidden:
+          "Des voix de {name} sont sur des clips que vous ne pouvez pas voir : seule une personne qui peut les voir peut supprimer {name}.",
+        separateNone: "{name} n’a aucune voix confirmée à séparer.",
+        separateHidden:
+          "Les voix confirmées de {name} sont sur des clips que vous ne pouvez pas voir.",
+      },
+    },
+    separate: {
+      title: "Séparer des voix de {name}",
+      body: "Choisissez les voix qui ne sont pas {name}.",
+      legend: "Voix à séparer de {name}",
+      voice: "{label} · {clip}",
+      voices:
+        "{count} voix redeviennent inconnues et pourront être nommées de nouveau.",
+      samples: "{count} échantillon(s) validé(s) quittent les références.",
+      intact:
+        "{name}, les clips et les empreintes vocales sont conservés. Les voix sont rapprochées de nouveau.",
+      choose: "Choisissez au moins une voix.",
+      submit: "Séparer",
+      cancel: "Annuler",
+      done: "{count} voix ont été séparées de {name} : elles sont de nouveau inconnues.",
     },
     create: {
       title: "Nouvelle Personne",
@@ -1465,10 +1500,22 @@ export const fr: Messages = {
       submit: "Fusionner",
       cancel: "Annuler",
       done: "{name} a été fusionnée dans {target} : {summary}",
+      voices:
+        "{count} voix confirmée(s) de {name} sont désormais confirmées comme {target}.",
+      samples:
+        "{count} échantillon(s) validé(s) de {name} deviennent des références de {target}.",
+      rules:
+        "{count} règle(s) de piste micro nommant {name} nomment désormais {target}.",
+      intact:
+        "{name} disparaît. Les clips, les empreintes vocales et ce que {target} possède déjà sont intacts. Les voix sont rapprochées de nouveau. Cette action ne peut pas être annulée.",
     },
     delete: {
       title: "Supprimer {name} ?",
-      body: "Les voix confirmées pour {name} redeviennent inconnues et leurs échantillons quittent les références. Les clips ne sont jamais supprimés. Cette action ne peut pas être annulée.",
+      voices: "{count} voix confirmée(s) pour {name} redeviennent inconnues.",
+      samples: "{count} échantillon(s) validé(s) quittent les références.",
+      rules: "{count} règle(s) de piste micro nommant {name} sont supprimées.",
+      intact:
+        "Les clips, les empreintes vocales et les autres Personnes sont intacts. Les voix sont rapprochées de nouveau. Cette action ne peut pas être annulée.",
       submit: "Supprimer",
       cancel: "Annuler",
       done: "{name} a été supprimée : {summary}",
@@ -1481,14 +1528,6 @@ export const fr: Messages = {
       empty: "Aucune voix confirmée que vous puissiez voir.",
       excerpt: "Extrait de {label} dans {clip}",
       speech: "{seconds} s de parole",
-      separate: "Séparer {label} de {name}",
-      separateTitle: "Séparer cette voix ?",
-      separateBody:
-        "{label} ({clip}) ne sera plus confirmée comme {name} : elle redevient inconnue et son échantillon quitte les références. {name} est conservée.",
-      separateSubmit: "Séparer",
-      separateCancel: "Annuler",
-      separated:
-        "{label} a été séparée de {name} : elle est de nouveau inconnue.",
     },
     log: {
       show: "Journal des corrections",

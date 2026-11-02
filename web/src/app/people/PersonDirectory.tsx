@@ -1,22 +1,16 @@
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { useCallback, useId, useState } from "react";
-import { Link, NavLink, useNavigate, useParams } from "react-router";
+import { useCallback, useState } from "react";
+import { NavLink, useNavigate, useParams } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import { StatusPill } from "../components/StatusPill";
 import { useI18n } from "../i18n";
 import { CorrectionLog } from "./CorrectionLog";
 import { useFailureText } from "./failureText";
-import { MergeDialog, NewPersonDialog } from "./PersonDialogs";
-import { PersonVoices } from "./PersonVoices";
-import {
-  fetchPerson,
-  fetchPersonPage,
-  usePersonActions,
-  type Person,
-} from "./peopleApi";
+import { NewPersonDialog } from "./PersonDialogs";
+import { Counts, PersonRecord } from "./PersonRecord";
+import { fetchPersonPage } from "./peopleApi";
 
 const PAGE_SIZE = 25;
 
@@ -27,22 +21,6 @@ const itemClass = ({ isActive }: { isActive: boolean }) =>
       : "border-line bg-surface hover:bg-side"
   }`;
 
-/** What a Person has, as the server counts it: voices and validated samples (the reference). */
-function Counts({ person }: { person: Person }) {
-  const { t } = useI18n();
-  return (
-    <>
-      {t("people.persons.voiceCount", { count: person.local_speaker_count })}
-      {" · "}
-      {person.validated_sample_count > 0
-        ? t("people.persons.sampleCount", {
-            count: person.validated_sample_count,
-          })
-        : t("people.persons.noReference")}
-    </>
-  );
-}
-
 /**
  * The People section: a compact list searched and paged by the server, and the record of the
  * chosen Person at its own address (/people/:id). On a phone they are two screens in turn.
@@ -50,17 +28,12 @@ function Counts({ person }: { person: Person }) {
 export function PersonDirectory() {
   const { t } = useI18n();
   const failureText = useFailureText();
-  const actions = usePersonActions();
   const navigate = useNavigate();
   const { id } = useParams();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
-  const [merging, setMerging] = useState<Person>();
-  const [deleting, setDeleting] = useState<Person>();
   const [notice, setNotice] = useState<string>();
-  const [failure, setFailure] = useState<string>();
-  const [busy, setBusy] = useState(false);
   const [changes, setChanges] = useState(0);
 
   const search = query.trim();
@@ -72,32 +45,8 @@ export function PersonDirectory() {
   const { state } = useLoaded(load);
 
   function changed(message: string) {
-    setFailure(undefined);
     setNotice(message);
     setChanges((n) => n + 1);
-  }
-
-  async function remove(person: Person) {
-    setBusy(true);
-    const result = await actions.remove(person.id);
-    setBusy(false);
-    setDeleting(undefined);
-    if (!result.ok) {
-      setNotice(undefined);
-      setFailure(result.code);
-      return;
-    }
-    navigate("/people");
-    changed(
-      t("people.delete.done", {
-        name: person.display_name,
-        summary: t("people.summary", {
-          attributions: result.value.attributions,
-          samples: result.value.samples,
-          rules: result.value.microphone_rules,
-        }),
-      }),
-    );
   }
 
   const selected = id !== undefined;
@@ -108,7 +57,6 @@ export function PersonDirectory() {
   return (
     <div className="flex flex-col gap-4">
       {notice && <StatusNotice>{notice}</StatusNotice>}
-      {failure && <ErrorAlert>{failureText(failure)}</ErrorAlert>}
       <div className="grid gap-6 min-[821px]:grid-cols-[minmax(280px,360px)_1fr]">
         <div
           className={`flex min-w-0 flex-col gap-3 ${selected ? "max-[820px]:hidden" : ""}`}
@@ -206,9 +154,15 @@ export function PersonDirectory() {
             <PersonRecord
               id={id}
               version={changes}
-              onMerge={setMerging}
-              onDelete={setDeleting}
-              onSeparated={changed}
+              onChanged={changed}
+              onMerged={(target, message) => {
+                navigate(`/people/${target.id}`);
+                changed(message);
+              }}
+              onDeleted={(message) => {
+                navigate("/people");
+                changed(message);
+              }}
             />
           ) : (
             <p className="text-mute">{t("people.persons.choose")}</p>
@@ -224,152 +178,6 @@ export function PersonDirectory() {
           changed(t("people.persons.created", { name: person.display_name }));
         }}
       />
-      <MergeDialog
-        person={merging}
-        onClose={() => setMerging(undefined)}
-        onMerged={(source, target, summary) => {
-          setMerging(undefined);
-          navigate(`/people/${target.id}`);
-          changed(
-            t("people.merge.done", {
-              name: source.display_name,
-              target: target.display_name,
-              summary,
-            }),
-          );
-        }}
-      />
-      <ConfirmDialog
-        open={deleting !== undefined}
-        onOpenChange={(open) => !open && setDeleting(undefined)}
-        title={t("people.delete.title", { name: deleting?.display_name ?? "" })}
-        cancelLabel={t("people.delete.cancel")}
-        confirmLabel={t("people.delete.submit")}
-        danger
-        busy={busy}
-        onConfirm={() => deleting && void remove(deleting)}
-      >
-        <p>{t("people.delete.body", { name: deleting?.display_name ?? "" })}</p>
-      </ConfirmDialog>
     </div>
-  );
-}
-
-/** The record of one Person: its real counts, its account, its confirmed voices. */
-function PersonRecord({
-  id,
-  version,
-  onMerge,
-  onDelete,
-  onSeparated,
-}: {
-  id: string;
-  version: number;
-  onMerge: (person: Person) => void;
-  onDelete: (person: Person) => void;
-  onSeparated: (message: string) => void;
-}) {
-  const { t } = useI18n();
-  const failureText = useFailureText();
-  const headingId = useId();
-  const valid = /^[1-9]\d{0,14}$/.test(id);
-  const load = useCallback(
-    () =>
-      valid
-        ? fetchPerson(Number(id))
-        : Promise.resolve({ ok: false as const, code: "person_not_found" }),
-    // `version` reloads the record after a change made from the list or the record.
-    [id, valid, version],
-  );
-  const { state } = useLoaded(load);
-
-  const back = (
-    <Link
-      to="/people"
-      className="inline-flex min-h-11 items-center gap-1 text-accent underline min-[821px]:hidden"
-    >
-      <ChevronLeft className="size-4" aria-hidden="true" />
-      {t("people.persons.back")}
-    </Link>
-  );
-
-  if (state.status === "loading") {
-    return (
-      <div className="flex flex-col gap-2">
-        {back}
-        <p className="text-mute">{t("people.loading")}</p>
-      </div>
-    );
-  }
-  if (state.status === "failed") {
-    if (state.code !== "person_not_found") {
-      return (
-        <div className="flex flex-col gap-2">
-          {back}
-          <ErrorAlert>{failureText(state.code)}</ErrorAlert>
-        </div>
-      );
-    }
-    return (
-      <div className="flex flex-col gap-2">
-        {back}
-        <h2 className="text-lg font-semibold">
-          {t("people.persons.notFound")}
-        </h2>
-        <p className="text-mute">{t("people.persons.notFoundBody")}</p>
-        <Link
-          to="/people"
-          className="inline-flex min-h-11 items-center text-accent underline max-[820px]:hidden"
-        >
-          {t("people.persons.back")}
-        </Link>
-      </div>
-    );
-  }
-
-  const person = state.value;
-  const locked = person.user_id !== null;
-  return (
-    <section
-      aria-labelledby={headingId}
-      className="flex flex-col gap-4 rounded-xl border border-line p-4"
-    >
-      {back}
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 id={headingId} className="text-lg font-semibold">
-          {person.display_name}
-        </h2>
-        {locked && (
-          <StatusPill tone="ok">{t("people.persons.linkedAccount")}</StatusPill>
-        )}
-        {person.voice_profile_deleted_at !== null && (
-          <StatusPill tone="idle">
-            {t("people.persons.profileDeleted")}
-          </StatusPill>
-        )}
-      </div>
-      <p>
-        <Counts person={person} />
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={locked || person.voice_profile_deleted_at !== null}
-          onClick={() => onMerge(person)}
-          className={buttonClass("secondary")}
-        >
-          {t("people.persons.merge", { name: person.display_name })}
-        </button>
-        <button
-          type="button"
-          disabled={locked}
-          onClick={() => onDelete(person)}
-          className={buttonClass("secondary")}
-        >
-          {t("people.persons.delete", { name: person.display_name })}
-        </button>
-      </div>
-      <PersonVoices person={person} onSeparated={onSeparated} />
-    </section>
   );
 }
