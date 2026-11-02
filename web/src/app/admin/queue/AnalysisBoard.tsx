@@ -85,7 +85,7 @@ function StepRow({ step, current }: { step: Step; current: boolean }) {
   return (
     <li
       aria-current={current ? "step" : undefined}
-      className={`rounded-lg border p-2 ${needsAttention(step.status) ? "border-warn-fg bg-warn-bg" : "border-line"} ${step.status === "not_applicable" ? "opacity-70" : ""}`}
+      className={`rounded-lg border p-2 ${needsAttention(step.status) ? "border-warn-fg bg-warn-bg" : "border-line"} ${step.status === "not_applicable" ? "border-dashed" : ""}`}
     >
       <p className="m-0 flex flex-wrap items-baseline justify-between gap-2 text-sm">
         <strong>{t(`clip.analysis.step.${step.step}`)}</strong>
