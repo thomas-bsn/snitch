@@ -29,8 +29,12 @@ export const fetchNotifications = (
     return data ? { ok: true, value: data } : failure(error);
   });
 
-/** Where a notification leads: the Verification list filtered on its clip. */
+/** Where a notification leads: the Workers page, the job queue, or the Verification list on its clip. */
 export function notificationAddress(item: AppNotification): string {
+  if (item.generic)
+    return item.clip_id === null ? "/library" : `/clips/${item.clip_id}`;
+  if (item.kind === "worker_unavailable") return "/admin/workers";
+  if (item.kind !== "needs_speaker_review") return "/admin/queue";
   return item.clip_id === null
     ? "/people/verification"
     : `/people/verification?clip=${item.clip_id}`;

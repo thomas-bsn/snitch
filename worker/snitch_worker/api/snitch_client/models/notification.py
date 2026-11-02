@@ -28,15 +28,22 @@ class Notification:
         Attributes:
             id (int):
             kind (NotificationKind): Voix à vérifier : une notification active par clip, résolue automatiquement quand
-                toutes ses voix sont traitées.
+                toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause,
+                résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que
+                technical_incident, message générique sans détail.
             state (NotificationState): Partagé : une action résolue l'est pour tous.
             clip_id (int | None):
             clip_name (str):
-            pending_count (int): Voix restant à décider.
+            pending_count (int): Voix restant à décider, ou jobs concernés par l'incident.
             read (bool): État de lecture du demandeur, indépendant de la résolution.
             created_at (datetime.datetime):
             updated_at (datetime.datetime):
             resolved_at (datetime.datetime | None):
+            job_id (int | None): Incident : dernier job concerné (administrateurs uniquement).
+            step (str): Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret.
+            error_code (str): Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input,
+                worker_failed, retries_exhausted), jamais l'erreur brute.
+            generic (bool): Vrai pour le message générique sûr vu par un non-administrateur.
      """
 
     id: int
@@ -49,6 +56,10 @@ class Notification:
     created_at: datetime.datetime
     updated_at: datetime.datetime
     resolved_at: datetime.datetime | None
+    job_id: int | None
+    step: str
+    error_code: str
+    generic: bool
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -81,6 +92,15 @@ class Notification:
         else:
             resolved_at = self.resolved_at
 
+        job_id: int | None
+        job_id = self.job_id
+
+        step = self.step
+
+        error_code = self.error_code
+
+        generic = self.generic
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -95,6 +115,10 @@ class Notification:
             "created_at": created_at,
             "updated_at": updated_at,
             "resolved_at": resolved_at,
+            "job_id": job_id,
+            "step": step,
+            "error_code": error_code,
+            "generic": generic,
         })
 
         return field_dict
@@ -158,6 +182,20 @@ class Notification:
         resolved_at = _parse_resolved_at(d.pop("resolved_at"))
 
 
+        def _parse_job_id(data: object) -> int | None:
+            if data is None:
+                return data
+            return cast(int | None, data)
+
+        job_id = _parse_job_id(d.pop("job_id"))
+
+
+        step = d.pop("step")
+
+        error_code = d.pop("error_code")
+
+        generic = d.pop("generic")
+
         notification = cls(
             id=id,
             kind=kind,
@@ -169,6 +207,10 @@ class Notification:
             created_at=created_at,
             updated_at=updated_at,
             resolved_at=resolved_at,
+            job_id=job_id,
+            step=step,
+            error_code=error_code,
+            generic=generic,
         )
 
 

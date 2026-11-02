@@ -3535,10 +3535,16 @@ export interface components {
       /** Format: int64 */
       id: number;
       /**
-       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées.
+       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail.
        * @enum {string}
        */
-      kind: "needs_speaker_review";
+      kind:
+        | "needs_speaker_review"
+        | "worker_unavailable"
+        | "provider_unavailable"
+        | "model_missing"
+        | "job_failed"
+        | "technical_incident";
       /**
        * @description Partagé : une action résolue l'est pour tous.
        * @enum {string}
@@ -3547,7 +3553,7 @@ export interface components {
       /** Format: int64 */
       clip_id: number | null;
       clip_name: string;
-      /** @description Voix restant à décider. */
+      /** @description Voix restant à décider, ou jobs concernés par l'incident. */
       pending_count: number;
       /** @description État de lecture du demandeur, indépendant de la résolution. */
       read: boolean;
@@ -3557,6 +3563,17 @@ export interface components {
       updated_at: string;
       /** Format: date-time */
       resolved_at: string | null;
+      /**
+       * Format: int64
+       * @description Incident : dernier job concerné (administrateurs uniquement).
+       */
+      job_id: number | null;
+      /** @description Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret. */
+      step: string;
+      /** @description Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted), jamais l'erreur brute. */
+      error_code: string;
+      /** @description Vrai pour le message générique sûr vu par un non-administrateur. */
+      generic: boolean;
     };
     NotificationList: {
       items: components["schemas"]["Notification"][];

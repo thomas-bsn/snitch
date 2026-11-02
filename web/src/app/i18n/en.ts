@@ -539,6 +539,18 @@ export const en = {
     history: "History",
     actions: "Actions",
     removeFailed: "This notification could not be removed.",
+    incidentWorker:
+      "No compatible worker is available: {count} jobs are waiting",
+    incidentProvider:
+      "The processing service is unavailable ({count} jobs affected)",
+    incidentModel:
+      "A required model is missing on the worker ({count} jobs affected)",
+    incidentJob: "{count} jobs failed at step {step}",
+    incidentGeneric:
+      "A technical incident is slowing processing down. Administrators have been notified.",
+    incidentResolved: "Technical incident resolved",
+    incidentWorkerAction: "Check the worker",
+    incidentJobAction: "View the jobs",
   },
   header: {
     searchLabel: "Search the transcripts",

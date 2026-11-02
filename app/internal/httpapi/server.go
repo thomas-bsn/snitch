@@ -54,6 +54,7 @@ type Server struct {
 	embeddingContext   context.Context
 	embeddingStartOnce sync.Once
 	embeddingWG        sync.WaitGroup
+	incidents          incidentSync
 	passwordSlots      chan struct{}
 	dummyPassword      string
 }
@@ -104,6 +105,8 @@ func (s *Server) Start(ctx context.Context) error {
 	go func() { defer s.embeddingWG.Done(); s.Events.Serve(s.embeddingContext) }()
 	s.embeddingWG.Add(1)
 	go func() { defer s.embeddingWG.Done(); s.Analysis.Serve(s.embeddingContext, analysisInterval) }()
+	s.embeddingWG.Add(1)
+	go func() { defer s.embeddingWG.Done(); s.serveIncidents(s.embeddingContext, analysisInterval) }()
 	s.embeddingWG.Add(1)
 	go func() {
 		defer s.embeddingWG.Done()

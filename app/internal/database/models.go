@@ -247,6 +247,10 @@ type Notification struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 	ResolvedAt   pgtype.Timestamptz `json:"resolved_at"`
+	Cause        string             `json:"cause"`
+	JobID        pgtype.Int8        `json:"job_id"`
+	Step         string             `json:"step"`
+	ErrorCode    string             `json:"error_code"`
 }
 
 type NotificationRecipient struct {

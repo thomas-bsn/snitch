@@ -262,6 +262,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testNotifications(t, pool)
 	})
+	t.Run("incident notifications", func(t *testing.T) {
+		reset(t)
+		testIncidentNotifications(t, pool)
+	})
 	t.Run("microphone track", func(t *testing.T) {
 		reset(t)
 		testMicrophoneTrack(t, pool)
