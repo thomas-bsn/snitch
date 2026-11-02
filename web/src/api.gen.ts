@@ -1252,6 +1252,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/analysis/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. */
+    get: operations["getClipAnalysisHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/analysis/cancel": {
     parameters: {
       query?: never;
@@ -2353,6 +2370,12 @@ export interface components {
       /** Format: int64 */
       job_id: number | null;
       attempt: number;
+      /** @description Version d'entrée du job suivi par l'étape (historique). */
+      input_version: string | null;
+      /** @description Profil (pipeline) du job suivi par l'étape. */
+      profile: string | null;
+      /** @description Étape relancée par une réanalyse, malgré un résultat valide. */
+      forced: boolean;
       /** Format: date-time */
       started_at: string | null;
       /** Format: date-time */
@@ -2377,6 +2400,11 @@ export interface components {
       updated_at: string;
       /** Format: date-time */
       finished_at: string | null;
+      /** @enum {string} */
+      mode: "missing" | "full" | "steps";
+      forced_steps: ("transcription" | "indexing" | "diarization")[];
+      confirmed_replace_corrections: boolean;
+      confirmed_replace_validations: boolean;
       steps: components["schemas"]["ClipAnalysisStep"][];
     };
     ClipAnalysisResponse: {
@@ -2385,6 +2413,29 @@ export interface components {
     ClipAnalysisConflict: {
       error: string;
       run?: components["schemas"]["ClipAnalysisRun"];
+      stake?: components["schemas"]["ClipReanalysisStake"];
+    };
+    /** @description Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés). */
+    ClipReanalysisStake: {
+      /** @description Corrections de segments de la transcription visible (retranscription). */
+      corrections: {
+        /** Format: int64 */
+        transcription_job_id: number;
+        text_segments: number;
+        speaker_segments: number;
+        authors: string[];
+        /** Format: date-time */
+        last_corrected_at: string | null;
+      } | null;
+      /** @description Validations de voix, échantillons et corrections de locuteur (nouvelle diarisation). */
+      voice: {
+        validated_speakers: number;
+        voice_samples: number;
+        speaker_corrections: number;
+      } | null;
+    };
+    ClipAnalysisHistory: {
+      runs: components["schemas"]["ClipAnalysisRun"][];
     };
     Error: {
       error: string;
@@ -7692,6 +7743,18 @@ export interface operations {
            * @enum {string}
            */
           scope?: "transcription" | "voice" | "full";
+          /**
+           * @description Réanalyse d'un clip déjà traité. missing : seules les étapes sans résultat valide sont exécutées (les résultats valides sont réutilisés). full : retranscription (périmètres transcription et full) et nouvelle diarisation (périmètres voice et full), l'indexation, les empreintes et la comparaison suivent. steps : relance les seules étapes de steps, quel que soit le résultat valide existant. Sans effet si une analyse est déjà active.
+           * @default missing
+           * @enum {string}
+           */
+          mode?: "missing" | "full" | "steps";
+          /** @description Avec mode steps : étapes à relancer, applicables au périmètre (sinon 400 invalid_reanalysis). */
+          steps?: ("transcription" | "indexing" | "diarization")[];
+          /** @description Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections). */
+          confirm_replace_corrections?: boolean;
+          /** @description Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice). */
+          confirm_replace_validations?: boolean;
         };
       };
     };
@@ -7714,7 +7777,7 @@ export interface operations {
           "application/json": components["schemas"]["ClipAnalysisResponse"];
         };
       };
-      /** @description analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) ; transcription_required : le périmètre voice exige une transcription valide */
+      /** @description analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) ; transcription_required : le périmètre voice exige une transcription valide ; reanalysis_confirmation_required : les étapes relancées rendraient du travail humain obsolète, les conséquences sont dans stake */
       409: {
         headers: {
           [name: string]: unknown;
@@ -7723,7 +7786,38 @@ export interface operations {
           "application/json": components["schemas"]["ClipAnalysisConflict"];
         };
       };
-      /** @description Erreur (400 invalid_analysis_scope, invalid_clip_id ; 404 clip_not_found) */
+      /** @description Erreur (400 invalid_analysis_scope, invalid_reanalysis, invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysisHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Les 20 exécutions les plus récentes, avec versions, profil, étapes relancées et confirmations */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisHistory"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 404 clip_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

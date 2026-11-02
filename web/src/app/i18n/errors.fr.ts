@@ -89,6 +89,9 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Cette analyse est terminée : lancez-en une nouvelle.",
   analysis_step_not_failed: "Cette étape n’a pas échoué.",
   invalid_analysis_step: "Cette étape d’analyse n’est pas valide.",
+  invalid_reanalysis: "Ce choix de réanalyse n’est pas valide.",
+  reanalysis_confirmation_required:
+    "Confirmez les conséquences de cette réanalyse avant son démarrage.",
   analysis_scope_conflict:
     "Une analyse d’un autre périmètre est déjà active sur ce clip.",
   invalid_clip_id: "Cet identifiant de clip n’est pas valide.",

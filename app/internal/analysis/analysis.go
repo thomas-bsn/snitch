@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -38,6 +39,59 @@ const (
 	StepFingerprints  = "fingerprints"
 	StepMatching      = "matching"
 )
+
+// Reanalysis modes: missing runs only what has no valid result (the default); full runs
+// again every step that can replace a result in the scope; steps runs again the chosen ones.
+const (
+	ModeMissing = "missing"
+	ModeFull    = "full"
+	ModeSteps   = "steps"
+)
+
+// Options are the reanalysis choices of a start. Steps matters only with ModeSteps; the
+// confirmations record the consequences the administrator accepted.
+type Options struct {
+	Mode                      string
+	Steps                     []string
+	ConfirmReplaceCorrections bool
+	ConfirmReplaceValidations bool
+}
+
+// forceable are the steps a reanalysis can run again: the others follow them (the
+// fingerprints and the matching come after a diarization).
+var forceable = []string{StepTranscription, StepIndexing, StepDiarization}
+
+// ForcedSteps resolves the steps a mode forces in a scope, in dependency order.
+func ForcedSteps(scope string, opts Options) ([]string, error) {
+	switch opts.Mode {
+	case "", ModeMissing:
+		return nil, nil
+	case ModeFull:
+		out := []string{}
+		for _, step := range forceable {
+			// Indexing follows a new transcription by itself; forcing it alone would be redundant.
+			if applicable(scope, step) && step != StepIndexing {
+				out = append(out, step)
+			}
+		}
+		return out, nil
+	case ModeSteps:
+		out := []string{}
+		for _, step := range forceable {
+			if slices.Contains(opts.Steps, step) {
+				if !applicable(scope, step) {
+					return nil, ErrInvalidReanalysis
+				}
+				out = append(out, step)
+			}
+		}
+		if len(out) == 0 || len(out) != len(opts.Steps) {
+			return nil, ErrInvalidReanalysis
+		}
+		return out, nil
+	}
+	return nil, ErrInvalidReanalysis
+}
 
 var stepOrder = []string{StepPreparation, StepTranscription, StepIndexing, StepDiarization, StepFingerprints, StepMatching}
 
@@ -83,17 +137,22 @@ var (
 	ErrNotRetryable          = errors.New("the analysis cannot be retried")
 	ErrInvalidStep           = errors.New("invalid analysis step")
 	ErrStepNotFailed         = errors.New("the step has not failed")
+	ErrInvalidReanalysis     = errors.New("invalid reanalysis choice")
 )
 
 type Step struct {
-	Step       string     `json:"step"`
-	Status     string     `json:"status"`
-	Reason     string     `json:"reason"`
-	JobID      *int64     `json:"job_id"`
-	Attempt    int        `json:"attempt"`
-	StartedAt  *time.Time `json:"started_at"`
-	FinishedAt *time.Time `json:"finished_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	Step    string `json:"step"`
+	Status  string `json:"status"`
+	Reason  string `json:"reason"`
+	JobID   *int64 `json:"job_id"`
+	Attempt int    `json:"attempt"`
+	// InputVersion and Profile say which versions the step followed (history).
+	InputVersion *string    `json:"input_version"`
+	Profile      *string    `json:"profile"`
+	Forced       bool       `json:"forced"`
+	StartedAt    *time.Time `json:"started_at"`
+	FinishedAt   *time.Time `json:"finished_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 type Run struct {
@@ -105,7 +164,13 @@ type Run struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	FinishedAt *time.Time `json:"finished_at"`
-	Steps      []Step     `json:"steps"`
+	Mode       string     `json:"mode"`
+	// ForcedSteps run again whatever valid result existed; the confirmations are what the
+	// administrator accepted before the run started.
+	ForcedSteps                 []string `json:"forced_steps"`
+	ConfirmedReplaceCorrections bool     `json:"confirmed_replace_corrections"`
+	ConfirmedReplaceValidations bool     `json:"confirmed_replace_validations"`
+	Steps                       []Step   `json:"steps"`
 }
 
 // Preparation is what the clip lets a run do: the media must be ready and one audio track
@@ -125,7 +190,8 @@ type Hooks interface {
 	Prepare(ctx context.Context, clipID int64) (Preparation, error)
 	// Transcribe finds the job to follow, or schedules it. Jobs created before since that
 	// ended without success are ignored (a new run starts afresh); valid results are reused.
-	Transcribe(ctx context.Context, clipID int64, since time.Time) (Transcription, error)
+	// With force, only jobs created since are considered: the valid result is replaced.
+	Transcribe(ctx context.Context, clipID int64, since time.Time, force bool) (Transcription, error)
 	// HasTranscription tells whether the clip has a valid transcription to build on.
 	HasTranscription(ctx context.Context, clipID int64) (bool, error)
 	// Index tells where the semantic indexing of the visible transcription stands. The text
@@ -133,7 +199,10 @@ type Hooks interface {
 	Index(ctx context.Context, clipID int64) (StepResult, error)
 	// Voice resolves the audio track, applies the microphone designation, and follows or
 	// schedules the diarization and fingerprint jobs (valid results are reused).
-	Voice(ctx context.Context, clipID int64, since time.Time) (VoiceSteps, error)
+	// With force, a diarization created before since is not reused: it is run again.
+	Voice(ctx context.Context, clipID int64, since time.Time, force bool) (VoiceSteps, error)
+	// Reindex asks for the semantic indexing of the visible transcription to be redone.
+	Reindex(ctx context.Context, clipID int64) error
 	// RetryIndex asks for the semantic indexing of the visible transcription to be run again.
 	RetryIndex(ctx context.Context, clipID int64) error
 	// Match matches the fingerprints of the clip with the existing references.
@@ -169,26 +238,42 @@ func validScope(scope string) bool {
 	return scope == ScopeTranscription || scope == ScopeVoice || scope == ScopeFull
 }
 
-const runColumns = `id,clip_id,scope,status,started_by,created_at,updated_at,finished_at`
+const runColumns = `id,clip_id,scope,status,started_by,created_at,updated_at,finished_at,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations`
 
 func scanRun(row pgx.Row) (Run, error) {
 	var r Run
-	err := row.Scan(&r.ID, &r.ClipID, &r.Scope, &r.Status, &r.StartedBy, &r.CreatedAt, &r.UpdatedAt, &r.FinishedAt)
+	err := row.Scan(&r.ID, &r.ClipID, &r.Scope, &r.Status, &r.StartedBy, &r.CreatedAt, &r.UpdatedAt, &r.FinishedAt, &r.Mode, &r.ForcedSteps, &r.ConfirmedReplaceCorrections, &r.ConfirmedReplaceValidations)
 	return r, err
 }
 
 // Start begins the analysis of a clip, or returns the one already active (created=false).
 // An active run of another scope is refused with ErrScopeConflict (the active run is returned).
 func (s *Service) Start(ctx context.Context, clipID int64, scope string, adminID int64) (Run, bool, error) {
+	return s.StartWith(ctx, clipID, scope, adminID, Options{})
+}
+
+// StartWith is Start with the reanalysis choices: the forced steps run again whatever valid
+// result exists, and the run keeps the confirmations it was given.
+func (s *Service) StartWith(ctx context.Context, clipID int64, scope string, adminID int64, opts Options) (Run, bool, error) {
 	if !validScope(scope) {
 		return Run{}, false, ErrInvalidScope
+	}
+	forced, err := ForcedSteps(scope, opts)
+	if err != nil {
+		return Run{}, false, err
+	}
+	if opts.Mode == "" {
+		opts.Mode = ModeMissing
+	}
+	if forced == nil {
+		forced = []string{}
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Run{}, false, err
 	}
 	defer tx.Rollback(ctx)
-	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO clip_analysis_runs(clip_id,scope,started_by) VALUES($1,$2,$3) ON CONFLICT (clip_id) WHERE status='active' DO NOTHING RETURNING `+runColumns, clipID, scope, adminID))
+	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO clip_analysis_runs(clip_id,scope,started_by,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (clip_id) WHERE status='active' DO NOTHING RETURNING `+runColumns, clipID, scope, adminID, opts.Mode, forced, opts.ConfirmReplaceCorrections, opts.ConfirmReplaceValidations))
 	created := err == nil
 	if errors.Is(err, pgx.ErrNoRows) {
 		run, err = scanRun(tx.QueryRow(ctx, `SELECT `+runColumns+` FROM clip_analysis_runs WHERE clip_id=$1 AND status='active'`, clipID))
@@ -226,6 +311,11 @@ func (s *Service) Start(ctx context.Context, clipID int64, scope string, adminID
 	if err = tx.Commit(ctx); err != nil {
 		return Run{}, false, err
 	}
+	if created && slices.Contains(forced, StepIndexing) && !slices.Contains(forced, StepTranscription) {
+		if err = s.hooks.Reindex(ctx, clipID); err != nil {
+			s.log.Warn("reindex for the analysis run", "run", run.ID, "error", err)
+		}
+	}
 	if created || run.Scope == scope {
 		if err = s.advance(ctx, run); err != nil {
 			s.log.Warn("advance new analysis run", "run", run.ID, "error", err)
@@ -251,20 +341,77 @@ func (s *Service) Latest(ctx context.Context, clipID int64) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT step,status,reason,job_id,attempt,started_at,finished_at,updated_at FROM clip_analysis_steps WHERE run_id=$1 ORDER BY array_position($2::text[],step)`, run.ID, stepOrder)
-	if err != nil {
+	if err = s.loadSteps(ctx, &run); err != nil {
 		return nil, err
+	}
+	return &run, nil
+}
+
+// loadSteps fills the steps of a run with the versions of the job each one followed.
+func (s *Service) loadSteps(ctx context.Context, run *Run) error {
+	rows, err := s.pool.Query(ctx, `SELECT st.step,st.status,st.reason,st.job_id,st.attempt,j.input_version,st.started_at,st.finished_at,st.updated_at FROM clip_analysis_steps st LEFT JOIN jobs j ON j.id=st.job_id WHERE st.run_id=$1 ORDER BY array_position($2::text[],st.step)`, run.ID, stepOrder)
+	if err != nil {
+		return err
 	}
 	defer rows.Close()
 	run.Steps = []Step{}
 	for rows.Next() {
 		var st Step
-		if err = rows.Scan(&st.Step, &st.Status, &st.Reason, &st.JobID, &st.Attempt, &st.StartedAt, &st.FinishedAt, &st.UpdatedAt); err != nil {
-			return nil, err
+		if err = rows.Scan(&st.Step, &st.Status, &st.Reason, &st.JobID, &st.Attempt, &st.InputVersion, &st.StartedAt, &st.FinishedAt, &st.UpdatedAt); err != nil {
+			return err
 		}
+		st.Profile = profileOf(st.InputVersion)
+		st.Forced = slices.Contains(run.ForcedSteps, st.Step)
 		run.Steps = append(run.Steps, st)
 	}
-	return &run, rows.Err()
+	return rows.Err()
+}
+
+// profileOf extracts the pipeline profile from the input version of a job
+// ("t4-a2-r1-v<vocabulary>-p<pipeline>", "d5-a2-p<pipeline>", "f5-a2-p<pipeline>-d12").
+func profileOf(version *string) *string {
+	if version == nil {
+		return nil
+	}
+	if strings.HasPrefix(*version, "t4-") {
+		if i := strings.LastIndex(*version, "-p"); i >= 0 {
+			pipeline := (*version)[i+2:]
+			return &pipeline
+		}
+		return nil
+	}
+	if pipeline, _, ok := jobs.VoiceInputVersion(*version); ok {
+		return &pipeline
+	}
+	return nil
+}
+
+// History lists the most recent runs of a clip with their steps, versions and the
+// confirmations they were started with.
+func (s *Service) History(ctx context.Context, clipID int64, limit int) ([]Run, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+runColumns+` FROM clip_analysis_runs WHERE clip_id=$1 ORDER BY id DESC LIMIT $2`, clipID, limit)
+	if err != nil {
+		return nil, err
+	}
+	runs := []Run{}
+	for rows.Next() {
+		r, scanErr := scanRun(rows)
+		if scanErr != nil {
+			rows.Close()
+			return nil, scanErr
+		}
+		runs = append(runs, r)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range runs {
+		if err = s.loadSteps(ctx, &runs[i]); err != nil {
+			return nil, err
+		}
+	}
+	return runs, nil
 }
 
 // ReconcileClip advances the active run of a clip, if any.
@@ -391,7 +538,7 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 	case prep.Status != StatusDone:
 		states[StepTranscription] = stepState{status: StatusWaiting, reason: "awaiting_preparation"}
 	default:
-		tr, trErr := s.hooks.Transcribe(ctx, run.ClipID, sinceOf(StepTranscription))
+		tr, trErr := s.hooks.Transcribe(ctx, run.ClipID, sinceOf(StepTranscription), slices.Contains(run.ForcedSteps, StepTranscription))
 		if trErr != nil {
 			return trErr
 		}
@@ -409,7 +556,7 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 			states[StepIndexing] = fromResult(res)
 		}
 		if applicable(run.Scope, StepDiarization) {
-			if err = s.voiceStates(ctx, run, sinceOf(StepDiarization, StepFingerprints), states); err != nil {
+			if err = s.voiceStates(ctx, run, sinceOf(StepDiarization, StepFingerprints), slices.Contains(run.ForcedSteps, StepDiarization), states); err != nil {
 				return err
 			}
 		}
@@ -470,8 +617,8 @@ func dependentState(prev stepState, waitReason string) stepState {
 }
 
 // voiceStates fills the diarization, fingerprint and matching steps.
-func (s *Service) voiceStates(ctx context.Context, run Run, since time.Time, states map[string]stepState) error {
-	vs, err := s.hooks.Voice(ctx, run.ClipID, since)
+func (s *Service) voiceStates(ctx context.Context, run Run, since time.Time, force bool, states map[string]stepState) error {
+	vs, err := s.hooks.Voice(ctx, run.ClipID, since, force)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import type { MessageKey } from "../i18n/messages";
 import { isAdministrator } from "../roles";
+import { ReanalyzeClip } from "./ReanalyzeClip";
 import { useSession } from "../session";
 
 type Run = components["schemas"]["ClipAnalysisRun"];
@@ -39,6 +40,7 @@ export function AnalyzeClip({
   const [failure, setFailure] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [track, setTrack] = useState("");
+  const [reanalyzing, setReanalyzing] = useState(false);
   const wasActive = useRef(false);
 
   const apply = useCallback(
@@ -208,6 +210,12 @@ export function AnalyzeClip({
                   >
                     {t("clip.analysis.voice")}
                   </Menu.Item>
+                  <Menu.Item
+                    onClick={() => setReanalyzing(true)}
+                    className="flex min-h-11 cursor-pointer items-center rounded-lg px-3 text-sm outline-none data-[highlighted]:bg-side"
+                  >
+                    {t("clip.reanalyze.menu")}
+                  </Menu.Item>
                 </Menu.Popup>
               </Menu.Positioner>
             </Menu.Portal>
@@ -238,9 +246,19 @@ export function AnalyzeClip({
               </span>
               {" · "}
               <span>{t(`clip.analysis.status.${step.status}`)}</span>
+              {step.forced && (
+                <span className="ml-1 text-xs text-mute">
+                  {t("clip.analysis.forced")}
+                </span>
+              )}
               <span className="block text-xs text-mute">
                 {t(`clip.analysis.reason.${step.reason}` as MessageKey)}
               </span>
+              {step.profile && (
+                <span className="block text-xs text-mute">
+                  {t("clip.analysis.profile", { profile: step.profile })}
+                </span>
+              )}
               {(step.job_id !== null || step.status === "failed") && (
                 <span className="mt-1 flex flex-wrap gap-2">
                   {step.job_id !== null && (
@@ -302,6 +320,12 @@ export function AnalyzeClip({
         </div>
       )}
       {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
+      <ReanalyzeClip
+        clipId={clipId}
+        open={reanalyzing}
+        onOpenChange={setReanalyzing}
+        onStarted={apply}
+      />
     </section>
   );
 }

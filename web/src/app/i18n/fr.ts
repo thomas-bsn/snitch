@@ -1462,6 +1462,43 @@ export const fr: Messages = {
         "Analyse annulée. Les résultats valides sont conservés ; relancez une analyse pour continuer.",
       retry: "Réessayer : {step}",
       viewTask: "Voir la tâche n°{id}",
+      forced: "(relancée)",
+      profile: "Profil : {profile}",
+    },
+    reanalyze: {
+      menu: "Réanalyser…",
+      title: "Réanalyser ce clip",
+      close: "Fermer",
+      scopeLabel: "Que faut-il analyser",
+      scope: {
+        full: "Tout : transcription, indexation et voix",
+        transcription: "Transcription seulement",
+        voice: "Voix seulement",
+      },
+      what: "Ce qui est relancé",
+      mode: {
+        missing:
+          "Seulement les étapes manquantes (les résultats valides sont réutilisés)",
+        full: "Tout de nouveau, même là où un résultat valide existe",
+        steps: "Seulement les étapes que je choisis",
+      },
+      noteMissing:
+        "Les résultats valides sont réutilisés : rien n’est remplacé et aucune confirmation n’est nécessaire.",
+      noteTranscription:
+        "Une nouvelle transcription remplace le texte visible une fois réussie. Les corrections de segments deviennent alors obsolètes (leur historique est conservé). Une confirmation vous sera demandée si le clip contient des corrections.",
+      noteDiarization:
+        "Une nouvelle détection des voix remplace les voix de la piste audio une fois réussie. Une confirmation vous sera demandée si le clip contient des voix validées.",
+      cancel: "Annuler",
+      start: "Lancer la réanalyse",
+      confirmIntro:
+        "Cette réanalyse rendra du travail humain obsolète une fois réussie :",
+      stakeCorrections:
+        "{text} textes de segments corrigés et {speaker} corrections de locuteur deviendront obsolètes.",
+      stakeVoice:
+        "{speakers} voix validées, {samples} échantillons de voix et {corrections} corrections de locuteur seront détachés du nouveau résultat.",
+      kept: "Rien n’est supprimé : l’historique des corrections, les échantillons de voix validés et le résultat précédent sont conservés, et le résultat actuel reste visible jusqu’à la réussite du nouveau.",
+      back: "Retour",
+      confirm: "Confirmer et réanalyser",
     },
     transcribe: {
       button: "Transcrire",
