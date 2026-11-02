@@ -1477,6 +1477,17 @@ export const en = {
       deletedUser: "deleted user",
     },
     verification: {
+      directTitle: "Direct link to a voice",
+      directLoading: "Looking for the voice…",
+      handledTitle: "Already handled",
+      handledBy: "{label} was attributed to {person} by {author} on {date}.",
+      handledAuto:
+        "{label} is not in the review: it is matched by the system as {person}, and no human decision is needed here.",
+      handledNoPerson: "{label} is not waiting for a decision.",
+      openPerson: "Open {person}",
+      unavailableTitle: "Voice not found or not accessible",
+      unavailable: "This voice does not exist, or you cannot access it.",
+      continueReview: "Continue the review",
       lead: "Most frequent voices first: naming one removes the most uncertainty. Deciding is always a human confirmation.",
       toDecide: "To decide",
       countersLabel: "Voices by state",
