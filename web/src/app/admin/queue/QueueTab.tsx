@@ -3,7 +3,7 @@ import { JobWorkflow, type JobRef } from "./JobWorkflow";
 import { usePolling } from "./usePolling";
 import { QueueControlBar } from "./QueueControlBar";
 import { ScheduleTaskForm, type UnitStep } from "./ScheduleTaskForm";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, errorCode, mutation } from "../../api/client";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert, StatusNotice } from "../../components/Alert";
@@ -13,12 +13,18 @@ import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
 import type { components } from "../../../api.gen";
 
+/**
+ * The board refreshes by itself: a refresh that fails must not take over the whole
+ * application with the "can't reach" screen, which would stop the polling. The page
+ * says it is reconnecting and the next refresh catches up.
+ */
+const quietFetch = (request: Request) => fetch(request);
 async function load() {
   try {
     const [controls, cards, workers] = await Promise.all([
-      api.GET("/api/admin/job-controls"),
-      api.GET("/api/admin/task-cards"),
-      api.GET("/api/admin/workers"),
+      api.GET("/api/admin/job-controls", { fetch: quietFetch }),
+      api.GET("/api/admin/task-cards", { fetch: quietFetch }),
+      api.GET("/api/admin/workers", { fetch: quietFetch }),
     ]);
     if (!controls.data || !cards.data || !workers.data)
       return {
@@ -44,6 +50,14 @@ export function QueueTab() {
   const { session } = useSession();
   const { state, reload } = useLoaded(load);
   usePolling(reload);
+  // A failed refresh keeps the last board on screen and says it is reconnecting;
+  // the error alone is for a first load that never succeeded.
+  const lastView = useRef<
+    Extract<typeof state, { status: "ready" }>["value"] | undefined
+  >(undefined);
+  if (state.status === "ready") lastView.current = state.value;
+  const view = state.status === "loading" ? undefined : lastView.current;
+  const reconnecting = state.status === "failed" && view !== undefined;
   const [failure, setFailure] = useState<string>();
   const [notice, setNotice] = useState(false);
   const [history, setHistory] = useState<Record<number, Event[]>>({});
@@ -262,7 +276,12 @@ export function QueueTab() {
         </button>
       </div>
       {state.status === "loading" && <p role="status">{t("app.loading")}</p>}
-      {state.status === "failed" && (
+      {reconnecting && (
+        <p role="status" className="text-sm text-mute">
+          {t("queue.reconnecting")}
+        </p>
+      )}
+      {state.status === "failed" && !view && (
         <ErrorAlert>
           {error(state.code)}{" "}
           <button onClick={reload} className={buttonClass()}>
@@ -272,10 +291,10 @@ export function QueueTab() {
       )}
       {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
       {notice && <StatusNotice>{t("queue.updated")}</StatusNotice>}
-      {state.status === "ready" && (
+      {view && (
         <>
           <ScheduleTaskForm
-            workers={state.value.workers}
+            workers={view.workers}
             busy={busy}
             onSchedule={(clip, step) => void submitJob(clip, step)}
           />
@@ -286,20 +305,20 @@ export function QueueTab() {
               </span>
               <div className="min-w-0">
                 <p className="font-semibold">
-                  {state.value.workers.find((w) => !w.revoked_at)?.name ??
+                  {view.workers.find((w) => !w.revoked_at)?.name ??
                     (language === "fr"
                       ? "Aucun worker actif"
                       : "No active worker")}
                 </p>
                 <p className="mt-1 text-sm text-mute">
                   {(() => {
-                    const machine = state.value.workers.find(
+                    const machine = view.workers.find(
                       (w) => !w.revoked_at,
                     )?.machine;
                     const memory = machine?.gpu_memory_bytes
                       ? `${Math.round(machine.gpu_memory_bytes / 1024 ** 3)} ${language === "fr" ? "Go" : "GB"}`
                       : undefined;
-                    const running = state.value.board.cards.filter(
+                    const running = view.board.cards.filter(
                       (card) => card.state === "running",
                     ).length;
                     return [
@@ -316,13 +335,13 @@ export function QueueTab() {
           </div>
 
           <QueueControlBar
-            queue={state.value.board.queue}
+            queue={view.board.queue}
             busy={busy}
             onSave={(paused, max) => void save(paused, max)}
           />
 
           <JobWorkflow
-            board={state.value.board}
+            board={view.board}
             emptyMessage={t("queue.empty")}
             actions={(job) => (
               <div className="flex flex-wrap gap-2">

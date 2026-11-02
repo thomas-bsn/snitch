@@ -59,6 +59,7 @@ export const en = {
     job: "Task {id} · clip {clip} · {status}",
     history: "History",
     retry: "Retry",
+    reconnecting: "Reconnecting… the board shows the last known state.",
     scheduleHint: "Choose a clip to analyse.",
     scheduleSubmit: "Schedule",
     advancedTitle: "Advanced option: single task",

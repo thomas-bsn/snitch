@@ -1,7 +1,13 @@
+import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { transcribeAndDiarize, uploadClip } from "./library-fixture";
-import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
+import {
+  ADMIN,
+  installAdministrator,
+  sessionFor,
+  setAccountLanguage,
+} from "./shell-fixture";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
@@ -438,5 +444,221 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   expect(
     (await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations,
   ).toEqual([]);
+  await context.close();
+});
+
+test("la file reste fidèle en grand volume, en panne, dans les deux langues, en mobile et dans les deux thèmes", async ({
+  browser,
+}) => {
+  // This part is independent of the walkthrough above: it makes its own clips and
+  // only asserts about them, whatever the first part left in the library.
+  await installAdministrator().catch(() => undefined);
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+  });
+  const page = await context.newPage();
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const headers = {
+    Origin: process.env.SNITCH_TEST_URL!,
+    "X-CSRF-Token": me.csrf_token,
+  };
+  const queue = page.locator("[data-workflow-grid]");
+  const transcription = queue.locator("[data-column=transcription]");
+  const cardOf = (clipId: number) =>
+    transcription.locator("details").filter({ hasText: `#${clipId}` });
+  const waitingClip = async (name: string) => {
+    const id = await uploadClip(name, "shared");
+    const created = await page.request.post("/api/admin/jobs", {
+      headers,
+      data: {
+        clip_id: id,
+        step: "transcription.audio.1",
+        input_version: "e2e-volume",
+        priority: 1,
+        max_attempts: 3,
+      },
+    });
+    expect(created.status()).toBe(201);
+    return id;
+  };
+  const columnCount = async () =>
+    Number(
+      (await transcription.getByRole("heading").innerText()).match(
+        /· (\d+)/,
+      )![1],
+    );
+
+  // More than twenty active clips: every one has its card, none is paged away.
+  const bulk: number[] = [];
+  for (let n = 0; n < 22; n++) bulk.push(await waitingClip(`volume-${n}.mp4`));
+  await page.goto("/admin/queue");
+  await expect(cardOf(bulk[0])).toBeVisible();
+  await expect.poll(columnCount).toBeGreaterThanOrEqual(22);
+  expect(await transcription.locator("details").count()).toBe(
+    await columnCount(),
+  );
+  await expect(
+    page.getByRole("navigation", { name: /pagination/i }),
+  ).toHaveCount(0);
+
+  // A clip arrives while the page is open: its card shows up without any action.
+  const arrival = await waitingClip("volume-arrival.mp4");
+  await expect(cardOf(arrival)).toContainText("Queued", { timeout: 15000 });
+
+  // The API goes away: the board stays, says it is reconnecting and shows no
+  // false progress; when the API is back the view catches up, indicator gone.
+  await page.route("**/api/admin/task-cards", (route) => route.abort());
+  const during = await waitingClip("volume-during-outage.mp4");
+  await expect(page.getByText("Reconnecting")).toBeVisible({ timeout: 15000 });
+  await expect(cardOf(arrival)).toBeVisible();
+  await expect(cardOf(during)).toHaveCount(0);
+  await page.unroute("**/api/admin/task-cards");
+  await expect(cardOf(during)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("Reconnecting")).toHaveCount(0);
+
+  // English and French, light and dark, on a desktop and a 390 px window: no
+  // automatic accessibility violation, no horizontal scrolling of the page, and
+  // the columns stay inside the window.
+  const checks = [
+    { language: "en", theme: "light", heading: "Speech to text" },
+    { language: "en", theme: "dark", heading: "Speech to text" },
+    { language: "fr", theme: "light", heading: "Paroles en texte" },
+    { language: "fr", theme: "dark", heading: "Paroles en texte" },
+  ] as const;
+  try {
+    for (const size of [
+      { width: 1280, height: 800 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(size);
+      for (const check of checks) {
+        const label = `${size.width}px ${check.language} ${check.theme}`;
+        // The account language wins over the browser: set it where it lives.
+        await setAccountLanguage(ADMIN, check.language);
+        await page.evaluate((chosen) => {
+          localStorage.setItem("snitch-ui-theme", chosen.theme);
+        }, check);
+        await page.goto("/admin/queue");
+        await expect(page.locator("html")).toHaveAttribute(
+          "lang",
+          check.language,
+        );
+        await expect(page.locator("html")).toHaveAttribute(
+          "data-theme",
+          check.theme,
+        );
+        await expect(transcription.getByRole("heading")).toContainText(
+          check.heading,
+        );
+        await expect(cardOf(bulk[0])).toBeVisible();
+        const widths = await page.evaluate(() => ({
+          scroll: document.documentElement.scrollWidth,
+          inner: window.innerWidth,
+        }));
+        expect(widths.scroll, label).toBeLessThanOrEqual(widths.inner);
+        if (size.width === 390) {
+          // The columns stack in the window: none sticks out of it.
+          const right = await queue
+            .locator("[data-column]")
+            .evaluateAll((columns) =>
+              Math.max(...columns.map((c) => c.getBoundingClientRect().right)),
+            );
+          expect(right, label).toBeLessThanOrEqual(widths.inner);
+        }
+        expect(
+          (await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations,
+          label,
+        ).toEqual([]);
+      }
+    }
+  } finally {
+    await setAccountLanguage(ADMIN, "en");
+  }
+  await context.close();
+});
+
+// Measurement, not a regression test: replays a recorded response of the cards
+// contract with thousands of clips (see the Go measurement of the cards) and reports
+// what the page does with them. Skipped unless SNITCH_PERF_CARDS names that file.
+test("mesure : la page de la file avec des milliers de cartes", async ({
+  browser,
+}) => {
+  test.skip(!process.env.SNITCH_PERF_CARDS, "measurement only");
+  await installAdministrator().catch(() => undefined);
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+  });
+  const page = await context.newPage();
+  const body = await readFile(process.env.SNITCH_PERF_CARDS!, "utf8");
+  await page.route("**/api/admin/task-cards", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body }),
+  );
+  type Tasks = { longTasks: number[] };
+  await page.addInitScript(() => {
+    (window as unknown as Tasks).longTasks = [];
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries())
+        (window as unknown as Tasks).longTasks.push(entry.duration);
+    }).observe({ entryTypes: ["longtask"] });
+  });
+  const started = Date.now();
+  await page.goto("/admin/queue");
+  await expect(
+    page.locator("[data-column=transcription] details").first(),
+  ).toBeVisible({ timeout: 60000 });
+  const firstPaint = Date.now() - started;
+  const nodes = await page.evaluate(
+    () => document.querySelectorAll("*").length,
+  );
+  const cards = await page.locator("[data-column] details").count();
+  const heap = await page.evaluate(
+    () =>
+      (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+        ?.usedJSHeapSize ?? 0,
+  );
+  // Scroll the page from top to bottom and record the frame times.
+  const frames = await page.evaluate(async () => {
+    const times: number[] = [];
+    let last = performance.now();
+    const total = document.documentElement.scrollHeight - innerHeight;
+    const steps = 120;
+    for (let i = 1; i <= steps; i++) {
+      window.scrollTo(0, (total * i) / steps);
+      await new Promise((done) => requestAnimationFrame(done));
+      const now = performance.now();
+      times.push(now - last);
+      last = now;
+    }
+    return { times, total };
+  });
+  const sorted = [...frames.times].sort((a, b) => a - b);
+  const longTasks = await page.evaluate(
+    () => (window as unknown as Tasks).longTasks,
+  );
+  // One polling refresh: how long the page is busy applying thousands of cards.
+  await page.evaluate(() => {
+    (window as unknown as Tasks).longTasks = [];
+  });
+  await page.waitForTimeout(6500);
+  const refreshTasks = await page.evaluate(
+    () => (window as unknown as Tasks).longTasks,
+  );
+  console.log(
+    "PERF-PAGE " +
+      JSON.stringify({
+        cards,
+        nodes,
+        firstPaintMs: firstPaint,
+        jsHeapMB: Math.round(heap / 1048576),
+        pageHeightPx: frames.total,
+        frameMedianMs: Math.round(sorted[sorted.length >> 1]),
+        frameP95Ms: Math.round(sorted[Math.floor(sorted.length * 0.95)]),
+        frameMaxMs: Math.round(sorted[sorted.length - 1]),
+        longTasksDuringLoadAndScroll: longTasks.length,
+        longestTaskMs: Math.round(Math.max(0, ...longTasks)),
+        longTasksInOnePollingCycle: refreshTasks.length,
+        longestPollingTaskMs: Math.round(Math.max(0, ...refreshTasks)),
+      }),
+  );
   await context.close();
 });
