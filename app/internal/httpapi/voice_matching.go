@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"snitch/internal/logging"
 	"sort"
@@ -154,6 +155,7 @@ type matchTarget struct {
 	speakerID, clipID int64
 	scores            []matchScore // best first, already at or above the suggestion threshold
 	model, version    string
+	noReference       bool // fingerprint group without any reference: nothing to compare with
 }
 
 type existingMatch struct {
@@ -228,7 +230,19 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 		return stats, err
 	}
 	evaluated := make(map[int64]bool, len(targets))
+	// Per clip, why voices stay unknown or ambiguous: closed reasons and counts only.
+	reasons := map[int64]map[string]int{}
+	note := func(clip int64, reason string) {
+		if reasons[clip] == nil {
+			reasons[clip] = map[string]int{}
+		}
+		reasons[clip][reason]++
+	}
 	for _, t := range targets {
+		if t.noReference {
+			note(t.clipID, "no_reference")
+			continue
+		}
 		evaluated[t.speakerID] = true
 		level, person, confidence, candidates := decideMatch(t.scores, settings)
 		stats.Evaluated++
@@ -241,6 +255,12 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 			stats.Ambiguous++
 		default:
 			stats.Unknown++
+		}
+		switch level {
+		case LevelAmbiguous:
+			note(t.clipID, "tied_candidates")
+		case LevelUnknown:
+			note(t.clipID, "below_threshold")
 		}
 		if err = writeMatch(ctx, tx, t, level, person, confidence, candidates, existing[t.speakerID], names); err != nil {
 			return stats, err
@@ -257,9 +277,14 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 		}
 		stats.Removed++
 	}
+	summaries, err := clipMatchSummaries(ctx, tx, reasons, scope)
+	if err != nil {
+		return stats, err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return stats, err
 	}
+	s.logClipSummaries(summaries, scope != nil)
 	for _, g := range groups {
 		s.ensureVoiceIndex(ctx, g)
 	}
@@ -288,8 +313,7 @@ func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, 
 ), scored AS (
   SELECT t.sid,r.person_id,max(1-(t.e <=> r.e)) AS score FROM targets t CROSS JOIN refs r GROUP BY t.sid,r.person_id HAVING max(1-(t.e <=> r.e)) >= $4
 )
-SELECT t.sid,t.clip_id,s.person_id,s.score FROM targets t LEFT JOIN scored s ON s.sid=t.sid
-WHERE EXISTS (SELECT 1 FROM refs)
+SELECT t.sid,t.clip_id,s.person_id,s.score,NOT EXISTS (SELECT 1 FROM refs) FROM targets t LEFT JOIN scored s ON s.sid=t.sid
 ORDER BY t.sid,s.score DESC NULLS LAST,s.person_id`, g.dimensions, matchingOrigin)
 	rows, err := tx.Query(ctx, query, g.model, g.version, scope, settings.SuggestionThreshold)
 	if err != nil {
@@ -301,11 +325,12 @@ ORDER BY t.sid,s.score DESC NULLS LAST,s.person_id`, g.dimensions, matchingOrigi
 		var sid, clip int64
 		var person *int64
 		var score *float64
-		if err = rows.Scan(&sid, &clip, &person, &score); err != nil {
+		var noReference bool
+		if err = rows.Scan(&sid, &clip, &person, &score, &noReference); err != nil {
 			return nil, err
 		}
 		if len(out) == 0 || out[len(out)-1].speakerID != sid {
-			out = append(out, matchTarget{speakerID: sid, clipID: clip, model: g.model, version: g.version})
+			out = append(out, matchTarget{speakerID: sid, clipID: clip, model: g.model, version: g.version, noReference: noReference})
 		}
 		if person != nil && score != nil {
 			last := &out[len(out)-1]
@@ -517,4 +542,65 @@ func (s *Server) ensureVoiceIndex(ctx context.Context, g matchGroup) {
 		return
 	}
 	voiceIndexes.Store(name, true)
+}
+
+type clipMatchSummary struct {
+	clipID  int64
+	levels  map[string]int
+	reasons map[string]int
+}
+
+// clipMatchSummaries counts, per clip touched by this run, the voices by decision level and the
+// closed reasons of the unknown and ambiguous ones. Only counts: no Person, fingerprint or score.
+func clipMatchSummaries(ctx context.Context, tx pgx.Tx, reasons map[int64]map[string]int, scope *int64) ([]clipMatchSummary, error) {
+	clips := map[int64]bool{}
+	for clip := range reasons {
+		clips[clip] = true
+	}
+	if scope != nil {
+		clips[*scope] = true
+	}
+	var out []clipMatchSummary
+	for clip := range clips {
+		rows, err := tx.Query(ctx, `SELECT a.decision_level,a.origin=$2,count(*) FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 GROUP BY 1,2`, clip, microphoneOrigin)
+		if err != nil {
+			return nil, err
+		}
+		summary := clipMatchSummary{clipID: clip, levels: map[string]int{}, reasons: map[string]int{}}
+		for reason, n := range reasons[clip] {
+			summary.reasons[reason] = n
+		}
+		for rows.Next() {
+			var level string
+			var direct bool
+			var n int
+			if err = rows.Scan(&level, &direct, &n); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			summary.levels[level] += n
+			if direct {
+				summary.reasons["micro_track_direct"] += n
+			}
+		}
+		rows.Close()
+		if err = rows.Err(); err != nil {
+			return nil, err
+		}
+		// A voice without reference is unknown but holds no attribution row.
+		summary.levels["unknown"] += reasons[clip]["no_reference"]
+		out = append(out, summary)
+	}
+	return out, nil
+}
+
+// logClipSummaries writes one line per clip: INFO for a clip-scoped run, DEBUG for a library-wide one.
+func (s *Server) logClipSummaries(summaries []clipMatchSummary, scoped bool) {
+	level := slog.LevelDebug
+	if scoped {
+		level = slog.LevelInfo
+	}
+	for _, summary := range summaries {
+		s.Log.Log(context.Background(), level, "voice_matching_summary", "clip_id", summary.clipID, "levels", summary.levels, "reasons", summary.reasons)
+	}
 }
