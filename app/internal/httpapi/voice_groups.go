@@ -87,6 +87,7 @@ type voiceGroupFilter struct {
 	sortByMembers bool
 	limit, offset int
 	id            int64 // a single group when > 0
+	voice         int64 // the group holding this visible voice when > 0
 }
 
 func (s *Server) registerVoiceGroupRoutes(mux *http.ServeMux) {
@@ -109,8 +110,9 @@ func (s *Server) loadVoiceGroups(ctx context.Context, q interface {
 	rows, err := q.Query(ctx, voiceGroupsCTE+`, grouped AS (
   SELECT group_id,count(*)::int AS member_count,count(DISTINCT clip_id)::int AS clip_count FROM members GROUP BY group_id
   HAVING (NOT $3 OR count(*) > 1) AND ($4::bigint = 0 OR group_id = $4)
+  AND ($7::bigint = 0 OR group_id IN (SELECT m.group_id FROM members m WHERE m.id = $7))
 )
-SELECT group_id,member_count,clip_count,count(*) OVER ()::int FROM grouped ORDER BY `+order+` LIMIT $5 OFFSET $6`, userID, admin, f.proposedOnly, f.id, f.limit, f.offset)
+SELECT group_id,member_count,clip_count,count(*) OVER ()::int FROM grouped ORDER BY `+order+` LIMIT $5 OFFSET $6`, userID, admin, f.proposedOnly, f.id, f.limit, f.offset, f.voice)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -192,6 +194,14 @@ func (s *Server) listVoiceGroups(w http.ResponseWriter, r *http.Request) {
 		f.limit = n
 	}
 	f.offset = (page - 1) * f.limit
+	if v := query.Get("voice"); v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n < 1 {
+			fail(w, http.StatusBadRequest, "invalid_filter")
+			return
+		}
+		f.voice = n
+	}
 	groups, total, err := s.loadVoiceGroups(r.Context(), s.Pool, ss.User.ID, isAdministrator(ss.User.Role), f)
 	if err != nil {
 		s.internal(w, err)

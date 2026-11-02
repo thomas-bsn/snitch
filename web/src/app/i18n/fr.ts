@@ -1731,18 +1731,60 @@ export const fr: Messages = {
         "Aucune Personne pour l’instant. Créez-en une, ou nommez une voix dans Vérification.",
       noMatch: "Aucune Personne ne correspond à cette recherche.",
       name: "Personne",
-      voices: "Voix confirmées",
-      samples: "Échantillons vocaux",
       account: "Compte",
-      actions: "Actions",
-      linked: "Liée",
       profileDeleted: "Profil vocal supprimé",
-      none: "Aucun",
-      showVoices: "Voix de {name}",
-      hideVoices: "Masquer les voix de {name}",
+      voiceCount: "{count} voix",
+      sampleCount: "{count} échantillon(s) validé(s)",
+      noReference: "Sans référence",
+      linkedAccount: "Lié à un compte",
+      recordCounts: "Chiffres de {name}",
+      pagesLabel: "Pages des Personnes",
+      previousPage: "Page précédente",
+      nextPage: "Page suivante",
+      pageStatus: "Page {page} sur {pages} ({total} Personne(s))",
+      back: "Retour aux Personnes",
+      choose: "Choisissez une Personne dans la liste pour voir sa fiche.",
+      notFound: "Personne introuvable",
+      notFoundBody: "Cette Personne n’existe pas, ou n’existe plus.",
       merge: "Fusionner {name}",
       delete: "Supprimer {name}",
+      separate: "Séparer des voix de {name}",
       created: "{name} a été créée.",
+    },
+    actions: {
+      label: "Actions sur {name}",
+      notDone: "Rien n’a été modifié. {reason}",
+      reasons: {
+        mergeLinked:
+          "Liée à un compte, {name} ne peut pas être absorbée. Ouvrez l’autre Personne et fusionnez-la dans {name}.",
+        mergeHidden:
+          "Des voix de {name} sont sur des clips que vous ne pouvez pas voir : seule une personne qui peut les voir peut fusionner {name}.",
+        mergeProfileDeleted:
+          "Le profil vocal de {name} a été supprimé : la fusion le reconstituerait.",
+        deleteLinked:
+          "Liée à un compte, {name} ne peut pas être supprimée ici. Supprimez plutôt le profil vocal depuis le compte.",
+        deleteHidden:
+          "Des voix de {name} sont sur des clips que vous ne pouvez pas voir : seule une personne qui peut les voir peut supprimer {name}.",
+        separateNone: "{name} n’a aucune voix confirmée à séparer.",
+        separateHidden:
+          "Les voix confirmées de {name} sont sur des clips que vous ne pouvez pas voir.",
+      },
+    },
+    separate: {
+      title: "Séparer des voix de {name}",
+      body: "Choisissez les voix qui ne sont pas {name}.",
+      legend: "Voix à séparer de {name}",
+      voice: "{label} · {clip}",
+      voices:
+        "{count} voix redeviennent inconnues et pourront être nommées de nouveau.",
+      samples: "{count} échantillon(s) validé(s) quittent les références.",
+      intact:
+        "{name}, les clips et les empreintes vocales sont conservés. Les voix sont rapprochées de nouveau.",
+      choose: "Choisissez au moins une voix.",
+      submit: "Séparer",
+      cancel: "Annuler",
+      done: "{count} voix ont été séparées de {name} : elles sont de nouveau inconnues.",
+      doneOne: "1 voix a été séparée de {name} : elle est de nouveau inconnue.",
     },
     create: {
       title: "Nouvelle Personne",
@@ -1759,10 +1801,22 @@ export const fr: Messages = {
       submit: "Fusionner",
       cancel: "Annuler",
       done: "{name} a été fusionnée dans {target} : {summary}",
+      voices:
+        "{count} voix confirmée(s) de {name} sont désormais confirmées comme {target}.",
+      samples:
+        "{count} échantillon(s) validé(s) de {name} deviennent des références de {target}.",
+      rules:
+        "{count} règle(s) de piste micro nommant {name} nomment désormais {target}.",
+      intact:
+        "{name} disparaît. Les clips, les empreintes vocales et ce que {target} possède déjà sont intacts. Les voix sont rapprochées de nouveau. Cette action ne peut pas être annulée.",
     },
     delete: {
       title: "Supprimer {name} ?",
-      body: "Les voix confirmées pour {name} redeviennent inconnues et leurs échantillons quittent les références. Les clips ne sont jamais supprimés. Cette action ne peut pas être annulée.",
+      voices: "{count} voix confirmée(s) pour {name} redeviennent inconnues.",
+      samples: "{count} échantillon(s) validé(s) quittent les références.",
+      rules: "{count} règle(s) de piste micro nommant {name} sont supprimées.",
+      intact:
+        "Les clips, les empreintes vocales et les autres Personnes sont intacts. Les voix sont rapprochées de nouveau. Cette action ne peut pas être annulée.",
       submit: "Supprimer",
       cancel: "Annuler",
       done: "{name} a été supprimée : {summary}",
@@ -1770,18 +1824,11 @@ export const fr: Messages = {
     summary:
       "{attributions} voix, {samples} échantillon(s), {rules} règle(s) de piste micro concernés. Les voix sont rapprochées de nouveau.",
     voicesPanel: {
+      identifications: "Identifications",
       title: "Voix confirmées de {name}",
       empty: "Aucune voix confirmée que vous puissiez voir.",
       excerpt: "Extrait de {label} dans {clip}",
       speech: "{seconds} s de parole",
-      separate: "Séparer {label} de {name}",
-      separateTitle: "Séparer cette voix ?",
-      separateBody:
-        "{label} ({clip}) ne sera plus confirmée comme {name} : elle redevient inconnue et son échantillon quitte les références. {name} est conservée.",
-      separateSubmit: "Séparer",
-      separateCancel: "Annuler",
-      separated:
-        "{label} a été séparée de {name} : elle est de nouveau inconnue.",
     },
     log: {
       show: "Journal des corrections",
@@ -1795,26 +1842,36 @@ export const fr: Messages = {
       deletedUser: "utilisateur supprimé",
     },
     verification: {
+      directTitle: "Lien direct vers une voix",
+      directLoading: "Recherche de la voix…",
+      handledTitle: "Déjà traité",
+      handledBy: "{label} a été attribuée à {person} par {author} le {date}.",
+      handledAuto:
+        "{label} n’est pas dans la vérification : le système l’a rapprochée de {person}, aucune décision humaine n’est attendue ici.",
+      handledNoPerson: "{label} n’attend aucune décision.",
+      openPerson: "Ouvrir {person}",
+      unavailableTitle: "Voix introuvable ou inaccessible",
+      unavailable: "Cette voix n’existe pas, ou vous n’y avez pas accès.",
+      continueReview: "Continuer la vérification",
       clipFilter: "Voix de {clip}",
       clipFilterAny: "Voix d’un seul clip",
       clearClipFilter: "Afficher tous les clips",
       lead: "Les voix les plus fréquentes d’abord : en nommer une retire le plus d’incertitude. Trancher est toujours une confirmation humaine.",
       toDecide: "À trancher",
       countersLabel: "Voix par état",
-      listLabel: "Voix à trancher",
       empty: "Plus rien à trancher ici.",
-      pageStatus: "Page {page} sur {pages}",
-      previous: "Plus fréquentes",
-      next: "Moins fréquentes",
       heardIn: "Entendue dans {clips} clip(s), {voices} voix dans le groupe",
       single: "Une voix seule",
       clipLine: "{clip} · {speech}",
       speech: "{seconds} s de parole",
       candidates: "Personnes les plus proches",
-      similar: "{percent} % de similarité",
-      play: "Écouter l’extrait de {label} dans {clip}",
-      decide: "Trancher",
-      decideFor: "Trancher qui est {label}",
+      similar: "{percent} % de proximité",
+      caseLabel: "Voix à trancher",
+      position: "{total} voix à trancher dans cette vue.",
+      suggestion:
+        "La proximité n’est qu’une suggestion : rien n’est attribué avant votre confirmation.",
+      shortcuts:
+        "Raccourcis : 1 à 9 pour choisir un candidat, Entrée pour confirmer, S pour passer.",
       saved:
         "Enregistré : {label} est {person}. Le rapprochement sera recalculé.",
       alreadyValidated:
@@ -1825,9 +1882,10 @@ export const fr: Messages = {
       audio: "Extrait de {label} dans {clip}",
       close: "Fermer",
       decide: "Trancher",
+      player: "Extrait de {label} dans {clip}",
+      openClip: "Ouvrir {clip}",
     },
     decide: {
-      title: "Qui est {label} ?",
       close: "Fermer",
       closest: "Candidats les plus proches",
       existing: "Personnes existantes",
@@ -1840,7 +1898,6 @@ export const fr: Messages = {
       newName: "Nom de la nouvelle Personne",
       skip: "Passer pour l’instant",
       confirm: "Confirmer",
-      saving: "Enregistrement…",
     },
     groups: {
       lead: "Des voix qui se ressemblent, repérées dans plusieurs clips. Snitch ne fait que proposer : aucun groupe n’est jamais confirmé automatiquement et rien n’est attribué tant que vous ne l’avez pas nommé.",
@@ -1848,7 +1905,7 @@ export const fr: Messages = {
       listLabel: "Groupes de voix inconnues",
       empty: "Plus aucun groupe à nommer.",
       loadFailed: "Les groupes n’ont pas pu être chargés.",
-      title: "Groupe de {count} voix proches",
+      title: "Regroupement proposé de {count} voix",
       heardIn: "Entendu dans {clips} clip(s) : {names}",
       preview: "Voix du groupe",
       open: "Écouter et nommer",
@@ -1859,17 +1916,18 @@ export const fr: Messages = {
       next: "Moins fréquents",
     },
     group: {
-      title: "Est-ce une seule personne ?",
+      titleProposed: "Regroupement proposé de {count} voix",
+      titleIsolated: "Voix isolée",
+      back: "Retour aux groupes",
       selected: "{kept} voix retenues sur {total}",
-      lead: "Écoutez les extraits côte à côte. Écartez toute voix qui est quelqu’un d’autre : les autres restent ensemble. Écarter une voix est enregistré tout de suite.",
-      close: "Fermer",
+      lead: "Écoutez les extraits, puis décochez toute voix qui est quelqu’un d’autre : les autres restent ensemble. Décocher une voix est enregistré tout de suite.",
+      loading: "Chargement du groupe…",
+      gone: "Déjà traitée ou plus visible",
+      goneBody:
+        "Cette voix n’est plus dans aucun groupe : elle a été nommée, ou vous ne voyez plus son clip. Aucun autre groupe n’a été ouvert.",
       voices: "Voix du groupe",
-      excerpt: "Extrait de {label} dans {clip}",
+      keep: "Retenir {label} ({clip})",
       speech: "{seconds} s de parole",
-      leaveOut: "Pas cette personne",
-      leaveOutFor: "Pas cette personne : écarter {label} ({clip}) du groupe",
-      putBack: "Remettre",
-      putBackFor: "Remettre {label} ({clip}) dans le groupe",
       out: "Écartée",
       who: "Qui est-ce ?",
       searchLabel: "Chercher une Personne",
@@ -1877,9 +1935,12 @@ export const fr: Messages = {
       noMatch: "Aucun résultat.",
       someoneNew: "Quelqu’un de nouveau",
       newName: "Nom de la nouvelle Personne",
-      notNow: "Pas maintenant",
+      bar: "Nomination",
       nameNone: "Nommer ces voix",
       name: "Nommer {count} voix comme {person}",
+      reload: "Recharger",
+      conflict:
+        "Le groupe a changé pendant que vous le regardiez. Rien n’a été enregistré. Rechargez pour voir le groupe tel qu’il est maintenant.",
       saved: "Enregistré : {count} voix sont maintenant {person}.",
       savedLeftOut:
         "Enregistré : {count} voix sont maintenant {person}. {out} écartée(s).",
@@ -1891,6 +1952,23 @@ export const fr: Messages = {
       suggestion: "Suggestion",
       ambiguous: "Ambigu",
       unknown: "Inconnu",
+    },
+    legend: {
+      reference: "Compte comme Référence : {answer}",
+      yes: "oui",
+      no: "non",
+      others: "Les autres niveaux",
+      definition: {
+        human:
+          "Une Personne confirmée comme étant cette voix. Seul ce niveau forme la Référence.",
+        automatic:
+          "Attribuée par Snitch sans contrôle humain, lorsque l’administrateur l’a activé. Jamais un échantillon validé.",
+        suggestion:
+          "Une Personne dont cette voix est proche. Elle reste inconnue tant que personne n’a tranché.",
+        ambiguous:
+          "Proche de plusieurs Personnes sans qu’aucune ne se détache. Jamais attribuée d’elle-même.",
+        unknown: "Ni validation humaine ni attribution automatique.",
+      },
     },
   },
   metadata: {

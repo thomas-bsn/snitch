@@ -27,6 +27,8 @@ class PersonVoice:
             clip_name (str):
             label (str):
             speaking_seconds (float):
+            sample_count (int): Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une
+                séparation en retirerait.
      """
 
     local_speaker_id: int
@@ -34,6 +36,7 @@ class PersonVoice:
     clip_name: str
     label: str
     speaking_seconds: float
+    sample_count: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -51,6 +54,8 @@ class PersonVoice:
 
         speaking_seconds = self.speaking_seconds
 
+        sample_count = self.sample_count
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -60,6 +65,7 @@ class PersonVoice:
             "clip_name": clip_name,
             "label": label,
             "speaking_seconds": speaking_seconds,
+            "sample_count": sample_count,
         })
 
         return field_dict
@@ -79,12 +85,15 @@ class PersonVoice:
 
         speaking_seconds = d.pop("speaking_seconds")
 
+        sample_count = d.pop("sample_count")
+
         person_voice = cls(
             local_speaker_id=local_speaker_id,
             clip_id=clip_id,
             clip_name=clip_name,
             label=label,
             speaking_seconds=speaking_seconds,
+            sample_count=sample_count,
         )
 
 

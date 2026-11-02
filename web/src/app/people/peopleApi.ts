@@ -5,6 +5,7 @@ import { useSession } from "../session";
 
 export type Person = components["schemas"]["Person"];
 export type PersonVoice = components["schemas"]["PersonVoice"];
+export type PersonImpact = components["schemas"]["PersonImpact"];
 export type PersonEvent = components["schemas"]["PersonEvent"];
 export type PersonCorrectionResult =
   components["schemas"]["PersonCorrectionResult"];
@@ -12,6 +13,7 @@ export type Verification = components["schemas"]["VoiceVerification"];
 export type VerificationCase = components["schemas"]["VoiceVerificationCase"];
 export type VerificationCounts =
   components["schemas"]["VoiceVerificationCounts"];
+export type LocalSpeakerRead = components["schemas"]["LocalSpeakerRead"];
 export type VoiceGroup = components["schemas"]["VoiceGroup"];
 export type VoiceGroupMember = components["schemas"]["VoiceGroupMember"];
 export type VoiceGroupNaming = components["schemas"]["VoiceGroupNaming"];
@@ -39,6 +41,40 @@ export const fetchPersons = () =>
   guard(async () => {
     const { data, error } = await api.GET("/api/persons");
     return data ? { ok: true, value: data.items } : failure(error);
+  });
+
+/** A page of Persons by name; the search and the paging are done by the server. */
+export type PersonPage = { items: Person[]; total: number };
+
+export const fetchPersonPage = (
+  query: string,
+  page: number,
+  pageSize: number,
+) =>
+  guard<PersonPage>(async () => {
+    const { data, error } = await api.GET("/api/persons", {
+      params: { query: { q: query, page, page_size: pageSize } },
+    });
+    return data
+      ? { ok: true, value: { items: data.items, total: data.total ?? 0 } }
+      : failure(error);
+  });
+
+export const fetchPerson = (id: number) =>
+  guard<Person>(async () => {
+    const { data, error } = await api.GET("/api/persons/{id}", {
+      params: { path: { id } },
+    });
+    return data ? { ok: true, value: data } : failure(error);
+  });
+
+/** What a merge or a deletion would touch besides the counts of the Person itself. */
+export const fetchPersonImpact = (id: number) =>
+  guard<PersonImpact>(async () => {
+    const { data, error } = await api.GET("/api/persons/{id}/impact", {
+      params: { path: { id } },
+    });
+    return data ? { ok: true, value: data } : failure(error);
   });
 
 export const fetchPersonVoices = (id: number) =>
@@ -79,6 +115,31 @@ export const fetchVoiceGroups = (page: number, pageSize: number) =>
     return data ? { ok: true, value: data } : failure(error);
   });
 
+/**
+ * The Voice group that holds a voice today, or null when it is in none (named, no longer
+ * unknown, or its clip is no longer visible). A group has no stable id (ADR 0025), so the
+ * server finds it from the voice.
+ */
+export const fetchVoiceGroupOf = (localSpeakerId: number) =>
+  guard<VoiceGroup | null>(async () => {
+    const { data, error } = await api.GET("/api/voice-groups", {
+      params: { query: { voice: localSpeakerId, proposed: false } },
+    });
+    return data ? { ok: true, value: data.items[0] ?? null } : failure(error);
+  });
+
+/**
+ * One Local speaker, for a direct link. A missing voice and one the caller cannot see
+ * fail with the same code, so the screen cannot tell them apart either.
+ */
+export const fetchLocalSpeaker = (id: number) =>
+  guard<LocalSpeakerRead>(async () => {
+    const { data, error } = await api.GET("/api/local-speakers/{id}", {
+      params: { path: { id } },
+    });
+    return data ? { ok: true, value: data } : failure(error);
+  });
+
 /** The calls that change something carry the session's CSRF token. */
 export function usePersonActions() {
   const { session } = useSession();
@@ -108,11 +169,11 @@ export function usePersonActions() {
         });
         return data ? { ok: true, value: data } : failure(error);
       }),
-    separate: (id: number, localSpeakerId: number) =>
+    separate: (id: number, localSpeakerIds: number[]) =>
       guard<PersonCorrectionResult>(async () => {
         const { data, error } = await api.POST("/api/persons/{id}/separation", {
           params: { path: { id }, header },
-          body: { local_speaker_ids: [localSpeakerId] },
+          body: { local_speaker_ids: localSpeakerIds },
         });
         return data ? { ok: true, value: data } : failure(error);
       }),

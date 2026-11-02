@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,8 +19,10 @@ func (s *Server) registerPersonRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/persons", s.protected(false, http.HandlerFunc(s.listPersons)))
 	mux.Handle("POST /api/persons", s.protected(false, http.HandlerFunc(s.createPerson)))
 	mux.Handle("GET /api/persons/{id}", s.protected(false, http.HandlerFunc(s.getPerson)))
+	mux.Handle("GET /api/persons/{id}/impact", s.protected(false, http.HandlerFunc(s.getPersonImpact)))
 	mux.Handle("POST /api/local-speakers/{id}/validation", s.protected(false, http.HandlerFunc(s.validateLocalSpeaker)))
 	mux.Handle("POST /api/local-speakers/{id}/correction", s.protected(false, http.HandlerFunc(s.correctLocalSpeaker)))
+	mux.Handle("GET /api/local-speakers/{id}", s.protected(false, http.HandlerFunc(s.getLocalSpeaker)))
 	mux.Handle("GET /api/local-speakers/{id}/history", s.protected(false, http.HandlerFunc(s.localSpeakerHistory)))
 	mux.Handle("GET /api/local-speakers/{id}/excerpt", s.protected(false, http.HandlerFunc(s.localSpeakerExcerpt)))
 }
@@ -179,13 +182,48 @@ func cleanPersonName(name string) (string, bool) {
 	return name, name != "" && len([]rune(name)) <= 100
 }
 
+const personSearchClause = `($1='' OR p.display_name ILIKE '%'||replace(replace(replace($1,'\','\\'),'%','\%'),'_','\_')||'%')`
+
+// listPersons reads Persons by name. Without `page` and `page_size` it keeps the
+// historical response (500 first Persons, no total); with either it pages and adds
+// the total of the matches.
 func (s *Server) listPersons(w http.ResponseWriter, r *http.Request) {
-	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	params := r.URL.Query()
+	query := strings.TrimSpace(params.Get("q"))
 	if len([]rune(query)) > 100 {
 		fail(w, http.StatusBadRequest, "invalid_query")
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT `+personColumns+` FROM persons p WHERE $1='' OR p.display_name ILIKE '%'||replace(replace(replace($1,'\','\\'),'%','\%'),'_','\_')||'%' ORDER BY lower(p.display_name),p.id LIMIT 500`, query)
+	paged := params.Has("page") || params.Has("page_size")
+	page, size := 1, 500
+	if paged {
+		size = 20
+	}
+	if v := params.Get("page"); params.Has("page") {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 100000 {
+			fail(w, http.StatusBadRequest, "invalid_page")
+			return
+		}
+		page = n
+	}
+	if v := params.Get("page_size"); params.Has("page_size") {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 100 {
+			fail(w, http.StatusBadRequest, "invalid_page")
+			return
+		}
+		size = n
+	}
+	// Items and total are read in one snapshot: a Person created in between cannot make
+	// them disagree.
+	tx, err := s.Pool.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	rows, err := tx.Query(r.Context(), `SELECT `+personColumns+` FROM persons p WHERE `+personSearchClause+` ORDER BY lower(p.display_name),p.id LIMIT $2 OFFSET $3`, query, size, (page-1)*size)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -204,7 +242,16 @@ func (s *Server) listPersons(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{"items": items})
+	if !paged {
+		reply(w, http.StatusOK, map[string]any{"items": items})
+		return
+	}
+	var total int
+	if err = tx.QueryRow(r.Context(), `SELECT count(*) FROM persons p WHERE `+personSearchClause, query).Scan(&total); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"items": items, "total": total})
 }
 
 func (s *Server) createPerson(w http.ResponseWriter, r *http.Request) {
@@ -524,4 +571,34 @@ func (s *Server) effectiveAttributionPointers(ctx context.Context, clipID int64)
 		out[id] = &v
 	}
 	return out, err
+}
+
+type personImpactView struct {
+	MicrophoneRules int  `json:"microphone_rules"`
+	HasHiddenVoices bool `json:"has_hidden_voices"`
+}
+
+// getPersonImpact counts what a merge or a deletion of the Person would touch beyond the
+// counts of the Person itself, so the confirmation can name it and a refusal can be
+// explained. A clip the caller cannot see is only reported as a boolean.
+func (s *Server) getPersonImpact(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, "invalid_person_id")
+	if !ok {
+		return
+	}
+	ss := r.Context().Value(sessionKey{}).(session)
+	var v personImpactView
+	err := s.Pool.QueryRow(r.Context(), `SELECT
+		(SELECT count(*) FROM source_microphone_tracks WHERE person_id=p.id)+(SELECT count(*) FROM clip_microphone_overrides WHERE person_id=p.id),
+		NOT $3 AND EXISTS (SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id WHERE a.person_id=p.id AND NOT (c.visibility='shared' OR c.owner_id=$2))
+		FROM persons p WHERE p.id=$1`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&v.MicrophoneRules, &v.HasHiddenVoices)
+	if errors.Is(err, pgx.ErrNoRows) {
+		fail(w, http.StatusNotFound, "person_not_found")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, v)
 }
