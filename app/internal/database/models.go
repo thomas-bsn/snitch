@@ -517,6 +517,7 @@ type VoiceDiarizationTrial struct {
 	CreatedBy        string             `json:"created_by"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
+	ModelEngine      string             `json:"model_engine"`
 }
 
 type VoiceFingerprint struct {
