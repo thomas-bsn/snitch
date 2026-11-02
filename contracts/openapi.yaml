@@ -6190,6 +6190,7 @@
             "type": "string",
             "enum": [
               "queued",
+              "waiting_worker",
               "running",
               "retry",
               "failed",
@@ -6252,6 +6253,44 @@
           },
           "last_error": {
             "type": "string"
+          },
+          "failure_code": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cause d'échec (voir FailureCode) du dernier événement d'échec persisté de la tâche courante."
+          },
+          "recommended_action": {
+            "type": "string",
+            "nullable": true,
+            "description": "Code de l'action conseillée, décidée par le serveur : celle de la cause d'échec, start_worker pour une attente de Worker, reschedule pour une tâche annulée."
+          },
+          "unknown_step": {
+            "$ref": "#/components/schemas/TaskCardUnknownStep"
+          }
+        }
+      },
+      "TaskCardUnknownStep": {
+        "type": "object",
+        "nullable": true,
+        "description": "Tâche non terminée d'une étape inconnue rattachée à la carte : alerte et erreur visibles.",
+        "required": [
+          "step",
+          "state",
+          "last_error"
+        ],
+        "properties": {
+          "step": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_error": {
+            "type": "string"
           }
         }
       },
@@ -6275,6 +6314,7 @@
             "type": "string",
             "enum": [
               "queued",
+              "waiting_worker",
               "running",
               "retry",
               "failed",

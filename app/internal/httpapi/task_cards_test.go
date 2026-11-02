@@ -26,7 +26,15 @@ type taskCardView struct {
 	State        string `json:"state"`
 	CurrentStep  string `json:"current_step"`
 	CompletedAt  string `json:"completed_at"`
-	Steps        []struct {
+	LastError    string `json:"last_error"`
+	FailureCode  string `json:"failure_code"`
+	Action       string `json:"recommended_action"`
+	UnknownStep  *struct {
+		Step      string `json:"step"`
+		State     string `json:"state"`
+		LastError string `json:"last_error"`
+	} `json:"unknown_step"`
+	Steps []struct {
 		Key   string `json:"key"`
 		State string `json:"state"`
 	} `json:"steps"`
@@ -114,7 +122,7 @@ func testTaskCards(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatal(e)
 		}
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO workers(id,name,token_hash) VALUES('wk_syntheticworker0000001','Synthetic worker',decode(repeat('ab',32),'hex'))`); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO workers(id,name,token_hash,max_concurrency,reported_concurrency,last_seen_at,supported_steps) VALUES('wk_syntheticworker0000001','Synthetic worker',decode(repeat('ab',32),'hex'),2,2,now(),ARRAY['transcription.*'])`); err != nil {
 		t.Fatal(err)
 	}
 	var personID int64
@@ -217,5 +225,76 @@ func testTaskCards(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if len(b.Completed) != 3 {
 		t.Fatalf("completed column must hold exactly three clips: %d", len(b.Completed))
+	}
+
+	// A pending task no recently seen Worker can run is waiting for a Worker,
+	// with its remedy; one a capable Worker can run stays queued.
+	voiceWait := clip("voice-waits-for-worker.mp4")
+	job(voiceWait, "transcription.audio.1", "done")
+	job(voiceWait, "voice.diarization.1", "pending")
+	b = board()
+	if card := find(b.Cards, voiceWait); card == nil || card.State != "waiting_worker" || card.Column != "voices" || card.Action != "start_worker" {
+		t.Fatalf("voice card without a capable Worker: %+v", card)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE workers SET last_seen_at=now()-interval '10 minutes'`); err != nil {
+		t.Fatal(err)
+	}
+	b = board()
+	if card := find(b.Cards, transcribing); card == nil || card.State != "running" {
+		t.Fatalf("a leased task never waits for a Worker: %+v", card)
+	}
+	var stale int64
+	for _, card := range b.Cards {
+		if card.State == "waiting_worker" {
+			stale++
+		}
+	}
+	if stale < 26 {
+		t.Fatalf("with no Worker seen recently every pending task must wait for a Worker: %d", stale)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE workers SET last_seen_at=now()`); err != nil {
+		t.Fatal(err)
+	}
+
+	event := func(clipID int64, step, name, code string) {
+		t.Helper()
+		if _, e := pool.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,actor,error_code) SELECT id,$3,0,'worker',$4 FROM jobs WHERE clip_id=$1 AND step=$2`, clipID, step, name, code); e != nil {
+			t.Fatal(e)
+		}
+	}
+	// A failure shows the latest persisted cause with its advised action.
+	failing := clip("failed.mp4")
+	job(failing, "transcription.audio.1", "failed")
+	event(failing, "transcription.audio.1", "retry_scheduled", "worker_failed")
+	event(failing, "transcription.audio.1", "marked_dead", "whisper_model_missing")
+	// A dead task stays in its column, never completed, with its cause.
+	dead := clip("dead.mp4")
+	job(dead, "transcription.audio.1", "dead")
+	event(dead, "transcription.audio.1", "marked_dead", "max_attempts_exhausted")
+	// A cancelled task advises to schedule the clip again.
+	job(cancelled, "transcription.audio.1", "cancelled")
+	event(cancelled, "transcription.audio.1", "cancelled", "cancelled_by_admin")
+	// An unknown step stays attached to the card with an alert and its error.
+	mystery := clip("mystery.mp4")
+	job(mystery, "transcription.audio.1", "done")
+	job(mystery, "mystery.step.1", "failed")
+	if _, err = pool.Exec(ctx, `UPDATE jobs SET last_error='synthetic mystery error' WHERE clip_id=$1 AND step='mystery.step.1'`, mystery); err != nil {
+		t.Fatal(err)
+	}
+	b = board()
+	if card := find(b.Cards, failing); card == nil || card.State != "failed" || card.FailureCode != "whisper_model_missing" || card.Action != "install_transcription_model" {
+		t.Fatalf("failed card: %+v", card)
+	}
+	if card := find(b.Cards, dead); card == nil || card.State != "dead" || card.Column != "transcription" || card.FailureCode != "max_attempts_exhausted" || card.Action != "relaunch_job" {
+		t.Fatalf("dead card: %+v", card)
+	}
+	if find(b.Completed, dead) != nil || find(b.Completed, cancelled) != nil {
+		t.Fatal("dead and cancelled clips must never be completed")
+	}
+	if card := find(b.Cards, cancelled); card == nil || card.State != "cancelled" || card.Action != "reschedule" {
+		t.Fatalf("cancelled card: %+v", card)
+	}
+	if card := find(b.Cards, mystery); card == nil || card.UnknownStep == nil || card.UnknownStep.Step != "mystery.step.1" || card.UnknownStep.LastError != "synthetic mystery error" {
+		t.Fatalf("unknown step card: %+v", card)
 	}
 }

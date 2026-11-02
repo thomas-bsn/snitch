@@ -11,6 +11,7 @@ class TaskCardState(StrEnum):
     RETRY = "retry"
     RUNNING = "running"
     WAITING = "waiting"
+    WAITING_WORKER = "waiting_worker"
 
     def __str__(self) -> str:
         return str(self.value)
