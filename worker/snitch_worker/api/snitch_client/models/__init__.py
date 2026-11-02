@@ -25,6 +25,9 @@ from .clip import Clip
 from .clip_filter_options import ClipFilterOptions
 from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
 from .clip_filter_options_sources_item import ClipFilterOptionsSourcesItem
+from .clip_history_item import ClipHistoryItem
+from .clip_history_page import ClipHistoryPage
+from .clip_history_step import ClipHistoryStep
 from .clip_microphone_track import ClipMicrophoneTrack
 from .clip_microphone_track_selection_source import ClipMicrophoneTrackSelectionSource
 from .clip_origins_item import ClipOriginsItem
@@ -360,6 +363,9 @@ __all__ = (
     "ClipFilterOptions",
     "ClipFilterOptionsOwnersItem",
     "ClipFilterOptionsSourcesItem",
+    "ClipHistoryItem",
+    "ClipHistoryPage",
+    "ClipHistoryStep",
     "ClipMicrophoneTrack",
     "ClipMicrophoneTrackSelectionSource",
     "ClipOriginsItem",

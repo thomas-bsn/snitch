@@ -357,6 +357,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testTaskCardsIndexing(t, pool)
 	})
+	t.Run("clip history and completed", func(t *testing.T) {
+		reset(t)
+		testClipHistoryAndCompleted(t, pool)
+	})
 	t.Run("job retry and cancellation", func(t *testing.T) {
 		reset(t)
 		testJobRetryOperations(t, pool)
@@ -662,6 +666,7 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "GET", "/api/admin/jobs?status=pending", nil, "", 200)
 		call(client, "GET", "/api/admin/task-cards", nil, "", 200)
+		call(client, "GET", "/api/admin/clip-history", nil, "", 200)
 		contractJobPath := "/api/admin/jobs/" + strconv64(contractJob.ID)
 		call(client, "GET", contractJobPath+"/history", nil, "", 200)
 		workerBody := call(client, "POST", "/api/admin/workers", map[string]any{"name": "contract-worker", "max_concurrency": 1}, me.CSRF, 201)

@@ -41,6 +41,8 @@ class TaskCard:
             attempt (int):
             max_attempts (int):
             last_error (str):
+            voices_to_review (bool): Calculé pour une carte de la colonne Terminé : une voix diarisée du clip n'a ni
+                validation humaine, ni attribution automatique, ni suggestion. N'empêche pas Terminé.
             completed_at (datetime.datetime | None | Unset):
             worker (None | str | Unset):
             job_id (int | None | Unset):
@@ -58,6 +60,7 @@ class TaskCard:
     attempt: int
     max_attempts: int
     last_error: str
+    voices_to_review: bool
     completed_at: datetime.datetime | None | Unset = UNSET
     worker: None | str | Unset = UNSET
     job_id: int | None | Unset = UNSET
@@ -95,6 +98,8 @@ class TaskCard:
         max_attempts = self.max_attempts
 
         last_error = self.last_error
+
+        voices_to_review = self.voices_to_review
 
         completed_at: None | str | Unset
         if isinstance(self.completed_at, Unset):
@@ -144,6 +149,7 @@ class TaskCard:
             "attempt": attempt,
             "max_attempts": max_attempts,
             "last_error": last_error,
+            "voices_to_review": voices_to_review,
         })
         if completed_at is not UNSET:
             field_dict["completed_at"] = completed_at
@@ -203,6 +209,8 @@ class TaskCard:
         max_attempts = d.pop("max_attempts")
 
         last_error = d.pop("last_error")
+
+        voices_to_review = d.pop("voices_to_review")
 
         def _parse_completed_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -285,6 +293,7 @@ class TaskCard:
             attempt=attempt,
             max_attempts=max_attempts,
             last_error=last_error,
+            voices_to_review=voices_to_review,
             completed_at=completed_at,
             worker=worker,
             job_id=job_id,
