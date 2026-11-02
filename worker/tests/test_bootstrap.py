@@ -1,8 +1,10 @@
+import io
 import os
+import stat
 import tempfile
 import unittest
 
-from snitch_worker import bootstrap, voice_manifest, voice_pyannote
+from snitch_worker import bootstrap, revocation, voice_download, voice_manifest, voice_pyannote
 from snitch_worker.voice import VoiceProviderUnavailable
 
 SECRET = "hf_SECRET_TOKEN_VALUE"
@@ -306,6 +308,81 @@ class VersionFromManifestTests(unittest.TestCase):
     def test_version_still_required_without_variable_or_file(self):
         with self.assertRaises(VoiceProviderUnavailable):
             self.provider(self.env)._embedding_identity()
+
+
+class TokenFileTests(unittest.TestCase):
+    """The installation leaves the token in a private file of the models volume (#158)."""
+
+    TOKEN = "hf_SyntheticFixtureToken0123456789"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = self.tmp.name
+        self.env = {
+            revocation.MODELS_DIR_ENV: self.root,
+            "SNITCH_VOICE_DIARIZATION_MODEL_PATH": os.path.join(self.root, "diarization"),
+            "SNITCH_VOICE_EMBEDDING_MODEL_PATH": os.path.join(self.root, "embedding"),
+            "SNITCH_VOICE_DOWNLOAD_ON_START": "1",
+            "SNITCH_VOICE_CONFIRM_TERMS": "1",
+        }
+        self.logs = []
+        self.path = os.path.join(self.root, ".secrets", "hf_token")
+
+    def start(self, **extra):
+        fakes = Fakes()
+        status = bootstrap.run_bootstrap({**self.env, **extra}, fakes.downloader, fakes.resolve, self.logs.append)
+        return status
+
+    def read(self):
+        with open(self.path, encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_the_token_given_at_installation_is_kept_in_a_private_file(self):
+        self.assertEqual(self.start(HF_TOKEN=self.TOKEN), "downloaded")
+        self.assertEqual(self.read(), self.TOKEN)
+        self.assertEqual(stat.S_IMODE(os.stat(self.path).st_mode), 0o600)
+        self.assertEqual(stat.S_IMODE(os.stat(os.path.dirname(self.path)).st_mode), 0o700)
+        self.assertNotIn(self.TOKEN, "\n".join(self.logs))
+
+    def test_models_already_present_still_keep_the_token_for_later_installs(self):
+        self.assertEqual(self.start(HF_TOKEN=self.TOKEN), "downloaded")
+        os.remove(self.path)
+        self.assertEqual(self.start(HF_TOKEN=self.TOKEN), "present")
+        self.assertEqual(self.read(), self.TOKEN)
+
+    def test_without_the_opt_in_nothing_is_stored(self):
+        self.assertEqual(self.start(HF_TOKEN=self.TOKEN, SNITCH_VOICE_DOWNLOAD_ON_START="0"), "disabled")
+        self.assertFalse(os.path.exists(self.path))
+
+    def test_an_unexpected_token_never_replaces_the_kept_one(self):
+        self.start(HF_TOKEN=self.TOKEN)
+        self.start(HF_TOKEN="not a token")
+        self.assertEqual(self.read(), self.TOKEN)
+        self.assertNotIn("not a token", "\n".join(self.logs))
+
+    def test_store_token_reads_the_token_on_standard_input(self):
+        out = io.StringIO()
+        code = bootstrap.cli(["store-token"], self.env, stdin=io.StringIO(self.TOKEN + "\n"), stdout=out)
+        self.assertEqual(code, 0)
+        self.assertEqual(self.read(), self.TOKEN)
+        self.assertEqual(stat.S_IMODE(os.stat(self.path).st_mode), 0o600)
+        self.assertNotIn(self.TOKEN, out.getvalue())
+
+    def test_store_token_refuses_an_unexpected_value_and_keeps_the_file(self):
+        bootstrap.cli(["store-token"], self.env, stdin=io.StringIO(self.TOKEN), stdout=io.StringIO())
+        out = io.StringIO()
+        code = bootstrap.cli(["store-token"], self.env, stdin=io.StringIO("oops\n"), stdout=out)
+        self.assertEqual(code, 1)
+        self.assertEqual(self.read(), self.TOKEN)
+        self.assertIn("cause=invalid_token", out.getvalue())
+        self.assertNotIn("oops", out.getvalue())
+
+    def test_the_default_path_lives_in_the_models_volume(self):
+        self.assertEqual(voice_download.default_token_file(self.env), self.path)
+        self.assertEqual(voice_download.default_token_file({}), "/models/.secrets/hf_token")
+        explicit = {**self.env, "SNITCH_HF_TOKEN_FILE": "/run/secrets/hf"}
+        self.assertEqual(voice_download.default_token_file(explicit), "/run/secrets/hf")
 
 
 if __name__ == "__main__":

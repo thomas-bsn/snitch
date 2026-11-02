@@ -180,6 +180,17 @@ class TokenHygieneTests(unittest.TestCase):
             self.assertEqual(download["HF_HUB_OFFLINE"], "0")
             self.assertNotIn("SNITCH_HF_TOKEN_FILE", voice_models.download_environment(""))
 
+    def test_without_a_variable_the_manager_downloads_with_the_token_kept_in_the_models_volume(self):
+        seen = []
+        env = {"SNITCH_WORKER_MODELS_DIR": "/data", "PATH": "/bin"}
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch.object(voice_models, "_manager", None),
+            patch.object(voice_models, "_subprocess_download", lambda *args: seen.append(args[-1])),
+        ):
+            voice_models.default_manager()._download("owner/model", "rev", "/data/target", lambda received, total: None)
+        self.assertEqual(seen, ["/data/.secrets/hf_token"])
+
     def test_one_filter_serves_every_environment(self):
         env = {"HF_TOKEN": "a", "HUGGING_FACE_HUB_TOKEN": "b", "SNITCH_HF_TOKEN_FILE": "/p", "X": "1"}
         self.assertEqual(voice_download.without_token(env), {"X": "1"})

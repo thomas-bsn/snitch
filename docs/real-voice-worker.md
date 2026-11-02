@@ -67,6 +67,21 @@ Mises à jour : `pull_policy: always` vérifie l'image à chaque `docker compose
 
 Le volume de modèles n'est plus monté en lecture seule dans le compose, pour permettre ce premier téléchargement ; le worker, lui, ne fait que lire. Une fois les modèles installés et sans opt-in, `:ro` peut être rajouté. Non vérifié ici : le téléchargement réel (aucun jeton ni réseau Hugging Face), notamment la résolution de révision par `HfApi.model_info`, le droit d'écriture de l'utilisateur 10001 sur un montage hôte et le comportement de `snapshot_download(local_dir=...)` sur un volume déjà partiellement rempli.
 
+## Jeton Hugging Face : installer d'autres modèles depuis Snitch
+
+Choisir un autre modèle dans Administration › Traitement vocal fait télécharger ce modèle par le Worker. Le téléchargement lit le jeton dans un fichier privé du volume des modèles, `/models/.secrets/hf_token` (dossier `0700`, fichier `0600`), que seul le sous-processus de téléchargement ouvre : le jeton ne passe jamais par Snitch, ni par l'API, ni par l'environnement du processus d'inférence. Le fichier vit dans le volume : supprimer le Worker dans Snitch le vide avec le reste.
+
+- **À l'installation** (commande unique, `compose.yaml` généré, `install.py`) : le jeton saisi pour le premier téléchargement est gardé dans ce fichier par le Worker, sans réglage supplémentaire.
+- **Worker déjà installé, sans fichier** : l'écran affiche « Jeton Hugging Face absent sur ce Worker ». Enregistrez-le une fois, depuis la machine du Worker, en le passant sur l'entrée standard (jamais en argument ni en variable) :
+
+```bash
+read -rs HF && printf '%s' "$HF" | docker run -i --rm --user 10001:10001 \
+  -v snitch-models-<id du Worker>:/models --entrypoint python <image du Worker> \
+  -m snitch_worker.bootstrap store-token; unset HF
+```
+
+La commande affiche `stored`, ou `cause=invalid_token` si la valeur n'a pas la forme d'un jeton (`hf_…`), sans jamais le répéter. Un jeton refusé ne remplace pas celui déjà gardé. Le jeton doit avoir accès aux dépôts du modèle choisi (conditions acceptées sur Hugging Face).
+
 ## Installer sur le PC gamer
 
 Cible : un PC Linux (ou Windows avec WSL2 et Docker) avec une carte NVIDIA, par exemple une RTX 4070 (12 Go). Le worker ne publie aucun port et appelle l'API Snitch en HTTPS sortant ; les secrets restent sur ce PC. Les fichiers sont dans `deploy/worker/` (`compose.yaml`, `.env.example`).

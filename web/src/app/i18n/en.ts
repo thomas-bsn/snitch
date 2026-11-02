@@ -306,7 +306,7 @@ export const en = {
     },
     cause: {
       hf_token_missing:
-        "Hugging Face token missing: put it in the file named by SNITCH_HF_TOKEN_FILE on the Worker machine.",
+        "Hugging Face token missing on this Worker. Store it from the Worker machine with the store-token command (see docs/real-voice-worker.md), then retry.",
       hf_access_denied:
         "Hugging Face access refused: accept the model terms with the account that owns the token.",
       disk_full: "The Worker machine's disk is full.",

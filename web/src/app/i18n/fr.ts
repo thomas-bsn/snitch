@@ -313,7 +313,7 @@ export const fr: Messages = {
     },
     cause: {
       hf_token_missing:
-        "Jeton Hugging Face absent : posez-le dans le fichier indiqué par SNITCH_HF_TOKEN_FILE sur la machine du Worker.",
+        "Jeton Hugging Face absent sur ce Worker. Enregistrez-le depuis la machine du Worker avec la commande store-token (voir docs/real-voice-worker.md), puis réessayez.",
       hf_access_denied:
         "Accès Hugging Face refusé : acceptez les conditions du modèle avec le compte du jeton.",
       disk_full: "Disque plein sur la machine du Worker.",

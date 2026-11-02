@@ -21,7 +21,7 @@ import os
 import sys
 from typing import Any, Callable, Mapping
 
-from snitch_worker import revocation, voice_manifest
+from snitch_worker import revocation, voice_download, voice_manifest
 
 DIARIZATION_REPO = "pyannote/speaker-diarization-community-1"
 EMBEDDING_REPO = "pyannote/wespeaker-voxceleb-resnet34-LM"
@@ -143,6 +143,7 @@ def run_bootstrap(
     if not _truthy(environ.get("SNITCH_VOICE_DOWNLOAD_ON_START")):
         say("voice model download is off (SNITCH_VOICE_DOWNLOAD_ON_START is not 1): nothing is downloaded")
         return "disabled"
+    _keep_token(environ, token, say)
     if models_present(environ):
         say("voice models already present: nothing to download")
         return "present"
@@ -188,6 +189,29 @@ def run_bootstrap(
     return "downloaded"
 
 
+def _keep_token(environ: Mapping[str, str], token: str, say: Callable[[str], None]) -> None:
+    """Keep the installation's token in the models volume, so Snitch can prepare other models later."""
+    if not token:
+        return
+    if voice_download.persist_token(voice_download.default_token_file(environ), token):
+        say("Hugging Face token kept in the models volume for later model installs")
+    else:
+        say("Hugging Face token not kept: unexpected format or the models volume is not writable")
+
+
+def store_token(environ: Mapping[str, str], stdin: Any, stdout: Any) -> int:
+    """``store-token``: read a token from standard input (never argv or the environment) and keep it."""
+    token = stdin.readline().strip()
+    if not voice_download.valid_token(token):
+        print("cause=invalid_token", file=stdout, flush=True)
+        return 1
+    if not voice_download.persist_token(voice_download.default_token_file(environ), token):
+        print("cause=volume_not_writable", file=stdout, flush=True)
+        return 1
+    print("stored", file=stdout, flush=True)
+    return 0
+
+
 def worker_environment(environ: Mapping[str, str]) -> dict[str, str]:
     env = {key: value for key, value in environ.items() if key != "HF_TOKEN"}
     env["HF_HUB_OFFLINE"] = "1"
@@ -224,12 +248,16 @@ def cli(
     downloader: Downloader | None = None,
     resolve_revision: RevisionResolver | None = None,
     log: Callable[[str], None] | None = None,
+    stdin: Any = None,
+    stdout: Any = None,
 ) -> int:
     """Launcher entry points. ``check``: 0 when valid models are present. ``provision``: explicit
     download; prints only ``cause=<code>`` on stdout and exits 1 when it failed."""
     env = dict(os.environ if environ is None else environ)
     if argv[:1] == ["check"]:
         return 0 if models_present(env) else 1
+    if argv[:1] == ["store-token"]:
+        return store_token(env, stdin or sys.stdin, stdout or sys.stdout)
     if argv[:1] == ["provision"]:
         report: dict[str, str] = {}
         try:

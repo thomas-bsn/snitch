@@ -28,6 +28,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from snitch_worker import voice_manifest
+from snitch_worker import voice_download
 from snitch_worker.voice_download import TOKEN_FILE_ENV, without_token
 
 logger = logging.getLogger(__name__)
@@ -310,7 +311,8 @@ def default_manager() -> ModelManager:  # pragma: no cover - wires the real down
     if _manager is None:
         # The manager is the only reader of the token file path: it leaves the process environment, so nothing
         # started later from this process (inference, tools) can inherit it.
-        token_file = os.environ.pop(TOKEN_FILE_ENV, "")
+        token_file = voice_download.default_token_file(os.environ)
+        os.environ.pop(TOKEN_FILE_ENV, None)
 
         def download(repo: str, revision: str, target: str, progress: Progress) -> None:
             _subprocess_download(repo, revision, target, progress, token_file)

@@ -12,14 +12,60 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
+import tempfile
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from snitch_worker import revocation
+
 TOKEN_FILE_ENV = "SNITCH_HF_TOKEN_FILE"
+# Where the installation keeps the token: a private file of the models volume (the host uid cannot read
+# a file of the host from the container user), wiped with the volume when the Worker is deleted.
+TOKEN_SUBPATH = os.path.join(".secrets", "hf_token")
+_TOKEN_FORMAT = re.compile(r"^hf_[A-Za-z0-9]+$")
 # The only places the token may travel: the Hugging Face variables are never passed on, and the file path
 # only to the download subprocess.
 TOKEN_ENV_NAMES = frozenset({"HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"})
+
+
+def valid_token(token: str) -> bool:
+    return bool(_TOKEN_FORMAT.fullmatch(token))
+
+
+def default_token_file(environ: Mapping[str, str]) -> str:
+    """The token file: the explicit path, else the one of the models volume."""
+    explicit = environ.get(TOKEN_FILE_ENV, "").strip()
+    return explicit or os.path.join(revocation.models_dir(environ), TOKEN_SUBPATH)
+
+
+def persist_token(path: str, token: str) -> bool:
+    """Keep the token in a private file (directory 0700, file 0600, replaced atomically).
+
+    Anything that does not look like a token is refused and never replaces the file kept so far.
+    """
+    if not valid_token(token):
+        return False
+    directory = os.path.dirname(path)
+    try:
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+        os.chmod(directory, 0o700)
+        descriptor, temporary = tempfile.mkstemp(dir=directory, prefix=".hf_token.")
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                handle.write(token)
+            os.chmod(temporary, 0o600)
+            os.replace(temporary, path)
+        except BaseException:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+            raise
+    except OSError:
+        return False
+    return True
 
 
 def without_token(environ: Mapping[str, str], *, keep_file: bool = False) -> dict[str, str]:
