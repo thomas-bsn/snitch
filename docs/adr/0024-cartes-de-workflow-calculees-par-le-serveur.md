@@ -28,3 +28,4 @@ La file de tâches calcule aujourd'hui qu'un clip est « terminé » quand tous 
 - Le calcul des étapes applicables doit rester aligné avec l'ADR 0011 ; un changement d'admissibilité touche la file.
 - Le coût de la lecture croît avec le nombre de clips actifs ; la forme compacte le borne.
 - L'ancienne liste de jobs et son agrégation restent pour les autres usages.
+- Tant que #130 ne planifie pas les étapes automatiquement (la diarisation n'est aujourd'hui créée que par un administrateur), un clip n'est sur le tableau que s'il a au moins une tâche pas encore terminée. Les étapes applicables servent à placer la carte et à décider de Terminé, pas à faire entrer un clip dans la file : sans cela, tout clip transcrit mais jamais analysé vocalement y resterait indéfiniment. Un clip entre deux étapes non planifiées est donc hors tableau, et jamais dans Terminé. Avec #130, l'étape suivante est planifiée sans intervention et cette lacune disparaît.
