@@ -368,22 +368,6 @@ func (s *Server) clipAnalysisEvents(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-<<<<<<< HEAD
-// adminQueueEvents streams the Task Queue: one snapshot of every analysis run and loose
-// task, then one per change. The administrator role is rechecked before every snapshot.
-func (s *Server) adminQueueEvents(w http.ResponseWriter, r *http.Request) {
-	s.Events.Stream(w, r, events.Topic{
-		Name:      "admin:queue",
-		Authorize: s.adminAuthorizer(r),
-		Snapshot: func(ctx context.Context) (any, error) {
-			return s.Analysis.Queue(ctx)
-		},
-	})
-}
-
-func (s *Server) adminAnalysisQueue(w http.ResponseWriter, r *http.Request) {
-	q, err := s.Analysis.Queue(r.Context())
-=======
 // reanalysisStake is what forced steps would make obsolete: the corrections of the visible
 // transcription (a retranscription, ADR 0012) and the validations of the speakers (a new
 // diarization, #114). Nothing of it is deleted: histories and validated samples stay.
@@ -472,12 +456,31 @@ func (s *Server) getClipAnalysisHistory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	runs, err := s.Analysis.History(r.Context(), clipID, 20)
->>>>>>> origin/integration/issue-115-clip-analysis
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-<<<<<<< HEAD
+	reply(w, http.StatusOK, map[string]any{"runs": runs})
+}
+
+// adminQueueEvents streams the Task Queue: one snapshot of every analysis run and loose
+// task, then one per change. The administrator role is rechecked before every snapshot.
+func (s *Server) adminQueueEvents(w http.ResponseWriter, r *http.Request) {
+	s.Events.Stream(w, r, events.Topic{
+		Name:      "admin:queue",
+		Authorize: s.adminAuthorizer(r),
+		Snapshot: func(ctx context.Context) (any, error) {
+			return s.Analysis.Queue(ctx)
+		},
+	})
+}
+
+func (s *Server) adminAnalysisQueue(w http.ResponseWriter, r *http.Request) {
+	q, err := s.Analysis.Queue(r.Context())
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	reply(w, http.StatusOK, q)
 }
 
@@ -494,7 +497,4 @@ func (s *Server) adminAuthorizer(r *http.Request) func(context.Context) error {
 		}
 		return nil
 	}
-=======
-	reply(w, http.StatusOK, map[string]any{"runs": runs})
->>>>>>> origin/integration/issue-115-clip-analysis
 }
