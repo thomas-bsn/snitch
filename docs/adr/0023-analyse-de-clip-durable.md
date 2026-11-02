@@ -27,3 +27,11 @@ Un administrateur lançait séparément la transcription et l'analyse vocale. #1
 - **Dériver l'état à la lecture seulement, sans table.** Pas d'historique, pas de périmètre ni d'auteur, et pas d'identité d'exécution pour l'idempotence ni pour les tickets suivants.
 - **Verrouiller la ligne de l'exécution pendant l'avancement.** Les crochets appellent le service de jobs, qui verrouille le clip ; l'avancement idempotent évite l'inversion d'ordre de verrous.
 - **Remplacer les jobs par des étapes.** Perdrait les leases, délais et limites de retry existants.
+
+## Addendum : réanalyse (#168)
+
+**Trois modes.** Le démarrage accepte un mode : `missing` (ne produire que ce qui manque, par défaut), `full` (tout refaire) et `steps` (refaire des étapes choisies). Les étapes forçables sont `transcription`, `indexing` et `diarization` ; les empreintes et le rapprochement suivent la diarisation. L'exécution persiste le mode et les étapes forcées, et un historique des exécutions est lisible par clip.
+
+**Enjeux et confirmation.** Avant de refaire quoi que ce soit, l'API calcule les enjeux : corrections humaines actives et attributions de voix qui seraient touchées. Si des enjeux existent, la réanalyse exige une confirmation explicite de l'administrateur ; sans elle, le démarrage est refusé avec un conflit qui décrit ces enjeux, et aucune exécution n'est créée. L'interface les présente dans une boîte de confirmation.
+
+**Travail humain protégé jusqu'au succès.** Les corrections et attributions humaines ne sont ni supprimées ni remplacées tant que la nouvelle production n'a pas réussi : en cas d'échec ou d'annulation, la transcription et les voix visibles précédentes restent intactes, et le clip est libéré. Le remplacement n'a lieu qu'à l'acquisition d'un résultat valide, conformément à l'ADR 0012.

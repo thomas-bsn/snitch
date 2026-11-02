@@ -71,6 +71,9 @@ export const errorsEn = {
   forbidden: "You do not have access to this.",
   group_changed: "This group changed in the meantime. Reload and try again.",
   internal_error: "An unexpected error occurred on the server.",
+  notification_active:
+    "This action is still pending. It disappears once it is handled.",
+  notification_not_found: "This notification no longer exists.",
   invalid_account: "This account is not valid for this action.",
   invalid_audio_stream: "This audio track is not valid.",
   invalid_audio_track_rule: "This audio track rule is not valid.",
@@ -81,6 +84,9 @@ export const errorsEn = {
     "This analysis is over: start a new analysis instead.",
   analysis_step_not_failed: "This step has not failed.",
   invalid_analysis_step: "This analysis step is not valid.",
+  invalid_reanalysis: "This reanalysis choice is not valid.",
+  reanalysis_confirmation_required:
+    "Confirm the consequences of this reanalysis before it starts.",
   analysis_scope_conflict:
     "Another analysis with a different scope is already active on this clip.",
   invalid_clip_id: "This clip identifier is not valid.",

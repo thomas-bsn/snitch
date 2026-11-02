@@ -57,14 +57,18 @@ type Clip struct {
 }
 
 type ClipAnalysisRun struct {
-	ID         int64              `json:"id"`
-	ClipID     int64              `json:"clip_id"`
-	Scope      string             `json:"scope"`
-	Status     string             `json:"status"`
-	StartedBy  pgtype.Int8        `json:"started_by"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ID                          int64              `json:"id"`
+	ClipID                      int64              `json:"clip_id"`
+	Scope                       string             `json:"scope"`
+	Status                      string             `json:"status"`
+	StartedBy                   pgtype.Int8        `json:"started_by"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	FinishedAt                  pgtype.Timestamptz `json:"finished_at"`
+	Mode                        string             `json:"mode"`
+	ForcedSteps                 []string           `json:"forced_steps"`
+	ConfirmedReplaceCorrections bool               `json:"confirmed_replace_corrections"`
+	ConfirmedReplaceValidations bool               `json:"confirmed_replace_validations"`
 }
 
 type ClipAnalysisStep struct {
@@ -236,6 +240,24 @@ type MicrophoneTrackEvent struct {
 	AuthorID       pgtype.Int8        `json:"author_id"`
 	AuthorUsername string             `json:"author_username"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type Notification struct {
+	ID           int64              `json:"id"`
+	Kind         string             `json:"kind"`
+	ClipID       pgtype.Int8        `json:"clip_id"`
+	State        string             `json:"state"`
+	PendingCount int32              `json:"pending_count"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ResolvedAt   pgtype.Timestamptz `json:"resolved_at"`
+}
+
+type NotificationRecipient struct {
+	NotificationID int64              `json:"notification_id"`
+	UserID         int64              `json:"user_id"`
+	ReadAt         pgtype.Timestamptz `json:"read_at"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type OauthState struct {

@@ -1252,6 +1252,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/analysis/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. */
+    get: operations["getClipAnalysisHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/analysis/cancel": {
     parameters: {
       query?: never;
@@ -2200,6 +2217,75 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore voir (l'accès est revérifié à chaque lecture, historique compris). unread compte les non-lues, pending les actions non résolues : deux compteurs distincts. Aucune écriture. */
+    get: operations["listNotifications"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Marque lues toutes les notifications du demandeur ; ne résout aucune action. */
+    post: operations["readAllNotifications"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/{id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Lecture individuelle : ne résout pas l'action, qui reste partagée. */
+    put: operations["markNotificationRead"];
+    post?: never;
+    /** @description Remet la notification en non lue pour le demandeur seul. */
+    delete: operations["markNotificationUnread"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Seul l'historique résolu est supprimable, par son destinataire ; les autres destinataires le conservent. */
+    delete: operations["deleteNotification"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings": {
     parameters: {
       query?: never;
@@ -2387,6 +2473,12 @@ export interface components {
       /** Format: int64 */
       job_id: number | null;
       attempt: number;
+      /** @description Version d'entrée du job suivi par l'étape (historique). */
+      input_version: string | null;
+      /** @description Profil (pipeline) du job suivi par l'étape. */
+      profile: string | null;
+      /** @description Étape relancée par une réanalyse, malgré un résultat valide. */
+      forced: boolean;
       /** Format: date-time */
       started_at: string | null;
       /** Format: date-time */
@@ -2411,6 +2503,11 @@ export interface components {
       updated_at: string;
       /** Format: date-time */
       finished_at: string | null;
+      /** @enum {string} */
+      mode: "missing" | "full" | "steps";
+      forced_steps: ("transcription" | "indexing" | "diarization")[];
+      confirmed_replace_corrections: boolean;
+      confirmed_replace_validations: boolean;
       steps: components["schemas"]["ClipAnalysisStep"][];
     };
     ClipAnalysisResponse: {
@@ -2430,6 +2527,29 @@ export interface components {
     ClipAnalysisConflict: {
       error: string;
       run?: components["schemas"]["ClipAnalysisRun"];
+      stake?: components["schemas"]["ClipReanalysisStake"];
+    };
+    /** @description Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés). */
+    ClipReanalysisStake: {
+      /** @description Corrections de segments de la transcription visible (retranscription). */
+      corrections: {
+        /** Format: int64 */
+        transcription_job_id: number;
+        text_segments: number;
+        speaker_segments: number;
+        authors: string[];
+        /** Format: date-time */
+        last_corrected_at: string | null;
+      } | null;
+      /** @description Validations de voix, échantillons et corrections de locuteur (nouvelle diarisation). */
+      voice: {
+        validated_speakers: number;
+        voice_samples: number;
+        speaker_corrections: number;
+      } | null;
+    };
+    ClipAnalysisHistory: {
+      runs: components["schemas"]["ClipAnalysisRun"][];
     };
     Error: {
       error: string;
@@ -3501,6 +3621,43 @@ export interface components {
       suggestion: number;
       ambiguous: number;
       unknown: number;
+    };
+    NotificationRead: {
+      /** Format: int64 */
+      id: number;
+      read: boolean;
+    };
+    Notification: {
+      /** Format: int64 */
+      id: number;
+      /**
+       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées.
+       * @enum {string}
+       */
+      kind: "needs_speaker_review";
+      /**
+       * @description Partagé : une action résolue l'est pour tous.
+       * @enum {string}
+       */
+      state: "active" | "resolved";
+      /** Format: int64 */
+      clip_id: number | null;
+      clip_name: string;
+      /** @description Voix restant à décider. */
+      pending_count: number;
+      /** @description État de lecture du demandeur, indépendant de la résolution. */
+      read: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      resolved_at: string | null;
+    };
+    NotificationList: {
+      items: components["schemas"]["Notification"][];
+      unread: number;
+      pending: number;
     };
     VoiceVerification: {
       items: components["schemas"]["VoiceVerificationCase"][];
@@ -7737,6 +7894,18 @@ export interface operations {
            * @enum {string}
            */
           scope?: "transcription" | "voice" | "full";
+          /**
+           * @description Réanalyse d'un clip déjà traité. missing : seules les étapes sans résultat valide sont exécutées (les résultats valides sont réutilisés). full : retranscription (périmètres transcription et full) et nouvelle diarisation (périmètres voice et full), l'indexation, les empreintes et la comparaison suivent. steps : relance les seules étapes de steps, quel que soit le résultat valide existant. Sans effet si une analyse est déjà active.
+           * @default missing
+           * @enum {string}
+           */
+          mode?: "missing" | "full" | "steps";
+          /** @description Avec mode steps : étapes à relancer, applicables au périmètre (sinon 400 invalid_reanalysis). */
+          steps?: ("transcription" | "indexing" | "diarization")[];
+          /** @description Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections). */
+          confirm_replace_corrections?: boolean;
+          /** @description Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice). */
+          confirm_replace_validations?: boolean;
         };
       };
     };
@@ -7759,7 +7928,7 @@ export interface operations {
           "application/json": components["schemas"]["ClipAnalysisResponse"];
         };
       };
-      /** @description analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) ; transcription_required : le périmètre voice exige une transcription valide */
+      /** @description analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) ; transcription_required : le périmètre voice exige une transcription valide ; reanalysis_confirmation_required : les étapes relancées rendraient du travail humain obsolète, les conséquences sont dans stake */
       409: {
         headers: {
           [name: string]: unknown;
@@ -7768,7 +7937,38 @@ export interface operations {
           "application/json": components["schemas"]["ClipAnalysisConflict"];
         };
       };
-      /** @description Erreur (400 invalid_analysis_scope, invalid_clip_id ; 404 clip_not_found) */
+      /** @description Erreur (400 invalid_analysis_scope, invalid_reanalysis, invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysisHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Les 20 exécutions les plus récentes, avec versions, profil, étapes relancées et confirmations */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisHistory"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 404 clip_not_found) */
       default: {
         headers: {
           [name: string]: unknown;
@@ -10371,6 +10571,8 @@ export interface operations {
       query?: {
         /** @description Ne garder que les voix inconnues ou que les voix ambiguës. */
         level?: "all" | "unknown" | "ambiguous";
+        /** @description Ne garder que les voix de ce clip (lien d'une notification). */
+        clip?: number;
         page?: number;
         page_size?: number;
       };
@@ -10387,6 +10589,209 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceVerification"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listNotifications: {
+    parameters: {
+      query?: {
+        state?: "all" | "active" | "resolved";
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notifications du demandeur, actions en attente d'abord */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  readAllNotifications: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notifications marquées lues pour le demandeur seul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** Format: int64 */
+            updated: number;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  markNotificationRead: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification lue (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationRead"];
+        };
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  markNotificationUnread: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification de nouveau non lue (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationRead"];
+        };
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteNotification: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification résolue retirée de l'historique du demandeur seul */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description notification_active : une action en attente ne se supprime pas, elle disparaît en étant traitée */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */

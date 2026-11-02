@@ -552,6 +552,26 @@ export const en = {
     people: "People",
     import: "Import",
   },
+  notifications: {
+    bell: "Notifications",
+    bellUnread: "Notifications, {count} unread",
+    title: "Notifications",
+    pending: "{count} to handle",
+    empty: "No notifications.",
+    loadFailed: "Notifications could not be loaded.",
+    speakerReview: "{count} voices to verify in {clip}",
+    speakerReviewOne: "1 voice to verify in {clip}",
+    speakerReviewResolved: "Voices verified in {clip}",
+    resolved: "Resolved",
+    unread: "Unread",
+    markRead: "Mark as read",
+    markUnread: "Mark as unread",
+    markAllRead: "Mark all as read",
+    remove: "Remove from history",
+    history: "History",
+    actions: "Actions",
+    removeFailed: "This notification could not be removed.",
+  },
   header: {
     searchLabel: "Search the transcripts",
     searchPlaceholder: "Search what was said…",
@@ -1472,6 +1492,42 @@ export const en = {
         "Analysis cancelled. Valid results are kept; start a new analysis to continue.",
       retry: "Retry {step}",
       viewTask: "View task #{id}",
+      forced: "(run again)",
+      profile: "Profile: {profile}",
+    },
+    reanalyze: {
+      menu: "Reanalyze…",
+      title: "Reanalyze this clip",
+      close: "Close",
+      scopeLabel: "What to analyze",
+      scope: {
+        full: "Everything: transcription, indexing and voices",
+        transcription: "Transcription only",
+        voice: "Voices only",
+      },
+      what: "What runs again",
+      mode: {
+        missing: "Only the missing steps (valid results are reused)",
+        full: "Everything again, even where a valid result exists",
+        steps: "Only the steps I choose",
+      },
+      noteMissing:
+        "Valid results are reused: nothing is replaced and no confirmation is needed.",
+      noteTranscription:
+        "A new transcription replaces the visible text once it succeeds. Segment corrections then become obsolete (their history is kept). You will be asked to confirm if the clip has corrections.",
+      noteDiarization:
+        "A new voice detection replaces the voices of the audio track once it succeeds. You will be asked to confirm if the clip has validated voices.",
+      cancel: "Cancel",
+      start: "Start reanalysis",
+      confirmIntro:
+        "This reanalysis will make human work obsolete once it succeeds:",
+      stakeCorrections:
+        "{text} corrected segment texts and {speaker} speaker corrections will become obsolete.",
+      stakeVoice:
+        "{speakers} validated voices, {samples} voice samples and {corrections} speaker corrections will be detached from the new result.",
+      kept: "Nothing is deleted: correction history, validated voice samples and the previous result are kept, and the current result stays visible until the new one succeeds.",
+      back: "Back",
+      confirm: "Confirm and reanalyze",
     },
     transcribe: {
       button: "Transcribe",
@@ -1576,6 +1632,9 @@ export const en = {
       deletedUser: "deleted user",
     },
     verification: {
+      clipFilter: "Voices of {clip}",
+      clipFilterAny: "Voices of one clip",
+      clearClipFilter: "Show all clips",
       lead: "Most frequent voices first: naming one removes the most uncertainty. Deciding is always a human confirmation.",
       toDecide: "To decide",
       countersLabel: "Voices by state",

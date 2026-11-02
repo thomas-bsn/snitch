@@ -1,6 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { completeQueuedTranscription, uploadClip } from "./library-fixture";
+import {
+  completeQueuedTranscription,
+  correctText,
+  nameVoice,
+  transcribeAndDiarize,
+  uploadClip,
+} from "./library-fixture";
 import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 
 test("analyser un clip jusqu'à sa transcription, durablement", async ({
@@ -76,5 +82,60 @@ test("analyser un clip jusqu'à sa transcription, durablement", async ({
   await expect(again).toContainText("Waiting for a compatible Worker");
   await again.getByRole("button", { name: "Cancel analysis" }).click();
   await expect(again).toContainText("Analysis cancelled.");
+  await context.close();
+});
+
+test("réanalyser un clip traité en confirmant les conséquences", async ({
+  browser,
+}) => {
+  const clipId = await uploadClip("fixture-reanalysis.mp4", "shared");
+  const [first] = await transcribeAndDiarize(clipId);
+  await correctText(clipId, 0, "Bien joué, Alice !", "synthetic");
+  await nameVoice(first, "Alice");
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+  });
+  const page = await context.newPage();
+  await page.goto(`/clips/${clipId}`);
+  const analysis = page.getByRole("region", { name: "Clip analysis" });
+  await analysis.getByRole("button", { name: "More analysis options" }).click();
+  await page.getByRole("menuitem", { name: "Reanalyze…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Reanalyze this clip" });
+  await expect(dialog).toContainText("no confirmation is needed");
+  const violations = (await new AxeBuilder({ page }).analyze()).violations;
+  expect(violations).toEqual([]);
+
+  // Choosing steps requires at least one of them.
+  await dialog.getByLabel("Only the steps I choose").check();
+  await expect(
+    dialog.getByRole("button", { name: "Start reanalysis" }),
+  ).toBeDisabled();
+  await dialog.getByLabel("Voice detection").check();
+  await expect(dialog).toContainText("validated voices");
+
+  // The consequences are explained before anything starts; going back changes nothing.
+  await dialog.getByRole("button", { name: "Start reanalysis" }).click();
+  await expect(dialog).toContainText("will make human work obsolete");
+  await expect(dialog).toContainText("1 validated voices");
+  await expect(dialog).toContainText("Nothing is deleted");
+  await dialog.getByRole("button", { name: "Back" }).click();
+  await expect(
+    analysis.getByRole("button", { name: "Cancel analysis" }),
+  ).toHaveCount(0);
+
+  // Everything again: corrections and validations are both listed; confirming starts the run.
+  await dialog.getByLabel("Everything again").check();
+  await dialog.getByRole("button", { name: "Start reanalysis" }).click();
+  await expect(dialog).toContainText("1 corrected segment texts");
+  await expect(dialog).toContainText("1 validated voices");
+  await dialog.getByRole("button", { name: "Confirm and reanalyze" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(analysis).toContainText("(run again)");
+  await expect(
+    analysis.getByRole("button", { name: "Cancel analysis" }),
+  ).toBeVisible();
+  // The current text stays visible until the new transcription succeeds.
+  await expect(page.getByText("Bien joué, Alice !").first()).toBeVisible();
+  await analysis.getByRole("button", { name: "Cancel analysis" }).click();
   await context.close();
 });

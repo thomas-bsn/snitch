@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.clip_analysis_run_forced_steps_item import ClipAnalysisRunForcedStepsItem
+from ..models.clip_analysis_run_mode import ClipAnalysisRunMode
 from ..models.clip_analysis_run_scope import ClipAnalysisRunScope
 from ..models.clip_analysis_run_status import ClipAnalysisRunStatus
 from typing import cast
@@ -36,6 +38,10 @@ class AnalysisQueueRun:
             created_at (datetime.datetime):
             updated_at (datetime.datetime):
             finished_at (datetime.datetime | None):
+            mode (ClipAnalysisRunMode):
+            forced_steps (list[ClipAnalysisRunForcedStepsItem]):
+            confirmed_replace_corrections (bool):
+            confirmed_replace_validations (bool):
             steps (list[ClipAnalysisStep]):
             clip_name (str):
      """
@@ -48,6 +54,10 @@ class AnalysisQueueRun:
     created_at: datetime.datetime
     updated_at: datetime.datetime
     finished_at: datetime.datetime | None
+    mode: ClipAnalysisRunMode
+    forced_steps: list[ClipAnalysisRunForcedStepsItem]
+    confirmed_replace_corrections: bool
+    confirmed_replace_validations: bool
     steps: list[ClipAnalysisStep]
     clip_name: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -79,6 +89,19 @@ class AnalysisQueueRun:
         else:
             finished_at = self.finished_at
 
+        mode = self.mode.value
+
+        forced_steps = []
+        for forced_steps_item_data in self.forced_steps:
+            forced_steps_item = forced_steps_item_data.value
+            forced_steps.append(forced_steps_item)
+
+
+
+        confirmed_replace_corrections = self.confirmed_replace_corrections
+
+        confirmed_replace_validations = self.confirmed_replace_validations
+
         steps = []
         for steps_item_data in self.steps:
             steps_item = steps_item_data.to_dict()
@@ -100,6 +123,10 @@ class AnalysisQueueRun:
             "created_at": created_at,
             "updated_at": updated_at,
             "finished_at": finished_at,
+            "mode": mode,
+            "forced_steps": forced_steps,
+            "confirmed_replace_corrections": confirmed_replace_corrections,
+            "confirmed_replace_validations": confirmed_replace_validations,
             "steps": steps,
             "clip_name": clip_name,
         })
@@ -162,6 +189,25 @@ class AnalysisQueueRun:
         finished_at = _parse_finished_at(d.pop("finished_at"))
 
 
+        mode = ClipAnalysisRunMode(d.pop("mode"))
+
+
+
+
+        forced_steps = []
+        _forced_steps = d.pop("forced_steps")
+        for forced_steps_item_data in (_forced_steps):
+            forced_steps_item = ClipAnalysisRunForcedStepsItem(forced_steps_item_data)
+
+
+
+            forced_steps.append(forced_steps_item)
+
+
+        confirmed_replace_corrections = d.pop("confirmed_replace_corrections")
+
+        confirmed_replace_validations = d.pop("confirmed_replace_validations")
+
         steps = []
         _steps = d.pop("steps")
         for steps_item_data in (_steps):
@@ -183,6 +229,10 @@ class AnalysisQueueRun:
             created_at=created_at,
             updated_at=updated_at,
             finished_at=finished_at,
+            mode=mode,
+            forced_steps=forced_steps,
+            confirmed_replace_corrections=confirmed_replace_corrections,
+            confirmed_replace_validations=confirmed_replace_validations,
             steps=steps,
             clip_name=clip_name,
         )
