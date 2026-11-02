@@ -10,6 +10,8 @@ from ..types import UNSET, Unset
 
 from ..models.clip_analysis_step_status import ClipAnalysisStepStatus
 from ..models.clip_analysis_step_step import ClipAnalysisStepStep
+from ..models.failure_code import FailureCode
+from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
@@ -42,6 +44,11 @@ class ClipAnalysisStep:
             started_at (datetime.datetime | None):
             finished_at (datetime.datetime | None):
             updated_at (datetime.datetime):
+            failure_code (FailureCode | Unset): Catalogue fermé des Causes d'échec d'un job. Un code hors catalogue envoyé
+                par un ancien Worker est enregistré comme worker_failed.
+            recommended_action (str | Unset): File de tâches seulement : code de l'action conseillée, décidé par le serveur.
+                Étape en échec : action de la Cause d'échec (catalogue des jobs). Attente de Worker (awaiting_worker,
+                awaiting_compatible_worker) d'un job prêt : start_worker ; jamais pour une reprise différée.
      """
 
     step: ClipAnalysisStepStep
@@ -55,6 +62,8 @@ class ClipAnalysisStep:
     started_at: datetime.datetime | None
     finished_at: datetime.datetime | None
     updated_at: datetime.datetime
+    failure_code: FailureCode | Unset = UNSET
+    recommended_action: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -95,6 +104,13 @@ class ClipAnalysisStep:
 
         updated_at = self.updated_at.isoformat()
 
+        failure_code: str | Unset = UNSET
+        if not isinstance(self.failure_code, Unset):
+            failure_code = self.failure_code.value
+
+
+        recommended_action = self.recommended_action
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -111,6 +127,10 @@ class ClipAnalysisStep:
             "finished_at": finished_at,
             "updated_at": updated_at,
         })
+        if failure_code is not UNSET:
+            field_dict["failure_code"] = failure_code
+        if recommended_action is not UNSET:
+            field_dict["recommended_action"] = recommended_action
 
         return field_dict
 
@@ -200,6 +220,18 @@ class ClipAnalysisStep:
 
 
 
+        _failure_code = d.pop("failure_code", UNSET)
+        failure_code: FailureCode | Unset
+        if isinstance(_failure_code,  Unset):
+            failure_code = UNSET
+        else:
+            failure_code = FailureCode(_failure_code)
+
+
+
+
+        recommended_action = d.pop("recommended_action", UNSET)
+
         clip_analysis_step = cls(
             step=step,
             status=status,
@@ -212,6 +244,8 @@ class ClipAnalysisStep:
             started_at=started_at,
             finished_at=finished_at,
             updated_at=updated_at,
+            failure_code=failure_code,
+            recommended_action=recommended_action,
         )
 
 

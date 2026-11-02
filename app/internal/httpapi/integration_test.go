@@ -198,6 +198,22 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAdminQueuePendingVoices(t, pool)
 	})
+	t.Run("admin queue failure causes", func(t *testing.T) {
+		reset(t)
+		testAdminQueueFailureCauses(t, pool)
+	})
+	t.Run("admin queue failed tasks", func(t *testing.T) {
+		reset(t)
+		testAdminQueueFailedTasks(t, pool)
+	})
+	t.Run("admin queue summary", func(t *testing.T) {
+		reset(t)
+		testAdminQueueSummary(t, pool)
+	})
+	t.Run("admin queue causes access", func(t *testing.T) {
+		reset(t)
+		testAdminQueueCausesAccess(t, pool)
+	})
 	t.Run("clip analysis voice branches", func(t *testing.T) {
 		reset(t)
 		testClipAnalysisVoice(t, pool)

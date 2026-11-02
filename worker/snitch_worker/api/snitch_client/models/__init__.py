@@ -6,6 +6,7 @@ from .account_preferences_input_language import AccountPreferencesInputLanguage
 from .account_preferences_language import AccountPreferencesLanguage
 from .analysis_queue import AnalysisQueue
 from .analysis_queue_run import AnalysisQueueRun
+from .analysis_queue_summary import AnalysisQueueSummary
 from .analysis_queue_task import AnalysisQueueTask
 from .analysis_run_history import AnalysisRunHistory
 from .attribution import Attribution
@@ -371,6 +372,7 @@ __all__ = (
     "AccountPreferencesLanguage",
     "AnalysisQueue",
     "AnalysisQueueRun",
+    "AnalysisQueueSummary",
     "AnalysisQueueTask",
     "AnalysisRunHistory",
     "Attribution",
