@@ -47,8 +47,17 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 **Invitation d'installation** : Un accès à usage unique et de courte durée, généré par un administrateur, qui permet à une machine de s'installer comme Worker. Une fois utilisée ou expirée, il faut en générer une nouvelle.
 _Avoid_ : Jeton du Worker (qui désigne l'accès durable du Worker installé).
 
-**Voix prête** : État d'un Worker dont les modèles vocaux sont présents et dont une inférence de test a réussi. Des modèles simplement téléchargés ne suffisent pas.
+**Voix prête** : État d'un Worker dont les modèles vocaux actifs sont présents et dont une inférence de test a réussi. Des modèles simplement téléchargés ne suffisent pas.
 _Avoid_ : Modèles prêts, voix installée.
+
+**Catalogue de modèles vocaux** : Les modèles de diarisation et d'empreinte que Snitch sait exécuter. Seul un modèle du catalogue peut devenir candidat ou actif ; un dépôt quelconque n'en fait pas partie.
+
+**Modèle vocal actif** : Le modèle de diarisation, ou d'empreinte, que Snitch utilise pour tous les nouveaux travaux vocaux, quel que soit le Worker. Un Worker qui ne l'a pas prêt ne traite pas ces travaux.
+_Avoid_ : Modèle du Worker, modèle installé.
+
+**Modèle vocal candidat** : Un modèle du catalogue choisi par l'administrateur pour être préparé sur les Workers et essayé avant d'être activé. Il ne produit aucun résultat de la bibliothèque tant qu'il n'est pas actif.
+
+**Essai de diarisation** : Une diarisation d'un clip avec un modèle candidat ou un nombre de locuteurs imposé, présentée à côté du résultat courant. Elle ne change ni les locuteurs locaux, ni les attributions, ni les corrections du clip.
 
 **Transcription désactivée** : Choix explicite de ne pas produire de transcription pour la bibliothèque. Il se distingue d'un réglage encore incomplet ou non testé.
 

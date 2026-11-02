@@ -157,7 +157,7 @@ func testSegmentReviewFixes(t *testing.T, pool *pgxpool.Pool, reset func(*testin
 		}
 		// The Person is gone, so the diarization is no longer locked: a new diarization
 		// replaces the Local speakers. The lost override is recorded in the history.
-		h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusCreated)
+		h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), map[string]any{"audio_stream_index": 2, "confirm_replace_validations": true}, http.StatusCreated)
 		job, ok := h.claim()
 		if !ok || job.Step != "voice.diarization.2" {
 			t.Fatalf("expected a new diarization, got %+v", job)

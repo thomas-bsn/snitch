@@ -67,6 +67,22 @@ Mises à jour : `pull_policy: always` vérifie l'image à chaque `docker compose
 
 Le volume de modèles n'est plus monté en lecture seule dans le compose, pour permettre ce premier téléchargement ; le worker, lui, ne fait que lire. Une fois les modèles installés et sans opt-in, `:ro` peut être rajouté. Non vérifié ici : le téléchargement réel (aucun jeton ni réseau Hugging Face), notamment la résolution de révision par `HfApi.model_info`, le droit d'écriture de l'utilisateur 10001 sur un montage hôte et le comportement de `snapshot_download(local_dir=...)` sur un volume déjà partiellement rempli.
 
+## Jeton Hugging Face : installer d'autres modèles depuis Snitch
+
+Choisir un autre modèle dans Administration › Traitement vocal fait télécharger ce modèle par le Worker. Le téléchargement lit le jeton dans un fichier privé du volume des modèles, `/models/.secrets/hf_token` (dossier `0700`, fichier `0600`), que seul le sous-processus de téléchargement ouvre : le jeton ne passe jamais par Snitch, ni par l'API, ni par l'environnement du processus d'inférence. Le fichier vit dans le volume : supprimer le Worker dans Snitch le vide avec le reste.
+
+- **À l'installation** (commande unique, `compose.yaml` généré, `install.py`) : le jeton saisi pour le premier téléchargement est gardé dans ce fichier par le Worker, sans réglage supplémentaire.
+- **Compose ou `.env`** : `HF_TOKEN` n'est lu qu'au démarrage ; une fois le jeton gardé dans le volume, vous pouvez le retirer du `.env`. La commande unique ne l'y laisse jamais.
+- **Worker déjà installé, sans fichier** : l'écran affiche « Jeton Hugging Face absent sur ce Worker ». Enregistrez-le une fois, depuis la machine du Worker (bash), en le passant sur l'entrée standard (jamais en argument ni en variable). Le nom de l'image s'obtient avec `docker inspect -f '{{.Config.Image}}' snitch-worker-<id du Worker>` :
+
+```bash
+read -rs HF && printf '%s' "$HF" | docker run -i --rm --user 10001:10001 \
+  -v snitch-models-<id du Worker>:/models --entrypoint python <image du Worker> \
+  -m snitch_worker.bootstrap store-token; unset HF
+```
+
+La commande affiche `stored`, ou `cause=invalid_token` si la valeur n'a pas la forme d'un jeton (`hf_…`), sans jamais le répéter. Un jeton refusé ne remplace pas celui déjà gardé. Le jeton doit avoir accès aux dépôts du modèle choisi (conditions acceptées sur Hugging Face).
+
 ## Installer sur le PC gamer
 
 Cible : un PC Linux (ou Windows avec WSL2 et Docker) avec une carte NVIDIA, par exemple une RTX 4070 (12 Go). Le worker ne publie aucun port et appelle l'API Snitch en HTTPS sortant ; les secrets restent sur ce PC. Les fichiers sont dans `deploy/worker/` (`compose.yaml`, `.env.example`).
@@ -128,11 +144,11 @@ Le montage de dossier hôte vers le conteneur sous WSL2 ne propage pas toujours 
 7. **Vérifier dans Snitch.** Le worker apparaît actif sur la page des workers avec ses capacités (`transcription.*`, `voice.*`). La fiche indique la machine déclarée ; pour remplacer le nom du conteneur par celui du PC, renseigner `SNITCH_WORKER_MACHINE_NAME` dans `.env`. Le système affiché est celui du conteneur. Un échec `provider_unavailable` renvoie au code de raison stable des journaux (`model_path_missing`, `cuda_unavailable`, `model_load_failed`...).
 8. **Brancher la transcription (Whisper).** Un serveur compatible `POST /v1/audio/transcriptions` : sur le PC hors Docker, `TRANSCRIPTION_API_URL=http://host.docker.internal:<port>` (le compose ajoute `host.docker.internal:host-gateway`) ; dans un autre projet Compose, activer l'option de réseau partagé du compose et viser le nom du service. Le profil de bibliothèque définit le modèle et la langue. Si le serveur Whisper utilise un autre nom pour le même modèle, renseigner ce nom pour le Worker dans Administration › Transcription ; les résultats restent étiquetés avec le nom du profil.
 9. **Embeddings de texte (Ollama).** Ils restent côté NAS (`EMBEDDINGS_URL` et `EMBEDDINGS_MODEL` de l'application, voir [déploiement](deployment.md)) et ne passent pas par le worker. Un Ollama sur le PC peut servir de fournisseur si le NAS peut le joindre (réseau privé de votre choix).
-10. **Configurer le pipeline vocal** dans l'interface (fournisseur `pyannote`, modèle `pyannote/speaker-diarization-community-1`, version téléchargée) et confirmer `access_confirmed` : c'est la confirmation explicite par l'administrateur que les conditions ont été acceptées.
+10. **Configurer le pipeline vocal** dans l'interface (fournisseur `pyannote`, modèle `pyannote/speaker-diarization-community-1`, version téléchargée) (le modèle se choisit dans le catalogue, sans case de confirmation) : l'état réel du Worker remplace la confirmation de l'administrateur que les conditions ont été acceptées.
 6. **Vérifier dans Snitch.** Le worker apparaît actif sur la page des workers avec ses capacités (`transcription.*`, `voice.*`). La fiche indique la machine déclarée ; pour remplacer le nom du conteneur par celui du PC, renseigner `SNITCH_WORKER_MACHINE_NAME` dans `.env`. Le système affiché est celui du conteneur. Un échec `provider_unavailable` renvoie au code de raison stable des journaux (`model_path_missing`, `cuda_unavailable`, `model_load_failed`...).
 7. **Brancher la transcription (Whisper).** Un serveur compatible `POST /v1/audio/transcriptions` : sur le PC hors Docker, `TRANSCRIPTION_API_URL=http://host.docker.internal:<port>` (le compose ajoute `host.docker.internal:host-gateway`) ; dans un autre projet Compose, activer l'option de réseau partagé du compose et viser le nom du service. Le profil de bibliothèque définit le modèle et la langue. Si le serveur Whisper utilise un autre nom pour le même modèle, renseigner ce nom pour le Worker dans Administration › Transcription ; les résultats restent étiquetés avec le nom du profil.
 8. **Embeddings de texte (Ollama).** Ils restent côté NAS (`EMBEDDINGS_URL` et `EMBEDDINGS_MODEL` de l'application, voir [déploiement](deployment.md)) et ne passent pas par le worker. Un Ollama sur le PC peut servir de fournisseur si le NAS peut le joindre (réseau privé de votre choix).
-9. **Configurer le pipeline vocal** dans l'interface (fournisseur `pyannote`, modèle `pyannote/speaker-diarization-community-1`, version téléchargée) et confirmer `access_confirmed` : c'est la confirmation explicite par l'administrateur que les conditions ont été acceptées.
+9. **Configurer le pipeline vocal** dans l'interface (fournisseur `pyannote`, modèle `pyannote/speaker-diarization-community-1`, version téléchargée) (le modèle se choisit dans le catalogue, sans case de confirmation) : l'état réel du Worker remplace la confirmation de l'administrateur que les conditions ont été acceptées.
 
 ### VRAM : 12 Go partagés
 

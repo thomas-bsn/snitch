@@ -182,15 +182,16 @@ type JobEvent struct {
 }
 
 type LocalSpeaker struct {
-	ID               int64       `json:"id"`
-	ClipID           int64       `json:"clip_id"`
-	AudioStreamIndex int32       `json:"audio_stream_index"`
-	DiarizationJobID pgtype.Int8 `json:"diarization_job_id"`
-	Label            string      `json:"label"`
-	Ordinal          int32       `json:"ordinal"`
-	SpeakingSeconds  float64     `json:"speaking_seconds"`
-	TurnCount        int32       `json:"turn_count"`
-	Kind             string      `json:"kind"`
+	ID               int64              `json:"id"`
+	ClipID           int64              `json:"clip_id"`
+	AudioStreamIndex int32              `json:"audio_stream_index"`
+	DiarizationJobID pgtype.Int8        `json:"diarization_job_id"`
+	Label            string             `json:"label"`
+	Ordinal          int32              `json:"ordinal"`
+	SpeakingSeconds  float64            `json:"speaking_seconds"`
+	TurnCount        int32              `json:"turn_count"`
+	Kind             string             `json:"kind"`
+	ArchivedAt       pgtype.Timestamptz `json:"archived_at"`
 }
 
 type MicrophoneTrackEvent struct {
@@ -501,6 +502,24 @@ type VoiceAutomationEvent struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceDiarizationTrial struct {
+	ID               int64              `json:"id"`
+	ClipID           int64              `json:"clip_id"`
+	AudioStreamIndex int32              `json:"audio_stream_index"`
+	ModelID          string             `json:"model_id"`
+	ModelRepo        string             `json:"model_repo"`
+	ModelRevision    string             `json:"model_revision"`
+	NumSpeakers      pgtype.Int4        `json:"num_speakers"`
+	MinSpeakers      pgtype.Int4        `json:"min_speakers"`
+	MaxSpeakers      pgtype.Int4        `json:"max_speakers"`
+	Run              int32              `json:"run"`
+	Result           []byte             `json:"result"`
+	CreatedBy        string             `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
+	ModelEngine      string             `json:"model_engine"`
+}
+
 type VoiceFingerprint struct {
 	ID               int64              `json:"id"`
 	LocalSpeakerID   int64              `json:"local_speaker_id"`
@@ -550,6 +569,12 @@ type VoiceMatchingSetting struct {
 	MinConfirmations    int32              `json:"min_confirmations"`
 	AutoChangedAt       pgtype.Timestamptz `json:"auto_changed_at"`
 	AutoChangedBy       pgtype.Int8        `json:"auto_changed_by"`
+}
+
+type VoiceModelCandidate struct {
+	ID       bool               `json:"id"`
+	ModelID  string             `json:"model_id"`
+	ChosenAt pgtype.Timestamptz `json:"chosen_at"`
 }
 
 type VoicePipelineActive struct {
@@ -642,4 +667,16 @@ type WorkerTranscriptionConfig struct {
 	TestedAt         pgtype.Timestamptz `json:"tested_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	EndpointOverride string             `json:"endpoint_override"`
+}
+
+type WorkerVoiceModel struct {
+	WorkerID         string             `json:"worker_id"`
+	ModelID          string             `json:"model_id"`
+	State            string             `json:"state"`
+	CauseCode        string             `json:"cause_code"`
+	BytesReceived    int64              `json:"bytes_received"`
+	BytesTotal       int64              `json:"bytes_total"`
+	RetryRequested   bool               `json:"retry_requested"`
+	RemovalRequested bool               `json:"removal_requested"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }

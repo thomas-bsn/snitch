@@ -239,17 +239,39 @@ from .voice_group_list import VoiceGroupList
 from .voice_group_member import VoiceGroupMember
 from .voice_group_naming import VoiceGroupNaming
 from .voice_group_naming_input import VoiceGroupNamingInput
+from .voice_history_entry import VoiceHistoryEntry
 from .voice_matching_input import VoiceMatchingInput
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_summary import VoiceMatchingSummary
+from .voice_model import VoiceModel
+from .voice_model_candidate import VoiceModelCandidate
+from .voice_model_choice import VoiceModelChoice
+from .voice_model_kind import VoiceModelKind
+from .voice_model_retry import VoiceModelRetry
+from .voice_model_worker_state import VoiceModelWorkerState
+from .voice_model_worker_state_cause_code import VoiceModelWorkerStateCauseCode
+from .voice_model_worker_state_state import VoiceModelWorkerStateState
+from .voice_models import VoiceModels
+from .voice_overview import VoiceOverview
+from .voice_overview_active_models import VoiceOverviewActiveModels
+from .voice_overview_provider import VoiceOverviewProvider
+from .voice_overview_worker import VoiceOverviewWorker
+from .voice_overview_worker_voice_state import VoiceOverviewWorkerVoiceState
 from .voice_pipeline import VoicePipeline
 from .voice_pipeline_fake import VoicePipelineFake
 from .voice_pipeline_provider import VoicePipelineProvider
 from .voice_pipeline_state import VoicePipelineState
 from .voice_profile_deletion import VoiceProfileDeletion
+from .voice_rediarization_confirmation import VoiceRediarizationConfirmation
+from .voice_rediarization_stake import VoiceRediarizationStake
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
+from .voice_trial import VoiceTrial
+from .voice_trial_request import VoiceTrialRequest
+from .voice_trial_speaker import VoiceTrialSpeaker
+from .voice_trial_status import VoiceTrialStatus
+from .voice_trials import VoiceTrials
 from .voice_verification import VoiceVerification
 from .voice_verification_case import VoiceVerificationCase
 from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
@@ -296,6 +318,12 @@ from .worker_voice_input import WorkerVoiceInput
 from .worker_voice_input_diarization import WorkerVoiceInputDiarization
 from .worker_voice_input_diarization_speakers_item import WorkerVoiceInputDiarizationSpeakersItem
 from .worker_voice_input_diarization_speakers_item_turns_item import WorkerVoiceInputDiarizationSpeakersItemTurnsItem
+from .worker_voice_model import WorkerVoiceModel
+from .worker_voice_model_role import WorkerVoiceModelRole
+from .worker_voice_model_status import WorkerVoiceModelStatus
+from .worker_voice_model_status_cause_code import WorkerVoiceModelStatusCauseCode
+from .worker_voice_model_status_state import WorkerVoiceModelStatusState
+from .worker_voice_models import WorkerVoiceModels
 
 __all__ = (
     "AccountPreferences",
@@ -537,17 +565,39 @@ __all__ = (
     "VoiceGroupMember",
     "VoiceGroupNaming",
     "VoiceGroupNamingInput",
+    "VoiceHistoryEntry",
     "VoiceMatchingInput",
     "VoiceMatchingSettings",
     "VoiceMatchingSummary",
+    "VoiceModel",
+    "VoiceModelCandidate",
+    "VoiceModelChoice",
+    "VoiceModelKind",
+    "VoiceModelRetry",
+    "VoiceModels",
+    "VoiceModelWorkerState",
+    "VoiceModelWorkerStateCauseCode",
+    "VoiceModelWorkerStateState",
+    "VoiceOverview",
+    "VoiceOverviewActiveModels",
+    "VoiceOverviewProvider",
+    "VoiceOverviewWorker",
+    "VoiceOverviewWorkerVoiceState",
     "VoicePipeline",
     "VoicePipelineFake",
     "VoicePipelineProvider",
     "VoicePipelineState",
     "VoiceProfileDeletion",
+    "VoiceRediarizationConfirmation",
+    "VoiceRediarizationStake",
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",
+    "VoiceTrial",
+    "VoiceTrialRequest",
+    "VoiceTrials",
+    "VoiceTrialSpeaker",
+    "VoiceTrialStatus",
     "VoiceVerification",
     "VoiceVerificationCase",
     "VoiceVerificationCaseDecisionLevel",
@@ -594,4 +644,10 @@ __all__ = (
     "WorkerVoiceInputDiarization",
     "WorkerVoiceInputDiarizationSpeakersItem",
     "WorkerVoiceInputDiarizationSpeakersItemTurnsItem",
+    "WorkerVoiceModel",
+    "WorkerVoiceModelRole",
+    "WorkerVoiceModels",
+    "WorkerVoiceModelStatus",
+    "WorkerVoiceModelStatusCauseCode",
+    "WorkerVoiceModelStatusState",
 )

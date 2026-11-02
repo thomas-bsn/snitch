@@ -10,6 +10,7 @@ from ... import errors
 
 from ...models.error import Error
 from ...models.scheduled_voice import ScheduledVoice
+from ...models.voice_rediarization_confirmation import VoiceRediarizationConfirmation
 from ...models.voice_schedule_input import VoiceScheduleInput
 from typing import cast
 
@@ -48,7 +49,7 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Error | ScheduledVoice:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Error | ScheduledVoice | VoiceRediarizationConfirmation:
     if response.status_code == 200:
         response_200 = ScheduledVoice.from_dict(response.json())
 
@@ -63,6 +64,13 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
         return response_201
 
+    if response.status_code == 409:
+        response_409 = VoiceRediarizationConfirmation.from_dict(response.json())
+
+
+
+        return response_409
+
     response_default = Error.from_dict(response.json())
 
 
@@ -71,7 +79,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Error | ScheduledVoice]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Error | ScheduledVoice | VoiceRediarizationConfirmation]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -88,9 +96,12 @@ def sync_detailed(
     origin: str,
     x_csrf_token: str,
 
-) -> Response[Error | ScheduledVoice]:
+) -> Response[Error | ScheduledVoice | VoiceRediarizationConfirmation]:
     """  Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est
     jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation.
+    Sert aussi à relancer la diarisation d'un clip déjà traité avec le modèle actif (jamais automatique)
+    : le résultat visible n'est remplacé qu'après réussite, les corrections de locuteur deviennent
+    obsolètes, les échantillons vocaux validés sont conservés.
 
     Args:
         id (int):
@@ -103,7 +114,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | ScheduledVoice]
+        Response[Error | ScheduledVoice | VoiceRediarizationConfirmation]
      """
 
 
@@ -129,9 +140,12 @@ def sync(
     origin: str,
     x_csrf_token: str,
 
-) -> Error | ScheduledVoice | None:
+) -> Error | ScheduledVoice | VoiceRediarizationConfirmation | None:
     """  Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est
     jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation.
+    Sert aussi à relancer la diarisation d'un clip déjà traité avec le modèle actif (jamais automatique)
+    : le résultat visible n'est remplacé qu'après réussite, les corrections de locuteur deviennent
+    obsolètes, les échantillons vocaux validés sont conservés.
 
     Args:
         id (int):
@@ -144,7 +158,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | ScheduledVoice
+        Error | ScheduledVoice | VoiceRediarizationConfirmation
      """
 
 
@@ -165,9 +179,12 @@ async def asyncio_detailed(
     origin: str,
     x_csrf_token: str,
 
-) -> Response[Error | ScheduledVoice]:
+) -> Response[Error | ScheduledVoice | VoiceRediarizationConfirmation]:
     """  Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est
     jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation.
+    Sert aussi à relancer la diarisation d'un clip déjà traité avec le modèle actif (jamais automatique)
+    : le résultat visible n'est remplacé qu'après réussite, les corrections de locuteur deviennent
+    obsolètes, les échantillons vocaux validés sont conservés.
 
     Args:
         id (int):
@@ -180,7 +197,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | ScheduledVoice]
+        Response[Error | ScheduledVoice | VoiceRediarizationConfirmation]
      """
 
 
@@ -206,9 +223,12 @@ async def asyncio(
     origin: str,
     x_csrf_token: str,
 
-) -> Error | ScheduledVoice | None:
+) -> Error | ScheduledVoice | VoiceRediarizationConfirmation | None:
     """  Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est
     jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation.
+    Sert aussi à relancer la diarisation d'un clip déjà traité avec le modèle actif (jamais automatique)
+    : le résultat visible n'est remplacé qu'après réussite, les corrections de locuteur deviennent
+    obsolètes, les échantillons vocaux validés sont conservés.
 
     Args:
         id (int):
@@ -221,7 +241,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | ScheduledVoice
+        Error | ScheduledVoice | VoiceRediarizationConfirmation
      """
 
 

@@ -107,7 +107,7 @@ func (s *Server) putSegmentSpeaker(w http.ResponseWriter, r *http.Request) {
 		// The designated voice must be a Local speaker of this clip and audio stream.
 		newLabel := ""
 		if target != nil {
-			err := tx.QueryRow(ctx, `SELECT label FROM local_speakers WHERE id=$1 AND clip_id=$2 AND audio_stream_index=$3`, *target, ref.Clip.ID, ref.Stream).Scan(&newLabel)
+			err := tx.QueryRow(ctx, `SELECT label FROM local_speakers WHERE id=$1 AND clip_id=$2 AND audio_stream_index=$3 AND kind<>'archived'`, *target, ref.Clip.ID, ref.Stream).Scan(&newLabel)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return segmentChange{}, &refusal{http.StatusBadRequest, codeInvalidLocalSpeaker}, nil
 			}

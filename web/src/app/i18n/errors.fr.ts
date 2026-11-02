@@ -208,9 +208,25 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   username_unavailable: "Ce nom est déjà utilisé.",
   vocabulary_term_not_found: "Ce terme de vocabulaire n’existe pas.",
   voice_group_not_found: "Ce groupe de voix n’existe pas.",
+  voice_rediarization_confirmation_required:
+    "La relance de la diarisation doit être confirmée.",
   voice_locked_by_validation: "Cette voix est verrouillée par une validation.",
-  voice_model_access_unconfirmed:
-    "L’accès aux modèles de voix n’a pas été confirmé.",
+  voice_model_already_active: "Ce modèle est déjà le modèle actif.",
+  voice_model_in_use:
+    "Ce modèle est actif ou candidat : il ne peut pas être supprimé.",
+  voice_model_not_found: "Ce modèle n’existe pas dans le catalogue.",
+  voice_model_not_ready:
+    "Aucun Worker n’a ce modèle prêt : attendez la fin de sa préparation.",
+  invalid_voice_model: "Ce modèle ne peut pas être choisi.",
+  invalid_voice_model_status: "Cet état de modèle vocal n’est pas valide.",
+  voice_trial_option_unsupported:
+    "Ce moteur ne permet pas d’imposer le nombre de locuteurs.",
+  invalid_voice_trial_options:
+    "Le nombre de locuteurs doit être positif, dans la limite du modèle, et num_speakers ne se combine pas avec min/max.",
+  voice_trial_running: "Cet essai est déjà en cours.",
+  voice_trial_not_found: "Cet essai n’existe plus.",
+  invalid_voice_trial_id: "Identifiant d’essai invalide.",
+  no_voice_candidate: "Aucun échec à relancer pour le candidat.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
   worker_not_found: "Ce Worker n’existe pas.",
   install_invite_used:

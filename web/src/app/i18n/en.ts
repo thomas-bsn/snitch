@@ -243,6 +243,78 @@ export const en = {
     remove: "Delete",
     empty: "No vocabulary terms yet.",
   },
+  voiceInventory: {
+    title: "Worker voice models",
+    hint: "What each Worker really holds, reported by the Worker itself.",
+    ready: "Workers with voice ready",
+    pending: "Voice jobs waiting for a ready Worker",
+    empty: "No Worker yet. Install one to analyse voices.",
+    offline: "Offline",
+    none: "Not installed",
+    diarization: "Diarization model",
+    fingerprint: "Fingerprint model",
+    missing:
+      "This Worker does not hold the active model {model}, so it takes no voice job.",
+    cause: "Cause: {code}",
+    state: {
+      ready: "Voice ready",
+      untested: "Not tested",
+      unavailable: "Unavailable",
+      models_missing: "Active model missing",
+    },
+  },
+  voiceModels: {
+    fingerprintTitle: "Fingerprint model",
+    fingerprintHint:
+      "Fixed by the catalogue: voice fingerprints use this model, nothing to choose.",
+    title: "Diarization model",
+    hint: "Pick a candidate from the catalogue: each Worker downloads it, loads it and runs a test inference. You then activate it for every Worker.",
+    active: "Active",
+    candidate: "Candidate",
+    facts:
+      "Engine {engine}, licence {license}, {size} MB, revision {revision}.",
+    gated: "Restricted access on Hugging Face.",
+    maxSpeakers: "At most {count} voices.",
+    numSpeakers: "Number of speakers can be set.",
+    noNumSpeakers: "Number of speakers cannot be set.",
+    progress: "{received} / {total} MB",
+    choose: "Choose as candidate",
+    activate: "Activate",
+    cancel: "Cancel the candidate",
+    revert: "Switch back to this model",
+    remove: "Delete",
+    retry: "Retry",
+    cancelDialog: "Cancel",
+    confirmTitle: "Activate {model}?",
+    confirmActivate: "Activate for every Worker",
+    effectVersion:
+      "A new voice pipeline version is created: new voice jobs use it.",
+    effectRunning: "Jobs already running keep their version.",
+    effectClips: "Clips already processed are never re-diarized automatically.",
+    effectReady: "Ready Workers: {names}.",
+    effectNotReady:
+      "These Workers do not have the model ready and will stop taking voice jobs: {names}.",
+    removeTitle: "Delete {model}?",
+    removeText:
+      "Each Worker deletes this model from its volume. You will have to choose it again to download it again.",
+    state: {
+      not_installed: "Not installed",
+      downloading: "Downloading",
+      verifying: "Verifying",
+      ready: "Ready",
+      failed: "Failed",
+    },
+    cause: {
+      hf_token_missing:
+        "Hugging Face token missing on this Worker. Store it from the Worker machine with the store-token command (see docs/real-voice-worker.md), then retry.",
+      hf_access_denied:
+        "Hugging Face access refused: accept the model terms with the account that owns the token.",
+      disk_full: "The Worker machine's disk is full.",
+      runtime_incompatible:
+        "This model is not compatible with the Worker environment.",
+      inference_failed: "The test inference failed.",
+    },
+  },
   voiceAdmin: {
     title: "Voice processing",
     saved: "Settings saved.",
@@ -252,7 +324,6 @@ export const en = {
     fake: "Synthetic provider (tests)",
     model: "Diarization model",
     modelVersion: "Model version",
-    access: "Model access confirmed",
     minDuration: "Minimum fingerprint duration (seconds)",
     minQuality: "Minimum quality",
     fakeSpeakers: "Synthetic speakers",
@@ -296,6 +367,46 @@ export const en = {
     enabledEvent: "Enabled",
     disabledEvent: "Disabled",
     forcedEvent: "Criteria unmet",
+  },
+  voiceScreen: {
+    summary: "State",
+    activeDiar: "Active diarization model",
+    activeFingerprint: "Active fingerprint model (read only)",
+    measured: "Measured precision",
+    autoHint:
+      "Never enabled on its own: only you can turn it on, after a confirmation. Human validations are never overwritten.",
+    enableTitle: "Enable automatic attribution?",
+    enableText:
+      "Voices recognised with enough confidence will be attributed without asking. You can disable it at any time.",
+    enableMeasure: "Measured precision: {value}.",
+    noWorker: "No Worker yet: install one to analyse voices.",
+    noneReady: "No Worker has voice ready: voice jobs wait.",
+    offline: "{count} Worker(s) offline.",
+    tokenMissing:
+      "A Worker is missing its Hugging Face token: see the model card below.",
+    accessDenied:
+      "Hugging Face refused access to a model: accept its terms with the token's account.",
+    pending: "{count} voice job(s) waiting for a ready Worker.",
+    advanced: "Advanced settings",
+    advancedHint: "Thresholds and criteria",
+    autoThresholdHint:
+      "Similarity above which a voice is attributed automatically (when enabled).",
+    suggestionHint:
+      "Similarity above which a person is suggested for you to confirm.",
+    marginHint:
+      "Minimum gap with the second candidate, otherwise the voice is ambiguous.",
+    candidatesHint: "Number of people proposed for a voice.",
+    fingerprintSettings: "Voice fingerprints",
+    fingerprintHint:
+      "Short or poor-quality extracts do not produce a fingerprint. Saving creates a new pipeline version.",
+    automationSettings: "Automation criteria",
+    precisionHint: "Measured precision required before activation is proposed.",
+    confirmationsHint: "Human confirmations required before activation.",
+    reset: "Reset to default values",
+    resetTitle: "Reset these settings?",
+    resetText:
+      "Matching thresholds, fingerprint settings and activation criteria go back to the installation values. Automatic attribution stays as it is.",
+    resetConfirm: "Reset",
   },
   members: {
     title: "Members",
@@ -1476,6 +1587,45 @@ export const en = {
     reprocess: "Reprocess metadata",
     confirm: "Reprocess existing clips? Manual corrections will be preserved.",
     result: "{updated} clips processed; {unavailable} unavailable.",
+  },
+  voiceRelaunch: {
+    section: "Relaunch diarization",
+    button: "Relaunch diarization",
+    scheduled: "Diarization relaunched. Current voices stay until it succeeds.",
+    title: "Relaunch diarization?",
+    cancel: "Cancel",
+    confirm: "Confirm relaunch",
+    warning:
+      "The voice split will be replaced on success. {corrections} speaker correction(s) will become obsolete. {speakers} validated voice(s) and {samples} validated voice sample(s) are kept, linked to the audio, but will no longer be attached to the displayed voices.",
+    history: "Previous results ({count})",
+    entry:
+      "Model {model} ({version}), {date}: {speakers} voice(s), {validated} validated.",
+  },
+  voiceTrial: {
+    title: "Diarization trial",
+    hint: "Run the candidate or active model on this clip, optionally with a number of speakers, and compare it with the current result. A trial never changes the speakers, attributions or corrections of the clip.",
+    model: "Model",
+    active: "active",
+    candidate: "candidate",
+    numSpeakers: "Number of speakers",
+    automatic: "Automatic",
+    noNumSpeakers: "This engine cannot be given a number of speakers.",
+    noModel:
+      "No candidate or active model is ready on a Worker: prepare one in Admin, Voice processing.",
+    run: "Run the trial",
+    starting: "Starting…",
+    current: "Current result",
+    count: "{count} speakers",
+    speaker: "{label}: {seconds} s, {turns} turns",
+    none: "No trial yet on this clip.",
+    imposed: "{count} speakers imposed",
+    delete: "Delete this trial",
+    status: {
+      pending: "waiting for a Worker",
+      running: "running",
+      done: "done",
+      failed: "failed",
+    },
   },
   errors: errorsEn,
   errorFallback: "Something went wrong ({code}). Try again.",

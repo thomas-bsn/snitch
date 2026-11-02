@@ -195,9 +195,25 @@ export const errorsEn = {
   username_unavailable: "This username is already taken.",
   vocabulary_term_not_found: "This vocabulary term does not exist.",
   voice_group_not_found: "This voice group does not exist.",
+  voice_rediarization_confirmation_required:
+    "Relaunching the diarization must be confirmed.",
   voice_locked_by_validation: "This voice is locked by a validation.",
-  voice_model_access_unconfirmed:
-    "Access to the voice models has not been confirmed.",
+  voice_model_already_active: "This model is already the active model.",
+  voice_model_in_use:
+    "This model is active or a candidate, so it cannot be deleted.",
+  voice_model_not_found: "This model is not in the catalogue.",
+  voice_model_not_ready:
+    "No Worker has this model ready: wait for its preparation to finish.",
+  invalid_voice_model: "This model cannot be chosen.",
+  invalid_voice_model_status: "This voice model status is not valid.",
+  voice_trial_option_unsupported:
+    "This engine cannot be given a number of speakers.",
+  invalid_voice_trial_options:
+    "The number of speakers must be positive and within the model's limit, and num_speakers cannot be combined with min/max.",
+  voice_trial_running: "This trial is already running.",
+  voice_trial_not_found: "This trial no longer exists.",
+  invalid_voice_trial_id: "Invalid trial identifier.",
+  no_voice_candidate: "There is no failure to retry for the candidate.",
   voice_profile_deleted: "This voice profile was deleted.",
   worker_not_found: "This worker does not exist.",
   install_invite_used:

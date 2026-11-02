@@ -318,11 +318,11 @@ func testPersonValidation(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("segments must carry the person and decision level of their speaker: %+v", segments)
 	}
 
-	// A human validation pins the speakers: a new diarization is refused, by schedule and by result.
+	// A human validation makes a relaunch require the administrator's explicit
+	// confirmation (the replacement itself is covered by the rediarization suite).
 	h.putPipeline(fakePipeline(3))
-	h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusConflict)
-	if body = h.complete(rerun, diarizationPayload("SOLO"), http.StatusConflict); !bytes.Contains(body, []byte("diarization_locked")) {
-		t.Fatalf("a diarization over validated speakers must be refused: %s", body)
+	if body = h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusConflict); !bytes.Contains(body, []byte("voice_rediarization_confirmation_required")) {
+		t.Fatalf("a relaunch over validated speakers needs a confirmation: %s", body)
 	}
 	if after := h.voice(); len(after.Speakers) != 2 || after.Speakers[0].ID != first || after.Speakers[0].DecisionLevel != "human" {
 		t.Fatalf("validated speakers were replaced: %+v", after)

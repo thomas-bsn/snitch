@@ -314,9 +314,15 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 	return nil
 }
 
+// ActiveEmbeddingModel is the speaker embedding model every fingerprint job runs with. It is a
+// constant until the catalogue of voice models makes the embedder selectable.
+const ActiveEmbeddingModel = "pyannote/wespeaker-voxceleb-resnet34-LM"
+
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
 // For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
+// With a real voice provider (pyannote, nemo) active, a voice job only goes to a worker that declares the
+// active model of its kind.
 func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -348,7 +354,8 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	var maximum, reported int
 	var supportedSteps []string
 	var activeVersion string
-	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE OF w`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion)
+	var declaredModels []byte
+	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,''),COALESCE(w.models,'{}'::jsonb) FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE OF w`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion, &declaredModels)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -367,6 +374,13 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if capacity < 1 || active >= capacity || globalActive >= globalCapacity {
 		return nil, tx.Commit(ctx)
 	}
+	// The real voice provider only runs on a Worker that holds the active models: a declaration
+	// naming another model, or none, never receives a voice job. The fake provider has no model.
+	var voiceProvider, diarizationModel string
+	// A missing pipeline row must never stop transcription claims: no provider means no voice rule.
+	if err = tx.QueryRow(ctx, `SELECT COALESCE(v.config->>'provider',''),COALESCE(v.config->>'model','') FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&voiceProvider, &diarizationModel); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("read active voice pipeline for claim: %w", err)
+	}
 	// Build the job selection query. For transcription jobs, require matching active_version.
 	// Extract pipeline version from input_version (format: t4-a{idx}-r{rule}-v{vocab}-p{pipeline})
 	// Workers that have not reported an active_version (legacy) stay eligible; only a diverging version is excluded.
@@ -374,6 +388,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,
 		       j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle
 		FROM jobs j
+		LEFT JOIN voice_pipeline_versions pin ON pin.version=substring(j.input_version FROM '-p(voice-[0-9a-f]+)')
 		WHERE j.status='pending' AND j.next_attempt_at<=now()
 		  AND EXISTS (
 		      SELECT 1 FROM unnest($1::text[]) AS capability
@@ -385,9 +400,24 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 		      j.step NOT LIKE 'transcription.%'
 		      OR $2::text = '' OR substring(j.input_version FROM '-p([^-]+)$') = $2::text
 		  )
+		  AND (
+		      j.step NOT LIKE 'voice.%'
+		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%')
+		      OR COALESCE(pin.config->>'provider',$3::text) NOT IN ('pyannote','nemo')
+		      OR (j.step LIKE 'voice.diarization.%' AND $4::jsonb->'diarization'->>'model' = COALESCE(pin.config->>'model',$5::text))
+		      OR (j.step LIKE 'voice.fingerprint.%' AND $4::jsonb->'fingerprint'->>'model' = $6::text)
+		  )
+		  AND (
+		      j.step NOT LIKE 'voicetrial.%'
+		      OR EXISTS (
+		          SELECT 1 FROM voice_diarization_trials t JOIN worker_voice_models m ON m.model_id=t.model_id
+		          WHERE t.clip_id=j.clip_id AND j.step='voicetrial.diarization.'||t.id
+		            AND m.worker_id=$7::text AND m.state='ready' AND m.removal_requested=false
+		      )
+		  )
 		ORDER BY j.priority DESC,j.created_at,j.id
 		FOR UPDATE OF j SKIP LOCKED LIMIT 1
-	`, supportedSteps, activeVersion))
+	`, supportedSteps, activeVersion, voiceProvider, string(declaredModels), diarizationModel, ActiveEmbeddingModel, workerID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -454,7 +484,11 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 			return Input{}, fmt.Errorf("read transcription pipeline snapshot: %w", queryErr)
 		}
 	}
-	if strings.HasPrefix(input.Job.Step, "voice.") {
+	if strings.HasPrefix(input.Job.Step, "voicetrial.") {
+		if err = s.trialInput(ctx, &input); err != nil {
+			return Input{}, err
+		}
+	} else if strings.HasPrefix(input.Job.Step, "voice.") {
 		if err = s.voiceInput(ctx, &input); err != nil {
 			return Input{}, err
 		}

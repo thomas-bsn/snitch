@@ -16,6 +16,10 @@ from urllib.parse import urlsplit
 from snitch_client.models.worker_model import WorkerModel
 from snitch_client.models.worker_models import WorkerModels
 
+from snitch_worker import voice_manifest, voice_models
+
+_REVISION_LENGTH = 12
+
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$")
 _VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$")
 _ENDPOINT = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(:[0-9]{1,5})?$")
@@ -67,7 +71,7 @@ def _model(
     return declared
 
 
-def declared_models(env: Mapping[str, str]) -> WorkerModels:
+def declared_models(env: Mapping[str, str], active_diarization: str = "") -> WorkerModels:
     """Build the declaration from the worker environment; absent roles stay unset."""
     models = WorkerModels()
     transcription = _model(
@@ -79,17 +83,32 @@ def declared_models(env: Mapping[str, str]) -> WorkerModels:
         models.transcription = transcription
     # Voice roles follow the real provider's own settings (voice_pyannote.py):
     # a role is declared only when its local model path is configured.
+    # What the models volume really holds (written by the bootstrap) wins over the environment.
+    manifest = voice_manifest.read_manifest(env) or {}
     voice_roles = (
-        ("diarization", "SNITCH_VOICE_DIARIZATION", "pyannote/speaker-diarization-community-1"),
-        ("fingerprint", "SNITCH_VOICE_EMBEDDING", "pyannote/wespeaker-voxceleb-resnet34-LM"),
+        ("diarization", "diarization", "SNITCH_VOICE_DIARIZATION", "pyannote/speaker-diarization-community-1"),
+        ("fingerprint", "embedding", "SNITCH_VOICE_EMBEDDING", "pyannote/wespeaker-voxceleb-resnet34-LM"),
     )
-    for role, prefix, default_name in voice_roles:
+    # A verified copy of the active diarization model on the models volume wins over the legacy layout.
+    held = voice_models.ready_revision(env, active_diarization) if active_diarization else ""
+    if held:
+        voice = _model(voice_models.engine_of(voice_models.model_path(env, active_diarization, held)), active_diarization, held[:_REVISION_LENGTH])
+        if voice is not None:
+            models.diarization = voice
+    for role, manifest_key, prefix, default_name in voice_roles:
+        if role == "diarization" and held:
+            continue
         if not env.get(prefix + "_MODEL_PATH", "").strip():
             continue
+        entry = manifest.get(manifest_key)
+        entry = entry if isinstance(entry, dict) else {}
+        repo = entry.get("repo") if isinstance(entry.get("repo"), str) else ""
+        revision = entry.get("revision") if isinstance(entry.get("revision"), str) else ""
         voice = _model(
             "pyannote",
-            env.get(prefix + "_MODEL_NAME", "").strip() or default_name,
-            env.get(prefix + "_MODEL_VERSION", ""),
+            repo.strip() or env.get(prefix + "_MODEL_NAME", "").strip() or default_name,
+            # A full commit SHA looks like a secret to the server filter: send its short form.
+            revision.strip()[:_REVISION_LENGTH] or env.get(prefix + "_MODEL_VERSION", ""),
         )
         if voice is not None:
             setattr(models, role, voice)

@@ -24,9 +24,13 @@ class VoiceScheduleInput:
     """
         Attributes:
             audio_stream_index (int | Unset):
+            confirm_replace_validations (bool | Unset): Vrai pour confirmer explicitement la relance sur un clip qui
+                contient des validations humaines (locuteurs validés, échantillons vocaux) ou des corrections de locuteur. Sans
+                lui, la relance est refusée (409 voice_rediarization_confirmation_required) avec ce qui est en jeu.
      """
 
     audio_stream_index: int | Unset = UNSET
+    confirm_replace_validations: bool | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -36,6 +40,8 @@ class VoiceScheduleInput:
     def to_dict(self) -> dict[str, Any]:
         audio_stream_index = self.audio_stream_index
 
+        confirm_replace_validations = self.confirm_replace_validations
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -43,6 +49,8 @@ class VoiceScheduleInput:
         })
         if audio_stream_index is not UNSET:
             field_dict["audio_stream_index"] = audio_stream_index
+        if confirm_replace_validations is not UNSET:
+            field_dict["confirm_replace_validations"] = confirm_replace_validations
 
         return field_dict
 
@@ -53,8 +61,11 @@ class VoiceScheduleInput:
         d = dict(src_dict)
         audio_stream_index = d.pop("audio_stream_index", UNSET)
 
+        confirm_replace_validations = d.pop("confirm_replace_validations", UNSET)
+
         voice_schedule_input = cls(
             audio_stream_index=audio_stream_index,
+            confirm_replace_validations=confirm_replace_validations,
         )
 
 

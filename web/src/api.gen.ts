@@ -1399,10 +1399,182 @@ export interface paths {
     };
     /** @description Administrateurs uniquement. Modèle de diarisation et seuils des empreintes ; aucun modèle n'est téléchargé implicitement. */
     get: operations["getVoicePipeline"];
-    /** @description Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur factice peut s'exécuter sans access_confirmed. */
+    /** @description Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Un modèle pyannote doit appartenir au catalogue ; l'état réel des Workers remplace toute confirmation saisie. */
     put: operations["updateVoicePipeline"];
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-overview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Les modèles vocaux que chaque Worker déclare réellement (jamais une saisie), leur état et le nombre de travaux vocaux en attente d'un Worker prêt. Un Worker n'est prêt que s'il détient les modèles actifs et qu'une inférence de test a réussi. */
+    get: operations["getVoiceOverview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Catalogue des modèles vocaux (données figées dans le code : moteur, dépôt, révision épinglée, licence, accès gated, limites) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé si au moins un Worker l'a prêt. */
+    get: operations["listVoiceModels"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/candidate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Choisit le modèle candidat dans le catalogue (jamais un dépôt saisi). Chaque Worker le prépare par tirage. Remplace le candidat précédent. Un modèle déjà actif ne peut pas être candidat (voice_model_already_active). */
+    put: operations["chooseVoiceModelCandidate"];
+    post?: never;
+    /** @description Administrateurs uniquement. Annule le candidat : le modèle actif et les modèles installés ne changent pas. */
+    delete: operations["cancelVoiceModelCandidate"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/{id}/activate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Active un modèle pour tous les Workers : nouvelle version du pipeline vocal. Refusé (voice_model_not_ready) tant qu'aucun Worker ne l'a prêt ; un modèle déjà prêt (retour arrière) s'active sans nouvelle préparation. */
+    post: operations["activateVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/{id}/installation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Demande aux Workers de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat. */
+    delete: operations["removeVoiceModel"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-models/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec. Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. */
+    post: operations["retryWorkerVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-models": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, et les modèles à supprimer. Jamais de jeton ni de chemin. */
+    get: operations["getWorkerVoiceModels"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-models/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus / total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou supprimé. Une cause n'accompagne qu'un échec. */
+    post: operations["postWorkerVoiceModelStatus"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/voice-trials": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Essais de diarisation d'un clip, du plus récent au plus ancien, avec leur état et, une fois terminés, un résumé par locuteur. Un essai n'est jamais le résultat voix du clip. */
+    get: operations["listVoiceTrials"];
+    put?: never;
+    /** @description Administrateurs uniquement. Lance un essai de diarisation avec le modèle candidat ou actif et, si le moteur le permet, un nombre de locuteurs (num_speakers, ou min_speakers et max_speakers). Un essai est conservé par (clip, piste, modèle, options) : le relancer remplace son résultat. Il ne change ni les locuteurs locaux, ni les attributions, ni les corrections, et n'alimente ni le matching, ni les empreintes, ni la recherche. Refusé (voice_trial_option_unsupported) si le moteur ne gère pas l'option, (voice_model_not_ready) si aucun Worker n'a le modèle prêt. */
+    post: operations["createVoiceTrial"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/voice-trials/{trial}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Supprime un essai de diarisation ; le résultat voix du clip n'est pas touché. */
+    delete: operations["deleteVoiceTrial"];
     options?: never;
     head?: never;
     patch?: never;
@@ -1417,7 +1589,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation. */
+    /** @description Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation. Sert aussi à relancer la diarisation d'un clip déjà traité avec le modèle actif (jamais automatique) : le résultat visible n'est remplacé qu'après réussite, les corrections de locuteur deviennent obsolètes, les échantillons vocaux validés sont conservés. */
     post: operations["scheduleVoice"];
     delete?: never;
     options?: never;
@@ -2685,11 +2857,9 @@ export interface components {
     };
     VoicePipeline: {
       /** @enum {string} */
-      provider: "fake" | "pyannote";
+      provider: "fake" | "pyannote" | "nemo";
       model: string;
       model_version: string;
-      /** @description Confirmation explicite par l'administrateur du jeton et des conditions d'accès du modèle. */
-      access_confirmed: boolean;
       min_fingerprint_seconds: number;
       min_quality: number;
       /** @description Réglages du fournisseur factice déterministe, réservés aux tests. */
@@ -2698,12 +2868,175 @@ export interface components {
         dimensions: number;
       };
     };
+    VoiceModelChoice: {
+      model_id: string;
+    };
+    VoiceModelCandidate: {
+      candidate: string;
+    };
+    VoiceModelRetry: {
+      retry_requested: boolean;
+    };
+    VoiceTrialRequest: {
+      model_id: string;
+      audio_stream_index?: number;
+      num_speakers?: number;
+      min_speakers?: number;
+      max_speakers?: number;
+    };
+    VoiceTrialSpeaker: {
+      label: string;
+      speaking_seconds: number;
+      turn_count: number;
+    };
+    VoiceTrial: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      clip_id: number;
+      audio_stream_index: number;
+      model_id: string;
+      num_speakers: number | null;
+      min_speakers: number | null;
+      max_speakers: number | null;
+      /** @enum {string} */
+      status: "pending" | "running" | "done" | "failed";
+      speakers: components["schemas"]["VoiceTrialSpeaker"][];
+      created_at?: string;
+    };
+    VoiceTrials: {
+      trials: components["schemas"]["VoiceTrial"][];
+    };
+    VoiceModelWorkerState: {
+      worker_id: string;
+      name: string;
+      connected: boolean;
+      /** @enum {string} */
+      state: "not_installed" | "downloading" | "verifying" | "ready" | "failed";
+      /** @enum {string} */
+      cause_code:
+        | ""
+        | "hf_token_missing"
+        | "hf_access_denied"
+        | "disk_full"
+        | "runtime_incompatible"
+        | "inference_failed";
+      /** Format: int64 */
+      bytes_received: number;
+      /** Format: int64 */
+      bytes_total: number;
+    };
+    VoiceModel: {
+      id: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint";
+      engine: string;
+      repo: string;
+      revision: string;
+      license: string;
+      gated: boolean;
+      max_speakers: number | null;
+      /** Format: int64 */
+      size_bytes: number;
+      supports_num_speakers: boolean;
+      active: boolean;
+      candidate: boolean;
+      /** @description Au moins un Worker a le modèle prêt. */
+      installed: boolean;
+      workers: components["schemas"]["VoiceModelWorkerState"][];
+    };
+    VoiceModels: {
+      models: components["schemas"]["VoiceModel"][];
+    };
+    WorkerVoiceModel: {
+      model_id: string;
+      engine: string;
+      repo: string;
+      revision: string;
+      /** @enum {string} */
+      role: "candidate" | "active" | "removal";
+      retry: boolean;
+    };
+    WorkerVoiceModels: {
+      models: components["schemas"]["WorkerVoiceModel"][];
+      remove: components["schemas"]["WorkerVoiceModel"][];
+    };
+    WorkerVoiceModelStatus: {
+      model_id: string;
+      /** @enum {string} */
+      state: "downloading" | "verifying" | "ready" | "failed" | "removed";
+      /** @enum {string} */
+      cause_code?:
+        | ""
+        | "hf_token_missing"
+        | "hf_access_denied"
+        | "disk_full"
+        | "runtime_incompatible"
+        | "inference_failed";
+      /** Format: int64 */
+      bytes_received?: number;
+      /** Format: int64 */
+      bytes_total?: number;
+    };
+    VoiceOverviewWorker: {
+      id: string;
+      name: string;
+      connected: boolean;
+      /**
+       * @description ready : détient les modèles actifs et l'inférence de test a réussi ; untested : détient les modèles sans preuve d'inférence ; unavailable : un téléchargement ou un test a échoué (voir cause_code) ; models_missing : ne déclare pas les modèles actifs.
+       * @enum {string}
+       */
+      voice_state: "ready" | "untested" | "unavailable" | "models_missing";
+      cause_code: string;
+      diarization: components["schemas"]["WorkerModel"] | null;
+      fingerprint: components["schemas"]["WorkerModel"] | null;
+      holds_active_diarization: boolean;
+      holds_active_fingerprint: boolean;
+    };
+    VoiceOverview: {
+      /** @enum {string} */
+      provider: "fake" | "pyannote" | "nemo";
+      active_models: {
+        diarization: string;
+        fingerprint: string;
+      };
+      workers_total: number;
+      workers_voice_ready: number;
+      /** @description Travaux vocaux en attente tant qu'aucun Worker n'est prêt ; 0 sinon. */
+      pending_voice_jobs: number;
+      workers: components["schemas"]["VoiceOverviewWorker"][];
+    };
     VoicePipelineState: {
       version: string;
       config: components["schemas"]["VoicePipeline"];
     };
     VoiceScheduleInput: {
       audio_stream_index?: number;
+      /** @description Vrai pour confirmer explicitement la relance sur un clip qui contient des validations humaines (locuteurs validés, échantillons vocaux) ou des corrections de locuteur. Sans lui, la relance est refusée (409 voice_rediarization_confirmation_required) avec ce qui est en jeu. */
+      confirm_replace_validations?: boolean;
+    };
+    /** @description Ce qu'une relance de la diarisation rendrait obsolète : les locuteurs validés (archivés avec leurs échantillons vocaux, conservés et liés à l'audio) et les corrections de locuteur de la transcription (obsolètes). */
+    VoiceRediarizationStake: {
+      validated_speakers: number;
+      voice_samples: number;
+      speaker_corrections: number;
+    };
+    /** @description Erreur 409 de la planification : stake n'accompagne que voice_rediarization_confirmation_required. */
+    VoiceRediarizationConfirmation: {
+      error: string;
+      stake?: components["schemas"]["VoiceRediarizationStake"];
+    };
+    /** @description Résultat de diarisation remplacé par une relance, avec sa provenance. */
+    VoiceHistoryEntry: {
+      /** Format: int64 */
+      job_id: number;
+      model: string;
+      model_version: string;
+      /** Format: date-time */
+      completed_at: string;
+      speaker_count: number;
+      /** @description Locuteurs validés de ce résultat, conservés avec leurs échantillons vocaux. */
+      validated_speakers: number;
     };
     ScheduledVoice: {
       job: components["schemas"]["Job"];
@@ -3351,6 +3684,8 @@ export interface components {
       audio_stream_index?: number | null;
       steps: components["schemas"]["VoiceStep"][];
       speakers: components["schemas"]["LocalSpeaker"][];
+      /** @description Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie. */
+      history: components["schemas"]["VoiceHistoryEntry"][];
     };
     WorkerVoiceInput: {
       pipeline_version: string;
@@ -7830,6 +8165,392 @@ export interface operations {
       };
     };
   };
+  getVoiceOverview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Inventaire vocal */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceOverview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceModels: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Catalogue et états */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModels"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  chooseVoiceModelCandidate: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelChoice"];
+      };
+    };
+    responses: {
+      /** @description Candidat choisi */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelCandidate"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelVoiceModelCandidate: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Candidat annulé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  activateVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Nouvelle version activée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoicePipelineState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  removeVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Suppression demandée */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  retryWorkerVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Relance demandée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelRetry"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerVoiceModels: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État souhaité */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerVoiceModels"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerVoiceModelStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerVoiceModelStatus"];
+      };
+    };
+    responses: {
+      /** @description État enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceTrials: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Essais */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceTrials"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVoiceTrial: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceTrialRequest"];
+      };
+    };
+    responses: {
+      /** @description Essai lancé */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceTrial"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteVoiceTrial: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        trial: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Essai supprimé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   scheduleVoice: {
     parameters: {
       query?: never;
@@ -7864,6 +8585,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ScheduledVoice"];
+        };
+      };
+      /** @description Confirmation requise (voice_rediarization_confirmation_required, avec stake) ou autre conflit d'état */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRediarizationConfirmation"];
         };
       };
       /** @description Erreur */

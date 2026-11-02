@@ -248,6 +248,80 @@ export const fr: Messages = {
     remove: "Supprimer",
     empty: "Aucun terme enregistré.",
   },
+  voiceInventory: {
+    title: "Modèles vocaux des Workers",
+    hint: "Ce que chaque Worker détient réellement, déclaré par le Worker lui-même.",
+    ready: "Workers Voix prête",
+    pending: "Travaux vocaux en attente d'un Worker prêt",
+    empty:
+      "Aucun Worker pour l'instant. Installez-en un pour analyser les voix.",
+    offline: "Hors ligne",
+    none: "Non installé",
+    diarization: "Modèle de diarisation",
+    fingerprint: "Modèle d'empreinte",
+    missing:
+      "Ce Worker ne détient pas le modèle actif {model} : il ne prend aucun travail vocal.",
+    cause: "Cause : {code}",
+    state: {
+      ready: "Voix prête",
+      untested: "Non testé",
+      unavailable: "Indisponible",
+      models_missing: "Modèle actif absent",
+    },
+  },
+  voiceModels: {
+    fingerprintTitle: "Modèle d’empreinte",
+    fingerprintHint:
+      "Fixé par le catalogue : les empreintes vocales utilisent ce modèle, rien à choisir.",
+    title: "Modèle de diarisation",
+    hint: "Choisissez un candidat dans le catalogue : chaque Worker le télécharge, le charge et lance une inférence de test. Vous l'activez ensuite pour tous les Workers.",
+    active: "Actif",
+    candidate: "Candidat",
+    facts:
+      "Moteur {engine}, licence {license}, {size} Mo, révision {revision}.",
+    gated: "Accès restreint sur Hugging Face.",
+    maxSpeakers: "{count} voix au maximum.",
+    numSpeakers: "Nombre de locuteurs réglable.",
+    noNumSpeakers: "Nombre de locuteurs non réglable.",
+    progress: "{received} / {total} Mo",
+    choose: "Choisir comme candidat",
+    activate: "Activer",
+    cancel: "Annuler le candidat",
+    revert: "Revenir à ce modèle",
+    remove: "Supprimer",
+    retry: "Réessayer",
+    cancelDialog: "Annuler",
+    confirmTitle: "Activer {model} ?",
+    confirmActivate: "Activer pour tous les Workers",
+    effectVersion:
+      "Une nouvelle version du pipeline vocal est créée : les nouveaux travaux vocaux l'utilisent.",
+    effectRunning: "Les travaux en cours gardent leur version.",
+    effectClips:
+      "Les clips déjà traités ne sont jamais rediarisés automatiquement.",
+    effectReady: "Workers prêts : {names}.",
+    effectNotReady:
+      "Ces Workers n'ont pas le modèle prêt et ne prendront plus de travaux vocaux : {names}.",
+    removeTitle: "Supprimer {model} ?",
+    removeText:
+      "Chaque Worker supprime ce modèle de son volume. Il faudra le choisir de nouveau pour le retélécharger.",
+    state: {
+      not_installed: "Non installé",
+      downloading: "Téléchargement",
+      verifying: "Vérification",
+      ready: "Prêt",
+      failed: "Échec",
+    },
+    cause: {
+      hf_token_missing:
+        "Jeton Hugging Face absent sur ce Worker. Enregistrez-le depuis la machine du Worker avec la commande store-token (voir docs/real-voice-worker.md), puis réessayez.",
+      hf_access_denied:
+        "Accès Hugging Face refusé : acceptez les conditions du modèle avec le compte du jeton.",
+      disk_full: "Disque plein sur la machine du Worker.",
+      runtime_incompatible:
+        "Ce modèle n'est pas compatible avec l'environnement du Worker.",
+      inference_failed: "L'inférence de test a échoué.",
+    },
+  },
   voiceAdmin: {
     title: "Traitement vocal",
     saved: "Réglages enregistrés.",
@@ -258,7 +332,6 @@ export const fr: Messages = {
     fake: "Fournisseur factice (tests)",
     model: "Modèle de diarisation",
     modelVersion: "Version du modèle",
-    access: "Accès au modèle confirmé",
     minDuration: "Durée minimale d’une empreinte (secondes)",
     minQuality: "Qualité minimale",
     fakeSpeakers: "Locuteurs factices",
@@ -303,6 +376,47 @@ export const fr: Messages = {
     enabledEvent: "Activation",
     disabledEvent: "Désactivation",
     forcedEvent: "Critères non atteints",
+  },
+  voiceScreen: {
+    summary: "État",
+    activeDiar: "Modèle de diarisation actif",
+    activeFingerprint: "Modèle d’empreinte actif (lecture seule)",
+    measured: "Précision mesurée",
+    autoHint:
+      "Jamais activée d’elle-même : vous seul·e l’activez, après confirmation. Les validations humaines ne sont jamais écrasées.",
+    enableTitle: "Activer l’attribution automatique ?",
+    enableText:
+      "Les voix reconnues avec assez de confiance seront attribuées sans vous demander. Vous pouvez la désactiver à tout moment.",
+    enableMeasure: "Précision mesurée : {value}.",
+    noWorker: "Aucun Worker : installez-en un pour analyser les voix.",
+    noneReady: "Aucun Worker n’a la voix prête : les travaux vocaux attendent.",
+    offline: "{count} Worker(s) hors ligne.",
+    tokenMissing:
+      "Un Worker n’a pas son jeton Hugging Face : voir la carte du modèle ci-dessous.",
+    accessDenied:
+      "Hugging Face a refusé l’accès à un modèle : acceptez ses conditions avec le compte du jeton.",
+    pending: "{count} travail(aux) vocal(aux) en attente d’un Worker prêt.",
+    advanced: "Paramètres avancés",
+    advancedHint: "Seuils et critères",
+    autoThresholdHint:
+      "Similarité au-dessus de laquelle une voix est attribuée automatiquement (si activée).",
+    suggestionHint:
+      "Similarité au-dessus de laquelle une personne vous est suggérée à confirmer.",
+    marginHint:
+      "Écart minimal avec le deuxième candidat, sinon la voix est ambiguë.",
+    candidatesHint: "Nombre de personnes proposées pour une voix.",
+    fingerprintSettings: "Empreintes vocales",
+    fingerprintHint:
+      "Les extraits trop courts ou de mauvaise qualité ne produisent pas d’empreinte. Enregistrer crée une nouvelle version du pipeline.",
+    automationSettings: "Critères d’automatisation",
+    precisionHint:
+      "Précision mesurée requise avant que l’activation soit proposée.",
+    confirmationsHint: "Confirmations humaines requises avant l’activation.",
+    reset: "Rétablir les valeurs par défaut",
+    resetTitle: "Rétablir ces réglages ?",
+    resetText:
+      "Les seuils de rapprochement, les réglages d’empreinte et les critères d’activation reviennent aux valeurs de l’installation. L’attribution automatique reste telle quelle.",
+    resetConfirm: "Rétablir",
   },
   members: {
     title: "Membres",
@@ -1500,6 +1614,46 @@ export const fr: Messages = {
     confirm:
       "Retraiter les clips existants ? Les corrections manuelles seront conservées.",
     result: "{updated} clips traités ; {unavailable} indisponibles.",
+  },
+  voiceRelaunch: {
+    section: "Relancer la diarisation",
+    button: "Relancer la diarisation",
+    scheduled:
+      "Diarisation relancée. Les voix actuelles restent affichées jusqu’à la réussite.",
+    title: "Relancer la diarisation ?",
+    cancel: "Annuler",
+    confirm: "Confirmer la relance",
+    warning:
+      "La répartition des voix sera remplacée à la réussite. {corrections} correction(s) de locuteur deviendront obsolètes. {speakers} voix validée(s) et {samples} échantillon(s) vocal(aux) validé(s) sont conservés, liés à l’audio, mais ne seront plus rattachés aux voix affichées.",
+    history: "Résultats précédents ({count})",
+    entry:
+      "Modèle {model} ({version}), {date} : {speakers} voix, dont {validated} validée(s).",
+  },
+  voiceTrial: {
+    title: "Essai de diarisation",
+    hint: "Lancez le modèle candidat ou actif sur ce clip, au besoin avec un nombre de locuteurs, et comparez-le au résultat courant. Un essai ne change jamais les locuteurs, les attributions ni les corrections du clip.",
+    model: "Modèle",
+    active: "actif",
+    candidate: "candidat",
+    numSpeakers: "Nombre de locuteurs",
+    automatic: "Automatique",
+    noNumSpeakers: "Ce moteur ne permet pas d’imposer le nombre de locuteurs.",
+    noModel:
+      "Aucun modèle candidat ou actif n’est prêt sur un Worker : préparez-en un dans Administration, Traitement vocal.",
+    run: "Lancer l’essai",
+    starting: "Lancement…",
+    current: "Résultat courant",
+    count: "{count} locuteurs",
+    speaker: "{label} : {seconds} s, {turns} tours de parole",
+    none: "Aucun essai sur ce clip.",
+    imposed: "{count} locuteurs imposés",
+    delete: "Supprimer cet essai",
+    status: {
+      pending: "en attente d’un Worker",
+      running: "en cours",
+      done: "terminé",
+      failed: "échec",
+    },
   },
   errors: errorsFr,
   errorFallback: "Une erreur est survenue ({code}). Réessayez.",

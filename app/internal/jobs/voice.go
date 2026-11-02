@@ -31,6 +31,33 @@ func VoiceInputVersion(inputVersion string) (pipeline string, diarizationJobID i
 	return pipeline, 0, true
 }
 
+// trialInput gives a diarization trial its pinned model and options. A trial has no pipeline version: it runs
+// the catalogue model chosen for it, never the active configuration.
+func (s *Service) trialInput(ctx context.Context, input *Input) error {
+	id, err := strconv.ParseInt(strings.TrimPrefix(input.Job.Step, "voicetrial.diarization."), 10, 64)
+	if err != nil {
+		return fmt.Errorf("voice trial step: %w", err)
+	}
+	var repo, revision, engine string
+	var stream int
+	var num, minimum, maximum *int
+	if err = s.pool.QueryRow(ctx, `SELECT model_repo,model_revision,model_engine,audio_stream_index,num_speakers,min_speakers,max_speakers FROM voice_diarization_trials WHERE id=$1 AND clip_id=$2`, id, input.Job.ClipID).Scan(&repo, &revision, &engine, &stream, &num, &minimum, &maximum); err != nil {
+		return fmt.Errorf("read voice trial: %w", err)
+	}
+	config := map[string]any{"provider": engine, "model": repo, "model_version": revision}
+	for key, value := range map[string]*int{"num_speakers": num, "min_speakers": minimum, "max_speakers": maximum} {
+		if value != nil {
+			config[key] = *value
+		}
+	}
+	encoded, err := json.Marshal(map[string]any{"config": config, "trial": map[string]any{"audio_stream_index": stream}})
+	if err != nil {
+		return err
+	}
+	input.Voice = encoded
+	return nil
+}
+
 type voiceInputPayload struct {
 	PipelineVersion string          `json:"pipeline_version"`
 	Config          json.RawMessage `json:"config"`

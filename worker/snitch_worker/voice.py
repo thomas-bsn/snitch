@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 DIARIZATION_STEP = re.compile(r"voice\.diarization\.(\d+)")
 FINGERPRINT_STEP = re.compile(r"voice\.fingerprint\.(\d+)")
+# A diarization trial has its own step type: it never goes through ``process_voice_step``.
+TRIAL_STEP = re.compile(r"voicetrial\.diarization\.(\d+)")
 SHORT_TURN_SECONDS = 0.5
 # Limits enforced by the API on a voice result; exceeding them would be rejected
 # after the (costly) computation, so real providers fail early instead.
@@ -31,7 +33,7 @@ MIN_EMBEDDABLE_SECONDS = 0.5
 FULL_QUALITY_TURN_SECONDS = 3.0
 FULL_QUALITY_SPEAKER_SECONDS = 10.0
 
-REAL_PROVIDERS = frozenset({"pyannote"})
+REAL_PROVIDERS = frozenset({"pyannote", "nemo"})
 
 
 class VoiceProviderUnavailable(RuntimeError):
@@ -48,6 +50,10 @@ class VoiceProviderUnavailable(RuntimeError):
 
 def is_voice_step(step: str) -> bool:
     return bool(DIARIZATION_STEP.fullmatch(step) or FINGERPRINT_STEP.fullmatch(step))
+
+
+def is_trial_step(step: str) -> bool:
+    return bool(TRIAL_STEP.fullmatch(step))
 
 
 def _fake_settings(config: dict[str, Any]) -> tuple[int, int]:
@@ -249,9 +255,10 @@ def default_providers() -> dict[str, Any]:
     """Process-wide providers; the pyannote one caches its models between tasks."""
     global _default_providers
     if _default_providers is None:
-        from snitch_worker.voice_pyannote import PyannoteProvider  # light: no ML import
+        from snitch_worker.voice_nemo import NemoProvider  # light: no ML import
+        from snitch_worker.voice_pyannote import PyannoteProvider
 
-        _default_providers = {"fake": _FakeProvider(), "pyannote": PyannoteProvider()}
+        _default_providers = {"fake": _FakeProvider(), "pyannote": PyannoteProvider(), "nemo": NemoProvider()}
     return _default_providers
 
 
@@ -290,4 +297,32 @@ def process_voice_step(
         return provider.fingerprint(config, voice["diarization"], audio_path, int(fingerprint_match.group(1)))
     except VoiceProviderUnavailable as exc:
         logger.warning("voice step failed: %s", exc.reason)
+        raise
+
+
+def process_trial_step(
+    step: str,
+    voice: dict[str, Any],
+    audio_path: str | None,
+    providers: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Diarize with the model and options pinned in a trial's input; only the real provider runs trials.
+
+    The options (``num_speakers``, ``min_speakers``, ``max_speakers``) travel in the config and reach the
+    pipeline; fingerprints are never computed for a trial.
+    """
+    config = voice.get("config") or {}
+    if not TRIAL_STEP.fullmatch(step):
+        raise ValueError("unsupported voice trial step")
+    provider = (providers or default_providers()).get(config.get("provider"))
+    if config.get("provider") not in REAL_PROVIDERS or provider is None:
+        raise VoiceProviderUnavailable("unknown_provider")
+    provider.ensure_diarization_ready(config)
+    if not audio_path:
+        raise VoiceProviderUnavailable("audio_missing")
+    stream = int((voice.get("trial") or {}).get("audio_stream_index", 0))
+    try:
+        return provider.diarize(config, audio_path, stream)
+    except VoiceProviderUnavailable as exc:
+        logger.warning("voice trial failed: %s", exc.reason)
         raise

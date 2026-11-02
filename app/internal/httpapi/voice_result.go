@@ -180,8 +180,7 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 	}
 }
 
-// errDiarizationLocked refuses a diarization result for a stream whose local
-// speakers carry human validations: replacing them would erase those validations.
+// errDiarizationLocked refuses a diarization result for a designated microphone track.
 var errDiarizationLocked = errors.New("diarization locked by human validation")
 
 // projectDiarization replaces the clip's local speakers for the audio stream and
@@ -190,17 +189,30 @@ func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result dia
 	if _, err := tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR UPDATE`, job.ClipID); err != nil {
 		return fmt.Errorf("lock clip for diarization: %w", err)
 	}
-	// Validations take the clip row FOR SHARE, so this check cannot race with one.
-	var locked bool
-	// A designated microphone track is never diarized either (microphone track).
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND a.validation_state='validated') OR EXISTS(SELECT 1 FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='microphone')`, job.ClipID, index).Scan(&locked); err != nil {
-		return fmt.Errorf("check validated speakers: %w", err)
+	// Validations take the clip row FOR SHARE, so none can race with this replacement.
+	// A designated microphone track is never diarized (microphone track).
+	var microphone bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='microphone')`, job.ClipID, index).Scan(&microphone); err != nil {
+		return fmt.Errorf("check microphone track: %w", err)
 	}
-	if locked {
+	if microphone {
 		return errDiarizationLocked
 	}
+	// Speaker corrections point to the replaced speakers: they become obsolete (history kept).
 	if err := dropSpeakerOverrides(ctx, tx, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, job.ClipID, index); err != nil {
 		return fmt.Errorf("record dropped speaker corrections: %w", err)
+	}
+	// The speakers a human validated are archived, never deleted: the validated
+	// Attribution, the Voice samples and the speaker fingerprints stay linked to the audio.
+	// An archived speaker keeps no turn and no machine attribution.
+	if _, err := tx.Exec(ctx, `WITH archived AS (
+ UPDATE local_speakers ls SET kind='archived',archived_at=now()
+ WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'
+   AND EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='validated')
+ RETURNING ls.id), cleaned AS (
+ DELETE FROM speaker_attributions a USING archived WHERE a.local_speaker_id=archived.id AND a.validation_state='unvalidated' RETURNING a.id)
+DELETE FROM speaker_turns st USING archived WHERE st.local_speaker_id=archived.id`, job.ClipID, index); err != nil {
+		return fmt.Errorf("archive validated speakers: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='diarized'`, job.ClipID, index); err != nil {
 		return fmt.Errorf("replace local speakers: %w", err)

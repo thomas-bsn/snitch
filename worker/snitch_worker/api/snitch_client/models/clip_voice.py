@@ -14,6 +14,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.local_speaker import LocalSpeaker
+  from ..models.voice_history_entry import VoiceHistoryEntry
   from ..models.voice_step import VoiceStep
 
 
@@ -32,6 +33,8 @@ class ClipVoice:
             status (ClipVoiceStatus):
             steps (list[VoiceStep]):
             speakers (list[LocalSpeaker]):
+            history (list[VoiceHistoryEntry]): Résultats de diarisation remplacés par une relance, du plus récent au plus
+                ancien ; le résultat visible n'est remplacé qu'après une relance réussie.
             audio_stream_index (int | None | Unset):
      """
 
@@ -39,6 +42,7 @@ class ClipVoice:
     status: ClipVoiceStatus
     steps: list[VoiceStep]
     speakers: list[LocalSpeaker]
+    history: list[VoiceHistoryEntry]
     audio_stream_index: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -48,6 +52,7 @@ class ClipVoice:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.local_speaker import LocalSpeaker # noqa: PLC0415
+        from ..models.voice_history_entry import VoiceHistoryEntry # noqa: PLC0415
         from ..models.voice_step import VoiceStep # noqa: PLC0415
         clip_id = self.clip_id
 
@@ -67,6 +72,13 @@ class ClipVoice:
 
 
 
+        history = []
+        for history_item_data in self.history:
+            history_item = history_item_data.to_dict()
+            history.append(history_item)
+
+
+
         audio_stream_index: int | None | Unset
         if isinstance(self.audio_stream_index, Unset):
             audio_stream_index = UNSET
@@ -81,6 +93,7 @@ class ClipVoice:
             "status": status,
             "steps": steps,
             "speakers": speakers,
+            "history": history,
         })
         if audio_stream_index is not UNSET:
             field_dict["audio_stream_index"] = audio_stream_index
@@ -92,6 +105,7 @@ class ClipVoice:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.local_speaker import LocalSpeaker # noqa: PLC0415
+        from ..models.voice_history_entry import VoiceHistoryEntry # noqa: PLC0415
         from ..models.voice_step import VoiceStep # noqa: PLC0415
         d = dict(src_dict)
         clip_id = d.pop("clip_id")
@@ -121,6 +135,16 @@ class ClipVoice:
             speakers.append(speakers_item)
 
 
+        history = []
+        _history = d.pop("history")
+        for history_item_data in (_history):
+            history_item = VoiceHistoryEntry.from_dict(history_item_data)
+
+
+
+            history.append(history_item)
+
+
         def _parse_audio_stream_index(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -136,6 +160,7 @@ class ClipVoice:
             status=status,
             steps=steps,
             speakers=speakers,
+            history=history,
             audio_stream_index=audio_stream_index,
         )
 
