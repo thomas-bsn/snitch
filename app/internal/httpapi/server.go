@@ -830,6 +830,7 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 	q := url.Values{"client_id": {id}, "response_type": {"code"}, "scope": {"identify"}, "state": {state}, "redirect_uri": {s.publicOrigin(r) + "/api/auth/discord/callback"}}
 	reply(w, 200, map[string]string{"url": s.Config.DiscordAuthorizeURL + "?" + q.Encode()})
 }
+
 // truncateDisplayName keeps at most max whole characters: a cut in bytes could split a
 // multi-byte character and produce UTF-8 that PostgreSQL refuses.
 func truncateDisplayName(name string, max int) string {
