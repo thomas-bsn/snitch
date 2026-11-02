@@ -258,6 +258,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonVoices(t, pool)
 	})
+	t.Run("person list pagination", func(t *testing.T) {
+		reset(t)
+		testPersonListPagination(t, pool)
+	})
 	t.Run("person filter", func(t *testing.T) {
 		reset(t)
 		testPersonFilter(t, pool)
