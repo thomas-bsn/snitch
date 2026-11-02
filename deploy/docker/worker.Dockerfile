@@ -38,9 +38,10 @@ COPY worker/pyproject.toml /worker/pyproject.toml
 COPY worker/snitch_worker /worker/snitch_worker
 COPY worker/scripts/download_models.py /worker/scripts/download_models.py
 COPY LICENSE /usr/share/licenses/snitch/LICENSE
-# L'utilisateur 10001 n'a pas d'entrée passwd : NeMo importe torch._inductor, qui appelle
-# getpass.getuser() et plante sans USER/LOGNAME.
-ENV USER=snitch LOGNAME=snitch
+# NeMo importe torch._inductor, qui appelle getpass.getuser() : l'utilisateur 10001 a besoin d'une
+# entrée passwd. HOME reste « / », comme avant.
+RUN groupadd --gid 10001 snitch \
+ && useradd --uid 10001 --gid 10001 --no-create-home --home-dir / --shell /usr/sbin/nologin snitch
 USER 10001:10001
 # NeMo (moteur Sortformer du catalogue vocal) : import sans GPU ni modèle, avec l'utilisateur
 # d'exécution (en root, ce contrôle ne voyait pas l'erreur getpwuid).
