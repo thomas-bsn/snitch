@@ -158,7 +158,12 @@ export function PersonActions({
     }
     setFailure(undefined);
     onChanged(
-      t("people.separate.done", { count: result.value.attributions, name }),
+      t(
+        result.value.attributions === 1
+          ? "people.separate.doneOne"
+          : "people.separate.done",
+        { count: result.value.attributions, name },
+      ),
     );
   }
 

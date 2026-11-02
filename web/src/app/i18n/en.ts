@@ -1458,7 +1458,8 @@ export const en = {
       choose: "Choose at least one voice.",
       submit: "Separate",
       cancel: "Cancel",
-      done: "{count} voice(s) were separated from {name}: they are unknown again.",
+      done: "{count} voices were separated from {name}: they are unknown again.",
+      doneOne: "1 voice was separated from {name}: it is unknown again.",
     },
     create: {
       title: "New person",
