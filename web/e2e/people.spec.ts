@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { adminApi } from "./library-fixture";
 import { prepareDiarizedClip } from "./voice-fixture";
 
 // The People screen of the new interface: the list of Persons with its corrections, and the
@@ -21,13 +22,14 @@ async function expectNoViolations(page: Page) {
 }
 
 let page: Page;
+let clipId: number;
 
 test.describe.serial("personnes et vérification", () => {
   // The installation code works once: the three journeys share one prepared instance and
   // follow one another (the first settles a voice, the second corrects it).
   test.beforeAll(async ({ browser }) => {
     page = await (await browser.newContext()).newPage();
-    await prepareDiarizedClip(page, { secondFingerprintEnd: 4.2 });
+    clipId = await prepareDiarizedClip(page, { secondFingerprintEnd: 4.2 });
   });
   test.afterAll(async () => {
     await page.context().close();
@@ -58,6 +60,8 @@ test.describe.serial("personnes et vérification", () => {
     await expect(cases.locator("xpath=./li")).toHaveCount(2);
     await expect(cases).toContainText("2 voice(s) in the group");
     await expectNoViolations(page);
+    // A badge placed inside a button is not a button itself.
+    await expect(page.locator("button button, a button")).toHaveCount(0);
 
     // A counter filters the list.
     await counters.getByRole("button", { name: /^Ambiguous/ }).click();
@@ -114,6 +118,113 @@ test.describe.serial("personnes et vérification", () => {
     await expect(
       counters.getByRole("button", { name: /^Unknown\s*0$/ }),
     ).toBeVisible();
+  });
+
+  test("badges de niveau avec légende et extraits écoutables sur la fiche", async () => {
+    // The synthetic excerpt cannot be decoded: the media element is stubbed, and what is
+    // observed is which excerpt was asked for and which one was stopped.
+    await page.addInitScript(() => {
+      const log: string[] = [];
+      (window as unknown as { played: string[] }).played = log;
+      HTMLMediaElement.prototype.play = function () {
+        log.push(this.getAttribute("src") ?? "");
+        this.dispatchEvent(new Event("play"));
+        return Promise.resolve();
+      };
+      HTMLMediaElement.prototype.pause = function () {
+        this.dispatchEvent(new Event("pause"));
+      };
+    });
+    // A second voice of the clip is confirmed for the same Person.
+    await page.goto("/people");
+    await page
+      .getByRole("list", { name: "People", exact: true })
+      .getByRole("link", { name: /Claire Synthétique/ })
+      .click();
+    await expect(page).toHaveURL(/\/people\/\d+$/);
+    const personId = Number(page.url().split("/").pop());
+    const { api, post } = await adminApi();
+    const voice = (await (
+      await api.get(`/api/clips/${clipId}/voice`)
+    ).json()) as { speakers: { id: number; label: string }[] };
+    const second = voice.speakers.find((s) => s.label === "SPEAKER_01")!;
+    await post(`/api/local-speakers/${second.id}/validation`, {
+      person_id: personId,
+    });
+    await api.dispose();
+    await page.reload();
+
+    const section = page.getByRole("group", {
+      name: "Confirmed voices of Claire Synthétique",
+    });
+    await expect(
+      section.getByRole("heading", { name: "Identifications" }),
+    ).toBeVisible();
+    const items = section.getByRole("listitem");
+    await expect(items).toHaveCount(2);
+
+    // The badge is a button: hovering alone shows nothing, Enter opens the legend.
+    const badge = items.first().getByRole("button", {
+      name: "Validated by a human",
+    });
+    const legend = page.getByRole("dialog", { name: "Validated by a human" });
+    await badge.hover();
+    await expect(legend).toHaveCount(0);
+    await badge.focus();
+    await page.keyboard.press("Enter");
+    await expect(legend).toBeVisible();
+    await expect(legend).toContainText("Counts as a Reference: yes");
+    for (const other of [
+      "Automatic attribution",
+      "Suggestion",
+      "Ambiguous",
+      "Unknown",
+    ]) {
+      await expect(legend).toContainText(other);
+    }
+    await expectNoViolations(page);
+    // Escape closes it and the focus is back on the badge.
+    await page.keyboard.press("Escape");
+    await expect(legend).toHaveCount(0);
+    await expect(badge).toBeFocused();
+    // A click opens it, a second click and a click outside close it.
+    await badge.click();
+    await expect(legend).toBeVisible();
+    await badge.click();
+    await expect(legend).toHaveCount(0);
+    await badge.click();
+    await expect(legend).toBeVisible();
+    await page.getByRole("heading", { level: 1 }).click();
+    await expect(legend).toHaveCount(0);
+
+    // The excerpt played is the right one, and a second one stops the first.
+    const players = items.getByRole("button", {
+      name: /^Excerpt of SPEAKER_0/,
+    });
+    const first = players.nth(0);
+    const other = players.nth(1);
+    await first.click();
+    await expect(first).toHaveAttribute("aria-pressed", "true");
+    const played = () =>
+      page.evaluate(() => (window as unknown as { played: string[] }).played);
+    expect(await played()).toEqual([
+      expect.stringMatching(/^\/api\/local-speakers\/\d+\/excerpt$/),
+    ]);
+    await other.click();
+    await expect(other).toHaveAttribute("aria-pressed", "true");
+    await expect(first).toHaveAttribute("aria-pressed", "false");
+    expect((await played()).length).toBe(2);
+    // The way to the clip.
+    await expect(
+      items.first().getByRole("link", { name: "Open synthetic-voices.mp4" }),
+    ).toHaveAttribute("href", `/clips/${clipId}`);
+
+    // The second voice goes back to where it was, for the journeys that follow.
+    const cleanup = await adminApi();
+    await cleanup.post(`/api/persons/${personId}/separation`, {
+      local_speaker_ids: [second.id],
+    });
+    await cleanup.api.dispose();
   });
 
   test("personnes : liste, fiche, création, fusion, séparation et suppression", async () => {
@@ -253,6 +364,22 @@ test.describe.serial("personnes et vérification", () => {
     await page
       .getByRole("button", { name: "Decide who SPEAKER_00 is" })
       .click();
+    await expectNoViolations(page);
+  });
+
+  test("la légende des badges reste lisible en thème sombre à 390 pixels", async () => {
+    await page.goto("/people/verification");
+    const caseBadge = page
+      .getByRole("list", { name: "Voices to decide" })
+      .getByRole("button", { name: "Unknown" })
+      .first();
+    await caseBadge.click();
+    const legend = page.getByRole("dialog", { name: "Unknown" });
+    await expect(legend).toBeVisible();
+    await expect(legend).toContainText("Counts as a Reference: no");
+    const box = (await legend.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
     await expectNoViolations(page);
   });
 });
