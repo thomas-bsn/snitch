@@ -35,7 +35,7 @@ from snitch_worker import voice_models
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
 from snitch_worker.transcription_config import active_configuration, sync_configuration
-from snitch_worker.voice import ensure_provider_ready, is_voice_step, process_voice_step, requires_audio
+from snitch_worker.voice import ensure_provider_ready, is_trial_step, is_voice_step, process_trial_step, process_voice_step, requires_audio
 
 
 def fake_provider(step: str) -> dict[str, Any]:
@@ -312,7 +312,7 @@ def run_once(
             client=client,
             body=WorkerPulseInput(
                 capacity=capacity,
-                supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
+                supported_steps=["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"],
                 models=declared_models(os.environ, voice_models.active_repo()),
                 machine=declared_machine(),
             ),
@@ -396,6 +396,16 @@ def run_once(
                     result = process_voice_step(job.step, voice_input, duration, wav_path, voice_providers)
             else:
                 result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
+        elif is_trial_step(job.step):
+            voice_value = getattr(task_input, "voice", None)
+            voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
+            trial = voice_input.get("trial") or {}
+            with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
+                original = os.path.join(temporary, "original.media")
+                wav_path = os.path.join(temporary, "prepared.wav")
+                download_media(client, task_input, lease_token, original)
+                prepare_audio(original, wav_path, int(trial.get("audio_stream_index", 0)))
+                result = process_trial_step(job.step, voice_input, wav_path, voice_providers)
         else:
             raise ValueError("unsupported worker step")
         heartbeat_stop.set()
