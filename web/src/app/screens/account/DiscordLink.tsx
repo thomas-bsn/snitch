@@ -1,5 +1,5 @@
 import { CheckCircle2, Link2 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ErrorAlert } from "../../components/Alert";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { buttonClass } from "../../components/buttons";
@@ -20,34 +20,41 @@ function DiscordMark() {
 
 /** Shows the Discord link state and keeps unlinking behind an explicit confirmation. */
 export function DiscordLink() {
-  const { t, error, language } = useI18n();
-  const { setup, session, user, linkDiscord, unlinkDiscord } = useSession();
+  const { t, error } = useI18n();
+  const { setup, session, linkDiscord, unlinkDiscord } = useSession();
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [failure, setFailure] = useState<string>();
-  const [notice, setNotice] = useState(false);
+  const [notice, setNotice] = useState<string>();
 
   async function link() {
     setBusy(true);
     setFailure(undefined);
+    setNotice(undefined);
     const outcome = await linkDiscord();
     // On success the browser leaves for Discord; only a failure comes back here.
     if (!outcome.ok) {
       setBusy(false);
       setFailure(outcome.code);
+      setNotice(t("account.profile.discordLinkFailedState"));
     }
   }
 
   async function unlink() {
     setBusy(true);
     setFailure(undefined);
+    setNotice(undefined);
     const outcome = await unlinkDiscord();
     setBusy(false);
     setConfirmOpen(false);
-    if (outcome.ok) setNotice(true);
-    else setFailure(outcome.code);
+    if (outcome.ok) setNotice(t("account.profile.discordUnlinked"));
+    else {
+      setFailure(outcome.code);
+      setNotice(t("account.profile.discordUnlinkFailedState"));
+    }
   }
 
+  const blockedId = useId();
   const linked = session?.discord_linked === true;
   return (
     <div className="flex flex-col gap-3">
@@ -67,19 +74,17 @@ export function DiscordLink() {
                 <Link2 size={14} aria-hidden="true" />
               )}
               {linked
-                ? language === "fr"
-                  ? "Compte lié"
-                  : "Linked"
-                : language === "fr"
-                  ? "Non lié"
-                  : "Not linked"}
+                ? t("account.profile.discordBadgeLinked")
+                : t("account.profile.discordBadgeNotLinked")}
             </span>
           </div>
           {linked ? (
             <p className="text-sm text-mute">
-              {t("account.profile.discordConnected", {
-                username: user?.username ?? "",
-              })}
+              {session?.discord_name
+                ? t("account.profile.discordIdentity", {
+                    name: session.discord_name,
+                  })
+                : t("account.profile.discordLinkedNoName")}
             </p>
           ) : (
             <p className="text-sm text-mute">
@@ -91,22 +96,24 @@ export function DiscordLink() {
       {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
       {notice && (
         <p role="status" className="rounded-lg bg-ok-bg p-3 text-sm text-ok-fg">
-          {t("account.profile.discordUnlinked")}
+          {notice}
         </p>
       )}
       {linked ? (
         <div className="flex flex-col items-start gap-2">
-          {session?.can_unlink_discord ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setConfirmOpen(true)}
-              className={buttonClass("danger")}
-            >
-              {t("account.profile.discordUnlink")}
-            </button>
-          ) : (
-            <p className="text-sm text-mute">
+          <button
+            type="button"
+            disabled={busy || !session?.can_unlink_discord}
+            aria-describedby={
+              session?.can_unlink_discord ? undefined : blockedId
+            }
+            onClick={() => setConfirmOpen(true)}
+            className={buttonClass("danger")}
+          >
+            {t("account.profile.discordUnlink")}
+          </button>
+          {!session?.can_unlink_discord && (
+            <p id={blockedId} className="text-sm text-mute">
               {t("account.profile.discordUnlinkBlocked")}
             </p>
           )}
