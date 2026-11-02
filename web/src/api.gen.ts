@@ -1684,6 +1684,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/persons/{id}/impact": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Lecture seule, pour chiffrer les conséquences d'une correction avant de la confirmer et pour en expliquer le refus. Ne révèle aucun clip invisible : seulement un booléen. */
+    get: operations["getPersonImpact"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/persons/{id}/voices": {
     parameters: {
       query?: never;
@@ -3184,6 +3201,12 @@ export interface components {
     PersonSeparationInput: {
       local_speaker_ids: number[];
     };
+    PersonImpact: {
+      /** @description Désignations de piste micro (règles de source et surcharges de clip) qui nomment la Personne : déplacées par une fusion, supprimées par une suppression. */
+      microphone_rules: number;
+      /** @description Vrai lorsque la Personne est attribuée sur un clip que l'appelant ne peut pas voir (toujours faux pour un administrateur) : une fusion ou une suppression serait refusée (person_has_hidden_voices). */
+      has_hidden_voices: boolean;
+    };
     PersonCorrectionResult: {
       /** @description Personne qui reste (cible de fusion, Personne séparée) ; null après suppression. */
       person: components["schemas"]["Person"] | null;
@@ -3216,6 +3239,8 @@ export interface components {
       clip_name: string;
       label: string;
       speaking_seconds: number;
+      /** @description Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait. */
+      sample_count: number;
     };
     PersonVoiceList: {
       items: components["schemas"]["PersonVoice"][];
@@ -8959,6 +8984,46 @@ export interface operations {
       };
       /** @description not_attributed_to_person : une voix n'est pas validée pour cette Personne ; rien n'est changé */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getPersonImpact: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Ce qu'une fusion ou une suppression de la Personne toucherait, au-delà des compteurs de la Personne */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonImpact"];
+        };
+      };
+      /** @description person_not_found */
+      404: {
         headers: {
           [name: string]: unknown;
         };

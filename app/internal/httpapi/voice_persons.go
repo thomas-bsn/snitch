@@ -19,6 +19,7 @@ func (s *Server) registerPersonRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/persons", s.protected(false, http.HandlerFunc(s.listPersons)))
 	mux.Handle("POST /api/persons", s.protected(false, http.HandlerFunc(s.createPerson)))
 	mux.Handle("GET /api/persons/{id}", s.protected(false, http.HandlerFunc(s.getPerson)))
+	mux.Handle("GET /api/persons/{id}/impact", s.protected(false, http.HandlerFunc(s.getPersonImpact)))
 	mux.Handle("POST /api/local-speakers/{id}/validation", s.protected(false, http.HandlerFunc(s.validateLocalSpeaker)))
 	mux.Handle("POST /api/local-speakers/{id}/correction", s.protected(false, http.HandlerFunc(s.correctLocalSpeaker)))
 	mux.Handle("GET /api/local-speakers/{id}", s.protected(false, http.HandlerFunc(s.getLocalSpeaker)))
@@ -562,4 +563,34 @@ func (s *Server) effectiveAttributionPointers(ctx context.Context, clipID int64)
 		out[id] = &v
 	}
 	return out, err
+}
+
+type personImpactView struct {
+	MicrophoneRules int  `json:"microphone_rules"`
+	HasHiddenVoices bool `json:"has_hidden_voices"`
+}
+
+// getPersonImpact counts what a merge or a deletion of the Person would touch beyond the
+// counts of the Person itself, so the confirmation can name it and a refusal can be
+// explained. A clip the caller cannot see is only reported as a boolean.
+func (s *Server) getPersonImpact(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, "invalid_person_id")
+	if !ok {
+		return
+	}
+	ss := r.Context().Value(sessionKey{}).(session)
+	var v personImpactView
+	err := s.Pool.QueryRow(r.Context(), `SELECT
+		(SELECT count(*) FROM source_microphone_tracks WHERE person_id=p.id)+(SELECT count(*) FROM clip_microphone_overrides WHERE person_id=p.id),
+		NOT $3 AND EXISTS (SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id WHERE a.person_id=p.id AND NOT (c.visibility='shared' OR c.owner_id=$2))
+		FROM persons p WHERE p.id=$1`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&v.MicrophoneRules, &v.HasHiddenVoices)
+	if errors.Is(err, pgx.ErrNoRows) {
+		fail(w, http.StatusNotFound, "person_not_found")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, v)
 }
