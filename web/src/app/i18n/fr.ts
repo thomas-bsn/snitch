@@ -1505,20 +1505,19 @@ export const fr: Messages = {
       lead: "Les voix les plus fréquentes d’abord : en nommer une retire le plus d’incertitude. Trancher est toujours une confirmation humaine.",
       toDecide: "À trancher",
       countersLabel: "Voix par état",
-      listLabel: "Voix à trancher",
       empty: "Plus rien à trancher ici.",
-      pageStatus: "Page {page} sur {pages}",
-      previous: "Plus fréquentes",
-      next: "Moins fréquentes",
       heardIn: "Entendue dans {clips} clip(s), {voices} voix dans le groupe",
       single: "Une voix seule",
       clipLine: "{clip} · {speech}",
       speech: "{seconds} s de parole",
       candidates: "Personnes les plus proches",
-      similar: "{percent} % de similarité",
-      play: "Écouter l’extrait de {label} dans {clip}",
-      decide: "Trancher",
-      decideFor: "Trancher qui est {label}",
+      similar: "{percent} % de proximité",
+      caseLabel: "Voix à trancher",
+      position: "{total} voix à trancher dans cette vue.",
+      suggestion:
+        "La proximité n’est qu’une suggestion : rien n’est attribué avant votre confirmation.",
+      shortcuts:
+        "Raccourcis : 1 à 9 pour choisir un candidat, Entrée pour confirmer, S pour passer.",
       saved:
         "Enregistré : {label} est {person}. Le rapprochement sera recalculé.",
       alreadyValidated:
@@ -1533,7 +1532,6 @@ export const fr: Messages = {
       openClip: "Ouvrir {clip}",
     },
     decide: {
-      title: "Qui est {label} ?",
       close: "Fermer",
       closest: "Candidats les plus proches",
       existing: "Personnes existantes",
@@ -1546,7 +1544,6 @@ export const fr: Messages = {
       newName: "Nom de la nouvelle Personne",
       skip: "Passer pour l’instant",
       confirm: "Confirmer",
-      saving: "Enregistrement…",
     },
     groups: {
       lead: "Des voix qui se ressemblent, repérées dans plusieurs clips. Snitch ne fait que proposer : aucun groupe n’est jamais confirmé automatiquement et rien n’est attribué tant que vous ne l’avez pas nommé.",
