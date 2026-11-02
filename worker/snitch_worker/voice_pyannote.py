@@ -15,11 +15,13 @@ Design constraints (see docs/real-voice-worker.md):
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
+import time
 from typing import Any, Callable, MutableMapping
 
-from snitch_worker import voice_manifest, voice_models
+from snitch_worker import log, voice_manifest, voice_models
 from snitch_worker.voice import (
     VoiceProviderUnavailable,
     diarization_from_turns,
@@ -37,6 +39,17 @@ SPEAKER_OPTIONS = ("num_speakers", "min_speakers", "max_speakers")
 
 PipelineLoader = Callable[[str, str], Callable[[str], Any]]
 EmbedderLoader = Callable[[str, str], Callable[[str], Callable[[float, float], Any]]]
+
+
+def _classify(exc: BaseException, default: str) -> str:
+    """A stable reason for a library failure, from its class and text, which are never kept or logged."""
+    kind = type(exc).__name__.lower()
+    text = str(exc).lower()
+    if "outofmemory" in kind or "out of memory" in text:
+        return "gpu_out_of_memory"
+    if isinstance(exc, PermissionError) or "gatedrepo" in kind or "unauthorized" in kind or "forbidden" in kind or " 401" in f" {text}" or " 403" in f" {text}":
+        return "model_access_denied"
+    return default
 
 
 def _probe_device() -> str:
@@ -157,6 +170,7 @@ class PyannoteProvider:
                 self._pipeline = None
                 device = self._resolve_device()
                 self._offline()
+                started = time.monotonic()
                 try:
                     self._pipeline = self._load_pipeline(path, device)
                     self._pipeline_path = path
@@ -164,8 +178,9 @@ class PyannoteProvider:
                     raise
                 except ImportError:
                     raise VoiceProviderUnavailable("ml_libraries_missing") from None
-                except Exception:  # noqa: BLE001 - library messages may carry paths or tokens
-                    raise VoiceProviderUnavailable("model_load_failed") from None
+                except Exception as exc:  # noqa: BLE001 - library messages may carry paths or tokens
+                    raise VoiceProviderUnavailable(_classify(exc, "model_load_failed")) from None
+                log.emit(logging.INFO, "diarization_model_loaded", device=device, load_ms=int((time.monotonic() - started) * 1000))
             return self._pipeline
 
     def _audio_opener(self) -> Callable[[str], Callable[[float, float], Any]]:
@@ -189,6 +204,7 @@ class PyannoteProvider:
     def diarize(self, config: dict[str, Any], audio_path: str, stream_index: int) -> dict[str, Any]:
         pipeline = self._pipeline_loaded(config)
         options = {name: int(config[name]) for name in SPEAKER_OPTIONS if config.get(name)}
+        started = time.monotonic()
         try:
             with self._inference_lock:
                 output = pipeline(audio_path, **options)
@@ -196,8 +212,9 @@ class PyannoteProvider:
             turns = [(segment.start, segment.end, label) for segment, _track, label in annotation.itertracks(yield_label=True)]
         except VoiceProviderUnavailable:
             raise
-        except Exception:  # noqa: BLE001
-            raise VoiceProviderUnavailable("inference_failed") from None
+        except Exception as exc:  # noqa: BLE001
+            raise VoiceProviderUnavailable(_classify(exc, "inference_failed")) from None
+        log.emit(logging.INFO, "diarization_inference_done", device=self._device, inference_ms=int((time.monotonic() - started) * 1000))
         return diarization_from_turns(config, turns, stream_index)
 
     def fingerprint(self, config: dict[str, Any], diarization: dict[str, Any], audio_path: str, stream_index: int) -> dict[str, Any]:

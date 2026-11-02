@@ -230,6 +230,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceMatching(t, pool)
 	})
+	t.Run("voice matching diagnostics", func(t *testing.T) {
+		reset(t)
+		testVoiceMatchingDiagnostics(t, pool)
+	})
 	t.Run("voice automation", func(t *testing.T) {
 		reset(t)
 		testVoiceAutomation(t, pool)

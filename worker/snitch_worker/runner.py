@@ -36,7 +36,7 @@ from snitch_worker import voice_models
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
 from snitch_worker.transcription_config import active_configuration, sync_configuration
-from snitch_worker.voice import ensure_provider_ready, is_trial_step, is_voice_step, process_trial_step, process_voice_step, requires_audio
+from snitch_worker.voice import DIARIZATION_STEP, TRIAL_STEP, VoiceProviderUnavailable, ensure_provider_ready, is_trial_step, is_voice_step, process_trial_step, process_voice_step, requires_audio
 
 
 def fake_provider(step: str) -> dict[str, Any]:
@@ -56,6 +56,27 @@ class TranscriptionError(RuntimeError):
         super().__init__(code)
         self.code = code
         self.http_status = http_status
+
+
+# Provider reasons of a diarization step mapped to the catalogue; other reasons keep the generic code.
+DIARIZATION_FAILURE_CODES = {
+    "model_path_missing": "pyannote_model_missing",
+    "model_access_denied": "pyannote_access_denied",
+    "cuda_unavailable": "gpu_unavailable",
+    "gpu_out_of_memory": "gpu_out_of_memory",
+    "model_load_failed": "diarization_inference_failed",
+    "inference_failed": "diarization_inference_failed",
+}
+
+
+def _is_diarization_step(step: str) -> bool:
+    return bool(DIARIZATION_STEP.fullmatch(step) or TRIAL_STEP.fullmatch(step))
+
+
+def _voice_config(task_input: Any) -> dict[str, Any]:
+    voice_value = getattr(task_input, "voice", None)
+    voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
+    return voice_input.get("config") or {}
 
 
 class Transcriber(Protocol):
@@ -454,6 +475,20 @@ def run_once(
         heartbeater.join()
         if heartbeat_errors:
             raise RuntimeError("worker lease lost")
+        if _is_diarization_step(job.step):
+            config = _voice_config(task_input)
+            speakers = result.get("speakers") or []
+            log.emit(
+                logging.INFO,
+                "diarization_done",
+                provider=config.get("provider"),
+                model=config.get("model"),
+                revision=config.get("model_version"),
+                speakers=len(speakers),
+                segments=sum(len(speaker.get("turns") or []) for speaker in speakers),
+                duration_ms=int((time.monotonic() - started) * 1000),
+                **context,
+            )
         result_model = WorkerResultInputResult()
         result_model.additional_properties.update(result)
         _require_response(
@@ -488,6 +523,14 @@ def run_once(
                 diagnostic["model"] = model
             if exc.http_status is not None:
                 diagnostic["http_status"] = exc.http_status
+        elif isinstance(exc, VoiceProviderUnavailable) and _is_diarization_step(job.step) and exc.reason in DIARIZATION_FAILURE_CODES:
+            error_code = DIARIZATION_FAILURE_CODES[exc.reason]
+            voice_config = _voice_config(task_input)
+            diagnostic = {"duration_ms": int((time.monotonic() - started) * 1000)}
+            for field, key in (("provider", "provider"), ("model", "model"), ("revision", "model_version")):
+                value = voice_config.get(key)
+                if isinstance(value, str) and value:
+                    diagnostic[field] = value
         else:
             error_code = (
                 "audio_preparation_failed"
