@@ -310,6 +310,12 @@ export const en = {
       hf_access_denied:
         "Hugging Face access refused: accept the model terms with the account that owns the token.",
       disk_full: "The Worker machine's disk is full.",
+      hf_auth_required:
+        "Hugging Face refused the token: check it and accept the model terms with its account.",
+      hf_not_found: "Model or revision not found on Hugging Face.",
+      hf_network: "Hugging Face cannot be reached from this Worker.",
+      models_volume_unwritable: "The Worker models volume is not writable.",
+      hf_cache_error: "The Worker Hugging Face (Xet) cache is unusable.",
       runtime_incompatible:
         "This model is not compatible with the Worker environment.",
       inference_failed: "The test inference failed.",

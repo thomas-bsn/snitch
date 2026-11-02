@@ -2930,7 +2930,12 @@ export interface components {
         | "hf_access_denied"
         | "disk_full"
         | "runtime_incompatible"
-        | "inference_failed";
+        | "inference_failed"
+        | "hf_auth_required"
+        | "hf_not_found"
+        | "hf_network"
+        | "models_volume_unwritable"
+        | "hf_cache_error";
       /** Format: int64 */
       bytes_received: number;
       /** Format: int64 */
@@ -2982,7 +2987,12 @@ export interface components {
         | "hf_access_denied"
         | "disk_full"
         | "runtime_incompatible"
-        | "inference_failed";
+        | "inference_failed"
+        | "hf_auth_required"
+        | "hf_not_found"
+        | "hf_network"
+        | "models_volume_unwritable"
+        | "hf_cache_error";
       /** Format: int64 */
       bytes_received?: number;
       /** Format: int64 */

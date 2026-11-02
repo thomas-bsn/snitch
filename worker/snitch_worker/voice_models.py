@@ -27,7 +27,7 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from snitch_worker import voice_manifest
+from snitch_worker import log, voice_manifest
 from snitch_worker import voice_download
 from snitch_worker.voice_download import TOKEN_FILE_ENV, without_token
 
@@ -106,12 +106,36 @@ def _legacy_path(environ: Mapping[str, str], repo: str, revision: str) -> str:
         return ""
 
 
-def _cause_of_download(error: BaseException) -> str:
+# Closed vocabulary of the download subprocess (stdout, one JSON line per event): the launcher keeps
+# nothing else, so a library message can never travel further.
+DOWNLOAD_CAUSES = frozenset({
+    "hf_token_missing", "hf_access_denied", "hf_auth_required", "hf_not_found", "hf_network",
+    "models_volume_unwritable", "hf_cache_error", "disk_full", "runtime_incompatible",
+})
+PROGRESS_STEPS = (25, 50, 75, 100)
+
+
+def _cause_of_download(error: BaseException, environ: Mapping[str, str] | None = None) -> str:
     if isinstance(error, DownloadFailed):
         return error.cause
-    if isinstance(error, OSError) and getattr(error, "errno", None) == 28:
-        return "disk_full"
-    return "runtime_incompatible"
+    return voice_download._cause(error, os.environ if environ is None else environ)
+
+
+def read_download_output(lines: Any, progress: Progress) -> str:
+    """Forward the progress of the download subprocess and return its failure code (never its text)."""
+    cause = "runtime_incompatible"
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        if "received" in event:
+            progress(int(event["received"]), int(event["total"]))
+        elif event.get("error") in DOWNLOAD_CAUSES:
+            cause = event["error"]
+    return cause
 
 
 def _cause_of_verification(error: BaseException) -> str:
@@ -197,6 +221,8 @@ class ModelManager:
         if remembered == "ready" and not retry and is_ready(self._env, repo, revision):
             return
 
+        milestone = {"model_id": model_id, "revision": revision}
+
         def say(state: str, cause: str = "", received: int = 0, total: int = 0) -> None:
             post({"model_id": model_id, "state": state, "cause_code": cause, "bytes_received": received, "bytes_total": total})
 
@@ -210,8 +236,17 @@ class ModelManager:
         if not legacy:
             say("downloading")
             last = [0.0]
+            reached = [0]
+            resuming = os.path.isdir(target) and bool(os.listdir(target))
+            log.emit(logging.INFO, "voice_model_download_resumed" if resuming else "voice_model_download_started", **milestone)
 
             def progress(received: int, total: int) -> None:
+                if total > 0:
+                    percent = min(100, received * 100 // total)
+                    step = max((s for s in PROGRESS_STEPS if s <= percent), default=0)
+                    if step > reached[0]:
+                        reached[0] = step
+                        log.emit(logging.DEBUG, "voice_model_download_progress", percent=step, **milestone)
                 now = time.monotonic()
                 if received < total and now - last[0] < self._interval:
                     return
@@ -225,7 +260,9 @@ class ModelManager:
                 if isinstance(error, (KeyboardInterrupt, SystemExit)):
                     raise
                 self._memory[model_id] = "failed"
-                say("failed", _cause_of_download(error))
+                cause = _cause_of_download(error, self._env)
+                log.emit(logging.INFO, "voice_model_failed", phase="download", cause_code=cause, **milestone)
+                say("failed", cause)
                 return
         say("verifying")
         try:
@@ -236,8 +273,13 @@ class ModelManager:
             if isinstance(error, (KeyboardInterrupt, SystemExit)):
                 raise
             self._memory[model_id] = "failed"
-            say("failed", _cause_of_verification(error))
+            cause = _cause_of_verification(error)
+            log.emit(logging.INFO, "voice_model_failed", phase="verification", cause_code=cause, **milestone)
+            say("failed", cause)
             return
+        log.emit(logging.INFO, "voice_model_validated", **milestone)
+        if item.get("role") == "active":
+            log.emit(logging.INFO, "voice_model_activated", **milestone)
         self._memory[model_id] = "ready"
         say("ready")
 
@@ -278,17 +320,8 @@ def _subprocess_download(repo: str, revision: str, target: str, progress: Progre
         text=True,
         env=env,
     )
-    cause = "runtime_incompatible"
     assert process.stdout is not None
-    for line in process.stdout:
-        try:
-            event = json.loads(line)
-        except ValueError:
-            continue
-        if "received" in event:
-            progress(int(event["received"]), int(event["total"]))
-        elif event.get("error") in {"hf_token_missing", "hf_access_denied", "disk_full", "runtime_incompatible"}:
-            cause = event["error"]
+    cause = read_download_output(process.stdout, progress)
     if process.wait() != 0:
         raise DownloadFailed(cause)
 
