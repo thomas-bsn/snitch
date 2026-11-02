@@ -286,6 +286,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceVerification(t, pool)
 	})
+	t.Run("local speaker read", func(t *testing.T) {
+		reset(t)
+		testLocalSpeakerRead(t, pool)
+	})
+	t.Run("voice group by voice", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupByVoice(t, pool)
+	})
 	t.Run("notifications", func(t *testing.T) {
 		reset(t)
 		testNotifications(t, pool)
@@ -317,6 +325,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("person voices", func(t *testing.T) {
 		reset(t)
 		testPersonVoices(t, pool)
+	})
+	t.Run("person list pagination", func(t *testing.T) {
+		reset(t)
+		testPersonListPagination(t, pool)
 	})
 	t.Run("person filter", func(t *testing.T) {
 		reset(t)
@@ -396,6 +408,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("person corrections respect visibility", func(t *testing.T) {
 		reset(t)
 		testPersonCorrectionsRespectVisibility(t, pool)
+	})
+	t.Run("person impact", func(t *testing.T) {
+		reset(t)
+		testPersonImpact(t, pool)
 	})
 	t.Run("voice result with expired lease", func(t *testing.T) {
 		reset(t)
@@ -633,11 +649,13 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/persons?q=contract", nil, "", 200)
 		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID), nil, "", 200)
 		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID)+"/voices", nil, "", 200)
+		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID)+"/impact", nil, "", 200) // counters: person impact suite
 		call(client, "GET", "/api/clip-filters", nil, "", 200)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"person_id": contractPerson.ID}, me.CSRF, 201)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"new_person_name": "Late"}, me.CSRF, 409)
 		call(client, "POST", speakerPath+"/correction", map[string]any{"new_person_name": "Corrected", "expected_person_id": contractPerson.ID}, me.CSRF, 200)
 		call(client, "GET", speakerPath+"/history", nil, "", 200)
+		call(client, "GET", speakerPath, nil, "", 200)
 		call(client, "GET", speakerPath+"/excerpt", nil, "", 404)
 		// Person corrections (behavior in the person corrections suite).
 		var absorbed, kept struct {
@@ -996,7 +1014,7 @@ func TestFoundation(t *testing.T) {
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
 			"admin-workers.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
-			"people-groups.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
+			"people-groups.spec.ts", "people-directory.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
 			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-trial.spec.ts", "clip-analysis.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts",
 		}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
@@ -1093,7 +1111,7 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"people.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PEOPLE") == "1" {
-			suites = []string{"people.spec.ts"}
+			suites = []string{"people.spec.ts", "people-directory.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PEOPLE_GROUPS") == "1" {
 			suites = []string{"people-groups.spec.ts"}

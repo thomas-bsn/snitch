@@ -1792,7 +1792,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références). */
+    /** @description Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références). Sans page ni page_size : les 500 premières Personnes, sans total (comportement historique). Avec page ou page_size : une page triée par nom puis identifiant, et le total des Personnes correspondant à q. */
     get: operations["listPersons"];
     put?: never;
     /** @description Utilisateurs connectés. Une Personne est une identité, jamais un compte. */
@@ -1849,6 +1849,23 @@ export interface paths {
     put?: never;
     /** @description Utilisateurs connectés, pour des voix de clips visibles (sinon 404). Retire la validation des voix nommées (elles redeviennent inconnues et peuvent être validées de nouveau) et leurs Échantillons vocaux des références ; la Personne est conservée. Historique des voix (action split), rapprochement recalculé. */
     post: operations["separatePerson"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/impact": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Lecture seule, pour chiffrer les conséquences d'une correction avant de la confirmer et pour en expliquer le refus. Ne révèle aucun clip invisible : seulement un booléen. */
+    get: operations["getPersonImpact"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2040,6 +2057,23 @@ export interface paths {
     put?: never;
     /** @description Utilisateurs connectés, pour un clip visible. expected_person_id (Personne vue par l'utilisateur) est obligatoire pour qu'une correction concurrente n'en écrase pas une autre. */
     post: operations["correctLocalSpeaker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés, pour un clip visible : mêmes règles de visibilité que le reste. Cible des liens directs de Vérification : dit si la voix reste à trancher, ou qui l'a attribuée à qui et quand. Un clip invisible ne fuit jamais : 404 identique à celui d'un identifiant inexistant. */
+    get: operations["getLocalSpeaker"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3587,6 +3621,12 @@ export interface components {
     PersonSeparationInput: {
       local_speaker_ids: number[];
     };
+    PersonImpact: {
+      /** @description Désignations de piste micro (règles de source et surcharges de clip) qui nomment la Personne : déplacées par une fusion, supprimées par une suppression. */
+      microphone_rules: number;
+      /** @description Vrai lorsque la Personne est attribuée sur un clip que l'appelant ne peut pas voir (toujours faux pour un administrateur) : une fusion ou une suppression serait refusée (person_has_hidden_voices). */
+      has_hidden_voices: boolean;
+    };
     PersonCorrectionResult: {
       /** @description Personne qui reste (cible de fusion, Personne séparée) ; null après suppression. */
       person: components["schemas"]["Person"] | null;
@@ -3619,6 +3659,8 @@ export interface components {
       clip_name: string;
       label: string;
       speaking_seconds: number;
+      /** @description Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait. */
+      sample_count: number;
     };
     PersonVoiceList: {
       items: components["schemas"]["PersonVoice"][];
@@ -3641,6 +3683,8 @@ export interface components {
     };
     PersonList: {
       items: components["schemas"]["Person"][];
+      /** @description Présent seulement lorsque la liste est paginée : nombre de Personnes correspondant à q. */
+      total?: number;
     };
     AttributionAuthor: {
       /** Format: int64 */
@@ -3762,6 +3806,27 @@ export interface components {
       group_voice_count: number;
       /** @description Clips distincts du groupe : la fréquence qui ordonne les cas. */
       group_clip_count: number;
+    };
+    LocalSpeakerRead: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+      decision_level: components["schemas"]["DecisionLevel"];
+      /** @description Attribution effective (validation humaine d'abord, sinon rapprochement) ; null sans attribution. Author et decided_at disent qui l'a décidée et quand. */
+      attribution: components["schemas"]["Attribution"] | null;
+      /**
+       * Format: int64
+       * @description Présent seulement pour une voix à trancher (inconnue ou ambiguë) : groupe proposé de la voix.
+       */
+      group_id?: number;
+      /** @description Présent avec group_id. */
+      group_voice_count?: number;
+      /** @description Présent avec group_id. */
+      group_clip_count?: number;
     };
     /** @description Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base. */
     VoiceVerificationCounts: {
@@ -9579,6 +9644,10 @@ export interface operations {
     parameters: {
       query?: {
         q?: string;
+        /** @description Active la pagination (défaut 1). */
+        page?: number;
+        /** @description Active la pagination (défaut 20). */
+        page_size?: number;
       };
       header?: never;
       path?: never;
@@ -9792,6 +9861,46 @@ export interface operations {
       };
       /** @description not_attributed_to_person : une voix n'est pas validée pour cette Personne ; rien n'est changé */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getPersonImpact: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Ce qu'une fusion ou une suppression de la Personne toucherait, au-delà des compteurs de la Personne */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonImpact"];
+        };
+      };
+      /** @description person_not_found */
+      404: {
         headers: {
           [name: string]: unknown;
         };
@@ -10410,6 +10519,46 @@ export interface operations {
       };
     };
   };
+  getLocalSpeaker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Locuteur local, son niveau de décision, l'attribution effective et son clip */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LocalSpeakerRead"];
+        };
+      };
+      /** @description local_speaker_not_found : même réponse pour un Locuteur local inexistant et pour celui d'un clip invisible */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getLocalSpeakerHistory: {
     parameters: {
       query?: never;
@@ -10692,6 +10841,8 @@ export interface operations {
         proposed?: boolean;
         page?: number;
         page_size?: number;
+        /** @description Identifiant d'un Locuteur local : ne retourne que le groupe qui contient cette voix visible, ou une liste vide. */
+        voice?: number;
       };
       header?: never;
       path?: never;

@@ -7,7 +7,7 @@ import { ADMIN, sessionFor } from "./shell-fixture";
 
 const origin = () => process.env.SNITCH_TEST_URL!;
 
-async function adminApi(): Promise<{
+export async function adminApi(): Promise<{
   api: APIRequestContext;
   post: (path: string, data?: unknown) => Promise<unknown>;
   put: (path: string, data: unknown) => Promise<unknown>;

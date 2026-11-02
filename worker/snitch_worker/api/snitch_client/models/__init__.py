@@ -104,6 +104,7 @@ from .list_voice_groups_sort import ListVoiceGroupsSort
 from .list_voice_verification_level import ListVoiceVerificationLevel
 from .local_speaker import LocalSpeaker
 from .local_speaker_kind import LocalSpeakerKind
+from .local_speaker_read import LocalSpeakerRead
 from .local_speaker_state import LocalSpeakerState
 from .master_key_export import MasterKeyExport
 from .master_key_export_origin import MasterKeyExportOrigin
@@ -137,6 +138,7 @@ from .person_correction_result import PersonCorrectionResult
 from .person_event import PersonEvent
 from .person_event_action import PersonEventAction
 from .person_event_list import PersonEventList
+from .person_impact import PersonImpact
 from .person_input import PersonInput
 from .person_link_account import PersonLinkAccount
 from .person_link_request import PersonLinkRequest
@@ -469,6 +471,7 @@ __all__ = (
     "ListVoiceVerificationLevel",
     "LocalSpeaker",
     "LocalSpeakerKind",
+    "LocalSpeakerRead",
     "LocalSpeakerState",
     "MasterKeyExport",
     "MasterKeyExportOrigin",
@@ -502,6 +505,7 @@ __all__ = (
     "PersonEvent",
     "PersonEventAction",
     "PersonEventList",
+    "PersonImpact",
     "PersonInput",
     "PersonLinkAccount",
     "PersonLinkRequest",

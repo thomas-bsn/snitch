@@ -33,6 +33,8 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Voix inconnue** : Une voix sans validation humaine ni attribution automatique ; une suggestion ou une voix ambiguë reste inconnue tant qu'un utilisateur n'a pas tranché.
 
+**Cas de vérification** : Une voix inconnue ou ambiguë qu'un utilisateur doit trancher, identifiée par son Locuteur local. Il disparaît de la file dès qu'une Personne lui est attribuée par validation humaine ; « passer » un cas ne le tranche pas.
+
 **Groupe de voix inconnues** : Un ensemble de voix inconnues proches proposé pour être nommé en une seule fois comme une Personne. Il n'est jamais confirmé automatiquement, et une voix isolée forme un groupe à elle seule.
 
 **Piste micro** : La piste audio d'une source qui ne contient que la voix de son propriétaire ; elle lui est attribuée directement, sans diarisation.
