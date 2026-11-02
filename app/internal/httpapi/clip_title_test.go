@@ -63,7 +63,7 @@ func testClipDisplayTitle(t *testing.T, pool *pgxpool.Pool) {
 	}
 
 	// Invalid titles are refused and change nothing.
-	for name, bad := range map[string]string{"control": "line\nbreak", "tab": "a\tb", "too long": strings.Repeat("é", 201), "nul": "a\x00b"} {
+	for name, bad := range map[string]string{"control": "line\nbreak", "tab": "a\tb", "too long": strings.Repeat("é", 201), "nul": "a\x00b", "bidi override": "abc\u202edef", "separator": "a\u2028b"} {
 		if got := string(h.adminCall(http.MethodPut, path, map[string]any{"display_title": bad, "display_title_changed": true}, http.StatusBadRequest)); !strings.Contains(got, "invalid_clip_title") {
 			t.Fatalf("%s: %s", name, got)
 		}
@@ -133,6 +133,17 @@ func testClipDisplayTitle(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodPut, path, map[string]any{"recorded_at_reset": true}, http.StatusOK)
 	if reset = get(); reset.RecordedAt == nil || !strings.HasPrefix(*reset.RecordedAt, "2026-01-02") {
 		t.Fatalf("reset restores the date: %+v", reset)
+	}
+	// After a restore the snapshot is dropped: a rescan may change the automatic value, and the next edit
+	// snapshots the new one rather than restoring an obsolete value later.
+	if reset.Detected != nil {
+		t.Fatalf("a restored field must not keep a stale snapshot: %+v", reset.Detected)
+	}
+	exec(`UPDATE clips SET game='Rescanned Game' WHERE id=$1`, h.clipID)
+	h.adminCall(http.MethodPut, path, map[string]any{"game": "Edited Third", "game_changed": true}, http.StatusOK)
+	h.adminCall(http.MethodPut, path, map[string]any{"game_reset": true}, http.StatusOK)
+	if got := get(); got.Game == nil || *got.Game != "Rescanned Game" {
+		t.Fatalf("restore must bring back the value of the last edit, not an obsolete one: %+v", got)
 	}
 	// Nothing detected to restore: the reset is refused rather than guessed.
 	exec(`UPDATE clips SET detected_metadata=NULL,game_edited=true WHERE id=$1`, h.clipID)

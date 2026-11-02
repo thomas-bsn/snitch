@@ -75,13 +75,19 @@ func decodeDetected(raw []byte) *detectedMetadata {
 // maxClipTitleRunes bounds the display title in characters, not bytes.
 const maxClipTitleRunes = 200
 
+// spoofingRune is a character a title must not carry: control characters, line/paragraph separators and the
+// bidirectional overrides and isolates that reorder or hide the text around them. Joiners stay (emoji sequences).
+func spoofingRune(r rune) bool {
+	return unicode.IsControl(r) || r == '\u2028' || r == '\u2029' || (r >= '\u202a' && r <= '\u202e') || (r >= '\u2066' && r <= '\u2069')
+}
+
 // cleanClipTitle trims a display title and refuses control characters and over-long values; "" clears it.
 func cleanClipTitle(raw string) (*string, bool) {
 	v := strings.TrimSpace(raw)
 	if v == "" {
 		return nil, true
 	}
-	if !utf8.ValidString(v) || utf8.RuneCountInString(v) > maxClipTitleRunes || strings.IndexFunc(v, unicode.IsControl) >= 0 {
+	if !utf8.ValidString(v) || utf8.RuneCountInString(v) > maxClipTitleRunes || strings.IndexFunc(v, spoofingRune) >= 0 {
 		return nil, false
 	}
 	return &v, true
@@ -173,6 +179,9 @@ func (s *Server) putClipMetadata(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		game, gameOrigin, gameEdited = detected.Game, detected.GameOrigin, false
+		// Back on the automatic value: the snapshot is stale as soon as a rescan may change it, so the next
+		// manual edit takes a fresh one.
+		detected.GameAvailable, detected.Game, detected.GameOrigin = false, nil, nil
 	case in.GameChanged:
 		game, gameOrigin, gameEdited = in.Game, ptr("manual"), true
 	}
@@ -183,6 +192,7 @@ func (s *Server) putClipMetadata(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		captured, timeOrigin, timeEdited = detected.RecordedAt, detected.RecordedAtOrigin, false
+		detected.RecordedAtAvailable, detected.RecordedAt, detected.RecordedAtOrigin = false, nil, nil
 	case in.RecordedAtChanged:
 		captured, timeOrigin, timeEdited = in.RecordedAt, ptr("manual"), true
 	}
