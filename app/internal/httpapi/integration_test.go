@@ -911,8 +911,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/segments/0/restore", map[string]any{"original": true, "expected_version": 1, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/segment-corrections/export", nil, "", 200)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/analysis", nil, "", 200) // the read-only view; its behavior and stream in the analysis view suite
-		call(client, "POST", "/api/admin/master-key/export", nil, me.CSRF, 200) // behavior in the master key suite
-		call(client, "DELETE", "/api/account/discord", nil, me.CSRF, 200)       // the Discord identity linked earlier is removed
+		call(client, "POST", "/api/admin/master-key/export", nil, me.CSRF, 200)                // behavior in the master key suite
+		call(client, "DELETE", "/api/account/discord", nil, me.CSRF, 200)                      // the Discord identity linked earlier is removed
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/9/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 0}, me.CSRF, 404)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 2, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
