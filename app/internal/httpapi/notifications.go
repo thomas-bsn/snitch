@@ -18,7 +18,8 @@ const kindSpeakerReview = "needs_speaker_review"
 
 // notificationVisible is the access rule, re-checked on every read ($1 user, $2 administrator):
 // a recipient who lost access to the clip no longer sees its notifications, history included.
-const notificationVisible = `(c.visibility='shared' OR c.owner_id=$1 OR $2)`
+// An incident is administrators' business; the owner of the clip concerned keeps a generic view.
+const notificationVisible = `(CASE WHEN n.kind='needs_speaker_review' THEN (c.visibility='shared' OR c.owner_id=$1 OR $2) ELSE ($2 OR c.owner_id=$1) END)`
 
 // pendingVoicesSQL counts the voices of clip $1 that still need a decision: unknown or
 // ambiguous, neither validated nor automatically attributed (the Verification list).
@@ -128,6 +129,11 @@ type notificationView struct {
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	ResolvedAt   *time.Time `json:"resolved_at"`
+	// Incident payload: codes only. Empty for a non-administrator, who gets Generic instead.
+	JobID     *int64 `json:"job_id"`
+	Step      string `json:"step"`
+	ErrorCode string `json:"error_code"`
+	Generic   bool   `json:"generic"`
 }
 
 func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
@@ -152,8 +158,8 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		limit = n
 	}
 	ctx := r.Context()
-	rows, err := s.Pool.Query(ctx, `SELECT n.id,n.kind,n.state,n.clip_id,COALESCE(c.original_name,''),n.pending_count,x.read_at IS NOT NULL,n.created_at,n.updated_at,n.resolved_at
-FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id JOIN clips c ON c.id=n.clip_id
+	rows, err := s.Pool.Query(ctx, `SELECT n.id,n.kind,n.state,n.clip_id,COALESCE(c.original_name,''),n.pending_count,x.read_at IS NOT NULL,n.created_at,n.updated_at,n.resolved_at,n.job_id,n.step,n.error_code
+FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
 WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible+` AND ($3='all' OR n.state=$3)
 ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4`, ss.User.ID, admin, state, limit)
 	if err != nil {
@@ -163,10 +169,14 @@ ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4`, ss.User.
 	items := []notificationView{}
 	for rows.Next() {
 		var v notificationView
-		if err = rows.Scan(&v.ID, &v.Kind, &v.State, &v.ClipID, &v.ClipName, &v.PendingCount, &v.Read, &v.CreatedAt, &v.UpdatedAt, &v.ResolvedAt); err != nil {
+		if err = rows.Scan(&v.ID, &v.Kind, &v.State, &v.ClipID, &v.ClipName, &v.PendingCount, &v.Read, &v.CreatedAt, &v.UpdatedAt, &v.ResolvedAt, &v.JobID, &v.Step, &v.ErrorCode); err != nil {
 			rows.Close()
 			s.internal(w, err)
 			return
+		}
+		if v.Kind != kindSpeakerReview && !admin {
+			// A safe generic message: no cause, step, job or counts.
+			v.Kind, v.Generic, v.JobID, v.Step, v.ErrorCode, v.PendingCount = kindTechnicalIncident, true, nil, "", "", 0
 		}
 		items = append(items, v)
 	}
@@ -177,7 +187,7 @@ ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4`, ss.User.
 	}
 	var unread, pending int
 	if err = s.Pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE x.read_at IS NULL)::int,count(*) FILTER (WHERE n.state='active')::int
-FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id JOIN clips c ON c.id=n.clip_id
+FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
 WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible, ss.User.ID, admin).Scan(&unread, &pending); err != nil {
 		s.internal(w, err)
 		return
@@ -187,7 +197,7 @@ WHERE x.user_id=$1 AND x.deleted_at IS NULL AND `+notificationVisible, ss.User.I
 
 // ownNotification reports the state of a notification the caller may act on.
 func (s *Server) ownNotification(ctx context.Context, ss session, id int64) (state string, ok bool, err error) {
-	err = s.Pool.QueryRow(ctx, `SELECT n.state FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id JOIN clips c ON c.id=n.clip_id
+	err = s.Pool.QueryRow(ctx, `SELECT n.state FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
 WHERE x.user_id=$1 AND n.id=$3 AND x.deleted_at IS NULL AND `+notificationVisible, ss.User.ID, isAdministrator(ss.User.Role), id).Scan(&state)
 	if err == pgx.ErrNoRows {
 		return "", false, nil
@@ -236,7 +246,7 @@ func (s *Server) markNotificationUnread(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) readAllNotifications(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	tag, err := s.Pool.Exec(r.Context(), `UPDATE notification_recipients x SET read_at=now() FROM notifications n JOIN clips c ON c.id=n.clip_id
+	tag, err := s.Pool.Exec(r.Context(), `UPDATE notification_recipients x SET read_at=now() FROM notifications n LEFT JOIN clips c ON c.id=n.clip_id
 WHERE n.id=x.notification_id AND x.user_id=$1 AND x.read_at IS NULL AND x.deleted_at IS NULL AND `+notificationVisible, ss.User.ID, isAdministrator(ss.User.Role))
 	if err != nil {
 		s.internal(w, err)

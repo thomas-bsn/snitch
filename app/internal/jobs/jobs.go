@@ -605,7 +605,7 @@ func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, mess
 	}
 	// Never persist worker-provided stack traces, paths, or arbitrary details.
 	code := "worker_failed"
-	if message == "provider_unavailable" || message == "invalid_input" {
+	if message == "provider_unavailable" || message == "model_missing" || message == "invalid_input" {
 		code = message
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})

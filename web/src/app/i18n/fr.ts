@@ -583,6 +583,18 @@ export const fr: Messages = {
     history: "Historique",
     actions: "Actions",
     removeFailed: "Cette notification n’a pas pu être retirée.",
+    incidentWorker:
+      "Aucun worker compatible n’est disponible : {count} jobs attendent",
+    incidentProvider:
+      "Le service de traitement est indisponible ({count} jobs concernés)",
+    incidentModel:
+      "Un modèle requis est absent du worker ({count} jobs concernés)",
+    incidentJob: "{count} jobs en échec à l’étape {step}",
+    incidentGeneric:
+      "Un incident technique ralentit le traitement. Les administrateurs ont été prévenus.",
+    incidentResolved: "Incident technique résolu",
+    incidentWorkerAction: "Vérifier le worker",
+    incidentJobAction: "Voir les jobs",
   },
   header: {
     searchLabel: "Rechercher dans les transcriptions",

@@ -23,6 +23,22 @@ export function BellMenu() {
 
   function text(item: AppNotification) {
     const clip = item.clip_name;
+    if (item.generic)
+      return item.state === "resolved"
+        ? t("notifications.incidentResolved")
+        : t("notifications.incidentGeneric");
+    if (item.kind !== "needs_speaker_review") {
+      if (item.state === "resolved") return t("notifications.incidentResolved");
+      const count = item.pending_count;
+      const step = item.step;
+      return item.kind === "worker_unavailable"
+        ? t("notifications.incidentWorker", { count })
+        : item.kind === "provider_unavailable"
+          ? t("notifications.incidentProvider", { count })
+          : item.kind === "model_missing"
+            ? t("notifications.incidentModel", { count })
+            : t("notifications.incidentJob", { count, step });
+    }
     if (item.state === "resolved")
       return t("notifications.speakerReviewResolved", { clip });
     return item.pending_count === 1
@@ -104,6 +120,15 @@ export function BellMenu() {
                         {t("notifications.unread")}
                       </span>
                     )}
+                    {item.state === "active" &&
+                      !item.generic &&
+                      item.kind !== "needs_speaker_review" && (
+                        <span className="block text-xs text-accent">
+                          {item.kind === "worker_unavailable"
+                            ? t("notifications.incidentWorkerAction")
+                            : t("notifications.incidentJobAction")}
+                        </span>
+                      )}
                     {item.state === "resolved" && (
                       <span className="block text-xs text-mute">
                         {t("notifications.resolved")}

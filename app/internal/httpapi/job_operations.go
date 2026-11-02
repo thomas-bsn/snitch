@@ -58,6 +58,7 @@ func (s *Server) relaunchJob(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	s.syncIncidents(r.Context())
 	reply(w, http.StatusOK, job)
 }
 
@@ -80,5 +81,6 @@ func (s *Server) cancelJob(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	s.syncIncidents(r.Context())
 	w.WriteHeader(http.StatusNoContent)
 }

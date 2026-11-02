@@ -434,6 +434,7 @@ func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) claimWorkerJob(w http.ResponseWriter, r *http.Request) {
+	defer s.syncIncidentsSoon(r.Context())
 	job, err := s.Jobs.Claim(r.Context(), currentWorker(r).ID)
 	if err != nil {
 		s.internal(w, err)
@@ -579,6 +580,7 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 	} else {
 		s.reconcileAnalysis(r.Context(), job.ClipID)
+		s.syncIncidents(r.Context())
 		reply(w, http.StatusOK, job)
 	}
 }
@@ -603,6 +605,7 @@ func (s *Server) failWorkerJob(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 	} else {
 		s.reconcileAnalysis(r.Context(), job.ClipID)
+		s.syncIncidents(r.Context())
 		reply(w, http.StatusOK, job)
 	}
 }
