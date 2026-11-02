@@ -26,9 +26,9 @@ class StartClipAnalysisBody:
         Attributes:
             scope (StartClipAnalysisBodyScope | Unset): transcription : préparation et transcription seulement. voice :
                 détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de
-                transcription implicite). full : transcription, indexation et voix. Les étapes d'indexation et de voix ne sont
-                pas encore orchestrées : elles restent not_yet_supported et l'exécution se termine incomplete. Default:
-                StartClipAnalysisBodyScope.TRANSCRIPTION.
+                transcription implicite). full : transcription, indexation et voix. L'indexation et les voix avancent
+                indépendamment après la transcription ; une branche en échec n'arrête pas l'autre et l'exécution se termine
+                failed (échec partiel). Default: StartClipAnalysisBodyScope.TRANSCRIPTION.
      """
 
     scope: StartClipAnalysisBodyScope | Unset = StartClipAnalysisBodyScope.TRANSCRIPTION

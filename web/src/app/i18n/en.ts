@@ -1409,8 +1409,19 @@ export const en = {
         transcription_required:
           "Voice detection needs a valid transcription: transcribe the clip first.",
         awaiting_transcription: "Waiting for the transcription.",
-        orchestration_pending:
-          "This step is not available in the analysis yet.",
+        awaiting_indexer: "Waiting for the search indexer.",
+        semantic_search_unavailable:
+          "Semantic search is not configured; text search is available.",
+        semantic_index_failed:
+          "Semantic indexing failed; text search still works.",
+        microphone_track:
+          "The microphone track is attributed directly, without voice detection.",
+        microphone_direct_attribution:
+          "The microphone track was attributed directly to its owner.",
+        no_speakers: "No voice was detected in this clip.",
+        awaiting_fingerprints: "Waiting for the voice fingerprints.",
+        matching_failed: "Voice matching failed.",
+        upstream_failed: "Not run: a previous step failed.",
       },
       track: "Audio track",
       trackPlaceholder: "Choose a track…",

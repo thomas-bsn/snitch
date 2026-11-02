@@ -39,10 +39,6 @@ const (
 
 var stepOrder = []string{StepPreparation, StepTranscription, StepIndexing, StepDiarization, StepFingerprints, StepMatching}
 
-// laterSteps are the steps that follow the transcription. Their orchestration is not wired
-// yet (indexing, voices): they show not_yet_supported rather than a false success.
-var laterSteps = []string{StepIndexing, StepDiarization, StepFingerprints, StepMatching}
-
 func applicable(scope, step string) bool {
 	switch step {
 	case StepPreparation:
@@ -58,24 +54,21 @@ func applicable(scope, step string) bool {
 
 // Step statuses. Reasons are stable codes the interface translates.
 const (
-	StatusWaiting         = "waiting"
-	StatusRunning         = "running"
-	StatusRetry           = "retry"
-	StatusBlocked         = "blocked"
-	StatusFailed          = "failed"
-	StatusDone            = "done"
-	StatusNotApplicable   = "not_applicable"
-	StatusNotYetSupported = "not_yet_supported"
+	StatusWaiting       = "waiting"
+	StatusRunning       = "running"
+	StatusRetry         = "retry"
+	StatusBlocked       = "blocked"
+	StatusFailed        = "failed"
+	StatusDone          = "done"
+	StatusNotApplicable = "not_applicable"
 )
 
 // Run statuses.
 const (
 	RunActive    = "active"
 	RunCompleted = "completed"
-	// RunIncomplete: every step that can run is done, the others are not yet supported.
-	RunIncomplete = "incomplete"
-	RunFailed     = "failed"
-	RunCancelled  = "cancelled"
+	RunFailed    = "failed"
+	RunCancelled = "cancelled"
 )
 
 var (
@@ -128,7 +121,30 @@ type Hooks interface {
 	Transcribe(ctx context.Context, clipID int64, since time.Time) (Transcription, error)
 	// HasTranscription tells whether the clip has a valid transcription to build on.
 	HasTranscription(ctx context.Context, clipID int64) (bool, error)
+	// Index tells where the semantic indexing of the visible transcription stands. The text
+	// search never depends on it.
+	Index(ctx context.Context, clipID int64) (StepResult, error)
+	// Voice resolves the audio track, applies the microphone designation, and follows or
+	// schedules the diarization and fingerprint jobs (valid results are reused).
+	Voice(ctx context.Context, clipID int64, since time.Time) (VoiceSteps, error)
+	// Match matches the fingerprints of the clip with the existing references.
+	Match(ctx context.Context, clipID int64) error
 }
+
+// StepResult is the state a hook reports for a step. Job is the job it follows, if any.
+type StepResult struct {
+	Status, Reason string
+	Job            *jobs.Job
+}
+
+// VoiceSteps are the voice steps of a clip. Matching is set only when it needs no matching
+// run (a directly attributed microphone track, nothing to match).
+type VoiceSteps struct {
+	Diarization, Fingerprints StepResult
+	Matching                  *StepResult
+}
+
+const maxMatchingAttempts = 3
 
 type Service struct {
 	pool  *pgxpool.Pool
@@ -338,17 +354,31 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 		}
 		states[StepTranscription] = transcriptionState(tr, run.CreatedAt)
 	}
-	for _, step := range laterSteps {
-		if !applicable(run.Scope, step) {
-			continue
+	// Indexing and voices are independent branches: each only needs the transcription.
+	trState := states[StepTranscription]
+	switch {
+	case trState.status == StatusDone:
+		if applicable(run.Scope, StepIndexing) {
+			res, idxErr := s.hooks.Index(ctx, run.ClipID)
+			if idxErr != nil {
+				return idxErr
+			}
+			states[StepIndexing] = fromResult(res)
 		}
-		if states[StepTranscription].status == StatusDone {
-			states[step] = stepState{status: StatusNotYetSupported, reason: "orchestration_pending"}
-		} else {
-			states[step] = stepState{status: StatusWaiting, reason: "awaiting_transcription"}
+		if applicable(run.Scope, StepDiarization) {
+			if err = s.voiceStates(ctx, run, states); err != nil {
+				return err
+			}
+		}
+	default:
+		for _, step := range stepOrder[2:] {
+			if !applicable(run.Scope, step) {
+				continue
+			}
+			states[step] = dependentState(trState, "awaiting_transcription")
 		}
 	}
-	failed, finished, unsupported := false, true, false
+	failed, finished := false, true
 	for step, st := range states {
 		if _, err = s.pool.Exec(ctx, `UPDATE clip_analysis_steps SET status=$3,reason=$4,job_id=$5,attempt=$6,updated_at=now(),
  started_at=COALESCE(started_at,CASE WHEN $3 IN ('running','retry','done','failed') THEN now() END),
@@ -357,24 +387,94 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 			return err
 		}
 		failed = failed || st.status == StatusFailed
-		unsupported = unsupported || st.status == StatusNotYetSupported
-		finished = finished && (st.status == StatusDone || st.status == StatusNotApplicable || st.status == StatusNotYetSupported)
+		finished = finished && (st.status == StatusDone || st.status == StatusNotApplicable || st.status == StatusFailed || st.reason == reasonUpstreamFailed)
 	}
+	// The run ends when no branch can move any more; a failed branch makes it a partial failure.
 	switch {
-	case failed:
+	case finished && failed:
 		_, err = s.pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='failed',updated_at=now(),finished_at=now() WHERE id=$1 AND status='active'`, run.ID)
-	case finished && unsupported:
-		_, err = s.pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='incomplete',updated_at=now(),finished_at=now() WHERE id=$1 AND status='active'`, run.ID)
 	case finished:
 		_, err = s.pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='completed',updated_at=now(),finished_at=now() WHERE id=$1 AND status='active'`, run.ID)
 	}
 	return err
 }
 
+const reasonUpstreamFailed = "upstream_failed"
+
+func fromResult(r StepResult) stepState {
+	st := stepState{status: r.Status, reason: r.Reason}
+	if r.Job != nil {
+		id := r.Job.ID
+		st.jobID, st.attempt = &id, r.Job.Attempts
+	}
+	return st
+}
+
+// dependentState is a step whose input step is in prev: it waits, unless prev failed.
+func dependentState(prev stepState, waitReason string) stepState {
+	if prev.status == StatusFailed || prev.reason == reasonUpstreamFailed {
+		return stepState{status: StatusBlocked, reason: reasonUpstreamFailed}
+	}
+	return stepState{status: StatusWaiting, reason: waitReason}
+}
+
+// voiceStates fills the diarization, fingerprint and matching steps.
+func (s *Service) voiceStates(ctx context.Context, run Run, states map[string]stepState) error {
+	vs, err := s.hooks.Voice(ctx, run.ClipID, run.CreatedAt)
+	if err != nil {
+		return err
+	}
+	states[StepDiarization] = fromResult(vs.Diarization)
+	states[StepFingerprints] = fromResult(vs.Fingerprints)
+	switch {
+	case vs.Matching != nil:
+		states[StepMatching] = fromResult(*vs.Matching)
+		return nil
+	case vs.Fingerprints.Status != StatusDone:
+		states[StepMatching] = dependentState(states[StepFingerprints], "awaiting_fingerprints")
+		return nil
+	}
+	// Matching runs in the database, not in a job: this run owns its outcome and retries it.
+	var cur stepState
+	if err = s.pool.QueryRow(ctx, `SELECT status,reason,attempt FROM clip_analysis_steps WHERE run_id=$1 AND step=$2`, run.ID, StepMatching).Scan(&cur.status, &cur.reason, &cur.attempt); err != nil {
+		return err
+	}
+	if cur.status == StatusDone || cur.status == StatusFailed {
+		states[StepMatching] = cur
+		return nil
+	}
+	if matchErr := s.hooks.Match(ctx, run.ClipID); matchErr != nil {
+		s.log.Warn("match analysis voices", "run", run.ID, "error", matchErr)
+		attempt := cur.attempt + 1
+		if attempt >= maxMatchingAttempts {
+			states[StepMatching] = stepState{status: StatusFailed, reason: "matching_failed", attempt: attempt}
+		} else {
+			states[StepMatching] = stepState{status: StatusRetry, reason: "retry_scheduled", attempt: attempt}
+		}
+		return nil
+	}
+	states[StepMatching] = stepState{status: StatusDone, reason: "completed", attempt: cur.attempt + 1}
+	return nil
+}
+
 func transcriptionState(tr Transcription, runStart time.Time) stepState {
-	id := tr.Job.ID
-	st := stepState{jobID: &id, attempt: tr.Job.Attempts}
-	switch tr.Job.Status {
+	st := jobState(tr.Job, runStart)
+	if st.status == StatusDone && tr.Kept {
+		st.reason = "kept_for_corrections"
+	}
+	return st
+}
+
+// JobResult maps a job to a step result; a job older than the run is a reused result.
+func JobResult(job jobs.Job, runStart time.Time) StepResult {
+	st := jobState(job, runStart)
+	return StepResult{Status: st.status, Reason: st.reason, Job: &job}
+}
+
+func jobState(job jobs.Job, runStart time.Time) stepState {
+	id := job.ID
+	st := stepState{jobID: &id, attempt: job.Attempts}
+	switch job.Status {
 	case jobs.Pending:
 		st.status, st.reason = StatusWaiting, "awaiting_worker"
 	case jobs.Leased:
@@ -383,9 +483,7 @@ func transcriptionState(tr Transcription, runStart time.Time) stepState {
 		st.status, st.reason = StatusRetry, "retry_scheduled"
 	case jobs.Done:
 		st.status, st.reason = StatusDone, "completed"
-		if tr.Kept {
-			st.reason = "kept_for_corrections"
-		} else if tr.Job.CreatedAt.Before(runStart) {
+		if job.CreatedAt.Before(runStart) {
 			st.reason = "reused_existing"
 		}
 	case jobs.Dead:

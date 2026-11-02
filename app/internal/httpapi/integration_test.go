@@ -178,6 +178,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipAnalysis(t, pool)
 	})
+	t.Run("clip analysis voice branches", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisVoice(t, pool)
+	})
 	t.Run("clip progress and filter options", func(t *testing.T) {
 		reset(t)
 		testClipProgress(t, pool)
