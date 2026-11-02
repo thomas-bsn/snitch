@@ -33,7 +33,13 @@ func browserDiscord(t *testing.T, s *Server) {
 			r.ParseForm()
 			reply(w, 200, map[string]string{"access_token": "fixture-" + r.Form.Get("code")})
 		case "/me":
-			reply(w, 200, map[string]string{"id": strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer fixture-"), "username": "administrator"})
+			// Synthetic display names: id 654321 has a global name, the others only a username.
+			id := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer fixture-")
+			global := ""
+			if id == "654321" {
+				global = "Camille Synthetique"
+			}
+			reply(w, 200, map[string]string{"id": id, "username": "administrator", "global_name": global})
 		default:
 			http.NotFound(w, r)
 		}

@@ -1024,7 +1024,7 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_ACCOUNT") == "1" {
-			suites = []string{"account-settings.spec.ts"}
+			suites = []string{"account-settings.spec.ts", "account-close.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEMANTIC") == "1" {
 			suites = []string{"admin-semantic.spec.ts"}
