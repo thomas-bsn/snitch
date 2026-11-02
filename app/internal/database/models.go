@@ -54,6 +54,8 @@ type Clip struct {
 	CaptureTimeOrigin   pgtype.Text        `json:"capture_time_origin"`
 	GameEdited          bool               `json:"game_edited"`
 	CaptureTimeEdited   bool               `json:"capture_time_edited"`
+	DisplayTitle        pgtype.Text        `json:"display_title"`
+	DetectedMetadata    []byte             `json:"detected_metadata"`
 }
 
 type ClipAnalysisRun struct {

@@ -8,7 +8,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { buttonClass } from "../components/buttons";
 import { useSession } from "../session";
 import { isAdministrator, isSuperAdministrator } from "../roles";
-import type { Clip } from "./libraryApi";
+import { clipTitle, type Clip } from "./libraryApi";
 import { api, mutation } from "../api/client";
 
 // The gradient remains visible when the browser cannot decode the clip.
@@ -155,10 +155,10 @@ export function ClipCard({
             <Link
               to={`/clips/${clip.id}`}
               state={{ from }}
-              aria-label={t("library.card.open", { name: clip.original_name })}
+              aria-label={t("library.card.open", { name: clipTitle(clip) })}
               className="after:absolute after:inset-0 after:rounded-lg"
             >
-              {clip.original_name}
+              {clipTitle(clip)}
             </Link>
           </h2>
           {/* Visibility badge in header */}

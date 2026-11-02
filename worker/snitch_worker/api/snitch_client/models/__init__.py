@@ -47,6 +47,7 @@ from .clip_analysis_view_status import ClipAnalysisViewStatus
 from .clip_analysis_view_steps_item import ClipAnalysisViewStepsItem
 from .clip_analysis_view_steps_item_status import ClipAnalysisViewStepsItemStatus
 from .clip_analysis_view_steps_item_step import ClipAnalysisViewStepsItemStep
+from .clip_detected_type_0 import ClipDetectedType0
 from .clip_filter_options import ClipFilterOptions
 from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
 from .clip_filter_options_sources_item import ClipFilterOptionsSourcesItem
@@ -424,6 +425,7 @@ __all__ = (
     "ClipAnalysisViewStepsItem",
     "ClipAnalysisViewStepsItemStatus",
     "ClipAnalysisViewStepsItemStep",
+    "ClipDetectedType0",
     "ClipFilterOptions",
     "ClipFilterOptionsOwnersItem",
     "ClipFilterOptionsSourcesItem",

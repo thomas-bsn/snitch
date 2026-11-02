@@ -109,6 +109,11 @@ export const errorsEn = {
     "A username of 3 to 64 characters and a password of 12 to 256 characters are required.",
   invalid_credentials_or_pending:
     "Incorrect credentials, or the sign-up is still waiting for approval.",
+  invalid_clip_title:
+    "The title must have 1 to 200 characters and no control character.",
+  metadata_reset_unavailable:
+    "Snitch did not keep a detected value to restore for this field.",
+  invalid_metadata_request: "This metadata change is not valid.",
   invalid_embedding_model: "This embedding model is not valid.",
   invalid_filter: "One of the filters is not valid.",
   invalid_format: "This format is not valid.",

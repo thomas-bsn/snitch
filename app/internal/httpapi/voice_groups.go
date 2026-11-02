@@ -42,7 +42,7 @@ const unknownSpeakerPredicate = analysis.UnknownSpeakerPredicate
 // id of their group. Visibility is applied before the connected components are computed,
 // so a voice of a clip the caller cannot see never joins two voices they can see.
 const voiceGroupsCTE = `WITH RECURSIVE eligible AS (
-  SELECT ls.id,ls.clip_id,c.original_name AS clip_name,ls.label,ls.speaking_seconds,
+  SELECT ls.id,ls.clip_id,COALESCE(c.display_title,c.original_name) AS clip_name,ls.label,ls.speaking_seconds,
          EXISTS (SELECT 1 FROM voice_group_exclusions x WHERE x.local_speaker_id=ls.id) AS excluded
   FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id
   WHERE (c.visibility='shared' OR c.owner_id=$1 OR $2) AND ` + unknownSpeakerPredicate + `

@@ -171,6 +171,10 @@
                   "properties": {
                     "game_changed": {"type":"boolean"},
                     "recorded_at_changed": {"type":"boolean"},
+                    "display_title": {"type": "string", "nullable": true, "description": "Titre affiché (200 caractères au plus, sans caractère de contrôle) ; vide ou absent pour le retirer. N'agit que si display_title_changed est vrai ; ne renomme jamais le fichier."},
+                    "display_title_changed": {"type": "boolean"},
+                    "game_reset": {"type": "boolean", "description": "Restaure le jeu détecté automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec game_changed."},
+                    "recorded_at_reset": {"type": "boolean", "description": "Restaure la date détectée automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec recorded_at_changed."},
                     "game": {
                       "type": "string",
                       "nullable": true
@@ -181,10 +185,7 @@
                       "nullable": true
                     }
                   },
-                  "required": [
-                    "game",
-                    "recorded_at"
-                  ]
+                  "required": []
                 }
               }
             }
@@ -7775,6 +7776,8 @@
           "owner",
           "visibility",
           "original_name",
+          "display_title",
+          "detected",
           "size_bytes",
           "discovered_at",
           "recorded_at",
@@ -7805,6 +7808,8 @@
               "shared"
             ]
           },
+          "display_title": {"type": "string", "nullable": true, "description": "Titre affiché choisi par un administrateur ; absent, le nom du fichier (original_name) sert de titre. original_name reste le nom physique, jamais modifié."},
+          "detected": {"type": "object", "nullable": true, "description": "Valeurs détectées automatiquement, conservées à la première modification manuelle pour pouvoir les restaurer ; une valeur n'est restaurable que si son indicateur *_available est vrai.", "required": ["game_available", "game", "game_origin", "recorded_at_available", "recorded_at", "recorded_at_origin"], "properties": {"game_available": {"type": "boolean"}, "game": {"type": "string", "nullable": true}, "game_origin": {"type": "string", "nullable": true}, "recorded_at_available": {"type": "boolean"}, "recorded_at": {"type": "string", "format": "date-time", "nullable": true}, "recorded_at_origin": {"type": "string", "nullable": true}}},
           "original_name": {
             "type": "string"
           },

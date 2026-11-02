@@ -190,6 +190,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testEmbeddingValidationGate(t, pool)
 	})
+	t.Run("clip display title", func(t *testing.T) {
+		reset(t)
+		testClipDisplayTitle(t, pool)
+	})
 	t.Run("admin queue", func(t *testing.T) {
 		reset(t)
 		testAdminQueue(t, pool)

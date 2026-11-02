@@ -117,6 +117,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Un nom de 3 à 64 caractères et un mot de passe de 12 à 256 caractères sont requis.",
   invalid_credentials_or_pending:
     "Identifiants incorrects ou inscription en attente d’approbation.",
+  invalid_clip_title:
+    "Le titre doit faire de 1 à 200 caractères, sans caractère de contrôle.",
+  metadata_reset_unavailable:
+    "Snitch n’a pas conservé de valeur détectée à restaurer pour ce champ.",
+  invalid_metadata_request:
+    "Cette modification de métadonnées n’est pas valide.",
   invalid_embedding_model: "Ce modèle d’embeddings n’est pas valide.",
   invalid_filter: "Un des filtres n’est pas valide.",
   invalid_format: "Ce format n’est pas valide.",
