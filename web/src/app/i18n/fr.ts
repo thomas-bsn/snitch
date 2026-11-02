@@ -1571,6 +1571,20 @@ export const fr: Messages = {
       "Retraiter les clips existants ? Les corrections manuelles seront conservées.",
     result: "{updated} clips traités ; {unavailable} indisponibles.",
   },
+  voiceRelaunch: {
+    section: "Relancer la diarisation",
+    button: "Relancer la diarisation",
+    scheduled:
+      "Diarisation relancée. Les voix actuelles restent affichées jusqu’à la réussite.",
+    title: "Relancer la diarisation ?",
+    cancel: "Annuler",
+    confirm: "Confirmer la relance",
+    warning:
+      "La répartition des voix sera remplacée à la réussite. {corrections} correction(s) de locuteur deviendront obsolètes. {speakers} voix validée(s) et {samples} échantillon(s) vocal(aux) validé(s) sont conservés, liés à l’audio, mais ne seront plus rattachés aux voix affichées.",
+    history: "Résultats précédents ({count})",
+    entry:
+      "Modèle {model} ({version}), {date} : {speakers} voix, dont {validated} validée(s).",
+  },
   errors: errorsFr,
   errorFallback: "Une erreur est survenue ({code}). Réessayez.",
 };

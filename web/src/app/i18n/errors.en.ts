@@ -195,6 +195,8 @@ export const errorsEn = {
   username_unavailable: "This username is already taken.",
   vocabulary_term_not_found: "This vocabulary term does not exist.",
   voice_group_not_found: "This voice group does not exist.",
+  voice_rediarization_confirmation_required:
+    "Relaunching the diarization must be confirmed.",
   voice_locked_by_validation: "This voice is locked by a validation.",
   voice_model_already_active: "This model is already the active model.",
   voice_model_in_use:

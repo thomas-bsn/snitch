@@ -239,6 +239,7 @@ from .voice_group_list import VoiceGroupList
 from .voice_group_member import VoiceGroupMember
 from .voice_group_naming import VoiceGroupNaming
 from .voice_group_naming_input import VoiceGroupNamingInput
+from .voice_history_entry import VoiceHistoryEntry
 from .voice_matching_input import VoiceMatchingInput
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_summary import VoiceMatchingSummary
@@ -261,6 +262,8 @@ from .voice_pipeline_fake import VoicePipelineFake
 from .voice_pipeline_provider import VoicePipelineProvider
 from .voice_pipeline_state import VoicePipelineState
 from .voice_profile_deletion import VoiceProfileDeletion
+from .voice_rediarization_confirmation import VoiceRediarizationConfirmation
+from .voice_rediarization_stake import VoiceRediarizationStake
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
@@ -557,6 +560,7 @@ __all__ = (
     "VoiceGroupMember",
     "VoiceGroupNaming",
     "VoiceGroupNamingInput",
+    "VoiceHistoryEntry",
     "VoiceMatchingInput",
     "VoiceMatchingSettings",
     "VoiceMatchingSummary",
@@ -579,6 +583,8 @@ __all__ = (
     "VoicePipelineProvider",
     "VoicePipelineState",
     "VoiceProfileDeletion",
+    "VoiceRediarizationConfirmation",
+    "VoiceRediarizationStake",
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",

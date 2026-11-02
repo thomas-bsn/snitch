@@ -208,6 +208,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   username_unavailable: "Ce nom est déjà utilisé.",
   vocabulary_term_not_found: "Ce terme de vocabulaire n’existe pas.",
   voice_group_not_found: "Ce groupe de voix n’existe pas.",
+  voice_rediarization_confirmation_required:
+    "La relance de la diarisation doit être confirmée.",
   voice_locked_by_validation: "Cette voix est verrouillée par une validation.",
   voice_model_already_active: "Ce modèle est déjà le modèle actif.",
   voice_model_in_use:

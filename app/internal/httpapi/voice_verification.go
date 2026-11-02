@@ -113,7 +113,7 @@ FROM cases ORDER BY clips DESC,voices DESC,speaking_seconds DESC,id LIMIT $4 OFF
 	}
 	counts := map[DecisionLevel]int{LevelHuman: 0, LevelAutomatic: 0, LevelSuggestion: 0, LevelAmbiguous: 0, LevelUnknown: 0}
 	crows, err := s.Pool.Query(ctx, `SELECT CASE WHEN v.id IS NOT NULL THEN 'human' ELSE COALESCE(m.decision_level,'unknown') END AS level,count(*)::int
-FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id
+FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id AND ls.kind<>'archived'
 LEFT JOIN speaker_attributions v ON v.local_speaker_id=ls.id AND v.validation_state='validated'
 LEFT JOIN speaker_attributions m ON m.local_speaker_id=ls.id AND m.validation_state='unvalidated'
 WHERE c.visibility='shared' OR c.owner_id=$1 OR $2 GROUP BY 1`, ss.User.ID, admin)

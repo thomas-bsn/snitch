@@ -14,6 +14,7 @@ import { HistoryTab } from "./HistoryTab";
 import { Retranscribe } from "./Retranscribe";
 import { ProgressBanner } from "./ProgressBanner";
 import { TranscriptTab } from "./TranscriptTab";
+import { RelaunchVoice } from "./RelaunchVoice";
 import { VoicesTab } from "./VoicesTab";
 import { formatTimecode, parseMoment } from "./clipFormat";
 import { fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
@@ -184,6 +185,13 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             className="max-h-[70vh] overflow-y-auto outline-none"
           >
             <VoicesTab voice={voiceData} />
+            {voiceData && (
+              <RelaunchVoice
+                clipId={clip.id}
+                voice={voiceData}
+                onScheduled={voice.reload}
+              />
+            )}
           </Tabs.Panel>
           <Tabs.Panel
             value="history"
