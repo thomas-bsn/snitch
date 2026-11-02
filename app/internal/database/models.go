@@ -159,6 +159,15 @@ type EmbeddingTask struct {
 	LeaseExpiresAt     pgtype.Timestamptz `json:"lease_expires_at"`
 }
 
+type EmbeddingValidation struct {
+	TokenHash []byte             `json:"token_hash"`
+	UserID    int64              `json:"user_id"`
+	Url       string             `json:"url"`
+	Model     string             `json:"model"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Event struct {
 	ID        int64              `json:"id"`
 	Topic     string             `json:"topic"`

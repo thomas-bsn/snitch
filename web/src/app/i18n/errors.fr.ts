@@ -70,6 +70,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Une reconstruction de l’index est déjà en cours.",
   invalid_embedding_settings:
     "Indiquez une adresse de service et un modèle valides.",
+  embedding_validation_required:
+    "Testez d’abord cette configuration : seule une configuration testée peut être enregistrée.",
+  embedding_validation_expired:
+    "La validation a expiré. Testez à nouveau avant d’enregistrer.",
+  embedding_validation_mismatch:
+    "Les valeurs ont changé depuis le test. Testez à nouveau avant d’enregistrer.",
   embedding_provider_unavailable:
     "Le service d’embeddings est inaccessible ou sa réponse est invalide.",
   embeddings_unconfigured: "La recherche sémantique n’est pas configurée.",

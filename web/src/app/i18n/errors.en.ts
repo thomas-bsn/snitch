@@ -62,6 +62,12 @@ export const errorsEn = {
   duplicate_vocabulary_term: "This term already exists.",
   embedding_rebuild_in_progress: "An index rebuild is already running.",
   invalid_embedding_settings: "Enter a valid service address and model.",
+  embedding_validation_required:
+    "Test this configuration first: only a tested configuration can be saved.",
+  embedding_validation_expired:
+    "The validation has expired. Test again before saving.",
+  embedding_validation_mismatch:
+    "The values changed since the test. Test again before saving.",
   embedding_provider_unavailable:
     "The embeddings service could not be reached or returned an invalid response.",
   embeddings_unconfigured: "Semantic search is not configured.",

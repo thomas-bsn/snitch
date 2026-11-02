@@ -74,6 +74,7 @@ from .delete_clip_response_200 import DeleteClipResponse200
 from .delete_member_body import DeleteMemberBody
 from .delete_worker_transcription_override_response_200 import DeleteWorkerTranscriptionOverrideResponse200
 from .embedding_settings import EmbeddingSettings
+from .embedding_validation import EmbeddingValidation
 from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
@@ -230,6 +231,7 @@ from .start_clip_analysis_body_scope import StartClipAnalysisBodyScope
 from .start_clip_analysis_body_steps_item import StartClipAnalysisBodyStepsItem
 from .status import Status
 from .stream_analysis_queue_events_delta import StreamAnalysisQueueEventsDelta
+from .test_embedding_settings_body import TestEmbeddingSettingsBody
 from .transcript_segment import TranscriptSegment
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
@@ -449,6 +451,7 @@ __all__ = (
     "DeleteMemberBody",
     "DeleteWorkerTranscriptionOverrideResponse200",
     "EmbeddingSettings",
+    "EmbeddingValidation",
     "Error",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
@@ -605,6 +608,7 @@ __all__ = (
     "StartClipAnalysisBodyStepsItem",
     "Status",
     "StreamAnalysisQueueEventsDelta",
+    "TestEmbeddingSettingsBody",
     "Transcription",
     "TranscriptionInput",
     "TranscriptionLocalSpeakersItem",

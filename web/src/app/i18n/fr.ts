@@ -865,7 +865,14 @@ export const fr: Messages = {
       status: "État",
       url: "Adresse du service d’embeddings",
       model: "Modèle d’embeddings",
-      save: "Tester et enregistrer",
+      test: "Tester",
+      testing: "Test en cours…",
+      save: "Enregistrer",
+      notValidated: "Non validé",
+      validated: "Validé",
+      tested:
+        "Service joignable, vecteurs de {dimensions} dimensions reçus. Rien n’est encore enregistré : appuyez sur Enregistrer pour appliquer.",
+      expired: "La validation a expiré. Testez à nouveau avant d’enregistrer.",
       saved: "Réglages de la recherche sémantique enregistrés.",
       environment:
         "Cette valeur est définie par le déploiement et reste prioritaire.",
