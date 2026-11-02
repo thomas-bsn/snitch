@@ -65,9 +65,7 @@ test.describe.serial("liste des personnes", () => {
     await page.getByRole("button", { name: "Next page" }).click();
     await expect(page.getByText(`Page 2 of ${PAGES}`)).toBeVisible();
     await expect(list().getByRole("listitem")).toHaveCount(PAGE_SIZE);
-    expect(await list().getByRole("listitem").first().innerText()).not.toBe(
-      first,
-    );
+    await expect(list().getByRole("listitem").first()).not.toHaveText(first);
     await page.getByRole("button", { name: "Previous page" }).click();
     await expect(page.getByText(`Page 1 of ${PAGES}`)).toBeVisible();
     await expect(
@@ -150,7 +148,9 @@ test.describe.serial("liste des personnes", () => {
       list().getByRole("link", { name: /Personne 0042/ }),
     ).toHaveAttribute("aria-current", "page");
     await expect(
-      page.getByRole("link", { name: "People", exact: true }),
+      page
+        .getByRole("navigation", { name: "People sections" })
+        .getByRole("link", { name: "People", exact: true }),
     ).toHaveAttribute("aria-current", "page");
 
     // The address works on its own, in a fresh page.
@@ -174,7 +174,7 @@ test.describe.serial("liste des personnes", () => {
     await page.goto("/people");
     await expect(list()).toBeVisible();
     // On a phone the list and the record are two screens.
-    await expect(page.getByRole("region", { name: /Personne/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
     await expectNoViolations(page);
     expect(
       await page.evaluate(
@@ -183,7 +183,7 @@ test.describe.serial("liste des personnes", () => {
     ).toBe(true);
 
     await list().getByRole("link").first().click();
-    await expect(page.getByRole("region", { name: /Personne/ })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
     await expect(list()).toBeHidden();
     await expectNoViolations(page);
     await page.getByRole("link", { name: "Back to people" }).click();

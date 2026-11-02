@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import type { MessageKey } from "../i18n/messages";
@@ -23,6 +23,9 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
 export function PeopleLayout() {
   const { t } = useI18n();
   useDocumentTitle(t("pages.people.title"));
+  // The record of a Person lives under /people/:id, so the first tab stays current there.
+  const { pathname } = useLocation();
+  const onPersons = !/^\/people\/(verification|groups)(\/|$)/.test(pathname);
   return (
     <section className="flex flex-col gap-4 px-4 py-6 md:px-7">
       <div>
@@ -37,13 +40,19 @@ export function PeopleLayout() {
         <ul className="m-0 flex list-none gap-1 p-0">
           {PEOPLE_TABS.map((tab) => (
             <li key={tab.path}>
-              <NavLink
-                to={`/people${tab.path ? `/${tab.path}` : ""}`}
-                end
-                className={tabClass}
-              >
-                {t(tab.label)}
-              </NavLink>
+              {tab.path === "" ? (
+                <Link
+                  to="/people"
+                  aria-current={onPersons ? "page" : undefined}
+                  className={tabClass({ isActive: onPersons })}
+                >
+                  {t(tab.label)}
+                </Link>
+              ) : (
+                <NavLink to={`/people/${tab.path}`} end className={tabClass}>
+                  {t(tab.label)}
+                </NavLink>
+              )}
             </li>
           ))}
         </ul>

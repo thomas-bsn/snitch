@@ -1,11 +1,12 @@
-import { useId, useState, type FormEvent } from "react";
+import { useCallback, useId, useState, type FormEvent } from "react";
+import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { Field } from "../components/Field";
 import { Modal } from "../components/Modal";
 import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
-import { usePersonActions, type Person } from "./peopleApi";
+import { fetchPersonPage, usePersonActions, type Person } from "./peopleApi";
 
 /** Asks for a name and creates the Person. */
 export function NewPersonDialog({
@@ -81,41 +82,56 @@ export function NewPersonDialog({
   );
 }
 
-/** Chooses the Person that absorbs another one, then merges. */
+/** Chooses, by a search done on the server, the Person that absorbs another one, then merges. */
 export function MergeDialog({
   person,
-  candidates,
   onClose,
   onMerged,
 }: {
   person: Person | undefined;
-  candidates: Person[];
   onClose: () => void;
   onMerged: (source: Person, target: Person, summary: string) => void;
 }) {
   const { t } = useI18n();
   const failureText = useFailureText();
   const actions = usePersonActions();
-  const selectId = useId();
-  const [targetId, setTargetId] = useState("");
+  const searchId = useId();
+  const [query, setQuery] = useState("");
+  const [target, setTarget] = useState<Person>();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
-  const targets = candidates.filter(
-    (candidate) =>
-      candidate.id !== person?.id &&
-      candidate.voice_profile_deleted_at === null,
+  const search = query.trim();
+  const open = person !== undefined;
+  const load = useCallback(
+    () =>
+      open
+        ? fetchPersonPage(search, 1, 11)
+        : Promise.resolve({
+            ok: true as const,
+            value: { items: [] as Person[], total: 0 },
+          }),
+    [open, search],
   );
+  const { state } = useLoaded(load);
+  const targets =
+    state.status === "ready"
+      ? state.value.items
+          .filter(
+            (candidate) =>
+              candidate.id !== person?.id &&
+              candidate.voice_profile_deleted_at === null,
+          )
+          .slice(0, 10)
+      : [];
 
   function reset() {
-    setTargetId("");
+    setQuery("");
+    setTarget(undefined);
     setFailure(undefined);
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const target = targets.find(
-      (candidate) => String(candidate.id) === targetId,
-    );
     if (!person || !target) return;
     setBusy(true);
     const result = await actions.merge(person.id, target.id);
@@ -138,9 +154,9 @@ export function MergeDialog({
 
   return (
     <Modal
-      open={person !== undefined}
-      onOpenChange={(open) => {
-        if (!open) {
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
           reset();
           onClose();
         }
@@ -153,22 +169,41 @@ export function MergeDialog({
           {t("people.merge.body", { name: person?.display_name ?? "" })}
         </p>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor={selectId} className="font-medium">
+          <label htmlFor={searchId} className="font-medium">
             {t("people.merge.targetLabel")}
           </label>
-          <select
-            id={selectId}
-            value={targetId}
-            onChange={(event) => setTargetId(event.target.value)}
+          <input
+            id={searchId}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("people.persons.searchPlaceholder")}
+            autoComplete="off"
             className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
-          >
-            <option value="">{t("people.merge.choose")}</option>
-            {targets.map((target) => (
-              <option key={target.id} value={target.id}>
-                {target.display_name}
-              </option>
-            ))}
-          </select>
+          />
+        </div>
+        <div
+          role="radiogroup"
+          aria-label={t("people.merge.choose")}
+          className="flex max-h-60 flex-col gap-1 overflow-y-auto"
+        >
+          {targets.map((candidate) => (
+            <label
+              key={candidate.id}
+              className="flex min-h-11 items-center gap-2 rounded-lg border border-line px-3"
+            >
+              <input
+                type="radio"
+                name="merge-target"
+                checked={target?.id === candidate.id}
+                onChange={() => setTarget(candidate)}
+              />
+              {candidate.display_name}
+            </label>
+          ))}
+          {state.status === "ready" && targets.length === 0 && (
+            <p className="text-mute">{t("people.persons.noMatch")}</p>
+          )}
         </div>
         {failure && <ErrorAlert>{failureText(failure)}</ErrorAlert>}
         <div className="flex justify-end gap-2">
@@ -184,7 +219,7 @@ export function MergeDialog({
           </button>
           <button
             type="submit"
-            disabled={busy || targetId === ""}
+            disabled={busy || target === undefined}
             className={buttonClass("primary")}
           >
             {t("people.merge.submit")}
