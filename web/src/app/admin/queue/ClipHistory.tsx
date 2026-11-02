@@ -7,6 +7,7 @@ import { useI18n } from "../../i18n";
 import type { MessageKey } from "../../i18n/messages";
 import type { components } from "../../../api.gen";
 import { IdentificationBadge } from "./AnalysisBoard";
+import { StepTimeline } from "./StepTimeline";
 
 type History = components["schemas"]["AnalysisRunHistory"];
 
@@ -140,7 +141,7 @@ export function ClipHistory() {
                           {run.finished_at ?? run.updated_at}
                         </p>
                         <IdentificationBadge run={run} />
-                        <ul className="m-0 mt-2 flex list-none flex-wrap gap-2 p-0">
+                        <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
                           {run.steps
                             .filter((s) => s.status !== "not_applicable")
                             .map((step) => (
@@ -157,6 +158,10 @@ export function ClipHistory() {
                                   ` · ${t(`clip.analysis.reason.${step.reason}` as MessageKey)}`}
                                 {step.attempt > 1 &&
                                   ` · ${t("queue.board.attempt", { n: step.attempt })}`}
+                                <StepTimeline
+                                  step={step.step}
+                                  events={step.events ?? []}
+                                />
                               </li>
                             ))}
                         </ul>

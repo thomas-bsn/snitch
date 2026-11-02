@@ -1310,7 +1310,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events. */
+    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les tâches non terminées, mortes ou en échec qu'aucune analyse ne suit (jamais supprimées en silence), avec leur Cause d'échec et l'action conseillée ; un résumé de charge (summary). Repli du flux GET /api/admin/analysis/queue/events. */
     get: operations["getAnalysisQueue"];
     put?: never;
     post?: never;
@@ -2581,12 +2581,22 @@ export interface components {
       profile: string | null;
       /** @description Étape relancée par une réanalyse, malgré un résultat valide. */
       forced: boolean;
+      /** @description File de tâches seulement, étape en échec : Cause d'échec persistée du dernier échec du job suivi (jamais de texte brut) ; absente sans cause connue. */
+      failure_code?: components["schemas"]["FailureCode"];
+      /** @description File de tâches seulement : code de l'action conseillée, décidé par le serveur. Étape en échec : action de la Cause d'échec (catalogue des jobs). Attente de Worker (awaiting_worker, awaiting_compatible_worker) d'un job prêt : start_worker ; jamais pour une reprise différée. */
+      recommended_action?: string;
       /** Format: date-time */
       started_at: string | null;
       /** Format: date-time */
       finished_at: string | null;
+      /** @description Historique des analyses seulement : événements persistés du job suivi par l'étape (tentatives, reprises, échecs), du plus ancien au plus récent ; absent ailleurs ou sans job. */
+      events?: components["schemas"]["AnalysisStepEvent"][];
       /** Format: date-time */
       updated_at: string;
+    };
+    AnalysisStepEvent: components["schemas"]["JobEvent"] & {
+      /** @description Nom du Worker de l'événement, quand il est encore enregistré ; jamais un chemin. */
+      worker_name?: string;
     };
     ClipAnalysisRun: {
       /** Format: int64 */
@@ -2676,11 +2686,34 @@ export interface components {
     };
     AnalysisQueueTask: components["schemas"]["Job"] & {
       clip_name: string;
+      /** @description Cause d'échec persistée du dernier échec ; last_error est ramené à ce code, jamais un texte brut. */
+      failure_code?: components["schemas"]["FailureCode"];
+      /** @description Action de reprise conseillée pour cette cause. */
+      recommended_action?: string;
+    };
+    /** @description Charge de la file. running_tasks suit la règle de l'ordonnanceur : seuls les jobs leased au bail non expiré occupent un emplacement. */
+    AnalysisQueueSummary: {
+      running_tasks: number;
+      /** @description Clips dont l'analyse est active et qui n'occupent aucun emplacement (attente, reprise différée ou suspendus). */
+      waiting_clips: number;
+      max_concurrency: number;
+      paused: boolean;
     };
     AnalysisQueue: {
+      summary: components["schemas"]["AnalysisQueueSummary"];
       active: components["schemas"]["AnalysisQueueRun"][];
       completed: components["schemas"]["AnalysisQueueRun"][];
       tasks: components["schemas"]["AnalysisQueueTask"][];
+    };
+    /** @description Ce qui a changé dans la file depuis l'état précédent du flux : l'ordre des exécutions actives, le contenu de celles qui sont nouvelles ou modifiées, le reste en entier. */
+    AnalysisQueueDelta: {
+      /** @description Toutes les exécutions actives, dans l'ordre de la file. */
+      active_ids: number[];
+      /** @description Les exécutions de active_ids nouvelles ou modifiées depuis l'état précédent. */
+      active: components["schemas"]["AnalysisQueueRun"][];
+      completed: components["schemas"]["AnalysisQueueRun"][];
+      tasks: components["schemas"]["AnalysisQueueTask"][];
+      summary: components["schemas"]["AnalysisQueueSummary"];
     };
     ClipAnalysisConflict: {
       error: string;
@@ -8404,14 +8437,17 @@ export interface operations {
   };
   streamAnalysisQueueEvents: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Vaut 1 pour recevoir, après le premier snapshot, des évènements `delta` plutôt que l'état complet à chaque changement. */
+        delta?: 0 | 1;
+      };
       header?: never;
       path?: never;
       cookie?: never;
     };
     requestBody?: never;
     responses: {
-      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: AnalysisQueue} : l'état complet, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      /** @description Flux text/event-stream. Sans `delta`, chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: AnalysisQueue} : l'état complet, jamais un delta. Avec delta=1, le premier évènement est un `snapshot` complet, les suivants des évènements `delta` {seq, base, delta: AnalysisQueueDelta} : base est la séquence de l'évènement précédent ; un client qui ne détient pas exactement cet état relit l'état complet (GET /api/admin/analysis/queue). Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
       200: {
         headers: {
           [name: string]: unknown;

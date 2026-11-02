@@ -1,7 +1,8 @@
 import { Monitor } from "lucide-react";
 import { AnalysisBoard, type Queue } from "./AnalysisBoard";
+import { AutomaticAnalysisForm } from "./AutomaticAnalysisForm";
 import { ClipHistory } from "./ClipHistory";
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../../api/client";
 import { useEventStream } from "../../api/useEventStream";
 import { useLoaded } from "../../api/loaded";
@@ -33,25 +34,58 @@ async function load() {
   }
 }
 type Job = components["schemas"]["Job"];
+type QueueDelta = components["schemas"]["AnalysisQueueDelta"];
 type Event = components["schemas"]["JobEvent"];
 export function QueueTab() {
   const { t, error, language } = useI18n();
   const { session } = useSession();
   const { state, reload } = useLoaded(load);
-  const [queue, setQueue] = useState<Queue>();
-  // The server pushes the whole queue on every change; polling only covers a stream that is down.
+  const [queue, setQueueView] = useState<Queue>();
+  // The stream sends what changed after the first snapshot: the view it applies it to is kept here.
+  const held = useRef<Queue | undefined>(undefined);
+  const setQueue = useCallback((next: Queue) => {
+    held.current = next;
+    setQueueView(next);
+  }, []);
+  // The server pushes the whole queue once, then only the runs that changed; polling only covers a stream that is down.
+  // A failed refresh keeps the last known view and never raises the global unreachable screen:
+  // the page says it is reconnecting and the next snapshot or poll replaces the view.
   const refreshQueue = useCallback(async () => {
     try {
-      const result = await api.GET("/api/admin/analysis/queue");
-      if (result.data) setQueue(result.data);
+      const response = await fetch("/api/admin/analysis/queue");
+      if (response.ok) setQueue((await response.json()) as Queue);
     } catch {
-      // The next snapshot or poll replaces the view.
+      // Still offline.
     }
-  }, []);
-  const stream = useEventStream<Queue>(
+  }, [setQueue]);
+  const applyDelta = useCallback(
+    (delta: QueueDelta) => {
+      const before = held.current;
+      if (!before) return false;
+      const known = new Map(before.active.map((run) => [run.id, run]));
+      const changed = new Map(delta.active.map((run) => [run.id, run]));
+      const active: Queue["active"] = [];
+      for (const id of delta.active_ids) {
+        const run = changed.get(id) ?? known.get(id);
+        if (!run) return false;
+        active.push(run);
+      }
+      setQueue({
+        active,
+        completed: delta.completed,
+        tasks: delta.tasks,
+        summary: delta.summary,
+      });
+      return true;
+    },
+    [setQueue],
+  );
+  const stream = useEventStream<Queue, QueueDelta>(
     "/api/admin/analysis/queue/events",
     setQueue,
     refreshQueue,
+    undefined,
+    applyDelta,
   );
   const [paused, setPaused] = useState<boolean>();
   const [concurrency, setConcurrency] = useState<string>();
@@ -314,76 +348,78 @@ export function QueueTab() {
       {notice && <StatusNotice>{t("queue.updated")}</StatusNotice>}
       {state.status === "ready" && (
         <>
-          <details
-            open
-            data-advanced-schedule
-            className="rounded-xl border border-line p-4"
+          <section
+            data-schedule
+            className="flex flex-col gap-4 rounded-xl border border-line p-4"
           >
-            <summary className="cursor-pointer list-none p-1">
-              <span className="text-base font-semibold">
-                {t("queue.schedule")}
-              </span>
-              <span className="ml-2 text-sm text-mute">
-                {language === "fr"
-                  ? "Mode avancé : une étape isolée sur un clip sans analyse en cours"
-                  : "Advanced: a single step on a clip with no analysis in progress"}
-              </span>
-            </summary>
-            <form
-              onSubmit={submitJob}
-              className="flex flex-wrap items-end gap-3 px-1 pb-1 pt-4"
-            >
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                {t("queue.clip")}
-                <input
-                  name="clip"
-                  type="number"
-                  min={1}
-                  required
-                  placeholder="ex. 18"
-                  className="h-11 w-40 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                {t("queue.step")}
-                <select
-                  name="step"
-                  required
-                  defaultValue=""
-                  className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
-                >
-                  <option value="" disabled>
-                    {language === "fr" ? "Choisir…" : "Choose…"}
-                  </option>
-                  {transcriptionReady && (
-                    <option value="transcription">
-                      {language === "fr" ? "Transcription" : "Transcription"}
-                    </option>
-                  )}
-                  {voiceReady && (
-                    <option value="voice">
-                      {language === "fr"
-                        ? "Analyse des voix"
-                        : "Voice analysis"}
-                    </option>
-                  )}
-                </select>
-              </label>
-              <button disabled={busy} className={buttonClass("primary")}>
-                {language === "fr" ? "Planifier" : "Schedule"}
-              </button>
-              {!transcriptionReady && !voiceReady && (
-                <p
-                  role="status"
-                  className="m-0 w-full rounded-lg bg-warn-bg p-3 text-warn-fg"
-                >
+            <AutomaticAnalysisForm onStarted={() => void refreshQueue()} />
+            <details data-advanced-schedule>
+              <summary className="cursor-pointer list-none p-1">
+                <span className="text-sm font-semibold">
+                  {t("queue.schedule")}
+                </span>
+                <span className="ml-2 text-sm text-mute">
                   {language === "fr"
-                    ? "Aucun worker n’a déclaré de traitement compatible. Démarrez un worker : la page se met à jour seule."
-                    : "No worker has reported compatible tasks. Start a worker: the page updates on its own."}
-                </p>
-              )}
-            </form>
-          </details>
+                    ? "Mode avancé : une étape isolée sur un clip sans analyse en cours"
+                    : "Advanced: a single step on a clip with no analysis in progress"}
+                </span>
+              </summary>
+              <form
+                onSubmit={submitJob}
+                className="flex flex-wrap items-end gap-3 px-1 pb-1 pt-4"
+              >
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  {t("queue.clip")}
+                  <input
+                    name="clip"
+                    type="number"
+                    min={1}
+                    required
+                    placeholder="ex. 18"
+                    className="h-11 w-40 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  {t("queue.step")}
+                  <select
+                    name="step"
+                    required
+                    defaultValue=""
+                    className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
+                  >
+                    <option value="" disabled>
+                      {language === "fr" ? "Choisir…" : "Choose…"}
+                    </option>
+                    {transcriptionReady && (
+                      <option value="transcription">
+                        {language === "fr" ? "Transcription" : "Transcription"}
+                      </option>
+                    )}
+                    {voiceReady && (
+                      <option value="voice">
+                        {language === "fr"
+                          ? "Analyse des voix"
+                          : "Voice analysis"}
+                      </option>
+                    )}
+                  </select>
+                </label>
+                <button disabled={busy} className={buttonClass("primary")}>
+                  {language === "fr" ? "Planifier" : "Schedule"}
+                </button>
+                {!transcriptionReady && !voiceReady && (
+                  <p
+                    role="status"
+                    className="m-0 w-full rounded-lg bg-warn-bg p-3 text-warn-fg"
+                  >
+                    {language === "fr"
+                      ? "Aucun worker n’a déclaré de traitement compatible. Démarrez un worker : la page se met à jour seule."
+                      : "No worker has reported compatible tasks. Start a worker: the page updates on its own."}
+                  </p>
+                )}
+              </form>
+            </details>
+          </section>
 
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
             <div className="flex min-w-0 items-center gap-3">
@@ -405,16 +441,7 @@ export function QueueTab() {
                     const memory = machine?.gpu_memory_bytes
                       ? `${Math.round(machine.gpu_memory_bytes / 1024 ** 3)} ${language === "fr" ? "Go" : "GB"}`
                       : undefined;
-                    const running =
-                      (queue?.tasks.filter((job) => job.status === "leased")
-                        .length ?? 0) +
-                      (queue?.active.reduce(
-                        (n, run) =>
-                          n +
-                          run.steps.filter((st) => st.status === "running")
-                            .length,
-                        0,
-                      ) ?? 0);
+                    const running = queue?.summary.running_tasks ?? 0;
                     return [
                       machine?.gpu_name,
                       memory,

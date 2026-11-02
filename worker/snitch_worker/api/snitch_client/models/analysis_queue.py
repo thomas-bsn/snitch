@@ -12,6 +12,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.analysis_queue_run import AnalysisQueueRun
+  from ..models.analysis_queue_summary import AnalysisQueueSummary
   from ..models.analysis_queue_task import AnalysisQueueTask
 
 
@@ -26,11 +27,14 @@ T = TypeVar("T", bound="AnalysisQueue")
 class AnalysisQueue:
     """
         Attributes:
+            summary (AnalysisQueueSummary): Charge de la file. running_tasks suit la règle de l'ordonnanceur : seuls les
+                jobs leased au bail non expiré occupent un emplacement.
             active (list[AnalysisQueueRun]):
             completed (list[AnalysisQueueRun]):
             tasks (list[AnalysisQueueTask]):
      """
 
+    summary: AnalysisQueueSummary
     active: list[AnalysisQueueRun]
     completed: list[AnalysisQueueRun]
     tasks: list[AnalysisQueueTask]
@@ -42,7 +46,10 @@ class AnalysisQueue:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.analysis_queue_run import AnalysisQueueRun # noqa: PLC0415
+        from ..models.analysis_queue_summary import AnalysisQueueSummary # noqa: PLC0415
         from ..models.analysis_queue_task import AnalysisQueueTask # noqa: PLC0415
+        summary = self.summary.to_dict()
+
         active = []
         for active_item_data in self.active:
             active_item = active_item_data.to_dict()
@@ -68,6 +75,7 @@ class AnalysisQueue:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "summary": summary,
             "active": active,
             "completed": completed,
             "tasks": tasks,
@@ -80,8 +88,14 @@ class AnalysisQueue:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.analysis_queue_run import AnalysisQueueRun # noqa: PLC0415
+        from ..models.analysis_queue_summary import AnalysisQueueSummary # noqa: PLC0415
         from ..models.analysis_queue_task import AnalysisQueueTask # noqa: PLC0415
         d = dict(src_dict)
+        summary = AnalysisQueueSummary.from_dict(d.pop("summary"))
+
+
+
+
         active = []
         _active = d.pop("active")
         for active_item_data in (_active):
@@ -113,6 +127,7 @@ class AnalysisQueue:
 
 
         analysis_queue = cls(
+            summary=summary,
             active=active,
             completed=completed,
             tasks=tasks,

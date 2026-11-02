@@ -5,9 +5,12 @@ from .account_preferences_input import AccountPreferencesInput
 from .account_preferences_input_language import AccountPreferencesInputLanguage
 from .account_preferences_language import AccountPreferencesLanguage
 from .analysis_queue import AnalysisQueue
+from .analysis_queue_delta import AnalysisQueueDelta
 from .analysis_queue_run import AnalysisQueueRun
+from .analysis_queue_summary import AnalysisQueueSummary
 from .analysis_queue_task import AnalysisQueueTask
 from .analysis_run_history import AnalysisRunHistory
+from .analysis_step_event import AnalysisStepEvent
 from .attribution import Attribution
 from .attribution_author import AttributionAuthor
 from .attribution_candidate import AttributionCandidate
@@ -226,6 +229,7 @@ from .start_clip_analysis_body_mode import StartClipAnalysisBodyMode
 from .start_clip_analysis_body_scope import StartClipAnalysisBodyScope
 from .start_clip_analysis_body_steps_item import StartClipAnalysisBodyStepsItem
 from .status import Status
+from .stream_analysis_queue_events_delta import StreamAnalysisQueueEventsDelta
 from .transcript_segment import TranscriptSegment
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
@@ -372,9 +376,12 @@ __all__ = (
     "AccountPreferencesInputLanguage",
     "AccountPreferencesLanguage",
     "AnalysisQueue",
+    "AnalysisQueueDelta",
     "AnalysisQueueRun",
+    "AnalysisQueueSummary",
     "AnalysisQueueTask",
     "AnalysisRunHistory",
+    "AnalysisStepEvent",
     "Attribution",
     "AttributionAuthor",
     "AttributionCandidate",
@@ -593,6 +600,7 @@ __all__ = (
     "StartClipAnalysisBodyScope",
     "StartClipAnalysisBodyStepsItem",
     "Status",
+    "StreamAnalysisQueueEventsDelta",
     "Transcription",
     "TranscriptionInput",
     "TranscriptionLocalSpeakersItem",

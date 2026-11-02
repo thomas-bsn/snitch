@@ -468,6 +468,15 @@ func (s *Server) adminQueueEvents(w http.ResponseWriter, r *http.Request) {
 		Snapshot: func(ctx context.Context) (any, error) {
 			return s.Analysis.Queue(ctx)
 		},
+		// A client that asks for it (delta=1) is sent what changed, not 3000 runs at each change.
+		Delta: func(previous, next any) (any, bool) {
+			before, ok := previous.(analysis.Queue)
+			after, isQueue := next.(analysis.Queue)
+			if !ok || !isQueue {
+				return nil, false
+			}
+			return after.DeltaFrom(before), true
+		},
 	})
 }
 
