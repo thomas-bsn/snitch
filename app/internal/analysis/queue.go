@@ -202,8 +202,52 @@ FROM clip_analysis_runs r JOIN clips c ON c.id=r.clip_id WHERE `+where+` ORDER B
 	if err != nil {
 		return h, fmt.Errorf("list run history: %w", err)
 	}
-	h.Items, err = s.scanQueueRuns(ctx, rows)
-	return h, err
+	if h.Items, err = s.scanQueueRuns(ctx, rows); err != nil {
+		return h, err
+	}
+	return h, s.attachStepEvents(ctx, h.Items)
+}
+
+// attachStepEvents loads, in one query, the events of every job the steps of the runs followed.
+func (s *Service) attachStepEvents(ctx context.Context, runs []QueueRun) error {
+	type position struct{ run, step int }
+	where := map[int64][]position{}
+	ids := []int64{}
+	for i, r := range runs {
+		for j, st := range r.Steps {
+			if st.JobID != nil {
+				if _, seen := where[*st.JobID]; !seen {
+					ids = append(ids, *st.JobID)
+				}
+				where[*st.JobID] = append(where[*st.JobID], position{i, j})
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	rows, err := s.pool.Query(ctx, `SELECT e.job_id,e.id,e.event,e.cycle,e.attempt,e.actor,e.actor_id,e.error_code,e.created_at,e.step,e.provider,e.model,e.revision,e.http_status,e.duration_ms,COALESCE(w.name,'')
+FROM job_events e LEFT JOIN workers w ON e.actor='worker' AND w.id=e.actor_id WHERE e.job_id=ANY($1) ORDER BY e.job_id,e.id`, ids)
+	if err != nil {
+		return fmt.Errorf("list step events: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var job int64
+		var ev StepEvent
+		if err = rows.Scan(&job, &ev.ID, &ev.Event.Event, &ev.Cycle, &ev.Attempt, &ev.Actor, &ev.ActorID, &ev.ErrorCode, &ev.CreatedAt, &ev.Step, &ev.Provider, &ev.Model, &ev.Revision, &ev.HTTPStatus, &ev.DurationMS, &ev.WorkerName); err != nil {
+			return err
+		}
+		if ev.Actor == "worker" {
+			// Whatever a Worker reported is reduced to a catalogue code, never relayed.
+			ev.ErrorCode = failureCodeOf(ev.ErrorCode, "")
+		}
+		ev.RecommendedAction = jobs.RecommendedAction(ev.ErrorCode)
+		for _, at := range where[job] {
+			runs[at.run].Steps[at.step].Events = append(runs[at.run].Steps[at.step].Events, ev)
+		}
+	}
+	return rows.Err()
 }
 
 // Queue reads the whole queue at once.

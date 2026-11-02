@@ -194,6 +194,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAdminQueueHistory(t, pool)
 	})
+	t.Run("admin queue history events", func(t *testing.T) {
+		reset(t)
+		testAdminQueueHistoryEvents(t, pool)
+	})
 	t.Run("admin queue pending voices", func(t *testing.T) {
 		reset(t)
 		testAdminQueuePendingVoices(t, pool)

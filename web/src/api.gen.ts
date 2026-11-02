@@ -2555,8 +2555,14 @@ export interface components {
       started_at: string | null;
       /** Format: date-time */
       finished_at: string | null;
+      /** @description Historique des analyses seulement : événements persistés du job suivi par l'étape (tentatives, reprises, échecs), du plus ancien au plus récent ; absent ailleurs ou sans job. */
+      events?: components["schemas"]["AnalysisStepEvent"][];
       /** Format: date-time */
       updated_at: string;
+    };
+    AnalysisStepEvent: components["schemas"]["JobEvent"] & {
+      /** @description Nom du Worker de l'événement, quand il est encore enregistré ; jamais un chemin. */
+      worker_name?: string;
     };
     ClipAnalysisRun: {
       /** Format: int64 */
