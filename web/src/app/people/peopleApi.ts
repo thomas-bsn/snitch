@@ -37,12 +37,6 @@ async function guard<T>(call: () => Promise<Result<T>>): Promise<Result<T>> {
   }
 }
 
-export const fetchPersons = () =>
-  guard(async () => {
-    const { data, error } = await api.GET("/api/persons");
-    return data ? { ok: true, value: data.items } : failure(error);
-  });
-
 /** A page of Persons by name; the search and the paging are done by the server. */
 export type PersonPage = { items: Person[]; total: number };
 

@@ -862,27 +862,33 @@ export const fr: Messages = {
       noPerson:
         "Aucune Personne n’est encore liée à votre compte. Vous pouvez demander à lier votre compte à une Personne existante ; un administrateur approuve ou refuse la demande.",
       identity: "Vous êtes la Personne {name}.",
-      samples:
-        "{count} échantillon(s) vocal(aux) validé(s) servent de référence pour votre voix.",
       deleted:
         "Votre profil vocal est supprimé : Snitch ne vous reconnaît plus.",
-      clipsTitle: "Clips où vous êtes identifié(e)",
-      clipsLabel: "Mes clips",
-      noClips: "Aucun clip visible pour vous.",
+      countsLabel: "Ma voix en chiffres",
+      countSamples: "Échantillons vocaux validés",
+      countVoices: "Voix",
+      countClips: "Clips",
+      clipsLink: "Voir mes clips",
+      clipsHint: "Les clips où vous êtes identifié(e), dans la bibliothèque.",
+      impactFailed:
+        "Les chiffres de ce qui serait effacé n’ont pas pu être lus : la suppression est indisponible pour le moment. Rechargez la page pour réessayer.",
       deleteTitle: "Supprimer mon profil vocal",
       deleteEffects:
-        "Supprimer votre profil vocal efface vos échantillons vocaux validés, vos empreintes vocales et toutes les attributions faites à votre nom. Vos voix redeviennent inconnues et plus personne ne peut vous attribuer une voix ensuite. Vos clips restent en place. Cette action est définitive.",
+        "Supprimer votre profil vocal efface {samples} échantillon(s) vocal(aux) validé(s), {fingerprints} empreinte(s) vocale(s) et {attributions} attribution(s) faite(s) à votre nom. Vos voix redeviennent inconnues et plus personne ne peut vous attribuer une voix ensuite. Vos clips restent en place. Cette action est définitive.",
       deleteButton: "Supprimer mon profil vocal",
       confirmTitle: "Supprimer votre profil vocal ?",
       confirmBody:
-        "Vos échantillons, vos empreintes et vos attributions seront effacés, et vos voix redeviendront inconnues. Vos clips restent en place. Cette action est définitive.",
+        "Cela efface {samples} échantillon(s) vocal(aux) validé(s), {fingerprints} empreinte(s) vocale(s) et {attributions} attribution(s). Vos voix redeviennent inconnues. Vos clips restent en place. Cette action est définitive.",
       confirm: "Supprimer mon profil vocal",
       deleting: "Suppression…",
       keep: "Garder mon profil",
       done: "Profil vocal supprimé : {samples} échantillon(s), {fingerprints} empreinte(s) et {attributions} attribution(s) effacé(s).",
       linkTitle: "Lier mon compte à une Personne",
       linkSearch: "Rechercher une Personne",
+      linkSearching: "Recherche…",
       linkNoMatches: "Aucune Personne ne correspond à cette recherche.",
+      linkMore:
+        "{shown} Personnes affichées sur {total}. Tapez davantage du nom pour affiner la recherche.",
       linkMessage: "Message (facultatif)",
       linkMessageHint:
         "Expliquez à l’administrateur pourquoi cette Personne est bien vous.",
@@ -890,19 +896,30 @@ export const fr: Messages = {
       linkRequesting: "Envoi…",
       linkPending:
         "Votre demande pour {name} attend la décision d’un administrateur.",
+      progressLabel: "Avancement de votre demande",
+      stepSent: "Demande envoyée",
+      stepReview: "Validation par un administrateur",
+      stepIdentified: "Voix identifiée",
+      stepDone: "terminée",
+      stepCurrent: "en cours",
+      stepTodo: "à venir",
       linkCancel: "Annuler la demande",
       linkCancelling: "Annulation…",
       linkCancelled: "Demande annulée.",
       linkRefused:
-        "Votre demande pour {name} a été refusée. Vous pouvez en refaire une.",
-      unlinkTitle: "Délier cette Personne",
+        "Votre demande pour {name} a été refusée par un administrateur. Rien n’a été lié. Vous pouvez en refaire une, pour cette Personne ou une autre.",
+      unlinkTitle: "Délier mon compte de cette Personne",
       unlinkBody:
-        "Le déliement retire uniquement l’association : la Personne, les clips et les attributions sont conservés. Vous ne verrez plus ces clips ici et ne pourrez plus supprimer le profil vocal. Un administrateur peut lier un autre compte.",
-      unlinkButton: "Délier",
+        "Le déliement retire uniquement l’association. La Personne, ses voix et ses clips ne sont pas supprimés. Vous perdez les chiffres de cet onglet et la suppression du profil vocal ; un administrateur peut lier un autre compte.",
+      unlinkButton: "Délier mon compte de cette Personne",
       unlinking: "Déliement…",
       unlinkConfirmTitle: "Délier {name} ?",
-      unlinkConfirmBody:
-        "Votre compte ne sera plus la Personne {name}. La Personne, les clips et les attributions sont conservés.",
+      unlinkLoseTitle: "Ce que vous perdez",
+      unlinkLose:
+        "Votre compte ne sera plus la Personne {name} : plus de chiffres ni de clips « Ma voix » ici, et plus le droit de supprimer vous-même le profil vocal.",
+      unlinkKeepTitle: "Ce qui reste",
+      unlinkKeep:
+        "La Personne {name}, ses {voices} voix et vos {clips} clip(s) ne sont pas supprimés, ni les attributions.",
       unlinkConfirm: "Délier",
       unlinked: "Compte délié.",
     },

@@ -15,6 +15,9 @@ import (
 type personImpact struct {
 	MicrophoneRules int  `json:"microphone_rules"`
 	HasHiddenVoices bool `json:"has_hidden_voices"`
+	VoiceSamples    int  `json:"voice_samples"`
+	Fingerprints    int  `json:"fingerprints"`
+	Attributions    int  `json:"attributions"`
 }
 
 func (h *voiceHarness) impactOf(u *voiceUser, personID int64) personImpact {
@@ -98,6 +101,34 @@ func testPersonImpact(t *testing.T, pool *pgxpool.Pool) {
 		}
 		if got := voices(); len(got) != 1 || got[0].Samples != 0 {
 			t.Fatalf("a retired sample is no reference: %+v", got)
+		}
+	})
+
+	// What the deletion of a voice profile erases is announced with the exact numbers
+	// the deletion then reports, so the confirmation never promises a different count.
+	t.Run("voice profile counts", func(t *testing.T) {
+		first := h.fixtureSpeaker(visible, "PROFILE_A", usableAt(120))
+		second := h.fixtureSpeaker(visible, "PROFILE_B", usableAt(150))
+		h.validate(first, "Hugo")
+		hugo := h.personOf(first)
+		h.validate(second, "Hugo")
+		before := h.impactOf(alice, hugo)
+		if before.VoiceSamples < 1 || before.Attributions < 1 || before.Fingerprints < 1 {
+			t.Fatalf("a validated voice: %+v", before)
+		}
+		var deletion struct {
+			Samples      int `json:"samples"`
+			Fingerprints int `json:"fingerprints"`
+			Attributions int `json:"attributions"`
+		}
+		if err := json.Unmarshal(h.adminCall(http.MethodDelete, fmt.Sprintf("/api/persons/%d/voice-profile", hugo), nil, http.StatusOK), &deletion); err != nil {
+			t.Fatal(err)
+		}
+		if deletion.Samples != before.VoiceSamples || deletion.Fingerprints != before.Fingerprints || deletion.Attributions != before.Attributions {
+			t.Fatalf("announced %+v, erased %+v", before, deletion)
+		}
+		if after := h.impactOf(alice, hugo); after.VoiceSamples != 0 || after.Fingerprints != 0 || after.Attributions != 0 {
+			t.Fatalf("nothing left to erase: %+v", after)
 		}
 	})
 }
