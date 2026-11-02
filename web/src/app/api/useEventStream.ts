@@ -7,7 +7,7 @@ export type StreamStatus = "connecting" | "live" | "offline" | "forbidden";
  * Follows a server-sent event stream whose events are complete snapshots. The browser
  * reconnects by itself and each connection starts with a fresh snapshot, so a missed event
  * never leaves a stale view. While the stream is down, `poll` is called at a moderate pace
- * as a fallback; a snapshot older than the last one seen (by sequence) is ignored.
+ * as a fallback (suspended while the tab is hidden); a snapshot older than the last one seen (by sequence) is ignored.
  */
 export function useEventStream<T>(
   url: string | null,
@@ -52,11 +52,29 @@ export function useEventStream<T>(
     return () => source.close();
   }, [url]);
 
+  // The fallback is for a visible tab only: a hidden one stops asking, and asks once as soon as
+  // it is shown again.
+  const [visible, setVisible] = useState(
+    () =>
+      typeof document === "undefined" || document.visibilityState !== "hidden",
+  );
+  useEffect(() => {
+    const change = () => {
+      const shown = document.visibilityState !== "hidden";
+      setVisible(shown);
+      if (shown) fallback.current();
+    };
+    document.addEventListener("visibilitychange", change);
+    return () => document.removeEventListener("visibilitychange", change);
+  }, []);
+
   const polling = status === "offline" || status === "connecting";
   useEffect(() => {
-    if (!url || !polling) return;
+    if (!url || !polling || !visible) return;
+    // A stream that just failed is covered at once, not after the first interval.
+    if (status === "offline") fallback.current();
     const timer = setInterval(() => fallback.current(), pollMs);
     return () => clearInterval(timer);
-  }, [url, polling, pollMs]);
+  }, [url, polling, visible, pollMs, status]);
   return url ? status : "offline";
 }
