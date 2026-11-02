@@ -31,6 +31,14 @@ async function expectNoViolations(page: Page) {
 let page: Page;
 let clipId: number;
 
+// The member account is created on demand by whichever test needs it first: no test
+// relies on another one having run before it.
+let memberReady: Promise<void> | undefined;
+function ensureMember() {
+  memberReady ??= createApprovedMember();
+  return memberReady;
+}
+
 test.describe.serial("personnes et vérification", () => {
   // The installation code works once: the three journeys share one prepared instance and
   // follow one another (the first settles a voice, the second corrects it).
@@ -404,7 +412,7 @@ test.describe.serial("personnes et vérification", () => {
     await separation.getByRole("checkbox", { name: /SPEAKER_00/ }).check();
     await confirm.click();
     await expect(page.getByRole("status")).toContainText(
-      "1 voice(s) were separated from Claire Synthétique: they are unknown again.",
+      "1 voice was separated from Claire Synthétique: it is unknown again.",
     );
     await expect(voices).toContainText("No confirmed voice you can see.");
     await expect(claire).toContainText("0 voice(s)");
@@ -467,7 +475,7 @@ test.describe.serial("personnes et vérification", () => {
       "Liée Synthétique",
       "Cible Synthétique",
     ]);
-    await createApprovedMember();
+    await ensureMember();
     await linkAccount(linked, MEMBER.username);
     const record = (name: string) => page.getByRole("region", { name });
 
@@ -655,7 +663,19 @@ test.describe.serial("personnes et vérification", () => {
     const box = (await legend.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(390);
+    // The legend is above the fixed navigation and the sticky bars: the point at the
+    // middle of its visible part belongs to it.
+    const onTop = await legend.evaluate((node) => {
+      const r = node.getBoundingClientRect();
+      const y = Math.min(r.bottom, window.innerHeight) - 4;
+      const hit = document.elementFromPoint(r.left + r.width / 2, y);
+      return hit !== null && node.contains(hit);
+    });
+    expect(onTop).toBe(true);
     await expectNoViolations(page);
+    // It does not stay on the content: Escape closes it.
+    await page.keyboard.press("Escape");
+    await expect(legend).toBeHidden();
   });
 
   test("vérification : recherche serveur, enchaînement, Entrée au clavier et cas déjà tranché", async () => {
@@ -666,7 +686,10 @@ test.describe.serial("personnes et vérification", () => {
     );
     const ids = await createPersons(names);
     const second = await uploadClip("second-voices.mp4", "shared");
-    await transcribeAndDiarize(second);
+    const secondVoices = await transcribeAndDiarize(second);
+    // A validated reference close to the other voices: the server then proposes it as a
+    // candidate, so the number keys below always have something to choose.
+    await nameVoice(secondVoices[0], "Référence Synthétique");
     await page.evaluate(() => localStorage.setItem("snitch-ui-theme", "light"));
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/people/verification");
@@ -706,25 +729,24 @@ test.describe.serial("personnes et vérification", () => {
     await expect.poll(speakerOf).not.toBe(first);
     await expect.poll(count).toBeLessThan(before);
 
-    // A candidate, if the server proposes one, is chosen with its number and shows a
-    // proximity, never a confirmation.
+    // A candidate proposed by the server is chosen with its number and shows a proximity,
+    // never a confirmation.
     const queue = (await (
       await page.request.get("/api/voice-verification?level=all")
     ).json()) as {
       items: { candidates: { person: { display_name: string } }[] }[];
     };
     const candidates = queue.items[0]?.candidates ?? [];
-    if (candidates.length > 0) {
-      await expect(current).toContainText("% proximity");
-      await page.keyboard.press("1");
-      await expect(
-        current.getByRole("radio", { name: candidates[0].person.display_name }),
-      ).toBeChecked();
-      await expect(confirm).toBeEnabled();
-      await expect(current).toContainText(
-        "Proximity is only a suggestion: nothing is attributed until you confirm.",
-      );
-    }
+    expect(candidates.length).toBeGreaterThan(0);
+    await expect(current).toContainText("% proximity");
+    await page.keyboard.press("1");
+    await expect(
+      current.getByRole("radio", { name: candidates[0].person.display_name }),
+    ).toBeChecked();
+    await expect(confirm).toBeEnabled();
+    await expect(current).toContainText(
+      "Proximity is only a suggestion: nothing is attributed until you confirm.",
+    );
 
     // Somebody else settles the displayed case first: the choice is refused, nothing is
     // written for the chosen Person and the queue goes on.
@@ -760,7 +782,7 @@ test.describe.serial("personnes et vérification", () => {
       await api.get(`/api/clips/${hiddenClip}/voice`)
     ).json()) as { speakers: { id: number }[] };
     await api.dispose();
-    // The member was created by the directory journey above.
+    await ensureMember();
     const context = await browser.newContext({
       storageState: await sessionFor(MEMBER),
     });
