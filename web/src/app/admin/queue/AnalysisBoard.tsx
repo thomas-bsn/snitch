@@ -158,19 +158,23 @@ function Locations({ locations }: { locations: Location[] }) {
     }
   };
   return (
-    <section data-locations aria-label={t("queue.board.location.title")}>
+    <div
+      role="group"
+      data-locations
+      aria-label={t("queue.board.location.title")}
+    >
       <h5 className="m-0 mb-1 text-xs font-medium uppercase tracking-wide text-mute">
         {t("queue.board.location.title")}
       </h5>
       {locations.length === 0 ? (
-        <p data-location-unavailable className="m-0 text-xs text-mute">
+        <p data-location-unavailable className="m-0 text-xs text-ink">
           {t("queue.board.location.unavailable")}
         </p>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-1 p-0">
           {locations.map((loc, i) => (
             <li key={`${loc.source}:${loc.path ?? i}`} data-location>
-              <p className="m-0 text-xs text-mute">{loc.source}</p>
+              <p className="m-0 text-xs text-ink">{loc.source}</p>
               {loc.path ? (
                 <>
                   <p
@@ -191,7 +195,7 @@ function Locations({ locations }: { locations: Location[] }) {
                   </button>
                 </>
               ) : (
-                <p className="m-0 text-xs text-mute">
+                <p className="m-0 text-xs text-ink">
                   {t("queue.board.location.private")}
                 </p>
               )}
@@ -199,7 +203,7 @@ function Locations({ locations }: { locations: Location[] }) {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
 
