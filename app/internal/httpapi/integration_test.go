@@ -190,6 +190,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAdminQueue(t, pool)
 	})
+	t.Run("admin queue delta stream", func(t *testing.T) {
+		reset(t)
+		testAdminQueueDelta(t, pool)
+	})
 	t.Run("task queue performance", func(t *testing.T) {
 		reset(t)
 		testQueuePerformance(t, pool)

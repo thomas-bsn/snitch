@@ -68,7 +68,9 @@ func (q *queryCounter) slowest() string {
 	for kind, d := range q.spent {
 		out = append(out, d.Round(time.Millisecond).String()+" "+kind)
 	}
-	sort.Slice(out, func(a, b int) bool { return len(out[a]) < len(out[b]) || (len(out[a]) == len(out[b]) && out[a] > out[b]) })
+	sort.Slice(out, func(a, b int) bool {
+		return len(out[a]) < len(out[b]) || (len(out[a]) == len(out[b]) && out[a] > out[b])
+	})
 	return strings.Join(out, " | ")
 }
 
@@ -99,7 +101,7 @@ func seedQueueRuns(t *testing.T, pool *pgxpool.Pool, adminID int64, n int) {
 	const profile = `SELECT c.id AS clip_id,(row_number() OVER (ORDER BY c.id))%10 AS m,
  CASE (row_number() OVER (ORDER BY c.id))%10 WHEN 6 THEN 4 WHEN 8 THEN 6 WHEN 9 THEN 3 ELSE 2 END AS cur FROM clips c`
 	exec(`INSERT INTO clip_analysis_runs(clip_id,scope,status,started_by) SELECT clip_id,'full',CASE WHEN m=7 THEN 'failed' ELSE 'active' END,$1 FROM (`+profile+`) p`, adminID)
-	exec(`CREATE TEMP TABLE perf_steps AS SELECT r.id AS run_id,p.clip_id,p.m,p.cur,s.name,s.idx,s.job FROM clip_analysis_runs r JOIN (`+profile+`) p ON p.clip_id=r.clip_id
+	exec(`CREATE TEMP TABLE perf_steps AS SELECT r.id AS run_id,p.clip_id,p.m,p.cur,s.name,s.idx,s.job FROM clip_analysis_runs r JOIN (` + profile + `) p ON p.clip_id=r.clip_id
  CROSS JOIN (VALUES (1,'preparation',''),(2,'transcription','transcription.whisper.1'),(3,'indexing','transcription.index'),(4,'diarization','voice.diarization.2'),(5,'fingerprints','voice.fingerprints'),(6,'matching','voice.matching')) s(idx,name,job)`)
 	// A job for each step from transcription to the current one.
 	exec(`INSERT INTO jobs(clip_id,step,input_version,status,lease_owner,lease_expires_at,lease_token_hash,last_error,attempts)
@@ -221,39 +223,59 @@ func testQueuePerformance(t *testing.T, pool *pgxpool.Pool) {
 	sort.Slice(durations, func(a, b int) bool { return durations[a] < durations[b] })
 	t.Logf("PERF queue: runs=%d scope_occurrences=%d median=%v min=%v max=%v sql_queries=%d bytes=%d gzip_bytes=%d", perfRuns, active, durations[len(durations)/2].Round(time.Millisecond), durations[0].Round(time.Millisecond), durations[len(durations)-1].Round(time.Millisecond), queries, size, gzipped)
 
-	// The stream: the first snapshot, then the frame that answers one step change.
-	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/admin/analysis/queue/events", nil)
-	stream, err := admin.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer stream.Body.Close()
-	frames := make(chan int, 64)
-	go sseFrames(stream.Body, frames)
-	select {
-	case first := <-frames:
-		t.Logf("PERF sse first frame: bytes=%d", first)
-	case <-time.After(30 * time.Second):
-		t.Fatal("no first frame")
-	}
-	var changeFrames, changeBytes int
-	var changeLatency time.Duration
-	for i := 0; i < 5; i++ {
-		started := time.Now()
-		if _, err = pool.Exec(ctx, `UPDATE clip_analysis_steps SET updated_at=now() WHERE (run_id,step)=(SELECT run_id,step FROM clip_analysis_steps ORDER BY run_id LIMIT 1 OFFSET $1)`, i); err != nil {
-			t.Fatal(err)
+	// The stream, as it was (a whole snapshot at each change) and as the page asks for it
+	// (delta=1): the first frame, then the frame that answers a change of one step.
+	touch := func(offset int) {
+		if _, e := pool.Exec(ctx, `UPDATE clip_analysis_steps SET updated_at=now() WHERE (run_id,step)=(SELECT run_id,step FROM clip_analysis_steps ORDER BY run_id LIMIT 1 OFFSET $1)`, offset); e != nil {
+			t.Error(e)
 		}
+	}
+	for _, mode := range []struct{ label, query string }{{"whole snapshot", ""}, {"delta", "?delta=1"}} {
+		req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/admin/analysis/queue/events"+mode.query, nil)
+		stream, e := admin.Do(req)
+		if e != nil {
+			t.Fatal(e)
+		}
+		frames := make(chan int, 64)
+		go sseFrames(stream.Body, frames)
 		select {
-		case f := <-frames:
-			changeFrames++
-			changeBytes += f
-			changeLatency += time.Since(started)
+		case first := <-frames:
+			t.Logf("PERF sse %s: first frame bytes=%d", mode.label, first)
 		case <-time.After(30 * time.Second):
-			t.Fatal("no frame after a change")
+			t.Fatal("no first frame")
 		}
-		time.Sleep(200 * time.Millisecond)
+		var changeBytes int
+		var changeLatency time.Duration
+		const changes = 5
+		for i := 0; i < changes; i++ {
+			started := time.Now()
+			touch(i)
+			select {
+			case f := <-frames:
+				changeBytes += f
+				changeLatency += time.Since(started)
+			case <-time.After(30 * time.Second):
+				t.Fatal("no frame after a change")
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+		stream.Body.Close()
+		t.Logf("PERF sse %s: change frame avg_bytes=%d avg_latency=%v", mode.label, changeBytes/changes, (changeLatency / changes).Round(time.Millisecond))
 	}
-	t.Logf("PERF sse change: frames=%d avg_bytes=%d avg_latency=%v", changeFrames, changeBytes/max(changeFrames, 1), (changeLatency / time.Duration(max(changeFrames, 1))).Round(time.Millisecond))
+
+	// While the page is measured, a step changes every half second, as on a busy queue.
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for i := 10; ; i++ {
+			select {
+			case <-done:
+				return
+			case <-time.After(500 * time.Millisecond):
+				touch(i)
+			}
+		}
+	}()
 	measureQueuePage(t, ts.URL, session)
 }
 
