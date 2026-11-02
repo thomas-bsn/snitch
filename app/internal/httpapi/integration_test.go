@@ -988,6 +988,14 @@ func TestFoundation(t *testing.T) {
 			}
 		}
 	})
+	t.Run("transcription claim version gate", func(t *testing.T) {
+		reset(t)
+		testTranscriptionClaimVersionGate(t, pool)
+	})
+	t.Run("pending transcription diagnosis", func(t *testing.T) {
+		reset(t)
+		testPendingTranscriptionDiagnosis(t, pool)
+	})
 	if os.Getenv("SNITCH_E2E") == "1" {
 		suites := []string{
 			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts",
