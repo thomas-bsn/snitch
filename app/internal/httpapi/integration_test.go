@@ -341,6 +341,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceResultWithExpiredLease(t, pool)
 	})
+	t.Run("simulated failure trace stays clean", func(t *testing.T) {
+		reset(t)
+		testSimulatedFailureTraceIsClean(t, pool)
+	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
 		testJobQueue(t, pool)

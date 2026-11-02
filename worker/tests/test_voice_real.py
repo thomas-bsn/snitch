@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import subprocess
@@ -408,6 +409,29 @@ class DiarizationDiagnosticTests(RunnerAudioTests):
                 self.assertGreaterEqual(payload["duration_ms"], 0)
                 failed = [line for line in logs() if line["event"] == "job_failed"]
                 self.assertEqual(failed[0]["error_code"], expected)
+
+    def test_a_failed_diarization_leaves_a_trace_without_content_token_signed_url_or_vector(self):
+        logs = self.capture_logs()
+        stream_text = []
+        secrets = ("lt_synthetic-lease-token", "hf_secret", "X-Amz-Signature=abc123", "bonjour tout le monde", "0.31415927")
+
+        class Leaky:
+            def ensure_ready(self, config):
+                pass
+
+            def diarize(self, config, audio_path, stream_index):
+                raise RuntimeError("CUDA out of memory for https://storage.example/a.wav?X-Amz-Signature=abc123 token=hf_secret "
+                                   "transcript=bonjour tout le monde embedding=[0.31415927]")
+
+        _complete, fail, _s, _p = self.run_step("voice.diarization.0", CONFIG, {"pyannote": Leaky()})
+        stream_text.append(json.dumps(logs()))
+        stream_text.append(json.dumps(fail.call_args.kwargs["body"].to_dict()))
+        failed = [line for line in logs() if line["event"] == "job_failed"]
+        self.assertEqual(len(failed), 1)
+        self.assertEqual((failed[0]["job_id"], failed[0]["step"]), (9, "voice.diarization.0"))
+        for text in stream_text:
+            for secret in secrets:
+                self.assertNotIn(secret, text)
 
     def test_a_preflight_failure_is_categorised_too(self):
         class Unready:

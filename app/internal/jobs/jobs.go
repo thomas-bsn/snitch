@@ -377,27 +377,29 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		return nil, tx.Commit(ctx)
 	}
 	type expiredLease struct {
-		job   Job
-		event string
-		code  string
+		job      Job
+		event    string
+		code     string
+		workerID string
 	}
 	var expiredLeases []expiredLease
 	expiredRows, err := tx.Query(ctx, `WITH expired AS (
 		UPDATE jobs SET status=CASE WHEN attempts>=max_attempts THEN 'dead' ELSE 'pending' END,
 		 lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='lease_expired',updated_at=now()
-		 WHERE status='leased' AND lease_expires_at<=now()
-		 RETURNING id,clip_id,step,attempts,cycle,status
+		 FROM (SELECT id AS prior_id,lease_owner AS prior_owner FROM jobs WHERE status='leased' AND lease_expires_at<=now() FOR UPDATE) prior
+		 WHERE jobs.id=prior.prior_id
+		 RETURNING jobs.id,jobs.clip_id,jobs.step,jobs.attempts,jobs.cycle,jobs.status,prior.prior_owner
 	), recorded AS (
 	  INSERT INTO job_events(job_id,event,cycle,attempt,actor,error_code)
 	  SELECT id,CASE WHEN status='dead' THEN 'marked_dead' ELSE 'lease_expired' END,cycle,attempts,'system',CASE WHEN status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END FROM expired
 	  RETURNING job_id
-	) SELECT e.id,e.clip_id,e.step,e.cycle,e.attempts,CASE WHEN e.status='dead' THEN 'job_dead' ELSE 'job_lease_expired' END,CASE WHEN e.status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END FROM expired e JOIN recorded r ON r.job_id=e.id`)
+	) SELECT e.id,e.clip_id,e.step,e.cycle,e.attempts,CASE WHEN e.status='dead' THEN 'job_dead' ELSE 'job_lease_expired' END,CASE WHEN e.status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END,COALESCE(e.prior_owner,'') FROM expired e JOIN recorded r ON r.job_id=e.id`)
 	if err != nil {
 		return nil, fmt.Errorf("recover expired job leases: %w", err)
 	}
 	for expiredRows.Next() {
 		var item expiredLease
-		if err = expiredRows.Scan(&item.job.ID, &item.job.ClipID, &item.job.Step, &item.job.Cycle, &item.job.Attempts, &item.event, &item.code); err != nil {
+		if err = expiredRows.Scan(&item.job.ID, &item.job.ClipID, &item.job.Step, &item.job.Cycle, &item.job.Attempts, &item.event, &item.code, &item.workerID); err != nil {
 			expiredRows.Close()
 			return nil, fmt.Errorf("read expired job lease: %w", err)
 		}
@@ -417,7 +419,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 			if item.event == "job_dead" {
 				level = slog.LevelWarn
 			}
-			s.logger().Log(ctx, level, item.event, append(jobFields(item.job, ""), "error_code", item.code)...)
+			s.logger().Log(ctx, level, item.event, append(jobFields(item.job, item.workerID), "error_code", item.code)...)
 		}
 	}()
 	if _, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',updated_at=now() WHERE status='retry_wait' AND next_attempt_at<=now()`); err != nil {
