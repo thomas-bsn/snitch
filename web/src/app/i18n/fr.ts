@@ -1404,6 +1404,11 @@ export const fr: Messages = {
     },
     analysis: {
       label: "Analyse du clip",
+      live: "Mises à jour en direct actives",
+      liveOff:
+        "Mises à jour en direct interrompues : reconnexion. L’état affiché est actualisé toutes les quelques secondes.",
+      liveLost:
+        "L’accès à cette vue en direct a été perdu. Rechargez la page pour vous reconnecter.",
       steps: "Étapes de l’analyse",
       full: "Tout analyser",
       more: "Autres options d’analyse",
@@ -1451,8 +1456,19 @@ export const fr: Messages = {
         transcription_required:
           "La détection des voix exige une transcription valide : transcrivez d’abord le clip.",
         awaiting_transcription: "En attente de la transcription.",
-        orchestration_pending:
-          "Cette étape n’est pas encore disponible dans l’analyse.",
+        awaiting_indexer: "En attente de l'indexeur de recherche.",
+        semantic_search_unavailable:
+          "La recherche sémantique n'est pas configurée ; la recherche textuelle reste disponible.",
+        semantic_index_failed:
+          "L'indexation sémantique a échoué ; la recherche textuelle reste disponible.",
+        microphone_track:
+          "La piste micro est attribuée directement, sans détection des voix.",
+        microphone_direct_attribution:
+          "La piste micro a été attribuée directement à son propriétaire.",
+        no_speakers: "Aucune voix détectée dans ce clip.",
+        awaiting_fingerprints: "En attente des empreintes vocales.",
+        matching_failed: "La comparaison des voix a échoué.",
+        upstream_failed: "Non exécutée : une étape précédente a échoué.",
       },
       track: "Piste audio",
       trackPlaceholder: "Choisir une piste…",

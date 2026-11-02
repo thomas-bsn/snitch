@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "../../api.gen";
 import { api, errorCode, mutation } from "../api/client";
+import { useEventStream } from "../api/useEventStream";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
@@ -13,8 +14,6 @@ import { useSession } from "../session";
 type Run = components["schemas"]["ClipAnalysisRun"];
 type MediaTrack = components["schemas"]["MediaTrack"];
 type Scope = Run["scope"];
-
-const pollMs = 3000;
 
 /**
  * The primary action of a clip: one click starts a durable analysis on the server. The
@@ -63,11 +62,18 @@ export function AnalyzeClip({
     void refresh();
   }, [refresh]);
   const active = run?.status === "active";
-  useEffect(() => {
-    if (!active) return;
-    const timer = setInterval(() => void refresh(), pollMs);
-    return () => clearInterval(timer);
-  }, [active, refresh]);
+  // The server pushes each change as a snapshot; polling only covers a stream that is down.
+  const stream = useEventStream<{ run: Run | null }>(
+    admin ? `/api/admin/clips/${clipId}/analysis/events` : null,
+    useCallback(
+      (snapshot) => {
+        apply(snapshot.run ?? null);
+        setLoaded(true);
+      },
+      [apply],
+    ),
+    refresh,
+  );
 
   if (!admin || !loaded) return null;
 
@@ -158,6 +164,17 @@ export function AnalyzeClip({
           </Menu.Root>
         </div>
       )}
+      <p
+        role={stream === "forbidden" ? "alert" : "status"}
+        hidden={stream === "connecting"}
+        className={stream === "live" ? "sr-only" : "m-0 text-xs text-mute"}
+      >
+        {stream === "live"
+          ? t("clip.analysis.live")
+          : stream === "forbidden"
+            ? t("clip.analysis.liveLost")
+            : t("clip.analysis.liveOff")}
+      </p>
       {run && (
         <ol
           aria-label={t("clip.analysis.steps")}

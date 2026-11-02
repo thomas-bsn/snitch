@@ -153,6 +153,13 @@ type EmbeddingTask struct {
 	LeaseExpiresAt     pgtype.Timestamptz `json:"lease_expires_at"`
 }
 
+type Event struct {
+	ID        int64              `json:"id"`
+	Topic     string             `json:"topic"`
+	Kind      string             `json:"kind"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Installation struct {
 	ID                   int32              `json:"id"`
 	Initialized          bool               `json:"initialized"`

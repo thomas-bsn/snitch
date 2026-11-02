@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"snitch/internal/analysis"
+	"snitch/internal/events"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +46,7 @@ type Server struct {
 	Library            *library.Service
 	Jobs               *jobs.Service
 	Analysis           *analysis.Service
+	Events             *events.Service
 	Uploads            *uploads.Service
 	Workers            *workers.Service
 	rates              sync.Map
@@ -78,6 +80,7 @@ func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
 	}
 	s := &Server{Pool: p, Config: c, Log: logger, Client: &http.Client{Timeout: 10 * time.Second}, Store: settings.Store{Pool: p, Key: c.MasterKey}, Library: library.New(p, library.Config{Roots: c.ClipRoots, ProbePath: c.ProbePath, Stability: c.StabilityWindow, ReconcileEvery: c.ReconcileInterval, Exclude: c.ClipExcludePatterns}, logger), Jobs: jobs.New(p), Uploads: uploads.New(p, uploads.Config{Root: c.UploadRoot, ProbePath: c.ProbePath, MaxBytes: c.UploadMaxBytes, ChunkSize: c.UploadChunkBytes, TTL: c.UploadSessionTTL}), Workers: workers.New(p), passwordSlots: make(chan struct{}, 2), dummyPassword: auth.Password(auth.Token())}
 	s.Analysis = analysis.New(p, analysisHooks{s}, logger)
+	s.Events = events.New(p, logger)
 	return s
 }
 
@@ -97,6 +100,8 @@ func (s *Server) Start(ctx context.Context) error {
 		return fmt.Errorf("start library: %w", err)
 	}
 	s.embeddingContext, s.embeddingCancel = context.WithCancel(ctx)
+	s.embeddingWG.Add(1)
+	go func() { defer s.embeddingWG.Done(); s.Events.Serve(s.embeddingContext) }()
 	s.embeddingWG.Add(1)
 	go func() { defer s.embeddingWG.Done(); s.Analysis.Serve(s.embeddingContext, analysisInterval) }()
 	s.embeddingWG.Add(1)
@@ -196,6 +201,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/users/{id}/approve", s.protected(true, http.HandlerFunc(s.approve)))
 	mux.Handle("POST /api/admin/clips/{id}/analysis", s.protected(true, http.HandlerFunc(s.startClipAnalysis)))
 	mux.Handle("GET /api/admin/clips/{id}/analysis", s.protected(true, http.HandlerFunc(s.getClipAnalysis)))
+	mux.Handle("GET /api/admin/clips/{id}/analysis/events", s.protected(true, http.HandlerFunc(s.clipAnalysisEvents)))
 	mux.Handle("GET /api/admin/jobs", s.protected(true, http.HandlerFunc(s.listJobs)))
 	mux.Handle("POST /api/admin/jobs", s.protected(true, http.HandlerFunc(s.scheduleJob)))
 	mux.Handle("GET /api/admin/jobs/{id}/history", s.protected(true, http.HandlerFunc(s.jobHistory)))

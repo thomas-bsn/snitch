@@ -1252,6 +1252,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/analysis/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Flux d'évènements serveur authentifié (cookie de session), droits revérifiés avant chaque snapshot. Mécanisme générique (table events, déclenchée par les changements) réutilisable pour d'autres sujets ; repli : GET /api/admin/clips/{id}/analysis. */
+    get: operations["streamClipAnalysisEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/transcription": {
     parameters: {
       query?: never;
@@ -2366,7 +2383,7 @@ export interface components {
         | "done"
         | "not_applicable"
         | "not_yet_supported";
-      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, orchestration_pending. */
+      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
       reason: string;
       /** Format: int64 */
       job_id: number | null;
@@ -7742,7 +7759,7 @@ export interface operations {
       content: {
         "application/json": {
           /**
-           * @description transcription : préparation et transcription seulement. voice : détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de transcription implicite). full : transcription, indexation et voix. Les étapes d'indexation et de voix ne sont pas encore orchestrées : elles restent not_yet_supported et l'exécution se termine incomplete.
+           * @description transcription : préparation et transcription seulement. voice : détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de transcription implicite). full : transcription, indexation et voix. L'indexation et les voix avancent indépendamment après la transcription ; une branche en échec n'arrête pas l'autre et l'exécution se termine failed (échec partiel).
            * @default transcription
            * @enum {string}
            */
@@ -7779,6 +7796,37 @@ export interface operations {
         };
       };
       /** @description Erreur (400 invalid_analysis_scope, invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamClipAnalysisEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: {run}} : l'état complet de l'analyse, jamais un delta, donc une reconnexion ou un évènement perdu converge. Un évènement `forbidden` clôt le flux quand l'accès est perdu (session expirée, rôle retiré) ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 403 forbidden ; 404 clip_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

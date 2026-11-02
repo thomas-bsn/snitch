@@ -178,6 +178,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipAnalysis(t, pool)
 	})
+	t.Run("clip analysis events", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisEvents(t, pool)
+	})
+	t.Run("clip analysis voice branches", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisVoice(t, pool)
+	})
 	t.Run("clip progress and filter options", func(t *testing.T) {
 		reset(t)
 		testClipProgress(t, pool)
@@ -857,7 +865,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || path == "/api/admin/clips/{id}/analysis" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" {
+				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || path == "/api/admin/clips/{id}/analysis" || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" {
 					continue // These contract operations are covered by their upload, search, worker, member, account, embedding and transcription suites.
 				}
 				if !seen[method+" "+path] {
