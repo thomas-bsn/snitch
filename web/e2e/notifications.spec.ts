@@ -133,21 +133,22 @@ test.describe.serial("notifications : voix à vérifier", () => {
     await expect(page.getByTestId("verification-clip-filter")).toContainText(
       "Voices of synthetic-voices.mp4",
     );
-    const cases = page.getByRole("list", { name: "Voices to decide" });
-    await expect(cases.locator("xpath=./li")).toHaveCount(2);
+    // One case at a time: the queue holds that clip's two voices.
+    const current = page.getByRole("region", { name: "Voice to decide" });
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_00",
+    );
+    await expect(current).toContainText("2 voice(s) left to decide");
 
-    // Clearing the filter keeps the same list (one clip only).
+    // Clearing the filter keeps the same queue (one clip only).
     await page.getByRole("button", { name: "Show all clips" }).click();
     await expect(page.getByTestId("verification-clip-filter")).toHaveCount(0);
+    await expect(current).toContainText("2 voice(s) left to decide");
 
     // Handling the voices resolves the shared action.
-    await page
-      .getByRole("button", { name: "Decide who SPEAKER_00 is" })
-      .click();
-    const panel = page.getByRole("dialog", { name: "Who is SPEAKER_00?" });
-    await panel.getByRole("radio", { name: "Create a person" }).check();
-    await panel.getByLabel("Name of the new person").fill("Dana Synthétique");
-    await panel.getByRole("button", { name: "Confirm" }).click();
+    await current.getByRole("radio", { name: "Create a person" }).check();
+    await current.getByLabel("Name of the new person").fill("Dana Synthétique");
+    await current.getByRole("button", { name: "Confirm" }).click();
     await expect(page.getByText("Nothing left to decide here.")).toBeVisible();
 
     await page.goto("/library");
