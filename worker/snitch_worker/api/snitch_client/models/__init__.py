@@ -50,6 +50,7 @@ from .clip_analysis_view_steps_item_step import ClipAnalysisViewStepsItemStep
 from .clip_filter_options import ClipFilterOptions
 from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
 from .clip_filter_options_sources_item import ClipFilterOptionsSourcesItem
+from .clip_location import ClipLocation
 from .clip_microphone_track import ClipMicrophoneTrack
 from .clip_microphone_track_selection_source import ClipMicrophoneTrackSelectionSource
 from .clip_origins_item import ClipOriginsItem
@@ -424,6 +425,7 @@ __all__ = (
     "ClipFilterOptions",
     "ClipFilterOptionsOwnersItem",
     "ClipFilterOptionsSourcesItem",
+    "ClipLocation",
     "ClipMicrophoneTrack",
     "ClipMicrophoneTrackSelectionSource",
     "ClipOriginsItem",

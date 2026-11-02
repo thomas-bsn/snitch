@@ -2709,6 +2709,8 @@ export interface components {
     };
     AnalysisQueueRun: components["schemas"]["ClipAnalysisRun"] & {
       clip_name: string;
+      /** @description Fichiers vidéo d'origine indexés du clip (hors fichiers introuvables), avec leur source et leur chemin complet persisté ; jamais un fichier de travail du Worker. Vide : chemin indisponible. */
+      locations: components["schemas"]["ClipLocation"][];
       /** @description Voix du clip encore inconnues ou ambiguës (liste de vérification) : une analyse terminée qui en laisse est seulement partiellement identifiée. */
       pending_voices: number;
     };
@@ -2717,6 +2719,14 @@ export interface components {
       total: number;
       page: number;
       page_size: number;
+    };
+    ClipLocation: {
+      /** @description Nom de la source indexée. */
+      source: string;
+      /** @description Chemin complet (racine de la source + chemin relatif). Absent pour un dossier privé. */
+      path?: string;
+      /** @description Le fichier est dans un dossier privé : son chemin n'est pas envoyé. */
+      private?: boolean;
     };
     AnalysisQueueTask: components["schemas"]["Job"] & {
       clip_name: string;
