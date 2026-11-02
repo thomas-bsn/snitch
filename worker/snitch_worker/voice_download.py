@@ -93,13 +93,30 @@ def _read_token(environ: Mapping[str, str]) -> str:
         return ""
 
 
-def _cause(error: BaseException) -> str:
+_NETWORK_NAMES = {"ConnectionError", "ConnectError", "Timeout", "TimeoutError", "OfflineModeIsEnabled", "ConnectTimeout", "ReadTimeout", "gaierror", "ProxyError", "SSLError"}
+
+
+def _in_cache(path: str, environ: Mapping[str, str]) -> bool:
+    roots = [environ.get("HF_XET_CACHE", ""), environ.get("HF_HOME", ""), environ.get("XDG_CACHE_HOME", "")]
+    return any(root and (path == root or path.startswith(root.rstrip("/") + "/")) for root in roots)
+
+
+def _cause(error: BaseException, environ: Mapping[str, str] | None = None) -> str:
+    """A catalogue code from the type of the error and the path it concerns, never from its text."""
     names = {cls.__name__ for cls in type(error).__mro__}
     status = getattr(getattr(error, "response", None), "status_code", None)
-    if names & {"GatedRepoError", "RepositoryNotFoundError", "RevisionNotFoundError"} or status in (401, 403, 404):
-        return "hf_access_denied"
-    if isinstance(error, OSError) and getattr(error, "errno", None) == 28:
+    if "GatedRepoError" in names or status in (401, 403):
+        return "hf_auth_required"
+    if names & {"RepositoryNotFoundError", "RevisionNotFoundError", "EntryNotFoundError"} or status == 404:
+        return "hf_not_found"
+    errno = getattr(error, "errno", None)
+    if isinstance(error, OSError) and errno == 28:
         return "disk_full"
+    if names & _NETWORK_NAMES:
+        return "hf_network"
+    if names & {"PermissionError", "FileNotFoundError", "NotADirectoryError"} or (isinstance(error, OSError) and errno in (1, 13, 30)):
+        path = os.path.abspath(str(getattr(error, "filename", "") or ""))
+        return "hf_cache_error" if _in_cache(path, os.environ if environ is None else environ) else "models_volume_unwritable"
     return "runtime_incompatible"
 
 
@@ -121,7 +138,7 @@ def run(repo: str, revision: str, target: str, environ: Mapping[str, str], snaps
     except BaseException as error:  # noqa: BLE001 - library messages may carry the token
         if isinstance(error, (KeyboardInterrupt, SystemExit)):
             raise
-        say({"error": _cause(error)})
+        say({"error": _cause(error, environ)})
         return 1
     say({"done": True})
     return 0
