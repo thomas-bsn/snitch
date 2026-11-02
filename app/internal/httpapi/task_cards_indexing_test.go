@@ -12,6 +12,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/config"
@@ -152,6 +153,52 @@ func testTaskCardsIndexing(t *testing.T, pool *pgxpool.Pool) {
 	done := find(b.Completed, finished)
 	if done == nil || stepState(done, "indexing") != "done" {
 		t.Fatalf("indexed clip should be completed: %+v", b.Completed)
+	}
+
+	// A dead or cancelled index task is never shown as queued: it keeps the
+	// vocabulary of the cards. The table only allows four states, so the check
+	// is lifted for the synthetic rows.
+	if _, err = pool.Exec(ctx, `ALTER TABLE embedding_tasks DROP CONSTRAINT embedding_tasks_state_check`); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM embedding_tasks WHERE state NOT IN ('pending','leased','done','failed'); ALTER TABLE embedding_tasks ADD CONSTRAINT embedding_tasks_state_check CHECK (state IN ('pending','leased','done','failed'))`)
+	}()
+	dead := clip("index-dead.mp4", "dead")
+	cancelledIndex := clip("index-cancelled.mp4", "cancelled")
+	b = board()
+	for name, want := range map[string]struct {
+		id    int64
+		state string
+	}{"dead": {dead, "dead"}, "cancelled": {cancelledIndex, "cancelled"}} {
+		card := find(b.Cards, want.id)
+		if card == nil || card.Column != "search" || card.State != want.state || stepState(card, "indexing") != want.state {
+			t.Fatalf("%s indexing card must not show as queued: %+v", name, card)
+		}
+	}
+
+	// The completion date is the end of the last finished step, indexing
+	// included, and the column is sorted by that same date.
+	if _, err = pool.Exec(ctx, `DELETE FROM embedding_tasks WHERE state IN ('dead','cancelled')`); err != nil {
+		t.Fatal(err)
+	}
+	older, newer := finished, clip("index-done-late.mp4", "done")
+	if _, err = pool.Exec(ctx, `UPDATE jobs SET updated_at=now()-interval '5 hours' WHERE clip_id=ANY($1)`, []int64{older, newer}); err != nil {
+		t.Fatal(err)
+	}
+	// older: indexed an hour ago; newer: indexed just now, long after its transcription.
+	if _, err = pool.Exec(ctx, `UPDATE embedding_tasks SET updated_at=now()-interval '1 hour' WHERE transcription_job_id IN (SELECT id FROM jobs WHERE clip_id=$1)`, older); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE embedding_tasks SET updated_at=now() WHERE transcription_job_id IN (SELECT id FROM jobs WHERE clip_id=$1)`, newer); err != nil {
+		t.Fatal(err)
+	}
+	b = board()
+	if len(b.Completed) < 2 || b.Completed[0].ClipID != newer || b.Completed[1].ClipID != older {
+		t.Fatalf("completed clips must be sorted by the end of their indexing: %+v", b.Completed)
+	}
+	if want := time.Now().Add(-90 * time.Minute); b.Completed[0].CompletedAt == "" || func() bool { at, _ := time.Parse(time.RFC3339Nano, b.Completed[0].CompletedAt); return at.Before(want) }() {
+		t.Fatalf("the displayed date must be the end of the indexing, not of the transcription: %+v", b.Completed[0])
 	}
 	if _, err = pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles`); err != nil {
 		t.Fatal(err)
