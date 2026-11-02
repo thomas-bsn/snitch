@@ -1,7 +1,9 @@
-import { ChevronLeft, ChevronRight, Monitor } from "lucide-react";
-import { JobWorkflow } from "./JobWorkflow";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Monitor } from "lucide-react";
+import { AnalysisBoard, type Queue } from "./AnalysisBoard";
+import { ClipHistory } from "./ClipHistory";
+import { useCallback, useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../../api/client";
+import { useEventStream } from "../../api/useEventStream";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert, StatusNotice } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
@@ -11,40 +13,20 @@ import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
 import type { components } from "../../../api.gen";
 
-type Filters = {
-  status?: components["schemas"]["Job"]["status"];
-  clip_id?: number;
-  step?: string;
-};
-async function load(page: number, filters: Filters) {
+async function load() {
   try {
-    const [controls, jobs, recent, workers] = await Promise.all([
+    const [controls, workers] = await Promise.all([
       api.GET("/api/admin/job-controls"),
-      api.GET("/api/admin/jobs", {
-        params: {
-          query: { page_size: 20, ...filters, page, workflow: "active" },
-        },
-      }),
-      api.GET("/api/admin/jobs", {
-        params: { query: { workflow: "done", page: 1, page_size: 3 } },
-      }),
       api.GET("/api/admin/workers"),
     ]);
-    if (!controls.data || !jobs.data || !recent.data || !workers.data)
+    if (!controls.data || !workers.data)
       return {
         ok: false as const,
-        code: errorCode(controls.error ?? jobs.error) ?? "unknown",
+        code: errorCode(controls.error ?? workers.error) ?? "unknown",
       };
     return {
       ok: true as const,
-      value: {
-        controls: controls.data,
-        workers: workers.data.items,
-        jobs: {
-          ...jobs.data,
-          items: [...jobs.data.items, ...recent.data.items],
-        },
-      },
+      value: { controls: controls.data, workers: workers.data.items },
     };
   } catch {
     return { ok: false as const, code: "unavailable" };
@@ -55,10 +37,22 @@ type Event = components["schemas"]["JobEvent"];
 export function QueueTab() {
   const { t, error, language } = useI18n();
   const { session } = useSession();
-  const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<Filters>({});
-  const loadPage = useCallback(() => load(page, filters), [page, filters]);
-  const { state, reload } = useLoaded(loadPage);
+  const { state, reload } = useLoaded(load);
+  const [queue, setQueue] = useState<Queue>();
+  // The server pushes the whole queue on every change; polling only covers a stream that is down.
+  const refreshQueue = useCallback(async () => {
+    try {
+      const result = await api.GET("/api/admin/analysis/queue");
+      if (result.data) setQueue(result.data);
+    } catch {
+      // The next snapshot or poll replaces the view.
+    }
+  }, []);
+  const stream = useEventStream<Queue>(
+    "/api/admin/analysis/queue/events",
+    setQueue,
+    refreshQueue,
+  );
   const [paused, setPaused] = useState<boolean>();
   const [concurrency, setConcurrency] = useState<string>();
   const [failure, setFailure] = useState<string>();
@@ -96,7 +90,6 @@ export function QueueTab() {
       else {
         setWarning(undefined);
         setNotice(true);
-        setPage(1);
         reload();
       }
     } catch {
@@ -162,18 +155,6 @@ export function QueueTab() {
     } finally {
       setBusy(false);
     }
-  }
-  function filterJobs(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const f = new FormData(event.currentTarget);
-    const status = String(f.get("status") ?? "") as Filters["status"];
-    const clip = String(f.get("clip") ?? "");
-    setPage(1);
-    setFilters({
-      status: status || undefined,
-      clip_id: clip ? Number(clip) : undefined,
-      step: String(f.get("step") ?? "").trim() || undefined,
-    });
   }
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -300,9 +281,13 @@ export function QueueTab() {
               : "Follow each clip and the processing performed by your workers."}
           </p>
         </div>
-        <button onClick={reload} className={buttonClass()}>
-          {language === "fr" ? "⟳ Actualiser" : "⟳ Refresh"}
-        </button>
+        <p role="status" className="m-0 text-sm text-mute">
+          {stream === "live"
+            ? t("queue.board.live")
+            : stream === "forbidden"
+              ? t("queue.board.forbidden")
+              : t("queue.board.offline")}
+        </p>
       </div>
       {state.status === "loading" && <p role="status">{t("app.loading")}</p>}
       {state.status === "failed" && (
@@ -337,9 +322,16 @@ export function QueueTab() {
                     const memory = machine?.gpu_memory_bytes
                       ? `${Math.round(machine.gpu_memory_bytes / 1024 ** 3)} ${language === "fr" ? "Go" : "GB"}`
                       : undefined;
-                    const running = state.value.jobs.items.filter(
-                      (job) => job.status !== "done",
-                    ).length;
+                    const running =
+                      (queue?.tasks.filter((job) => job.status === "leased")
+                        .length ?? 0) +
+                      (queue?.active.reduce(
+                        (n, run) =>
+                          n +
+                          run.steps.filter((st) => st.status === "running")
+                            .length,
+                        0,
+                      ) ?? 0);
                     return [
                       machine?.gpu_name,
                       memory,
@@ -392,129 +384,55 @@ export function QueueTab() {
             </details>
           </div>
 
-          <JobWorkflow
-            jobs={state.value.jobs.items}
-            emptyMessage={t("queue.empty")}
-            toolbar={
-              <form
-                onSubmit={filterJobs}
-                className="flex flex-wrap items-end gap-4"
-              >
-                <label className="flex flex-col gap-1 font-medium">
-                  <span className="text-sm">{t("queue.filterStatus")}</span>
-                  <select
-                    name="status"
-                    className="h-11 min-w-48 rounded-lg border border-line-strong bg-surface px-3 text-sm md:h-9"
-                  >
-                    <option value="">{t("queue.allStatuses")}</option>
-                    {(
-                      [
-                        "pending",
-                        "leased",
-                        "done",
-                        "failed",
-                        "retry_wait",
-                        "dead",
-                        "cancelled",
-                      ] as const
-                    ).map((status) => (
-                      <option value={status} key={status}>
-                        {t(`queue.status.${status}`)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1 font-medium">
-                  <span className="text-sm">{t("queue.filterClip")}</span>
-                  <input
-                    name="clip"
-                    type="number"
-                    min={1}
-                    placeholder="ex. 18"
-                    className="h-11 w-48 rounded-lg border border-line-strong bg-surface px-3 text-sm md:h-9"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 font-medium">
-                  <span className="text-sm">{t("queue.filterStep")}</span>
-                  <input
-                    name="step"
-                    className="h-11 w-48 rounded-lg border border-line-strong bg-surface px-3 text-sm md:h-9"
-                  />
-                </label>
-                <button className={buttonClass()}>
-                  {language === "fr" ? "Filtrer" : "Filter"}
-                </button>
-              </form>
-            }
-            actions={(job) => (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={buttonClass()}
-                  onClick={() => void showHistory(job)}
-                >
-                  {t("queue.history")}
-                </button>
-                {job.status === "dead" && (
+          <div className="flex justify-end">
+            <ClipHistory />
+          </div>
+          {queue ? (
+            <AnalysisBoard
+              queue={queue}
+              taskActions={(job) => (
+                <div className="flex flex-wrap gap-2">
                   <button
-                    disabled={busy}
+                    type="button"
                     className={buttonClass()}
-                    onClick={() => void retry(job)}
+                    onClick={() => void showHistory(job)}
                   >
-                    {t("queue.retry")}
+                    {t("queue.history")}
                   </button>
-                )}
-                {["pending", "retry_wait", "leased"].includes(job.status) && (
-                  <button
-                    disabled={busy}
-                    className={buttonClass()}
-                    onClick={() => void cancel(job)}
-                  >
-                    {t("queue.cancel")}
-                  </button>
-                )}
-                {history[job.id] && (
-                  <ul className="w-full">
-                    {history[job.id].map((item) => (
-                      <li key={item.id}>
-                        {t(`queue.event.${item.event}`)} · {item.created_at} ·{" "}
-                        {item.error_code}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          />
-
-          <nav
-            aria-label={
-              language === "fr" ? "Pagination de la file" : "Queue pagination"
-            }
-            className="flex items-center justify-center gap-3 py-3"
-          >
-            <button
-              aria-label={
-                language === "fr" ? "Page précédente" : "Previous page"
-              }
-              className="grid size-11 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <span className="min-w-16 text-center text-sm text-mute">
-              {page} / {Math.max(1, Math.ceil(state.value.jobs.total / 20))}
-            </span>
-            <button
-              aria-label={language === "fr" ? "Page suivante" : "Next page"}
-              className="grid size-11 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
-              disabled={page * 20 >= state.value.jobs.total}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight size={18} />
-            </button>
-          </nav>
+                  {job.status === "dead" && (
+                    <button
+                      disabled={busy}
+                      className={buttonClass()}
+                      onClick={() => void retry(job)}
+                    >
+                      {t("queue.retry")}
+                    </button>
+                  )}
+                  {["pending", "retry_wait", "leased"].includes(job.status) && (
+                    <button
+                      disabled={busy}
+                      className={buttonClass()}
+                      onClick={() => void cancel(job)}
+                    >
+                      {t("queue.cancel")}
+                    </button>
+                  )}
+                  {history[job.id] && (
+                    <ul className="w-full">
+                      {history[job.id].map((item) => (
+                        <li key={item.id}>
+                          {t(`queue.event.${item.event}`)} · {item.created_at} ·{" "}
+                          {item.error_code}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            />
+          ) : (
+            <p role="status">{t("app.loading")}</p>
+          )}
 
           <details className="rounded-xl border border-line p-4">
             <summary className="cursor-pointer list-none p-1">

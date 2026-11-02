@@ -10,6 +10,38 @@ export const en = {
     loading: "Loading…",
   },
   queue: {
+    board: {
+      live: "Live updates on",
+      offline: "Reconnecting: the board refreshes every few seconds.",
+      forbidden:
+        "Access to this live view was lost. Reload the page to sign in again.",
+      activeTitle: "Analyses in progress",
+      activeEmpty: "No analysis in progress.",
+      completedTitle: "Last completed clips",
+      completedEmpty: "No clip has completed yet.",
+      tasksTitle: "Tasks outside an analysis",
+      tasksHint:
+        "Technical tasks that no analysis follows. They stay here until they finish.",
+      openClip: "Open clip",
+      trunk: "Preparation and transcription",
+      branchSearch: "Search branch",
+      branchVoices: "Voice branch",
+      voicesToCheck: "Voices to check",
+      attempt: "Attempt {n}",
+      stepsOf: "Steps of the analysis of {clip}",
+      scope: {
+        transcription: "Transcription",
+        voice: "Voices",
+        full: "Full analysis",
+      },
+      run: {
+        active: "In progress",
+        failed: "Partly failed",
+        completed: "Completed",
+        incomplete: "Completed, voices to check",
+        cancelled: "Cancelled",
+      },
+    },
     voiceStep: "Voice processing (after transcription)",
     filterStatus: "Filter by status",
     allStatuses: "All statuses",

@@ -10,6 +10,39 @@ export const fr: Messages = {
     loading: "Chargement…",
   },
   queue: {
+    board: {
+      live: "Mises à jour en direct activées",
+      offline:
+        "Reconnexion en cours : le tableau s’actualise toutes les quelques secondes.",
+      forbidden:
+        "L’accès à cette vue en direct a été perdu. Rechargez la page pour vous reconnecter.",
+      activeTitle: "Analyses en cours",
+      activeEmpty: "Aucune analyse en cours.",
+      completedTitle: "Derniers clips terminés",
+      completedEmpty: "Aucun clip n’est encore terminé.",
+      tasksTitle: "Tâches hors analyse",
+      tasksHint:
+        "Tâches techniques qu’aucune analyse ne suit. Elles restent ici tant qu’elles ne sont pas terminées.",
+      openClip: "Ouvrir le clip",
+      trunk: "Préparation et transcription",
+      branchSearch: "Branche recherche",
+      branchVoices: "Branche voix",
+      voicesToCheck: "Voix à vérifier",
+      attempt: "Tentative {n}",
+      stepsOf: "Étapes de l’analyse de {clip}",
+      scope: {
+        transcription: "Transcription",
+        voice: "Voix",
+        full: "Analyse complète",
+      },
+      run: {
+        active: "En cours",
+        failed: "Échec partiel",
+        completed: "Terminée",
+        incomplete: "Terminée, voix à vérifier",
+        cancelled: "Annulée",
+      },
+    },
     voiceStep: "Analyse des voix (après transcription)",
     filterStatus: "Filtrer par état",
     allStatuses: "Tous les états",

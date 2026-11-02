@@ -4,6 +4,9 @@ from .account_preferences import AccountPreferences
 from .account_preferences_input import AccountPreferencesInput
 from .account_preferences_input_language import AccountPreferencesInputLanguage
 from .account_preferences_language import AccountPreferencesLanguage
+from .analysis_queue import AnalysisQueue
+from .analysis_queue_run import AnalysisQueueRun
+from .analysis_queue_task import AnalysisQueueTask
 from .attribution import Attribution
 from .attribution_author import AttributionAuthor
 from .attribution_candidate import AttributionCandidate
@@ -356,6 +359,9 @@ __all__ = (
     "AccountPreferencesInput",
     "AccountPreferencesInputLanguage",
     "AccountPreferencesLanguage",
+    "AnalysisQueue",
+    "AnalysisQueueRun",
+    "AnalysisQueueTask",
     "Attribution",
     "AttributionAuthor",
     "AttributionCandidate",
