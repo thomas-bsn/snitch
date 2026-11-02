@@ -60,7 +60,7 @@ test("la file montre une carte par analyse, en direct", async ({ browser }) => {
   const violations = (await new AxeBuilder({ page }).analyze()).violations;
   expect(violations).toEqual([]);
 
-  // A cancelled analysis leaves the board.
+  // A cancelled analysis stays on the board, never finished, with the advice to plan it again.
   for (const id of [first, second]) {
     expect(
       (
@@ -70,8 +70,12 @@ test("la file montre une carte par analyse, en direct", async ({ browser }) => {
       ).ok(),
     ).toBe(true);
   }
-  await expect(cardA).toHaveCount(0);
-  await expect(page.getByText("No analysis in progress.")).toBeVisible();
+  await expect(cardA.locator("[data-run-status]")).toHaveText("Cancelled");
+  await expect(cardA.locator("[data-cancelled]")).toBeVisible();
+  await expect(
+    page.locator('[data-column="completed"] [data-run-card]'),
+  ).toHaveCount(0);
+  await expect(page.getByText("No analysis in progress.")).toHaveCount(0);
   await context.close();
 });
 
@@ -120,7 +124,10 @@ test("la planification avancée est en haut et l'historique garde les analyses",
       })
     ).ok(),
   ).toBe(true);
-  await expect(page.locator(`[data-run-card="${clip}"]`)).toHaveCount(0);
+  // The cancelled analysis stays on the board and is also in the history.
+  await expect(
+    page.locator(`[data-run-card="${clip}"] [data-run-status]`),
+  ).toHaveText("Cancelled");
   await page.getByRole("button", { name: "Clip history" }).click();
   const dialog = page.getByRole("dialog");
   await expect(

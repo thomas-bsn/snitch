@@ -226,6 +226,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAdminQueueFailureCauses(t, pool)
 	})
+	t.Run("admin queue cancelled and location", func(t *testing.T) {
+		reset(t)
+		testAdminQueueCancelledAndLocation(t, pool)
+	})
 	t.Run("admin queue failed tasks", func(t *testing.T) {
 		reset(t)
 		testAdminQueueFailedTasks(t, pool)

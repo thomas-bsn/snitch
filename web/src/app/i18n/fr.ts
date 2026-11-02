@@ -51,6 +51,15 @@ export const fr: Messages = {
       tasksTitle: "Tâches hors analyse",
       tasksHint:
         "Tâches techniques qu’aucune analyse ne suit. Elles restent ici tant qu’elles ne sont pas terminées.",
+      cancelledAdvice:
+        "Annulée : le clip reste ici, jamais terminé. Replanifiez l’analyse depuis le formulaire de planification.",
+      location: {
+        title: "Fichier d’origine",
+        unavailable: "Chemin indisponible",
+        private: "Dossier privé : chemin non affiché",
+        copy: "Copier le chemin",
+        copied: "Chemin copié",
+      },
       openClip: "Ouvrir le clip",
       showMore: "Afficher {n} de plus ({left} restantes dans cette colonne)",
       hiddenCards:
