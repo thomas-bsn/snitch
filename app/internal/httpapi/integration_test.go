@@ -595,6 +595,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", speakerPath+"/validation", map[string]any{"new_person_name": "Late"}, me.CSRF, 409)
 		call(client, "POST", speakerPath+"/correction", map[string]any{"new_person_name": "Corrected", "expected_person_id": contractPerson.ID}, me.CSRF, 200)
 		call(client, "GET", speakerPath+"/history", nil, "", 200)
+		call(client, "GET", speakerPath, nil, "", 200)
 		call(client, "GET", speakerPath+"/excerpt", nil, "", 404)
 		// Person corrections (behavior in the person corrections suite).
 		var absorbed, kept struct {

@@ -686,10 +686,16 @@ test.describe.serial("personnes et vérification", () => {
     );
     const ids = await createPersons(names);
     const second = await uploadClip("second-voices.mp4", "shared");
-    const secondVoices = await transcribeAndDiarize(second);
-    // A validated reference close to the other voices: the server then proposes it as a
-    // candidate, so the number keys below always have something to choose.
-    await nameVoice(secondVoices[0], "Référence Synthétique");
+    await transcribeAndDiarize(second, { secondFingerprintEnd: 4.2 });
+    // Two validated references, each close to both voices of the second clip, from a third
+    // clip: those voices become ambiguous and the server proposes both Persons as
+    // candidates, so the number keys below always have something to choose.
+    const third = await uploadClip("third-voices.mp4", "shared");
+    const thirdVoices = await transcribeAndDiarize(third, {
+      secondFingerprintEnd: 4.2,
+    });
+    await nameVoice(thirdVoices[0], "Référence Synthétique A");
+    await nameVoice(thirdVoices[1], "Référence Synthétique B");
     await page.evaluate(() => localStorage.setItem("snitch-ui-theme", "light"));
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/people/verification");
@@ -761,8 +767,9 @@ test.describe.serial("personnes et vérification", () => {
     await expect(page.getByRole("status")).toContainText(
       "Already confirmed as Zoé Synthétique 01.",
     );
-    await expect(page.getByText("Nothing left to decide here.")).toBeVisible();
-    await expect.poll(count).toBe(0);
+    // Two cases were settled (by this session, then by the other one): the queue went on.
+    await expect.poll(count).toBe(before - 2);
+    await expect.poll(speakerOf).not.toBe(target);
     const twelve = (await (
       await api.get(`/api/persons/${ids[11]}`)
     ).json()) as { local_speaker_count: number };
@@ -798,8 +805,9 @@ test.describe.serial("personnes et vérification", () => {
       );
       messages.push((await notice.textContent()) ?? "");
       await expect(member.getByText("private-secret.mp4")).toHaveCount(0);
+      // The queue may go on below the notice, but never with the hidden voice.
       await expect(
-        member.getByRole("region", { name: "Voice to decide" }),
+        member.locator(`audio[src*="/local-speakers/${id}/"]`),
       ).toHaveCount(0);
     }
     expect(messages[0]).toBe(messages[1]);

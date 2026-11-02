@@ -234,7 +234,10 @@ export function VerificationTab() {
             </li>
           ))}
           {(["human", "automatic", "suggestion"] as const).map((level) => (
-            <li key={level} className="flex min-h-9 items-center px-1">
+            <li
+              key={level}
+              className="relative flex min-h-11 items-center px-1"
+            >
               <LevelBadge level={level} count={counts[level]} />
             </li>
           ))}
