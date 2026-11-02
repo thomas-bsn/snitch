@@ -1,5 +1,6 @@
 import { Monitor } from "lucide-react";
 import { AnalysisBoard, type Queue } from "./AnalysisBoard";
+import { AutomaticAnalysisForm } from "./AutomaticAnalysisForm";
 import { ClipHistory } from "./ClipHistory";
 import { useCallback, useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../../api/client";
@@ -316,76 +317,78 @@ export function QueueTab() {
       {notice && <StatusNotice>{t("queue.updated")}</StatusNotice>}
       {state.status === "ready" && (
         <>
-          <details
-            open
-            data-advanced-schedule
-            className="rounded-xl border border-line p-4"
+          <section
+            data-schedule
+            className="flex flex-col gap-4 rounded-xl border border-line p-4"
           >
-            <summary className="cursor-pointer list-none p-1">
-              <span className="text-base font-semibold">
-                {t("queue.schedule")}
-              </span>
-              <span className="ml-2 text-sm text-mute">
-                {language === "fr"
-                  ? "Mode avancé : une étape isolée sur un clip sans analyse en cours"
-                  : "Advanced: a single step on a clip with no analysis in progress"}
-              </span>
-            </summary>
-            <form
-              onSubmit={submitJob}
-              className="flex flex-wrap items-end gap-3 px-1 pb-1 pt-4"
-            >
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                {t("queue.clip")}
-                <input
-                  name="clip"
-                  type="number"
-                  min={1}
-                  required
-                  placeholder="ex. 18"
-                  className="h-11 w-40 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                {t("queue.step")}
-                <select
-                  name="step"
-                  required
-                  defaultValue=""
-                  className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
-                >
-                  <option value="" disabled>
-                    {language === "fr" ? "Choisir…" : "Choose…"}
-                  </option>
-                  {transcriptionReady && (
-                    <option value="transcription">
-                      {language === "fr" ? "Transcription" : "Transcription"}
-                    </option>
-                  )}
-                  {voiceReady && (
-                    <option value="voice">
-                      {language === "fr"
-                        ? "Analyse des voix"
-                        : "Voice analysis"}
-                    </option>
-                  )}
-                </select>
-              </label>
-              <button disabled={busy} className={buttonClass("primary")}>
-                {language === "fr" ? "Planifier" : "Schedule"}
-              </button>
-              {!transcriptionReady && !voiceReady && (
-                <p
-                  role="status"
-                  className="m-0 w-full rounded-lg bg-warn-bg p-3 text-warn-fg"
-                >
+            <AutomaticAnalysisForm onStarted={() => void refreshQueue()} />
+            <details data-advanced-schedule>
+              <summary className="cursor-pointer list-none p-1">
+                <span className="text-sm font-semibold">
+                  {t("queue.schedule")}
+                </span>
+                <span className="ml-2 text-sm text-mute">
                   {language === "fr"
-                    ? "Aucun worker n’a déclaré de traitement compatible. Démarrez un worker : la page se met à jour seule."
-                    : "No worker has reported compatible tasks. Start a worker: the page updates on its own."}
-                </p>
-              )}
-            </form>
-          </details>
+                    ? "Mode avancé : une étape isolée sur un clip sans analyse en cours"
+                    : "Advanced: a single step on a clip with no analysis in progress"}
+                </span>
+              </summary>
+              <form
+                onSubmit={submitJob}
+                className="flex flex-wrap items-end gap-3 px-1 pb-1 pt-4"
+              >
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  {t("queue.clip")}
+                  <input
+                    name="clip"
+                    type="number"
+                    min={1}
+                    required
+                    placeholder="ex. 18"
+                    className="h-11 w-40 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  {t("queue.step")}
+                  <select
+                    name="step"
+                    required
+                    defaultValue=""
+                    className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
+                  >
+                    <option value="" disabled>
+                      {language === "fr" ? "Choisir…" : "Choose…"}
+                    </option>
+                    {transcriptionReady && (
+                      <option value="transcription">
+                        {language === "fr" ? "Transcription" : "Transcription"}
+                      </option>
+                    )}
+                    {voiceReady && (
+                      <option value="voice">
+                        {language === "fr"
+                          ? "Analyse des voix"
+                          : "Voice analysis"}
+                      </option>
+                    )}
+                  </select>
+                </label>
+                <button disabled={busy} className={buttonClass("primary")}>
+                  {language === "fr" ? "Planifier" : "Schedule"}
+                </button>
+                {!transcriptionReady && !voiceReady && (
+                  <p
+                    role="status"
+                    className="m-0 w-full rounded-lg bg-warn-bg p-3 text-warn-fg"
+                  >
+                    {language === "fr"
+                      ? "Aucun worker n’a déclaré de traitement compatible. Démarrez un worker : la page se met à jour seule."
+                      : "No worker has reported compatible tasks. Start a worker: the page updates on its own."}
+                  </p>
+                )}
+              </form>
+            </details>
+          </section>
 
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
             <div className="flex min-w-0 items-center gap-3">

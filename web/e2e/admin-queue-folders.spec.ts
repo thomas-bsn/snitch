@@ -104,6 +104,7 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     ).ok(),
   ).toBe(true);
   await page.goto("/admin/queue");
+  await page.locator("[data-advanced-schedule] summary").click();
   await page.getByLabel("Clip ID", { exact: true }).fill(String(clipA));
   await page
     .getByRole("combobox", { name: "Step" })

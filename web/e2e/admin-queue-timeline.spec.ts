@@ -182,3 +182,97 @@ for (const language of ["en", "fr"] as const) {
     await context.close();
   });
 }
+
+const automatic = {
+  en: {
+    clip: "Clip number",
+    start: "Start analysis",
+    everything: /Everything again/,
+    chosen: /Only the steps I choose/,
+    missing: /Only the missing steps/,
+    needStep: "Choose at least one step to run again.",
+    unknown: /does not exist or is not visible/,
+    started: "Analysis started.",
+  },
+  fr: {
+    clip: "Numéro du clip",
+    start: "Lancer l’analyse",
+    everything: /Tout de nouveau/,
+    chosen: /Seulement les étapes que je choisis/,
+    missing: /Seulement les étapes manquantes/,
+    needStep: "Choisissez au moins une étape à relancer.",
+    unknown: /n’existe pas ou ne vous est pas visible/,
+    started: "Analyse lancée.",
+  },
+} as const;
+
+for (const language of ["en", "fr"] as const) {
+  const w = automatic[language];
+  test(`le mode automatique planifie une analyse complète, l'étape isolée reste repliée (${language})`, async ({
+    browser,
+  }) => {
+    const a = await admin();
+    const clip = await uploadClip(`${unique("auto")}.mp4`, "shared");
+    const other = await uploadClip(`${unique("auto-other")}.mp4`, "shared");
+    const { context, page } = await open(browser, language);
+
+    // The automatic mode is the default; the single task is an advanced option, folded.
+    const form = page.locator("[data-automatic-schedule]");
+    await expect(form).toBeVisible();
+    await expect(page.locator("[data-advanced-schedule]")).not.toHaveAttribute(
+      "open",
+      "",
+    );
+    await expect(form.getByRole("radio", { name: w.missing })).toBeChecked();
+    const board = page.locator("[data-board]");
+    const formBox = await form.boundingBox();
+    const boardBox = await board.boundingBox();
+    expect(formBox!.y).toBeLessThan(boardBox!.y);
+
+    // An invalid combination is refused with a useful message before anything is sent.
+    await form.getByLabel(w.clip, { exact: true }).fill(String(clip));
+    await form.getByRole("radio", { name: w.chosen }).check();
+    await expect(form.getByText(w.needStep)).toBeVisible();
+    await expect(form.getByRole("button", { name: w.start })).toBeDisabled();
+    await form.getByRole("radio", { name: w.everything }).check();
+    await expect(form.getByText(w.needStep)).toHaveCount(0);
+
+    // A clip that does not exist is refused by the server, in the reader's language.
+    await form.getByLabel(w.clip, { exact: true }).fill("2147483000");
+    await form.getByRole("button", { name: w.start }).click();
+    await expect(form.getByRole("alert")).toContainText(w.unknown);
+
+    // A full analysis starts and its card shows up at once in the first column, no reload.
+    await form.getByLabel(w.clip, { exact: true }).fill(String(clip));
+    await form.getByRole("button", { name: w.start }).click();
+    await expect(form.getByText(w.started)).toBeVisible();
+    await board.scrollIntoViewIfNeeded();
+    const card = page.locator(`[data-run-card="${clip}"]`);
+    await expect(
+      page.locator('[data-column="transcription"]').locator(card),
+    ).toBeVisible({ timeout: 5000 });
+    const run = await (
+      await a.api.get(`/api/admin/clips/${clip}/analysis`)
+    ).json();
+    expect(run.run.scope).toBe("full");
+    // The single task stays refused while an analysis is active on the clip.
+    const refused = await post(a, `/api/admin/clips/${clip}/transcription`, {});
+    expect(refused.status()).toBe(409);
+
+    // Chosen steps are accepted on another clip.
+    await form.getByLabel(w.clip, { exact: true }).fill(String(other));
+    await form.getByRole("radio", { name: w.chosen }).check();
+    await form.getByRole("checkbox").first().check();
+    await form.getByRole("button", { name: w.start }).click();
+    await expect(page.locator(`[data-run-card="${other}"]`)).toBeVisible({
+      timeout: 5000,
+    });
+
+    const violations = (await new AxeBuilder({ page }).analyze()).violations;
+    expect(violations).toEqual([]);
+    for (const id of [clip, other])
+      await post(a, `/api/admin/clips/${id}/analysis/cancel`);
+    await context.close();
+    await a.api.dispose();
+  });
+}
