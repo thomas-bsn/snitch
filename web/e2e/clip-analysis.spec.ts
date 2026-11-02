@@ -191,6 +191,22 @@ test("l'administrateur lit la cause d'échec d'une étape, pas l'utilisateur ord
   await expect(detailsFr).toContainText("Vérifier le fichier média du clip.");
   await setAccountLanguage(ADMIN, "en");
 
+  // After a retry that fails again, the details describe the current attempt: the
+  // failure time moves on instead of keeping the earlier attempt's.
+  await page.reload();
+  const firstFailure = await details.locator("time").getAttribute("datetime");
+  await analysis.getByRole("button", { name: /Retry/ }).click();
+  await expect(details).toHaveCount(0);
+  await failQueuedTranscription("invalid_input");
+  await expect(details.locator("time")).not.toHaveAttribute(
+    "datetime",
+    firstFailure!,
+    { timeout: 15000 },
+  );
+  await expect(details).toContainText(
+    "The clip's media could not be processed.",
+  );
+
   // An ordinary user sees the state, and nothing technical.
   const member = await browser.newContext({
     storageState: await sessionFor(MEMBER),

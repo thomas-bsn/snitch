@@ -830,6 +830,16 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 	q := url.Values{"client_id": {id}, "response_type": {"code"}, "scope": {"identify"}, "state": {state}, "redirect_uri": {s.publicOrigin(r) + "/api/auth/discord/callback"}}
 	reply(w, 200, map[string]string{"url": s.Config.DiscordAuthorizeURL + "?" + q.Encode()})
 }
+
+// truncateDisplayName keeps at most max whole characters: a cut in bytes could split a
+// multi-byte character and produce UTF-8 that PostgreSQL refuses.
+func truncateDisplayName(name string, max int) string {
+	if utf8.RuneCountInString(name) <= max {
+		return name
+	}
+	return string([]rune(name)[:max])
+}
+
 func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	state, code := r.URL.Query().Get("state"), r.URL.Query().Get("code")
 	providerError := r.URL.Query().Get("error")
@@ -923,9 +933,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	if displayName == "" {
 		displayName = identity.Username
 	}
-	if len(displayName) > 128 {
-		displayName = displayName[:128]
-	}
+	displayName = truncateDisplayName(displayName, 128)
 	if userID != nil {
 		// Unique identity constraint rejects linking an identity already owned by another account.
 		tag, e := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=$1,discord_name=NULLIF($4,'') WHERE id=$2 AND (discord_id IS NULL OR discord_id=$1) AND EXISTS (SELECT 1 FROM sessions WHERE token_hash=$3 AND user_id=$2 AND expires_at>now())`, identity.ID, *userID, sessionHash, displayName)

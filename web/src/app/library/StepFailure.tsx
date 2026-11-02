@@ -35,7 +35,14 @@ export function StepFailure({
       .GET("/api/admin/jobs/{id}/history", { params: { path: { id: jobId } } })
       .then((r) => {
         if (!current) return;
-        const failures = (r.data?.items ?? []).filter((e) => e.error_code);
+        // Only the current attempt cycle counts: a relaunch opens a new cycle, and its own
+        // "admin_relaunched" event repeats the previous error, which is not a new failure.
+        const items = r.data?.items ?? [];
+        const cycle = items.reduce((max, e) => Math.max(max, e.cycle), 0);
+        const failures = items.filter(
+          (e) =>
+            e.error_code && e.cycle === cycle && e.event !== "admin_relaunched",
+        );
         setEvent(failures.length ? failures[failures.length - 1] : null);
       })
       .catch(() => current && setEvent(null));

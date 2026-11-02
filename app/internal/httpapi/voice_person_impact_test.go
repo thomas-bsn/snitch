@@ -111,10 +111,14 @@ func testPersonImpact(t *testing.T, pool *pgxpool.Pool) {
 		second := h.fixtureSpeaker(visible, "PROFILE_B", usableAt(150))
 		h.validate(first, "Hugo")
 		hugo := h.personOf(first)
-		h.validate(second, "Hugo")
+		// A new_person_name always creates a new Person (names are not unique), so the
+		// second voice is validated against the existing Person by id. Each validated
+		// local speaker then holds one active sample (unique index
+		// voice_samples_active_speaker), one fingerprint and one attribution.
+		h.validate(second, hugo)
 		before := h.impactOf(alice, hugo)
-		if before.VoiceSamples < 1 || before.Attributions < 1 || before.Fingerprints < 1 {
-			t.Fatalf("a validated voice: %+v", before)
+		if before.VoiceSamples != 2 || before.Attributions != 2 || before.Fingerprints != 2 {
+			t.Fatalf("two validated voices carry two samples, fingerprints and attributions: %+v", before)
 		}
 		var deletion struct {
 			Samples      int `json:"samples"`
