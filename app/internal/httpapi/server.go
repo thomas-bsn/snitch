@@ -261,6 +261,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerPersonLinkRoutes(mux)
 	s.registerVoiceGroupRoutes(mux)
 	s.registerVoiceVerificationRoutes(mux)
+	s.registerNotificationRoutes(mux)
 	s.registerMicrophoneRoutes(mux)
 	s.registerPersonCorrectionRoutes(mux)
 	s.registerVoiceAutomationRoutes(mux)

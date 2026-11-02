@@ -230,6 +230,24 @@ type MicrophoneTrackEvent struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type Notification struct {
+	ID           int64              `json:"id"`
+	Kind         string             `json:"kind"`
+	ClipID       pgtype.Int8        `json:"clip_id"`
+	State        string             `json:"state"`
+	PendingCount int32              `json:"pending_count"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ResolvedAt   pgtype.Timestamptz `json:"resolved_at"`
+}
+
+type NotificationRecipient struct {
+	NotificationID int64              `json:"notification_id"`
+	UserID         int64              `json:"user_id"`
+	ReadAt         pgtype.Timestamptz `json:"read_at"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type OauthState struct {
 	StateHash   []byte             `json:"state_hash"`
 	BrowserHash []byte             `json:"browser_hash"`

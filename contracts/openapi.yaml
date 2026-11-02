@@ -4904,9 +4904,52 @@
     "/api/voice-verification": {
       "get": {
         "operationId": "listVoiceVerification",
-        "parameters": [{"in": "query", "name": "level", "required": false, "schema": {"type": "string", "enum": ["all", "unknown", "ambiguous"], "default": "all"}, "description": "Ne garder que les voix inconnues ou que les voix ambiguës."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
+        "parameters": [{"in": "query", "name": "level", "required": false, "schema": {"type": "string", "enum": ["all", "unknown", "ambiguous"], "default": "all"}, "description": "Ne garder que les voix inconnues ou que les voix ambiguës."}, {"in": "query", "name": "clip", "required": false, "schema": {"type": "integer", "format": "int64", "minimum": 1}, "description": "Ne garder que les voix de ce clip (lien d'une notification)."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
         "responses": {"200": {"description": "Cas à vérifier, du plus fréquent au moins fréquent, et compteurs par niveau de décision", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceVerification"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "description": "Utilisateurs connectés. Vue de vérification : uniquement les voix inconnues ou ambiguës (avec leurs Personnes candidates), sur les clips visibles. Tri par fréquence : clips distincts du groupe proposé de la voix, puis nombre de voix du groupe, puis temps de parole. Trancher un cas est une validation humaine (POST /api/local-speakers/{id}/validation) : cette lecture n'écrit rien. Les compteurs par niveau sont calculés en base. Aucune promesse de qualité n'est dérivée du nombre d'extraits.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "operationId": "listNotifications",
+        "parameters": [{"in": "query", "name": "state", "required": false, "schema": {"type": "string", "enum": ["all", "active", "resolved"], "default": "all"}}, {"in": "query", "name": "limit", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}}],
+        "responses": {"200": {"description": "Notifications du demandeur, actions en attente d'abord", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationList"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore voir (l'accès est revérifié à chaque lecture, historique compris). unread compte les non-lues, pending les actions non résolues : deux compteurs distincts. Aucune écriture.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/notifications/read": {
+      "post": {
+        "operationId": "readAllNotifications",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Notifications marquées lues pour le demandeur seul", "content": {"application/json": {"schema": {"type": "object", "required": ["updated"], "properties": {"updated": {"type": "integer", "format": "int64"}}}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Marque lues toutes les notifications du demandeur ; ne résout aucune action.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "put": {
+        "operationId": "markNotificationRead",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Notification lue (idempotent)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationRead"}}}}, "404": {"description": "notification_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Lecture individuelle : ne résout pas l'action, qui reste partagée.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "markNotificationUnread",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Notification de nouveau non lue (idempotent)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NotificationRead"}}}}, "404": {"description": "notification_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Remet la notification en non lue pour le demandeur seul.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/notifications/{id}": {
+      "delete": {
+        "operationId": "deleteNotification",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"204": {"description": "Notification résolue retirée de l'historique du demandeur seul"}, "404": {"description": "notification_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "notification_active : une action en attente ne se supprime pas, elle disparaît en étant traitée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Seul l'historique résolu est supprimable, par son destinataire ; les autres destinataires le conservent.",
         "security": [{"session": []}]
       }
     },
@@ -7010,6 +7053,9 @@
           "unknown": {"type": "integer"}
         }
       },
+      "NotificationRead": {"type": "object", "required": ["id", "read"], "properties": {"id": {"type": "integer", "format": "int64"}, "read": {"type": "boolean"}}},
+      "Notification": {"type": "object", "required": ["id", "kind", "state", "clip_id", "clip_name", "pending_count", "read", "created_at", "updated_at", "resolved_at"], "properties": {"id": {"type": "integer", "format": "int64"}, "kind": {"type": "string", "enum": ["needs_speaker_review"], "description": "Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées."}, "state": {"type": "string", "enum": ["active", "resolved"], "description": "Partagé : une action résolue l'est pour tous."}, "clip_id": {"type": "integer", "format": "int64", "nullable": true}, "clip_name": {"type": "string"}, "pending_count": {"type": "integer", "description": "Voix restant à décider."}, "read": {"type": "boolean", "description": "État de lecture du demandeur, indépendant de la résolution."}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "resolved_at": {"type": "string", "format": "date-time", "nullable": true}}},
+      "NotificationList": {"type": "object", "required": ["items", "unread", "pending"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Notification"}}, "unread": {"type": "integer"}, "pending": {"type": "integer"}}},
       "VoiceVerification": {
         "type": "object",
         "required": ["items", "total", "counts"],

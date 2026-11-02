@@ -2115,6 +2115,75 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore voir (l'accès est revérifié à chaque lecture, historique compris). unread compte les non-lues, pending les actions non résolues : deux compteurs distincts. Aucune écriture. */
+    get: operations["listNotifications"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Marque lues toutes les notifications du demandeur ; ne résout aucune action. */
+    post: operations["readAllNotifications"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/{id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Lecture individuelle : ne résout pas l'action, qui reste partagée. */
+    put: operations["markNotificationRead"];
+    post?: never;
+    /** @description Remet la notification en non lue pour le demandeur seul. */
+    delete: operations["markNotificationUnread"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Seul l'historique résolu est supprimable, par son destinataire ; les autres destinataires le conservent. */
+    delete: operations["deleteNotification"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings": {
     parameters: {
       query?: never;
@@ -3405,6 +3474,43 @@ export interface components {
       suggestion: number;
       ambiguous: number;
       unknown: number;
+    };
+    NotificationRead: {
+      /** Format: int64 */
+      id: number;
+      read: boolean;
+    };
+    Notification: {
+      /** Format: int64 */
+      id: number;
+      /**
+       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées.
+       * @enum {string}
+       */
+      kind: "needs_speaker_review";
+      /**
+       * @description Partagé : une action résolue l'est pour tous.
+       * @enum {string}
+       */
+      state: "active" | "resolved";
+      /** Format: int64 */
+      clip_id: number | null;
+      clip_name: string;
+      /** @description Voix restant à décider. */
+      pending_count: number;
+      /** @description État de lecture du demandeur, indépendant de la résolution. */
+      read: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      resolved_at: string | null;
+    };
+    NotificationList: {
+      items: components["schemas"]["Notification"][];
+      unread: number;
+      pending: number;
     };
     VoiceVerification: {
       items: components["schemas"]["VoiceVerificationCase"][];
@@ -10111,6 +10217,8 @@ export interface operations {
       query?: {
         /** @description Ne garder que les voix inconnues ou que les voix ambiguës. */
         level?: "all" | "unknown" | "ambiguous";
+        /** @description Ne garder que les voix de ce clip (lien d'une notification). */
+        clip?: number;
         page?: number;
         page_size?: number;
       };
@@ -10127,6 +10235,209 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceVerification"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listNotifications: {
+    parameters: {
+      query?: {
+        state?: "all" | "active" | "resolved";
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notifications du demandeur, actions en attente d'abord */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  readAllNotifications: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notifications marquées lues pour le demandeur seul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** Format: int64 */
+            updated: number;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  markNotificationRead: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification lue (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationRead"];
+        };
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  markNotificationUnread: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification de nouveau non lue (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationRead"];
+        };
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteNotification: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification résolue retirée de l'historique du demandeur seul */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description notification_active : une action en attente ne se supprime pas, elle disparaît en étant traitée */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */

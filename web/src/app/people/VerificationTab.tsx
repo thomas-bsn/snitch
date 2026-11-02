@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
@@ -32,9 +33,14 @@ export function VerificationTab() {
   const failureText = useFailureText();
   const [filter, setFilter] = useState<VerificationFilter>("all");
   const [page, setPage] = useState(1);
+  // A notification links here with ?clip=<id>: the list is limited to that clip's voices.
+  const [params, setParams] = useSearchParams();
+  const clipParam = Number(params.get("clip"));
+  const clip =
+    Number.isInteger(clipParam) && clipParam > 0 ? clipParam : undefined;
   const load = useCallback(
-    () => fetchVerification(filter, page, PAGE_SIZE),
-    [filter, page],
+    () => fetchVerification(filter, page, PAGE_SIZE, clip),
+    [filter, page, clip],
   );
   const { state, reload } = useLoaded(load);
   const people = useLoaded(fetchPersons);
@@ -70,6 +76,32 @@ export function VerificationTab() {
   return (
     <div className="flex flex-col gap-4">
       <p className="max-w-2xl text-mute">{t("people.verification.lead")}</p>
+      {clip !== undefined && (
+        <div
+          data-testid="verification-clip-filter"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-accent bg-accent-soft p-3 text-accent-ink"
+        >
+          <b>
+            {data?.items[0]
+              ? t("people.verification.clipFilter", {
+                  clip: data.items[0].clip_name,
+                })
+              : t("people.verification.clipFilterAny")}
+          </b>
+          <button
+            type="button"
+            className={buttonClass("secondary")}
+            onClick={() => {
+              const next = new URLSearchParams(params);
+              next.delete("clip");
+              setParams(next, { replace: true });
+              setPage(1);
+            }}
+          >
+            {t("people.verification.clearClipFilter")}
+          </button>
+        </div>
+      )}
       {counts && (
         <ul
           aria-label={t("people.verification.countersLabel")}

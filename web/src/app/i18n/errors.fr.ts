@@ -79,6 +79,9 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   forbidden: "Vous n’avez pas accès à cette fonction.",
   group_changed: "Ce groupe a changé entre-temps. Rechargez puis réessayez.",
   internal_error: "Une erreur inattendue est survenue sur le serveur.",
+  notification_active:
+    "Cette action est encore en attente. Elle disparaît une fois traitée.",
+  notification_not_found: "Cette notification n’existe plus.",
   invalid_account: "Ce compte ne convient pas pour cette action.",
   invalid_audio_stream: "Cette piste audio n’est pas valide.",
   invalid_audio_track_rule: "Cette règle de piste audio n’est pas valide.",

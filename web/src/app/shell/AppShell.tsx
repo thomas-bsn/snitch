@@ -9,6 +9,7 @@ import { AddressNotice } from "../components/AddressNotice";
 import { buttonClass } from "../components/buttons";
 import { Brand, Logo } from "../components/Logo";
 import { useI18n } from "../i18n";
+import { BellMenu } from "../notifications/BellMenu";
 import { SetupBanner } from "../setup/SetupBanner";
 import { AvatarMenu } from "./AvatarMenu";
 import { HeaderSearch } from "./HeaderSearch";
@@ -73,6 +74,7 @@ export function AppShell() {
             >
               {t("header.import")}
             </Link>
+            <BellMenu />
             <AvatarMenu />
           </div>
         </header>
