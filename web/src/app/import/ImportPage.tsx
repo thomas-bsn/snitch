@@ -19,12 +19,16 @@ export function ImportPage() {
   const [blocked, setBlocked] = useState(false);
   const [missing, setMissing] = useState<string>();
   const handled = useRef(new Set<string>());
+  // A drop can arrive before the video root is known: it waits for it, then follows the same rule.
+  const rootLoad = useRef<Promise<string | undefined>>(undefined);
   useEffect(() => {
-    void fetch("/api/admin/video-root")
+    rootLoad.current = fetch("/api/admin/video-root")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setRoot(data?.root?.path))
-      .catch(() => {});
+      .then((data) => data?.root?.path as string | undefined)
+      .catch(() => undefined);
+    void rootLoad.current.then(setRoot);
   }, []);
+  const chosen = useRef<string | undefined>(undefined);
   useDocumentTitle(t("pages.import.title"));
   const { transfers, add, resume, retry, cancel, dismiss } = useTransfers();
   const [visibility, setVisibility] = useState<Visibility>("shared");
@@ -52,15 +56,18 @@ export function ImportPage() {
     setMissing(undefined);
   }
 
-  function receive(files: File[]) {
-    if (root && destination === undefined) {
+  chosen.current = destination;
+
+  async function receive(files: File[]) {
+    const known = await rootLoad.current;
+    if (known && chosen.current === undefined) {
       setBlocked(true);
       return;
     }
     const videos = files.filter(looksLikeVideo);
     setRejected(files.filter((f) => !looksLikeVideo(f)).map((f) => f.name));
     if (videos.length > 0)
-      add(videos, visibility, root ? destination : undefined);
+      add(videos, visibility, known ? chosen.current : undefined);
   }
 
   const done = transfers.filter((x) => x.status === "done");
@@ -93,7 +100,7 @@ export function ImportPage() {
         </ErrorAlert>
       )}
       <DropZone
-        onFiles={receive}
+        onFiles={(files) => void receive(files)}
         blocked={Boolean(root) && destination === undefined}
         onBlocked={() => setBlocked(true)}
       />
