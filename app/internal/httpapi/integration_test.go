@@ -341,6 +341,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonCorrectionsRespectVisibility(t, pool)
 	})
+	t.Run("person impact", func(t *testing.T) {
+		reset(t)
+		testPersonImpact(t, pool)
+	})
 	t.Run("voice result with expired lease", func(t *testing.T) {
 		reset(t)
 		testVoiceResultWithExpiredLease(t, pool)

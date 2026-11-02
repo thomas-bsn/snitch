@@ -105,6 +105,7 @@ from .person_correction_result import PersonCorrectionResult
 from .person_event import PersonEvent
 from .person_event_action import PersonEventAction
 from .person_event_list import PersonEventList
+from .person_impact import PersonImpact
 from .person_input import PersonInput
 from .person_link_account import PersonLinkAccount
 from .person_link_request import PersonLinkRequest
@@ -432,6 +433,7 @@ __all__ = (
     "PersonEvent",
     "PersonEventAction",
     "PersonEventList",
+    "PersonImpact",
     "PersonInput",
     "PersonLinkAccount",
     "PersonLinkRequest",
