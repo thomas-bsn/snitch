@@ -572,6 +572,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/task-cards": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Cartes de la file de tâches
+     * @description Administrateurs uniquement. Une carte par clip ayant au moins une tâche non terminée, placée dans la colonne de son étape courante ou de sa prochaine étape prête, plus au plus trois cartes de la colonne Terminé. Calculé côté serveur, sans pagination des cartes actives. Les essais de diarisation sont exclus.
+     */
+    get: operations["listTaskCards"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/jobs": {
     parameters: {
       query?: never;
@@ -2473,6 +2493,77 @@ export interface components {
       priority: number;
       /** @default 3 */
       max_attempts: number;
+    };
+    TaskCardBoard: {
+      cards: components["schemas"]["TaskCard"][];
+      completed: components["schemas"]["TaskCard"][];
+    };
+    TaskCard: {
+      /** Format: int64 */
+      clip_id: number;
+      original_name: string;
+      /**
+       * @description search est réservée à la colonne Recherche, qui n'a pas encore d'état calculé.
+       * @enum {string}
+       */
+      column:
+        | "transcription"
+        | "search"
+        | "voices"
+        | "recognition"
+        | "completed";
+      /** @enum {string} */
+      state:
+        | "queued"
+        | "running"
+        | "retry"
+        | "failed"
+        | "dead"
+        | "cancelled"
+        | "ready"
+        | "waiting"
+        | "done"
+        | "not_applicable";
+      /** @enum {string} */
+      current_step:
+        | "transcription"
+        | "diarization"
+        | "fingerprint"
+        | "recognition";
+      steps: components["schemas"]["TaskCardStep"][];
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      completed_at?: string | null;
+      worker?: string | null;
+      /** Format: int64 */
+      job_id?: number | null;
+      /** @description Statut brut de la tâche qui porte l'état courant. */
+      job_status?: string | null;
+      attempt: number;
+      max_attempts: number;
+      /** Format: date-time */
+      next_attempt_at?: string | null;
+      last_error: string;
+    };
+    TaskCardStep: {
+      /** @enum {string} */
+      key: "transcription" | "diarization" | "fingerprint" | "recognition";
+      /** @enum {string} */
+      state:
+        | "queued"
+        | "running"
+        | "retry"
+        | "failed"
+        | "dead"
+        | "cancelled"
+        | "ready"
+        | "waiting"
+        | "done"
+        | "not_applicable";
+      /** Format: int64 */
+      job_id?: number | null;
+      job_status?: string | null;
     };
     JobPage: {
       items: components["schemas"]["Job"][];
@@ -5749,6 +5840,35 @@ export interface operations {
         content?: never;
       };
       /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listTaskCards: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Cartes actives et clips terminés récemment */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskCardBoard"];
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

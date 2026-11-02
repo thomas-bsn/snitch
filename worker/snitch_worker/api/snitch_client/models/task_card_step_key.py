@@ -1,0 +1,10 @@
+from enum import StrEnum
+
+class TaskCardStepKey(StrEnum):
+    DIARIZATION = "diarization"
+    FINGERPRINT = "fingerprint"
+    RECOGNITION = "recognition"
+    TRANSCRIPTION = "transcription"
+
+    def __str__(self) -> str:
+        return str(self.value)

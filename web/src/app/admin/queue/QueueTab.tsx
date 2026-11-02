@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, Monitor } from "lucide-react";
-import { JobWorkflow } from "./JobWorkflow";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Monitor } from "lucide-react";
+import { JobWorkflow, type JobRef } from "./JobWorkflow";
+import { usePolling } from "./usePolling";
+import { useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../../api/client";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert, StatusNotice } from "../../components/Alert";
@@ -11,39 +12,24 @@ import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
 import type { components } from "../../../api.gen";
 
-type Filters = {
-  status?: components["schemas"]["Job"]["status"];
-  clip_id?: number;
-  step?: string;
-};
-async function load(page: number, filters: Filters) {
+async function load() {
   try {
-    const [controls, jobs, recent, workers] = await Promise.all([
+    const [controls, cards, workers] = await Promise.all([
       api.GET("/api/admin/job-controls"),
-      api.GET("/api/admin/jobs", {
-        params: {
-          query: { page_size: 20, ...filters, page, workflow: "active" },
-        },
-      }),
-      api.GET("/api/admin/jobs", {
-        params: { query: { workflow: "done", page: 1, page_size: 3 } },
-      }),
+      api.GET("/api/admin/task-cards"),
       api.GET("/api/admin/workers"),
     ]);
-    if (!controls.data || !jobs.data || !recent.data || !workers.data)
+    if (!controls.data || !cards.data || !workers.data)
       return {
         ok: false as const,
-        code: errorCode(controls.error ?? jobs.error) ?? "unknown",
+        code: errorCode(controls.error ?? cards.error) ?? "unknown",
       };
     return {
       ok: true as const,
       value: {
         controls: controls.data,
         workers: workers.data.items,
-        jobs: {
-          ...jobs.data,
-          items: [...jobs.data.items, ...recent.data.items],
-        },
+        board: cards.data,
       },
     };
   } catch {
@@ -55,10 +41,8 @@ type Event = components["schemas"]["JobEvent"];
 export function QueueTab() {
   const { t, error, language } = useI18n();
   const { session } = useSession();
-  const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<Filters>({});
-  const loadPage = useCallback(() => load(page, filters), [page, filters]);
-  const { state, reload } = useLoaded(loadPage);
+  const { state, reload } = useLoaded(load);
+  usePolling(reload);
   const [paused, setPaused] = useState<boolean>();
   const [concurrency, setConcurrency] = useState<string>();
   const [failure, setFailure] = useState<string>();
@@ -67,7 +51,7 @@ export function QueueTab() {
   const [busy, setBusy] = useState(false);
   const [transcriptionClip, setTranscriptionClip] = useState<number>();
   const [warning, setWarning] = useState<{
-    job?: Job;
+    job?: JobRef;
     input?: components["schemas"]["JobInput"];
     corrections: components["schemas"]["CorrectionsToReplace"];
   }>();
@@ -96,7 +80,6 @@ export function QueueTab() {
       else {
         setWarning(undefined);
         setNotice(true);
-        setPage(1);
         reload();
       }
     } catch {
@@ -163,18 +146,6 @@ export function QueueTab() {
       setBusy(false);
     }
   }
-  function filterJobs(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const f = new FormData(event.currentTarget);
-    const status = String(f.get("status") ?? "") as Filters["status"];
-    const clip = String(f.get("clip") ?? "");
-    setPage(1);
-    setFilters({
-      status: status || undefined,
-      clip_id: clip ? Number(clip) : undefined,
-      step: String(f.get("step") ?? "").trim() || undefined,
-    });
-  }
   async function save(event: FormEvent) {
     event.preventDefault();
     if (state.status !== "ready") return;
@@ -204,7 +175,7 @@ export function QueueTab() {
       setBusy(false);
     }
   }
-  async function showHistory(job: Job) {
+  async function showHistory(job: JobRef) {
     try {
       const result = await api.GET("/api/admin/jobs/{id}/history", {
         params: { path: { id: job.id } },
@@ -216,7 +187,7 @@ export function QueueTab() {
       setFailure("unavailable");
     }
   }
-  async function retry(job: Job, confirm = false) {
+  async function retry(job: JobRef, confirm = false) {
     setBusy(true);
     setFailure(undefined);
     try {
@@ -245,7 +216,7 @@ export function QueueTab() {
       setBusy(false);
     }
   }
-  async function cancel(job: Job) {
+  async function cancel(job: JobRef) {
     setBusy(true);
     setFailure(undefined);
     try {
@@ -337,8 +308,8 @@ export function QueueTab() {
                     const memory = machine?.gpu_memory_bytes
                       ? `${Math.round(machine.gpu_memory_bytes / 1024 ** 3)} ${language === "fr" ? "Go" : "GB"}`
                       : undefined;
-                    const running = state.value.jobs.items.filter(
-                      (job) => job.status !== "done",
+                    const running = state.value.board.cards.filter(
+                      (card) => card.state === "running",
                     ).length;
                     return [
                       machine?.gpu_name,
@@ -393,59 +364,8 @@ export function QueueTab() {
           </div>
 
           <JobWorkflow
-            jobs={state.value.jobs.items}
+            board={state.value.board}
             emptyMessage={t("queue.empty")}
-            toolbar={
-              <form
-                onSubmit={filterJobs}
-                className="flex flex-wrap items-end gap-4"
-              >
-                <label className="flex flex-col gap-1 font-medium">
-                  <span className="text-sm">{t("queue.filterStatus")}</span>
-                  <select
-                    name="status"
-                    className="h-11 min-w-48 rounded-lg border border-line-strong bg-surface px-3 text-sm md:h-9"
-                  >
-                    <option value="">{t("queue.allStatuses")}</option>
-                    {(
-                      [
-                        "pending",
-                        "leased",
-                        "done",
-                        "failed",
-                        "retry_wait",
-                        "dead",
-                        "cancelled",
-                      ] as const
-                    ).map((status) => (
-                      <option value={status} key={status}>
-                        {t(`queue.status.${status}`)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1 font-medium">
-                  <span className="text-sm">{t("queue.filterClip")}</span>
-                  <input
-                    name="clip"
-                    type="number"
-                    min={1}
-                    placeholder="ex. 18"
-                    className="h-11 w-48 rounded-lg border border-line-strong bg-surface px-3 text-sm md:h-9"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 font-medium">
-                  <span className="text-sm">{t("queue.filterStep")}</span>
-                  <input
-                    name="step"
-                    className="h-11 w-48 rounded-lg border border-line-strong bg-surface px-3 text-sm md:h-9"
-                  />
-                </label>
-                <button className={buttonClass()}>
-                  {language === "fr" ? "Filtrer" : "Filter"}
-                </button>
-              </form>
-            }
             actions={(job) => (
               <div className="flex flex-wrap gap-2">
                 <button
@@ -486,35 +406,6 @@ export function QueueTab() {
               </div>
             )}
           />
-
-          <nav
-            aria-label={
-              language === "fr" ? "Pagination de la file" : "Queue pagination"
-            }
-            className="flex items-center justify-center gap-3 py-3"
-          >
-            <button
-              aria-label={
-                language === "fr" ? "Page précédente" : "Previous page"
-              }
-              className="grid size-11 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <span className="min-w-16 text-center text-sm text-mute">
-              {page} / {Math.max(1, Math.ceil(state.value.jobs.total / 20))}
-            </span>
-            <button
-              aria-label={language === "fr" ? "Page suivante" : "Next page"}
-              className="grid size-11 place-items-center rounded-full text-mute hover:bg-side disabled:opacity-30"
-              disabled={page * 20 >= state.value.jobs.total}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight size={18} />
-            </button>
-          </nav>
 
           <details className="rounded-xl border border-line p-4">
             <summary className="cursor-pointer list-none p-1">

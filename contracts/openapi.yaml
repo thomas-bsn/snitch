@@ -1827,6 +1827,35 @@
         }
       }
     },
+    "/api/admin/task-cards": {
+      "get": {
+        "operationId": "listTaskCards",
+        "summary": "Cartes de la file de tâches",
+        "description": "Administrateurs uniquement. Une carte par clip ayant au moins une tâche non terminée, placée dans la colonne de son étape courante ou de sa prochaine étape prête, plus au plus trois cartes de la colonne Terminé. Calculé côté serveur, sans pagination des cartes actives. Les essais de diarisation sont exclus.",
+        "responses": {
+          "200": {
+            "description": "Cartes actives et clips terminés récemment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCardBoard"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/jobs": {
       "get": {
         "operationId": "listJobs",
@@ -6100,6 +6129,171 @@
             "minimum": 1,
             "maximum": 20,
             "default": 3
+          }
+        }
+      },
+      "TaskCardBoard": {
+        "type": "object",
+        "required": [
+          "cards",
+          "completed"
+        ],
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskCard"
+            }
+          },
+          "completed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskCard"
+            }
+          }
+        }
+      },
+      "TaskCard": {
+        "type": "object",
+        "required": [
+          "clip_id",
+          "original_name",
+          "column",
+          "state",
+          "current_step",
+          "steps",
+          "updated_at",
+          "attempt",
+          "max_attempts",
+          "last_error"
+        ],
+        "properties": {
+          "clip_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "original_name": {
+            "type": "string"
+          },
+          "column": {
+            "type": "string",
+            "enum": [
+              "transcription",
+              "search",
+              "voices",
+              "recognition",
+              "completed"
+            ],
+            "description": "search est réservée à la colonne Recherche, qui n'a pas encore d'état calculé."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "retry",
+              "failed",
+              "dead",
+              "cancelled",
+              "ready",
+              "waiting",
+              "done",
+              "not_applicable"
+            ]
+          },
+          "current_step": {
+            "type": "string",
+            "enum": [
+              "transcription",
+              "diarization",
+              "fingerprint",
+              "recognition"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskCardStep"
+            }
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "worker": {
+            "type": "string",
+            "nullable": true
+          },
+          "job_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "job_status": {
+            "type": "string",
+            "nullable": true,
+            "description": "Statut brut de la tâche qui porte l'état courant."
+          },
+          "attempt": {
+            "type": "integer"
+          },
+          "max_attempts": {
+            "type": "integer"
+          },
+          "next_attempt_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "last_error": {
+            "type": "string"
+          }
+        }
+      },
+      "TaskCardStep": {
+        "type": "object",
+        "required": [
+          "key",
+          "state"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "transcription",
+              "diarization",
+              "fingerprint",
+              "recognition"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "retry",
+              "failed",
+              "dead",
+              "cancelled",
+              "ready",
+              "waiting",
+              "done",
+              "not_applicable"
+            ]
+          },
+          "job_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "job_status": {
+            "type": "string",
+            "nullable": true
           }
         }
       },

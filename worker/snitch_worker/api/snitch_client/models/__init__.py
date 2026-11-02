@@ -186,6 +186,14 @@ from .source_input import SourceInput
 from .source_list import SourceList
 from .source_visibility import SourceVisibility
 from .status import Status
+from .task_card import TaskCard
+from .task_card_board import TaskCardBoard
+from .task_card_column import TaskCardColumn
+from .task_card_current_step import TaskCardCurrentStep
+from .task_card_state import TaskCardState
+from .task_card_step import TaskCardStep
+from .task_card_step_key import TaskCardStepKey
+from .task_card_step_state import TaskCardStepState
 from .transcript_segment import TranscriptSegment
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
@@ -513,6 +521,14 @@ __all__ = (
     "SourceList",
     "SourceVisibility",
     "Status",
+    "TaskCard",
+    "TaskCardBoard",
+    "TaskCardColumn",
+    "TaskCardCurrentStep",
+    "TaskCardState",
+    "TaskCardStep",
+    "TaskCardStepKey",
+    "TaskCardStepState",
     "Transcription",
     "TranscriptionInput",
     "TranscriptionLocalSpeakersItem",
