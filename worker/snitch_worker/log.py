@@ -16,7 +16,9 @@ from typing import Any, TextIO
 SERVICE = "worker"
 LOGGER_NAME = "snitch_worker"
 MASKED = "[masked]"
-FORBIDDEN = ("authorization", "token", "cookie", "password", "secret", "signed_url", "transcript", "embedding", "fingerprint")
+FORBIDDEN = ("authorization", "token", "cookie", "password", "secret", "signed_url", "transcript", "embedding", "fingerprint", "api_key", "apikey", "bearer", "credential")
+# Keys that carry free error text: the value is never written, only a code and a category (see failure()).
+RAW_ERROR_KEYS = ("error", "err", "reason", "exception", "detail")
 _LEVELS = {"ERROR": logging.ERROR, "WARN": logging.WARNING, "WARNING": logging.WARNING, "INFO": logging.INFO, "DEBUG": logging.DEBUG}
 
 
@@ -29,8 +31,17 @@ def _sensitive(key: str) -> bool:
     return any(fragment in lowered for fragment in FORBIDDEN)
 
 
+def failure(error: BaseException) -> dict[str, str]:
+    """Stable ``error_code`` and ``error_category`` for an exception, never its text."""
+    if isinstance(error, TimeoutError):
+        return {"error_code": "timeout", "error_category": "timeout"}
+    if isinstance(error, OSError):
+        return {"error_code": "io_error", "error_category": "io"}
+    return {"error_code": "operation_error", "error_category": "internal"}
+
+
 def _clean(key: str, value: Any) -> Any:
-    if _sensitive(key):
+    if _sensitive(key) or key.lower() in RAW_ERROR_KEYS and isinstance(value, str):
         return MASKED
     if isinstance(value, BaseException):
         return type(value).__name__

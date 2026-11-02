@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"snitch/internal/logging"
 	"strconv"
 	"strings"
 	"time"
@@ -81,7 +82,7 @@ func (s *Server) embeddingLoop(ctx context.Context) {
 		if err != nil {
 			delay = time.Second
 			if s.Log != nil {
-				s.Log.Warn("transcript indexing", "error", err)
+				s.Log.Warn("transcript indexing", logging.Failure(err)...)
 			}
 		}
 		if delay > 0 {

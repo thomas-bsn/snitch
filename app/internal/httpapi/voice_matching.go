@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"snitch/internal/logging"
 	"sort"
 	"strings"
 	"sync"
@@ -131,7 +132,7 @@ func (s *Server) postVoiceRematch(w http.ResponseWriter, r *http.Request) {
 // the next rematch (or the administrator's explicit one) repairs the attributions.
 func (s *Server) matchingChanged(ctx context.Context, clipID int64) {
 	if _, err := s.rematchVoices(context.WithoutCancel(ctx), clipID); err != nil {
-		s.Log.Error("voice matching failed", "clip_id", clipID, "error", err)
+		s.Log.Error("voice matching failed", append([]any{"clip_id", clipID}, logging.Failure(err)...)...)
 	}
 }
 
@@ -264,7 +265,7 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	}
 	// Proposed proximity between unknown voices follows the references and thresholds.
 	if err = s.refreshVoiceGroupLinks(ctx); err != nil {
-		s.Log.Error("voice group links failed", "error", err)
+		s.Log.Error("voice group links failed", logging.Failure(err)...)
 	}
 	return stats, nil
 }
@@ -512,7 +513,7 @@ func (s *Server) ensureVoiceIndex(ctx context.Context, g matchGroup) {
 	quote := func(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }
 	statement := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON voice_fingerprints USING hnsw ((embedding::vector(%d)) vector_cosine_ops) WHERE usable AND scope='speaker' AND model=%s AND model_version=%s AND dimensions=%d`, name, g.dimensions, quote(g.model), quote(g.version), g.dimensions)
 	if _, err := s.Pool.Exec(ctx, statement); err != nil {
-		s.Log.Error("voice index creation failed", "index", name, "error", err)
+		s.Log.Error("voice index creation failed", append([]any{"index", name}, logging.Failure(err)...)...)
 		return
 	}
 	voiceIndexes.Store(name, true)
