@@ -1,12 +1,14 @@
 import { useCallback, useState } from "react";
+import { Link } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
+import { ExcerptPlayer } from "./ExcerptPlayer";
+import { LevelBadge } from "./LevelBadge";
 import {
-  excerptUrl,
   fetchPersonVoices,
   usePersonActions,
   type Person,
@@ -59,6 +61,9 @@ export function PersonVoices({
       aria-label={t("people.voicesPanel.title", { name: person.display_name })}
       className="flex flex-col gap-2"
     >
+      <h3 className="text-base font-semibold">
+        {t("people.voicesPanel.identifications")}
+      </h3>
       {failure && <ErrorAlert>{failureText(failure)}</ErrorAlert>}
       {state.status === "loading" && (
         <p className="text-mute">{t("people.loading")}</p>
@@ -76,25 +81,32 @@ export function PersonVoices({
               key={voice.local_speaker_id}
               className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-2.5"
             >
+              <ExcerptPlayer
+                localSpeakerId={voice.local_speaker_id}
+                label={voice.label}
+                clip={voice.clip_name}
+              />
               <div className="min-w-0 flex-1">
-                <b>{voice.label}</b>
+                <span className="flex flex-wrap items-center gap-2">
+                  <b>{voice.label}</b>
+                  <LevelBadge level="human" />
+                </span>
                 <span className="block truncate text-mute">
-                  {voice.clip_name} ·{" "}
+                  <Link
+                    to={`/clips/${voice.clip_id}`}
+                    aria-label={t("people.excerpt.openClip", {
+                      clip: voice.clip_name,
+                    })}
+                    className="text-accent underline"
+                  >
+                    {voice.clip_name}
+                  </Link>{" "}
+                  ·{" "}
                   {t("people.voicesPanel.speech", {
                     seconds: voice.speaking_seconds.toFixed(1),
                   })}
                 </span>
               </div>
-              <audio
-                controls
-                preload="none"
-                aria-label={t("people.voicesPanel.excerpt", {
-                  label: voice.label,
-                  clip: voice.clip_name,
-                })}
-                src={excerptUrl(voice.local_speaker_id)}
-                className="h-10 max-w-full"
-              />
               <button
                 type="button"
                 onClick={() => setPending(voice)}

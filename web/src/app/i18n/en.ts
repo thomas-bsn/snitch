@@ -1452,6 +1452,7 @@ export const en = {
     summary:
       "{attributions} voice(s), {samples} sample(s), {rules} microphone track rule(s) concerned. Voices are matched again.",
     voicesPanel: {
+      identifications: "Identifications",
       title: "Confirmed voices of {name}",
       empty: "No confirmed voice you can see.",
       excerpt: "Excerpt of {label} in {clip}",
@@ -1502,6 +1503,8 @@ export const en = {
       audio: "Excerpt of {label} in {clip}",
       close: "Close",
       decide: "Decide",
+      player: "Excerpt of {label} in {clip}",
+      openClip: "Open {clip}",
     },
     decide: {
       title: "Who is {label}?",
@@ -1567,6 +1570,23 @@ export const en = {
       suggestion: "Suggestion",
       ambiguous: "Ambiguous",
       unknown: "Unknown",
+    },
+    legend: {
+      reference: "Counts as a Reference: {answer}",
+      yes: "yes",
+      no: "no",
+      others: "The other levels",
+      definition: {
+        human:
+          "A person confirmed whose voice this is. Only this level forms the Reference.",
+        automatic:
+          "Attributed by Snitch without a human check, when the administrator enabled it. Never a validated sample.",
+        suggestion:
+          "A Person this voice is close to. It stays unknown until someone decides.",
+        ambiguous:
+          "Close to several Persons, none standing out. Never attributed by itself.",
+        unknown: "No human validation and no automatic attribution.",
+      },
     },
   },
   metadata: {
