@@ -624,6 +624,7 @@ export const fr: Messages = {
     refused: "Demande refusée.",
   },
   closeAccount: {
+    zone: "Zone sensible",
     title: "Supprimer mon compte",
     explanation:
       "Vos sessions seront fermées et vos clips deviendront privés. Les clips, corrections et leur historique restent conservés. La suppression du profil vocal est une action séparée.",
@@ -917,7 +918,14 @@ export const fr: Messages = {
         "Liez votre identité Discord à ce compte pour pouvoir vous connecter avec Discord. Le lien se fait avec ce compte uniquement, jamais par correspondance de pseudo. Cette action ouvre Discord.",
       discordLink: "Lier Discord",
       discordLinking: "Ouverture de Discord…",
-      discordConnected: "Discord est lié au compte Snitch {username}.",
+      discordBadgeLinked: "Lié",
+      discordBadgeNotLinked: "Non lié",
+      discordIdentity: "Compte Discord : {name}",
+      discordLinkedNoName: "Discord est lié à ce compte.",
+      discordLinkFailedState:
+        "Discord n’a pas été lié. Votre compte est inchangé.",
+      discordUnlinkFailedState:
+        "Discord est toujours lié : la déliaison a échoué.",
       discordUnlink: "Délier Discord",
       discordUnlinkConfirmTitle: "Délier Discord ?",
       discordUnlinkConfirmBody:
@@ -954,27 +962,33 @@ export const fr: Messages = {
       noPerson:
         "Aucune Personne n’est encore liée à votre compte. Vous pouvez demander à lier votre compte à une Personne existante ; un administrateur approuve ou refuse la demande.",
       identity: "Vous êtes la Personne {name}.",
-      samples:
-        "{count} échantillon(s) vocal(aux) validé(s) servent de référence pour votre voix.",
       deleted:
         "Votre profil vocal est supprimé : Snitch ne vous reconnaît plus.",
-      clipsTitle: "Clips où vous êtes identifié(e)",
-      clipsLabel: "Mes clips",
-      noClips: "Aucun clip visible pour vous.",
+      countsLabel: "Ma voix en chiffres",
+      countSamples: "Échantillons vocaux validés",
+      countVoices: "Voix",
+      countClips: "Clips",
+      clipsLink: "Voir mes clips",
+      clipsHint: "Les clips où vous êtes identifié(e), dans la bibliothèque.",
+      impactFailed:
+        "Les chiffres de ce qui serait effacé n’ont pas pu être lus : la suppression est indisponible pour le moment. Rechargez la page pour réessayer.",
       deleteTitle: "Supprimer mon profil vocal",
       deleteEffects:
-        "Supprimer votre profil vocal efface vos échantillons vocaux validés, vos empreintes vocales et toutes les attributions faites à votre nom. Vos voix redeviennent inconnues et plus personne ne peut vous attribuer une voix ensuite. Vos clips restent en place. Cette action est définitive.",
+        "Supprimer votre profil vocal efface {samples} échantillon(s) vocal(aux) validé(s), {fingerprints} empreinte(s) vocale(s) et {attributions} attribution(s) faite(s) à votre nom. Vos voix redeviennent inconnues et plus personne ne peut vous attribuer une voix ensuite. Vos clips restent en place. Cette action est définitive.",
       deleteButton: "Supprimer mon profil vocal",
       confirmTitle: "Supprimer votre profil vocal ?",
       confirmBody:
-        "Vos échantillons, vos empreintes et vos attributions seront effacés, et vos voix redeviendront inconnues. Vos clips restent en place. Cette action est définitive.",
+        "Cela efface {samples} échantillon(s) vocal(aux) validé(s), {fingerprints} empreinte(s) vocale(s) et {attributions} attribution(s). Vos voix redeviennent inconnues. Vos clips restent en place. Cette action est définitive.",
       confirm: "Supprimer mon profil vocal",
       deleting: "Suppression…",
       keep: "Garder mon profil",
       done: "Profil vocal supprimé : {samples} échantillon(s), {fingerprints} empreinte(s) et {attributions} attribution(s) effacé(s).",
       linkTitle: "Lier mon compte à une Personne",
       linkSearch: "Rechercher une Personne",
+      linkSearching: "Recherche…",
       linkNoMatches: "Aucune Personne ne correspond à cette recherche.",
+      linkMore:
+        "{shown} Personnes affichées sur {total}. Tapez davantage du nom pour affiner la recherche.",
       linkMessage: "Message (facultatif)",
       linkMessageHint:
         "Expliquez à l’administrateur pourquoi cette Personne est bien vous.",
@@ -982,19 +996,30 @@ export const fr: Messages = {
       linkRequesting: "Envoi…",
       linkPending:
         "Votre demande pour {name} attend la décision d’un administrateur.",
+      progressLabel: "Avancement de votre demande",
+      stepSent: "Demande envoyée",
+      stepReview: "Validation par un administrateur",
+      stepIdentified: "Voix identifiée",
+      stepDone: "terminée",
+      stepCurrent: "en cours",
+      stepTodo: "à venir",
       linkCancel: "Annuler la demande",
       linkCancelling: "Annulation…",
       linkCancelled: "Demande annulée.",
       linkRefused:
-        "Votre demande pour {name} a été refusée. Vous pouvez en refaire une.",
-      unlinkTitle: "Délier cette Personne",
+        "Votre demande pour {name} a été refusée par un administrateur. Rien n’a été lié. Vous pouvez en refaire une, pour cette Personne ou une autre.",
+      unlinkTitle: "Délier mon compte de cette Personne",
       unlinkBody:
-        "Le déliement retire uniquement l’association : la Personne, les clips et les attributions sont conservés. Vous ne verrez plus ces clips ici et ne pourrez plus supprimer le profil vocal. Un administrateur peut lier un autre compte.",
-      unlinkButton: "Délier",
+        "Le déliement retire uniquement l’association. La Personne, ses voix et ses clips ne sont pas supprimés. Vous perdez les chiffres de cet onglet et la suppression du profil vocal ; un administrateur peut lier un autre compte.",
+      unlinkButton: "Délier mon compte de cette Personne",
       unlinking: "Déliement…",
       unlinkConfirmTitle: "Délier {name} ?",
-      unlinkConfirmBody:
-        "Votre compte ne sera plus la Personne {name}. La Personne, les clips et les attributions sont conservés.",
+      unlinkLoseTitle: "Ce que vous perdez",
+      unlinkLose:
+        "Votre compte ne sera plus la Personne {name} : plus de chiffres ni de clips « Ma voix » ici, et plus le droit de supprimer vous-même le profil vocal.",
+      unlinkKeepTitle: "Ce qui reste",
+      unlinkKeep:
+        "La Personne {name}, ses {voices} voix et vos {clips} clip(s) ne sont pas supprimés, ni les attributions.",
       unlinkConfirm: "Délier",
       unlinked: "Compte délié.",
     },
@@ -1650,6 +1675,66 @@ export const fr: Messages = {
       cancel: "Annuler l’analyse",
       cancelled:
         "Analyse annulée. Les résultats valides sont conservés ; relancez une analyse pour continuer.",
+      failure: {
+        label: "Détails de l'échec",
+        step: "Étape",
+        when: "Quand",
+        cause: "Cause",
+        action: "Action conseillée",
+        unknownCause: "Cause inconnue.",
+        unknownAction: "Action inconnue.",
+        causes: {
+          worker_failed: "Le Worker a signalé un échec non précisé.",
+          provider_unavailable: "Le service de transcription est indisponible.",
+          invalid_input: "Le média du clip n'a pas pu être traité.",
+          audio_preparation_failed: "L'audio du clip n'a pas pu être préparé.",
+          lease_expired: "Le Worker a cessé de répondre pendant la tâche.",
+          max_attempts_exhausted: "Toutes les tentatives ont échoué.",
+          cancelled_by_admin: "Un Administrateur a annulé la tâche.",
+          input_version_superseded:
+            "La tâche a été remplacée par une plus récente.",
+          worker_revoked: "Le Worker a été révoqué pendant la tâche.",
+          whisper_network: "Le service de transcription est injoignable.",
+          whisper_timeout:
+            "Le service de transcription a mis trop de temps à répondre.",
+          whisper_http_error:
+            "Le service de transcription a répondu par une erreur.",
+          whisper_model_missing:
+            "Le modèle de transcription n'est pas installé.",
+          whisper_invalid_response:
+            "Le service de transcription a envoyé une réponse inexploitable.",
+          pyannote_model_missing:
+            "Le modèle de détection des voix n'est pas installé.",
+          pyannote_access_denied:
+            "L'accès au modèle de détection des voix a été refusé.",
+          gpu_unavailable: "Aucun GPU n'est disponible sur le Worker.",
+          gpu_out_of_memory: "Le GPU est à court de mémoire.",
+          diarization_inference_failed:
+            "La détection des voix a échoué pendant son exécution.",
+          hf_auth_required: "Le dépôt du modèle exige un jeton d'accès valide.",
+          hf_not_found: "Le modèle est introuvable dans son dépôt.",
+          hf_network: "Le dépôt du modèle est injoignable.",
+          models_volume_unwritable:
+            "Le Worker ne peut pas écrire dans son volume de modèles.",
+          hf_cache_error: "Le cache de modèles du Worker est endommagé.",
+        },
+        actions: {
+          check_worker_logs: "Consulter les journaux du Worker.",
+          check_transcription_service: "Vérifier le service de transcription.",
+          check_clip_media: "Vérifier le fichier média du clip.",
+          check_worker_connection: "Vérifier la connexion du Worker.",
+          relaunch_job: "Relancer l'étape.",
+          none: "Rien à faire.",
+          install_transcription_model: "Installer le modèle de transcription.",
+          install_voice_model: "Installer le modèle de détection des voix.",
+          check_huggingface_token:
+            "Vérifier le jeton d'accès du dépôt de modèles.",
+          check_gpu: "Vérifier le GPU du Worker.",
+          check_voice_model_repository: "Vérifier le dépôt du modèle de voix.",
+          check_worker_network: "Vérifier l'accès réseau du Worker.",
+          check_models_volume: "Vérifier le volume de modèles du Worker.",
+        },
+      },
       retry: "Réessayer : {step}",
       viewTask: "Voir la tâche n°{id}",
       forced: "(relancée)",

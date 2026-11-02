@@ -3,11 +3,19 @@ import { expect, test } from "@playwright/test";
 import {
   completeQueuedTranscription,
   correctText,
+  failQueuedTranscription,
   nameVoice,
   transcribeAndDiarize,
   uploadClip,
 } from "./library-fixture";
-import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
+import {
+  ADMIN,
+  MEMBER,
+  createApprovedMember,
+  installAdministrator,
+  sessionFor,
+  setAccountLanguage,
+} from "./shell-fixture";
 
 test("analyser un clip jusqu'à sa transcription, durablement", async ({
   browser,
@@ -138,4 +146,76 @@ test("réanalyser un clip traité en confirmant les conséquences", async ({
   await expect(page.getByText("Bien joué, Alice !").first()).toBeVisible();
   await analysis.getByRole("button", { name: "Cancel analysis" }).click();
   await context.close();
+});
+
+test("l'administrateur lit la cause d'échec d'une étape, pas l'utilisateur ordinaire", async ({
+  browser,
+}) => {
+  const clipId = await uploadClip("fixture-failure.mp4", "shared");
+  await createApprovedMember();
+  const admin = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+    viewport: { width: 390, height: 800 },
+  });
+  const page = await admin.newPage();
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto(`/clips/${clipId}`);
+  const analysis = page.getByRole("region", { name: "Clip analysis" });
+  await analysis.getByRole("button", { name: "More analysis options" }).click();
+  await page.getByRole("menuitem", { name: "Transcribe only" }).click();
+  await analysis.getByLabel("Audio track").selectOption({ index: 1 });
+  await analysis.getByRole("button", { name: "Confirm track" }).click();
+  await failQueuedTranscription("invalid_input");
+
+  const details = analysis.getByRole("group", { name: "Failure details" });
+  await expect(details).toContainText("Transcription", { timeout: 15000 });
+  await expect(details).toContainText(
+    "The clip's media could not be processed.",
+  );
+  await expect(details).toContainText("Check the clip's media file.");
+  await expect(details.locator("time")).toHaveAttribute("datetime", /^20/);
+  await expect(details).not.toContainText("invalid_input");
+  const retry = analysis.getByRole("button", { name: /Retry/ });
+  expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+
+  // The same details, in French, from the same persisted data.
+  await setAccountLanguage(ADMIN, "fr");
+  await page.reload();
+  const detailsFr = page
+    .getByRole("region", { name: "Analyse du clip" })
+    .getByRole("group", { name: "Détails de l'échec" });
+  await expect(detailsFr).toContainText(
+    "Le média du clip n'a pas pu être traité.",
+  );
+  await expect(detailsFr).toContainText("Vérifier le fichier média du clip.");
+  await setAccountLanguage(ADMIN, "en");
+
+  // After a retry that fails again, the details describe the current attempt: the
+  // failure time moves on instead of keeping the earlier attempt's.
+  await page.reload();
+  const firstFailure = await details.locator("time").getAttribute("datetime");
+  await analysis.getByRole("button", { name: /Retry/ }).click();
+  await expect(details).toHaveCount(0);
+  await failQueuedTranscription("invalid_input");
+  await expect(details.locator("time")).not.toHaveAttribute(
+    "datetime",
+    firstFailure!,
+    { timeout: 15000 },
+  );
+  await expect(details).toContainText(
+    "The clip's media could not be processed.",
+  );
+
+  // An ordinary user sees the state, and nothing technical.
+  const member = await browser.newContext({
+    storageState: await sessionFor(MEMBER),
+  });
+  const view = await member.newPage();
+  await view.goto(`/clips/${clipId}`);
+  const region = view.getByRole("region", { name: "Clip analysis" });
+  await expect(region).toContainText("Failed");
+  await expect(region.getByRole("group")).toHaveCount(0);
+  await expect(region).not.toContainText("media could not be processed");
+  await expect(region).not.toContainText("invalid_input");
 });

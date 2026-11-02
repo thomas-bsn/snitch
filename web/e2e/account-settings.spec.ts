@@ -77,7 +77,7 @@ test.describe.serial("paramètres du compte", () => {
     await expect(page).toHaveURL(/\/account\/voice$/);
     await expect(
       page.getByRole("heading", {
-        level: 2,
+        level: 3,
         name: "Link my account to a person",
         exact: true,
       }),
@@ -197,6 +197,7 @@ test.describe.serial("paramètres du compte", () => {
     });
     const page = await context.newPage();
     await page.goto("/account");
+    await expect(page.getByText("Not linked", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Link Discord" }).click();
     await expect(
       page.getByRole("heading", { name: "Discord simulé" }),
@@ -210,10 +211,9 @@ test.describe.serial("paramètres du compte", () => {
     await expect(
       page.getByRole("status").filter({ hasText: "Your Discord identity is" }),
     ).toBeVisible();
+    await expect(page.getByText("Linked", { exact: true })).toBeVisible();
     await expect(
-      page.getByText(
-        `Discord is linked to the Snitch account ${MEMBER.username}.`,
-      ),
+      page.getByText("Discord account: Camille Synthetique"),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Unlink Discord" }),
@@ -312,6 +312,11 @@ test.describe.serial("paramètres du compte", () => {
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
+    // The sensitive zone is its own region and its action stays reachable at 44 px.
+    const zone = page.getByRole("region", { name: "Sensitive zone" });
+    await expect(zone).toBeVisible();
+    const close = zone.getByRole("button", { name: "Delete my account" });
+    expect((await close.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await expectNoViolations(page);
     await context.close();
   });

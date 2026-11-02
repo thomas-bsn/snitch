@@ -2796,6 +2796,8 @@ export interface components {
       discord_linked: boolean;
       /** @description True only when Discord is linked and a local password is configured. */
       can_unlink_discord: boolean;
+      /** @description Display name of the linked Discord identity (global name, else username); null when unlinked or linked before it was kept. Read-only. */
+      discord_name?: string | null;
     };
     Setup: {
       initialized: boolean;
@@ -3659,6 +3661,12 @@ export interface components {
       microphone_rules: number;
       /** @description Vrai lorsque la Personne est attribuée sur un clip que l'appelant ne peut pas voir (toujours faux pour un administrateur) : une fusion ou une suppression serait refusée (person_has_hidden_voices). */
       has_hidden_voices: boolean;
+      /** @description Échantillons vocaux validés (actifs et retirés) qu'effacerait la suppression du profil vocal. */
+      voice_samples: number;
+      /** @description Empreintes qu'effacerait la suppression du profil vocal. */
+      fingerprints: number;
+      /** @description Attributions qu'effacerait la suppression du profil vocal ; les voix correspondantes redeviendraient inconnues. */
+      attributions: number;
     };
     PersonCorrectionResult: {
       /** @description Personne qui reste (cible de fusion, Personne séparée) ; null après suppression. */

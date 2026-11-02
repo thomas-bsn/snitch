@@ -12,6 +12,7 @@ import type { MessageKey } from "../i18n/messages";
 import { IdentificationBadge } from "../admin/queue/AnalysisBoard";
 import { isAdministrator } from "../roles";
 import { ReanalyzeClip } from "./ReanalyzeClip";
+import { StepFailure } from "./StepFailure";
 import { useSession } from "../session";
 
 type AdminRun = components["schemas"]["ClipAnalysisRun"];
@@ -274,6 +275,15 @@ export function AnalyzeClip({
                   {t("clip.analysis.profile", { profile: step.profile })}
                 </span>
               )}
+              {"job_id" in step &&
+                step.job_id !== null &&
+                (step.status === "failed" || step.status === "blocked") && (
+                  <StepFailure
+                    jobId={step.job_id}
+                    step={t(`clip.analysis.step.${step.step}`)}
+                    version={step.updated_at}
+                  />
+                )}
               {"job_id" in step &&
                 (step.job_id !== null || step.status === "failed") && (
                   <span className="mt-1 flex flex-wrap gap-2">

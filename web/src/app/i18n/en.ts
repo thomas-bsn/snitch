@@ -608,6 +608,7 @@ export const en = {
     refused: "Request refused.",
   },
   closeAccount: {
+    zone: "Sensitive zone",
     title: "Delete my account",
     explanation:
       "Your sessions will end and your clips will become private. Clips, corrections and their history remain. Deleting your voice profile is a separate action.",
@@ -897,7 +898,14 @@ export const en = {
         "Link your Discord identity to this account, so that you can sign in with Discord. The link is made to this account only, never by matching usernames. This opens Discord.",
       discordLink: "Link Discord",
       discordLinking: "Opening Discord…",
-      discordConnected: "Discord is linked to the Snitch account {username}.",
+      discordBadgeLinked: "Linked",
+      discordBadgeNotLinked: "Not linked",
+      discordIdentity: "Discord account: {name}",
+      discordLinkedNoName: "Discord is linked to this account.",
+      discordLinkFailedState:
+        "Discord was not linked. Your account is unchanged.",
+      discordUnlinkFailedState:
+        "Discord is still linked: it could not be removed.",
       discordUnlink: "Unlink Discord",
       discordUnlinkConfirmTitle: "Unlink Discord?",
       discordUnlinkConfirmBody:
@@ -934,44 +942,62 @@ export const en = {
       noPerson:
         "No person is linked to your account yet. You can ask to link it to an existing person; an administrator approves or refuses the request.",
       identity: "You are the person {name}.",
-      samples:
-        "{count} validated voice sample(s) serve as the reference for your voice.",
       deleted:
         "Your voice profile is deleted: Snitch no longer recognizes you.",
-      clipsTitle: "Clips where you are identified",
-      clipsLabel: "My clips",
-      noClips: "No clip visible to you.",
+      countsLabel: "My voice in numbers",
+      countSamples: "Validated voice samples",
+      countVoices: "Voices",
+      countClips: "Clips",
+      clipsLink: "See my clips",
+      clipsHint: "The clips where you are identified, in the library.",
+      impactFailed:
+        "The numbers of what would be erased could not be read, so the deletion is unavailable for now. Reload the page to try again.",
       deleteTitle: "Delete my voice profile",
       deleteEffects:
-        "Deleting your voice profile erases your validated voice samples, your voice fingerprints and every attribution made to your name. Your voices become unknown again and nobody can attribute a voice to you afterwards. Your clips stay in place. This cannot be undone.",
+        "Deleting your voice profile erases {samples} validated voice sample(s), {fingerprints} voice fingerprint(s) and {attributions} attribution(s) made to your name. Your voices become unknown again and nobody can attribute a voice to you afterwards. Your clips stay in place. This cannot be undone.",
       deleteButton: "Delete my voice profile",
       confirmTitle: "Delete your voice profile?",
       confirmBody:
-        "Your samples, your fingerprints and your attributions will be erased, and your voices will become unknown again. Your clips stay in place. This cannot be undone.",
+        "This erases {samples} validated voice sample(s), {fingerprints} voice fingerprint(s) and {attributions} attribution(s). Your voices become unknown again. Your clips stay in place. This cannot be undone.",
       confirm: "Delete my voice profile",
       deleting: "Deleting…",
       keep: "Keep my profile",
       done: "Voice profile deleted: {samples} sample(s), {fingerprints} fingerprint(s) and {attributions} attribution(s) erased.",
       linkTitle: "Link my account to a person",
       linkSearch: "Search for a person",
+      linkSearching: "Searching…",
       linkNoMatches: "No person matches this search.",
+      linkMore:
+        "Showing {shown} of {total} people. Type more of the name to narrow the search.",
       linkMessage: "Message (optional)",
       linkMessageHint: "Tell the administrator why this person is you.",
       linkButton: "Request the link",
       linkRequesting: "Sending…",
       linkPending: "Your request for {name} is waiting for an administrator.",
+      progressLabel: "Progress of your request",
+      stepSent: "Request sent",
+      stepReview: "Validation by an administrator",
+      stepIdentified: "Voice identified",
+      stepDone: "done",
+      stepCurrent: "in progress",
+      stepTodo: "to come",
       linkCancel: "Cancel the request",
       linkCancelling: "Cancelling…",
       linkCancelled: "Request cancelled.",
-      linkRefused: "Your request for {name} was refused. You can ask again.",
-      unlinkTitle: "Unlink this person",
+      linkRefused:
+        "Your request for {name} was refused by an administrator. Nothing was linked. You can ask again, for this person or another one.",
+      unlinkTitle: "Unlink my account from this person",
       unlinkBody:
-        "Unlinking removes the association only: the person, the clips and the attributions are kept. You will no longer see these clips here and will no longer be able to delete the voice profile. An administrator can link another account.",
-      unlinkButton: "Unlink",
+        "Unlinking removes the association only. The person, its voices and its clips are not deleted. You lose access to this tab’s numbers and to the deletion of the voice profile; an administrator can link another account.",
+      unlinkButton: "Unlink my account from this person",
       unlinking: "Unlinking…",
       unlinkConfirmTitle: "Unlink {name}?",
-      unlinkConfirmBody:
-        "Your account will no longer be the person {name}. The person, the clips and the attributions are kept.",
+      unlinkLoseTitle: "What you lose",
+      unlinkLose:
+        "Your account will no longer be the person {name}: no more “My voice” numbers and clips here, and no more right to delete the voice profile yourself.",
+      unlinkKeepTitle: "What stays",
+      unlinkKeep:
+        "The person {name}, its {voices} voice(s) and your {clips} clip(s) are not deleted, and neither are the attributions.",
       unlinkConfirm: "Unlink",
       unlinked: "Account unlinked.",
     },
@@ -1622,6 +1648,63 @@ export const en = {
       cancel: "Cancel analysis",
       cancelled:
         "Analysis cancelled. Valid results are kept; start a new analysis to continue.",
+      failure: {
+        label: "Failure details",
+        step: "Step",
+        when: "When",
+        cause: "Cause",
+        action: "Recommended action",
+        unknownCause: "Unknown cause.",
+        unknownAction: "Unknown action.",
+        causes: {
+          worker_failed: "The Worker reported an unspecified failure.",
+          provider_unavailable: "The transcription service is unavailable.",
+          invalid_input: "The clip's media could not be processed.",
+          audio_preparation_failed:
+            "The audio of the clip could not be prepared.",
+          lease_expired: "The Worker stopped answering while running the task.",
+          max_attempts_exhausted: "Every attempt failed.",
+          cancelled_by_admin: "An Administrator cancelled the task.",
+          input_version_superseded: "The task was replaced by a newer one.",
+          worker_revoked: "The Worker was revoked while running the task.",
+          whisper_network: "The transcription service could not be reached.",
+          whisper_timeout: "The transcription service took too long to answer.",
+          whisper_http_error:
+            "The transcription service answered with an error.",
+          whisper_model_missing: "The transcription model is not installed.",
+          whisper_invalid_response:
+            "The transcription service sent an unusable answer.",
+          pyannote_model_missing: "The voice detection model is not installed.",
+          pyannote_access_denied:
+            "Access to the voice detection model was denied.",
+          gpu_unavailable: "No GPU is available on the Worker.",
+          gpu_out_of_memory: "The GPU ran out of memory.",
+          diarization_inference_failed: "Voice detection failed while running.",
+          hf_auth_required:
+            "The model repository requires a valid access token.",
+          hf_not_found: "The model was not found in its repository.",
+          hf_network: "The model repository could not be reached.",
+          models_volume_unwritable:
+            "The Worker cannot write to its models volume.",
+          hf_cache_error: "The Worker's model cache is damaged.",
+        },
+        actions: {
+          check_worker_logs: "Check the Worker logs.",
+          check_transcription_service: "Check the transcription service.",
+          check_clip_media: "Check the clip's media file.",
+          check_worker_connection: "Check the Worker's connection.",
+          relaunch_job: "Relaunch the step.",
+          none: "Nothing to do.",
+          install_transcription_model: "Install the transcription model.",
+          install_voice_model: "Install the voice detection model.",
+          check_huggingface_token:
+            "Check the access token of the model repository.",
+          check_gpu: "Check the Worker's GPU.",
+          check_voice_model_repository: "Check the voice model repository.",
+          check_worker_network: "Check the Worker's network access.",
+          check_models_volume: "Check the Worker's models volume.",
+        },
+      },
       retry: "Retry {step}",
       viewTask: "View task #{id}",
       forced: "(run again)",
