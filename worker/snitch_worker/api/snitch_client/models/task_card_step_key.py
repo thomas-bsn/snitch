@@ -3,6 +3,7 @@ from enum import StrEnum
 class TaskCardStepKey(StrEnum):
     DIARIZATION = "diarization"
     FINGERPRINT = "fingerprint"
+    INDEXING = "indexing"
     RECOGNITION = "recognition"
     TRANSCRIPTION = "transcription"
 
