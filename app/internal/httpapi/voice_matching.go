@@ -266,6 +266,12 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	if err = s.refreshVoiceGroupLinks(ctx); err != nil {
 		s.Log.Error("voice group links failed", "error", err)
 	}
+	// The voices that still need a human decision are announced (or the action resolved).
+	if clipID > 0 {
+		s.syncSpeakerReview(ctx, clipID)
+	} else {
+		s.syncAllSpeakerReviews(ctx)
+	}
 	return stats, nil
 }
 

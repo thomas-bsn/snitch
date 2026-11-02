@@ -71,6 +71,9 @@ export const errorsEn = {
   forbidden: "You do not have access to this.",
   group_changed: "This group changed in the meantime. Reload and try again.",
   internal_error: "An unexpected error occurred on the server.",
+  notification_active:
+    "This action is still pending. It disappears once it is handled.",
+  notification_not_found: "This notification no longer exists.",
   invalid_account: "This account is not valid for this action.",
   invalid_audio_stream: "This audio track is not valid.",
   invalid_audio_track_rule: "This audio track rule is not valid.",

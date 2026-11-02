@@ -59,10 +59,11 @@ export const fetchVerification = (
   level: VerificationFilter,
   page: number,
   pageSize: number,
+  clip?: number,
 ) =>
   guard(async () => {
     const { data, error } = await api.GET("/api/voice-verification", {
-      params: { query: { level, page, page_size: pageSize } },
+      params: { query: { level, page, page_size: pageSize, clip } },
     });
     return data ? { ok: true, value: data } : failure(error);
   });

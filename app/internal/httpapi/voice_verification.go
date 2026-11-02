@@ -63,6 +63,15 @@ func (s *Server) voiceVerification(w http.ResponseWriter, r *http.Request) {
 		}
 		size = n
 	}
+	var clipID int64
+	if v := query.Get("clip"); v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n < 1 {
+			fail(w, http.StatusBadRequest, "invalid_filter")
+			return
+		}
+		clipID = n
+	}
 	ctx := r.Context()
 	rows, err := s.Pool.Query(ctx, voiceGroupsCTE+`, stat AS (
   SELECT group_id,count(*)::int AS voices,count(DISTINCT clip_id)::int AS clips FROM members GROUP BY group_id
@@ -70,10 +79,10 @@ func (s *Server) voiceVerification(w http.ResponseWriter, r *http.Request) {
   SELECT m.id,m.clip_id,m.clip_name,m.label,m.speaking_seconds,m.group_id,s.voices,s.clips,a.id AS attribution_id,COALESCE(a.decision_level,'unknown') AS level
   FROM members m JOIN stat s ON s.group_id=m.group_id
   LEFT JOIN speaker_attributions a ON a.local_speaker_id=m.id AND a.validation_state='unvalidated'
-  WHERE COALESCE(a.decision_level,'unknown') IN ('unknown','ambiguous') AND ($3='all' OR COALESCE(a.decision_level,'unknown')=$3)
+  WHERE COALESCE(a.decision_level,'unknown') IN ('unknown','ambiguous') AND ($3='all' OR COALESCE(a.decision_level,'unknown')=$3) AND ($6::bigint=0 OR m.clip_id=$6)
 )
 SELECT id,clip_id,clip_name,label,speaking_seconds,level,attribution_id,group_id,voices,clips,count(*) OVER ()::int
-FROM cases ORDER BY clips DESC,voices DESC,speaking_seconds DESC,id LIMIT $4 OFFSET $5`, ss.User.ID, admin, level, size, (page-1)*size)
+FROM cases ORDER BY clips DESC,voices DESC,speaking_seconds DESC,id LIMIT $4 OFFSET $5`, ss.User.ID, admin, level, size, (page-1)*size, clipID)
 	if err != nil {
 		s.internal(w, err)
 		return

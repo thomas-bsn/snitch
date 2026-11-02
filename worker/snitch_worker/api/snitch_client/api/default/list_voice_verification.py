@@ -19,6 +19,7 @@ from typing import cast
 def _get_kwargs(
     *,
     level: ListVoiceVerificationLevel | Unset = ListVoiceVerificationLevel.ALL,
+    clip: int | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
 
@@ -34,6 +35,8 @@ def _get_kwargs(
         json_level = level.value
 
     params["level"] = json_level
+
+    params["clip"] = clip
 
     params["page"] = page
 
@@ -83,6 +86,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     level: ListVoiceVerificationLevel | Unset = ListVoiceVerificationLevel.ALL,
+    clip: int | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
 
@@ -95,6 +99,7 @@ def sync_detailed(
 
     Args:
         level (ListVoiceVerificationLevel | Unset):  Default: ListVoiceVerificationLevel.ALL.
+        clip (int | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 20.
 
@@ -109,6 +114,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         level=level,
+clip=clip,
 page=page,
 page_size=page_size,
 
@@ -124,6 +130,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     level: ListVoiceVerificationLevel | Unset = ListVoiceVerificationLevel.ALL,
+    clip: int | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
 
@@ -136,6 +143,7 @@ def sync(
 
     Args:
         level (ListVoiceVerificationLevel | Unset):  Default: ListVoiceVerificationLevel.ALL.
+        clip (int | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 20.
 
@@ -151,6 +159,7 @@ def sync(
     return sync_detailed(
         client=client,
 level=level,
+clip=clip,
 page=page,
 page_size=page_size,
 
@@ -160,6 +169,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     level: ListVoiceVerificationLevel | Unset = ListVoiceVerificationLevel.ALL,
+    clip: int | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
 
@@ -172,6 +182,7 @@ async def asyncio_detailed(
 
     Args:
         level (ListVoiceVerificationLevel | Unset):  Default: ListVoiceVerificationLevel.ALL.
+        clip (int | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 20.
 
@@ -186,6 +197,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         level=level,
+clip=clip,
 page=page,
 page_size=page_size,
 
@@ -201,6 +213,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     level: ListVoiceVerificationLevel | Unset = ListVoiceVerificationLevel.ALL,
+    clip: int | Unset = UNSET,
     page: int | Unset = 1,
     page_size: int | Unset = 20,
 
@@ -213,6 +226,7 @@ async def asyncio(
 
     Args:
         level (ListVoiceVerificationLevel | Unset):  Default: ListVoiceVerificationLevel.ALL.
+        clip (int | Unset):
         page (int | Unset):  Default: 1.
         page_size (int | Unset):  Default: 20.
 
@@ -228,6 +242,7 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 level=level,
+clip=clip,
 page=page,
 page_size=page_size,
 
