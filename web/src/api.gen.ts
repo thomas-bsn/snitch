@@ -2499,7 +2499,17 @@ export interface components {
       /** @enum {string} */
       actor: "admin" | "worker" | "system";
       actor_id: string;
+      /** @description Cause d'échec (voir FailureCode) ; vide pour un événement sans échec. */
       error_code: string;
+      /** @description Étape du job, présente avec un diagnostic. */
+      step?: string;
+      provider?: string;
+      model?: string;
+      revision?: string;
+      http_status?: number;
+      duration_ms?: number;
+      /** @description Code de l'action de reprise conseillée, décidée par le serveur ; absent sans cause connue. */
+      recommended_action?: string;
       /** Format: date-time */
       created_at: string;
     };
@@ -3710,8 +3720,48 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /**
+     * @description Catalogue fermé des Causes d'échec d'un job. Un code hors catalogue envoyé par un ancien Worker est enregistré comme worker_failed.
+     * @enum {string}
+     */
+    FailureCode:
+      | "worker_failed"
+      | "provider_unavailable"
+      | "invalid_input"
+      | "audio_preparation_failed"
+      | "lease_expired"
+      | "max_attempts_exhausted"
+      | "cancelled_by_admin"
+      | "input_version_superseded"
+      | "worker_revoked"
+      | "whisper_network"
+      | "whisper_timeout"
+      | "whisper_http_error"
+      | "whisper_model_missing"
+      | "whisper_invalid_response"
+      | "pyannote_model_missing"
+      | "pyannote_access_denied"
+      | "gpu_unavailable"
+      | "gpu_out_of_memory"
+      | "diarization_inference_failed"
+      | "hf_auth_required"
+      | "hf_not_found"
+      | "hf_network"
+      | "models_volume_unwritable"
+      | "hf_cache_error";
     WorkerFailureInput: {
+      /** @description Code de Cause d'échec (voir FailureCode). Un code inconnu est enregistré comme worker_failed. */
       error: string;
+      /** @description Optionnel. Fournisseur de l'appel en échec. */
+      provider?: string;
+      /** @description Optionnel. Modèle de l'appel en échec. */
+      model?: string;
+      /** @description Optionnel. Révision du modèle. */
+      revision?: string;
+      /** @description Optionnel. Statut HTTP renvoyé par le fournisseur. */
+      http_status?: number;
+      /** @description Optionnel. Durée de l'appel en échec. */
+      duration_ms?: number;
     };
     Source: {
       managed_root?: boolean;

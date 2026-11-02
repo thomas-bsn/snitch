@@ -82,6 +82,14 @@ type Event struct {
 	ActorID   string    `json:"actor_id"`
 	ErrorCode string    `json:"error_code"`
 	CreatedAt time.Time `json:"created_at"`
+	// Diagnostic of a worker failure; absent on older rows and on events without a failure.
+	Step              *string `json:"step,omitempty"`
+	Provider          *string `json:"provider,omitempty"`
+	Model             *string `json:"model,omitempty"`
+	Revision          *string `json:"revision,omitempty"`
+	HTTPStatus        *int    `json:"http_status,omitempty"`
+	DurationMS        *int    `json:"duration_ms,omitempty"`
+	RecommendedAction string  `json:"recommended_action,omitempty"`
 }
 
 type Filter struct {
@@ -133,7 +141,7 @@ func New(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
 // NewWithLog returns a Service that reports job transitions to log.
 func NewWithLog(pool *pgxpool.Pool, log *slog.Logger) *Service { return &Service{pool: pool, Log: log} }
 
-func (s *Service) logger()*slog.Logger {
+func (s *Service) logger() *slog.Logger {
 	if s.Log == nil {
 		return slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
@@ -252,7 +260,7 @@ func (s *Service) History(ctx context.Context, jobID int64) ([]Event, error) {
 	if !exists {
 		return nil, ErrJobNotFound
 	}
-	rows, err := s.pool.Query(ctx, `SELECT id,event,cycle,attempt,actor,actor_id,error_code,created_at FROM job_events WHERE job_id=$1 ORDER BY id`, jobID)
+	rows, err := s.pool.Query(ctx, `SELECT id,event,cycle,attempt,actor,actor_id,error_code,created_at,step,provider,model,revision,http_status,duration_ms FROM job_events WHERE job_id=$1 ORDER BY id`, jobID)
 	if err != nil {
 		return nil, fmt.Errorf("read job history: %w", err)
 	}
@@ -260,9 +268,10 @@ func (s *Service) History(ctx context.Context, jobID int64) ([]Event, error) {
 	events := []Event{}
 	for rows.Next() {
 		var event Event
-		if err = rows.Scan(&event.ID, &event.Event, &event.Cycle, &event.Attempt, &event.Actor, &event.ActorID, &event.ErrorCode, &event.CreatedAt); err != nil {
+		if err = rows.Scan(&event.ID, &event.Event, &event.Cycle, &event.Attempt, &event.Actor, &event.ActorID, &event.ErrorCode, &event.CreatedAt, &event.Step, &event.Provider, &event.Model, &event.Revision, &event.HTTPStatus, &event.DurationMS); err != nil {
 			return nil, fmt.Errorf("scan job history: %w", err)
 		}
+		event.RecommendedAction = RecommendedAction(event.ErrorCode)
 		events = append(events, event)
 	}
 	if err = rows.Err(); err != nil {
@@ -663,16 +672,16 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 	return job, nil
 }
 
-func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, message string) (Job, error) {
+func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, message string, detail Diagnostic) (Job, error) {
 	if !validLeaseToken(leaseToken) {
 		return Job{}, ErrLeaseNotOwned
 	}
-	if len(message) > 256 || strings.TrimSpace(message) != message {
+	if len(message) > 256 || strings.TrimSpace(message) != message || !detail.valid() {
 		return Job{}, ErrInvalidInput
 	}
-	// Never persist worker-provided stack traces, paths, or arbitrary details.
+	// Never persist worker-provided stack traces, paths, or arbitrary details: only a code of the closed catalogue.
 	code := "worker_failed"
-	if message == "provider_unavailable" || message == "invalid_input" {
+	if knownFailureCode(message) {
 		code = message
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -700,7 +709,7 @@ func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, mess
 	if status == Dead {
 		event = "marked_dead"
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id,error_code) VALUES($1,$2,$3,$4,'worker',$5,$6)`, id, event, job.Cycle, job.Attempts, workerID, code); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id,error_code,step,provider,model,revision,http_status,duration_ms) VALUES($1,$2,$3,$4,'worker',$5,$6,$7,$8,$9,$10,$11,$12)`, id, event, job.Cycle, job.Attempts, workerID, code, job.Step, detail.Provider, detail.Model, detail.Revision, detail.HTTPStatus, detail.DurationMS); err != nil {
 		return Job{}, fmt.Errorf("record worker job failure: %w", err)
 	}
 	if err = tx.Commit(ctx); err != nil {

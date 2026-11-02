@@ -591,12 +591,17 @@ func (s *Server) failWorkerJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		Error string `json:"error"`
+		Error      string  `json:"error"`
+		Provider   *string `json:"provider"`
+		Model      *string `json:"model"`
+		Revision   *string `json:"revision"`
+		HTTPStatus *int    `json:"http_status"`
+		DurationMS *int    `json:"duration_ms"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	job, err := s.Jobs.Fail(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.Error)
+	job, err := s.Jobs.Fail(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.Error, jobs.Diagnostic{Provider: input.Provider, Model: input.Model, Revision: input.Revision, HTTPStatus: input.HTTPStatus, DurationMS: input.DurationMS})
 	if errors.Is(err, jobs.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_job_error")
 	} else if errors.Is(err, jobs.ErrLeaseNotOwned) {
