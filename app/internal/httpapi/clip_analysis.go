@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -497,4 +498,42 @@ func (s *Server) adminAuthorizer(r *http.Request) func(context.Context) error {
 		}
 		return nil
 	}
+}
+
+// adminAnalysisHistory pages the finished runs of every clip: the durable record behind the
+// Task Queue's Clip History, with the steps and failures of each run.
+func (s *Server) adminAnalysisHistory(w http.ResponseWriter, r *http.Request) {
+	page := 1
+	if raw := r.URL.Query().Get("page"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 {
+			fail(w, http.StatusBadRequest, "invalid_page")
+			return
+		}
+		page = n
+	}
+	h, err := s.Analysis.FinishedRuns(r.Context(), strings.TrimSpace(r.URL.Query().Get("q")), page)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, h)
+}
+
+// refuseWhileAnalyzing answers 409 analysis_active and returns true when an analysis run is
+// in progress on the clip: an isolated step must not race the orchestrator, which owns the
+// order of the steps while it runs.
+func (s *Server) refuseWhileAnalyzing(w http.ResponseWriter, r *http.Request, clipID int64) bool {
+	if clipID < 1 {
+		return false
+	}
+	var active bool
+	if err := s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clip_analysis_runs WHERE clip_id=$1 AND status='active')`, clipID).Scan(&active); err != nil {
+		s.internal(w, err)
+		return true
+	}
+	if active {
+		fail(w, http.StatusConflict, "analysis_active")
+	}
+	return active
 }

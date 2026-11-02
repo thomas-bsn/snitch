@@ -1,80 +1,72 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { api } from "../../api/client";
 import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
+import type { MessageKey } from "../../i18n/messages";
 import type { components } from "../../../api.gen";
-type Job = components["schemas"]["Job"];
+import { IdentificationBadge } from "./AnalysisBoard";
 
-/** The durable list of clips whose tasks all finished: the only paginated part of the queue. */
+type History = components["schemas"]["AnalysisRunHistory"];
+
+/**
+ * The durable record of every finished analysis run, steps and failures included: the only
+ * paginated and searchable part of the queue.
+ */
 export function ClipHistory() {
   const { t, language } = useI18n();
   const tr = (fr: string, en: string) => (language === "fr" ? fr : en);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyPage, setHistoryPage] = useState(1);
-  const [completed, setCompleted] = useState<{ items: Job[]; total: number }>({
-    items: [],
-    total: 0,
-  });
-  const [titles, setTitles] = useState<Record<number, string>>({});
-  const [historyError, setHistoryError] = useState(false);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [history, setHistory] = useState<History>();
+  const [failed, setFailed] = useState(false);
+  const [loading, setLoading] = useState(false);
   useEffect(() => {
-    if (!historyOpen) return;
+    if (!open) return;
     let disposed = false;
-    setLoadingHistory(true);
-    setHistoryError(false);
+    setLoading(true);
+    setFailed(false);
     void api
-      .GET("/api/admin/jobs", {
-        params: {
-          query: { workflow: "done", page: historyPage, page_size: 10 },
-        },
+      .GET("/api/admin/analysis/history", {
+        params: { query: { page, q: query || undefined } },
       })
-      .then(async (r) => {
+      .then((r) => {
         if (disposed) return;
-        if (!r.data) {
-          setHistoryError(true);
-          return;
-        }
-        setCompleted({ items: r.data.items, total: r.data.total });
-        const ids = [...new Set(r.data.items.map((j) => j.clip_id))];
-        const entries = await Promise.all(
-          ids.map(async (id) => {
-            try {
-              const clip = await api.GET("/api/clips/{id}", {
-                params: { path: { id } },
-              });
-              return [id, clip.data?.original_name ?? `Clip #${id}`] as const;
-            } catch {
-              return [id, `Clip #${id}`] as const;
-            }
-          }),
-        );
-        if (!disposed) setTitles(Object.fromEntries(entries));
+        if (r.data) setHistory(r.data);
+        else setFailed(true);
       })
       .catch(() => {
-        if (!disposed) setHistoryError(true);
+        if (!disposed) setFailed(true);
       })
       .finally(() => {
-        if (!disposed) setLoadingHistory(false);
+        if (!disposed) setLoading(false);
       });
     return () => {
       disposed = true;
     };
-  }, [historyOpen, historyPage]);
+  }, [open, page, query]);
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    setPage(1);
+    setQuery(search.trim());
+  }
+  const total = history?.total ?? 0;
+  const pageSize = history?.page_size ?? 10;
   return (
     <>
       <button
         onClick={() => {
-          setHistoryPage(1);
-          setHistoryOpen(true);
+          setPage(1);
+          setOpen(true);
         }}
         className={buttonClass()}
       >
         {tr("Historique des clips", "Clip history")}
       </button>
-      <Dialog.Root open={historyOpen} onOpenChange={setHistoryOpen}>
+      <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/50" />
           <Dialog.Viewport className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -82,15 +74,12 @@ export function ClipHistory() {
               <header className="flex items-center justify-between gap-4 border-b border-line p-5">
                 <div>
                   <Dialog.Title className="text-lg font-semibold">
-                    {tr(
-                      "Historique des clips terminés",
-                      "Completed clip history",
-                    )}
+                    {tr("Historique des analyses", "Analysis history")}
                   </Dialog.Title>
                   <Dialog.Description className="text-sm text-mute">
                     {tr(
-                      "Clips dont tous les traitements planifiés ont réussi, dix par page.",
-                      "Clips whose scheduled tasks have all succeeded, ten per page.",
+                      "Toutes les analyses terminées, avec leurs étapes et leurs échecs, dix par page.",
+                      "Every finished analysis with its steps and failures, ten per page.",
                     )}
                   </Dialog.Description>
                 </div>
@@ -98,30 +87,79 @@ export function ClipHistory() {
                   {tr("Fermer", "Close")}
                 </Dialog.Close>
               </header>
+              <form
+                role="search"
+                onSubmit={submit}
+                className="flex flex-wrap items-end gap-2 border-b border-line px-5 py-3"
+              >
+                <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-medium">
+                  {tr("Rechercher un clip", "Search a clip")}
+                  <input
+                    type="search"
+                    name="q"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
+                  />
+                </label>
+                <button className={buttonClass()}>
+                  {tr("Rechercher", "Search")}
+                </button>
+              </form>
               <div className="min-h-0 overflow-y-auto p-5">
-                {loadingHistory ? (
+                {loading ? (
                   <p role="status">{t("app.loading")}</p>
-                ) : historyError ? (
+                ) : failed ? (
                   <p role="alert">
                     {tr(
                       "Impossible de charger l’historique.",
                       "Could not load history.",
                     )}
                   </p>
+                ) : history && history.items.length === 0 ? (
+                  <p className="m-0 text-mute">
+                    {tr("Aucune analyse terminée.", "No finished analysis.")}
+                  </p>
                 ) : (
-                  <ul className="divide-y divide-line">
-                    {completed?.items.map((job) => (
-                      <li key={job.id} className="py-3">
+                  <ul className="m-0 list-none divide-y divide-line p-0">
+                    {history?.items.map((run) => (
+                      <li
+                        key={run.id}
+                        data-history-run={run.id}
+                        className="py-3"
+                      >
                         <Link
-                          to={`/clips/${job.clip_id}`}
+                          to={`/clips/${run.clip_id}`}
                           className="break-words font-semibold text-accent-ink underline"
                         >
-                          {titles[job.clip_id] ?? `Clip #${job.clip_id}`}
+                          {run.clip_name || `Clip #${run.clip_id}`}
                         </Link>
-                        <p className="mt-1 text-sm text-mute">
-                          {job.step} · {t(`queue.status.${job.status}`)} ·{" "}
-                          {job.updated_at}
+                        <p className="m-0 mt-1 text-sm text-mute">
+                          {t(`queue.board.scope.${run.scope}`)} ·{" "}
+                          {t(`queue.board.run.${run.status}`)} ·{" "}
+                          {run.finished_at ?? run.updated_at}
                         </p>
+                        <IdentificationBadge run={run} />
+                        <ul className="m-0 mt-2 flex list-none flex-wrap gap-2 p-0">
+                          {run.steps
+                            .filter((s) => s.status !== "not_applicable")
+                            .map((step) => (
+                              <li
+                                key={step.step}
+                                data-history-step={step.step}
+                                className={`rounded-lg border px-2 py-1 text-xs ${step.status === "failed" ? "border-warn-fg bg-warn-bg text-warn-fg" : "border-line"}`}
+                              >
+                                <strong>
+                                  {t(`clip.analysis.step.${step.step}`)}
+                                </strong>{" "}
+                                · {t(`clip.analysis.status.${step.status}`)}
+                                {step.status === "failed" &&
+                                  ` · ${t(`clip.analysis.reason.${step.reason}` as MessageKey)}`}
+                                {step.attempt > 1 &&
+                                  ` · ${t("queue.board.attempt", { n: step.attempt })}`}
+                              </li>
+                            ))}
+                        </ul>
                       </li>
                     ))}
                   </ul>
@@ -129,24 +167,20 @@ export function ClipHistory() {
               </div>
               <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line p-5">
                 <span>
-                  {t("queue.page", { page: historyPage })} ·{" "}
-                  {completed?.total ?? 0} clips
+                  {t("queue.page", { page })} · {total}{" "}
+                  {tr("analyses", "analyses")}
                 </span>
                 <div className="flex gap-2">
                   <button
-                    disabled={loadingHistory || historyPage === 1}
-                    onClick={() => setHistoryPage((p) => p - 1)}
+                    disabled={loading || page === 1}
+                    onClick={() => setPage((p) => p - 1)}
                     className="min-h-11 rounded-lg border border-line-strong px-4 disabled:opacity-40"
                   >
                     {t("queue.previous")}
                   </button>
                   <button
-                    disabled={
-                      loadingHistory ||
-                      !completed ||
-                      historyPage * 10 >= completed.total
-                    }
-                    onClick={() => setHistoryPage((p) => p + 1)}
+                    disabled={loading || page * pageSize >= total}
+                    onClick={() => setPage((p) => p + 1)}
                     className="min-h-11 rounded-lg border border-line-strong px-4 disabled:opacity-40"
                   >
                     {t("queue.next")}

@@ -44,6 +44,8 @@ class AnalysisQueueRun:
             confirmed_replace_validations (bool):
             steps (list[ClipAnalysisStep]):
             clip_name (str):
+            pending_voices (int): Voix du clip encore inconnues ou ambiguës (liste de vérification) : une analyse terminée
+                qui en laisse est seulement partiellement identifiée.
      """
 
     id: int
@@ -60,6 +62,7 @@ class AnalysisQueueRun:
     confirmed_replace_validations: bool
     steps: list[ClipAnalysisStep]
     clip_name: str
+    pending_voices: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -111,6 +114,8 @@ class AnalysisQueueRun:
 
         clip_name = self.clip_name
 
+        pending_voices = self.pending_voices
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -129,6 +134,7 @@ class AnalysisQueueRun:
             "confirmed_replace_validations": confirmed_replace_validations,
             "steps": steps,
             "clip_name": clip_name,
+            "pending_voices": pending_voices,
         })
 
         return field_dict
@@ -220,6 +226,8 @@ class AnalysisQueueRun:
 
         clip_name = d.pop("clip_name")
 
+        pending_voices = d.pop("pending_voices")
+
         analysis_queue_run = cls(
             id=id,
             clip_id=clip_id,
@@ -235,6 +243,7 @@ class AnalysisQueueRun:
             confirmed_replace_validations=confirmed_replace_validations,
             steps=steps,
             clip_name=clip_name,
+            pending_voices=pending_voices,
         )
 
 

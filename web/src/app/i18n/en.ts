@@ -26,7 +26,9 @@ export const en = {
       trunk: "Preparation and transcription",
       branchSearch: "Search branch",
       branchVoices: "Voice branch",
-      voicesToCheck: "Voices to check",
+      voicesToCheck: "Voices to check ({n})",
+      partiallyIdentified: "Partially identified",
+      identified: "Voices identified",
       attempt: "Attempt {n}",
       stepsOf: "Steps of the analysis of {clip}",
       scope: {

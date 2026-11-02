@@ -104,15 +104,10 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     ).ok(),
   ).toBe(true);
   await page.goto("/admin/queue");
-  await page.locator("summary").filter({ hasText: "Schedule task" }).click();
   await page.getByLabel("Clip ID", { exact: true }).fill(String(clipA));
   await page
-    .locator("label")
-    .filter({ hasText: "Step 0 · Transcription" })
-    .click();
-  await expect(
-    page.getByRole("radio", { name: /Step 0 · Transcription/ }),
-  ).toBeChecked();
+    .getByRole("combobox", { name: "Step" })
+    .selectOption("transcription");
   const scheduled = page.waitForResponse(
     (r) =>
       r.url().endsWith(`/api/admin/clips/${clipA}/transcription`) &&
@@ -175,7 +170,7 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   // The completed-clip history is its own dialog.
   await page.getByRole("button", { name: "Clip history" }).click();
   await expect(
-    page.getByRole("dialog", { name: "Completed clip history" }),
+    page.getByRole("dialog", { name: "Analysis history" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
 

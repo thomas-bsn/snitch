@@ -41,6 +41,36 @@ function StepRow({ step }: { step: Step }) {
   );
 }
 
+/**
+ * Voice outcome of a finished run, from the voices the clip really has left to decide (the
+ * Verification list), never from the run status: a completed run with some left is only
+ * partially identified.
+ */
+export function IdentificationBadge({ run }: { run: QueueRun }) {
+  const { t } = useI18n();
+  if (run.status !== "completed" && run.status !== "incomplete") return null;
+  const voices = run.steps.find((s) => s.step === "matching");
+  if (run.pending_voices > 0)
+    return (
+      <p
+        data-identification="partial"
+        className="m-0 mt-1 text-xs font-medium text-accent-ink"
+      >
+        {t("queue.board.partiallyIdentified")} ·{" "}
+        {t("queue.board.voicesToCheck", { n: run.pending_voices })}
+      </p>
+    );
+  if (!voices || voices.status === "not_applicable") return null;
+  return (
+    <p
+      data-identification="complete"
+      className="m-0 mt-1 text-xs font-medium text-mute"
+    >
+      {t("queue.board.identified")}
+    </p>
+  );
+}
+
 function RunCard({ run }: { run: QueueRun }) {
   const { t } = useI18n();
   const title = run.clip_name || `Clip #${run.clip_id}`;
@@ -61,11 +91,7 @@ function RunCard({ run }: { run: QueueRun }) {
             #{run.clip_id} · {t(`queue.board.scope.${run.scope}`)} ·{" "}
             <span data-run-status>{t(`queue.board.run.${run.status}`)}</span>
           </p>
-          {run.status === "incomplete" && (
-            <p className="m-0 mt-1 text-xs font-medium text-accent-ink">
-              {t("queue.board.voicesToCheck")}
-            </p>
-          )}
+          <IdentificationBadge run={run} />
         </header>
         <div
           role="group"

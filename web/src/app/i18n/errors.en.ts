@@ -79,6 +79,8 @@ export const errorsEn = {
   invalid_audio_track_rule: "This audio track rule is not valid.",
   invalid_analysis_scope: "This analysis scope is not valid.",
   analysis_not_active: "No analysis is active on this clip.",
+  analysis_active:
+    "An analysis is running on this clip: wait for it to finish or cancel it before scheduling a single step.",
   analysis_not_found: "This clip has not been analyzed.",
   analysis_not_retryable:
     "This analysis is over: start a new analysis instead.",

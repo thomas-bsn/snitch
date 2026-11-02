@@ -208,6 +208,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/clips/{id}/analysis/cancel", s.protected(true, http.HandlerFunc(s.cancelClipAnalysis)))
 	mux.Handle("POST /api/admin/clips/{id}/analysis/steps/{step}/retry", s.protected(true, http.HandlerFunc(s.retryClipAnalysisStep)))
 	mux.Handle("GET /api/admin/analysis/queue", s.protected(true, http.HandlerFunc(s.adminAnalysisQueue)))
+	mux.Handle("GET /api/admin/analysis/history", s.protected(true, http.HandlerFunc(s.adminAnalysisHistory)))
 	mux.Handle("GET /api/admin/analysis/queue/events", s.protected(true, http.HandlerFunc(s.adminQueueEvents)))
 	mux.Handle("GET /api/admin/clips/{id}/analysis/events", s.protected(true, http.HandlerFunc(s.clipAnalysisEvents)))
 	mux.Handle("GET /api/admin/jobs", s.protected(true, http.HandlerFunc(s.listJobs)))

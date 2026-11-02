@@ -1310,8 +1310,25 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips dont le traitement automatique est terminé ; les tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events. */
+    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events. */
     get: operations["getAnalysisQueue"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/analysis/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Historique durable de toutes les exécutions terminées (réussies, échouées, annulées) de tous les clips, la plus récente d'abord, avec leurs étapes ; seule partie paginée de la Task Queue (10 par page). */
+    get: operations["getAnalysisHistory"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2515,6 +2532,14 @@ export interface components {
     };
     AnalysisQueueRun: components["schemas"]["ClipAnalysisRun"] & {
       clip_name: string;
+      /** @description Voix du clip encore inconnues ou ambiguës (liste de vérification) : une analyse terminée qui en laisse est seulement partiellement identifiée. */
+      pending_voices: number;
+    };
+    AnalysisRunHistory: {
+      items: components["schemas"]["AnalysisQueueRun"][];
+      total: number;
+      page: number;
+      page_size: number;
     };
     AnalysisQueueTask: components["schemas"]["Job"] & {
       clip_name: string;
@@ -8090,6 +8115,39 @@ export interface operations {
         };
       };
       /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAnalysisHistory: {
+    parameters: {
+      query?: {
+        page?: number;
+        /** @description Filtre sur le nom du clip */
+        q?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Page d'historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalysisRunHistory"];
+        };
+      };
+      /** @description Erreur (400 invalid_page ; 401 unauthorized ; 403 forbidden) */
       default: {
         headers: {
           [name: string]: unknown;

@@ -10,6 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"snitch/internal/analysis"
 )
 
 // Groups of unknown voices (phase 5).
@@ -33,7 +35,7 @@ import (
 // counted nor named, and the id of a group is its smallest visible member, so it never
 // reveals a hidden voice. The review view reuses loadVoiceGroups.
 
-const unknownSpeakerPredicate = `ls.kind='diarized' AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND (a.validation_state='validated' OR a.decision_level='automatic'))`
+const unknownSpeakerPredicate = analysis.UnknownSpeakerPredicate
 
 // voiceGroupsCTE defines members(id, clip_id, clip_name, label, speaking_seconds, excluded,
 // gid) for the caller ($1 user id, $2 administrator): the visible unknown voices with the

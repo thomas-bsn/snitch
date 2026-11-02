@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"snitch/internal/analysis"
 )
 
 // Notifications are persistent and per recipient. A notification is one shared action: its
@@ -23,8 +25,7 @@ const notificationVisible = `(CASE WHEN n.kind='needs_speaker_review' THEN (c.vi
 
 // pendingVoicesSQL counts the voices of clip $1 that still need a decision: unknown or
 // ambiguous, neither validated nor automatically attributed (the Verification list).
-const pendingVoicesSQL = `SELECT count(*)::int FROM local_speakers ls WHERE ls.clip_id=$1 AND ` + unknownSpeakerPredicate + `
-AND COALESCE((SELECT a.decision_level FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='unvalidated'),'unknown') IN ('unknown','ambiguous')`
+const pendingVoicesSQL = `SELECT count(*)::int FROM local_speakers ls WHERE ls.clip_id=$1 AND ` + analysis.PendingVoiceCondition
 
 func (s *Server) registerNotificationRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/notifications", s.protected(false, http.HandlerFunc(s.listNotifications)))

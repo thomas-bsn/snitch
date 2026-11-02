@@ -241,6 +241,18 @@ export function QueueTab() {
       setBusy(false);
     }
   }
+  const activeWorkers =
+    state.status === "ready"
+      ? state.value.workers.filter((w) => !w.revoked_at)
+      : [];
+  const transcriptionReady = activeWorkers.some((w) =>
+    w.supported_steps?.some((s) => s.startsWith("transcription.")),
+  );
+  const voiceReady = activeWorkers.some((w) =>
+    w.supported_steps?.some(
+      (s) => s === "voice.*" || s.startsWith("voice.diarization."),
+    ),
+  );
   return (
     <div className="flex flex-col gap-4">
       <ConfirmDialog
@@ -302,6 +314,77 @@ export function QueueTab() {
       {notice && <StatusNotice>{t("queue.updated")}</StatusNotice>}
       {state.status === "ready" && (
         <>
+          <details
+            open
+            data-advanced-schedule
+            className="rounded-xl border border-line p-4"
+          >
+            <summary className="cursor-pointer list-none p-1">
+              <span className="text-base font-semibold">
+                {t("queue.schedule")}
+              </span>
+              <span className="ml-2 text-sm text-mute">
+                {language === "fr"
+                  ? "Mode avancé : une étape isolée sur un clip sans analyse en cours"
+                  : "Advanced: a single step on a clip with no analysis in progress"}
+              </span>
+            </summary>
+            <form
+              onSubmit={submitJob}
+              className="flex flex-wrap items-end gap-3 px-1 pb-1 pt-4"
+            >
+              <label className="flex flex-col gap-1 text-sm font-medium">
+                {t("queue.clip")}
+                <input
+                  name="clip"
+                  type="number"
+                  min={1}
+                  required
+                  placeholder="ex. 18"
+                  className="h-11 w-40 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm font-medium">
+                {t("queue.step")}
+                <select
+                  name="step"
+                  required
+                  defaultValue=""
+                  className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
+                >
+                  <option value="" disabled>
+                    {language === "fr" ? "Choisir…" : "Choose…"}
+                  </option>
+                  {transcriptionReady && (
+                    <option value="transcription">
+                      {language === "fr" ? "Transcription" : "Transcription"}
+                    </option>
+                  )}
+                  {voiceReady && (
+                    <option value="voice">
+                      {language === "fr"
+                        ? "Analyse des voix"
+                        : "Voice analysis"}
+                    </option>
+                  )}
+                </select>
+              </label>
+              <button disabled={busy} className={buttonClass("primary")}>
+                {language === "fr" ? "Planifier" : "Schedule"}
+              </button>
+              {!transcriptionReady && !voiceReady && (
+                <p
+                  role="status"
+                  className="m-0 w-full rounded-lg bg-warn-bg p-3 text-warn-fg"
+                >
+                  {language === "fr"
+                    ? "Aucun worker n’a déclaré de traitement compatible. Démarrez un worker : la page se met à jour seule."
+                    : "No worker has reported compatible tasks. Start a worker: the page updates on its own."}
+                </p>
+              )}
+            </form>
+          </details>
+
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-ink">
@@ -433,123 +516,6 @@ export function QueueTab() {
           ) : (
             <p role="status">{t("app.loading")}</p>
           )}
-
-          <details className="rounded-xl border border-line p-4">
-            <summary className="cursor-pointer list-none p-1">
-              <span className="text-base font-semibold">
-                {t("queue.schedule")}
-              </span>
-              <span className="ml-2 text-sm text-mute">
-                {language === "fr"
-                  ? "Choisir un clip et démarrer au bon traitement"
-                  : "Choose a clip and start at the right step"}
-              </span>
-            </summary>
-            <form
-              onSubmit={submitJob}
-              className="flex flex-col gap-3 px-1 pb-1 pt-4"
-            >
-              <label className="flex flex-col gap-1 text-sm font-medium">
-                {t("queue.clip")}
-                <input
-                  name="clip"
-                  type="number"
-                  min={1}
-                  required
-                  placeholder="ex. 18"
-                  className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink md:h-9"
-                />
-              </label>
-              {!state.value.workers.some(
-                (w) =>
-                  !w.revoked_at &&
-                  w.supported_steps?.some(
-                    (s) =>
-                      s.startsWith("transcription.") ||
-                      s === "voice.*" ||
-                      s.startsWith("voice.diarization."),
-                  ),
-              ) && (
-                <p
-                  role="status"
-                  className="rounded-lg bg-warn-bg p-3 text-warn-fg"
-                >
-                  {language === "fr"
-                    ? "Aucun worker n’a déclaré de traitement compatible. Démarrez un worker puis actualisez cette page."
-                    : "No worker has reported compatible tasks. Start a worker, then refresh this page."}
-                </p>
-              )}
-              <fieldset className="mt-2 grid gap-3 md:grid-cols-2">
-                <legend className="mb-2 text-sm font-medium">
-                  {t("queue.step")}
-                </legend>
-                {state.value.workers.some(
-                  (w) =>
-                    !w.revoked_at &&
-                    w.supported_steps?.some((s) =>
-                      s.startsWith("transcription."),
-                    ),
-                ) && (
-                  <label className="flex min-h-16 cursor-pointer items-start gap-2 rounded-lg border border-line p-3 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
-                    <input
-                      type="radio"
-                      name="step"
-                      value="transcription"
-                      required
-                      className="sr-only"
-                    />
-                    <span>
-                      <strong className="block text-sm">
-                        {language === "fr"
-                          ? "Étape 0 · Transcription"
-                          : "Step 0 · Transcription"}
-                      </strong>
-                      <span className="mt-1 block text-xs text-mute">
-                        {language === "fr"
-                          ? "Écrire les paroles du clip"
-                          : "Write down the clip’s speech"}
-                      </span>
-                    </span>
-                  </label>
-                )}
-                {state.value.workers.some(
-                  (w) =>
-                    !w.revoked_at &&
-                    w.supported_steps?.some(
-                      (s) =>
-                        s === "voice.*" || s.startsWith("voice.diarization."),
-                    ),
-                ) && (
-                  <label className="flex min-h-16 cursor-pointer items-start gap-2 rounded-lg border border-line p-3 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
-                    <input
-                      type="radio"
-                      name="step"
-                      value="voice"
-                      required
-                      className="sr-only"
-                    />
-                    <span>
-                      <strong className="block text-sm">
-                        {language === "fr"
-                          ? "Étape 1 · Analyse des voix"
-                          : "Step 1 · Voice analysis"}
-                      </strong>
-                      <span className="mt-1 block text-xs text-mute">
-                        {language === "fr"
-                          ? "Nécessite une transcription"
-                          : "Requires a transcript"}
-                      </span>
-                    </span>
-                  </label>
-                )}
-              </fieldset>
-              <div>
-                <button disabled={busy} className={buttonClass("primary")}>
-                  {language === "fr" ? "Planifier" : "Schedule"}
-                </button>
-              </div>
-            </form>
-          </details>
         </>
       )}
     </div>

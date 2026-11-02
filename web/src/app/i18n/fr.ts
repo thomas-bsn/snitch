@@ -27,7 +27,9 @@ export const fr: Messages = {
       trunk: "Préparation et transcription",
       branchSearch: "Branche recherche",
       branchVoices: "Branche voix",
-      voicesToCheck: "Voix à vérifier",
+      voicesToCheck: "Voix à vérifier ({n})",
+      partiallyIdentified: "Partiellement identifié",
+      identified: "Voix identifiées",
       attempt: "Tentative {n}",
       stepsOf: "Étapes de l’analyse de {clip}",
       scope: {

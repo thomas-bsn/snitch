@@ -3,6 +3,9 @@ package analysis
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
 
 	"snitch/internal/jobs"
 )
@@ -10,9 +13,31 @@ import (
 // CompletedRuns is how many finished clips the queue keeps in view; the rest is history.
 const CompletedRuns = 3
 
+// UnknownSpeakerPredicate selects (alias ls) the diarized voices no one has validated or
+// automatically attributed; PendingVoiceCondition narrows them to those that still await a
+// decision (the Verification list and the speaker-review notification use the same one).
+const UnknownSpeakerPredicate = `ls.kind='diarized' AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND (a.validation_state='validated' OR a.decision_level='automatic'))`
+
+const PendingVoiceCondition = UnknownSpeakerPredicate + `
+AND COALESCE((SELECT a.decision_level FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='unvalidated'),'unknown') IN ('unknown','ambiguous')`
+
+// HistoryPageSize is the page of the durable run history.
+const HistoryPageSize = 10
+
 type QueueRun struct {
 	Run
 	ClipName string `json:"clip_name"`
+	// PendingVoices counts the voices of the clip still unknown or ambiguous: a completed
+	// run with some left is only partially identified.
+	PendingVoices int `json:"pending_voices"`
+}
+
+// RunHistory is one page of the finished runs, newest first.
+type RunHistory struct {
+	Items    []QueueRun `json:"items"`
+	Total    int        `json:"total"`
+	Page     int        `json:"page"`
+	PageSize int        `json:"page_size"`
 }
 
 type QueueJob struct {
@@ -39,9 +64,15 @@ WHERE r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id) AND 
 	if err != nil {
 		return nil, fmt.Errorf("list queue runs: %w", err)
 	}
+	return s.scanQueueRuns(ctx, rows)
+}
+
+func (s *Service) scanQueueRuns(ctx context.Context, rows pgx.Rows) ([]QueueRun, error) {
 	defer rows.Close()
 	out := []QueueRun{}
 	ids := []int64{}
+	clips := []int64{}
+	var err error
 	for rows.Next() {
 		var r QueueRun
 		if err = rows.Scan(&r.ID, &r.ClipID, &r.Scope, &r.Status, &r.StartedBy, &r.CreatedAt, &r.UpdatedAt, &r.FinishedAt, &r.ClipName); err != nil {
@@ -50,10 +81,12 @@ WHERE r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id) AND 
 		r.Steps = []Step{}
 		out = append(out, r)
 		ids = append(ids, r.ID)
+		clips = append(clips, r.ClipID)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
+	rows.Close()
 	steps, err := s.pool.Query(ctx, `SELECT run_id,step,status,reason,job_id,attempt,started_at,finished_at,updated_at FROM clip_analysis_steps WHERE run_id=ANY($1) ORDER BY run_id,array_position($2::text[],step)`, ids, stepOrder)
 	if err != nil {
 		return nil, fmt.Errorf("list queue steps: %w", err)
@@ -71,7 +104,49 @@ WHERE r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id) AND 
 		}
 		out[index[runID]].Steps = append(out[index[runID]].Steps, st)
 	}
-	return out, steps.Err()
+	if err = steps.Err(); err != nil {
+		return nil, err
+	}
+	steps.Close()
+	pending, err := s.pool.Query(ctx, `SELECT ls.clip_id,count(*)::int FROM local_speakers ls WHERE ls.clip_id=ANY($1) AND `+PendingVoiceCondition+` GROUP BY ls.clip_id`, clips)
+	if err != nil {
+		return nil, fmt.Errorf("count pending voices: %w", err)
+	}
+	defer pending.Close()
+	counts := map[int64]int{}
+	for pending.Next() {
+		var clip int64
+		var n int
+		if err = pending.Scan(&clip, &n); err != nil {
+			return nil, err
+		}
+		counts[clip] = n
+	}
+	for i := range out {
+		out[i].PendingVoices = counts[out[i].ClipID]
+	}
+	return out, pending.Err()
+}
+
+// FinishedRuns lists the finished runs of every clip, newest first, optionally narrowed to the
+// clips whose name contains q. Steps and failures are kept: this is the durable record.
+func (s *Service) FinishedRuns(ctx context.Context, q string, page int) (RunHistory, error) {
+	if page < 1 {
+		page = 1
+	}
+	h := RunHistory{Page: page, PageSize: HistoryPageSize}
+	like := "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(q) + "%"
+	const where = `r.status<>'active' AND c.original_name ILIKE $1`
+	if err := s.pool.QueryRow(ctx, `SELECT count(*)::int FROM clip_analysis_runs r JOIN clips c ON c.id=r.clip_id WHERE `+where, like).Scan(&h.Total); err != nil {
+		return h, fmt.Errorf("count run history: %w", err)
+	}
+	rows, err := s.pool.Query(ctx, `SELECT r.id,r.clip_id,r.scope,r.status,r.started_by,r.created_at,r.updated_at,r.finished_at,c.original_name
+FROM clip_analysis_runs r JOIN clips c ON c.id=r.clip_id WHERE `+where+` ORDER BY r.finished_at DESC NULLS LAST,r.id DESC LIMIT $2 OFFSET $3`, like, HistoryPageSize, (page-1)*HistoryPageSize)
+	if err != nil {
+		return h, fmt.Errorf("list run history: %w", err)
+	}
+	h.Items, err = s.scanQueueRuns(ctx, rows)
+	return h, err
 }
 
 // Queue reads the whole queue at once.

@@ -87,6 +87,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_audio_track_rule: "Cette règle de piste audio n’est pas valide.",
   invalid_analysis_scope: "Ce périmètre d’analyse n’est pas valide.",
   analysis_not_active: "Aucune analyse n’est active sur ce clip.",
+  analysis_active:
+    "Une analyse est en cours sur ce clip : attendez sa fin ou annulez-la avant de planifier une étape isolée.",
   analysis_not_found: "Ce clip n’a pas été analysé.",
   analysis_not_retryable:
     "Cette analyse est terminée : lancez-en une nouvelle.",

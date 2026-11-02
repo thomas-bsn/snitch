@@ -60,6 +60,9 @@ func (s *Server) scheduleJob(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
+	if s.refuseWhileAnalyzing(w, r, input.ClipID) {
+		return
+	}
 	if isTranscriptionStep(input.Step) && input.ClipID > 0 && !s.correctionsGuard(w, r, input.ClipID) {
 		return
 	}
@@ -97,7 +100,7 @@ func (s *Server) scheduleTranscription(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "invalid_audio_stream")
 		return
 	}
-	if !s.correctionsGuard(w, r, clipID) {
+	if s.refuseWhileAnalyzing(w, r, clipID) || !s.correctionsGuard(w, r, clipID) {
 		return
 	}
 	job, created, err := s.scheduleResolvedTranscription(r.Context(), clipID, input.AudioStreamIndex, true)

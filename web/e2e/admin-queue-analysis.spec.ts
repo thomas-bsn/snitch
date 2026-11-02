@@ -74,3 +74,63 @@ test("la file montre une carte par analyse, en direct", async ({ browser }) => {
   await expect(page.getByText("No analysis in progress.")).toBeVisible();
   await context.close();
 });
+
+test("la planification avancée est en haut et l'historique garde les analyses", async ({
+  browser,
+}) => {
+  const clip = await uploadClip("fixture-queue-c.mp4", "shared");
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+  });
+  const page = await context.newPage();
+  await page.goto("/admin/queue");
+  const form = page.locator("[data-advanced-schedule]");
+  await expect(form).toBeVisible();
+  const formBox = await form.boundingBox();
+  const boardBox = await page
+    .getByRole("heading", { name: "Analyses in progress" })
+    .boundingBox();
+  expect(formBox!.y).toBeLessThan(boardBox!.y);
+
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const headers = {
+    Origin: process.env.SNITCH_TEST_URL!,
+    "X-CSRF-Token": me.csrf_token,
+  };
+  expect(
+    (
+      await page.request.post(`/api/admin/clips/${clip}/analysis`, {
+        headers,
+        data: { scope: "full" },
+      })
+    ).ok(),
+  ).toBe(true);
+  // An isolated step is refused while the analysis is active.
+  const refused = await page.request.post(
+    `/api/admin/clips/${clip}/transcription`,
+    { headers, data: {} },
+  );
+  expect(refused.status()).toBe(409);
+  expect((await refused.json()).error).toBe("analysis_active");
+
+  expect(
+    (
+      await page.request.post(`/api/admin/clips/${clip}/analysis/cancel`, {
+        headers,
+      })
+    ).ok(),
+  ).toBe(true);
+  await expect(page.locator(`[data-run-card="${clip}"]`)).toHaveCount(0);
+  await page.getByRole("button", { name: "Clip history" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.locator("[data-history-run]").filter({ hasText: "fixture-queue-c" }),
+  ).toHaveCount(1);
+  await expect(dialog.getByRole("search")).toBeVisible();
+  await dialog.getByLabel("Search a clip").fill("no-such-clip");
+  await dialog.getByRole("button", { name: "Search" }).click();
+  await expect(dialog.getByText("No finished analysis.")).toBeVisible();
+  const violations = (await new AxeBuilder({ page }).analyze()).violations;
+  expect(violations).toEqual([]);
+  await context.close();
+});

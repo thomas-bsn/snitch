@@ -5,6 +5,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -132,5 +133,140 @@ func testAdminQueue(t *testing.T, pool *pgxpool.Pool) {
 	q = h.queue()
 	if len(q.Completed) != 3 || len(q.Active) != 31-5 {
 		t.Fatalf("three completed clips, the rest still listed: %d completed, %d active", len(q.Completed), len(q.Active))
+	}
+}
+
+func testAdminQueueHistory(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	ctx := t.Context()
+
+	// An isolated step is refused while an analysis is active on the clip, for every way
+	// of scheduling one, and allowed again once the run is over.
+	h.startAnalysis(map[string]any{}, http.StatusCreated)
+	refused := func(method, path string, body any) {
+		t.Helper()
+		var got struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(h.adminCall(method, path, body, http.StatusConflict), &got); err != nil || got.Error != "analysis_active" {
+			t.Fatalf("%s %s: %s %v", method, path, got.Error, err)
+		}
+	}
+	id := strconv.FormatInt(h.clipID, 10)
+	refused(http.MethodPost, "/api/admin/jobs", map[string]any{"clip_id": h.clipID, "step": "transcription.audio.1", "input_version": "v1"})
+	refused(http.MethodPost, "/api/admin/clips/"+id+"/transcription", map[string]any{})
+	refused(http.MethodPost, "/api/admin/clips/"+id+"/voice", map[string]any{})
+	h.userCall(h.newUser("queue-history-member"), http.MethodGet, "/api/admin/analysis/history", nil, http.StatusForbidden)
+	h.adminCall(http.MethodGet, "/api/admin/analysis/history?page=0", nil, http.StatusBadRequest)
+
+	// Clips finish: the queue ranks the last three distinct ones by completion time, the
+	// history keeps every run (the failed one too) with its steps.
+	if _, err := pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='failed', finished_at=now()-interval '1 hour' WHERE clip_id=$1`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE clip_analysis_steps SET status='failed', reason='job_dead' WHERE step='transcription' AND run_id IN (SELECT id FROM clip_analysis_runs WHERE clip_id=$1)`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `WITH c AS (INSERT INTO clips(owner_id, original_name, size_bytes, modified_at, recorded_at)
+ SELECT owner_id, 'history-' || n, 1, now(), now() FROM clips, generate_series(1, 4) n WHERE id=$1 RETURNING id, original_name)
+ INSERT INTO clip_analysis_runs(clip_id, scope, status, finished_at)
+ SELECT id, 'full', 'completed', now() - (substr(original_name, 9)::int * interval '1 minute') FROM c`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	// A distinct clip is listed once even with several finished runs.
+	if _, err := pool.Exec(ctx, `INSERT INTO clip_analysis_runs(clip_id, scope, status, finished_at) SELECT id,'full','completed',now()-interval '30 seconds' FROM clips WHERE original_name='history-1'`); err != nil {
+		t.Fatal(err)
+	}
+	var q struct {
+		Completed []struct {
+			ClipName string `json:"clip_name"`
+		} `json:"completed"`
+	}
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/analysis/queue", nil, http.StatusOK), &q); err != nil {
+		t.Fatal(err)
+	}
+	if len(q.Completed) != 3 || q.Completed[0].ClipName != "history-1" || q.Completed[2].ClipName != "history-3" {
+		t.Fatalf("last three distinct clips, newest first: %+v", q.Completed)
+	}
+	type history struct {
+		Items []struct {
+			ClipID int64  `json:"clip_id"`
+			Status string `json:"status"`
+			Steps  []struct {
+				Step   string `json:"step"`
+				Status string `json:"status"`
+				Reason string `json:"reason"`
+			} `json:"steps"`
+		} `json:"items"`
+		Total int `json:"total"`
+	}
+	var hist history
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/analysis/history", nil, http.StatusOK), &hist); err != nil {
+		t.Fatal(err)
+	}
+	if hist.Total != 6 || len(hist.Items) != 6 {
+		t.Fatalf("every finished run is kept: %+v", hist)
+	}
+	var failedKept bool
+	for _, it := range hist.Items {
+		if it.ClipID == h.clipID && it.Status == "failed" {
+			for _, st := range it.Steps {
+				failedKept = failedKept || (st.Step == "transcription" && st.Status == "failed" && st.Reason == "job_dead")
+			}
+		}
+	}
+	if !failedKept {
+		t.Fatalf("the failed step is kept: %+v", hist.Items)
+	}
+	hist = history{}
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/analysis/history?q=HISTORY-2", nil, http.StatusOK), &hist); err != nil {
+		t.Fatal(err)
+	}
+	if hist.Total != 1 {
+		t.Fatalf("search by clip name: %+v", hist)
+	}
+
+	// Once the run is over the isolated step is accepted again.
+	h.adminCall(http.MethodPost, "/api/admin/jobs", map[string]any{"clip_id": h.clipID, "step": "transcription.audio.1", "input_version": "v1"}, http.StatusCreated)
+}
+
+// The "voices to check" badge follows the voices the clip really has left, not the run status.
+func testAdminQueuePendingVoices(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	ctx := t.Context()
+	h.startAnalysis(map[string]any{}, http.StatusCreated)
+	if _, err := pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='completed', finished_at=now() WHERE clip_id=$1`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	pending := func() int {
+		var q struct {
+			Completed []struct {
+				PendingVoices int `json:"pending_voices"`
+			} `json:"completed"`
+		}
+		if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/analysis/queue", nil, http.StatusOK), &q); err != nil || len(q.Completed) != 1 {
+			t.Fatalf("%v %+v", err, q)
+		}
+		return q.Completed[0].PendingVoices
+	}
+	if got := pending(); got != 0 {
+		t.Fatalf("no voice left, fully identified: %d", got)
+	}
+	var job, speaker int64
+	if err := pool.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,status) VALUES($1,'voice.diarization.2','pv','done') RETURNING id`, h.clipID).Scan(&job); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count) VALUES($1,2,$2,'SPEAKER_00',0,2,1) RETURNING id`, h.clipID, job).Scan(&speaker); err != nil {
+		t.Fatal(err)
+	}
+	if got := pending(); got != 1 {
+		t.Fatalf("an unknown voice leaves the run partially identified: %d", got)
+	}
+	// An automatic attribution settles the voice, as in the Verification list.
+	if _, err := pool.Exec(ctx, `WITH p AS (INSERT INTO persons(display_name) VALUES('Synthetic') RETURNING id) INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,origin) SELECT $1,id,'automatic','unvalidated','test' FROM p`, speaker); err != nil {
+		t.Fatal(err)
+	}
+	if got := pending(); got != 0 {
+		t.Fatalf("an attributed voice is no longer pending: %d", got)
 	}
 }
