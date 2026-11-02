@@ -88,7 +88,7 @@ type filterOption struct {
 func (s *Server) listClipFilterOptions(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
 	admin := isAdministrator(ss.User.Role)
-	visible := "(c.visibility='shared' OR c.owner_id=$1 OR $2)"
+	visible := "clip_readable(c.id,c.owner_id,c.visibility,$1,$2)"
 	collect := func(query string, named bool) ([]filterOption, error) {
 		rows, err := s.Pool.Query(r.Context(), query, ss.User.ID, admin)
 		if err != nil {

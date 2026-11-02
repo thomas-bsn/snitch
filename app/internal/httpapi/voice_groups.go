@@ -45,7 +45,7 @@ const voiceGroupsCTE = `WITH RECURSIVE eligible AS (
   SELECT ls.id,ls.clip_id,c.original_name AS clip_name,ls.label,ls.speaking_seconds,
          EXISTS (SELECT 1 FROM voice_group_exclusions x WHERE x.local_speaker_id=ls.id) AS excluded
   FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id
-  WHERE (c.visibility='shared' OR c.owner_id=$1 OR $2) AND ` + unknownSpeakerPredicate + `
+  WHERE clip_readable(c.id,c.owner_id,c.visibility,$1,$2) AND ` + unknownSpeakerPredicate + `
 ), edges AS (
   SELECT l.speaker_a_id AS a,l.speaker_b_id AS b FROM voice_group_links l
     JOIN eligible x ON x.id=l.speaker_a_id AND NOT x.excluded JOIN eligible y ON y.id=l.speaker_b_id AND NOT y.excluded
