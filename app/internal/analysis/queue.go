@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -40,7 +41,44 @@ type RunHistory struct {
 type QueueJob struct {
 	jobs.Job
 	ClipName string `json:"clip_name"`
+	// FailureCode is the persisted cause of the last failure and RecommendedAction the advised
+	// recovery (jobs.RecommendedAction); both are empty without a failure.
+	FailureCode       string `json:"failure_code,omitempty"`
+	RecommendedAction string `json:"recommended_action,omitempty"`
 }
+
+// ActionStartWorker is the remedy of a step that waits for a Worker.
+const ActionStartWorker = "start_worker"
+
+// QueueSummary is the load of the queue at a glance. RunningTasks counts the jobs that hold a
+// concurrency slot, exactly as the scheduler does (leased, lease not expired); WaitingClips counts
+// the clips with an active analysis and no slot, whatever the reason (waiting, retrying, suspended).
+type QueueSummary struct {
+	RunningTasks   int  `json:"running_tasks"`
+	WaitingClips   int  `json:"waiting_clips"`
+	MaxConcurrency int  `json:"max_concurrency"`
+	Paused         bool `json:"paused"`
+}
+
+// failureCodeOf keeps only a catalogue code: the cause of the last failure event, else the code
+// kept on the job; anything else is a generic worker_failed, never the raw text.
+func failureCodeOf(eventCode, lastError string) string {
+	code := eventCode
+	if code == "" {
+		code = lastError
+	}
+	switch {
+	case code == "":
+		return ""
+	case jobs.RecommendedAction(code) != "":
+		return code
+	default:
+		return "worker_failed"
+	}
+}
+
+// latestFailureCode is the SQL for the cause of the last persisted failure event of job j.
+const latestFailureCode = `COALESCE((SELECT e.error_code FROM job_events e WHERE e.job_id=j.id AND e.error_code<>'' ORDER BY e.id DESC LIMIT 1),'')`
 
 // Queue is the state of the Task Queue: one entry per analysis run, never paginated, plus the
 // technical tasks that belong to no run so they are never lost.
@@ -52,12 +90,46 @@ type Queue struct {
 	Completed []QueueRun `json:"completed"`
 	// Tasks lists the unfinished jobs that no listed run follows.
 	Tasks []QueueJob `json:"tasks"`
+	// Summary is the load of the queue: running tasks on the ceiling, waiting clips, pause.
+	Summary QueueSummary `json:"summary"`
+}
+
+// queueRuns lists the latest run of each clip that matches where; a limit of 0 lists them all, as
+// the Task Queue does for the active runs: none is ever left out, whatever the size of the queue.
+// QueueDelta is what changed in the Task Queue since a previous snapshot: the order of the
+// active runs, the full content of those that are new or changed, and the small parts (finished
+// runs, loose tasks, load) whole. A client rebuilds the queue from the snapshot it holds.
+type QueueDelta struct {
+	// ActiveIDs lists every active run, in the order of the queue.
+	ActiveIDs []int64 `json:"active_ids"`
+	// Active holds the runs of ActiveIDs that are new or differ from the previous snapshot.
+	Active    []QueueRun   `json:"active"`
+	Completed []QueueRun   `json:"completed"`
+	Tasks     []QueueJob   `json:"tasks"`
+	Summary   QueueSummary `json:"summary"`
+}
+
+// DeltaFrom compares the queue with a previous snapshot.
+func (q Queue) DeltaFrom(previous Queue) QueueDelta {
+	before := make(map[int64]*QueueRun, len(previous.Active))
+	for i := range previous.Active {
+		before[previous.Active[i].ID] = &previous.Active[i]
+	}
+	d := QueueDelta{ActiveIDs: make([]int64, 0, len(q.Active)), Active: []QueueRun{}, Completed: q.Completed, Tasks: q.Tasks, Summary: q.Summary}
+	for i := range q.Active {
+		run := &q.Active[i]
+		d.ActiveIDs = append(d.ActiveIDs, run.ID)
+		if old, ok := before[run.ID]; !ok || !reflect.DeepEqual(*old, *run) {
+			d.Active = append(d.Active, *run)
+		}
+	}
+	return d
 }
 
 func (s *Service) queueRuns(ctx context.Context, where, order string, limit int) ([]QueueRun, error) {
 	rows, err := s.pool.Query(ctx, `SELECT r.id,r.clip_id,r.scope,r.status,r.started_by,r.created_at,r.updated_at,r.finished_at,c.original_name
 FROM clip_analysis_runs r JOIN clips c ON c.id=r.clip_id
-WHERE r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id) AND (`+where+`) ORDER BY `+order+` LIMIT $1`, limit)
+WHERE r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id) AND (`+where+`) ORDER BY `+order+` LIMIT NULLIF($1,0)`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list queue runs: %w", err)
 	}
@@ -84,7 +156,9 @@ func (s *Service) scanQueueRuns(ctx context.Context, rows pgx.Rows) ([]QueueRun,
 		return nil, err
 	}
 	rows.Close()
-	steps, err := s.pool.Query(ctx, `SELECT run_id,step,status,reason,job_id,attempt,started_at,finished_at,updated_at FROM clip_analysis_steps WHERE run_id=ANY($1) ORDER BY run_id,array_position($2::text[],step)`, ids, stepOrder)
+	steps, err := s.pool.Query(ctx, `SELECT st.run_id,st.step,st.status,st.reason,st.job_id,st.attempt,st.started_at,st.finished_at,st.updated_at,
+ COALESCE(j.status,''),COALESCE(j.next_attempt_at<=now(),false),COALESCE(j.last_error,''),`+latestFailureCode+`
+FROM clip_analysis_steps st LEFT JOIN jobs j ON j.id=st.job_id WHERE st.run_id=ANY($1) ORDER BY st.run_id,array_position($2::text[],st.step)`, ids, stepOrder)
 	if err != nil {
 		return nil, fmt.Errorf("list queue steps: %w", err)
 	}
@@ -96,8 +170,18 @@ func (s *Service) scanQueueRuns(ctx context.Context, rows pgx.Rows) ([]QueueRun,
 	for steps.Next() {
 		var runID int64
 		var st Step
-		if err = steps.Scan(&runID, &st.Step, &st.Status, &st.Reason, &st.JobID, &st.Attempt, &st.StartedAt, &st.FinishedAt, &st.UpdatedAt); err != nil {
+		var jobStatus, lastError, eventCode string
+		var due bool
+		if err = steps.Scan(&runID, &st.Step, &st.Status, &st.Reason, &st.JobID, &st.Attempt, &st.StartedAt, &st.FinishedAt, &st.UpdatedAt, &jobStatus, &due, &lastError, &eventCode); err != nil {
 			return nil, err
+		}
+		switch {
+		case st.Status == StatusFailed:
+			st.FailureCode = failureCodeOf(eventCode, lastError)
+			st.RecommendedAction = jobs.RecommendedAction(st.FailureCode)
+		case (st.Reason == "awaiting_worker" || st.Reason == "awaiting_compatible_worker") && jobStatus == string(jobs.Pending) && due:
+			// A job whose next attempt is still in the future is a deferred retry, not a Worker wait.
+			st.RecommendedAction = ActionStartWorker
 		}
 		out[index[runID]].Steps = append(out[index[runID]].Steps, st)
 	}
@@ -151,24 +235,68 @@ FROM clip_analysis_runs r JOIN clips c ON c.id=r.clip_id WHERE `+where+` ORDER B
 	if err != nil {
 		return h, fmt.Errorf("list run history: %w", err)
 	}
-	h.Items, err = s.scanQueueRuns(ctx, rows)
-	return h, err
+	if h.Items, err = s.scanQueueRuns(ctx, rows); err != nil {
+		return h, err
+	}
+	return h, s.attachStepEvents(ctx, h.Items)
+}
+
+// attachStepEvents loads, in one query, the events of every job the steps of the runs followed.
+func (s *Service) attachStepEvents(ctx context.Context, runs []QueueRun) error {
+	type position struct{ run, step int }
+	where := map[int64][]position{}
+	ids := []int64{}
+	for i, r := range runs {
+		for j, st := range r.Steps {
+			if st.JobID != nil {
+				if _, seen := where[*st.JobID]; !seen {
+					ids = append(ids, *st.JobID)
+				}
+				where[*st.JobID] = append(where[*st.JobID], position{i, j})
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	rows, err := s.pool.Query(ctx, `SELECT e.job_id,e.id,e.event,e.cycle,e.attempt,e.actor,e.actor_id,e.error_code,e.created_at,e.step,e.provider,e.model,e.revision,e.http_status,e.duration_ms,COALESCE(w.name,'')
+FROM job_events e LEFT JOIN workers w ON e.actor='worker' AND w.id=e.actor_id WHERE e.job_id=ANY($1) ORDER BY e.job_id,e.id`, ids)
+	if err != nil {
+		return fmt.Errorf("list step events: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var job int64
+		var ev StepEvent
+		if err = rows.Scan(&job, &ev.ID, &ev.Event.Event, &ev.Cycle, &ev.Attempt, &ev.Actor, &ev.ActorID, &ev.ErrorCode, &ev.CreatedAt, &ev.Step, &ev.Provider, &ev.Model, &ev.Revision, &ev.HTTPStatus, &ev.DurationMS, &ev.WorkerName); err != nil {
+			return err
+		}
+		if ev.Actor == "worker" {
+			// Whatever a Worker reported is reduced to a catalogue code, never relayed.
+			ev.ErrorCode = failureCodeOf(ev.ErrorCode, "")
+		}
+		ev.RecommendedAction = jobs.RecommendedAction(ev.ErrorCode)
+		for _, at := range where[job] {
+			runs[at.run].Steps[at.step].Events = append(runs[at.run].Steps[at.step].Events, ev)
+		}
+	}
+	return rows.Err()
 }
 
 // Queue reads the whole queue at once.
 func (s *Service) Queue(ctx context.Context) (Queue, error) {
 	var q Queue
 	var err error
-	if q.Active, err = s.queueRuns(ctx, `r.status IN ('active','failed')`, `r.created_at,r.id`, 100000); err != nil {
+	if q.Active, err = s.queueRuns(ctx, `r.status IN ('active','failed')`, `r.created_at,r.id`, 0); err != nil {
 		return q, err
 	}
 	if q.Completed, err = s.queueRuns(ctx, `r.status='completed'`, `r.finished_at DESC NULLS LAST,r.id DESC`, CompletedRuns); err != nil {
 		return q, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.cycle,c.original_name
+	rows, err := s.pool.Query(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.cycle,c.original_name,`+latestFailureCode+`
 FROM jobs j JOIN clips c ON c.id=j.clip_id
-WHERE j.status IN ('pending','leased','retry_wait','dead')
- AND NOT EXISTS (SELECT 1 FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id=j.id AND r.status IN ('active','failed') AND r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id))
+WHERE j.status IN ('pending','leased','retry_wait','dead','failed')
+ AND j.id NOT IN (SELECT st.job_id FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id IS NOT NULL AND r.status IN ('active','failed') AND r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id))
  AND NOT EXISTS (SELECT 1 FROM jobs n WHERE n.clip_id=j.clip_id AND n.step=j.step AND n.id>j.id)
 ORDER BY j.priority DESC,j.created_at,j.id`)
 	if err != nil {
@@ -178,10 +306,34 @@ ORDER BY j.priority DESC,j.created_at,j.id`)
 	q.Tasks = []QueueJob{}
 	for rows.Next() {
 		var j QueueJob
-		if err = rows.Scan(&j.ID, &j.ClipID, &j.Step, &j.InputVersion, &j.Status, &j.Priority, &j.Attempts, &j.MaxAttempts, &j.LeaseOwner, &j.LeaseExpiresAt, &j.NextAttemptAt, &j.LastError, &j.CreatedAt, &j.UpdatedAt, &j.Cycle, &j.ClipName); err != nil {
+		var eventCode string
+		if err = rows.Scan(&j.ID, &j.ClipID, &j.Step, &j.InputVersion, &j.Status, &j.Priority, &j.Attempts, &j.MaxAttempts, &j.LeaseOwner, &j.LeaseExpiresAt, &j.NextAttemptAt, &j.LastError, &j.CreatedAt, &j.UpdatedAt, &j.Cycle, &j.ClipName, &eventCode); err != nil {
 			return q, err
 		}
+		j.FailureCode = failureCodeOf(eventCode, j.LastError)
+		j.RecommendedAction = jobs.RecommendedAction(j.FailureCode)
+		j.LastError = j.FailureCode
 		q.Tasks = append(q.Tasks, j)
 	}
-	return q, rows.Err()
+	if err = rows.Err(); err != nil {
+		return q, err
+	}
+	rows.Close()
+	q.Summary, err = s.queueSummary(ctx)
+	return q, err
+}
+
+// queueSummary reads the load of the queue with the scheduler's own rule: only a leased job whose
+// lease has not expired holds a slot.
+func (s *Service) queueSummary(ctx context.Context) (QueueSummary, error) {
+	var sum QueueSummary
+	if err := s.pool.QueryRow(ctx, `SELECT paused,max_concurrency FROM job_control WHERE id=true`).Scan(&sum.Paused, &sum.MaxConcurrency); err != nil {
+		return sum, fmt.Errorf("read queue controls: %w", err)
+	}
+	const live = `j.status='leased' AND j.lease_expires_at>now()`
+	if err := s.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM jobs j WHERE `+live+`)::int,
+ (SELECT count(*) FROM clip_analysis_runs r WHERE r.status='active' AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.clip_id=r.clip_id AND `+live+`))::int`).Scan(&sum.RunningTasks, &sum.WaitingClips); err != nil {
+		return sum, fmt.Errorf("count queue load: %w", err)
+	}
+	return sum, nil
 }

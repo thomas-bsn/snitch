@@ -37,6 +37,11 @@ type Topic struct {
 	Name      string
 	Authorize func(ctx context.Context) error
 	Snapshot  func(ctx context.Context) (any, error)
+	// Delta is optional. A client that asks for it (query delta=1) gets, after its first
+	// snapshot, only what changed since the previous snapshot of its own connection, in a
+	// `delta` event; ok false (nothing meaningful to diff) sends a whole snapshot instead. A
+	// client that does not ask keeps receiving complete snapshots, exactly as before.
+	Delta func(previous, next any) (delta any, ok bool)
 }
 
 func (s *Service) latest(ctx context.Context, topic string) (int64, error) {
@@ -70,6 +75,14 @@ func (s *Service) Serve(ctx context.Context) {
 type frame struct {
 	Seq      int64 `json:"seq"`
 	Snapshot any   `json:"snapshot"`
+}
+
+// deltaFrame is what changed since the snapshot of sequence Base; a client that does not hold
+// exactly that snapshot must ask for a whole one.
+type deltaFrame struct {
+	Seq   int64 `json:"seq"`
+	Base  int64 `json:"base"`
+	Delta any   `json:"delta"`
 }
 
 // Stream serves a text/event-stream: a snapshot at once (its sequence is the last event
@@ -106,6 +119,8 @@ func (s *Service) Stream(w http.ResponseWriter, r *http.Request, t Topic) {
 		return
 	}
 	var seen int64
+	var previous any
+	wantDelta := t.Delta != nil && r.URL.Query().Get("delta") == "1"
 	forbidden := func(err error) {
 		if errors.Is(err, ErrForbidden) {
 			_ = write("event: forbidden\ndata: {}\n\n")
@@ -124,11 +139,23 @@ func (s *Service) Stream(w http.ResponseWriter, r *http.Request, t Topic) {
 		if err != nil {
 			return err
 		}
+		base := seen
+		seen = seq
+		if wantDelta && previous != nil {
+			if delta, ok := t.Delta(previous, snap); ok {
+				body, err := json.Marshal(deltaFrame{Seq: seq, Base: base, Delta: delta})
+				if err != nil {
+					return err
+				}
+				previous = snap
+				return write("id: %d\nevent: delta\ndata: %s\n\n", seq, body)
+			}
+		}
 		body, err := json.Marshal(frame{Seq: seq, Snapshot: snap})
 		if err != nil {
 			return err
 		}
-		seen = seq
+		previous = snap
 		return write("id: %d\nevent: snapshot\ndata: %s\n\n", seq, body)
 	}
 	if send() != nil {

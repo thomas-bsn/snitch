@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.failure_code import FailureCode
 from ..models.job_status import JobStatus
 from ..types import UNSET, Unset
 from typing import cast
@@ -45,6 +46,9 @@ class AnalysisQueueTask:
             cycle (int):
             clip_name (str):
             result (JobResultType0 | None | Unset):
+            failure_code (FailureCode | Unset): Catalogue fermé des Causes d'échec d'un job. Un code hors catalogue envoyé
+                par un ancien Worker est enregistré comme worker_failed.
+            recommended_action (str | Unset): Action de reprise conseillée pour cette cause.
      """
 
     id: int
@@ -64,6 +68,8 @@ class AnalysisQueueTask:
     cycle: int
     clip_name: str
     result: JobResultType0 | None | Unset = UNSET
+    failure_code: FailureCode | Unset = UNSET
+    recommended_action: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -117,6 +123,13 @@ class AnalysisQueueTask:
         else:
             result = self.result
 
+        failure_code: str | Unset = UNSET
+        if not isinstance(self.failure_code, Unset):
+            failure_code = self.failure_code.value
+
+
+        recommended_action = self.recommended_action
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -140,6 +153,10 @@ class AnalysisQueueTask:
         })
         if result is not UNSET:
             field_dict["result"] = result
+        if failure_code is not UNSET:
+            field_dict["failure_code"] = failure_code
+        if recommended_action is not UNSET:
+            field_dict["recommended_action"] = recommended_action
 
         return field_dict
 
@@ -235,6 +252,18 @@ class AnalysisQueueTask:
         result = _parse_result(d.pop("result", UNSET))
 
 
+        _failure_code = d.pop("failure_code", UNSET)
+        failure_code: FailureCode | Unset
+        if isinstance(_failure_code,  Unset):
+            failure_code = UNSET
+        else:
+            failure_code = FailureCode(_failure_code)
+
+
+
+
+        recommended_action = d.pop("recommended_action", UNSET)
+
         analysis_queue_task = cls(
             id=id,
             clip_id=clip_id,
@@ -253,6 +282,8 @@ class AnalysisQueueTask:
             cycle=cycle,
             clip_name=clip_name,
             result=result,
+            failure_code=failure_code,
+            recommended_action=recommended_action,
         )
 
 
