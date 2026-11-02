@@ -10,6 +10,14 @@ export const fr: Messages = {
     loading: "Chargement…",
   },
   queue: {
+    thumbnail: {
+      title: "Miniatures",
+      none: "Aucune",
+      small: "Petite",
+      large: "Grande",
+      loading: "En chargement",
+      missing: "Original introuvable",
+    },
     board: {
       live: "Mises à jour en direct activées",
       offline:
