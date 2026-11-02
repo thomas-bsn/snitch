@@ -9,6 +9,7 @@ from .analysis_queue_run import AnalysisQueueRun
 from .analysis_queue_summary import AnalysisQueueSummary
 from .analysis_queue_task import AnalysisQueueTask
 from .analysis_run_history import AnalysisRunHistory
+from .analysis_step_event import AnalysisStepEvent
 from .attribution import Attribution
 from .attribution_author import AttributionAuthor
 from .attribution_candidate import AttributionCandidate
@@ -375,6 +376,7 @@ __all__ = (
     "AnalysisQueueSummary",
     "AnalysisQueueTask",
     "AnalysisRunHistory",
+    "AnalysisStepEvent",
     "Attribution",
     "AttributionAuthor",
     "AttributionCandidate",

@@ -57,6 +57,12 @@ export const en = {
       voicesToCheck: "Voices to check ({n})",
       partiallyIdentified: "Partially identified",
       identified: "Voices identified",
+      timeline: {
+        label: "Events of the step {step}",
+        worker: "Worker {name}",
+        model: "Model {model}",
+        cycle: "Cycle {n}",
+      },
       attempt: "Attempt {n}",
       stepsOf: "Steps of the analysis of {clip}",
       scope: {
@@ -149,6 +155,14 @@ export const en = {
       completed: "Completed",
       lease_expired: "Lease expired",
       worker_revoked: "Worker deleted, task requeued",
+    },
+    automatic: {
+      title: "Analyze a clip",
+      hint: "Runs the whole analysis of one clip: transcription, search and voices. Valid results are reused unless you choose otherwise.",
+      clip: "Clip number",
+      stepRequired: "Choose at least one step to run again.",
+      start: "Start analysis",
+      started: "Analysis started.",
     },
     schedule: "Schedule task",
     clip: "Clip ID",

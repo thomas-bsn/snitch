@@ -15,6 +15,8 @@ from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
+if TYPE_CHECKING:
+  from ..models.analysis_step_event import AnalysisStepEvent
 
 
 
@@ -49,6 +51,8 @@ class ClipAnalysisStep:
             recommended_action (str | Unset): File de tâches seulement : code de l'action conseillée, décidé par le serveur.
                 Étape en échec : action de la Cause d'échec (catalogue des jobs). Attente de Worker (awaiting_worker,
                 awaiting_compatible_worker) d'un job prêt : start_worker ; jamais pour une reprise différée.
+            events (list[AnalysisStepEvent] | Unset): Historique des analyses seulement : événements persistés du job suivi
+                par l'étape (tentatives, reprises, échecs), du plus ancien au plus récent ; absent ailleurs ou sans job.
      """
 
     step: ClipAnalysisStepStep
@@ -64,6 +68,7 @@ class ClipAnalysisStep:
     updated_at: datetime.datetime
     failure_code: FailureCode | Unset = UNSET
     recommended_action: str | Unset = UNSET
+    events: list[AnalysisStepEvent] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -71,6 +76,7 @@ class ClipAnalysisStep:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.analysis_step_event import AnalysisStepEvent # noqa: PLC0415
         step = self.step.value
 
         status = self.status.value
@@ -111,6 +117,15 @@ class ClipAnalysisStep:
 
         recommended_action = self.recommended_action
 
+        events: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.events, Unset):
+            events = []
+            for events_item_data in self.events:
+                events_item = events_item_data.to_dict()
+                events.append(events_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -131,6 +146,8 @@ class ClipAnalysisStep:
             field_dict["failure_code"] = failure_code
         if recommended_action is not UNSET:
             field_dict["recommended_action"] = recommended_action
+        if events is not UNSET:
+            field_dict["events"] = events
 
         return field_dict
 
@@ -138,6 +155,7 @@ class ClipAnalysisStep:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.analysis_step_event import AnalysisStepEvent # noqa: PLC0415
         d = dict(src_dict)
         step = ClipAnalysisStepStep(d.pop("step"))
 
@@ -232,6 +250,18 @@ class ClipAnalysisStep:
 
         recommended_action = d.pop("recommended_action", UNSET)
 
+        _events = d.pop("events", UNSET)
+        events: list[AnalysisStepEvent] | Unset = UNSET
+        if _events is not UNSET:
+            events = []
+            for events_item_data in _events:
+                events_item = AnalysisStepEvent.from_dict(events_item_data)
+
+
+
+                events.append(events_item)
+
+
         clip_analysis_step = cls(
             step=step,
             status=status,
@@ -246,6 +276,7 @@ class ClipAnalysisStep:
             updated_at=updated_at,
             failure_code=failure_code,
             recommended_action=recommended_action,
+            events=events,
         )
 
 

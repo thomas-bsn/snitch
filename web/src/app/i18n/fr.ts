@@ -58,6 +58,12 @@ export const fr: Messages = {
       voicesToCheck: "Voix à vérifier ({n})",
       partiallyIdentified: "Partiellement identifié",
       identified: "Voix identifiées",
+      timeline: {
+        label: "Événements de l’étape {step}",
+        worker: "Worker {name}",
+        model: "Modèle {model}",
+        cycle: "Cycle {n}",
+      },
       attempt: "Tentative {n}",
       stepsOf: "Étapes de l’analyse de {clip}",
       scope: {
@@ -151,6 +157,14 @@ export const fr: Messages = {
       completed: "Terminée",
       lease_expired: "Bail expiré",
       worker_revoked: "Worker supprimé, tâche remise en file",
+    },
+    automatic: {
+      title: "Analyser un clip",
+      hint: "Lance l’analyse complète d’un clip : transcription, recherche et voix. Les résultats valides sont réutilisés sauf choix contraire.",
+      clip: "Numéro du clip",
+      stepRequired: "Choisissez au moins une étape à relancer.",
+      start: "Lancer l’analyse",
+      started: "Analyse lancée.",
     },
     schedule: "Planifier une tâche",
     clip: "ID du clip",
