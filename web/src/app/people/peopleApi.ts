@@ -103,6 +103,29 @@ export const fetchVoiceGroups = (page: number, pageSize: number) =>
     return data ? { ok: true, value: data } : failure(error);
   });
 
+/**
+ * The Voice group that holds a voice today, or null when it is in none (named, no longer
+ * unknown, or its clip is no longer visible). A group has no stable id (ADR 0024), so the
+ * groups are read, isolated voices included, until the voice is found.
+ */
+export const fetchVoiceGroupOf = (localSpeakerId: number) =>
+  guard<VoiceGroup | null>(async () => {
+    const size = 100;
+    for (let page = 1; ; page++) {
+      const { data, error } = await api.GET("/api/voice-groups", {
+        params: {
+          query: { proposed: false, sort: "clips", page, page_size: size },
+        },
+      });
+      if (!data) return failure(error);
+      const found = data.items.find((group) =>
+        group.members.some((m) => m.local_speaker_id === localSpeakerId),
+      );
+      if (found) return { ok: true, value: found };
+      if (page * size >= data.total) return { ok: true, value: null };
+    }
+  });
+
 /** The calls that change something carry the session's CSRF token. */
 export function usePersonActions() {
   const { session } = useSession();
