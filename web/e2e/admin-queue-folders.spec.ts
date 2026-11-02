@@ -129,7 +129,7 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   const response = await scheduled;
   expect([200, 201], await response.text()).toContain(response.status());
   const cardA = cardOf(clipA);
-  await expect(cardA).toContainText("Pending");
+  await expect(cardA).toContainText("Queued");
   await openCard(cardA);
   await cardA.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(cardA).toContainText("Cancelled");
@@ -165,23 +165,51 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     ).ok(),
   ).toBe(true);
 
-  await page.reload();
+  // The board refreshes by itself: no reload needed to see the exhausted task.
   const cardB = cardOf(clipB);
-  await expect(cardB).toContainText("Exhausted");
+  await expect(cardB).toContainText("Exhausted", { timeout: 15000 });
   await openCard(cardB);
   await cardB.getByRole("button", { name: "Retry", exact: true }).click();
-  await expect(cardB).toContainText("Pending");
+  await expect(cardB).toContainText("Queued");
   await openCard(cardB);
   await cardB.getByRole("button", { name: "History", exact: true }).click();
   await expect(cardB).toContainText("Relaunched by administrator");
   await cardB.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(cardB).toContainText("Cancelled");
 
-  // The toolbar narrows the workflow down to one clip.
-  await page.getByLabel("Filter by clip ID").fill(String(clipB));
-  await page.getByRole("button", { name: "Filter", exact: true }).click();
-  await expect(cardOf(clipB)).toBeVisible();
-  await expect(cardOf(clipA)).toHaveCount(0);
+  // One card per clip in the columns of the cards contract; no "other tasks"
+  // column and no pagination of the active cards.
+  await expect(queue.locator("[data-column]")).toHaveCount(5);
+  await expect(
+    queue.locator("[data-column=search]").getByRole("heading"),
+  ).toContainText("Search · 0");
+  await expect(queue.getByText("Other tasks")).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: /pagination/i }),
+  ).toHaveCount(0);
+  await expect(
+    queue.locator("[data-column=transcription] details"),
+  ).toHaveCount(2);
+
+  // The polling stops while the tab is hidden and resumes when it is back.
+  let polls = 0;
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/admin/task-cards")) polls++;
+  });
+  const setVisibility = (state: "hidden" | "visible") =>
+    page.evaluate((value) => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => value,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, state);
+  await setVisibility("hidden");
+  const hiddenFrom = polls;
+  await page.waitForTimeout(6500);
+  expect(polls).toBe(hiddenFrom);
+  await setVisibility("visible");
+  await expect.poll(() => polls).toBeGreaterThan(hiddenFrom);
 
   // The completed-clip history is its own dialog.
   await page.getByRole("button", { name: "Clip history" }).click();
