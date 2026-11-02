@@ -219,6 +219,13 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Aucun Worker n’a ce modèle prêt : attendez la fin de sa préparation.",
   invalid_voice_model: "Ce modèle ne peut pas être choisi.",
   invalid_voice_model_status: "Cet état de modèle vocal n’est pas valide.",
+  voice_trial_option_unsupported:
+    "Ce moteur ne permet pas d’imposer le nombre de locuteurs.",
+  invalid_voice_trial_options:
+    "Le nombre de locuteurs doit être positif, dans la limite du modèle, et num_speakers ne se combine pas avec min/max.",
+  voice_trial_running: "Cet essai est déjà en cours.",
+  voice_trial_not_found: "Cet essai n’existe plus.",
+  invalid_voice_trial_id: "Identifiant d’essai invalide.",
   no_voice_candidate: "Aucun échec à relancer pour le candidat.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
   worker_not_found: "Ce Worker n’existe pas.",

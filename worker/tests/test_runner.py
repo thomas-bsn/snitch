@@ -170,7 +170,7 @@ class FakeProviderTests(unittest.TestCase):
         pulse.assert_called_once()
         advertised = pulse.call_args.kwargs["body"].to_dict()
         self.assertEqual(
-            advertised["supported_steps"], ["fixture.*", "transcription.audio.*", "voice.*"]
+            advertised["supported_steps"], ["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"]
         )
         complete.assert_called_once()
         result = complete.call_args.kwargs["body"].result.to_dict()
@@ -464,7 +464,7 @@ class FakeProviderTests(unittest.TestCase):
         self.assertEqual(state["result"]["provider"], "fixture")
         self.assertEqual(state["result"]["step"], "fixture.echo")
         self.assertEqual(
-            state["pulse"]["supported_steps"], ["fixture.*", "transcription.audio.*", "voice.*"]
+            state["pulse"]["supported_steps"], ["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"]
         )
 
 

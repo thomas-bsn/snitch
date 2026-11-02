@@ -267,6 +267,11 @@ from .voice_rediarization_stake import VoiceRediarizationStake
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
+from .voice_trial import VoiceTrial
+from .voice_trial_request import VoiceTrialRequest
+from .voice_trial_speaker import VoiceTrialSpeaker
+from .voice_trial_status import VoiceTrialStatus
+from .voice_trials import VoiceTrials
 from .voice_verification import VoiceVerification
 from .voice_verification_case import VoiceVerificationCase
 from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
@@ -588,6 +593,11 @@ __all__ = (
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",
+    "VoiceTrial",
+    "VoiceTrialRequest",
+    "VoiceTrials",
+    "VoiceTrialSpeaker",
+    "VoiceTrialStatus",
     "VoiceVerification",
     "VoiceVerificationCase",
     "VoiceVerificationCaseDecisionLevel",

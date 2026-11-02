@@ -32,6 +32,8 @@ EMBEDDING_NAME_ENV = "SNITCH_VOICE_EMBEDDING_MODEL_NAME"
 EMBEDDING_VERSION_ENV = "SNITCH_VOICE_EMBEDDING_MODEL_VERSION"
 DEVICE_ENV = "SNITCH_VOICE_DEVICE"
 DEFAULT_EMBEDDING_NAME = "pyannote/wespeaker-voxceleb-resnet34-LM"
+# Options a diarization trial may impose on the pipeline; a regular job never carries them.
+SPEAKER_OPTIONS = ("num_speakers", "min_speakers", "max_speakers")
 
 PipelineLoader = Callable[[str, str], Callable[[str], Any]]
 EmbedderLoader = Callable[[str, str], Callable[[str], Callable[[float, float], Any]]]
@@ -124,6 +126,10 @@ class PyannoteProvider:
         self._path(EMBEDDING_PATH_ENV)
         self._embedding_identity()
 
+    def ensure_diarization_ready(self, config: dict[str, Any]) -> None:
+        """A trial only needs its own diarization model."""
+        self._diarization_path(config)
+
     def _resolve_device(self) -> str:
         if self._device is None:
             wanted = self._environ.get(DEVICE_ENV, "auto").strip().lower() or "auto"
@@ -182,9 +188,10 @@ class PyannoteProvider:
 
     def diarize(self, config: dict[str, Any], audio_path: str, stream_index: int) -> dict[str, Any]:
         pipeline = self._pipeline_loaded(config)
+        options = {name: int(config[name]) for name in SPEAKER_OPTIONS if config.get(name)}
         try:
             with self._inference_lock:
-                output = pipeline(audio_path)
+                output = pipeline(audio_path, **options)
             annotation = getattr(output, "speaker_diarization", output)
             turns = [(segment.start, segment.end, label) for segment, _track, label in annotation.itertracks(yield_label=True)]
         except VoiceProviderUnavailable:

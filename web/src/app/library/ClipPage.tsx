@@ -16,6 +16,7 @@ import { ProgressBanner } from "./ProgressBanner";
 import { TranscriptTab } from "./TranscriptTab";
 import { RelaunchVoice } from "./RelaunchVoice";
 import { VoicesTab } from "./VoicesTab";
+import { VoiceTrials } from "./VoiceTrials";
 import { formatTimecode, parseMoment } from "./clipFormat";
 import { fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
 import { TranscribeButton } from "./TranscribeButton";
@@ -144,6 +145,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
               stream={clip.transcription.audio_stream_index}
             />
           )}
+          <VoiceTrials clipId={clip.id} voice={voiceData} />
         </div>
 
         <Tabs.Root
