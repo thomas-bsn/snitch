@@ -7,7 +7,7 @@ import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
-import { ClipMetadata } from "./ClipMetadata";
+import { ClipMetadata, EditMetadata } from "./ClipMetadata";
 import { ClipPlayer } from "./ClipPlayer";
 import { ClipStatePill } from "./ClipStatePill";
 import { HistoryTab } from "./HistoryTab";
@@ -18,7 +18,7 @@ import { RelaunchVoice } from "./RelaunchVoice";
 import { VoicesTab } from "./VoicesTab";
 import { VoiceTrials } from "./VoiceTrials";
 import { formatTimecode, parseMoment } from "./clipFormat";
-import { fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
+import { clipTitle, fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
 import { AnalyzeClip } from "./AnalyzeClip";
 
 const tabClass =
@@ -38,7 +38,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
   const voice = useLoaded(
     useCallback(() => fetchClipVoice(clip.id), [clip.id]),
   );
-  useDocumentTitle(clip.original_name);
+  useDocumentTitle(clipTitle(clip));
 
   const back = (location.state as { from?: string } | null)?.from ?? "/library";
   const segments = useMemo(
@@ -100,9 +100,17 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             onPlayhead={setPlayhead}
           />
           <div>
-            <h1 className="m-0 text-[22px] font-semibold break-words">
-              {clip.original_name}
-            </h1>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h1 className="m-0 text-[22px] font-semibold break-words">
+                {clipTitle(clip)}
+              </h1>
+              <EditMetadata clip={clip} onChanged={onChanged} />
+            </div>
+            {clip.display_title && (
+              <p className="mt-1 mb-0 text-xs text-mute">
+                {t("metadata.fileKept", { name: clip.original_name })}
+              </p>
+            )}
             <p className="mt-1 mb-0 text-mute">
               {[
                 t("clip.meta.owner", {
@@ -129,7 +137,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
               </p>
             )}
           </div>
-          <ClipMetadata clip={clip} onChanged={onChanged} />
+          <ClipMetadata clip={clip} />
           <ProgressBanner clip={clip} voice={voiceData} />
           <AnalyzeClip
             clipId={clip.id}

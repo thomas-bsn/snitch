@@ -80,8 +80,10 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[EmbeddingSettings | Error]:
-    """  Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables
-    d'environnement restent prioritaires.
+    """  Enregistre l'adresse et le modèle ; réservé aux Administrateurs. Exige la preuve (validation_token)
+    d'un test réussi de cette configuration exacte, à usage unique et de courte durée, rendue par
+    testEmbeddingSettings : sinon 409 embedding_validation_required, embedding_validation_expired ou
+    embedding_validation_mismatch. Les variables d'environnement restent prioritaires.
 
     Args:
         origin (str):
@@ -118,8 +120,10 @@ def sync(
     x_csrf_token: str,
 
 ) -> EmbeddingSettings | Error | None:
-    """  Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables
-    d'environnement restent prioritaires.
+    """  Enregistre l'adresse et le modèle ; réservé aux Administrateurs. Exige la preuve (validation_token)
+    d'un test réussi de cette configuration exacte, à usage unique et de courte durée, rendue par
+    testEmbeddingSettings : sinon 409 embedding_validation_required, embedding_validation_expired ou
+    embedding_validation_mismatch. Les variables d'environnement restent prioritaires.
 
     Args:
         origin (str):
@@ -151,8 +155,10 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[EmbeddingSettings | Error]:
-    """  Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables
-    d'environnement restent prioritaires.
+    """  Enregistre l'adresse et le modèle ; réservé aux Administrateurs. Exige la preuve (validation_token)
+    d'un test réussi de cette configuration exacte, à usage unique et de courte durée, rendue par
+    testEmbeddingSettings : sinon 409 embedding_validation_required, embedding_validation_expired ou
+    embedding_validation_mismatch. Les variables d'environnement restent prioritaires.
 
     Args:
         origin (str):
@@ -189,8 +195,10 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> EmbeddingSettings | Error | None:
-    """  Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables
-    d'environnement restent prioritaires.
+    """  Enregistre l'adresse et le modèle ; réservé aux Administrateurs. Exige la preuve (validation_token)
+    d'un test réussi de cette configuration exacte, à usage unique et de courte durée, rendue par
+    testEmbeddingSettings : sinon 409 embedding_validation_required, embedding_validation_expired ou
+    embedding_validation_mismatch. Les variables d'environnement restent prioritaires.
 
     Args:
         origin (str):

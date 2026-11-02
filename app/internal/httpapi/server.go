@@ -270,6 +270,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/search", s.protected(false, http.HandlerFunc(s.search)))
 	mux.Handle("GET /api/admin/embeddings/settings", s.protected(true, http.HandlerFunc(s.getEmbeddingSettings)))
 	mux.Handle("PUT /api/admin/embeddings/settings", s.protected(true, http.HandlerFunc(s.putEmbeddingSettings)))
+	mux.Handle("POST /api/admin/embeddings/settings/test", s.protected(true, http.HandlerFunc(s.testEmbeddingSettings)))
 	mux.Handle("GET /api/admin/embeddings", s.protected(true, http.HandlerFunc(s.embeddingStatus)))
 	mux.Handle("POST /api/admin/embeddings/backfill", s.protected(true, http.HandlerFunc(s.backfillEmbeddings)))
 	mux.Handle("POST /api/admin/embeddings/rebuild", s.protected(true, http.HandlerFunc(s.rebuildEmbeddings)))

@@ -339,5 +339,91 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await expect(grid).toHaveCount(12);
       await context.close();
     });
+
+    test("un administrateur modifie titre, jeu et date ; les corrections se restaurent", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto(`/clips/${sharedId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "synthetic-shared.mp4" }),
+      ).toBeVisible();
+
+      // Members see no editing action at all.
+      const member = await browser.newContext({
+        storageState: await sessionFor(MEMBER),
+      });
+      const memberPage = await member.newPage();
+      await memberPage.goto(`/clips/${sharedId}`);
+      await expect(memberPage.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(
+        memberPage.getByRole("button", { name: "Edit metadata" }),
+      ).toHaveCount(0);
+      await member.close();
+
+      await page.getByRole("button", { name: "Edit metadata" }).click();
+      const dialog = page.getByRole("dialog", { name: "Edit metadata" });
+      await expect(dialog.getByLabel("Displayed title")).toHaveValue(
+        "synthetic-shared.mp4",
+      );
+      await expectNoViolations(page);
+      // An empty title is refused with an explanation; nothing is sent.
+      await dialog.getByLabel("Displayed title").fill("   ");
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await expect(dialog.getByRole("alert")).toContainText("cannot be empty");
+
+      await dialog.getByLabel("Displayed title").fill("Clutch 1v4 — Mirage 🎮");
+      await dialog.getByLabel("Game").fill("Counter-Strike 2");
+      await dialog.getByLabel("Recording date").fill("2026-10-31T21:45");
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await expect(dialog).toBeHidden();
+
+      // The page shows the title at once, keeps the file name, and tells what was corrected by hand.
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Clutch 1v4 — Mirage 🎮" }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("File name: synthetic-shared.mp4 (unchanged)"),
+      ).toBeVisible();
+      await expect(page.getByText("Manual correction")).toHaveCount(2);
+      await expect(page).toHaveTitle(/Clutch 1v4/);
+
+      // The library uses the title, the file name stays reachable as technical information.
+      await page.goto("/library");
+      await expect(
+        page.getByRole("link", {
+          name: "Open the clip Clutch 1v4 — Mirage 🎮",
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Open the clip synthetic-shared.mp4" }),
+      ).toHaveCount(0);
+
+      // Restoring the detected game puts the automatic value back; the file name restores the title.
+      await page.goto(`/clips/${sharedId}`);
+      await page.getByRole("button", { name: "Edit metadata" }).click();
+      await expect(dialog.getByText("Detected value:").first()).toBeVisible();
+      await dialog.getByRole("button", { name: "Restore" }).first().click();
+      await dialog.getByRole("button", { name: "Use the file name" }).click();
+      await expectNoViolations(page);
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await expect(dialog).toBeHidden();
+      await expect(
+        page.getByRole("heading", { level: 1, name: "synthetic-shared.mp4" }),
+      ).toBeVisible();
+      await expect(page.getByText("Manual correction")).toHaveCount(1);
+
+      // On a phone the panel still fits.
+      await page.setViewportSize({ width: 390, height: 800 });
+      await page.getByRole("button", { name: "Edit metadata" }).click();
+      await expect(dialog).toBeVisible();
+      expect(await noOverflow(page)).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      await context.close();
+    });
   });
 });

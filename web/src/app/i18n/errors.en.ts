@@ -62,6 +62,18 @@ export const errorsEn = {
   duplicate_vocabulary_term: "This term already exists.",
   embedding_rebuild_in_progress: "An index rebuild is already running.",
   invalid_embedding_settings: "Enter a valid service address and model.",
+  embedding_validation_required:
+    "Test this configuration first: only a tested configuration can be saved.",
+  embedding_validation_expired:
+    "The validation has expired. Test again before saving.",
+  embedding_validation_mismatch:
+    "The values changed since the test. Test again before saving.",
+  embedding_provider_timeout:
+    "The embeddings service did not answer in time. Check its address and load, then test again.",
+  embedding_model_not_found:
+    "The embeddings service does not know this model. Check the model name.",
+  embedding_response_invalid:
+    "The embeddings service answered, but not with vectors Snitch can use.",
   embedding_provider_unavailable:
     "The embeddings service could not be reached or returned an invalid response.",
   embeddings_unconfigured: "Semantic search is not configured.",
@@ -97,6 +109,11 @@ export const errorsEn = {
     "A username of 3 to 64 characters and a password of 12 to 256 characters are required.",
   invalid_credentials_or_pending:
     "Incorrect credentials, or the sign-up is still waiting for approval.",
+  invalid_clip_title:
+    "The title must have 1 to 200 characters and no control character.",
+  metadata_reset_unavailable:
+    "Snitch did not keep a detected value to restore for this field.",
+  invalid_metadata_request: "This metadata change is not valid.",
   invalid_embedding_model: "This embedding model is not valid.",
   invalid_filter: "One of the filters is not valid.",
   invalid_folder: "This folder name is not valid.",

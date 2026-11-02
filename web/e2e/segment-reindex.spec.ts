@@ -11,7 +11,8 @@ test("un segment corrigé reste à réindexer si le fournisseur est indisponible
     .getByLabel("Embeddings service address")
     .fill(process.env.SNITCH_TEST_EMBEDDINGS_URL!);
   await page.getByLabel("Embeddings model").fill("synthetic-reindex-v1");
-  await page.getByRole("button", { name: "Test and save" }).click();
+  await page.getByRole("button", { name: "Test", exact: true }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("saved");
 
   // Saving a profile queues the current transcript. Wait for the real index before

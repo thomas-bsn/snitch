@@ -2448,9 +2448,26 @@ export interface paths {
     };
     /** @description Configuration effective du service d'embeddings, consultable par les Administrateurs. */
     get: operations["getEmbeddingSettings"];
-    /** @description Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables d'environnement restent prioritaires. */
+    /** @description Enregistre l'adresse et le modèle ; réservé aux Administrateurs. Exige la preuve (validation_token) d'un test réussi de cette configuration exacte, à usage unique et de courte durée, rendue par testEmbeddingSettings : sinon 409 embedding_validation_required, embedding_validation_expired ou embedding_validation_mismatch. Les variables d'environnement restent prioritaires. */
     put: operations["putEmbeddingSettings"];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/embeddings/settings/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Teste l'adresse et le modèle contre le vrai service, sans rien enregistrer ni toucher à l'index ; réservé aux Administrateurs. En cas de succès, rend une preuve de validation liée aux valeurs effectives et à l'utilisateur, valable quelques minutes et à usage unique. */
+    post: operations["testEmbeddingSettings"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2579,6 +2596,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    EmbeddingValidation: {
+      validation_token: string;
+      dimensions: number;
+      model: string;
+      /** Format: date-time */
+      expires_at: string;
+    };
     EmbeddingSettings: {
       url: string;
       model: string;
@@ -4506,6 +4530,18 @@ export interface components {
       owner: string;
       /** @enum {string} */
       visibility: "private" | "shared";
+      /** @description Titre affiché choisi par un administrateur ; absent, le nom du fichier (original_name) sert de titre. original_name reste le nom physique, jamais modifié. */
+      display_title: string | null;
+      /** @description Valeurs détectées automatiquement, conservées à la première modification manuelle pour pouvoir les restaurer ; une valeur n'est restaurable que si son indicateur *_available est vrai. */
+      detected: {
+        game_available: boolean;
+        game: string | null;
+        game_origin: string | null;
+        recorded_at_available: boolean;
+        /** Format: date-time */
+        recorded_at: string | null;
+        recorded_at_origin: string | null;
+      } | null;
       original_name: string;
       /** Format: int64 */
       size_bytes: number;
@@ -4951,9 +4987,16 @@ export interface operations {
         "application/json": {
           game_changed?: boolean;
           recorded_at_changed?: boolean;
-          game: string | null;
+          /** @description Titre affiché (200 caractères au plus, sans caractère de contrôle) ; vide ou absent pour le retirer. N'agit que si display_title_changed est vrai ; ne renomme jamais le fichier. */
+          display_title?: string | null;
+          display_title_changed?: boolean;
+          /** @description Restaure le jeu détecté automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec game_changed. */
+          game_reset?: boolean;
+          /** @description Restaure la date détectée automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec recorded_at_changed. */
+          recorded_at_reset?: boolean;
+          game?: string | null;
           /** Format: date-time */
-          recorded_at: string | null;
+          recorded_at?: string | null;
         };
       };
     };
@@ -11552,6 +11595,7 @@ export interface operations {
         "application/json": {
           url: string;
           model: string;
+          validation_token: string;
         };
       };
     };
@@ -11563,6 +11607,45 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EmbeddingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  testEmbeddingSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          url: string;
+          model: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Service joignable */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EmbeddingValidation"];
         };
       };
       /** @description Erreur */

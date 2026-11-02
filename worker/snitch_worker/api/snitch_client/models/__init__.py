@@ -47,6 +47,7 @@ from .clip_analysis_view_status import ClipAnalysisViewStatus
 from .clip_analysis_view_steps_item import ClipAnalysisViewStepsItem
 from .clip_analysis_view_steps_item_status import ClipAnalysisViewStepsItemStatus
 from .clip_analysis_view_steps_item_step import ClipAnalysisViewStepsItemStep
+from .clip_detected_type_0 import ClipDetectedType0
 from .clip_filter_options import ClipFilterOptions
 from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
 from .clip_filter_options_sources_item import ClipFilterOptionsSourcesItem
@@ -74,6 +75,7 @@ from .delete_clip_response_200 import DeleteClipResponse200
 from .delete_member_body import DeleteMemberBody
 from .delete_worker_transcription_override_response_200 import DeleteWorkerTranscriptionOverrideResponse200
 from .embedding_settings import EmbeddingSettings
+from .embedding_validation import EmbeddingValidation
 from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
@@ -233,6 +235,7 @@ from .start_clip_analysis_body_scope import StartClipAnalysisBodyScope
 from .start_clip_analysis_body_steps_item import StartClipAnalysisBodyStepsItem
 from .status import Status
 from .stream_analysis_queue_events_delta import StreamAnalysisQueueEventsDelta
+from .test_embedding_settings_body import TestEmbeddingSettingsBody
 from .transcript_segment import TranscriptSegment
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
@@ -425,6 +428,7 @@ __all__ = (
     "ClipAnalysisViewStepsItem",
     "ClipAnalysisViewStepsItemStatus",
     "ClipAnalysisViewStepsItemStep",
+    "ClipDetectedType0",
     "ClipFilterOptions",
     "ClipFilterOptionsOwnersItem",
     "ClipFilterOptionsSourcesItem",
@@ -452,6 +456,7 @@ __all__ = (
     "DeleteMemberBody",
     "DeleteWorkerTranscriptionOverrideResponse200",
     "EmbeddingSettings",
+    "EmbeddingValidation",
     "Error",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
@@ -611,6 +616,7 @@ __all__ = (
     "StartClipAnalysisBodyStepsItem",
     "Status",
     "StreamAnalysisQueueEventsDelta",
+    "TestEmbeddingSettingsBody",
     "Transcription",
     "TranscriptionInput",
     "TranscriptionLocalSpeakersItem",

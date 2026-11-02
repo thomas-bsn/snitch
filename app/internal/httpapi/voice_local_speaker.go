@@ -33,7 +33,7 @@ func (s *Server) getLocalSpeaker(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ss := ctx.Value(sessionKey{}).(session)
 	v := localSpeakerReadView{LocalSpeakerID: sp.ID, ClipID: sp.ClipID, Label: sp.Label}
-	if err := s.Pool.QueryRow(ctx, `SELECT c.original_name,ls.speaking_seconds FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1`, sp.ID).Scan(&v.ClipName, &v.SpeakingSeconds); err != nil {
+	if err := s.Pool.QueryRow(ctx, `SELECT COALESCE(c.display_title,c.original_name),ls.speaking_seconds FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1`, sp.ID).Scan(&v.ClipName, &v.SpeakingSeconds); err != nil {
 		s.internal(w, err)
 		return
 	}

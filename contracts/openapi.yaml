@@ -171,6 +171,10 @@
                   "properties": {
                     "game_changed": {"type":"boolean"},
                     "recorded_at_changed": {"type":"boolean"},
+                    "display_title": {"type": "string", "nullable": true, "description": "Titre affiché (200 caractères au plus, sans caractère de contrôle) ; vide ou absent pour le retirer. N'agit que si display_title_changed est vrai ; ne renomme jamais le fichier."},
+                    "display_title_changed": {"type": "boolean"},
+                    "game_reset": {"type": "boolean", "description": "Restaure le jeu détecté automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec game_changed."},
+                    "recorded_at_reset": {"type": "boolean", "description": "Restaure la date détectée automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec recorded_at_changed."},
                     "game": {
                       "type": "string",
                       "nullable": true
@@ -181,10 +185,7 @@
                       "nullable": true
                     }
                   },
-                  "required": [
-                    "game",
-                    "recorded_at"
-                  ]
+                  "required": []
                 }
               }
             }
@@ -5097,10 +5098,20 @@
       },
       "put": {
         "operationId": "putEmbeddingSettings",
-        "description": "Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables d'environnement restent prioritaires.",
+        "description": "Enregistre l'adresse et le modèle ; réservé aux Administrateurs. Exige la preuve (validation_token) d'un test réussi de cette configuration exacte, à usage unique et de courte durée, rendue par testEmbeddingSettings : sinon 409 embedding_validation_required, embedding_validation_expired ou embedding_validation_mismatch. Les variables d'environnement restent prioritaires.",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["url", "model", "validation_token"], "properties": {"url": {"type": "string"}, "model": {"type": "string"}, "validation_token": {"type": "string"}}}}}},
+        "responses": {"200": {"description": "Configuration enregistrée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmbeddingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/embeddings/settings/test": {
+      "post": {
+        "operationId": "testEmbeddingSettings",
+        "description": "Teste l'adresse et le modèle contre le vrai service, sans rien enregistrer ni toucher à l'index ; réservé aux Administrateurs. En cas de succès, rend une preuve de validation liée aux valeurs effectives et à l'utilisateur, valable quelques minutes et à usage unique.",
         "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["url", "model"], "properties": {"url": {"type": "string"}, "model": {"type": "string"}}}}}},
-        "responses": {"200": {"description": "Configuration enregistrée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmbeddingSettings"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "responses": {"200": {"description": "Service joignable", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmbeddingValidation"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "security": [{"session": []}]
       }
     },
@@ -5696,6 +5707,7 @@
       }
     },
     "schemas": {
+      "EmbeddingValidation": {"type": "object", "required": ["validation_token", "dimensions", "model", "expires_at"], "properties": {"validation_token": {"type": "string"}, "dimensions": {"type": "integer"}, "model": {"type": "string"}, "expires_at": {"type": "string", "format": "date-time"}}},
       "EmbeddingSettings": {"type": "object", "required": ["url", "model", "url_from_environment", "model_from_environment"], "properties": {"url": {"type": "string"}, "model": {"type": "string"}, "url_from_environment": {"type": "boolean"}, "model_from_environment": {"type": "boolean"}}},
       "ClipAnalysisStep": {"type": "object", "required": ["step", "status", "reason", "job_id", "attempt", "input_version", "profile", "forced", "started_at", "finished_at", "updated_at"], "properties": {"step": {"type": "string", "enum": ["preparation", "transcription", "indexing", "diarization", "fingerprints", "matching"]}, "status": {"type": "string", "enum": ["waiting", "running", "retry", "blocked", "failed", "done", "not_applicable", "not_yet_supported"]}, "reason": {"type": "string", "description": "Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, queue_paused, transcription_version_mismatch, transcription_not_validated, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed."}, "job_id": {"type": "integer", "nullable": true, "format": "int64"}, "attempt": {"type": "integer"}, "input_version": {"type": "string", "nullable": true, "description": "Version d'entrée du job suivi par l'étape (historique)."}, "profile": {"type": "string", "nullable": true, "description": "Profil (pipeline) du job suivi par l'étape."}, "forced": {"type": "boolean", "description": "Étape relancée par une réanalyse, malgré un résultat valide."}, "failure_code": {"allOf": [{"$ref": "#/components/schemas/FailureCode"}], "description": "File de tâches seulement, étape en échec : Cause d'échec persistée du dernier échec du job suivi (jamais de texte brut) ; absente sans cause connue."}, "recommended_action": {"type": "string", "description": "File de tâches seulement : code de l'action conseillée, décidé par le serveur. Étape en échec : action de la Cause d'échec (catalogue des jobs). Attente de Worker (awaiting_worker, awaiting_compatible_worker) d'un job prêt : start_worker ; jamais pour une reprise différée."}, "started_at": {"type": "string", "nullable": true, "format": "date-time"}, "finished_at": {"type": "string", "nullable": true, "format": "date-time"}, "events": {"type": "array", "items": {"$ref": "#/components/schemas/AnalysisStepEvent"}, "description": "Historique des analyses seulement : événements persistés du job suivi par l'étape (tentatives, reprises, échecs), du plus ancien au plus récent ; absent ailleurs ou sans job."}, "updated_at": {"type": "string", "format": "date-time"}}},
       "AnalysisStepEvent": {"allOf": [{"$ref": "#/components/schemas/JobEvent"}, {"type": "object", "properties": {"worker_name": {"type": "string", "description": "Nom du Worker de l'événement, quand il est encore enregistré ; jamais un chemin."}}}]},
@@ -7806,6 +7818,8 @@
           "owner",
           "visibility",
           "original_name",
+          "display_title",
+          "detected",
           "size_bytes",
           "discovered_at",
           "recorded_at",
@@ -7836,6 +7850,8 @@
               "shared"
             ]
           },
+          "display_title": {"type": "string", "nullable": true, "description": "Titre affiché choisi par un administrateur ; absent, le nom du fichier (original_name) sert de titre. original_name reste le nom physique, jamais modifié."},
+          "detected": {"type": "object", "nullable": true, "description": "Valeurs détectées automatiquement, conservées à la première modification manuelle pour pouvoir les restaurer ; une valeur n'est restaurable que si son indicateur *_available est vrai.", "required": ["game_available", "game", "game_origin", "recorded_at_available", "recorded_at", "recorded_at_origin"], "properties": {"game_available": {"type": "boolean"}, "game": {"type": "string", "nullable": true}, "game_origin": {"type": "string", "nullable": true}, "recorded_at_available": {"type": "boolean"}, "recorded_at": {"type": "string", "format": "date-time", "nullable": true}, "recorded_at_origin": {"type": "string", "nullable": true}}},
           "original_name": {
             "type": "string"
           },
