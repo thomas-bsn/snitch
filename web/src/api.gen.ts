@@ -3222,6 +3222,8 @@ export interface components {
       clip_name: string;
       label: string;
       speaking_seconds: number;
+      /** @description Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait. */
+      sample_count: number;
     };
     PersonVoiceList: {
       items: components["schemas"]["PersonVoice"][];

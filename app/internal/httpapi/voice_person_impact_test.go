@@ -70,4 +70,34 @@ func testPersonImpact(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("the administrator sees every clip: %+v", admin)
 		}
 	})
+
+	t.Run("samples per voice", func(t *testing.T) {
+		spk := h.fixtureSpeaker(visible, "SAMPLED", usableAt(30))
+		h.validate(spk, "Fanny")
+		fanny := h.personOf(spk)
+		voices := func() []struct {
+			ID      int64 `json:"local_speaker_id"`
+			Samples int   `json:"sample_count"`
+		} {
+			var v struct {
+				Items []struct {
+					ID      int64 `json:"local_speaker_id"`
+					Samples int   `json:"sample_count"`
+				} `json:"items"`
+			}
+			if err := json.Unmarshal(h.userCall(alice, http.MethodGet, personPath(fanny, "voices"), nil, http.StatusOK), &v); err != nil {
+				t.Fatal(err)
+			}
+			return v.Items
+		}
+		if got := voices(); len(got) != 1 || got[0].ID != spk.ID || got[0].Samples != 1 {
+			t.Fatalf("a validated voice carries its sample: %+v", got)
+		}
+		if _, err := pool.Exec(context.Background(), `UPDATE voice_samples SET retired_at=now(),retired_reason='test' WHERE local_speaker_id=$1`, spk.ID); err != nil {
+			t.Fatal(err)
+		}
+		if got := voices(); len(got) != 1 || got[0].Samples != 0 {
+			t.Fatalf("a retired sample is no reference: %+v", got)
+		}
+	})
 }
