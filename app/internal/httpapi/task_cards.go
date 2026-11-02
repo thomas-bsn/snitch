@@ -63,9 +63,17 @@ type taskCard struct {
 	LastError     string         `json:"last_error"`
 }
 
+type taskQueueSummary struct {
+	Running        int  `json:"running"`
+	Waiting        int  `json:"waiting"`
+	MaxConcurrency int  `json:"max_concurrency"`
+	Paused         bool `json:"paused"`
+}
+
 type taskCardBoard struct {
-	Cards     []taskCard `json:"cards"`
-	Completed []taskCard `json:"completed"`
+	Queue     taskQueueSummary `json:"queue"`
+	Cards     []taskCard       `json:"cards"`
+	Completed []taskCard       `json:"completed"`
 }
 
 type cardJob struct {
@@ -210,6 +218,21 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 		}
 		if complete {
 			board.Completed = append(board.Completed, card)
+		}
+	}
+	controls, err := s.Jobs.GetControls(ctx)
+	if err != nil {
+		return taskCardBoard{}, err
+	}
+	board.Queue.MaxConcurrency, board.Queue.Paused = controls.MaxConcurrency, controls.Paused
+	// Same rule as the scheduler: only a leased task with a valid lease fills the ceiling.
+	if err = s.Pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE status='leased' AND lease_expires_at>now()`).Scan(&board.Queue.Running); err != nil {
+		return taskCardBoard{}, err
+	}
+	for _, card := range board.Cards {
+		switch card.State {
+		case cardQueued, cardRetry, cardReady, cardWaiting:
+			board.Queue.Waiting++
 		}
 	}
 	return board, nil

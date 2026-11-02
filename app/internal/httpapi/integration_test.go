@@ -361,6 +361,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testJobControls(t, pool)
 	})
+	t.Run("queue bar concurrency", func(t *testing.T) {
+		reset(t)
+		testQueueConcurrency(t, pool)
+	})
 	t.Run("worker authentication and registration", func(t *testing.T) {
 		reset(t)
 		testWorkerRegistration(t, pool)
