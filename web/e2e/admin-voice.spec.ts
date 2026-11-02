@@ -128,31 +128,22 @@ test("l'inventaire vocal montre ce que chaque Worker détient réellement", asyn
   });
   const me = await (await admin.get("/api/auth/me")).json();
   const csrf = { "X-CSRF-Token": me.csrf_token };
-  // The real provider must be active for the inventory to require the models.
-  const pipeline = await admin.put("/api/admin/voice-pipeline", {
-    headers: csrf,
-    data: {
-      provider: "pyannote",
-      model: "pyannote/speaker-diarization-community-1",
-      model_version: "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
-      min_fingerprint_seconds: 1,
-      min_quality: 0.5,
-    },
-  });
-  expect(pipeline.ok()).toBe(true);
+  const announced: string[] = [];
   const announce = async (name: string, models: object) => {
     const created = await admin.post("/api/admin/workers", {
       headers: csrf,
       data: { name, max_concurrency: 1 },
     });
-    const { token } = await created.json();
+    const { token, id } = await created.json();
+    announced.push(id);
     const pulse = await admin.post("/api/worker/pulse", {
       headers: { Authorization: `Bearer ${token}` },
       data: { capacity: 1, supported_steps: ["voice.*"], models },
     });
     expect(pulse.ok()).toBe(true);
+    return token as string;
   };
-  await announce("inventaire-complet", {
+  const completeToken = await announce("inventaire-complet", {
     diarization: {
       provider: "pyannote",
       model: "pyannote/speaker-diarization-community-1",
@@ -171,6 +162,25 @@ test("l'inventaire vocal montre ce que chaque Worker détient réellement", asyn
       version: "abcdef012345",
     },
   });
+
+  // Activating the real provider needs a connected Worker that has the model ready.
+  const ready = await admin.post("/api/worker/voice-models/status", {
+    headers: { Authorization: `Bearer ${completeToken}` },
+    data: { model_id: "pyannote-community-1", state: "ready" },
+  });
+  expect(ready.status()).toBe(204);
+  // The real provider must be active for the inventory to require the models.
+  const pipeline = await admin.put("/api/admin/voice-pipeline", {
+    headers: csrf,
+    data: {
+      provider: "pyannote",
+      model: "pyannote/speaker-diarization-community-1",
+      model_version: "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+      min_fingerprint_seconds: 1,
+      min_quality: 0.5,
+    },
+  });
+  expect(pipeline.ok()).toBe(true);
 
   const context = await browser.newContext({ storageState: session });
   const page = await context.newPage();
@@ -194,6 +204,13 @@ test("l'inventaire vocal montre ce que chaque Worker détient réellement", asyn
   await expect(other).toContainText("takes no voice job");
   await expect(other).toContainText("Not installed"); // no embedder declared
 
+  // Leave no Worker behind: the next test starts from a library without any voice model.
+  for (const id of announced) {
+    const removed = await admin.delete(`/api/admin/workers/${id}`, {
+      headers: csrf,
+    });
+    expect(removed.ok()).toBe(true);
+  }
   await context.close();
   await admin.dispose();
 });
