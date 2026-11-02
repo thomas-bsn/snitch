@@ -41,8 +41,14 @@ def failure(error: BaseException) -> dict[str, str]:
 
 
 def _clean(key: str, value: Any) -> Any:
-    if _sensitive(key) or key.lower() in RAW_ERROR_KEYS and isinstance(value, str):
+    if _sensitive(key):
         return MASKED
+    if key.lower() in RAW_ERROR_KEYS and value is not None:
+        if isinstance(value, str):
+            return MASKED
+        # An exception or a structure may carry free text: only a code and a category survive.
+        described = failure(value) if isinstance(value, BaseException) else failure(Exception())
+        return {"code": described["error_code"], "category": described["error_category"]}
     if isinstance(value, BaseException):
         return type(value).__name__
     if isinstance(value, dict):

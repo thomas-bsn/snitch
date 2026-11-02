@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 import time
 from typing import Any, Callable, MutableMapping
@@ -41,13 +42,37 @@ PipelineLoader = Callable[[str, str], Callable[[str], Any]]
 EmbedderLoader = Callable[[str, str], Callable[[str], Callable[[float, float], Any]]]
 
 
+_STATUS_TEXT = re.compile(r"(?<![\w.-])(401|403)(?![\w.-])")
+_STATUS_CONTEXT = ("http", "status", "client error", "unauthorized", "forbidden", "access")
+
+
+def _http_status(exc: BaseException) -> int | None:
+    for holder in (exc, getattr(exc, "response", None)):
+        for name in ("status_code", "status"):
+            value = getattr(holder, name, None)
+            if isinstance(value, int) and not isinstance(value, bool):
+                return value
+    return None
+
+
 def _classify(exc: BaseException, default: str) -> str:
-    """A stable reason for a library failure, from its class and text, which are never kept or logged."""
+    """A stable reason for a library failure: exception type and HTTP status first.
+
+    The text is read, lowercased and never kept or logged, only as a last resort when neither the type
+    nor a status says anything; a number is a status only next to an HTTP-looking word.
+    """
     kind = type(exc).__name__.lower()
-    text = str(exc).lower()
-    if "outofmemory" in kind or "out of memory" in text:
+    if isinstance(exc, MemoryError) or "outofmemory" in kind:
         return "gpu_out_of_memory"
-    if isinstance(exc, PermissionError) or "gatedrepo" in kind or "unauthorized" in kind or "forbidden" in kind or " 401" in f" {text}" or " 403" in f" {text}":
+    if isinstance(exc, PermissionError) or "gatedrepo" in kind or "unauthorized" in kind or "forbidden" in kind:
+        return "model_access_denied"
+    status = _http_status(exc)
+    if status is not None:
+        return "model_access_denied" if status in (401, 403) else default
+    text = str(exc).lower()
+    if "out of memory" in text:
+        return "gpu_out_of_memory"
+    if _STATUS_TEXT.search(text) and any(word in text for word in _STATUS_CONTEXT):
         return "model_access_denied"
     return default
 

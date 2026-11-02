@@ -110,6 +110,11 @@ func New(w io.Writer, service, level string) *slog.Logger {
 					return slog.Group(a.Key, "code", f[1], "category", f[3])
 				}
 			}
+			// A structure under a raw error key may carry free text as well.
+			if rawErrorKeys[strings.ToLower(a.Key)] && a.Value.Kind() == slog.KindAny {
+				f := Failure(errors.New("opaque"))
+				return slog.Group(a.Key, "code", f[1], "category", f[3])
+			}
 			return a
 		},
 	})

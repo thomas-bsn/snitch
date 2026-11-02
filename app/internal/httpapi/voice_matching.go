@@ -59,6 +59,14 @@ type voiceDB interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
+// Closed reasons a voice stays unknown or ambiguous in the per-clip matching log.
+const (
+	reasonNoReference      = "no_reference"
+	reasonTiedCandidates   = "tied_candidates"
+	reasonBelowThreshold   = "below_threshold"
+	reasonMicroTrackDirect = "micro_track_direct"
+)
+
 func loadMatchingSettings(ctx context.Context, db voiceDB) (matchingSettings, error) {
 	var v matchingSettings
 	err := db.QueryRow(ctx, `SELECT auto_enabled,automatic_threshold,suggestion_threshold,ambiguity_margin,max_candidates,precision_threshold,min_confirmations,auto_changed_at,updated_at FROM voice_matching_settings WHERE id=true`).Scan(&v.AutoEnabled, &v.AutomaticThreshold, &v.SuggestionThreshold, &v.AmbiguityMargin, &v.MaxCandidates, &v.PrecisionThreshold, &v.MinConfirmations, &v.AutoChangedAt, &v.UpdatedAt)
@@ -240,7 +248,7 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	}
 	for _, t := range targets {
 		if t.noReference {
-			note(t.clipID, "no_reference")
+			note(t.clipID, reasonNoReference)
 			continue
 		}
 		evaluated[t.speakerID] = true
@@ -258,9 +266,9 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 		}
 		switch level {
 		case LevelAmbiguous:
-			note(t.clipID, "tied_candidates")
+			note(t.clipID, reasonTiedCandidates)
 		case LevelUnknown:
-			note(t.clipID, "below_threshold")
+			note(t.clipID, reasonBelowThreshold)
 		}
 		if err = writeMatch(ctx, tx, t, level, person, confidence, candidates, existing[t.speakerID], names); err != nil {
 			return stats, err
@@ -580,7 +588,7 @@ func clipMatchSummaries(ctx context.Context, tx pgx.Tx, reasons map[int64]map[st
 			}
 			summary.levels[level] += n
 			if direct {
-				summary.reasons["micro_track_direct"] += n
+				summary.reasons[reasonMicroTrackDirect] += n
 			}
 		}
 		rows.Close()
@@ -588,7 +596,7 @@ func clipMatchSummaries(ctx context.Context, tx pgx.Tx, reasons map[int64]map[st
 			return nil, err
 		}
 		// A voice without reference is unknown but holds no attribution row.
-		summary.levels["unknown"] += reasons[clip]["no_reference"]
+		summary.levels[string(LevelUnknown)] += reasons[clip][reasonNoReference]
 		out = append(out, summary)
 	}
 	return out, nil
