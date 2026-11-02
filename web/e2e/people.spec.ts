@@ -42,9 +42,12 @@ test.describe.serial("personnes et vérification", () => {
     await page.context().close();
   });
 
-  test("vérification : compteurs, extrait, panneau Décider, passer et trancher", async () => {
+  test("vérification : un cas à l'écran, passer en local, choisir au clavier et trancher", async () => {
     await page.goto("/people/verification");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("People");
+    await expect(
+      page.getByRole("link", { name: /^Verification\s*2$/ }),
+    ).toBeVisible();
 
     // The five states carry a label and the counts come from the server.
     const counters = page.getByRole("list", { name: "Voices by state" });
@@ -63,55 +66,78 @@ test.describe.serial("personnes et vérification", () => {
         counters.locator("li").filter({ hasText: label }),
       ).toHaveCount(1);
     }
-    const cases = page.getByRole("list", { name: "Voices to decide" });
-    await expect(cases.locator("xpath=./li")).toHaveCount(2);
-    await expect(cases).toContainText("2 voice(s) in the group");
+    // One case at a time, the most frequent first.
+    const current = page.getByRole("region", { name: "Voice to decide" });
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_00",
+    );
+    await expect(current).toContainText("2 voice(s) left to decide");
+    await expect(current).toContainText("2 voice(s) in the group");
+    await expect(
+      page.getByRole("list", { name: "Voices to decide" }),
+    ).toHaveCount(0);
     await expectNoViolations(page);
     // A badge placed inside a button is not a button itself.
     await expect(page.locator("button button, a button")).toHaveCount(0);
 
-    // A counter filters the list.
+    // A counter filters the queue.
     await counters.getByRole("button", { name: /^Ambiguous/ }).click();
     await expect(page.getByText("Nothing left to decide here.")).toBeVisible();
     await counters.getByRole("button", { name: /^To decide/ }).click();
-    await expect(cases.locator("xpath=./li")).toHaveCount(2);
+    await expect(current).toContainText("2 voice(s) left to decide");
 
-    // The thumbnail opens the excerpt, which is served to the session only.
-    await page
-      .getByRole("button", {
-        name: "Play the excerpt of SPEAKER_00 in synthetic-voices.mp4",
-      })
-      .click();
-    const preview = page.getByRole("dialog", { name: "Excerpt of SPEAKER_00" });
-    const source = await preview.locator("audio").getAttribute("src");
+    // The excerpt is listened to in place and served to the session only.
+    await expect(
+      current.getByRole("button", {
+        name: "Excerpt of SPEAKER_00 in synthetic-voices.mp4",
+      }),
+    ).toBeVisible();
+    const source = await current.locator("audio").getAttribute("src");
     expect(source).toMatch(/^\/api\/local-speakers\/\d+\/excerpt$/);
     expect((await page.request.get(source!)).headers()["content-type"]).toBe(
       "audio/wav",
     );
-    await page.keyboard.press("Escape");
-    await expect(preview).toHaveCount(0);
 
-    // "Confirm" stays off until something is chosen, "Skip" changes nothing.
-    const decide = () =>
-      page.getByRole("button", { name: "Decide who SPEAKER_00 is" });
-    await decide().click();
-    const panel = page.getByRole("dialog", { name: "Who is SPEAKER_00?" });
-    await expect(panel.getByRole("button", { name: "Confirm" })).toBeDisabled();
-    await panel.getByRole("radio", { name: "Create a person" }).check();
-    await expect(panel.getByRole("button", { name: "Confirm" })).toBeDisabled();
-    await panel.getByRole("button", { name: "Skip for now" }).click();
-    await expect(panel).toHaveCount(0);
-    await expect(cases.locator("xpath=./li")).toHaveCount(2);
+    // "Confirm" stays off until something is chosen, and Enter then does nothing.
+    const confirm = current.getByRole("button", { name: "Confirm" });
+    await expect(confirm).toBeDisabled();
+    await page.keyboard.press("Enter");
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_00",
+    );
+    await current.getByRole("radio", { name: "Create a person" }).check();
+    await expect(confirm).toBeDisabled();
+
+    // "Skip" is local: the next case comes, the counters do not move, and a reload
+    // brings the original order back.
+    await page.keyboard.press("s");
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_01",
+    );
+    await expect(
+      counters.getByRole("button", { name: /^Unknown\s*2$/ }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_00",
+    );
     await expect(
       counters.getByRole("button", { name: /^Unknown\s*2$/ }),
     ).toBeVisible();
 
-    // Settling creates the person, removes the case and updates the counters.
-    await decide().click();
-    await panel.getByRole("radio", { name: "Create a person" }).check();
-    await panel.getByLabel("Name of the new person").fill("Claire Synthétique");
+    // The shortcuts are off in a text field: the name holds an "s" and "Enter".
+    await current.getByRole("radio", { name: "Create a person" }).check();
+    const name = current.getByLabel("Name of the new person");
+    await name.fill("Claire Synthétique");
+    await name.press("Enter");
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_00",
+    );
+    await expect(name).toHaveValue("Claire Synthétique");
     await expectNoViolations(page);
-    await panel.getByRole("button", { name: "Confirm" }).click();
+
+    // Settling creates the person, removes the case and lowers the counters.
+    await confirm.click();
     await expect(page.getByRole("status")).toContainText(
       "Saved: SPEAKER_00 is Claire Synthétique.",
     );
@@ -124,6 +150,9 @@ test.describe.serial("personnes et vérification", () => {
     ).toContainText("1");
     await expect(
       counters.getByRole("button", { name: /^Unknown\s*0$/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /^Verification\s*0$/ }),
     ).toBeVisible();
   });
 
@@ -354,8 +383,10 @@ test.describe.serial("personnes et vérification", () => {
     // The separated voice is back in the verification.
     await page.goto("/people/verification");
     await expect(
-      page.getByRole("button", { name: "Decide who SPEAKER_00 is" }),
-    ).toBeVisible();
+      page
+        .getByRole("region", { name: "Voice to decide" })
+        .getByRole("heading", { level: 2 }),
+    ).toHaveText("SPEAKER_00");
 
     // Deletion, from the address of the record, after a confirmation.
     await page.goto(claireUrl);
@@ -540,9 +571,11 @@ test.describe.serial("personnes et vérification", () => {
         ),
       ).toBe(true);
     }
-    await page
-      .getByRole("button", { name: "Decide who SPEAKER_00 is" })
-      .click();
+    const confirm = page
+      .getByRole("region", { name: "Voice to decide" })
+      .getByRole("button", { name: "Confirm" });
+    await expect(confirm).toBeVisible();
+    expect((await confirm.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await expectNoViolations(page);
 
     // The record with its actions and written reasons, on a phone, in the dark.
@@ -571,9 +604,8 @@ test.describe.serial("personnes et vérification", () => {
   test("la légende des badges reste lisible en thème sombre à 390 pixels", async () => {
     await page.goto("/people/verification");
     const caseBadge = page
-      .getByRole("list", { name: "Voices to decide" })
-      .getByRole("button", { name: "Unknown" })
-      .first();
+      .getByRole("region", { name: "Voice to decide" })
+      .getByRole("button", { name: "Unknown" });
     await caseBadge.click();
     const legend = page.getByRole("dialog", { name: "Unknown" });
     await expect(legend).toBeVisible();
@@ -581,6 +613,97 @@ test.describe.serial("personnes et vérification", () => {
     const box = (await legend.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(390);
+    await expectNoViolations(page);
+  });
+
+  test("vérification : recherche serveur, enchaînement, Entrée au clavier et cas déjà tranché", async () => {
+    // Twelve more Persons than a page of results holds, and a second clip with new voices.
+    const names = Array.from(
+      { length: 12 },
+      (_, i) => `Zoé Synthétique ${String(i + 1).padStart(2, "0")}`,
+    );
+    const ids = await createPersons(names);
+    const second = await uploadClip("second-voices.mp4", "shared");
+    await transcribeAndDiarize(second);
+    await page.evaluate(() => localStorage.setItem("snitch-ui-theme", "light"));
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/people/verification");
+
+    const current = page.getByRole("region", { name: "Voice to decide" });
+    const heading = current.getByRole("heading", { level: 2 });
+    const tab = page.getByRole("link", { name: /^Verification\s*\d+$/ });
+    await expect(heading).toBeVisible();
+    const count = async () =>
+      Number((await tab.innerText()).replace(/\D/g, ""));
+    const before = await count();
+    expect(before).toBeGreaterThanOrEqual(2);
+    const speakerOf = async () =>
+      Number(
+        (await current.locator("audio").getAttribute("src"))!.match(
+          /local-speakers\/(\d+)\//,
+        )![1],
+      );
+
+    // With nothing chosen, a number key changes nothing.
+    const confirm = current.getByRole("button", { name: "Confirm" });
+    await page.keyboard.press("9");
+    await expect(confirm).toBeDisabled();
+
+    // The search is made by the server: the eleventh person is found past the first page.
+    const search = current.getByRole("searchbox", { name: "Search people" });
+    await search.fill("Synthétique 11");
+    const eleven = current.getByRole("radio", { name: "Zoé Synthétique 11" });
+    await eleven.check();
+    await expect(confirm).toBeEnabled();
+    const first = await speakerOf();
+    // Enter, with the focus on the choice, confirms; the next case follows by itself.
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("status")).toContainText(
+      "is Zoé Synthétique 11.",
+    );
+    await expect.poll(speakerOf).not.toBe(first);
+    await expect.poll(count).toBeLessThan(before);
+
+    // A candidate, if the server proposes one, is chosen with its number and shows a
+    // proximity, never a confirmation.
+    const queue = (await (
+      await page.request.get("/api/voice-verification?level=all")
+    ).json()) as {
+      items: { candidates: { person: { display_name: string } }[] }[];
+    };
+    const candidates = queue.items[0]?.candidates ?? [];
+    if (candidates.length > 0) {
+      await expect(current).toContainText("% proximity");
+      await page.keyboard.press("1");
+      await expect(
+        current.getByRole("radio", { name: candidates[0].person.display_name }),
+      ).toBeChecked();
+      await expect(confirm).toBeEnabled();
+      await expect(current).toContainText(
+        "Proximity is only a suggestion: nothing is attributed until you confirm.",
+      );
+    }
+
+    // Somebody else settles the displayed case first: the choice is refused, nothing is
+    // written for the chosen Person and the queue goes on.
+    const target = await speakerOf();
+    const { api, post } = await adminApi();
+    await post(`/api/local-speakers/${target}/validation`, {
+      person_id: ids[0],
+    });
+    await search.fill("Synthétique 12");
+    await current.getByRole("radio", { name: "Zoé Synthétique 12" }).check();
+    await confirm.click();
+    await expect(page.getByRole("status")).toContainText(
+      "Already confirmed as Zoé Synthétique 01.",
+    );
+    await expect(page.getByText("Nothing left to decide here.")).toBeVisible();
+    await expect.poll(count).toBe(0);
+    const twelve = (await (
+      await api.get(`/api/persons/${ids[11]}`)
+    ).json()) as { local_speaker_count: number };
+    expect(twelve.local_speaker_count).toBe(0);
+    await api.dispose();
     await expectNoViolations(page);
   });
 });
