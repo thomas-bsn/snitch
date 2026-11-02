@@ -294,3 +294,44 @@ export async function completeQueuedTranscription(text = "Bonjour") {
   );
   await api.dispose();
 }
+
+/**
+ * A simulated Worker claims the queued transcription of a clip and reports it failed with a
+ * cause of the closed catalogue. `invalid_input` is final at once, so the step ends "failed".
+ */
+export async function failQueuedTranscription(code = "invalid_input") {
+  const { api, post } = await adminApi();
+  const worker = (await post("/api/admin/workers", {
+    name: `synthetic-failure-${Date.now()}`,
+    max_concurrency: 1,
+  })) as { token: string };
+  const call = async (path: string, body?: unknown, lease?: string) => {
+    const response = await api.post(path, {
+      data: body,
+      headers: {
+        Authorization: `Bearer ${worker.token}`,
+        ...(lease ? { "X-Worker-Lease-Token": lease } : {}),
+      },
+    });
+    if (!response.ok()) throw new Error(`${path}: ${response.status()}`);
+    return response.json().catch(() => null);
+  };
+  await call("/api/worker/pulse", {
+    capacity: 1,
+    supported_steps: ["transcription.audio.*"],
+  });
+  // Tasks left by earlier journeys of the run fail too: the queue holds nothing else to claim.
+  let failed = 0;
+  for (;;) {
+    const claimed = await call("/api/worker/jobs/claim");
+    if (!claimed?.job) break;
+    await call(
+      `/api/worker/jobs/${claimed.job.id}/fail`,
+      { error: code },
+      claimed.lease_token,
+    );
+    failed++;
+  }
+  if (!failed) throw new Error("no transcription task to claim");
+  await api.dispose();
+}

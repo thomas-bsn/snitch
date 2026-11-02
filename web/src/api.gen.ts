@@ -2763,6 +2763,8 @@ export interface components {
       discord_linked: boolean;
       /** @description True only when Discord is linked and a local password is configured. */
       can_unlink_discord: boolean;
+      /** @description Display name of the linked Discord identity (global name, else username); null when unlinked or linked before it was kept. Read-only. */
+      discord_name?: string | null;
     };
     Setup: {
       initialized: boolean;

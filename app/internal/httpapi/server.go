@@ -63,7 +63,17 @@ type session struct {
 	CSRF             string
 	DiscordLinked    bool
 	CanUnlinkDiscord bool
+	DiscordName      *string
 }
+
+// discordName is the linked identity's display name, null when unlinked or linked before it was kept.
+func (ss session) discordName() *string {
+	if !ss.DiscordLinked || ss.DiscordName == nil || *ss.DiscordName == "" {
+		return nil
+	}
+	return ss.DiscordName
+}
+
 type sessionKey struct{}
 type credentials struct {
 	Username string `json:"username"`
@@ -415,7 +425,7 @@ func (s *Server) findSession(r *http.Request) (session, error) {
 	if err != nil {
 		return ss, err
 	}
-	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf,u.discord_id IS NOT NULL,u.password_hash IS NOT NULL FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF, &ss.DiscordLinked, &ss.CanUnlinkDiscord)
+	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf,u.discord_id IS NOT NULL,u.password_hash IS NOT NULL,u.discord_name FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF, &ss.DiscordLinked, &ss.CanUnlinkDiscord, &ss.DiscordName)
 	return ss, err
 }
 func (s *Server) protected(admin bool, next http.Handler) http.Handler {
@@ -648,7 +658,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	reply(w, 200, map[string]any{"user": ss.User, "csrf_token": ss.CSRF, "discord_linked": ss.DiscordLinked, "can_unlink_discord": ss.DiscordLinked && ss.CanUnlinkDiscord})
+	reply(w, 200, map[string]any{"user": ss.User, "csrf_token": ss.CSRF, "discord_linked": ss.DiscordLinked, "can_unlink_discord": ss.DiscordLinked && ss.CanUnlinkDiscord, "discord_name": ss.discordName()})
 }
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	c, _ := sessionCookie(r)
@@ -900,15 +910,25 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 	var identity struct {
-		ID string `json:"id"`
+		ID         string `json:"id"`
+		Username   string `json:"username"`
+		GlobalName string `json:"global_name"`
 	}
 	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 16384)).Decode(&identity) != nil || identity.ID == "" || len(identity.ID) > 64 {
 		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
+	// Only the display name is kept, never a token.
+	displayName := identity.GlobalName
+	if displayName == "" {
+		displayName = identity.Username
+	}
+	if len(displayName) > 128 {
+		displayName = displayName[:128]
+	}
 	if userID != nil {
 		// Unique identity constraint rejects linking an identity already owned by another account.
-		tag, e := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=$1 WHERE id=$2 AND (discord_id IS NULL OR discord_id=$1) AND EXISTS (SELECT 1 FROM sessions WHERE token_hash=$3 AND user_id=$2 AND expires_at>now())`, identity.ID, *userID, sessionHash)
+		tag, e := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=$1,discord_name=NULLIF($4,'') WHERE id=$2 AND (discord_id IS NULL OR discord_id=$1) AND EXISTS (SELECT 1 FROM sessions WHERE token_hash=$3 AND user_id=$2 AND expires_at>now())`, identity.ID, *userID, sessionHash, displayName)
 		if e == nil && tag.RowsAffected() == 0 {
 			if _, err := s.findSession(r); err != nil {
 				s.oauthFailure(w, r, 403, "link_session_required")
@@ -933,7 +953,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		}
 		var uid int64
 		var approved bool
-		e = tx.QueryRow(r.Context(), `INSERT INTO users(username,role,approved,discord_id) VALUES($1,'user',$2,$3) ON CONFLICT DO NOTHING RETURNING id,approved`, "discord_"+identity.ID, !approval, identity.ID).Scan(&uid, &approved)
+		e = tx.QueryRow(r.Context(), `INSERT INTO users(username,role,approved,discord_id,discord_name) VALUES($1,'user',$2,$3,NULLIF($4,'')) ON CONFLICT DO NOTHING RETURNING id,approved`, "discord_"+identity.ID, !approval, identity.ID, displayName).Scan(&uid, &approved)
 		if errors.Is(e, pgx.ErrNoRows) {
 			e = tx.QueryRow(r.Context(), `SELECT id,approved FROM users WHERE discord_id=$1`, identity.ID).Scan(&uid, &approved)
 		}
