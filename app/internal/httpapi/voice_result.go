@@ -176,6 +176,7 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 			// database only. A failure never undoes the stored result.
 			s.matchingChanged(r.Context(), job.ClipID)
 		}
+		s.reconcileAnalysis(r.Context(), job.ClipID)
 		reply(w, http.StatusOK, job)
 	}
 }

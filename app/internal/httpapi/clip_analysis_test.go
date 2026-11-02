@@ -173,14 +173,24 @@ func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	if run2.ID == run.ID || run2.Status != "completed" || run2.step("transcription").Reason != "reused_existing" || h.count(`SELECT count(*) FROM jobs WHERE clip_id=$1`, h.clipID) != jobs {
 		t.Fatalf("valid results must be reused: %+v", run2)
 	}
-	// Voice scope builds on the existing transcription; steps not wired yet say so, and the run is incomplete, never a false success.
+	// Voice scope builds on the existing transcription: it plans the diarization and waits for a Worker.
 	run3 := h.startAnalysis(map[string]any{"scope": "voice"}, http.StatusCreated)
-	if run3.Status != "incomplete" || run3.step("transcription").Reason != "reused_existing" || run3.step("indexing").Status != "not_applicable" || run3.step("diarization").Status != "not_yet_supported" || run3.step("matching").Status != "not_yet_supported" {
+	if run3.Status != "active" || run3.step("transcription").Reason != "reused_existing" || run3.step("indexing").Status != "not_applicable" || run3.step("diarization").Reason != "awaiting_worker" || run3.step("matching").Status != "waiting" {
 		t.Fatalf("unexpected voice run: %+v", run3)
 	}
+	if _, err := pool.Exec(context.Background(), `UPDATE clip_analysis_runs SET status='cancelled' WHERE id=$1`, run3.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `DELETE FROM jobs WHERE step LIKE 'voice.%'`); err != nil {
+		t.Fatal(err)
+	}
+	// Without a configured semantic index the indexing step is not applicable, and the run still ends.
 	run5 := h.startAnalysis(map[string]any{"scope": "full"}, http.StatusCreated)
-	if run5.Status != "incomplete" || run5.step("indexing").Status != "not_yet_supported" || run5.step("indexing").Reason != "orchestration_pending" || run5.step("diarization").Status != "not_yet_supported" {
+	if run5.Status != "active" || run5.step("indexing").Status != "not_applicable" || run5.step("indexing").Reason != "semantic_search_unavailable" || run5.step("diarization").Reason != "awaiting_worker" {
 		t.Fatalf("unexpected full run: %+v", run5)
+	}
+	if _, err := pool.Exec(context.Background(), `UPDATE clip_analysis_runs SET status='cancelled' WHERE id=$1`, run5.ID); err != nil {
+		t.Fatal(err)
 	}
 
 	// A job that dies fails the step and the run, and frees the clip for a new analysis.
@@ -206,4 +216,87 @@ func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	member := h.newUser("analysis-member")
 	h.userCall(member, http.MethodGet, h.analysisPath(), nil, http.StatusForbidden)
 	h.userCall(member, http.MethodPost, h.analysisPath(), map[string]any{}, http.StatusForbidden)
+}
+
+func testClipAnalysisVoice(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	ctx := context.Background()
+	h.transcribe()
+	h.putPipeline(fakePipeline(2))
+	// A semantic index is configured; its task will fail while the voices go on.
+	if err := h.api.Store.Set(ctx, "embeddings_url", "http://embeddings.invalid"); err != nil {
+		t.Fatal(err)
+	}
+	var profile int64
+	if err := pool.QueryRow(ctx, `INSERT INTO embedding_profiles(model,dimensions,state) VALUES('synthetic',4,'active') RETURNING id`).Scan(&profile); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=$1 WHERE id=1`, profile); err != nil {
+		t.Fatal(err)
+	}
+
+	// A source rule designates the microphone track (index 1): the run attributes it directly.
+	var sourceID int64
+	if err := pool.QueryRow(ctx, `SELECT id FROM clip_sources ORDER BY id LIMIT 1`).Scan(&sourceID); err != nil {
+		t.Fatal(err)
+	}
+	alice := h.newPerson("Alice Analysis")
+	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/sources/%d/microphone-track", sourceID), map[string]any{"title": "Micro", "person_id": alice}, http.StatusOK)
+
+	run := h.startAnalysis(map[string]any{"scope": "full"}, http.StatusCreated)
+	if n := h.count(`SELECT count(*) FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.kind='microphone' AND a.person_id=$2 AND a.decision_level='automatic'`, h.clipID, alice); n != 1 {
+		t.Fatalf("the microphone track must be attributed directly by the run: %d", n)
+	}
+	if run.Status != "active" || run.step("indexing").Reason != "awaiting_indexer" || run.step("diarization").Reason != "awaiting_worker" || run.step("fingerprints").Status != "waiting" || run.step("matching").Status != "waiting" {
+		t.Fatalf("both branches must start after the transcription: %+v", run)
+	}
+	job, ok := h.claim()
+	if !ok || job.Step != "voice.diarization.2" {
+		t.Fatalf("expected the diarization task, got %+v", job)
+	}
+	h.complete(job, diarizationPayload("SPEAKER_00", "SPEAKER_01"), http.StatusOK)
+	run = *h.analysis()
+	if run.step("diarization").Status != "done" || run.step("fingerprints").Reason != "awaiting_worker" || run.step("indexing").Status != "waiting" {
+		t.Fatalf("unexpected run after the diarization: %+v", run)
+	}
+	// The semantic index fails: the voice branch goes on and the text search stays.
+	if _, err := pool.Exec(ctx, `UPDATE embedding_tasks SET state='failed',error='synthetic' WHERE profile_id=$1`, profile); err != nil {
+		t.Fatal(err)
+	}
+	fp, ok := h.claim()
+	if !ok || fp.Step != "voice.fingerprint.2" {
+		t.Fatalf("expected the fingerprint task, got %+v", fp)
+	}
+	vec := []float64{0.5, 0.5, 0.5, 0.5}
+	h.complete(fp, map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "embedding_model": "fixture-embedding", "embedding_model_version": "emb-v1", "audio_stream_index": 2, "diarization_job_id": job.ID, "dimensions": 4, "fingerprints": []map[string]any{
+		{"speaker_label": "SPEAKER_00", "scope": "speaker", "start": 0, "end": 1.5, "quality": 0.9, "embedding": vec},
+		{"speaker_label": "SPEAKER_01", "scope": "speaker", "start": 1, "end": 2.5, "quality": 0.9, "embedding": vec},
+	}}, http.StatusOK)
+	run = *h.analysis()
+	if run.Status != "failed" || run.step("indexing").Status != "failed" || run.step("indexing").Reason != "semantic_index_failed" || run.step("diarization").Status != "done" || run.step("fingerprints").Status != "done" || run.step("matching").Status != "done" {
+		t.Fatalf("a semantic failure must be a partial failure of the run: %+v", run)
+	}
+	// Unknown voices neither block the clip nor the technical end of the voice branch.
+	if v := h.voice(); v.Status != "done" || len(v.Speakers) != 3 || v.Speakers[0].State != "identified" || v.Speakers[1].State != "unidentified" || v.Speakers[2].State != "unidentified" {
+		t.Fatalf("unknown voices must stay unidentified: %+v", v)
+	}
+	if n := h.count(`SELECT count(*) FROM clips c JOIN jobs j ON j.clip_id=c.id WHERE c.id=$1 AND j.step LIKE 'transcription.audio.%' AND j.status='done'`, h.clipID); n != 1 {
+		t.Fatalf("the transcription must stay: %d", n)
+	}
+
+	// Valid results are reused: the voice scope plans no job and ends at once.
+	jobsBefore := h.count(`SELECT count(*) FROM jobs`)
+	run2 := h.startAnalysis(map[string]any{"scope": "voice"}, http.StatusCreated)
+	if run2.Status != "completed" || run2.step("diarization").Reason != "reused_existing" || run2.step("fingerprints").Reason != "reused_existing" || run2.step("matching").Status != "done" || h.count(`SELECT count(*) FROM jobs`) != jobsBefore {
+		t.Fatalf("valid voice results must be reused: %+v", run2)
+	}
+
+	// A dead fingerprint job fails its branch and blocks only the steps behind it.
+	if _, err := pool.Exec(ctx, `UPDATE jobs SET status='dead' WHERE step='voice.fingerprint.2'`); err != nil {
+		t.Fatal(err)
+	}
+	run3 := h.startAnalysis(map[string]any{"scope": "voice"}, http.StatusCreated)
+	if run3.Status != "failed" || run3.step("diarization").Status != "done" || run3.step("fingerprints").Reason != "job_dead" || run3.step("matching").Reason != "upstream_failed" {
+		t.Fatalf("unexpected run with a dead fingerprint job: %+v", run3)
+	}
 }

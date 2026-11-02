@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -66,6 +67,124 @@ func (h analysisHooks) Transcribe(ctx context.Context, clipID int64, since time.
 func (h analysisHooks) HasTranscription(ctx context.Context, clipID int64) (bool, error) {
 	_, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
 	return ok, err
+}
+
+// Index follows the semantic indexing of the visible transcription. A missing or failing
+// semantic index never touches the text search, which is fed by the transcription itself.
+func (h analysisHooks) Index(ctx context.Context, clipID int64) (analysis.StepResult, error) {
+	visible, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
+	if err != nil || !ok {
+		return analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_transcription"}, err
+	}
+	// A transcription that predates the indexing profile still needs its task.
+	if _, err = h.s.Pool.Exec(ctx, `INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT active_profile_id,$1 FROM embedding_index_state WHERE id=1 AND active_profile_id IS NOT NULL ON CONFLICT DO NOTHING`, visible.JobID); err != nil {
+		return analysis.StepResult{}, err
+	}
+	progress, err := h.s.clipProgress(ctx, clipID, visible.JobID, true)
+	if err != nil {
+		return analysis.StepResult{}, err
+	}
+	switch progress.Indexing {
+	case "done":
+		return analysis.StepResult{Status: analysis.StatusDone, Reason: "completed"}, nil
+	case "running":
+		return analysis.StepResult{Status: analysis.StatusRunning, Reason: "running"}, nil
+	case "failed":
+		return analysis.StepResult{Status: analysis.StatusFailed, Reason: "semantic_index_failed"}, nil
+	case "unavailable":
+		return analysis.StepResult{Status: analysis.StatusNotApplicable, Reason: "semantic_search_unavailable"}, nil
+	}
+	return analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_indexer"}, nil
+}
+
+// Voice runs the voice branch of a clip: the microphone designation is applied (a
+// designated track is attributed directly and never diarized), then the diarization and
+// its fingerprints are followed. An existing diarization is reused, never replaced by a
+// run: a change of model does not re-diarize clips by itself.
+func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time) (analysis.VoiceSteps, error) {
+	s := h.s
+	waiting := func(r analysis.StepResult) analysis.VoiceSteps {
+		after := analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_previous_step"}
+		return analysis.VoiceSteps{Diarization: r, Fingerprints: after, Matching: &after}
+	}
+	tracks, err := s.clipAudioTracks(ctx, clipID)
+	if err != nil {
+		return analysis.VoiceSteps{}, err
+	}
+	selection, err := s.audioSelection(ctx, clipID, tracks)
+	if err != nil {
+		return analysis.VoiceSteps{}, err
+	}
+	if selection.AudioStreamIndex == nil {
+		return waiting(analysis.StepResult{Status: analysis.StatusBlocked, Reason: "audio_track_selection_required"}), nil
+	}
+	index := *selection.AudioStreamIndex
+	if _, err = s.applyMicrophone(ctx, clipID, authorRef{Username: "analysis"}); err != nil {
+		return analysis.VoiceSteps{}, err
+	}
+	var microphone bool
+	if err = s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='microphone')`, clipID, index).Scan(&microphone); err != nil {
+		return analysis.VoiceSteps{}, err
+	}
+	if microphone {
+		na := analysis.StepResult{Status: analysis.StatusNotApplicable, Reason: "microphone_track"}
+		direct := analysis.StepResult{Status: analysis.StatusDone, Reason: "microphone_direct_attribution"}
+		return analysis.VoiceSteps{Diarization: na, Fingerprints: na, Matching: &direct}, nil
+	}
+	diarStep := fmt.Sprintf("voice.diarization.%d", index)
+	var diarID int64
+	err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND status='done' ORDER BY updated_at DESC,id DESC LIMIT 1`, clipID, diarStep).Scan(&diarID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND (status IN ('pending','leased','retry_wait') OR created_at>=$3) ORDER BY id DESC LIMIT 1`, clipID, diarStep, since).Scan(&diarID)
+	}
+	var diar jobs.Job
+	switch {
+	case err == nil:
+		diar, err = s.readJob(ctx, diarID)
+	case errors.Is(err, pgx.ErrNoRows):
+		var version string
+		if version, _, err = s.activeVoicePipeline(ctx); err == nil {
+			diar, _, err = s.Jobs.Schedule(ctx, jobs.ScheduleInput{ClipID: clipID, Step: diarStep, InputVersion: fmt.Sprintf("d5-a%d-p%s", index, version), MaxAttempts: 3})
+		}
+	}
+	if err != nil {
+		return analysis.VoiceSteps{}, err
+	}
+	diarResult := analysis.JobResult(diar, since)
+	if diarResult.Status != analysis.StatusDone {
+		return waiting(diarResult), nil
+	}
+	var speakers int
+	if err = s.Pool.QueryRow(ctx, `SELECT CASE WHEN jsonb_typeof(result->'speakers')='array' THEN jsonb_array_length(result->'speakers') ELSE 0 END FROM jobs WHERE id=$1`, diar.ID).Scan(&speakers); err != nil {
+		return analysis.VoiceSteps{}, err
+	}
+	if speakers == 0 {
+		na := analysis.StepResult{Status: analysis.StatusNotApplicable, Reason: "no_speakers"}
+		return analysis.VoiceSteps{Diarization: diarResult, Fingerprints: na, Matching: &na}, nil
+	}
+	pipeline, _, ok := jobs.VoiceInputVersion(diar.InputVersion)
+	if !ok {
+		return analysis.VoiceSteps{}, fmt.Errorf("diarization job %d has no voice input version", diar.ID)
+	}
+	fpStep, fpVersion := fmt.Sprintf("voice.fingerprint.%d", index), fmt.Sprintf("f5-a%d-p%s-d%d", index, pipeline, diar.ID)
+	var fpID int64
+	err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 ORDER BY id DESC LIMIT 1`, clipID, fpStep, fpVersion).Scan(&fpID)
+	var fp jobs.Job
+	switch {
+	case err == nil:
+		fp, err = s.readJob(ctx, fpID)
+	case errors.Is(err, pgx.ErrNoRows):
+		fp, _, err = s.Jobs.Schedule(ctx, jobs.ScheduleInput{ClipID: clipID, Step: fpStep, InputVersion: fpVersion, MaxAttempts: 3})
+	}
+	if err != nil {
+		return analysis.VoiceSteps{}, err
+	}
+	return analysis.VoiceSteps{Diarization: diarResult, Fingerprints: analysis.JobResult(fp, since)}, nil
+}
+
+func (h analysisHooks) Match(ctx context.Context, clipID int64) error {
+	_, err := h.s.rematchVoices(context.WithoutCancel(ctx), clipID)
+	return err
 }
 
 func (s *Server) readJob(ctx context.Context, id int64) (jobs.Job, error) {
