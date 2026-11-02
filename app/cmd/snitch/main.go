@@ -29,7 +29,9 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("command failed", logging.Failure(err)...)
+		// Every error returned by run is a fixed sentence written for the operator
+		// (never a wrapped driver or provider error), so the message stays readable.
+		slog.Error("command failed", append(logging.Failure(err), "message", err.Error())...)
 		os.Exit(1)
 	}
 }
