@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"snitch/internal/logging"
 	"sort"
 	"strconv"
 	"sync"
@@ -97,12 +98,12 @@ func (s *Server) reconcileMicrophones(ctx context.Context, affected *affectedMic
 	ctx = context.WithoutCancel(ctx)
 	for id := range affected.sources {
 		if _, err := s.applySource(ctx, id, author); err != nil {
-			s.Log.Error("microphone reconcile failed", "source_id", id, "error", err)
+			s.Log.Error("microphone reconcile failed", append([]any{"source_id", id}, logging.Failure(err)...)...)
 		}
 	}
 	for id := range affected.clips {
 		if _, err := s.applyMicrophone(ctx, id, author); err != nil {
-			s.Log.Error("microphone reconcile failed", "clip_id", id, "error", err)
+			s.Log.Error("microphone reconcile failed", append([]any{"clip_id", id}, logging.Failure(err)...)...)
 		}
 	}
 }

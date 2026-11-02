@@ -56,6 +56,23 @@ class StructuredLogTests(unittest.TestCase):
             self.assertNotIn(secret, output)
         self.assertEqual(read(stream)[0]["job_id"], 4)
 
+    def test_raw_error_text_under_error_keys_is_replaced_by_code_and_category(self):
+        for level in ("DEBUG", "INFO", "WARN", "ERROR"):
+            stream = io.StringIO()
+            log.configure(level, stream=stream)
+            sql = 'duplicate key value violates unique constraint "users_email_key" Key (email)=(ann@example.test)'
+            provider = "provider said invalid key sk-synthetic-123 for https://api.example.test/v1?sig=abc"
+            log.emit(logging.ERROR, "trap", error=sql, err=provider, reason=provider, api_key="sk-synthetic-123", job_id=9)
+            log.emit(logging.ERROR, "trap_failure", **log.failure(RuntimeError(provider)))
+            log.emit(logging.ERROR, "trap_failure", **log.failure(TimeoutError(provider)))
+            output = stream.getvalue()
+            for leaked in ("users_email_key", "ann@example.test", "sk-synthetic", "sig=abc", "provider said"):
+                self.assertNotIn(leaked, output)
+            lines = read(stream)
+            self.assertEqual(lines[0]["job_id"], 9)
+            self.assertEqual((lines[1]["error_code"], lines[1]["error_category"]), ("operation_error", "internal"))
+            self.assertEqual((lines[2]["error_code"], lines[2]["error_category"]), ("timeout", "timeout"))
+
 
 if __name__ == "__main__":
     unittest.main()

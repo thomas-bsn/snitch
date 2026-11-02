@@ -29,7 +29,7 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("command failed", "reason", err.Error())
+		slog.Error("command failed", logging.Failure(err)...)
 		os.Exit(1)
 	}
 }
@@ -146,7 +146,7 @@ func run() error {
 			_, port, _ := net.SplitHostPort(c.Address)
 			address = "http://localhost:" + port
 		}
-		slog.Warn("one-time installation code: open "+address+" and enter "+code+" (valid 15 minutes, works once)", "code", code, "url", address, "expires_in_minutes", 15)
+		logging.InstallationCode(slog.Default(), address, code)
 	}
 	// Expired transient rows do not accumulate during normal service operation.
 	go func() {
