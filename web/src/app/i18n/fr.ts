@@ -59,6 +59,7 @@ export const fr: Messages = {
     job: "Tâche {id} · clip {clip} · {status}",
     history: "Historique",
     retry: "Relancer",
+    reconnecting: "Reconnexion… le tableau montre le dernier état connu.",
     scheduleHint: "Choisissez un clip à analyser.",
     scheduleSubmit: "Planifier",
     advancedTitle: "Option avancée : tâche unitaire",
