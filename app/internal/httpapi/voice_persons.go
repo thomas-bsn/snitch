@@ -312,7 +312,7 @@ func (s *Server) authorizedSpeaker(w http.ResponseWriter, r *http.Request) (spea
 		return speakerRef{}, false
 	}
 	ref := speakerRef{ID: id}
-	err := s.Pool.QueryRow(r.Context(), `SELECT ls.clip_id,ls.audio_stream_index,ls.label FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&ref.ClipID, &ref.Index, &ref.Label)
+	err := s.Pool.QueryRow(r.Context(), `SELECT ls.clip_id,ls.audio_stream_index,ls.label FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1 AND clip_readable(c.id,c.owner_id,c.visibility,$2,$3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&ref.ClipID, &ref.Index, &ref.Label)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "local_speaker_not_found")
 		return speakerRef{}, false
@@ -594,7 +594,7 @@ func (s *Server) getPersonImpact(w http.ResponseWriter, r *http.Request) {
 	var v personImpactView
 	err := s.Pool.QueryRow(r.Context(), `SELECT
 		(SELECT count(*) FROM source_microphone_tracks WHERE person_id=p.id)+(SELECT count(*) FROM clip_microphone_overrides WHERE person_id=p.id),
-		NOT $3 AND EXISTS (SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id WHERE a.person_id=p.id AND NOT (c.visibility='shared' OR c.owner_id=$2)),
+		NOT $3 AND EXISTS (SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id WHERE a.person_id=p.id AND NOT clip_readable(c.id,c.owner_id,c.visibility,$2,false)),
 		(SELECT count(*) FROM voice_samples WHERE person_id=p.id),
 		(SELECT count(*) FROM voice_fingerprints f WHERE f.local_speaker_id IN (SELECT a.local_speaker_id FROM speaker_attributions a WHERE a.person_id=p.id AND (a.validation_state='validated' OR NOT EXISTS (SELECT 1 FROM speaker_attributions x WHERE x.local_speaker_id=a.local_speaker_id AND x.validation_state='validated')))),
 		(SELECT count(*) FROM speaker_attributions WHERE person_id=p.id)

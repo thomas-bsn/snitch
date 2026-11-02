@@ -117,9 +117,9 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 	}
 	game := strings.TrimSpace(r.URL.Query().Get("game"))
 	admin := isAdministrator(ss.User.Role)
-	visibilityClause := "(c.visibility='shared' OR c.owner_id=$1 OR $2)"
+	visibilityClause := "clip_readable(c.id,c.owner_id,c.visibility,$1,$2)"
 	args := []any{ss.User.ID, admin, visibility, status, owner, source, from, to, person.PersonID, person.Unknown, game, folder}
-	filters := "($3='' OR c.visibility=$3) AND ($4='' OR c.id IN (SELECT sf.clip_id FROM source_files sf WHERE sf.status=$4) OR ($4='ready' AND EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id)) OR ($4='missing' AND NOT EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready'))) AND ($5=0 OR c.owner_id=$5) AND ($6=0 OR EXISTS(SELECT 1 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id AND cs.id=$6)) AND ($7='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date >= $7::date) AND ($8='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date <= $8::date) AND " + clipPersonPredicate("$9", "$10") + " AND ($11='' OR c.game ILIKE '%' || $11 || '%') AND ($12='' OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.relative_path LIKE $12 || '/%'))"
+	filters := "($3='' OR c.visibility=$3) AND ($4='' OR c.id IN (SELECT sf.clip_id FROM source_files sf WHERE sf.status=$4) OR ($4='ready' AND EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id)) OR ($4='missing' AND NOT EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready'))) AND ($5=0 OR c.owner_id=$5) AND ($6=0 OR EXISTS(SELECT 1 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id AND cs.id=$6)) AND ($7='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date >= $7::date) AND ($8='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date <= $8::date) AND " + clipPersonPredicate("$9", "$10") + " AND ($11='' OR c.game ILIKE '%' || $11 || '%') AND ($12='' OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.relative_path LIKE $12 || '/%' AND (c.owner_id=$1 OR NOT path_in_private_folder(sf.source_id,sf.relative_path) OR EXISTS(SELECT 1 FROM users WHERE id=$1 AND role='super_admin'))))"
 	var total int
 	err = s.Pool.QueryRow(r.Context(), "SELECT count(*) FROM clips c WHERE "+visibilityClause+" AND "+filters, args...).Scan(&total)
 	if err != nil {
@@ -170,13 +170,20 @@ func (s *Server) listClips(w http.ResponseWriter, r *http.Request) {
 	reply(w, 200, map[string]any{"items": items, "page": page, "page_size": size, "total": total})
 }
 
-// listLibraryFolders returns folders that contain at least one visible, explicitly indexed clip.
+// listLibraryFolders returns the top-level folders a user may browse: those holding at least one
+// clip they can read through that very folder, plus every private folder (#93). A private folder is
+// listed for everyone so its name shows with a lock, but only the Super-administrator may open it:
+// for anyone else it is "locked" and nothing of its content is listed here.
 func (s *Server) listLibraryFolders(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	rows, err := s.Pool.Query(r.Context(), `SELECT DISTINCT cs.id,cs.name,split_part(sf.relative_path,'/',1)
-	 FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id JOIN clips c ON c.id=sf.clip_id
-	 WHERE sf.status='ready' AND (c.visibility='shared' OR c.owner_id=$1 OR $2)
-	 AND position('/' in sf.relative_path)>0 ORDER BY cs.id,3`, ss.User.ID, isAdministrator(ss.User.Role))
+	superAdmin := isSuperAdministrator(ss.User.Role)
+	rows, err := s.Pool.Query(r.Context(), `SELECT cs.id,cs.name,f.folder,f.private FROM (
+	  SELECT DISTINCT sf.source_id,split_part(sf.relative_path,'/',1) AS folder,path_in_private_folder(sf.source_id,sf.relative_path) AS private
+	  FROM source_files sf JOIN clips c ON c.id=sf.clip_id
+	  WHERE sf.status='ready' AND position('/' in sf.relative_path)>0 AND clip_readable(c.id,c.owner_id,c.visibility,$1,$2)
+	  AND ($3 OR NOT path_in_private_folder(sf.source_id,sf.relative_path))
+	  UNION SELECT pf.source_id,pf.folder,true FROM private_folders pf
+	 ) f JOIN clip_sources cs ON cs.id=f.source_id ORDER BY cs.id,f.folder`, ss.User.ID, isAdministrator(ss.User.Role), superAdmin)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -187,15 +194,18 @@ func (s *Server) listLibraryFolders(w http.ResponseWriter, r *http.Request) {
 		Source   string `json:"source"`
 		Name     string `json:"name"`
 		Path     string `json:"path"`
+		Private  bool   `json:"private"`
+		Locked   bool   `json:"locked"`
 	}
 	items := []folder{}
 	for rows.Next() {
 		var f folder
-		if err = rows.Scan(&f.SourceID, &f.Source, &f.Name); err != nil {
+		if err = rows.Scan(&f.SourceID, &f.Source, &f.Name, &f.Private); err != nil {
 			s.internal(w, err)
 			return
 		}
 		f.Path = f.Name
+		f.Locked = f.Private && !superAdmin
 		items = append(items, f)
 	}
 	if err = rows.Err(); err != nil {
@@ -203,6 +213,46 @@ func (s *Server) listLibraryFolders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// putFolderPrivacy makes a top-level folder of a source private or visible again (#93). Only the
+// Super-administrator may: the folder's clips then disappear for everyone else, except their owner
+// and clips that stay reachable through another visible provenance.
+func (s *Server) putFolderPrivacy(w http.ResponseWriter, r *http.Request) {
+	ss := r.Context().Value(sessionKey{}).(session)
+	var input struct {
+		SourceID int64  `json:"source_id"`
+		Folder   string `json:"folder"`
+		Private  *bool  `json:"private"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	folder := strings.TrimSpace(input.Folder)
+	if input.SourceID < 1 || input.Private == nil || folder == "" || folder == "." || folder == ".." || strings.ContainsAny(folder, "/\\") {
+		fail(w, http.StatusBadRequest, "invalid_folder")
+		return
+	}
+	var exists bool
+	if err := s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clip_sources WHERE id=$1)`, input.SourceID).Scan(&exists); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !exists {
+		fail(w, http.StatusNotFound, "source_not_found")
+		return
+	}
+	var err error
+	if *input.Private {
+		_, err = s.Pool.Exec(r.Context(), `INSERT INTO private_folders(source_id,folder,set_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, input.SourceID, folder, ss.User.ID)
+	} else {
+		_, err = s.Pool.Exec(r.Context(), `DELETE FROM private_folders WHERE source_id=$1 AND folder=$2`, input.SourceID, folder)
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"source_id": input.SourceID, "folder": folder, "private": *input.Private})
 }
 
 func timeParseDate(v string) (time.Time, error) { return time.Parse("2006-01-02", v) }
@@ -220,7 +270,7 @@ func (s *Server) authorizedClip(w http.ResponseWriter, r *http.Request) (clipIte
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),
  COALESCE((SELECT jsonb_agg(DISTINCT uploader.username ORDER BY uploader.username) FROM uploaded_media um JOIN users uploader ON uploader.id=um.owner_id WHERE um.clip_id=c.id),'[]'::jsonb),
  COALESCE((SELECT jsonb_agg(jsonb_build_object('kind',o.kind,'name',o.name) ORDER BY o.created_at,o.kind,o.sort_id) FROM (SELECT 'source' AS kind,cs.name AS name,sf.first_seen_at AS created_at,cs.id AS sort_id FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id UNION ALL SELECT 'upload',CASE WHEN u2.deleted_at IS NULL THEN u2.username ELSE NULL END,um.created_at,um.owner_id FROM uploaded_media um JOIN users u2 ON u2.id=um.owner_id WHERE um.clip_id=c.id) o),'[]'::jsonb)
- FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&v.ID, &v.OwnerID, &v.Owner, &v.OwnerDeleted, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.Game, &v.GameOrigin, &v.CaptureTimeOrigin, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders, &v.Origins)
+ FROM clips c JOIN users u ON u.id=c.owner_id WHERE c.id=$1 AND clip_readable(c.id,c.owner_id,c.visibility,$2,$3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&v.ID, &v.OwnerID, &v.Owner, &v.OwnerDeleted, &v.Visibility, &v.OriginalName, &v.SizeBytes, &v.DiscoveredAt, &v.RecordedAt, &v.Game, &v.GameOrigin, &v.CaptureTimeOrigin, &v.RecordedAtEstimated, &v.DurationSeconds, &v.FormatName, &v.VideoCodec, &v.AudioCodec, &v.Tracks, &v.Status, &v.Sources, &v.Uploaders, &v.Origins)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, 404, "clip_not_found")
 		return clipItem{}, false

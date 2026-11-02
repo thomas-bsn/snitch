@@ -107,6 +107,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Identifiants incorrects ou inscription en attente d’approbation.",
   invalid_embedding_model: "Ce modèle d’embeddings n’est pas valide.",
   invalid_filter: "Un des filtres n’est pas valide.",
+  invalid_folder: "Ce nom de dossier n’est pas valide.",
   invalid_format: "Ce format n’est pas valide.",
   invalid_id: "Cet identifiant n’est pas valide.",
   invalid_job: "Cette tâche n’est pas valide.",

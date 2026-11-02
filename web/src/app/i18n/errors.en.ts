@@ -99,6 +99,7 @@ export const errorsEn = {
     "Incorrect credentials, or the sign-up is still waiting for approval.",
   invalid_embedding_model: "This embedding model is not valid.",
   invalid_filter: "One of the filters is not valid.",
+  invalid_folder: "This folder name is not valid.",
   invalid_format: "This format is not valid.",
   invalid_id: "This identifier is not valid.",
   invalid_job: "This task is not valid.",

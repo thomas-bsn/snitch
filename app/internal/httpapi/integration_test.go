@@ -170,6 +170,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testResumableUploads(t, pool)
 	})
+	t.Run("private folders", func(t *testing.T) {
+		reset(t)
+		testPrivateFolders(t, pool)
+	})
 	t.Run("clip library", func(t *testing.T) {
 		reset(t)
 		testClipLibrary(t, pool)

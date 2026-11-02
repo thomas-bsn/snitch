@@ -12,6 +12,9 @@ _Avoid_ : Traitement (trop vague), tâche (qui désigne un job).
 
 **Source** : Une origine de clips, comme un dossier surveillé ou un dépôt manuel.
 
+**Dossier privé** : Un dossier de premier niveau d'une Source que seul le Super-administrateur peut parcourir. Les autres utilisateurs voient son nom avec un cadenas, pas ses clips, sauf ceux qu'ils possèdent ou qui proviennent aussi d'un emplacement visible. Il est distinct de la visibilité d'un clip.
+_Avoid_ : Source privée, clip privé.
+
 **Locuteur local** : Une voix distinguée au sein d'un clip, sans identité nécessairement connue.
 _Avoid_ : Personne.
 
