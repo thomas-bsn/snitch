@@ -10,6 +10,7 @@ import ssl
 import subprocess
 import tempfile
 import threading
+import time
 import wave
 import struct
 from concurrent.futures import ThreadPoolExecutor
@@ -30,7 +31,7 @@ from snitch_client.models.worker_pulse_input import WorkerPulseInput
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
-from snitch_worker import revocation
+from snitch_worker import log, revocation
 from snitch_worker import voice_models
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
@@ -280,6 +281,7 @@ def _heartbeat_loop(
     interval: float,
     stop: threading.Event,
     errors: list[Exception],
+    context: dict[str, Any] | None = None,
 ) -> None:
     while not stop.wait(interval):
         try:
@@ -291,6 +293,7 @@ def _heartbeat_loop(
                 ),
                 "heartbeat",
             )
+            log.emit(logging.DEBUG, "job_heartbeat", **(context or {}))
         except (httpx.HTTPError, RuntimeError) as exc:
             errors.append(exc)
             return
@@ -326,12 +329,24 @@ def run_once(
         try:
             voice_models.sync_voice_models(client, voice_models.default_manager())
         except Exception:  # noqa: BLE001 - the model manager must never stop claiming
-            logging.getLogger(__name__).warning("voice model synchronisation failed")
+            log.emit(logging.WARNING, "voice_model_sync_failed")
     claim = _require_response(claim_job(client=client), "claim")
     if claim is None or claim.job is None:
+        log.emit(logging.DEBUG, "claim_empty")
         return False
     job = claim.job
     lease_token = claim.lease_token
+    # Correlation context taken from the claim; the lease token is never part of it.
+    context = {
+        "clip_id": getattr(job, "clip_id", None),
+        "job_id": job.id,
+        "step": job.step,
+        "cycle": getattr(job, "cycle", None),
+        "attempt": getattr(job, "attempts", None),
+        "worker_id": getattr(job, "lease_owner", None),
+    }
+    started = time.monotonic()
+    log.emit(logging.INFO, "job_claimed", **context)
     heartbeat_stop = threading.Event()
     heartbeat_errors: list[Exception] = []
     heartbeater = threading.Thread(
@@ -343,10 +358,12 @@ def run_once(
             heartbeat_interval,
             heartbeat_stop,
             heartbeat_errors,
+            context,
         ),
         daemon=True,
     )
     heartbeater.start()
+    log.emit(logging.INFO, "job_started", **context)
     try:
         task_input = _require_response(
             get_job_input(
@@ -425,6 +442,7 @@ def run_once(
             ),
             "complete",
         )
+        log.emit(logging.INFO, "job_completed", duration_ms=int((time.monotonic() - started) * 1000), **context)
     except (
         httpx.HTTPError,
         KeyError,
@@ -441,6 +459,15 @@ def run_once(
             if isinstance(exc, (OSError, subprocess.SubprocessError))
             else "provider_unavailable"
         )
+        # Only the code and the exception class: the raw text can echo URLs, paths or tokens.
+        log.emit(
+            logging.WARNING,
+            "job_failed",
+            error_code=error_code,
+            error_class=type(exc).__name__,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            **context,
+        )
         try:
             _require_response(
                 fail_job(
@@ -454,7 +481,7 @@ def run_once(
         except (httpx.HTTPError, RuntimeError):
             # The lease may have expired or moved while the provider was busy.
             # In that case the old attempt must not mutate the recovered task.
-            pass
+            log.emit(logging.WARNING, "job_failure_not_recorded", **context)
     return True
 
 
@@ -522,6 +549,7 @@ def run_until_stopped(
 
 
 def main() -> None:
+    log.configure()
     shutdown = threading.Event()
 
     def request_shutdown(_signum: int, _frame: object) -> None:

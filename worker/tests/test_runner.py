@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import ssl
@@ -14,7 +15,7 @@ from unittest.mock import Mock, patch
 import httpx
 from snitch_client.client import AuthenticatedClient
 
-from snitch_worker import runner
+from snitch_worker import log, runner
 
 
 class FakeProviderTests(unittest.TestCase):
@@ -466,6 +467,70 @@ class FakeProviderTests(unittest.TestCase):
         self.assertEqual(
             state["pulse"]["supported_steps"], ["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"]
         )
+
+
+class RunnerLogTests(unittest.TestCase):
+    LEASE = "lt_synthetic-lease-token"
+
+    def setUp(self):
+        self.stream = io.StringIO()
+        self.addCleanup(log.configure, "INFO", io.StringIO())
+        self.client = SimpleNamespace(_base_url="https://snitch.example")
+        self.task = SimpleNamespace(
+            id=42, clip_id=19, step="fixture.echo", input_version="v1", cycle=1, attempts=2, lease_owner="wk_synthetic"
+        )
+        self.claim = SimpleNamespace(job=self.task, lease_token=self.LEASE)
+
+    def lines(self):
+        return [json.loads(line) for line in self.stream.getvalue().splitlines() if line.strip()]
+
+    def run_job(self, level, complete=None, input_error=None, heartbeat_interval=45.0):
+        log.configure(level, stream=self.stream)
+        with (
+            patch.object(runner, "pulse", return_value=object()),
+            patch.object(runner, "claim_job", return_value=self.claim),
+            patch.object(runner, "heartbeat_job", return_value=object()),
+            patch.object(runner, "get_job_input", side_effect=input_error, return_value=SimpleNamespace(to_dict=lambda: {})),
+            patch.object(runner, "complete_job", return_value=complete or object()),
+            patch.object(runner, "fail_job", return_value=object()),
+            patch.object(runner, "fake_provider", side_effect=lambda *_: time.sleep(0.05) or {"provider": "fixture"}),
+        ):
+            self.assertTrue(runner.run_once(self.client, heartbeat_interval=heartbeat_interval))
+
+    def test_success_logs_transitions_with_the_claim_context_and_no_lease_token(self):
+        self.run_job("INFO")
+        events = {line["event"]: line for line in self.lines()}
+        self.assertEqual(["job_claimed", "job_started", "job_completed"], list(events))
+        for line in events.values():
+            self.assertEqual(
+                (line["clip_id"], line["job_id"], line["cycle"], line["attempt"], line["worker_id"], line["service"]),
+                (19, 42, 1, 2, "wk_synthetic", "worker"),
+            )
+        self.assertIn("duration_ms", events["job_completed"])
+        self.assertNotIn(self.LEASE, self.stream.getvalue())
+
+    def test_failure_logs_the_code_without_the_raw_error_text(self):
+        secret = "provider said token=hf_secret at /tmp/private/audio.wav"
+        self.run_job("INFO", input_error=RuntimeError(secret))
+        failed = [line for line in self.lines() if line["event"] == "job_failed"]
+        self.assertEqual(len(failed), 1)
+        self.assertEqual((failed[0]["error_code"], failed[0]["job_id"], failed[0]["attempt"]), ("provider_unavailable", 42, 2))
+        self.assertEqual(failed[0]["level"], "WARN")
+        for leaked in (secret, "hf_secret", "/tmp/private", self.LEASE):
+            self.assertNotIn(leaked, self.stream.getvalue())
+
+    def test_heartbeats_and_empty_claims_only_appear_at_debug(self):
+        self.run_job("INFO", heartbeat_interval=0.01)
+        self.assertNotIn("job_heartbeat", self.stream.getvalue())
+        self.stream.truncate(0)
+        self.stream.seek(0)
+        self.run_job("DEBUG", heartbeat_interval=0.01)
+        self.assertIn("job_heartbeat", [line["event"] for line in self.lines()])
+        self.assertNotIn(self.LEASE, self.stream.getvalue())
+        log.configure("INFO", stream=self.stream)
+        with patch.object(runner, "pulse", return_value=object()), patch.object(runner, "claim_job", return_value=SimpleNamespace(job=None)):
+            self.assertFalse(runner.run_once(self.client))
+        self.assertNotIn("claim_empty", self.stream.getvalue())
 
 
 if __name__ == "__main__":

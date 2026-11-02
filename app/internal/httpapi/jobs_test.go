@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/config"
 	"snitch/internal/jobs"
+	"snitch/internal/logging"
 	"snitch/internal/setup"
 )
 
@@ -204,7 +205,8 @@ func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	logs := &lockedBuffer{}
+	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}, logging.New(logs, "snitch", "INFO"))
 	ts := httptest.NewTLSServer(server.Handler())
 	defer ts.Close()
 	server.Config.PublicURL = ts.URL
@@ -422,5 +424,43 @@ func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
 	redacted := callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(redactionJob.ID)+"/fail", mustJSON(t, map[string]string{"error": rawError}), "", worker.Token, redactionClaim.LeaseToken, http.StatusOK)
 	if !bytes.Contains(redacted, []byte(`"last_error":"worker_failed"`)) || bytes.Contains(redacted, []byte(rawError)) || bytes.Contains(redacted, []byte("synthetic-private")) || bytes.Contains(redacted, []byte("secret")) {
 		t.Fatalf("worker error was not safely redacted: %s", redacted)
+	}
+	// Observability: a failed then relaunched job is traceable by clip, job, cycle, attempt and worker.
+	out := logs.String()
+	c, j := float64(clipID), float64(firstClaim.Job.ID)
+	for _, want := range []struct {
+		event string
+		match map[string]any
+	}{
+		{"job_claimed", map[string]any{"clip_id": c, "job_id": j, "cycle": float64(0), "attempt": float64(1)}},
+		{"job_claimed", map[string]any{"job_id": j, "cycle": float64(0), "attempt": float64(2)}},
+		{"job_claimed", map[string]any{"job_id": j, "cycle": float64(1), "attempt": float64(1)}},
+		{"job_failed", map[string]any{"clip_id": c, "job_id": j, "cycle": float64(0), "attempt": float64(1), "error_code": "provider_unavailable"}},
+		{"job_retry_scheduled", map[string]any{"job_id": j, "attempt": float64(1)}},
+		{"job_dead", map[string]any{"job_id": j, "attempt": float64(2), "error_code": "provider_unavailable"}},
+		{"job_cancelled", map[string]any{"job_id": j, "cycle": float64(1)}},
+		{"job_failed", map[string]any{"job_id": float64(permanent.ID), "error_code": "invalid_input"}},
+		{"job_failed", map[string]any{"job_id": float64(redactionJob.ID), "error_code": "worker_failed"}},
+	} {
+		entries := logEvents(t, out, want.event)
+		if !hasLog(entries, want.match) {
+			t.Fatalf("log event %s %v missing in:\n%s", want.event, want.match, out)
+		}
+		for _, e := range entries {
+			if e["service"] != "snitch" || (e["worker_id"] == nil && want.event != "job_cancelled") {
+				t.Fatalf("event %s lacks service or worker context: %v", want.event, e)
+			}
+		}
+	}
+	for _, secret := range []string{firstClaim.LeaseToken, secondClaim.LeaseToken, thirdClaim.LeaseToken, worker.Token, "synthetic-private", "token=secret"} {
+		if strings.Contains(out, secret) {
+			t.Fatalf("log leaked a secret: %s", out)
+		}
+	}
+	// Polls are silent at INFO: the empty claim and heartbeats write nothing.
+	for _, noisy := range []string{"claim_empty", "job_heartbeat"} {
+		if len(logEvents(t, out, noisy)) != 0 {
+			t.Fatalf("%s must not be logged at INFO", noisy)
+		}
 	}
 }

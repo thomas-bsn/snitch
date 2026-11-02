@@ -17,10 +17,12 @@ never logged. Without the opt-in variables nothing is downloaded.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from typing import Any, Callable, Mapping
 
+from snitch_worker import log as worker_log
 from snitch_worker import revocation, voice_download, voice_manifest
 
 DIARIZATION_REPO = "pyannote/speaker-diarization-community-1"
@@ -138,7 +140,8 @@ def run_bootstrap(
 
     def say(message: str) -> None:
         text = LOG_PREFIX + message
-        (log or (lambda line: print(line, file=sys.stderr, flush=True)))(text.replace(token, "***") if token else text)
+        text = text.replace(token, "***") if token else text
+        (log or (lambda line: worker_log.emit(logging.INFO, "bootstrap", message=line)))(text)
 
     if not _truthy(environ.get("SNITCH_VOICE_DOWNLOAD_ON_START")):
         say("voice model download is off (SNITCH_VOICE_DOWNLOAD_ON_START is not 1): nothing is downloaded")
@@ -235,6 +238,7 @@ def main(
     log: Callable[[str], None] | None = None,
 ) -> None:
     env = dict(os.environ if environ is None else environ)
+    worker_log.configure(env.get("LOG_LEVEL"))
     if revocation.is_revoked(revocation.models_dir(env)):
         # Deleted in Snitch: download nothing; the runner stays inert without any network call.
         (exec_worker or _exec_worker)(worker_environment(env))
@@ -242,7 +246,7 @@ def main(
     try:
         run_bootstrap(env, downloader, resolve_revision, log)
     except Exception as error:  # noqa: BLE001 - the worker must start regardless
-        print(LOG_PREFIX + "bootstrap failed: " + _cause(error) + "; the worker starts anyway", file=sys.stderr, flush=True)
+        worker_log.emit(logging.WARNING, "bootstrap_failed", cause=_cause(error), message="the worker starts anyway")
     (exec_worker or _exec_worker)(worker_environment(env))
 
 

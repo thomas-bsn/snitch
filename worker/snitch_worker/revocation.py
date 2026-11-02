@@ -10,6 +10,7 @@ a loop. Messages are fixed strings: the token and library errors are never logge
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import sys
@@ -18,6 +19,8 @@ from typing import Any, Callable, Mapping
 
 from snitch_client.api.default.get_worker_revocation import sync as fetch_revocation
 from snitch_client.models.get_worker_revocation_response_200 import GetWorkerRevocationResponse200
+
+from snitch_worker import log as worker_log
 
 MODELS_DIR_ENV = "SNITCH_WORKER_MODELS_DIR"
 DEFAULT_MODELS_DIR = "/models"
@@ -33,7 +36,7 @@ INERT_MESSAGE = (
 
 
 def _log(message: str) -> None:
-    print(LOG_PREFIX + message, file=sys.stderr, flush=True)
+    worker_log.emit(logging.INFO, "worker_revocation", message=message)
 
 
 def models_dir(environ: Mapping[str, str]) -> str:
