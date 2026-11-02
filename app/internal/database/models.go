@@ -77,6 +77,7 @@ type ClipAnalysisStep struct {
 	StartedAt  pgtype.Timestamptz `json:"started_at"`
 	FinishedAt pgtype.Timestamptz `json:"finished_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	RetrySince pgtype.Timestamptz `json:"retry_since"`
 }
 
 type ClipAudioTrackOverride struct {

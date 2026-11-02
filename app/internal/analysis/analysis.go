@@ -9,12 +9,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/jobs"
+	"snitch/internal/workers"
 )
 
 // Scopes: what the administrator asks for. transcription stops after the transcription;
@@ -76,6 +78,11 @@ var (
 	ErrInvalidScope          = errors.New("invalid analysis scope")
 	ErrScopeConflict         = errors.New("another analysis scope is active")
 	ErrTranscriptionRequired = errors.New("a valid transcription is required")
+	ErrNoRun                 = errors.New("the clip has no analysis")
+	ErrNotActive             = errors.New("no analysis is active")
+	ErrNotRetryable          = errors.New("the analysis cannot be retried")
+	ErrInvalidStep           = errors.New("invalid analysis step")
+	ErrStepNotFailed         = errors.New("the step has not failed")
 )
 
 type Step struct {
@@ -127,6 +134,8 @@ type Hooks interface {
 	// Voice resolves the audio track, applies the microphone designation, and follows or
 	// schedules the diarization and fingerprint jobs (valid results are reused).
 	Voice(ctx context.Context, clipID int64, since time.Time) (VoiceSteps, error)
+	// RetryIndex asks for the semantic indexing of the visible transcription to be run again.
+	RetryIndex(ctx context.Context, clipID int64) error
 	// Match matches the fingerprints of the clip with the existing references.
 	Match(ctx context.Context, clipID int64) error
 }
@@ -260,6 +269,9 @@ func (s *Service) Latest(ctx context.Context, clipID int64) (*Run, error) {
 
 // ReconcileClip advances the active run of a clip, if any.
 func (s *Service) ReconcileClip(ctx context.Context, clipID int64) error {
+	if err := s.settleCancelled(ctx, clipID); err != nil {
+		return err
+	}
 	run, err := scanRun(s.pool.QueryRow(ctx, `SELECT `+runColumns+` FROM clip_analysis_runs WHERE clip_id=$1 AND status='active'`, clipID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
@@ -273,6 +285,9 @@ func (s *Service) ReconcileClip(ctx context.Context, clipID int64) error {
 // Reconcile advances every active run: the startup and ticker path that makes runs survive
 // a restart or a lost notification.
 func (s *Service) Reconcile(ctx context.Context) error {
+	if err := s.settleCancelled(ctx, 0); err != nil {
+		return err
+	}
 	rows, err := s.pool.Query(ctx, `SELECT `+runColumns+` FROM clip_analysis_runs WHERE status='active' ORDER BY id`)
 	if err != nil {
 		return err
@@ -328,6 +343,34 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 	if err != nil {
 		return err
 	}
+	// A manual retry makes the hooks ignore the failed jobs of that step only.
+	since := map[string]time.Time{}
+	retryRows, err := s.pool.Query(ctx, `SELECT step,retry_since FROM clip_analysis_steps WHERE run_id=$1 AND retry_since IS NOT NULL`, run.ID)
+	if err != nil {
+		return err
+	}
+	for retryRows.Next() {
+		var step string
+		var at time.Time
+		if err = retryRows.Scan(&step, &at); err != nil {
+			retryRows.Close()
+			return err
+		}
+		since[step] = at
+	}
+	retryRows.Close()
+	if err = retryRows.Err(); err != nil {
+		return err
+	}
+	sinceOf := func(steps ...string) time.Time {
+		out := run.CreatedAt
+		for _, st := range steps {
+			if at, ok := since[st]; ok && at.After(out) {
+				out = at
+			}
+		}
+		return out
+	}
 	states := map[string]stepState{StepPreparation: {status: prep.Status, reason: prep.Reason}}
 	for _, step := range stepOrder[1:] {
 		if !applicable(run.Scope, step) {
@@ -348,11 +391,11 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 	case prep.Status != StatusDone:
 		states[StepTranscription] = stepState{status: StatusWaiting, reason: "awaiting_preparation"}
 	default:
-		tr, trErr := s.hooks.Transcribe(ctx, run.ClipID, run.CreatedAt)
+		tr, trErr := s.hooks.Transcribe(ctx, run.ClipID, sinceOf(StepTranscription))
 		if trErr != nil {
 			return trErr
 		}
-		states[StepTranscription] = transcriptionState(tr, run.CreatedAt)
+		states[StepTranscription] = transcriptionState(tr, sinceOf(StepTranscription))
 	}
 	// Indexing and voices are independent branches: each only needs the transcription.
 	trState := states[StepTranscription]
@@ -366,7 +409,7 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 			states[StepIndexing] = fromResult(res)
 		}
 		if applicable(run.Scope, StepDiarization) {
-			if err = s.voiceStates(ctx, run, states); err != nil {
+			if err = s.voiceStates(ctx, run, sinceOf(StepDiarization, StepFingerprints), states); err != nil {
 				return err
 			}
 		}
@@ -376,6 +419,14 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 				continue
 			}
 			states[step] = dependentState(trState, "awaiting_transcription")
+		}
+	}
+	for step, st := range states {
+		if st.reason == "awaiting_worker" && st.jobID != nil {
+			if st.reason, err = s.workerWaitReason(ctx, *st.jobID); err != nil {
+				return err
+			}
+			states[step] = st
 		}
 	}
 	failed, finished := false, true
@@ -419,8 +470,8 @@ func dependentState(prev stepState, waitReason string) stepState {
 }
 
 // voiceStates fills the diarization, fingerprint and matching steps.
-func (s *Service) voiceStates(ctx context.Context, run Run, states map[string]stepState) error {
-	vs, err := s.hooks.Voice(ctx, run.ClipID, run.CreatedAt)
+func (s *Service) voiceStates(ctx context.Context, run Run, since time.Time, states map[string]stepState) error {
+	vs, err := s.hooks.Voice(ctx, run.ClipID, since)
 	if err != nil {
 		return err
 	}
@@ -494,4 +545,99 @@ func jobState(job jobs.Job, runStart time.Time) stepState {
 		st.status, st.reason = StatusFailed, "job_failed"
 	}
 	return st
+}
+
+// workerWaitReason says exactly why a pending job waits: no connected Worker supports its
+// step (awaiting_compatible_worker), or one does and is busy (awaiting_worker).
+func (s *Service) workerWaitReason(ctx context.Context, jobID int64) (string, error) {
+	var compatible bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
+ SELECT 1 FROM jobs j, workers w, unnest(w.supported_steps) AS capability
+ WHERE j.id=$1 AND w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second')
+ AND CASE WHEN right(capability,2)='.*' THEN left(j.step,length(capability)-1)=left(capability,length(capability)-1) ELSE j.step=capability END)`, jobID, int64(workers.ConnectedWindow.Seconds())).Scan(&compatible)
+	if compatible {
+		return "awaiting_worker", err
+	}
+	return "awaiting_compatible_worker", err
+}
+
+// Cancel stops the active run of a clip: no further step is planned, pending jobs of the
+// run are cancelled, and a step already running may still finish with a valid result.
+func (s *Service) Cancel(ctx context.Context, clipID int64) (*Run, error) {
+	tag, err := s.pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='cancelled',updated_at=now(),finished_at=now() WHERE clip_id=$1 AND status='active'`, clipID)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrNotActive
+	}
+	if _, err = s.pool.Exec(ctx, `UPDATE jobs SET status='cancelled',updated_at=now() WHERE status IN ('pending','retry_wait') AND id IN (SELECT st.job_id FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE r.clip_id=$1 AND r.status='cancelled' AND st.job_id IS NOT NULL AND st.status IN ('waiting','retry','blocked'))`, clipID); err != nil {
+		return nil, err
+	}
+	if err = s.settleCancelled(ctx, clipID); err != nil {
+		return nil, err
+	}
+	return s.Latest(ctx, clipID)
+}
+
+// settleCancelled brings the steps of cancelled runs to their final state: a step that was
+// running keeps following its job until it ends, the others are marked cancelled.
+func (s *Service) settleCancelled(ctx context.Context, clipID int64) error {
+	_, err := s.pool.Exec(ctx, `WITH t AS (
+ SELECT st.run_id,st.step,j.status AS job_status FROM clip_analysis_steps st
+ JOIN clip_analysis_runs r ON r.id=st.run_id LEFT JOIN jobs j ON j.id=st.job_id
+ WHERE r.status='cancelled' AND ($1=0 OR r.clip_id=$1) AND st.status IN ('waiting','running','retry','blocked')
+ AND NOT (st.status='blocked' AND st.reason='run_cancelled') AND NOT (st.status='running' AND j.status='leased'))
+UPDATE clip_analysis_steps st SET
+ status=CASE WHEN t.job_status='done' THEN 'done' WHEN t.job_status='leased' THEN 'running' WHEN t.job_status IN ('dead','failed') THEN 'failed' ELSE 'blocked' END,
+ reason=CASE WHEN t.job_status='done' THEN 'completed' WHEN t.job_status='leased' THEN 'running' WHEN t.job_status IN ('dead','failed') THEN 'job_failed' ELSE 'run_cancelled' END,
+ finished_at=CASE WHEN t.job_status='leased' THEN NULL ELSE COALESCE(st.finished_at,now()) END,updated_at=now()
+ FROM t WHERE st.run_id=t.run_id AND st.step=t.step`, clipID)
+	return err
+}
+
+// Retry runs a failed step again after a definitive failure: the failed job of that step
+// is ignored so it gets a fresh one, valid results stay, and the run is active again.
+func (s *Service) Retry(ctx context.Context, clipID int64, step string) (*Run, error) {
+	if !slices.Contains(stepOrder, step) {
+		return nil, ErrInvalidStep
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	run, err := scanRun(tx.QueryRow(ctx, `SELECT `+runColumns+` FROM clip_analysis_runs WHERE clip_id=$1 ORDER BY (status='active') DESC,id DESC LIMIT 1 FOR UPDATE`, clipID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNoRun
+	}
+	if err != nil {
+		return nil, err
+	}
+	if run.Status != RunActive && run.Status != RunFailed {
+		return nil, ErrNotRetryable
+	}
+	tag, err := tx.Exec(ctx, `UPDATE clip_analysis_steps SET status='waiting',reason='awaiting_previous_step',attempt=0,job_id=NULL,retry_since=now(),finished_at=NULL,updated_at=now() WHERE run_id=$1 AND step=$2 AND status='failed'`, run.ID, step)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrStepNotFailed
+	}
+	if _, err = tx.Exec(ctx, `UPDATE clip_analysis_runs SET status='active',updated_at=now(),finished_at=NULL WHERE id=$1`, run.ID); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	if step == StepIndexing {
+		if err = s.hooks.RetryIndex(ctx, clipID); err != nil {
+			return nil, err
+		}
+	}
+	run.Status = RunActive
+	if err = s.advance(ctx, run); err != nil {
+		s.log.Warn("advance retried analysis run", "run", run.ID, "error", err)
+	}
+	return s.Latest(ctx, clipID)
 }

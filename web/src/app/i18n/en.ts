@@ -1394,7 +1394,11 @@ export const en = {
         clip_not_ready: "The clip is not ready yet.",
         audio_track_selection_required: "Choose the audio track to transcribe.",
         clip_ready: "The clip is ready.",
-        awaiting_worker: "Waiting for a compatible Worker.",
+        awaiting_worker:
+          "A compatible Worker is connected but busy; the task starts as soon as it is free.",
+        awaiting_compatible_worker:
+          "Waiting for a compatible Worker: none is connected. The analysis resumes by itself when one returns.",
+        run_cancelled: "Cancelled: this step will not run.",
         running: "A Worker is transcribing the clip.",
         retry_scheduled: "The attempt failed; a new one is planned.",
         completed: "Transcription completed.",
@@ -1426,6 +1430,11 @@ export const en = {
       track: "Audio track",
       trackPlaceholder: "Choose a track…",
       trackConfirm: "Confirm track",
+      cancel: "Cancel analysis",
+      cancelled:
+        "Analysis cancelled. Valid results are kept; start a new analysis to continue.",
+      retry: "Retry {step}",
+      viewTask: "View task #{id}",
     },
     transcribe: {
       button: "Transcribe",

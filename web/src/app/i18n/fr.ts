@@ -1416,7 +1416,11 @@ export const fr: Messages = {
         audio_track_selection_required:
           "Choisissez la piste audio à transcrire.",
         clip_ready: "Le clip est prêt.",
-        awaiting_worker: "En attente d’un Worker compatible.",
+        awaiting_worker:
+          "Un Worker compatible est connecté mais occupé ; la tâche démarre dès qu’il est libre.",
+        awaiting_compatible_worker:
+          "En attente d’un Worker compatible : aucun n’est connecté. L’analyse reprend d’elle-même à son retour.",
+        run_cancelled: "Annulée : cette étape ne sera pas exécutée.",
         running: "Un Worker transcrit le clip.",
         retry_scheduled: "La tentative a échoué ; une nouvelle est prévue.",
         completed: "Transcription terminée.",
@@ -1448,6 +1452,11 @@ export const fr: Messages = {
       track: "Piste audio",
       trackPlaceholder: "Choisir une piste…",
       trackConfirm: "Confirmer la piste",
+      cancel: "Annuler l’analyse",
+      cancelled:
+        "Analyse annulée. Les résultats valides sont conservés ; relancez une analyse pour continuer.",
+      retry: "Réessayer : {step}",
+      viewTask: "Voir la tâche n°{id}",
     },
     transcribe: {
       button: "Transcrire",

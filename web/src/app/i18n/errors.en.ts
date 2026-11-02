@@ -75,6 +75,12 @@ export const errorsEn = {
   invalid_audio_stream: "This audio track is not valid.",
   invalid_audio_track_rule: "This audio track rule is not valid.",
   invalid_analysis_scope: "This analysis scope is not valid.",
+  analysis_not_active: "No analysis is active on this clip.",
+  analysis_not_found: "This clip has not been analyzed.",
+  analysis_not_retryable:
+    "This analysis is over: start a new analysis instead.",
+  analysis_step_not_failed: "This step has not failed.",
+  invalid_analysis_step: "This analysis step is not valid.",
   analysis_scope_conflict:
     "Another analysis with a different scope is already active on this clip.",
   invalid_clip_id: "This clip identifier is not valid.",

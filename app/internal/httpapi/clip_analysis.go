@@ -167,7 +167,7 @@ func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time)
 	}
 	fpStep, fpVersion := fmt.Sprintf("voice.fingerprint.%d", index), fmt.Sprintf("f5-a%d-p%s-d%d", index, pipeline, diar.ID)
 	var fpID int64
-	err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 ORDER BY id DESC LIMIT 1`, clipID, fpStep, fpVersion).Scan(&fpID)
+	err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND NOT (status IN ('dead','failed','cancelled') AND created_at<$4 AND $4>(SELECT created_at FROM clip_analysis_runs WHERE clip_id=$1 AND status='active' ORDER BY id DESC LIMIT 1)) ORDER BY id DESC LIMIT 1`, clipID, fpStep, fpVersion, since).Scan(&fpID)
 	var fp jobs.Job
 	switch {
 	case err == nil:
@@ -179,6 +179,15 @@ func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time)
 		return analysis.VoiceSteps{}, err
 	}
 	return analysis.VoiceSteps{Diarization: diarResult, Fingerprints: analysis.JobResult(fp, since)}, nil
+}
+
+func (h analysisHooks) RetryIndex(ctx context.Context, clipID int64) error {
+	visible, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
+	if err != nil || !ok {
+		return err
+	}
+	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id=$1 AND state='failed' AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, visible.JobID)
+	return err
 }
 
 func (h analysisHooks) Match(ctx context.Context, clipID int64) error {
@@ -255,4 +264,44 @@ func (s *Server) getClipAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, http.StatusOK, map[string]any{"run": run})
+}
+
+func (s *Server) cancelClipAnalysis(w http.ResponseWriter, r *http.Request) {
+	clipID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || clipID < 1 {
+		fail(w, http.StatusBadRequest, "invalid_clip_id")
+		return
+	}
+	run, err := s.Analysis.Cancel(r.Context(), clipID)
+	switch {
+	case errors.Is(err, analysis.ErrNotActive):
+		fail(w, http.StatusConflict, "analysis_not_active")
+	case err != nil:
+		s.internal(w, err)
+	default:
+		reply(w, http.StatusOK, map[string]any{"run": run})
+	}
+}
+
+func (s *Server) retryClipAnalysisStep(w http.ResponseWriter, r *http.Request) {
+	clipID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || clipID < 1 {
+		fail(w, http.StatusBadRequest, "invalid_clip_id")
+		return
+	}
+	run, err := s.Analysis.Retry(r.Context(), clipID, r.PathValue("step"))
+	switch {
+	case errors.Is(err, analysis.ErrInvalidStep):
+		fail(w, http.StatusBadRequest, "invalid_analysis_step")
+	case errors.Is(err, analysis.ErrNoRun):
+		fail(w, http.StatusNotFound, "analysis_not_found")
+	case errors.Is(err, analysis.ErrNotRetryable):
+		fail(w, http.StatusConflict, "analysis_not_retryable")
+	case errors.Is(err, analysis.ErrStepNotFailed):
+		fail(w, http.StatusConflict, "analysis_step_not_failed")
+	case err != nil:
+		s.internal(w, err)
+	default:
+		reply(w, http.StatusOK, map[string]any{"run": run})
+	}
 }

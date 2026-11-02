@@ -1,5 +1,6 @@
 import { Menu } from "@base-ui/react/menu";
 import { ChevronDown } from "lucide-react";
+import { Link } from "react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "../../api.gen";
 import { api, errorCode, mutation } from "../api/client";
@@ -13,6 +14,7 @@ import { useSession } from "../session";
 type Run = components["schemas"]["ClipAnalysisRun"];
 type MediaTrack = components["schemas"]["MediaTrack"];
 type Scope = Run["scope"];
+type Step = Run["steps"][number];
 
 const pollMs = 3000;
 
@@ -91,6 +93,42 @@ export function AnalyzeClip({
     }
   }
 
+  async function act(
+    request: () => Promise<{ data?: { run?: Run | null }; error?: unknown }>,
+  ) {
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const r = await request();
+      if (r.data) apply(r.data.run ?? null);
+      else setFailure(errorCode(r.error) ?? "unknown");
+    } catch {
+      setFailure("unavailable");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const cancel = () =>
+    act(() =>
+      api.POST("/api/admin/clips/{id}/analysis/cancel", {
+        params: {
+          path: { id: clipId },
+          header: mutation(session?.csrf_token),
+        },
+      }),
+    );
+
+  const retry = (step: Step["step"]) =>
+    act(() =>
+      api.POST("/api/admin/clips/{id}/analysis/steps/{step}/retry", {
+        params: {
+          path: { id: clipId, step },
+          header: mutation(session?.csrf_token),
+        },
+      }),
+    );
+
   async function chooseTrack() {
     setBusy(true);
     setFailure(undefined);
@@ -119,6 +157,18 @@ export function AnalyzeClip({
       aria-label={t("clip.analysis.label")}
       className="flex flex-col gap-3 rounded-xl border border-line p-3"
     >
+      {active && (
+        <div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void cancel()}
+            className={buttonClass("secondary")}
+          >
+            {t("clip.analysis.cancel")}
+          </button>
+        </div>
+      )}
       {!active && (
         <div className="flex items-center gap-1">
           <button
@@ -174,12 +224,39 @@ export function AnalyzeClip({
               <span className="block text-xs text-mute">
                 {t(`clip.analysis.reason.${step.reason}` as MessageKey)}
               </span>
+              {(step.job_id !== null || step.status === "failed") && (
+                <span className="mt-1 flex flex-wrap gap-2">
+                  {step.job_id !== null && (
+                    <Link
+                      to="/admin/queue"
+                      className="text-xs text-accent underline"
+                    >
+                      {t("clip.analysis.viewTask", { id: step.job_id })}
+                    </Link>
+                  )}
+                  {step.status === "failed" && run.status !== "cancelled" && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void retry(step.step)}
+                      className={buttonClass("secondary")}
+                    >
+                      {t("clip.analysis.retry", {
+                        step: t(`clip.analysis.step.${step.step}`),
+                      })}
+                    </button>
+                  )}
+                </span>
+              )}
             </li>
           ))}
         </ol>
       )}
       {run?.status === "incomplete" && (
         <p className="m-0 text-sm text-mute">{t("clip.analysis.incomplete")}</p>
+      )}
+      {run?.status === "cancelled" && (
+        <p className="m-0 text-sm text-mute">{t("clip.analysis.cancelled")}</p>
       )}
       {selection && (
         <div className="flex gap-2">

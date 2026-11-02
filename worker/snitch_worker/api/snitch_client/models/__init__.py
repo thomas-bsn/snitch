@@ -140,6 +140,7 @@ from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
 from .reprocess_clip_metadata_response_200 import ReprocessClipMetadataResponse200
 from .request_worker_transcription_test_response_200 import RequestWorkerTranscriptionTestResponse200
+from .retry_clip_analysis_step_step import RetryClipAnalysisStepStep
 from .revoke_worker_body import RevokeWorkerBody
 from .scan_source_body import ScanSourceBody
 from .scan_video_selection_body import ScanVideoSelectionBody
@@ -476,6 +477,7 @@ __all__ = (
     "Redirect",
     "ReprocessClipMetadataResponse200",
     "RequestWorkerTranscriptionTestResponse200",
+    "RetryClipAnalysisStepStep",
     "RevokeWorkerBody",
     "ScanSourceBody",
     "ScanVideoSelectionBody",

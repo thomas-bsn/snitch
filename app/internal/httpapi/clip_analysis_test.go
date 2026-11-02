@@ -128,7 +128,7 @@ func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/clips/%d/audio-track", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusOK)
 	h.adminCall(http.MethodPost, h.analysisPath(), map[string]any{}, http.StatusOK)
 	run = *h.analysis()
-	if run.step("preparation").Status != "done" || run.step("transcription").Status != "waiting" || run.step("transcription").Reason != "awaiting_worker" {
+	if run.step("preparation").Status != "done" || run.step("transcription").Status != "waiting" || run.step("transcription").Reason != "awaiting_compatible_worker" {
 		t.Fatalf("unexpected queued run: %+v", run)
 	}
 	job, ok := h.claim()

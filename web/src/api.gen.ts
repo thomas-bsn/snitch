@@ -1252,6 +1252,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/analysis/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs. Arrête la planification des étapes suivantes et annule les jobs en attente ; une étape déjà en cours peut terminer valablement. Une relance (POST analysis) crée une nouvelle exécution qui réutilise les résultats valides. */
+    post: operations["cancelClipAnalysis"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/steps/{step}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs. Relance une étape en échec définitif : son job échoué est ignoré et remplacé, les résultats valides sont conservés et la politique de retry des jobs s'applique à nouveau. */
+    post: operations["retryClipAnalysisStep"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/transcription": {
     parameters: {
       query?: never;
@@ -2297,7 +2331,7 @@ export interface components {
         | "done"
         | "not_applicable"
         | "not_yet_supported";
-      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
+      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
       reason: string;
       /** Format: int64 */
       job_id: number | null;
@@ -7673,6 +7707,81 @@ export interface operations {
         };
       };
       /** @description Erreur (400 invalid_analysis_scope, invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelClipAnalysis: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Analyse annulée (statut cancelled) ; les résultats valides sont conservés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 409 analysis_not_active : aucune analyse active) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  retryClipAnalysisStep: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        step:
+          | "preparation"
+          | "transcription"
+          | "indexing"
+          | "diarization"
+          | "fingerprints"
+          | "matching";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Étape relancée ; l'analyse est de nouveau active */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id, invalid_analysis_step ; 404 analysis_not_found ; 409 analysis_not_retryable : analyse terminée ou annulée, relancer une analyse ; 409 analysis_step_not_failed) */
       default: {
         headers: {
           [name: string]: unknown;
