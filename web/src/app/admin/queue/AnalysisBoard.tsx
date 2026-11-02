@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import type { components } from "../../../api.gen";
 import { useI18n } from "../../i18n";
 import type { MessageKey } from "../../i18n/messages";
+import { ClipThumbnail, ThumbnailSetting } from "./ClipThumbnail";
 
 export type Queue = components["schemas"]["AnalysisQueue"];
 type QueueRun = components["schemas"]["AnalysisQueueRun"];
@@ -93,6 +94,7 @@ function RunCard({ run }: { run: QueueRun }) {
         data-run-card={run.clip_id}
         className={`flex h-full flex-col gap-3 rounded-xl border bg-surface p-3 shadow-sm ${tone}`}
       >
+        <ClipThumbnail clipId={run.clip_id} />
         <header className="min-w-0">
           <h4 className="m-0 break-words text-sm font-semibold">{title}</h4>
           <p className="m-0 mt-1 text-xs text-mute">
@@ -163,6 +165,7 @@ export function AnalysisBoard({
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-6">
+      <ThumbnailSetting />
       <section aria-labelledby="queue-active">
         <h3 id="queue-active" className="mb-3 text-base font-semibold">
           {t("queue.board.activeTitle")} · {queue.active.length}

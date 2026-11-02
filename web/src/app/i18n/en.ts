@@ -10,6 +10,14 @@ export const en = {
     loading: "Loading…",
   },
   queue: {
+    thumbnail: {
+      title: "Thumbnails",
+      none: "None",
+      small: "Small",
+      large: "Large",
+      loading: "Loading",
+      missing: "Original not found",
+    },
     board: {
       live: "Live updates on",
       offline: "Reconnecting: the board refreshes every few seconds.",
