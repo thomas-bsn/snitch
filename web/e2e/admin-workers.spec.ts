@@ -114,7 +114,10 @@ test.describe.serial("administration et Workers", () => {
       .getByLabel("Whisper/Speaches server URL")
       .fill("http://host.docker.internal:8000");
     await page.getByLabel("Library model").fill("whisper-large-v3");
-    const language = page.getByRole("combobox", { name: "Language" });
+    const language = page.getByRole("combobox", {
+      name: "Language",
+      exact: true,
+    });
     await language.fill("french");
     await expect(
       page.getByRole("option", { name: "French (fr)" }),
