@@ -6,7 +6,10 @@ const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 /** Picks the library language in the searchable list, by keyboard: the first match is highlighted. */
 async function chooseLanguage(page: Page, search: string, option: string) {
-  const language = page.getByRole("combobox", { name: "Language" });
+  const language = page.getByRole("combobox", {
+    name: "Language",
+    exact: true,
+  });
   await language.fill(search);
   await expect(page.getByRole("option", { name: option })).toHaveAttribute(
     "data-highlighted",
@@ -228,7 +231,10 @@ test("la langue de la bibliothèque se choisit dans la liste des langues de Whis
   await page.getByLabel("Library model").fill("library-model");
 
   // Opening the list shows every language Whisper supports, by name and code.
-  const language = page.getByRole("combobox", { name: "Language" });
+  const language = page.getByRole("combobox", {
+    name: "Language",
+    exact: true,
+  });
   await language.click();
   await expect(language).toHaveAttribute("aria-expanded", "true");
   const listbox = page.getByRole("listbox");
@@ -299,7 +305,7 @@ test("la langue de la bibliothèque se choisit dans la liste des langues de Whis
     localStorage.setItem("snitch-ui-theme", "dark");
   });
   await page.reload();
-  const langue = page.getByRole("combobox", { name: "Langue" });
+  const langue = page.getByRole("combobox", { name: "Langue", exact: true });
   await expect(langue).toHaveValue("Cantonais (yue)");
   await langue.fill("franç");
   await expect(
