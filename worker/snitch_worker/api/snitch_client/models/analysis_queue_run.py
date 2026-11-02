@@ -17,6 +17,7 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.clip_analysis_step import ClipAnalysisStep
+  from ..models.clip_location import ClipLocation
 
 
 
@@ -48,6 +49,8 @@ class AnalysisQueueRun:
                 qui en laisse est seulement partiellement identifiée.
             steps (list[ClipAnalysisStep]):
             clip_name (str):
+            locations (list[ClipLocation]): Fichiers vidéo d'origine indexés du clip (hors fichiers introuvables), avec leur
+                source et leur chemin complet persisté ; jamais un fichier de travail du Worker. Vide : chemin indisponible.
      """
 
     id: int
@@ -66,6 +69,7 @@ class AnalysisQueueRun:
     pending_voices: int
     steps: list[ClipAnalysisStep]
     clip_name: str
+    locations: list[ClipLocation]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -74,6 +78,7 @@ class AnalysisQueueRun:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.clip_analysis_step import ClipAnalysisStep # noqa: PLC0415
+        from ..models.clip_location import ClipLocation # noqa: PLC0415
         id = self.id
 
         clip_id = self.clip_id
@@ -125,6 +130,13 @@ class AnalysisQueueRun:
 
         clip_name = self.clip_name
 
+        locations = []
+        for locations_item_data in self.locations:
+            locations_item = locations_item_data.to_dict()
+            locations.append(locations_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -145,6 +157,7 @@ class AnalysisQueueRun:
             "pending_voices": pending_voices,
             "steps": steps,
             "clip_name": clip_name,
+            "locations": locations,
         })
 
         return field_dict
@@ -154,6 +167,7 @@ class AnalysisQueueRun:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.clip_analysis_step import ClipAnalysisStep # noqa: PLC0415
+        from ..models.clip_location import ClipLocation # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -256,6 +270,16 @@ class AnalysisQueueRun:
 
         clip_name = d.pop("clip_name")
 
+        locations = []
+        _locations = d.pop("locations")
+        for locations_item_data in (_locations):
+            locations_item = ClipLocation.from_dict(locations_item_data)
+
+
+
+            locations.append(locations_item)
+
+
         analysis_queue_run = cls(
             id=id,
             clip_id=clip_id,
@@ -273,6 +297,7 @@ class AnalysisQueueRun:
             pending_voices=pending_voices,
             steps=steps,
             clip_name=clip_name,
+            locations=locations,
         )
 
 

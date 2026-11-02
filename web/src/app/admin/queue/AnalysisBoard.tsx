@@ -85,7 +85,7 @@ function StepRow({ step, current }: { step: Step; current: boolean }) {
   return (
     <li
       aria-current={current ? "step" : undefined}
-      className={`rounded-lg border p-2 ${needsAttention(step.status) ? "border-warn-fg bg-warn-bg" : "border-line"} ${step.status === "not_applicable" ? "opacity-70" : ""}`}
+      className={`rounded-lg border p-2 ${needsAttention(step.status) ? "border-warn-fg bg-warn-bg" : "border-line"} ${step.status === "not_applicable" ? "border-dashed" : ""}`}
     >
       <p className="m-0 flex flex-wrap items-baseline justify-between gap-2 text-sm">
         <strong>{t(`clip.analysis.step.${step.step}`)}</strong>
@@ -143,12 +143,78 @@ export function IdentificationBadge({
   );
 }
 
+type Location = QueueRun["locations"][number];
+
+/** Where the original video lives in the indexed storage; each source is named, none is "main". */
+function Locations({ locations }: { locations: Location[] }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState<string>();
+  const copy = async (path: string) => {
+    try {
+      await navigator.clipboard.writeText(path);
+      setCopied(path);
+    } catch {
+      setCopied(undefined);
+    }
+  };
+  return (
+    <div
+      role="group"
+      data-locations
+      aria-label={t("queue.board.location.title")}
+    >
+      <h5 className="m-0 mb-1 text-xs font-medium uppercase tracking-wide text-mute">
+        {t("queue.board.location.title")}
+      </h5>
+      {locations.length === 0 ? (
+        <p data-location-unavailable className="m-0 text-xs text-ink">
+          {t("queue.board.location.unavailable")}
+        </p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {locations.map((loc, i) => (
+            <li key={`${loc.source}:${loc.path ?? i}`} data-location>
+              <p className="m-0 text-xs text-ink">{loc.source}</p>
+              {loc.path ? (
+                <>
+                  <p
+                    title={loc.path}
+                    data-location-path
+                    className="m-0 break-all text-xs"
+                  >
+                    {loc.path}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void copy(loc.path!)}
+                    className="text-xs text-accent-ink underline"
+                  >
+                    {copied === loc.path
+                      ? t("queue.board.location.copied")
+                      : t("queue.board.location.copy")}
+                  </button>
+                </>
+              ) : (
+                <p className="m-0 text-xs text-ink">
+                  {t("queue.board.location.private")}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // A card is redrawn only when its own run changed: a delta leaves the other runs untouched.
 const RunCard = memo(function RunCard({ run }: { run: QueueRun }) {
   const { t } = useI18n();
   const title = run.clip_name || `Clip #${run.clip_id}`;
   const tone =
-    run.status === "failed" || run.steps.some((s) => needsAttention(s.status))
+    run.status === "failed" ||
+    run.status === "cancelled" ||
+    run.steps.some((s) => needsAttention(s.status))
       ? "border-warn-fg"
       : "border-line";
   const placing = placingStep(run.steps);
@@ -169,7 +235,16 @@ const RunCard = memo(function RunCard({ run }: { run: QueueRun }) {
             <span data-run-status>{t(`queue.board.run.${run.status}`)}</span>
           </p>
           <IdentificationBadge run={run} />
+          {run.status === "cancelled" && (
+            <p
+              data-cancelled
+              className="m-0 mt-1 text-xs font-medium text-warn-fg"
+            >
+              {t("queue.board.cancelledAdvice")}
+            </p>
+          )}
         </header>
+        <Locations locations={run.locations ?? []} />
         {unknown.map((step) => (
           <p
             key={step.step}

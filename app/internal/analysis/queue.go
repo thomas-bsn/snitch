@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -25,9 +26,21 @@ AND COALESCE((SELECT a.decision_level FROM speaker_attributions a WHERE a.local_
 // HistoryPageSize is the page of the durable run history.
 const HistoryPageSize = 10
 
+// Location is where the original video of a clip lives in the storage Snitch indexes: the source
+// and the full path under its root, as persisted, never a Worker work file. A file in a private
+// folder names its source only; its path is not sent, since the queue is one snapshot for every
+// administrator.
+type Location struct {
+	Source  string `json:"source"`
+	Path    string `json:"path,omitempty"`
+	Private bool   `json:"private,omitempty"`
+}
+
 type QueueRun struct {
 	Run
 	ClipName string `json:"clip_name"`
+	// Locations lists every indexed file of the clip that is not missing; none invented as the main one.
+	Locations []Location `json:"locations"`
 }
 
 // RunHistory is one page of the finished runs, newest first.
@@ -83,8 +96,8 @@ const latestFailureCode = `COALESCE((SELECT e.error_code FROM job_events e WHERE
 // Queue is the state of the Task Queue: one entry per analysis run, never paginated, plus the
 // technical tasks that belong to no run so they are never lost.
 type Queue struct {
-	// Active lists the runs that still need attention: running, waiting, blocked, or failed
-	// and not superseded by a newer run of the same clip.
+	// Active lists the runs that still need attention: running, waiting, blocked, failed or
+	// cancelled (never counted as finished, planned again to leave), and not superseded by a newer run of the same clip.
 	Active []QueueRun `json:"active"`
 	// Completed lists the last clips whose automatic processing finished.
 	Completed []QueueRun `json:"completed"`
@@ -148,6 +161,7 @@ func (s *Service) scanQueueRuns(ctx context.Context, rows pgx.Rows) ([]QueueRun,
 			return nil, err
 		}
 		r.Steps = []Step{}
+		r.Locations = []Location{}
 		out = append(out, r)
 		ids = append(ids, r.ID)
 		clips = append(clips, r.ClipID)
@@ -189,6 +203,9 @@ FROM clip_analysis_steps st LEFT JOIN jobs j ON j.id=st.job_id WHERE st.run_id=A
 		return nil, err
 	}
 	steps.Close()
+	if err = s.attachLocations(ctx, out, clips); err != nil {
+		return nil, err
+	}
 	counts, err := s.pendingVoices(ctx, clips)
 	if err != nil {
 		return nil, err
@@ -197,6 +214,40 @@ FROM clip_analysis_steps st LEFT JOIN jobs j ON j.id=st.job_id WHERE st.run_id=A
 		out[i].PendingVoices = counts[out[i].ClipID]
 	}
 	return out, nil
+}
+
+// attachLocations reads, in one query, the indexed files of the clips of the runs.
+func (s *Service) attachLocations(ctx context.Context, runs []QueueRun, clips []int64) error {
+	rows, err := s.pool.Query(ctx, `SELECT sf.clip_id,cs.name,cs.root_path,sf.relative_path,path_in_private_folder(sf.source_id,sf.relative_path)
+FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id
+WHERE sf.clip_id=ANY($1) AND sf.status<>'missing' ORDER BY sf.clip_id,cs.name,sf.relative_path`, clips)
+	if err != nil {
+		return fmt.Errorf("list clip locations: %w", err)
+	}
+	defer rows.Close()
+	byClip := map[int64][]Location{}
+	for rows.Next() {
+		var clip int64
+		var name, root, rel string
+		var private bool
+		if err = rows.Scan(&clip, &name, &root, &rel, &private); err != nil {
+			return err
+		}
+		loc := Location{Source: name, Private: private}
+		if !private {
+			loc.Path = filepath.Join(root, rel)
+		}
+		byClip[clip] = append(byClip[clip], loc)
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	for i := range runs {
+		if l := byClip[runs[i].ClipID]; l != nil {
+			runs[i].Locations = l
+		}
+	}
+	return nil
 }
 
 // pendingVoices counts, per clip, the voices still awaiting a decision (PendingVoiceCondition).
@@ -287,7 +338,7 @@ FROM job_events e LEFT JOIN workers w ON e.actor='worker' AND w.id=e.actor_id WH
 func (s *Service) Queue(ctx context.Context) (Queue, error) {
 	var q Queue
 	var err error
-	if q.Active, err = s.queueRuns(ctx, `r.status IN ('active','failed')`, `r.created_at,r.id`, 0); err != nil {
+	if q.Active, err = s.queueRuns(ctx, `r.status IN ('active','failed','cancelled')`, `r.created_at,r.id`, 0); err != nil {
 		return q, err
 	}
 	if q.Completed, err = s.queueRuns(ctx, `r.status='completed'`, `r.finished_at DESC NULLS LAST,r.id DESC`, CompletedRuns); err != nil {
@@ -296,7 +347,7 @@ func (s *Service) Queue(ctx context.Context) (Queue, error) {
 	rows, err := s.pool.Query(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.cycle,COALESCE(c.display_title,c.original_name),`+latestFailureCode+`
 FROM jobs j JOIN clips c ON c.id=j.clip_id
 WHERE j.status IN ('pending','leased','retry_wait','dead','failed')
- AND j.id NOT IN (SELECT st.job_id FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id IS NOT NULL AND r.status IN ('active','failed') AND r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id))
+ AND j.id NOT IN (SELECT st.job_id FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id IS NOT NULL AND r.status IN ('active','failed','cancelled') AND r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id))
  AND NOT EXISTS (SELECT 1 FROM jobs n WHERE n.clip_id=j.clip_id AND n.step=j.step AND n.id>j.id)
 ORDER BY j.priority DESC,j.created_at,j.id`)
 	if err != nil {

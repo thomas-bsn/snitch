@@ -50,6 +50,15 @@ export const en = {
       tasksTitle: "Tasks outside an analysis",
       tasksHint:
         "Technical tasks that no analysis follows. They stay here until they finish.",
+      cancelledAdvice:
+        "Cancelled: the clip stays here, never finished. Plan the analysis again from the planning form.",
+      location: {
+        title: "Original file",
+        unavailable: "Path unavailable",
+        private: "Private folder: path not shown",
+        copy: "Copy path",
+        copied: "Path copied",
+      },
       openClip: "Open clip",
       showMore: "Show {n} more ({left} left in this column)",
       hiddenCards: "{n} more cards in this column are not shown yet.",
