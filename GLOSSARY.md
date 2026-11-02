@@ -76,3 +76,14 @@ _Avoid_ : Modification de la transcription, édition.
 
 **Cause d'échec** : La raison, exprimée dans un vocabulaire fermé et stable, pour laquelle une étape de traitement n'a pas abouti. Elle est accompagnée de l'étape, de l'heure et de l'action de reprise conseillée. Seul un Administrateur la voit ; les autres utilisateurs voient seulement l'état du clip.
 _Avoid_ : Message d'erreur (texte libre, non stable), log.
+
+**Étape applicable** : Une étape de traitement qu'un clip doit franchir, d'après ses pistes audio et la configuration de la bibliothèque (transcription, recherche, voix distinctes, reconnaissance vocale). Une étape applicable qui n'a pas encore de tâche n'est jamais considérée comme terminée.
+_Avoid_ : Tâche (qui désigne un travail planifié, pas ce qu'il reste à faire).
+
+**Traitement terminé** : L'état d'un clip dont toutes les étapes applicables sont achevées ou sans objet. Un échec, une annulation ou une attente ne comptent jamais comme terminés ; des voix à vérifier n'empêchent pas le traitement d'être terminé.
+_Avoid_ : Identifié (qui exige que toutes les voix le soient).
+
+**Carte** : La représentation d'un clip dans la file de tâches, placée dans la colonne de son étape courante ou de sa prochaine étape prête. Une carte reste visible tant que le clip n'est pas terminé, quel que soit son état.
+_Avoid_ : Tâche, job.
+
+**Historique du clip** : La frise des événements des étapes d'un clip (statut, modèle, Worker, tentatives, erreurs), conservée après la sortie de la file. Elle n'est pas regroupée par exécution tant que celle-ci n'existe pas comme notion.
