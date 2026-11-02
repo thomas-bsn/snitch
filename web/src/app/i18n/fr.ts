@@ -1394,9 +1394,21 @@ export const fr: Messages = {
     viewInLibrary: "Ouvrir la bibliothèque",
     doneAnnouncement: "« {name} » a été vérifiée et ajoutée à la bibliothèque.",
     destination: {
-      label: "Sous-dossier de destination",
+      label: "Dossier de destination",
       root: "Racine du dossier vidéo",
       choose: "Choisir un dossier",
+      menu: "Choisir le dossier de destination",
+      filter: "Filtrer les dossiers",
+      path: "Chemin du dossier courant",
+      rootName: "Racine vidéo",
+      rootChosen: "Racine vidéo",
+      useRoot: "Utiliser la racine vidéo",
+      none: "Aucun dossier choisi. Rien n’est envoyé tant que vous n’en choisissez pas un.",
+      selected: "Les vidéos seront ajoutées dans {path}",
+      required:
+        "Choisissez d’abord un dossier de destination. Aucun fichier n’a été mis en file.",
+      missing:
+        "Le dossier « {path} » n’existe plus. Choisissez un autre dossier avant d’envoyer.",
       use: "Utiliser ce dossier",
       up: "Dossier parent",
       empty: "Aucun sous-dossier ici.",

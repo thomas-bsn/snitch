@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
@@ -14,7 +14,11 @@ import { useTransfers } from "./useTransfers";
 export function ImportPage() {
   const { t } = useI18n();
   const [root, setRoot] = useState<string>();
-  const [destination, setDestination] = useState("");
+  // Undefined until a folder was chosen on purpose: the video root is never picked implicitly.
+  const [destination, setDestination] = useState<string>();
+  const [blocked, setBlocked] = useState(false);
+  const [missing, setMissing] = useState<string>();
+  const handled = useRef(new Set<string>());
   useEffect(() => {
     void fetch("/api/admin/video-root")
       .then((r) => (r.ok ? r.json() : null))
@@ -26,7 +30,33 @@ export function ImportPage() {
   const [visibility, setVisibility] = useState<Visibility>("shared");
   const [rejected, setRejected] = useState<string[]>([]);
 
+  // A folder deleted or moved after it was chosen: sending stops and a new choice is required.
+  useEffect(() => {
+    const lost = transfers.find(
+      (x) =>
+        x.status === "failed" &&
+        x.code === "video_path_unavailable" &&
+        !handled.current.has(x.key),
+    );
+    if (!lost) return;
+    handled.current.add(lost.key);
+    if (lost.destination === destination) {
+      setMissing(lost.destination ?? "");
+      setDestination(undefined);
+    }
+  }, [transfers, destination]);
+
+  function chooseDestination(path: string) {
+    setDestination(path);
+    setBlocked(false);
+    setMissing(undefined);
+  }
+
   function receive(files: File[]) {
+    if (root && destination === undefined) {
+      setBlocked(true);
+      return;
+    }
     const videos = files.filter(looksLikeVideo);
     setRejected(files.filter((f) => !looksLikeVideo(f)).map((f) => f.name));
     if (videos.length > 0)
@@ -54,8 +84,20 @@ export function ImportPage() {
         </select>
       </div>
 
-      {root && <FolderPicker value={destination} onChange={setDestination} />}
-      <DropZone onFiles={receive} />
+      {root && (
+        <FolderPicker value={destination} onChange={chooseDestination} />
+      )}
+      {missing !== undefined && (
+        <ErrorAlert>
+          {t("import.destination.missing", { path: `/${missing}` })}
+        </ErrorAlert>
+      )}
+      <DropZone
+        onFiles={receive}
+        blocked={Boolean(root) && destination === undefined}
+        onBlocked={() => setBlocked(true)}
+      />
+      {blocked && <ErrorAlert>{t("import.destination.required")}</ErrorAlert>}
 
       {rejected.map((name) => (
         <ErrorAlert key={name}>{t("import.notVideo", { name })}</ErrorAlert>

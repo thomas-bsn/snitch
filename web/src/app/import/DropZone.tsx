@@ -10,7 +10,16 @@ export const looksLikeVideo = (file: File) =>
   file.type.startsWith("video/") || VIDEO_EXTENSION.test(file.name);
 
 /** Where videos are dropped, or chosen with the keyboard through the button. */
-export function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
+export function DropZone({
+  onFiles,
+  blocked = false,
+  onBlocked,
+}: {
+  onFiles: (files: File[]) => void;
+  /** No destination yet: files are never taken; trying to add some calls onBlocked. */
+  blocked?: boolean;
+  onBlocked?: () => void;
+}) {
   const { t } = useI18n();
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -18,7 +27,9 @@ export function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
 
   function receive(list: FileList | null) {
     const files = list ? Array.from(list) : [];
-    if (files.length > 0) onFiles(files);
+    if (files.length === 0) return;
+    if (blocked) onBlocked?.();
+    else onFiles(files);
   }
 
   return (
@@ -34,9 +45,11 @@ export function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
         receive(event.dataTransfer.files);
       }}
       className={`flex flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-10 text-center transition-colors ${
-        over
-          ? "border-accent-solid bg-accent-soft"
-          : "border-line-strong bg-surface"
+        blocked
+          ? "border-line-strong bg-side text-mute"
+          : over
+            ? "border-accent-solid bg-accent-soft"
+            : "border-line-strong bg-surface"
       }`}
     >
       <Upload className="size-7 text-accent-ink" aria-hidden="true" />
@@ -47,7 +60,8 @@ export function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
         {t("import.drop.or")}{" "}
         <button
           type="button"
-          onClick={() => input.current?.click()}
+          onClick={() => (blocked ? onBlocked?.() : input.current?.click())}
+          aria-disabled={blocked || undefined}
           aria-describedby={hintId}
           className="inline-flex min-h-11 items-center font-medium text-accent-ink underline underline-offset-2"
         >
