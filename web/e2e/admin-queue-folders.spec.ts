@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { transcribeAndDiarize, uploadClip } from "./library-fixture";
 import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -211,11 +212,50 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   await setVisibility("visible");
   await expect.poll(() => polls).toBeGreaterThan(hiddenFrom);
 
-  // The completed-clip history is its own dialog.
+  // Completed holds the three most recently finished distinct clips; a clip with
+  // voices left to settle carries the badge. The oldest of four stays out.
+  const finished: number[] = [];
+  for (const name of ["done-1.mp4", "done-2.mp4", "done-3.mp4", "done-4.mp4"]) {
+    const id = await uploadClip(name, "shared");
+    await transcribeAndDiarize(id);
+    finished.push(id);
+  }
+  await page.goto("/admin/queue");
+  const completed = queue.locator("[data-column=completed]");
+  await expect(completed.getByRole("heading")).toContainText("Completed · 3");
+  await expect(completed.locator("details")).toHaveCount(3);
+  await expect(completed.locator(`#clip-${finished[0]}`)).toHaveCount(0);
+  await expect(completed.locator(`#clip-${finished[3]}`)).toHaveCount(1);
+  await expect(completed.locator("[data-voices-to-review]")).toHaveCount(3);
+  await expect(completed.locator("[data-voices-to-review]").first()).toHaveText(
+    "Voices to review",
+  );
+  expect(
+    (await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations,
+  ).toEqual([]);
+
+  // The clip history replaces the old list of ten completed clips: events of
+  // each step per clip, searchable and paginated.
   await page.getByRole("button", { name: "Clip history" }).click();
-  await expect(
-    page.getByRole("dialog", { name: "Completed clip history" }),
-  ).toBeVisible();
+  const history = page.getByRole("dialog", { name: "Clip history" });
+  await expect(history).toBeVisible();
+  await history.getByLabel("Search a clip").fill("synthetic-b");
+  await history.getByRole("button", { name: "Search", exact: true }).click();
+  const entry = history.locator(`[data-history-clip="${clipB}"]`);
+  await expect(entry).toContainText("transcription.audio.9");
+  await expect(entry).toContainText("Relaunched by administrator");
+  await expect(entry).toContainText("cause invalid_input");
+  await expect(history.locator("[data-history-clip]")).toHaveCount(1);
+  await history.getByLabel("Search a clip").fill("no-such-clip-anywhere");
+  await history.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(history).toContainText("No clip found.");
+  await history.getByLabel("Search a clip").fill("");
+  await history.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(history.locator("[data-history-clip]")).toHaveCount(6);
+  await expect(history).toContainText("6 clips");
+  expect(
+    (await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations,
+  ).toEqual([]);
   await page.getByRole("button", { name: "Close", exact: true }).click();
 
   expect(

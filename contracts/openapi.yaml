@@ -1856,6 +1856,22 @@
         }
       }
     },
+    "/api/admin/clip-history": {
+      "get": {
+        "operationId": "listClipHistory",
+        "summary": "Historique du clip",
+        "description": "Administrateurs uniquement. Par clip ayant au moins une tâche, la frise des événements de chaque étape (statut, modèle, Worker, tentatives, cycles, erreurs et causes d'échec). Pagination et recherche par clip ; non regroupé par exécution. Les essais de diarisation sont exclus.",
+        "parameters": [
+          {"in": "query", "name": "q", "schema": {"type": "string", "maxLength": 200}, "description": "Recherche dans le nom du clip, ou son identifiant exact."},
+          {"in": "query", "name": "page", "schema": {"type": "integer", "minimum": 1, "maximum": 100000, "default": 1}},
+          {"in": "query", "name": "page_size", "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10}}
+        ],
+        "responses": {
+          "200": {"description": "Page de clips avec leur frise", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipHistoryPage"}}}},
+          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
     "/api/admin/jobs": {
       "get": {
         "operationId": "listJobs",
@@ -6165,7 +6181,8 @@
           "updated_at",
           "attempt",
           "max_attempts",
-          "last_error"
+          "last_error",
+          "voices_to_review"
         ],
         "properties": {
           "clip_id": {
@@ -6252,6 +6269,10 @@
           },
           "last_error": {
             "type": "string"
+          },
+          "voices_to_review": {
+            "type": "boolean",
+            "description": "Calculé pour une carte de la colonne Terminé : une voix diarisée du clip n'a ni validation humaine, ni attribution automatique, ni suggestion. N'empêche pas Terminé."
           }
         }
       },
@@ -6391,6 +6412,9 @@
           }
         }
       },
+      "ClipHistoryStep": {"type": "object", "required": ["job_id", "step", "status", "attempts", "max_attempts", "cycle", "worker", "created_at", "updated_at", "events"], "properties": {"job_id": {"type": "integer", "format": "int64"}, "step": {"type": "string"}, "status": {"type": "string"}, "attempts": {"type": "integer"}, "max_attempts": {"type": "integer"}, "cycle": {"type": "integer"}, "worker": {"type": "string", "nullable": true}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "events": {"type": "array", "items": {"$ref": "#/components/schemas/JobEvent"}}}},
+      "ClipHistoryItem": {"type": "object", "required": ["clip_id", "original_name", "last_activity_at", "steps"], "properties": {"clip_id": {"type": "integer", "format": "int64"}, "original_name": {"type": "string"}, "last_activity_at": {"type": "string", "format": "date-time"}, "steps": {"type": "array", "items": {"$ref": "#/components/schemas/ClipHistoryStep"}}}},
+      "ClipHistoryPage": {"type": "object", "required": ["items", "total", "page", "page_size"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/ClipHistoryItem"}}, "total": {"type": "integer"}, "page": {"type": "integer"}, "page_size": {"type": "integer"}}},
       "JobHistory": {
         "type": "object",
         "required": [

@@ -592,6 +592,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clip-history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Historique du clip
+     * @description Administrateurs uniquement. Par clip ayant au moins une tâche, la frise des événements de chaque étape (statut, modèle, Worker, tentatives, cycles, erreurs et causes d'échec). Pagination et recherche par clip ; non regroupé par exécution. Les essais de diarisation sont exclus.
+     */
+    get: operations["listClipHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/jobs": {
     parameters: {
       query?: never;
@@ -2545,6 +2565,8 @@ export interface components {
       /** Format: date-time */
       next_attempt_at?: string | null;
       last_error: string;
+      /** @description Calculé pour une carte de la colonne Terminé : une voix diarisée du clip n'a ni validation humaine, ni attribution automatique, ni suggestion. N'empêche pas Terminé. */
+      voices_to_review: boolean;
     };
     TaskCardStep: {
       /** @enum {string} */
@@ -2603,6 +2625,35 @@ export interface components {
       recommended_action?: string;
       /** Format: date-time */
       created_at: string;
+    };
+    ClipHistoryStep: {
+      /** Format: int64 */
+      job_id: number;
+      step: string;
+      status: string;
+      attempts: number;
+      max_attempts: number;
+      cycle: number;
+      worker: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      events: components["schemas"]["JobEvent"][];
+    };
+    ClipHistoryItem: {
+      /** Format: int64 */
+      clip_id: number;
+      original_name: string;
+      /** Format: date-time */
+      last_activity_at: string;
+      steps: components["schemas"]["ClipHistoryStep"][];
+    };
+    ClipHistoryPage: {
+      items: components["schemas"]["ClipHistoryItem"][];
+      total: number;
+      page: number;
+      page_size: number;
     };
     JobHistory: {
       items: components["schemas"]["JobEvent"][];
@@ -5866,6 +5917,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TaskCardBoard"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listClipHistory: {
+    parameters: {
+      query?: {
+        /** @description Recherche dans le nom du clip, ou son identifiant exact. */
+        q?: string;
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Page de clips avec leur frise */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipHistoryPage"];
         };
       };
       /** @description Erreur */

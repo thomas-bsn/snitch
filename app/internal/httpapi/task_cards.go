@@ -61,6 +61,9 @@ type taskCard struct {
 	MaxAttempts   int            `json:"max_attempts"`
 	NextAttemptAt *time.Time     `json:"next_attempt_at"`
 	LastError     string         `json:"last_error"`
+	// VoicesToReview is only computed for a completed clip: a diarized voice with
+	// no human validation, automatic attribution or suggestion remains to settle.
+	VoicesToReview bool `json:"voices_to_review"`
 }
 
 type taskCardBoard struct {
@@ -306,6 +309,9 @@ func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, j
 	if current == nil {
 		completed := newest
 		card.Column, card.State, card.CurrentStep, card.CompletedAt = columnCompleted, cardDone, stepRecognition, &completed
+		if err = s.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.clip_id=$1 AND `+unknownSpeakerPredicate+` AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.decision_level='suggestion'))`, clipID).Scan(&card.VoicesToReview); err != nil {
+			return taskCard{}, false, err
+		}
 		return card, true, nil
 	}
 	card.CurrentStep, card.State = current.key, current.state

@@ -191,6 +191,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/jobs", s.protected(true, http.HandlerFunc(s.listJobs)))
 	mux.Handle("GET /api/admin/task-cards", s.protected(true, http.HandlerFunc(s.listTaskCards)))
 	mux.Handle("POST /api/admin/jobs", s.protected(true, http.HandlerFunc(s.scheduleJob)))
+	mux.Handle("GET /api/admin/clip-history", s.protected(true, http.HandlerFunc(s.listClipHistory)))
 	mux.Handle("GET /api/admin/jobs/{id}/history", s.protected(true, http.HandlerFunc(s.jobHistory)))
 	mux.Handle("POST /api/admin/jobs/{id}/retry", s.protected(true, http.HandlerFunc(s.relaunchJob)))
 	mux.Handle("DELETE /api/admin/jobs/{id}", s.protected(true, http.HandlerFunc(s.cancelJob)))

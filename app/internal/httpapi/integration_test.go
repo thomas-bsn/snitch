@@ -353,6 +353,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testTaskCards(t, pool)
 	})
+	t.Run("clip history and completed", func(t *testing.T) {
+		reset(t)
+		testClipHistoryAndCompleted(t, pool)
+	})
 	t.Run("job retry and cancellation", func(t *testing.T) {
 		reset(t)
 		testJobRetryOperations(t, pool)
