@@ -524,6 +524,7 @@ export const fr: Messages = {
     refused: "Demande refusée.",
   },
   closeAccount: {
+    zone: "Zone sensible",
     title: "Supprimer mon compte",
     explanation:
       "Vos sessions seront fermées et vos clips deviendront privés. Les clips, corrections et leur historique restent conservés. La suppression du profil vocal est une action séparée.",
@@ -817,7 +818,14 @@ export const fr: Messages = {
         "Liez votre identité Discord à ce compte pour pouvoir vous connecter avec Discord. Le lien se fait avec ce compte uniquement, jamais par correspondance de pseudo. Cette action ouvre Discord.",
       discordLink: "Lier Discord",
       discordLinking: "Ouverture de Discord…",
-      discordConnected: "Discord est lié au compte Snitch {username}.",
+      discordBadgeLinked: "Lié",
+      discordBadgeNotLinked: "Non lié",
+      discordIdentity: "Compte Discord : {name}",
+      discordLinkedNoName: "Discord est lié à ce compte.",
+      discordLinkFailedState:
+        "Discord n’a pas été lié. Votre compte est inchangé.",
+      discordUnlinkFailedState:
+        "Discord est toujours lié : la déliaison a échoué.",
       discordUnlink: "Délier Discord",
       discordUnlinkConfirmTitle: "Délier Discord ?",
       discordUnlinkConfirmBody:

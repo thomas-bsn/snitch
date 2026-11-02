@@ -510,6 +510,7 @@ export const en = {
     refused: "Request refused.",
   },
   closeAccount: {
+    zone: "Sensitive zone",
     title: "Delete my account",
     explanation:
       "Your sessions will end and your clips will become private. Clips, corrections and their history remain. Deleting your voice profile is a separate action.",
@@ -799,7 +800,14 @@ export const en = {
         "Link your Discord identity to this account, so that you can sign in with Discord. The link is made to this account only, never by matching usernames. This opens Discord.",
       discordLink: "Link Discord",
       discordLinking: "Opening Discord…",
-      discordConnected: "Discord is linked to the Snitch account {username}.",
+      discordBadgeLinked: "Linked",
+      discordBadgeNotLinked: "Not linked",
+      discordIdentity: "Discord account: {name}",
+      discordLinkedNoName: "Discord is linked to this account.",
+      discordLinkFailedState:
+        "Discord was not linked. Your account is unchanged.",
+      discordUnlinkFailedState:
+        "Discord is still linked: it could not be removed.",
       discordUnlink: "Unlink Discord",
       discordUnlinkConfirmTitle: "Unlink Discord?",
       discordUnlinkConfirmBody:
