@@ -2251,6 +2251,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/notifications/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Flux d'évènements serveur du sujet `user:<id>` : session et rôle revérifiés à la connexion, avant chaque snapshot et à chaque battement, accès aux clips revérifié à chaque lecture. Repli : GET /api/notifications. */
+    get: operations["streamNotificationEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/notifications/read": {
     parameters: {
       query?: never;
@@ -10699,6 +10716,35 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamNotificationEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: NotificationList} : l'état complet des notifications du demandeur (jusqu'à 200, compteurs unread et pending sur tout le visible), jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized) */
       default: {
         headers: {
           [name: string]: unknown;

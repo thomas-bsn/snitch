@@ -4973,6 +4973,14 @@
         "security": [{"session": []}]
       }
     },
+    "/api/notifications/events": {
+      "get": {
+        "operationId": "streamNotificationEvents",
+        "responses": {"200": {"description": "Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: NotificationList} : l'état complet des notifications du demandeur (jusqu'à 200, compteurs unread et pending sur tout le visible), jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (401 unauthorized)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Flux d'évènements serveur du sujet `user:<id>` : session et rôle revérifiés à la connexion, avant chaque snapshot et à chaque battement, accès aux clips revérifié à chaque lecture. Repli : GET /api/notifications.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/notifications/read": {
       "post": {
         "operationId": "readAllNotifications",
