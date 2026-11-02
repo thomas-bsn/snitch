@@ -40,6 +40,15 @@ export function isLanguage(value: unknown): value is Language {
 
 export const storedTheme = () => read(THEME_KEY, THEMES);
 export const storeTheme = (theme: Theme) => write(THEME_KEY, theme);
+export const THUMBNAIL_SIZES = ["none", "small", "large"] as const;
+export type ThumbnailSize = (typeof THUMBNAIL_SIZES)[number];
+// The task cards show a small first image unless the administrator chooses otherwise.
+export const DEFAULT_THUMBNAIL_SIZE: ThumbnailSize = "small";
+const THUMBNAIL_KEY = "snitch-queue-thumbnail";
+export const storedThumbnailSize = () => read(THUMBNAIL_KEY, THUMBNAIL_SIZES);
+export const storeThumbnailSize = (size: ThumbnailSize) =>
+  write(THUMBNAIL_KEY, size);
+
 export const storedLanguage = () => read(LANGUAGE_KEY, LANGUAGES);
 export const storeLanguage = (language: Language) =>
   write(LANGUAGE_KEY, language);

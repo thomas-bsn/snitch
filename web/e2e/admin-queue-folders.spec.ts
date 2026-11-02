@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { uploadClip } from "./library-fixture";
 import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -217,6 +218,97 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     page.getByRole("dialog", { name: "Completed clip history" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
+
+  // Thumbnails: more cards than the window shows, only the visible ones ask for media.
+  const longQueue: number[] = [];
+  for (let n = 0; n < 24; n++) {
+    const id = await uploadClip(`synthetic-long-${n}.mp4`, "shared");
+    longQueue.push(id);
+    expect(
+      (
+        await page.request.post("/api/admin/jobs", {
+          headers,
+          data: {
+            clip_id: id,
+            step: "transcription.audio.1",
+            input_version: "e2e-thumbs",
+            priority: 1,
+            max_attempts: 3,
+          },
+        })
+      ).status(),
+    ).toBe(201);
+  }
+  const lost = longQueue[longQueue.length - 1];
+  const requested = new Set<number>();
+  page.on("request", (r) => {
+    const found = r.url().match(/\/api\/clips\/(\d+)\/media/);
+    if (found) requested.add(Number(found[1]));
+  });
+  const consoleErrors: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error")
+      consoleErrors.push(`${m.location().url} ${m.text()}`);
+  });
+  // The original of the last clip is gone: the clip itself says so.
+  await page.route(`**/api/clips/${lost}`, async (route) => {
+    const real = await route.fetch();
+    await route.fulfill({
+      response: real,
+      json: { ...(await real.json()), status: "missing" },
+    });
+  });
+  // Slow media keep the loading state observable.
+  await page.route(/\/api\/clips\/\d+\/media/, async (route) => {
+    await new Promise((done) => setTimeout(done, 1500));
+    await route.continue();
+  });
+  await page.evaluate(() => localStorage.clear());
+  await page.goto("/admin/queue");
+  const thumbs = queue.locator("[data-thumbnail]");
+  await expect(
+    queue.locator("[data-column=transcription] details"),
+  ).toHaveCount(26);
+  const group = page.getByRole("radiogroup", { name: "Thumbnails" });
+  await expect(group.getByRole("radio", { name: "Small" })).toBeChecked();
+  await expect(thumbs.first()).toHaveAttribute("data-size", "small");
+  await expect(queue.locator("[data-thumbnail=loading]").first()).toBeVisible();
+  await expect.poll(() => requested.size).toBeGreaterThan(0);
+  await page.waitForTimeout(2000);
+  const mounted = await queue
+    .locator("[data-thumbnail]:not([data-thumbnail=waiting])")
+    .count();
+  expect(mounted).toBeGreaterThan(0);
+  expect(mounted).toBeLessThan(26);
+  expect(requested.size).toBeLessThanOrEqual(mounted);
+  expect(requested.size).toBeLessThan(26);
+  // Scrolling the last card into view loads it, and a missing original shows its state.
+  const lastCard = cardOf(lost);
+  await lastCard.scrollIntoViewIfNeeded();
+  await expect(lastCard.locator("[data-thumbnail=missing]")).toContainText(
+    "Original not found",
+  );
+  expect(requested.has(lost)).toBe(false);
+  expect(consoleErrors.filter((e) => e.includes(`/clips/${lost}`))).toEqual([]);
+
+  // Three settings, remembered by the browser.
+  await group.getByText("Large", { exact: true }).click();
+  await expect(thumbs.first()).toHaveAttribute("data-size", "large");
+  await page.reload();
+  await expect(
+    page.getByRole("radiogroup", { name: "Thumbnails" }).getByRole("radio", {
+      name: "Large",
+    }),
+  ).toBeChecked();
+  await expect(thumbs.first()).toHaveAttribute("data-size", "large");
+  await page
+    .getByRole("radiogroup", { name: "Thumbnails" })
+    .getByText("None", { exact: true })
+    .click();
+  await expect(thumbs).toHaveCount(0);
+  const before = requested.size;
+  await page.waitForTimeout(500);
+  expect(requested.size).toBe(before);
 
   expect(
     (await new AxeBuilder({ page }).withTags(TAGS).analyze()).violations,
