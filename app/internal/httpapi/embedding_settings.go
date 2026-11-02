@@ -81,24 +81,35 @@ func (s *Server) readEmbeddingInput(w http.ResponseWriter, r *http.Request) (inp
 	return input, current, effective, true
 }
 
-// probeEmbeddingProvider calls the real provider with a test input and returns the vector size.
-func (s *Server) probeEmbeddingProvider(ctx context.Context, effective embeddingSettings) (int, bool) {
+// probeEmbeddingProvider calls the real provider with a test input. It returns the vector size or a stable
+// error code saying what failed: timeout, unreachable service, unknown model, or an invalid response.
+func (s *Server) probeEmbeddingProvider(ctx context.Context, effective embeddingSettings) (int, string) {
 	body, _ := json.Marshal(embeddingBatch{Model: effective.Model, Input: []string{"health"}})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, effective.URL, strings.NewReader(string(body)))
 	if err != nil {
-		return 0, false
+		return 0, "embedding_provider_unavailable"
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.Client.Do(req)
 	if err != nil {
-		return 0, false
+		var timeout interface{ Timeout() bool }
+		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
+			return 0, "embedding_provider_timeout"
+		}
+		return 0, "embedding_provider_unavailable"
 	}
 	defer resp.Body.Close()
-	var result embeddingResponse
-	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&result) != nil || len(result.Data) != 1 || len(result.Data[0].Embedding) == 0 {
-		return 0, false
+	switch {
+	case resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnprocessableEntity:
+		return 0, "embedding_model_not_found"
+	case resp.StatusCode != http.StatusOK:
+		return 0, "embedding_provider_unavailable"
 	}
-	return len(result.Data[0].Embedding), true
+	var result embeddingResponse
+	if json.NewDecoder(resp.Body).Decode(&result) != nil || len(result.Data) != 1 || len(result.Data[0].Embedding) == 0 {
+		return 0, "embedding_response_invalid"
+	}
+	return len(result.Data[0].Embedding), ""
 }
 
 // testEmbeddingSettings checks the configuration against the real provider without persisting any setting or
@@ -108,9 +119,9 @@ func (s *Server) testEmbeddingSettings(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	dimensions, ok := s.probeEmbeddingProvider(r.Context(), effective)
-	if !ok {
-		fail(w, http.StatusServiceUnavailable, "embedding_provider_unavailable")
+	dimensions, code := s.probeEmbeddingProvider(r.Context(), effective)
+	if code != "" {
+		fail(w, http.StatusServiceUnavailable, code)
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)

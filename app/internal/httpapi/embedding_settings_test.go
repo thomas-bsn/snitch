@@ -155,6 +155,21 @@ func testEmbeddingValidationGate(t *testing.T, pool *pgxpool.Pool) {
 	provider.setDown(false)
 	h.adminCall(http.MethodPost, "/api/admin/embeddings/settings/test", map[string]string{"url": "ftp://nope", "model": "m"}, http.StatusBadRequest)
 
+	// What failed is told: unknown model and invalid answer have their own codes.
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/missing" {
+			http.Error(w, "model not found", http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer bad.Close()
+	for path, want := range map[string]string{"/missing": "embedding_model_not_found", "/garbage": "embedding_response_invalid"} {
+		if got := string(h.adminCall(http.MethodPost, "/api/admin/embeddings/settings/test", map[string]string{"url": bad.URL + path, "model": "m"}, http.StatusServiceUnavailable)); !strings.Contains(got, want) {
+			t.Fatalf("%s: %s", path, got)
+		}
+	}
+
 	// Direct API calls cannot skip the proof.
 	h.adminCall(http.MethodPut, "/api/admin/embeddings/settings", input, http.StatusConflict)
 	h.adminCall(http.MethodPut, "/api/admin/embeddings/settings", map[string]string{"url": input["url"], "model": input["model"], "validation_token": "forged"}, http.StatusConflict)

@@ -76,6 +76,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "La validation a expiré. Testez à nouveau avant d’enregistrer.",
   embedding_validation_mismatch:
     "Les valeurs ont changé depuis le test. Testez à nouveau avant d’enregistrer.",
+  embedding_provider_timeout:
+    "Le service d’embeddings n’a pas répondu à temps. Vérifiez son adresse et sa charge, puis testez à nouveau.",
+  embedding_model_not_found:
+    "Le service d’embeddings ne connaît pas ce modèle. Vérifiez le nom du modèle.",
+  embedding_response_invalid:
+    "Le service d’embeddings a répondu, mais pas avec des vecteurs utilisables par Snitch.",
   embedding_provider_unavailable:
     "Le service d’embeddings est inaccessible ou sa réponse est invalide.",
   embeddings_unconfigured: "La recherche sémantique n’est pas configurée.",

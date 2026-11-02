@@ -68,6 +68,12 @@ export const errorsEn = {
     "The validation has expired. Test again before saving.",
   embedding_validation_mismatch:
     "The values changed since the test. Test again before saving.",
+  embedding_provider_timeout:
+    "The embeddings service did not answer in time. Check its address and load, then test again.",
+  embedding_model_not_found:
+    "The embeddings service does not know this model. Check the model name.",
+  embedding_response_invalid:
+    "The embeddings service answered, but not with vectors Snitch can use.",
   embedding_provider_unavailable:
     "The embeddings service could not be reached or returned an invalid response.",
   embeddings_unconfigured: "Semantic search is not configured.",

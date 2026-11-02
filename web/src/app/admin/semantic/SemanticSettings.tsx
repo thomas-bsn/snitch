@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { api, errorCode, mutation } from "../../api/client";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert, StatusNotice } from "../../components/Alert";
@@ -47,6 +53,8 @@ export function SemanticSettings({
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
+  // Only the latest Test counts: a slow answer for older values must not replace a newer proof.
+  const latestTest = useRef(0);
   // The proof of a successful Test, valid for the exact values tested and for a short time only.
   const [proof, setProof] = useState<Proof>();
   const [expired, setExpired] = useState(false);
@@ -80,6 +88,8 @@ export function SemanticSettings({
   // Any edit voids the previous Test: the proof only ever covers what was tested.
   function edit(change: () => void) {
     change();
+    latestTest.current += 1; // a Test still running is for values that are gone
+    setTesting(false);
     setProof(undefined);
     setExpired(false);
     setFailure(undefined);
@@ -87,6 +97,7 @@ export function SemanticSettings({
   }
   async function runTest() {
     const tested = values;
+    const run = ++latestTest.current;
     setTesting(true);
     setFailure(undefined);
     setSaved(false);
@@ -97,6 +108,7 @@ export function SemanticSettings({
         params: { header: mutation(session?.csrf_token) },
         body: tested,
       });
+      if (run !== latestTest.current) return;
       if (result.error || !result.data) {
         setFailure(errorCode(result.error) ?? "unknown");
         return;
@@ -108,9 +120,9 @@ export function SemanticSettings({
         expiresAt: Date.parse(result.data.expires_at),
       });
     } catch {
-      setFailure("unavailable");
+      if (run === latestTest.current) setFailure("unavailable");
     } finally {
-      setTesting(false);
+      if (run === latestTest.current) setTesting(false);
     }
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
