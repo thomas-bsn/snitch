@@ -57,6 +57,12 @@ export const en = {
       voicesToCheck: "Voices to check ({n})",
       partiallyIdentified: "Partially identified",
       identified: "Voices identified",
+      timeline: {
+        label: "Events of the step {step}",
+        worker: "Worker {name}",
+        model: "Model {model}",
+        cycle: "Cycle {n}",
+      },
       attempt: "Attempt {n}",
       stepsOf: "Steps of the analysis of {clip}",
       scope: {

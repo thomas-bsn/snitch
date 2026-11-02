@@ -58,6 +58,12 @@ export const fr: Messages = {
       voicesToCheck: "Voix à vérifier ({n})",
       partiallyIdentified: "Partiellement identifié",
       identified: "Voix identifiées",
+      timeline: {
+        label: "Événements de l’étape {step}",
+        worker: "Worker {name}",
+        model: "Modèle {model}",
+        cycle: "Cycle {n}",
+      },
       attempt: "Tentative {n}",
       stepsOf: "Étapes de l’analyse de {clip}",
       scope: {

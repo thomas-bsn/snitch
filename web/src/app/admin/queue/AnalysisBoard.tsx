@@ -29,7 +29,7 @@ const groups: { title: MessageKey; steps: Step["step"][] }[] = [
 ];
 
 /** Cause, code and advised action of a failure, or the remedy of a wait, in the reader's language. */
-function Diagnosis({
+export function Diagnosis({
   code,
   action,
   failed,

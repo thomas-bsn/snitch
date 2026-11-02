@@ -156,8 +156,8 @@ type Step struct {
 	// FailureCode and RecommendedAction are set on the Task Queue only: the persisted cause of
 	// the last failure of the followed job (a catalogue code, never raw text) and the action the
 	// server advises; a Worker wait advises start_worker.
-	FailureCode       string     `json:"failure_code,omitempty"`
-	RecommendedAction string     `json:"recommended_action,omitempty"`
+	FailureCode       string `json:"failure_code,omitempty"`
+	RecommendedAction string `json:"recommended_action,omitempty"`
 	// Events are the persisted events of the followed job, oldest first; the run history only.
 	Events     []StepEvent `json:"events,omitempty"`
 	StartedAt  *time.Time  `json:"started_at"`
