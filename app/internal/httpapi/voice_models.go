@@ -29,7 +29,7 @@ func (s *Server) activeVoiceModelID(r *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if pipeline.Provider != "pyannote" {
+	if !voiceRealProvider(pipeline.Provider) {
 		return "", nil
 	}
 	entry, _ := voiceCatalogByRepo("diarization", pipeline.Model)
@@ -217,7 +217,7 @@ func (s *Server) activateVoiceModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The thresholds stay; only the model changes, and the model version is the pinned revision.
-	current.Provider, current.Model, current.ModelVersion, current.Fake = "pyannote", entry.Repo, entry.Revision, nil
+	current.Provider, current.Model, current.ModelVersion, current.Fake = entry.Engine, entry.Repo, entry.Revision, nil
 	version, err := s.saveVoicePipeline(r, current)
 	if err != nil {
 		s.internal(w, err)

@@ -61,7 +61,7 @@ func (s *Server) getVoiceOverview(w http.ResponseWriter, r *http.Request) {
 	out.ActiveModels.Diarization = pipeline.Model
 	out.ActiveModels.Fingerprint = jobs.ActiveEmbeddingModel
 	// The fake provider runs no model: nothing to hold.
-	real := pipeline.Provider == "pyannote"
+	real := voiceRealProvider(pipeline.Provider)
 	for _, item := range live {
 		row := voiceInventoryWorker{
 			ID: item.ID, Name: item.Name, Connected: item.Connected,

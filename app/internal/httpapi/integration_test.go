@@ -194,6 +194,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelCandidate(t, pool)
 	})
+	t.Run("voice model sortformer", func(t *testing.T) {
+		reset(t)
+		testVoiceModelSortformer(t, pool)
+	})
 	t.Run("voice overview", func(t *testing.T) {
 		reset(t)
 		testVoiceOverview(t, pool)

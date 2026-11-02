@@ -78,7 +78,7 @@ func (s *Server) putVoicePipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.Model, p.ModelVersion = strings.TrimSpace(p.Model), strings.TrimSpace(p.ModelVersion)
-	valid := (p.Provider == "fake" || p.Provider == "pyannote") && p.Model != "" && len(p.Model) <= 100 && p.ModelVersion != "" && len(p.ModelVersion) <= 64 &&
+	valid := (p.Provider == "fake" || voiceRealProvider(p.Provider)) && p.Model != "" && len(p.Model) <= 100 && p.ModelVersion != "" && len(p.ModelVersion) <= 64 &&
 		p.MinFingerprintSeconds >= 0.1 && p.MinFingerprintSeconds <= 60 && p.MinQuality >= 0 && p.MinQuality <= 1
 	if valid && p.Provider == "fake" {
 		if p.Fake == nil {
@@ -86,9 +86,9 @@ func (s *Server) putVoicePipeline(w http.ResponseWriter, r *http.Request) {
 		}
 		valid = p.Fake.Speakers >= 1 && p.Fake.Speakers <= 8 && p.Fake.Dimensions >= 2 && p.Fake.Dimensions <= 512
 	} else if valid {
-		// A pyannote model is chosen from the catalogue, never typed: its pinned revision is the version.
+		// A real model is chosen from the catalogue, never typed: its pinned revision is the version.
 		entry, known := voiceCatalogByRepo("diarization", p.Model)
-		valid = p.Fake == nil && known && p.ModelVersion == entry.Revision
+		valid = p.Fake == nil && known && p.ModelVersion == entry.Revision && p.Provider == entry.Engine
 	}
 	if !valid {
 		fail(w, http.StatusBadRequest, "invalid_voice_pipeline")

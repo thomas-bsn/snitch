@@ -2822,7 +2822,7 @@ export interface components {
     };
     VoicePipeline: {
       /** @enum {string} */
-      provider: "fake" | "pyannote";
+      provider: "fake" | "pyannote" | "nemo";
       model: string;
       model_version: string;
       min_fingerprint_seconds: number;
@@ -2930,7 +2930,7 @@ export interface components {
     };
     VoiceOverview: {
       /** @enum {string} */
-      provider: "fake" | "pyannote";
+      provider: "fake" | "pyannote" | "nemo";
       active_models: {
         diarization: string;
         fingerprint: string;

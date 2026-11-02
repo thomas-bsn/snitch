@@ -12,6 +12,7 @@ voice = [
   "torchaudio==2.8.0",
   "torchcodec==0.7.0",
   "soundfile==0.14.0",
+  "nemo-toolkit[asr]==3.0.0",
 ]
 
 [build-system]
