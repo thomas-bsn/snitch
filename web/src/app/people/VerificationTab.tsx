@@ -123,13 +123,17 @@ export function VerificationTab() {
   const failureText = useFailureText();
   const outlet = useOutletContext<PeopleOutlet | null>();
   const [filter, setFilter] = useState<VerificationFilter>("all");
+  // A notification links here with ?clip=<id>: the queue is limited to that clip's voices.
+  const [params, setParams] = useSearchParams();
+  const clipParam = Number(params.get("clip"));
+  const clip =
+    Number.isInteger(clipParam) && clipParam > 0 ? clipParam : undefined;
   const load = useCallback(
-    () => fetchVerification(filter, 1, QUEUE_SIZE),
-    [filter],
+    () => fetchVerification(filter, 1, QUEUE_SIZE, clip),
+    [filter, clip],
   );
   const { state, reload } = useLoaded(load);
   // A direct link (?case=<local speaker>) opens that voice first when it is to decide.
-  const [params, setParams] = useSearchParams();
   const linked = Number(params.get("case"));
   const linkedId = Number.isInteger(linked) && linked > 0 ? linked : undefined;
   const loadLinked = useCallback(
@@ -175,7 +179,15 @@ export function VerificationTab() {
   const current = queue[0];
 
   function leaveLink() {
-    setParams({}, { replace: true });
+    const next = new URLSearchParams(params);
+    next.delete("case");
+    setParams(next, { replace: true });
+  }
+
+  function clearClipFilter() {
+    const next = new URLSearchParams(params);
+    next.delete("clip");
+    setParams(next, { replace: true });
   }
 
   function choose(next: VerificationFilter) {
@@ -201,6 +213,27 @@ export function VerificationTab() {
   return (
     <div className="flex flex-col gap-4">
       <p className="max-w-2xl text-mute">{t("people.verification.lead")}</p>
+      {clip !== undefined && (
+        <div
+          data-testid="verification-clip-filter"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-accent bg-accent-soft p-3 text-accent-ink"
+        >
+          <b>
+            {data?.items[0]
+              ? t("people.verification.clipFilter", {
+                  clip: data.items[0].clip_name,
+                })
+              : t("people.verification.clipFilterAny")}
+          </b>
+          <button
+            type="button"
+            className={buttonClass("secondary")}
+            onClick={clearClipFilter}
+          >
+            {t("people.verification.clearClipFilter")}
+          </button>
+        </div>
+      )}
       {counts && (
         <ul
           aria-label={t("people.verification.countersLabel")}

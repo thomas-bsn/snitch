@@ -245,3 +245,52 @@ export async function correctSpeaker(
   });
   await api.dispose();
 }
+
+/** A simulated Worker claims the queued transcription of a clip and completes it. */
+export async function completeQueuedTranscription(text = "Bonjour") {
+  const { api, post } = await adminApi();
+  const worker = (await post("/api/admin/workers", {
+    name: `synthetic-analysis-${Date.now()}`,
+    max_concurrency: 1,
+  })) as { token: string };
+  const call = async (path: string, body?: unknown, lease?: string) => {
+    const response = await api.post(path, {
+      data: body,
+      headers: {
+        Authorization: `Bearer ${worker.token}`,
+        ...(lease ? { "X-Worker-Lease-Token": lease } : {}),
+      },
+    });
+    if (!response.ok()) throw new Error(`${path}: ${response.status()}`);
+    return response.json().catch(() => null);
+  };
+  await call("/api/worker/pulse", {
+    capacity: 1,
+    supported_steps: ["transcription.audio.*"],
+  });
+  const claimed = await call("/api/worker/jobs/claim");
+  if (!claimed?.job) throw new Error("no transcription task to claim");
+  await call(
+    `/api/worker/jobs/${claimed.job.id}/complete`,
+    {
+      input_version: claimed.job.input_version,
+      result: {
+        provider: "fixture",
+        model: "deterministic-v1",
+        version: "deterministic-v1",
+        language: "fr",
+        audio_stream_index: Number(claimed.job.step.split(".").pop()),
+        segments: [
+          {
+            start: 0.2,
+            end: 0.9,
+            text,
+            words: [{ word: text, start: 0.2, end: 0.9 }],
+          },
+        ],
+      },
+    },
+    claimed.lease_token,
+  );
+  await api.dispose();
+}

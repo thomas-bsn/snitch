@@ -95,10 +95,11 @@ export const fetchVerification = (
   level: VerificationFilter,
   page: number,
   pageSize: number,
+  clip?: number,
 ) =>
   guard(async () => {
     const { data, error } = await api.GET("/api/voice-verification", {
-      params: { query: { level, page, page_size: pageSize } },
+      params: { query: { level, page, page_size: pageSize, clip } },
     });
     return data ? { ok: true, value: data } : failure(error);
   });
@@ -116,7 +117,7 @@ export const fetchVoiceGroups = (page: number, pageSize: number) =>
 
 /**
  * The Voice group that holds a voice today, or null when it is in none (named, no longer
- * unknown, or its clip is no longer visible). A group has no stable id (ADR 0024), so the
+ * unknown, or its clip is no longer visible). A group has no stable id (ADR 0025), so the
  * server finds it from the voice.
  */
 export const fetchVoiceGroupOf = (localSpeakerId: number) =>

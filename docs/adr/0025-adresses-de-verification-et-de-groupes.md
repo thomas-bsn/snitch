@@ -1,4 +1,4 @@
-# 0024 — Adresses de Personnes, de Cas de vérification et de Groupes
+# 0025 — Adresses de Personnes, de Cas de vérification et de Groupes
 
 Statut : proposé pour l'épopée #121. Précise l'[ADR 0014](0014-refonte-du-front.md) sans la contredire.
 

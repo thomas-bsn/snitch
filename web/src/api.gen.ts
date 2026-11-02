@@ -1234,6 +1234,177 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Lecture seule : l'état des étapes avec statut et code de raison stables. */
+    get: operations["getClipAnalysis"];
+    put?: never;
+    /** @description Administrateurs. Lance une analyse durable du clip (préparation puis transcription) ; une seule analyse active par clip, un second appel renvoie l'analyse existante. Les résultats valides sont réutilisés. */
+    post: operations["startClipAnalysis"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. */
+    get: operations["getClipAnalysisHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs. Arrête la planification des étapes suivantes et annule les jobs en attente ; une étape déjà en cours peut terminer valablement. Une relance (POST analysis) crée une nouvelle exécution qui réutilise les résultats valides. */
+    post: operations["cancelClipAnalysis"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/steps/{step}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs. Relance une étape en échec définitif : son job échoué est ignoré et remplacé, les résultats valides sont conservés et la politique de retry des jobs s'applique à nouveau. */
+    post: operations["retryClipAnalysisStep"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/analysis/queue": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events. */
+    get: operations["getAnalysisQueue"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/analysis/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Historique durable de toutes les exécutions terminées (réussies, échouées, annulées) de tous les clips, la plus récente d'abord, avec leurs étapes ; seule partie paginée de la Task Queue (10 par page). */
+    get: operations["getAnalysisHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/analysis/queue/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Même mécanisme que le flux d'analyse d'un clip, sujet admin:queue ; droits revérifiés avant chaque snapshot. */
+    get: operations["streamAnalysisQueueEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Tout utilisateur qui peut ouvrir le clip. Lecture seule : statut et code de raison stables de chaque étape, sans identifiant de job, nom de Worker ni code d'erreur. */
+    get: operations["getClipAnalysisView"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/analysis/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Tout utilisateur qui peut ouvrir le clip. Repli : GET /api/clips/{id}/analysis. */
+    get: operations["streamClipAnalysisViewEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Flux d'évènements serveur authentifié (cookie de session), droits revérifiés avant chaque snapshot. Mécanisme générique (table events, déclenchée par les changements) réutilisable pour d'autres sujets ; repli : GET /api/admin/clips/{id}/analysis. */
+    get: operations["streamClipAnalysisEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/transcription": {
     parameters: {
       query?: never;
@@ -2131,6 +2302,92 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore voir (l'accès est revérifié à chaque lecture, historique compris). unread compte les non-lues, pending les actions non résolues : deux compteurs distincts. Aucune écriture. */
+    get: operations["listNotifications"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Flux d'évènements serveur du sujet `user:<id>` : session et rôle revérifiés à la connexion, avant chaque snapshot et à chaque battement, accès aux clips revérifié à chaque lecture. Repli : GET /api/notifications. */
+    get: operations["streamNotificationEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Marque lues toutes les notifications du demandeur ; ne résout aucune action. */
+    post: operations["readAllNotifications"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/{id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Lecture individuelle : ne résout pas l'action, qui reste partagée. */
+    put: operations["markNotificationRead"];
+    post?: never;
+    /** @description Remet la notification en non lue pour le demandeur seul. */
+    delete: operations["markNotificationUnread"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Seul l'historique résolu est supprimable, par son destinataire ; les autres destinataires le conservent. */
+    delete: operations["deleteNotification"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/embeddings": {
     parameters: {
       query?: never;
@@ -2293,6 +2550,169 @@ export interface components {
       model: string;
       url_from_environment: boolean;
       model_from_environment: boolean;
+    };
+    ClipAnalysisStep: {
+      /** @enum {string} */
+      step:
+        | "preparation"
+        | "transcription"
+        | "indexing"
+        | "diarization"
+        | "fingerprints"
+        | "matching";
+      /** @enum {string} */
+      status:
+        | "waiting"
+        | "running"
+        | "retry"
+        | "blocked"
+        | "failed"
+        | "done"
+        | "not_applicable"
+        | "not_yet_supported";
+      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
+      reason: string;
+      /** Format: int64 */
+      job_id: number | null;
+      attempt: number;
+      /** @description Version d'entrée du job suivi par l'étape (historique). */
+      input_version: string | null;
+      /** @description Profil (pipeline) du job suivi par l'étape. */
+      profile: string | null;
+      /** @description Étape relancée par une réanalyse, malgré un résultat valide. */
+      forced: boolean;
+      /** Format: date-time */
+      started_at: string | null;
+      /** Format: date-time */
+      finished_at: string | null;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    ClipAnalysisRun: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      scope: "transcription" | "voice" | "full";
+      /** @enum {string} */
+      status: "active" | "completed" | "failed" | "cancelled";
+      /** Format: int64 */
+      started_by: number | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      /** @enum {string} */
+      mode: "missing" | "full" | "steps";
+      forced_steps: ("transcription" | "indexing" | "diarization")[];
+      confirmed_replace_corrections: boolean;
+      confirmed_replace_validations: boolean;
+      /**
+       * Format: date-time
+       * @description Instant jusqu'auquel le travail humain en jeu a été montré et confirmé : la réanalyse ne rend obsolète que ce qui existait alors (nul sans étape relancée).
+       */
+      confirmed_stake_at: string | null;
+      /** @description Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une analyse terminée qui en laisse est seulement partiellement identifiée. */
+      pending_voices: number;
+      steps: components["schemas"]["ClipAnalysisStep"][];
+    };
+    /** @description Vue en lecture seule pour tout utilisateur qui peut ouvrir le clip : état et code de raison stable de chaque étape, sans job, Worker ni détail d'erreur. */
+    ClipAnalysisView: {
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      scope: "transcription" | "voice" | "full";
+      /** @enum {string} */
+      status: "active" | "completed" | "failed" | "cancelled";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      pending_voices: number;
+      steps: {
+        /** @enum {string} */
+        step:
+          | "preparation"
+          | "transcription"
+          | "indexing"
+          | "diarization"
+          | "fingerprints"
+          | "matching";
+        /** @enum {string} */
+        status:
+          | "waiting"
+          | "running"
+          | "retry"
+          | "blocked"
+          | "failed"
+          | "done"
+          | "not_applicable";
+        reason: string;
+        /** Format: date-time */
+        updated_at: string;
+      }[];
+    };
+    ClipAnalysisViewResponse: {
+      run: components["schemas"]["ClipAnalysisView"] | null;
+    };
+    ClipAnalysisResponse: {
+      run: components["schemas"]["ClipAnalysisRun"] | null;
+    };
+    AnalysisQueueRun: components["schemas"]["ClipAnalysisRun"] & {
+      clip_name: string;
+      /** @description Voix du clip encore inconnues ou ambiguës (liste de vérification) : une analyse terminée qui en laisse est seulement partiellement identifiée. */
+      pending_voices: number;
+    };
+    AnalysisRunHistory: {
+      items: components["schemas"]["AnalysisQueueRun"][];
+      total: number;
+      page: number;
+      page_size: number;
+    };
+    AnalysisQueueTask: components["schemas"]["Job"] & {
+      clip_name: string;
+    };
+    AnalysisQueue: {
+      active: components["schemas"]["AnalysisQueueRun"][];
+      completed: components["schemas"]["AnalysisQueueRun"][];
+      tasks: components["schemas"]["AnalysisQueueTask"][];
+    };
+    ClipAnalysisConflict: {
+      error: string;
+      run?: components["schemas"]["ClipAnalysisRun"];
+      stake?: components["schemas"]["ClipReanalysisStake"];
+      /**
+       * Format: date-time
+       * @description Instant où l'enjeu a été lu ; à renvoyer en confirmed_stake_at.
+       */
+      stake_at?: string;
+    };
+    /** @description Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés). */
+    ClipReanalysisStake: {
+      /** @description Corrections de segments de la transcription visible (retranscription). */
+      corrections: {
+        /** Format: int64 */
+        transcription_job_id: number;
+        text_segments: number;
+        speaker_segments: number;
+        authors: string[];
+        /** Format: date-time */
+        last_corrected_at: string | null;
+      } | null;
+      /** @description Validations de voix, échantillons et corrections de locuteur (nouvelle diarisation). */
+      voice: {
+        validated_speakers: number;
+        voice_samples: number;
+        speaker_corrections: number;
+      } | null;
+    };
+    ClipAnalysisHistory: {
+      runs: components["schemas"]["ClipAnalysisRun"][];
     };
     Error: {
       error: string;
@@ -3415,6 +3835,62 @@ export interface components {
       suggestion: number;
       ambiguous: number;
       unknown: number;
+    };
+    NotificationRead: {
+      /** Format: int64 */
+      id: number;
+      read: boolean;
+    };
+    Notification: {
+      /** Format: int64 */
+      id: number;
+      /**
+       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail.
+       * @enum {string}
+       */
+      kind:
+        | "needs_speaker_review"
+        | "worker_unavailable"
+        | "provider_unavailable"
+        | "model_missing"
+        | "job_failed"
+        | "technical_incident";
+      /**
+       * @description Partagé : une action résolue l'est pour tous.
+       * @enum {string}
+       */
+      state: "active" | "resolved";
+      /** Format: int64 */
+      clip_id: number | null;
+      clip_name: string;
+      /** @description Voix restant à décider, ou jobs concernés par l'incident. */
+      pending_count: number;
+      /** @description État de lecture du demandeur, indépendant de la résolution. */
+      read: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      resolved_at: string | null;
+      /**
+       * Format: int64
+       * @description Incident : dernier job concerné (administrateurs uniquement).
+       */
+      job_id: number | null;
+      /** @description Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret. */
+      step: string;
+      /** @description Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted), jamais l'erreur brute. */
+      error_code: string;
+      /** @description Vrai pour le message générique sûr vu par un non-administrateur. */
+      generic: boolean;
+    };
+    NotificationList: {
+      items: components["schemas"]["Notification"][];
+      unread: number;
+      pending: number;
+      /** @description Nombre de notifications que sélectionnent l'état et le filtre, quelle que soit la page ; sert à proposer « Afficher plus ». */
+      total: number;
     };
     VoiceVerification: {
       items: components["schemas"]["VoiceVerificationCase"][];
@@ -7639,6 +8115,407 @@ export interface operations {
       };
     };
   };
+  getClipAnalysis: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Analyse active du clip, ou la plus récente ; run vaut null si le clip n'a jamais été analysé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startClipAnalysis: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          /**
+           * @description transcription : préparation et transcription seulement. voice : détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de transcription implicite). full : transcription, indexation et voix. L'indexation et les voix avancent indépendamment après la transcription ; une branche en échec n'arrête pas l'autre et l'exécution se termine failed (échec partiel).
+           * @default transcription
+           * @enum {string}
+           */
+          scope?: "transcription" | "voice" | "full";
+          /**
+           * @description Réanalyse d'un clip déjà traité. missing : seules les étapes sans résultat valide sont exécutées (les résultats valides sont réutilisés). full : retranscription (périmètres transcription et full) et nouvelle diarisation (périmètres voice et full), l'indexation, les empreintes et la comparaison suivent. steps : relance les seules étapes de steps, quel que soit le résultat valide existant. Sans effet si une analyse est déjà active.
+           * @default missing
+           * @enum {string}
+           */
+          mode?: "missing" | "full" | "steps";
+          /** @description Avec mode steps : étapes à relancer, applicables au périmètre (sinon 400 invalid_reanalysis). */
+          steps?: ("transcription" | "indexing" | "diarization")[];
+          /** @description Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections). */
+          confirm_replace_corrections?: boolean;
+          /**
+           * Format: date-time
+           * @description Le stake_at du refus reanalysis_confirmation_required que l'administrateur a confirmé (le plus ancien s'il y en a eu plusieurs) : le travail humain créé après n'est jamais rendu obsolète. Par défaut, l'instant de la requête.
+           */
+          confirmed_stake_at?: string;
+          /** @description Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice). */
+          confirm_replace_validations?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Une analyse du même périmètre est déjà active : elle est renvoyée, sans doublon */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Analyse démarrée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) ; transcription_required : le périmètre voice exige une transcription valide ; reanalysis_confirmation_required : les étapes relancées rendraient du travail humain obsolète, les conséquences sont dans stake */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisConflict"];
+        };
+      };
+      /** @description Erreur (400 invalid_analysis_scope, invalid_reanalysis, invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysisHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Les 20 exécutions les plus récentes, avec versions, profil, étapes relancées et confirmations */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisHistory"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelClipAnalysis: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Analyse annulée (statut cancelled) ; les résultats valides sont conservés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 409 analysis_not_active : aucune analyse active) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  retryClipAnalysisStep: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        step:
+          | "preparation"
+          | "transcription"
+          | "indexing"
+          | "diarization"
+          | "fingerprints"
+          | "matching";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Étape relancée ; l'analyse est de nouveau active */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id, invalid_analysis_step ; 404 analysis_not_found ; 409 analysis_not_retryable : analyse terminée ou annulée, relancer une analyse ; 409 analysis_step_not_failed) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAnalysisQueue: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de la Task Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalysisQueue"];
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAnalysisHistory: {
+    parameters: {
+      query?: {
+        page?: number;
+        /** @description Filtre sur le nom du clip */
+        q?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Page d'historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalysisRunHistory"];
+        };
+      };
+      /** @description Erreur (400 invalid_page ; 401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamAnalysisQueueEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: AnalysisQueue} : l'état complet, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysisView: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Analyse active du clip, ou la plus récente ; run vaut null si le clip n'a jamais été analysé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisViewResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 404 clip_not_found, aussi pour un clip inaccessible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamClipAnalysisViewEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream de la vue en lecture seule (mêmes évènements que le flux administrateur, snapshot {run} sans détail technique). L'accès au clip est revérifié avant chaque snapshot ; un évènement `forbidden` clôt le flux quand il est perdu. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamClipAnalysisEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: {run}} : l'état complet de l'analyse, jamais un delta, donc une reconnexion ou un évènement perdu converge. Un évènement `forbidden` clôt le flux quand l'accès est perdu (session expirée, rôle retiré) ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 403 forbidden ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   scheduleTranscription: {
     parameters: {
       query?: {
@@ -10153,6 +11030,8 @@ export interface operations {
       query?: {
         /** @description Ne garder que les voix inconnues ou que les voix ambiguës. */
         level?: "all" | "unknown" | "ambiguous";
+        /** @description Ne garder que les voix de ce clip (lien d'une notification). */
+        clip?: number;
         page?: number;
         page_size?: number;
       };
@@ -10169,6 +11048,241 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceVerification"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listNotifications: {
+    parameters: {
+      query?: {
+        state?: "all" | "active" | "resolved";
+        /** @description Filtre appliqué côté serveur : unread (non lues), actions (en attente), errors (incidents techniques). Indépendant de la taille de page. */
+        filter?: "all" | "unread" | "actions" | "errors";
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notifications du demandeur, actions en attente d'abord */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamNotificationEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: NotificationList} : l'état complet des notifications du demandeur (jusqu'à 200, compteurs unread et pending sur tout le visible), jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  readAllNotifications: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notifications marquées lues pour le demandeur seul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** Format: int64 */
+            updated: number;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  markNotificationRead: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification lue (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationRead"];
+        };
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  markNotificationUnread: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification de nouveau non lue (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationRead"];
+        };
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteNotification: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification résolue retirée de l'historique du demandeur seul */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description notification_active : une action en attente ne se supprime pas, elle disparaît en étant traitée */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */

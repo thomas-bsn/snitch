@@ -38,6 +38,7 @@ import { GroupsTab } from "./people/GroupsTab";
 import { PeopleLayout } from "./people/PeopleLayout";
 import { PersonDirectory } from "./people/PersonDirectory";
 import { VerificationTab } from "./people/VerificationTab";
+import { NotificationsPage } from "./notifications/NotificationsPage";
 import { SearchPage } from "./search/SearchPage";
 import { ThemeProvider } from "./theme";
 
@@ -100,6 +101,7 @@ function Routing() {
             <Route path="groups" element={<GroupsTab />} />
             <Route path="*" element={<NotFound />} />
           </Route>
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="account/*" element={<AccountPage />} />
           <Route element={<RequireAdministrator />}>
