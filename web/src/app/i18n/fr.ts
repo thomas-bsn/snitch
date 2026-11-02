@@ -1282,6 +1282,11 @@ export const fr: Messages = {
       revokedNotice:
         "Ce Worker a été supprimé le {date}. Son accès est révoqué définitivement.",
       revokedReason: "Motif : {reason}",
+      forget: "Retirer de la liste",
+      forgetBody:
+        "La machine a confirmé la révocation. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
+      forgetTitle: "Retirer {name} de la liste ?",
+      forgetConfirm: "Retirer",
       cleanupPending:
         "Nettoyage local en attente : le Worker n’a pas encore confirmé la révocation. Il effacera lui-même ses modèles et caches à son prochain contact avec Snitch.",
       cleanupDone:

@@ -265,6 +265,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   no_voice_candidate: "Aucun échec à relancer pour le candidat.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
   worker_not_found: "Ce Worker n’existe pas.",
+  worker_not_revoked:
+    "Seul un Worker supprimé (révoqué) peut être retiré de la liste.",
+  worker_cleanup_pending:
+    "La machine du Worker n’a pas encore confirmé la révocation : elle a encore besoin de cette entrée pour se nettoyer.",
   install_invite_used:
     "Cette invitation d’installation a déjà été utilisée. Générez une nouvelle commande dans Admin > Workers.",
   invalid_install_event: "Cet événement d’installation n’est pas valide.",

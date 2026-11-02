@@ -251,6 +251,10 @@ export const errorsEn = {
   no_voice_candidate: "There is no failure to retry for the candidate.",
   voice_profile_deleted: "This voice profile was deleted.",
   worker_not_found: "This worker does not exist.",
+  worker_not_revoked:
+    "Only a deleted (revoked) Worker can be removed from the list.",
+  worker_cleanup_pending:
+    "The Worker's machine has not confirmed the revocation yet: it still needs this entry to clean up after itself.",
   install_invite_used:
     "The installation invitation was already used. Generate a new installation command in Admin > Workers.",
   invalid_install_event: "This installation event is not valid.",

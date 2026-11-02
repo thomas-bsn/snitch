@@ -694,6 +694,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/{id}/record": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Retire de la liste un Worker révoqué dont la machine a confirmé la révocation ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé. */
+    delete: operations["forgetWorker"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/workers/{id}/token": {
     parameters: {
       query?: never;
@@ -6843,6 +6860,38 @@ export interface operations {
         content?: never;
       };
       /** @description Worker introuvable ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  forgetWorker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Worker retiré de la liste */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Worker introuvable, non révoqué ou nettoyage local non confirmé */
       default: {
         headers: {
           [name: string]: unknown;
