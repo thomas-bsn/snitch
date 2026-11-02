@@ -94,7 +94,11 @@ export function VerificationTab() {
                 onClick={() => choose(level)}
                 className={filterClass(filter === level)}
               >
-                <LevelBadge level={level} count={counts[level]} />
+                <LevelBadge
+                  level={level}
+                  count={counts[level]}
+                  interactive={false}
+                />
               </button>
             </li>
           ))}

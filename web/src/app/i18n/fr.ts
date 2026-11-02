@@ -1476,6 +1476,7 @@ export const fr: Messages = {
     summary:
       "{attributions} voix, {samples} échantillon(s), {rules} règle(s) de piste micro concernés. Les voix sont rapprochées de nouveau.",
     voicesPanel: {
+      identifications: "Identifications",
       title: "Voix confirmées de {name}",
       empty: "Aucune voix confirmée que vous puissiez voir.",
       excerpt: "Extrait de {label} dans {clip}",
@@ -1528,6 +1529,8 @@ export const fr: Messages = {
       audio: "Extrait de {label} dans {clip}",
       close: "Fermer",
       decide: "Trancher",
+      player: "Extrait de {label} dans {clip}",
+      openClip: "Ouvrir {clip}",
     },
     decide: {
       title: "Qui est {label} ?",
@@ -1594,6 +1597,23 @@ export const fr: Messages = {
       suggestion: "Suggestion",
       ambiguous: "Ambigu",
       unknown: "Inconnu",
+    },
+    legend: {
+      reference: "Compte comme Référence : {answer}",
+      yes: "oui",
+      no: "non",
+      others: "Les autres niveaux",
+      definition: {
+        human:
+          "Une Personne confirmée comme étant cette voix. Seul ce niveau forme la Référence.",
+        automatic:
+          "Attribuée par Snitch sans contrôle humain, lorsque l’administrateur l’a activé. Jamais un échantillon validé.",
+        suggestion:
+          "Une Personne dont cette voix est proche. Elle reste inconnue tant que personne n’a tranché.",
+        ambiguous:
+          "Proche de plusieurs Personnes sans qu’aucune ne se détache. Jamais attribuée d’elle-même.",
+        unknown: "Ni validation humaine ni attribution automatique.",
+      },
     },
   },
   metadata: {
