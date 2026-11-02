@@ -2,7 +2,7 @@ import { Monitor } from "lucide-react";
 import { AnalysisBoard, type Queue } from "./AnalysisBoard";
 import { AutomaticAnalysisForm } from "./AutomaticAnalysisForm";
 import { ClipHistory } from "./ClipHistory";
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../../api/client";
 import { useEventStream } from "../../api/useEventStream";
 import { useLoaded } from "../../api/loaded";
@@ -34,13 +34,20 @@ async function load() {
   }
 }
 type Job = components["schemas"]["Job"];
+type QueueDelta = components["schemas"]["AnalysisQueueDelta"];
 type Event = components["schemas"]["JobEvent"];
 export function QueueTab() {
   const { t, error, language } = useI18n();
   const { session } = useSession();
   const { state, reload } = useLoaded(load);
-  const [queue, setQueue] = useState<Queue>();
-  // The server pushes the whole queue on every change; polling only covers a stream that is down.
+  const [queue, setQueueView] = useState<Queue>();
+  // The stream sends what changed after the first snapshot: the view it applies it to is kept here.
+  const held = useRef<Queue | undefined>(undefined);
+  const setQueue = useCallback((next: Queue) => {
+    held.current = next;
+    setQueueView(next);
+  }, []);
+  // The server pushes the whole queue once, then only the runs that changed; polling only covers a stream that is down.
   // A failed refresh keeps the last known view and never raises the global unreachable screen:
   // the page says it is reconnecting and the next snapshot or poll replaces the view.
   const refreshQueue = useCallback(async () => {
@@ -50,11 +57,35 @@ export function QueueTab() {
     } catch {
       // Still offline.
     }
-  }, []);
-  const stream = useEventStream<Queue>(
+  }, [setQueue]);
+  const applyDelta = useCallback(
+    (delta: QueueDelta) => {
+      const before = held.current;
+      if (!before) return false;
+      const known = new Map(before.active.map((run) => [run.id, run]));
+      const changed = new Map(delta.active.map((run) => [run.id, run]));
+      const active: Queue["active"] = [];
+      for (const id of delta.active_ids) {
+        const run = changed.get(id) ?? known.get(id);
+        if (!run) return false;
+        active.push(run);
+      }
+      setQueue({
+        active,
+        completed: delta.completed,
+        tasks: delta.tasks,
+        summary: delta.summary,
+      });
+      return true;
+    },
+    [setQueue],
+  );
+  const stream = useEventStream<Queue, QueueDelta>(
     "/api/admin/analysis/queue/events",
     setQueue,
     refreshQueue,
+    undefined,
+    applyDelta,
   );
   const [paused, setPaused] = useState<boolean>();
   const [concurrency, setConcurrency] = useState<string>();

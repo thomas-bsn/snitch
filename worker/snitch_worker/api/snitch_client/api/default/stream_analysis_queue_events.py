@@ -9,22 +9,37 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error import Error
+from ...models.stream_analysis_queue_events_delta import StreamAnalysisQueueEventsDelta
+from ...types import UNSET, Unset
 from typing import cast
 
 
 
 def _get_kwargs(
+    *,
+    delta: StreamAnalysisQueueEventsDelta | Unset = StreamAnalysisQueueEventsDelta.VALUE_0,
 
 ) -> dict[str, Any]:
 
 
 
 
+    params: dict[str, Any] = {}
+
+    json_delta: int | Unset = UNSET
+    if not isinstance(delta, Unset):
+        json_delta = delta.value
+
+    params["delta"] = json_delta
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/admin/analysis/queue/events",
+        "params": params,
     }
 
 
@@ -57,10 +72,15 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
+    delta: StreamAnalysisQueueEventsDelta | Unset = StreamAnalysisQueueEventsDelta.VALUE_0,
 
 ) -> Response[Error | str]:
     """  Administrateurs. Même mécanisme que le flux d'analyse d'un clip, sujet admin:queue ; droits
     revérifiés avant chaque snapshot.
+
+    Args:
+        delta (StreamAnalysisQueueEventsDelta | Unset):  Default:
+            StreamAnalysisQueueEventsDelta.VALUE_0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -72,6 +92,7 @@ def sync_detailed(
 
 
     kwargs = _get_kwargs(
+        delta=delta,
 
     )
 
@@ -84,10 +105,15 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
+    delta: StreamAnalysisQueueEventsDelta | Unset = StreamAnalysisQueueEventsDelta.VALUE_0,
 
 ) -> Error | str | None:
     """  Administrateurs. Même mécanisme que le flux d'analyse d'un clip, sujet admin:queue ; droits
     revérifiés avant chaque snapshot.
+
+    Args:
+        delta (StreamAnalysisQueueEventsDelta | Unset):  Default:
+            StreamAnalysisQueueEventsDelta.VALUE_0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -100,16 +126,22 @@ def sync(
 
     return sync_detailed(
         client=client,
+delta=delta,
 
     ).parsed
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
+    delta: StreamAnalysisQueueEventsDelta | Unset = StreamAnalysisQueueEventsDelta.VALUE_0,
 
 ) -> Response[Error | str]:
     """  Administrateurs. Même mécanisme que le flux d'analyse d'un clip, sujet admin:queue ; droits
     revérifiés avant chaque snapshot.
+
+    Args:
+        delta (StreamAnalysisQueueEventsDelta | Unset):  Default:
+            StreamAnalysisQueueEventsDelta.VALUE_0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -121,6 +153,7 @@ async def asyncio_detailed(
 
 
     kwargs = _get_kwargs(
+        delta=delta,
 
     )
 
@@ -133,10 +166,15 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
+    delta: StreamAnalysisQueueEventsDelta | Unset = StreamAnalysisQueueEventsDelta.VALUE_0,
 
 ) -> Error | str | None:
     """  Administrateurs. Même mécanisme que le flux d'analyse d'un clip, sujet admin:queue ; droits
     revérifiés avant chaque snapshot.
+
+    Args:
+        delta (StreamAnalysisQueueEventsDelta | Unset):  Default:
+            StreamAnalysisQueueEventsDelta.VALUE_0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -149,5 +187,6 @@ async def asyncio(
 
     return (await asyncio_detailed(
         client=client,
+delta=delta,
 
     )).parsed

@@ -52,6 +52,9 @@ export const fr: Messages = {
       tasksHint:
         "Tâches techniques qu’aucune analyse ne suit. Elles restent ici tant qu’elles ne sont pas terminées.",
       openClip: "Ouvrir le clip",
+      showMore: "Afficher {n} de plus ({left} restantes dans cette colonne)",
+      hiddenCards:
+        "{n} autres cartes de cette colonne ne sont pas encore affichées.",
       trunk: "Préparation et transcription",
       branchSearch: "Branche recherche",
       branchVoices: "Branche voix",

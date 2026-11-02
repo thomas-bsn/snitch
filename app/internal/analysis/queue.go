@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -93,10 +94,42 @@ type Queue struct {
 	Summary QueueSummary `json:"summary"`
 }
 
+// queueRuns lists the latest run of each clip that matches where; a limit of 0 lists them all, as
+// the Task Queue does for the active runs: none is ever left out, whatever the size of the queue.
+// QueueDelta is what changed in the Task Queue since a previous snapshot: the order of the
+// active runs, the full content of those that are new or changed, and the small parts (finished
+// runs, loose tasks, load) whole. A client rebuilds the queue from the snapshot it holds.
+type QueueDelta struct {
+	// ActiveIDs lists every active run, in the order of the queue.
+	ActiveIDs []int64 `json:"active_ids"`
+	// Active holds the runs of ActiveIDs that are new or differ from the previous snapshot.
+	Active    []QueueRun   `json:"active"`
+	Completed []QueueRun   `json:"completed"`
+	Tasks     []QueueJob   `json:"tasks"`
+	Summary   QueueSummary `json:"summary"`
+}
+
+// DeltaFrom compares the queue with a previous snapshot.
+func (q Queue) DeltaFrom(previous Queue) QueueDelta {
+	before := make(map[int64]*QueueRun, len(previous.Active))
+	for i := range previous.Active {
+		before[previous.Active[i].ID] = &previous.Active[i]
+	}
+	d := QueueDelta{ActiveIDs: make([]int64, 0, len(q.Active)), Active: []QueueRun{}, Completed: q.Completed, Tasks: q.Tasks, Summary: q.Summary}
+	for i := range q.Active {
+		run := &q.Active[i]
+		d.ActiveIDs = append(d.ActiveIDs, run.ID)
+		if old, ok := before[run.ID]; !ok || !reflect.DeepEqual(*old, *run) {
+			d.Active = append(d.Active, *run)
+		}
+	}
+	return d
+}
+
 func (s *Service) queueRuns(ctx context.Context, where, order string, limit int) ([]QueueRun, error) {
 	rows, err := s.pool.Query(ctx, `SELECT r.id,r.clip_id,r.scope,r.status,r.started_by,r.created_at,r.updated_at,r.finished_at,c.original_name
 FROM clip_analysis_runs r JOIN clips c ON c.id=r.clip_id
-WHERE r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id) AND (`+where+`) ORDER BY `+order+` LIMIT $1`, limit)
+WHERE r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id) AND (`+where+`) ORDER BY `+order+` LIMIT NULLIF($1,0)`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list queue runs: %w", err)
 	}
@@ -254,7 +287,7 @@ FROM job_events e LEFT JOIN workers w ON e.actor='worker' AND w.id=e.actor_id WH
 func (s *Service) Queue(ctx context.Context) (Queue, error) {
 	var q Queue
 	var err error
-	if q.Active, err = s.queueRuns(ctx, `r.status IN ('active','failed')`, `r.created_at,r.id`, 100000); err != nil {
+	if q.Active, err = s.queueRuns(ctx, `r.status IN ('active','failed')`, `r.created_at,r.id`, 0); err != nil {
 		return q, err
 	}
 	if q.Completed, err = s.queueRuns(ctx, `r.status='completed'`, `r.finished_at DESC NULLS LAST,r.id DESC`, CompletedRuns); err != nil {
@@ -263,7 +296,7 @@ func (s *Service) Queue(ctx context.Context) (Queue, error) {
 	rows, err := s.pool.Query(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.cycle,c.original_name,`+latestFailureCode+`
 FROM jobs j JOIN clips c ON c.id=j.clip_id
 WHERE j.status IN ('pending','leased','retry_wait','dead','failed')
- AND NOT EXISTS (SELECT 1 FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id=j.id AND r.status IN ('active','failed') AND r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id))
+ AND j.id NOT IN (SELECT st.job_id FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id IS NOT NULL AND r.status IN ('active','failed') AND r.id=(SELECT max(id) FROM clip_analysis_runs WHERE clip_id=r.clip_id))
  AND NOT EXISTS (SELECT 1 FROM jobs n WHERE n.clip_id=j.clip_id AND n.step=j.step AND n.id>j.id)
 ORDER BY j.priority DESC,j.created_at,j.id`)
 	if err != nil {
