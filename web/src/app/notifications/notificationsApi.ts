@@ -36,7 +36,8 @@ export const fetchNotifications = (
 export function notificationAddress(item: AppNotification): string {
   if (item.generic)
     return item.clip_id === null ? "/library" : `/clips/${item.clip_id}`;
-  if (item.kind === "worker_unavailable") return "/admin/workers";
+  if (item.kind === "worker_unavailable" || item.kind === "job_blocked")
+    return "/admin/workers";
   if (item.kind !== "needs_speaker_review") return "/admin/queue";
   return item.clip_id === null
     ? "/people/verification"

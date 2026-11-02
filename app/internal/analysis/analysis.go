@@ -750,18 +750,24 @@ func jobState(job jobs.Job, runStart time.Time) stepState {
 	return st
 }
 
-// workerWaitReason says exactly why a pending job waits: no connected Worker supports its
-// step (awaiting_compatible_worker), or one does and is busy (awaiting_worker).
+// workerWaitReason says exactly why a pending job waits, with the rules Claim applies: a stable code from jobs
+// (paused queue, no compatible Worker, incompatible or unvalidated transcription configuration), or
+// awaiting_worker when an eligible Worker is only busy.
 func (s *Service) workerWaitReason(ctx context.Context, jobID int64) (string, error) {
-	var compatible bool
-	err := s.pool.QueryRow(ctx, `SELECT EXISTS(
- SELECT 1 FROM jobs j, workers w, unnest(w.supported_steps) AS capability
- WHERE j.id=$1 AND w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second')
- AND CASE WHEN right(capability,2)='.*' THEN left(j.step,length(capability)-1)=left(capability,length(capability)-1) ELSE j.step=capability END)`, jobID, int64(workers.ConnectedWindow.Seconds())).Scan(&compatible)
-	if compatible {
+	var step string
+	if err := s.pool.QueryRow(ctx, `SELECT step FROM jobs WHERE id=$1`, jobID).Scan(&step); err != nil {
 		return "awaiting_worker", err
 	}
-	return "awaiting_compatible_worker", err
+	cause, err := jobs.StepWaitCause(ctx, s.pool, step, workers.ConnectedWindow)
+	switch {
+	case err != nil:
+		return "awaiting_worker", err
+	case cause == jobs.CauseNoCompatibleWorker:
+		return "awaiting_compatible_worker", nil
+	case cause == "":
+		return "awaiting_worker", nil
+	}
+	return cause, nil
 }
 
 // Cancel stops the active run of a clip: no further step is planned, pending jobs of the
