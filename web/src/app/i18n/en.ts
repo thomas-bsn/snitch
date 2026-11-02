@@ -1588,6 +1588,19 @@ export const en = {
     confirm: "Reprocess existing clips? Manual corrections will be preserved.",
     result: "{updated} clips processed; {unavailable} unavailable.",
   },
+  voiceRelaunch: {
+    section: "Relaunch diarization",
+    button: "Relaunch diarization",
+    scheduled: "Diarization relaunched. Current voices stay until it succeeds.",
+    title: "Relaunch diarization?",
+    cancel: "Cancel",
+    confirm: "Confirm relaunch",
+    warning:
+      "The voice split will be replaced on success. {corrections} speaker correction(s) will become obsolete. {speakers} validated voice(s) and {samples} validated voice sample(s) are kept, linked to the audio, but will no longer be attached to the displayed voices.",
+    history: "Previous results ({count})",
+    entry:
+      "Model {model} ({version}), {date}: {speakers} voice(s), {validated} validated.",
+  },
   errors: errorsEn,
   errorFallback: "Something went wrong ({code}). Try again.",
 };

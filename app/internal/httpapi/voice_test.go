@@ -119,6 +119,7 @@ type voiceView struct {
 		Status    string `json:"status"`
 		LastError string `json:"last_error"`
 	} `json:"steps"`
+	History  []voiceHistoryEntry `json:"history"`
 	Speakers []struct {
 		ID            int64  `json:"id"`
 		Label         string `json:"label"`

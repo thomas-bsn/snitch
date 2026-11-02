@@ -1554,7 +1554,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation. */
+    /** @description Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation. Sert aussi à relancer la diarisation d'un clip déjà traité avec le modèle actif (jamais automatique) : le résultat visible n'est remplacé qu'après réussite, les corrections de locuteur deviennent obsolètes, les échantillons vocaux validés sont conservés. */
     post: operations["scheduleVoice"];
     delete?: never;
     options?: never;
@@ -2947,6 +2947,31 @@ export interface components {
     };
     VoiceScheduleInput: {
       audio_stream_index?: number;
+      /** @description Vrai pour confirmer explicitement la relance sur un clip qui contient des validations humaines (locuteurs validés, échantillons vocaux) ou des corrections de locuteur. Sans lui, la relance est refusée (409 voice_rediarization_confirmation_required) avec ce qui est en jeu. */
+      confirm_replace_validations?: boolean;
+    };
+    /** @description Ce qu'une relance de la diarisation rendrait obsolète : les locuteurs validés (archivés avec leurs échantillons vocaux, conservés et liés à l'audio) et les corrections de locuteur de la transcription (obsolètes). */
+    VoiceRediarizationStake: {
+      validated_speakers: number;
+      voice_samples: number;
+      speaker_corrections: number;
+    };
+    /** @description Erreur 409 de la planification : stake n'accompagne que voice_rediarization_confirmation_required. */
+    VoiceRediarizationConfirmation: {
+      error: string;
+      stake?: components["schemas"]["VoiceRediarizationStake"];
+    };
+    /** @description Résultat de diarisation remplacé par une relance, avec sa provenance. */
+    VoiceHistoryEntry: {
+      /** Format: int64 */
+      job_id: number;
+      model: string;
+      model_version: string;
+      /** Format: date-time */
+      completed_at: string;
+      speaker_count: number;
+      /** @description Locuteurs validés de ce résultat, conservés avec leurs échantillons vocaux. */
+      validated_speakers: number;
     };
     ScheduledVoice: {
       job: components["schemas"]["Job"];
@@ -3594,6 +3619,8 @@ export interface components {
       audio_stream_index?: number | null;
       steps: components["schemas"]["VoiceStep"][];
       speakers: components["schemas"]["LocalSpeaker"][];
+      /** @description Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie. */
+      history: components["schemas"]["VoiceHistoryEntry"][];
     };
     WorkerVoiceInput: {
       pipeline_version: string;
@@ -8391,6 +8418,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ScheduledVoice"];
+        };
+      };
+      /** @description Confirmation requise (voice_rediarization_confirmation_required, avec stake) ou autre conflit d'état */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRediarizationConfirmation"];
         };
       };
       /** @description Erreur */

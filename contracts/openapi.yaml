@@ -4568,8 +4568,8 @@
         "operationId": "scheduleVoice",
         "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceScheduleInput"}}}},
-        "responses": {"201": {"description": "Diarisation planifiée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScheduledVoice"}}}}, "200": {"description": "Étape déjà planifiée pour cette version", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScheduledVoice"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
-        "description": "Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation.",
+        "responses": {"201": {"description": "Diarisation planifiée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScheduledVoice"}}}}, "200": {"description": "Étape déjà planifiée pour cette version", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScheduledVoice"}}}}, "409": {"description": "Confirmation requise (voice_rediarization_confirmation_required, avec stake) ou autre conflit d'état", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRediarizationConfirmation"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation. Sert aussi à relancer la diarisation d'un clip déjà traité avec le modèle actif (jamais automatique) : le résultat visible n'est remplacé qu'après réussite, les corrections de locuteur deviennent obsolètes, les échantillons vocaux validés sont conservés.",
         "security": [{"session": []}]
       }
     },
@@ -6807,7 +6807,10 @@
       "VoiceOverviewWorker": {"type": "object", "required": ["id", "name", "connected", "voice_state", "cause_code", "diarization", "fingerprint", "holds_active_diarization", "holds_active_fingerprint"], "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "connected": {"type": "boolean"}, "voice_state": {"type": "string", "enum": ["ready", "untested", "unavailable", "models_missing"], "description": "ready : détient les modèles actifs et l'inférence de test a réussi ; untested : détient les modèles sans preuve d'inférence ; unavailable : un téléchargement ou un test a échoué (voir cause_code) ; models_missing : ne déclare pas les modèles actifs."}, "cause_code": {"type": "string"}, "diarization": {"nullable": true, "allOf": [{"$ref": "#/components/schemas/WorkerModel"}]}, "fingerprint": {"nullable": true, "allOf": [{"$ref": "#/components/schemas/WorkerModel"}]}, "holds_active_diarization": {"type": "boolean"}, "holds_active_fingerprint": {"type": "boolean"}}},
       "VoiceOverview": {"type": "object", "required": ["provider", "active_models", "workers_total", "workers_voice_ready", "pending_voice_jobs", "workers"], "properties": {"provider": {"type": "string", "enum": ["fake", "pyannote", "nemo"]}, "active_models": {"type": "object", "required": ["diarization", "fingerprint"], "properties": {"diarization": {"type": "string"}, "fingerprint": {"type": "string"}}}, "workers_total": {"type": "integer"}, "workers_voice_ready": {"type": "integer"}, "pending_voice_jobs": {"type": "integer", "description": "Travaux vocaux en attente tant qu'aucun Worker n'est prêt ; 0 sinon."}, "workers": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceOverviewWorker"}}}},
       "VoicePipelineState": {"type": "object", "required": ["version", "config"], "properties": {"version": {"type": "string"}, "config": {"$ref": "#/components/schemas/VoicePipeline"}}},
-      "VoiceScheduleInput": {"type": "object", "properties": {"audio_stream_index": {"type": "integer", "minimum": 0}}},
+      "VoiceScheduleInput": {"type": "object", "properties": {"audio_stream_index": {"type": "integer", "minimum": 0}, "confirm_replace_validations": {"type": "boolean", "description": "Vrai pour confirmer explicitement la relance sur un clip qui contient des validations humaines (locuteurs validés, échantillons vocaux) ou des corrections de locuteur. Sans lui, la relance est refusée (409 voice_rediarization_confirmation_required) avec ce qui est en jeu."}}},
+      "VoiceRediarizationStake": {"type": "object", "required": ["validated_speakers", "voice_samples", "speaker_corrections"], "description": "Ce qu'une relance de la diarisation rendrait obsolète : les locuteurs validés (archivés avec leurs échantillons vocaux, conservés et liés à l'audio) et les corrections de locuteur de la transcription (obsolètes).", "properties": {"validated_speakers": {"type": "integer"}, "voice_samples": {"type": "integer"}, "speaker_corrections": {"type": "integer"}}},
+      "VoiceRediarizationConfirmation": {"type": "object", "required": ["error"], "description": "Erreur 409 de la planification : stake n'accompagne que voice_rediarization_confirmation_required.", "properties": {"error": {"type": "string"}, "stake": {"$ref": "#/components/schemas/VoiceRediarizationStake"}}},
+      "VoiceHistoryEntry": {"type": "object", "required": ["job_id", "model", "model_version", "completed_at", "speaker_count", "validated_speakers"], "description": "Résultat de diarisation remplacé par une relance, avec sa provenance.", "properties": {"job_id": {"type": "integer", "format": "int64"}, "model": {"type": "string"}, "model_version": {"type": "string"}, "completed_at": {"type": "string", "format": "date-time"}, "speaker_count": {"type": "integer"}, "validated_speakers": {"type": "integer", "description": "Locuteurs validés de ce résultat, conservés avec leurs échantillons vocaux."}}},
       "ScheduledVoice": {"type": "object", "required": ["job"], "properties": {"job": {"$ref": "#/components/schemas/Job"}}},
       "VoiceStep": {
         "type": "object",
@@ -7179,13 +7182,14 @@
       },
       "ClipVoice": {
         "type": "object",
-        "required": ["clip_id", "status", "steps", "speakers"],
+        "required": ["clip_id", "status", "steps", "speakers", "history"],
         "properties": {
           "clip_id": {"type": "integer", "format": "int64"},
           "status": {"type": "string", "enum": ["none", "queued", "running", "done", "failed"]},
           "audio_stream_index": {"type": "integer", "nullable": true},
           "steps": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceStep"}},
-          "speakers": {"type": "array", "items": {"$ref": "#/components/schemas/LocalSpeaker"}}
+          "speakers": {"type": "array", "items": {"$ref": "#/components/schemas/LocalSpeaker"}},
+          "history": {"type": "array", "description": "Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie.", "items": {"$ref": "#/components/schemas/VoiceHistoryEntry"}}
         }
       },
       "WorkerVoiceInput": {

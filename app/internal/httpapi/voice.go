@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"snitch/internal/jobs"
@@ -129,7 +130,8 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		AudioStreamIndex *int `json:"audio_stream_index"`
+		AudioStreamIndex          *int `json:"audio_stream_index"`
+		ConfirmReplaceValidations bool `json:"confirm_replace_validations"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -175,16 +177,18 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusConflict, "microphone_track_not_diarized")
 		return
 	}
-	// A human validation pins the local speakers of this stream: a new diarization
-	// would replace them and drop what users validated (see the persons and attributions design).
-	var locked bool
-	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND a.validation_state='validated')`, id, *index).Scan(&locked); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if locked {
-		fail(w, http.StatusConflict, "voice_locked_by_validation")
-		return
+	// A relaunch replaces the speakers of the stream: the explicit confirmation of the
+	// administrator is required when it would make human work obsolete.
+	if !input.ConfirmReplaceValidations {
+		stake, found, stakeErr := s.voiceRediarizationStake(r.Context(), id, *index)
+		if stakeErr != nil {
+			s.internal(w, stakeErr)
+			return
+		}
+		if found {
+			reply(w, http.StatusConflict, map[string]any{"error": "voice_rediarization_confirmation_required", "stake": stake})
+			return
+		}
 	}
 	var transcribed bool
 	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM jobs WHERE clip_id=$1 AND step=$2 AND status='done')`, id, fmt.Sprintf("transcription.audio.%d", *index)).Scan(&transcribed); err != nil {
@@ -213,6 +217,68 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 		}
 		reply(w, status, map[string]any{"job": job})
 	}
+}
+
+// voiceRediarizationStake is what a relaunched diarization would make obsolete for a
+// clip: the speakers a human validated and their Voice samples (kept, linked to the
+// audio, but no longer attached to the visible speakers), and the speaker corrections
+// of the transcript (obsolete).
+type voiceRediarizationStake struct {
+	ValidatedSpeakers  int `json:"validated_speakers"`
+	VoiceSamples       int `json:"voice_samples"`
+	SpeakerCorrections int `json:"speaker_corrections"`
+}
+
+func (s *Server) voiceRediarizationStake(ctx context.Context, clipID int64, index int) (voiceRediarizationStake, bool, error) {
+	var stake voiceRediarizationStake
+	err := s.Pool.QueryRow(ctx, `SELECT count(DISTINCT a.local_speaker_id),count(DISTINCT vs.id)
+FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id
+LEFT JOIN voice_samples vs ON vs.local_speaker_id=ls.id AND vs.retired_at IS NULL
+WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized' AND a.validation_state='validated'`, clipID, index).Scan(&stake.ValidatedSpeakers, &stake.VoiceSamples)
+	if err != nil {
+		return stake, false, err
+	}
+	corrections, _, err := s.clipCorrections(ctx, clipID)
+	if err != nil {
+		return stake, false, err
+	}
+	stake.SpeakerCorrections = corrections.SpeakerSegments
+	return stake, stake.ValidatedSpeakers+stake.VoiceSamples+stake.SpeakerCorrections > 0, nil
+}
+
+// voiceHistoryEntry is a replaced diarization result of an audio stream, with its provenance.
+type voiceHistoryEntry struct {
+	JobID            int64     `json:"job_id"`
+	Model            string    `json:"model"`
+	ModelVersion     string    `json:"model_version"`
+	CompletedAt      time.Time `json:"completed_at"`
+	SpeakerCount     int       `json:"speaker_count"`
+	ValidatedSpeaker int       `json:"validated_speakers"`
+}
+
+// voiceHistory lists the diarization results of the stream that the visible one replaced,
+// most recent first. The visible result is the latest done diarization (the rule of
+// projectFingerprints); a relaunch in progress does not change it.
+func (s *Server) voiceHistory(ctx context.Context, clipID int64, index int) ([]voiceHistoryEntry, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT j.id,COALESCE(j.result->>'model',''),COALESCE(j.result->>'model_version',''),j.updated_at,
+ CASE WHEN jsonb_typeof(j.result->'speakers')='array' THEN jsonb_array_length(j.result->'speakers') ELSE 0 END,
+ (SELECT count(*) FROM local_speakers ls WHERE ls.diarization_job_id=j.id AND ls.kind='archived')
+FROM jobs j WHERE j.clip_id=$1 AND j.step=$2 AND j.status='done'
+ AND j.id<>(SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND status='done' ORDER BY updated_at DESC,id DESC LIMIT 1)
+ORDER BY j.updated_at DESC,j.id DESC`, clipID, fmt.Sprintf("voice.diarization.%d", index))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []voiceHistoryEntry{}
+	for rows.Next() {
+		var e voiceHistoryEntry
+		if err = rows.Scan(&e.JobID, &e.Model, &e.ModelVersion, &e.CompletedAt, &e.SpeakerCount, &e.ValidatedSpeaker); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 type voiceStep struct {
@@ -317,7 +383,7 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	view := map[string]any{"clip_id": clip.ID, "status": "none", "audio_stream_index": nil, "steps": []voiceStep{}, "speakers": []localSpeakerView{}}
+	view := map[string]any{"clip_id": clip.ID, "status": "none", "audio_stream_index": nil, "steps": []voiceStep{}, "speakers": []localSpeakerView{}, "history": []voiceHistoryEntry{}}
 	diarization, err := s.latestVoiceStep(r.Context(), clip.ID, "voice.diarization.%")
 	if err != nil {
 		s.internal(w, err)
@@ -360,7 +426,7 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	}
 	speakers := []localSpeakerView{}
 	byID := map[int64]int{}
-	rows, err := s.Pool.Query(r.Context(), `SELECT id,label,ordinal,speaking_seconds,turn_count,kind FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 ORDER BY ordinal`, clip.ID, index)
+	rows, err := s.Pool.Query(r.Context(), `SELECT id,label,ordinal,speaking_seconds,turn_count,kind FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind<>'archived' ORDER BY ordinal`, clip.ID, index)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -418,7 +484,12 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	view["status"], view["audio_stream_index"], view["steps"], view["speakers"] = status, index, steps, speakers
+	history, err := s.voiceHistory(r.Context(), clip.ID, index)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	view["status"], view["audio_stream_index"], view["steps"], view["speakers"], view["history"] = status, index, steps, speakers, history
 	reply(w, http.StatusOK, view)
 }
 
@@ -437,7 +508,7 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 	if !indexOK || !isList || len(segments) == 0 {
 		return nil
 	}
-	roster, err := s.Pool.Query(ctx, `SELECT id,label FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 ORDER BY ordinal,id`, clipID, int(index))
+	roster, err := s.Pool.Query(ctx, `SELECT id,label FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind<>'archived' ORDER BY ordinal,id`, clipID, int(index))
 	if err != nil {
 		return err
 	}
