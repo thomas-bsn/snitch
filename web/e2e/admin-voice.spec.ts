@@ -1,5 +1,15 @@
-import { expect, request, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, request, test, type Page } from "@playwright/test";
 import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
+
+const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+async function expectNoViolations(page: Page) {
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(TAGS)
+    .analyze();
+  expect(violations).toEqual([]);
+}
 
 test("un administrateur règle le rapprochement et l'automatisation vocale", async ({
   browser,
@@ -14,44 +24,94 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
     page.getByRole("heading", { name: "Voice processing" }),
   ).toBeVisible();
 
-  const matching = page
-    .getByRole("heading", { name: "Voice matching" })
-    .locator("..");
+  // The summary comes first; the automatic attribution is off and never turns itself on.
+  const summary = page.getByRole("region", { name: "State" });
+  await expect(summary).toContainText("Active diarization model");
+  await expect(summary).toContainText("Active fingerprint model (read only)");
+  const toggle = summary.getByRole("switch", {
+    name: "Automatic voice attribution",
+  });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await expect(
+    summary.getByText("Automatic attribution: disabled"),
+  ).toBeVisible();
+
+  // The thresholds are folded under "Advanced settings".
+  const matching = page.getByRole("region", { name: "Voice matching" });
+  await expect(matching).toBeHidden();
+  await page.locator("summary").click();
   await expect(matching).toContainText(
     "Only human-validated samples are references",
   );
   await matching.getByLabel("Suggestion threshold").fill("0.72");
   await matching.getByRole("button", { name: "Save thresholds" }).click();
-  await expect(page.getByRole("status")).toContainText("Settings saved.");
+  await expect(page.getByText("Settings saved.")).toBeVisible();
 
   await matching.getByRole("button", { name: "Match voices again" }).click();
   await expect(matching.getByRole("status")).toContainText("voices evaluated:");
-  await expect(page.getByText("Automatic attribution: disabled")).toBeVisible();
 
-  const automation = page
-    .getByRole("heading", { name: "Automatic voice attribution" })
-    .locator("..");
+  const automation = page.getByRole("region", { name: "Automation criteria" });
   await automation.getByLabel("Minimum confirmations").fill("1");
   await automation.getByLabel("Minimum precision").fill("0.5");
   await automation
     .getByRole("button", { name: "Save activation criteria" })
     .click();
-  await expect(
-    page.getByText("Settings saved.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Settings saved.")).toBeVisible();
 
-  const enable = automation.getByRole("button", {
+  // Enabling needs an explicit confirmation, and a second one when the criteria are unmet.
+  await toggle.click();
+  const dialog = page.getByRole("alertdialog");
+  const confirm = dialog.getByRole("button", {
     name: "Enable automatic attribution",
   });
-  await expect(enable).toBeDisabled();
-  await automation.getByLabel("Enable even though criteria are unmet").check();
-  await enable.click();
-  await expect(page.getByText("Automatic attribution: enabled")).toBeVisible();
-  await automation
-    .getByRole("button", { name: "Disable automatic attribution" })
-    .click();
-  await expect(page.getByText("Automatic attribution: disabled")).toBeVisible();
+  await expect(confirm).toBeDisabled();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await toggle.click();
+  await dialog.getByLabel("Enable even though criteria are unmet").check();
+  await confirm.click();
+  await expect(
+    summary.getByText("Automatic attribution: enabled"),
+  ).toBeVisible();
+  await toggle.click();
+  await expect(
+    summary.getByText("Automatic attribution: disabled"),
+  ).toBeVisible();
 
+  // A confirmed reset goes back to the installation values.
+  await page.getByRole("button", { name: "Reset to default values" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Reset", exact: true })
+    .click();
+  await expect(matching.getByLabel("Suggestion threshold")).toHaveValue("0.75");
+
+  await expectNoViolations(page);
+  await context.close();
+});
+
+test("l'écran vocal reste utilisable sur téléphone, au clavier", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+    viewport: { width: 400, height: 800 },
+  });
+  const page = await context.newPage();
+  await page.goto("/admin/voice");
+  await expect(page.getByRole("region", { name: "State" })).toBeVisible();
+  await page.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("region", { name: "Voice matching" }),
+  ).toBeVisible();
+  const overflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  await expectNoViolations(page);
   await context.close();
 });
 
