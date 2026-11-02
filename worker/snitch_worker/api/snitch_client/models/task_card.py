@@ -17,6 +17,7 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.task_card_step import TaskCardStep
+  from ..models.task_card_unknown_step_type_0 import TaskCardUnknownStepType0
 
 
 
@@ -48,6 +49,12 @@ class TaskCard:
             job_id (int | None | Unset):
             job_status (None | str | Unset): Statut brut de la tâche qui porte l'état courant.
             next_attempt_at (datetime.datetime | None | Unset):
+            failure_code (None | str | Unset): Cause d'échec (voir FailureCode) du dernier événement d'échec persisté de la
+                tâche courante.
+            recommended_action (None | str | Unset): Code de l'action conseillée, décidée par le serveur : celle de la cause
+                d'échec, start_worker pour une attente de Worker, reschedule pour une tâche annulée.
+            unknown_step (None | TaskCardUnknownStepType0 | Unset): Tâche non terminée d'une étape inconnue rattachée à la
+                carte : alerte et erreur visibles.
      """
 
     clip_id: int
@@ -66,6 +73,9 @@ class TaskCard:
     job_id: int | None | Unset = UNSET
     job_status: None | str | Unset = UNSET
     next_attempt_at: datetime.datetime | None | Unset = UNSET
+    failure_code: None | str | Unset = UNSET
+    recommended_action: None | str | Unset = UNSET
+    unknown_step: None | TaskCardUnknownStepType0 | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -74,6 +84,7 @@ class TaskCard:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.task_card_step import TaskCardStep # noqa: PLC0415
+        from ..models.task_card_unknown_step_type_0 import TaskCardUnknownStepType0 # noqa: PLC0415
         clip_id = self.clip_id
 
         original_name = self.original_name
@@ -135,6 +146,26 @@ class TaskCard:
         else:
             next_attempt_at = self.next_attempt_at
 
+        failure_code: None | str | Unset
+        if isinstance(self.failure_code, Unset):
+            failure_code = UNSET
+        else:
+            failure_code = self.failure_code
+
+        recommended_action: None | str | Unset
+        if isinstance(self.recommended_action, Unset):
+            recommended_action = UNSET
+        else:
+            recommended_action = self.recommended_action
+
+        unknown_step: dict[str, Any] | None | Unset
+        if isinstance(self.unknown_step, Unset):
+            unknown_step = UNSET
+        elif isinstance(self.unknown_step, TaskCardUnknownStepType0):
+            unknown_step = self.unknown_step.to_dict()
+        else:
+            unknown_step = self.unknown_step
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -161,6 +192,12 @@ class TaskCard:
             field_dict["job_status"] = job_status
         if next_attempt_at is not UNSET:
             field_dict["next_attempt_at"] = next_attempt_at
+        if failure_code is not UNSET:
+            field_dict["failure_code"] = failure_code
+        if recommended_action is not UNSET:
+            field_dict["recommended_action"] = recommended_action
+        if unknown_step is not UNSET:
+            field_dict["unknown_step"] = unknown_step
 
         return field_dict
 
@@ -169,6 +206,7 @@ class TaskCard:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.task_card_step import TaskCardStep # noqa: PLC0415
+        from ..models.task_card_unknown_step_type_0 import TaskCardUnknownStepType0 # noqa: PLC0415
         d = dict(src_dict)
         clip_id = d.pop("clip_id")
 
@@ -282,6 +320,46 @@ class TaskCard:
         next_attempt_at = _parse_next_attempt_at(d.pop("next_attempt_at", UNSET))
 
 
+        def _parse_failure_code(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        failure_code = _parse_failure_code(d.pop("failure_code", UNSET))
+
+
+        def _parse_recommended_action(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        recommended_action = _parse_recommended_action(d.pop("recommended_action", UNSET))
+
+
+        def _parse_unknown_step(data: object) -> None | TaskCardUnknownStepType0 | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemas_task_card_unknown_step_type_0 = TaskCardUnknownStepType0.from_dict(data)
+
+
+
+                return componentsschemas_task_card_unknown_step_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | TaskCardUnknownStepType0 | Unset, data)
+
+        unknown_step = _parse_unknown_step(d.pop("unknown_step", UNSET))
+
+
         task_card = cls(
             clip_id=clip_id,
             original_name=original_name,
@@ -299,6 +377,9 @@ class TaskCard:
             job_id=job_id,
             job_status=job_status,
             next_attempt_at=next_attempt_at,
+            failure_code=failure_code,
+            recommended_action=recommended_action,
+            unknown_step=unknown_step,
         )
 
 

@@ -197,6 +197,7 @@ from .task_card_state import TaskCardState
 from .task_card_step import TaskCardStep
 from .task_card_step_key import TaskCardStepKey
 from .task_card_step_state import TaskCardStepState
+from .task_card_unknown_step_type_0 import TaskCardUnknownStepType0
 from .transcript_segment import TranscriptSegment
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
@@ -535,6 +536,7 @@ __all__ = (
     "TaskCardStep",
     "TaskCardStepKey",
     "TaskCardStepState",
+    "TaskCardUnknownStepType0",
     "Transcription",
     "TranscriptionInput",
     "TranscriptionLocalSpeakersItem",

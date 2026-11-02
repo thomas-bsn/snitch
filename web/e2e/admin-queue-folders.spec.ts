@@ -72,6 +72,7 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   // A worker that can transcribe makes the transcription step available in the form.
   await upload(page, "synthetic-a.mp4", 1);
   await upload(page, "synthetic-b.mp4", 2);
+  await upload(page, "synthetic-c.mp4", 3);
   const me = await (await page.request.get("/api/auth/me")).json();
   const headers = {
     Origin: process.env.SNITCH_TEST_URL!,
@@ -81,6 +82,10 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   const clipA = clips.items.find(
     (clip: { original_name: string }) =>
       clip.original_name === "synthetic-a.mp4",
+  ).id;
+  const clipC = clips.items.find(
+    (clip: { original_name: string }) =>
+      clip.original_name === "synthetic-c.mp4",
   ).id;
   const clipB = clips.items.find(
     (clip: { original_name: string }) =>
@@ -134,6 +139,7 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   await openCard(cardA);
   await cardA.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(cardA).toContainText("Cancelled");
+  await expect(cardA).toContainText("Schedule the clip again");
 
   // A task that runs out of attempts is retried, read in its history, then cancelled.
   const jobResponse = await page.request.post("/api/admin/jobs", {
@@ -170,6 +176,10 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   const cardB = cardOf(clipB);
   await expect(cardB).toContainText("Exhausted", { timeout: 15000 });
   await openCard(cardB);
+  // The dead task stays in its column with its persisted cause and advice.
+  await expect(cardB).toContainText("Invalid media");
+  await expect(cardB).toContainText("invalid_input");
+  await expect(cardB).toContainText("Check the clip media");
   await cardB.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(cardB).toContainText("Queued");
   await openCard(cardB);
@@ -180,6 +190,33 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   // Semantic indexing is not configured here: the Search step is not applicable.
   await openCard(cardB);
   await expect(cardB).toContainText("Search · Not applicable");
+
+  // Without any Worker seen recently, a pending task waits for a Worker and an
+  // unknown step stays attached to the card with an alert.
+  expect(
+    (
+      await page.request.delete(`/api/admin/workers/${worker.id}`, { headers })
+    ).ok(),
+  ).toBe(true);
+  for (const step of ["transcription.audio.1", "mystery.step.1"]) {
+    expect(
+      (
+        await page.request.post("/api/admin/jobs", {
+          headers,
+          data: { clip_id: clipC, step, input_version: "e2e-v1" },
+        })
+      ).status(),
+    ).toBe(201);
+  }
+  const cardC = cardOf(clipC);
+  await expect(cardC).toContainText("Waiting for a Worker", {
+    timeout: 15000,
+  });
+  await openCard(cardC);
+  await expect(cardC).toContainText("install or start a Worker");
+  await expect(cardC.locator("[data-unknown-step]")).toContainText(
+    "mystery.step.1",
+  );
 
   // One card per clip in the columns of the cards contract; no "other tasks"
   // column and no pagination of the active cards.
@@ -193,7 +230,7 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   ).toHaveCount(0);
   await expect(
     queue.locator("[data-column=transcription] details"),
-  ).toHaveCount(2);
+  ).toHaveCount(3);
 
   // The polling stops while the tab is hidden and resumes when it is back.
   let polls = 0;

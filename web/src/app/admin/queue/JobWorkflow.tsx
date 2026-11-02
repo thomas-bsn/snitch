@@ -13,6 +13,7 @@ import {
 import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
 import { ClipHistoryDialog } from "./ClipHistoryDialog";
+import { actionText, causeText } from "./failureText";
 import type { components } from "../../../api.gen";
 type Job = components["schemas"]["Job"];
 export type TaskCard = components["schemas"]["TaskCard"];
@@ -28,10 +29,18 @@ const columnDefinitions: { key: Column; icon: typeof AudioLines }[] = [
   { key: "recognition", icon: ScanFace },
   { key: "completed", icon: CheckCheck },
 ];
-const attention: State[] = ["queued", "retry", "failed", "dead", "cancelled"];
+const attention: State[] = [
+  "queued",
+  "waiting_worker",
+  "retry",
+  "failed",
+  "dead",
+  "cancelled",
+];
 function stateLabel(state: State, language: string) {
   const fr: Record<State, string> = {
     queued: "En file",
+    waiting_worker: "En attente de Worker",
     running: "En cours",
     retry: "Nouvel essai",
     failed: "Échec",
@@ -44,6 +53,7 @@ function stateLabel(state: State, language: string) {
   };
   const en: Record<State, string> = {
     queued: "Queued",
+    waiting_worker: "Waiting for a Worker",
     running: "Running",
     retry: "Retrying",
     failed: "Failed",
@@ -209,11 +219,16 @@ export function JobWorkflow({
                             {tr("Voix à vérifier", "Voices to review")}
                           </span>
                         )}
-                        {attention.includes(card.state) && (
+                        {(attention.includes(card.state) ||
+                          card.unknown_step) && (
                           <TriangleAlert
                             size={17}
                             className="absolute right-2 top-2 text-warn-fg"
-                            aria-label={stateLabel(card.state, language)}
+                            aria-label={
+                              card.unknown_step
+                                ? tr("Étape inconnue", "Unknown step")
+                                : stateLabel(card.state, language)
+                            }
                           />
                         )}
                       </div>
@@ -230,6 +245,37 @@ export function JobWorkflow({
                       >
                         {tr("Ouvrir le clip", "Open clip")}
                       </Link>
+                      {card.recommended_action && (
+                        <div
+                          data-advice
+                          className="space-y-1 rounded-lg bg-warn-bg p-2 text-warn-fg"
+                        >
+                          {card.failure_code && (
+                            <p>
+                              <strong>
+                                {causeText(card.failure_code, language)}
+                              </strong>{" "}
+                              <code>{card.failure_code}</code>
+                            </p>
+                          )}
+                          <p>
+                            {tr("Action conseillée : ", "Advised action: ")}
+                            {actionText(card.recommended_action, language)}
+                          </p>
+                        </div>
+                      )}
+                      {card.unknown_step && (
+                        <p
+                          data-unknown-step
+                          role="alert"
+                          className="break-words rounded-lg bg-warn-bg p-2 text-warn-fg"
+                        >
+                          {tr("Étape inconnue", "Unknown step")} ·{" "}
+                          <code>{card.unknown_step.step}</code>
+                          {card.unknown_step.last_error &&
+                            ` · ${card.unknown_step.last_error}`}
+                        </p>
+                      )}
                       {card.last_error && (
                         <p className="break-words rounded-lg bg-warn-bg p-2 text-warn-fg">
                           {card.last_error}

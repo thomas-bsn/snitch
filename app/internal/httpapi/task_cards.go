@@ -6,6 +6,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"snitch/internal/jobs"
+	"snitch/internal/workers"
 )
 
 // Task cards (ADR 0024): one card per clip, placed by a single server-side rule.
@@ -26,6 +29,7 @@ const (
 	stepRecognition   = "recognition"
 
 	cardQueued        = "queued"
+	cardWaitingWorker = "waiting_worker"
 	cardRunning       = "running"
 	cardRetry         = "retry"
 	cardFailed        = "failed"
@@ -35,6 +39,10 @@ const (
 	cardWaiting       = "waiting"
 	cardDone          = "done"
 	cardNotApplicable = "not_applicable"
+
+	actionStartWorker = "start_worker"
+	actionReschedule  = "reschedule"
+	actionRelaunch    = "relaunch_job"
 
 	completedCardLimit = 3
 )
@@ -65,6 +73,18 @@ type taskCard struct {
 	// VoicesToReview is only computed for a completed clip: a diarized voice with
 	// no human validation, automatic attribution or suggestion remains to settle.
 	VoicesToReview bool `json:"voices_to_review"`
+	// FailureCode and RecommendedAction come from the persisted job events (#122).
+	FailureCode       *string         `json:"failure_code"`
+	RecommendedAction *string         `json:"recommended_action"`
+	UnknownStep       *unknownStepRef `json:"unknown_step,omitempty"`
+}
+
+// unknownStepRef is the unfinished task of an unknown step attached to a card.
+type unknownStepRef struct {
+	Step      string `json:"step"`
+	State     string `json:"state"`
+	JobID     int64  `json:"job_id"`
+	LastError string `json:"last_error"`
 }
 
 type taskCardBoard struct {
@@ -83,11 +103,15 @@ type cardJob struct {
 	nextAttempt time.Time
 	lastError   string
 	updatedAt   time.Time
+	noWorker    bool
 }
 
 func (j cardJob) state() string {
 	switch j.status {
 	case "pending":
+		if j.noWorker {
+			return cardWaitingWorker
+		}
 		return cardQueued
 	case "leased":
 		return cardRunning
@@ -104,7 +128,7 @@ func (j cardJob) state() string {
 }
 
 // attention orders unfinished states: the job that carries a stage's state.
-var cardAttention = map[string]int{cardRunning: 0, cardRetry: 1, cardQueued: 2, cardFailed: 3, cardDead: 4, cardCancelled: 5}
+var cardAttention = map[string]int{cardRunning: 0, cardRetry: 1, cardQueued: 2, cardWaitingWorker: 2, cardFailed: 3, cardDead: 4, cardCancelled: 5}
 
 type cardStage struct {
 	key   string
@@ -144,12 +168,17 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 	if err != nil {
 		return taskCardBoard{}, err
 	}
+	capable, err := s.capableWorkerSteps(ctx)
+	if err != nil {
+		return taskCardBoard{}, err
+	}
 	byClip := map[int64][]cardJob{}
 	for rows.Next() {
 		var j cardJob
 		if err = rows.Scan(&j.id, &j.clipID, &j.step, &j.status, &j.attempts, &j.maxAttempts, &j.leaseOwner, &j.nextAttempt, &j.lastError, &j.updatedAt); err != nil {
 			return taskCardBoard{}, err
 		}
+		j.noWorker = j.status == "pending" && !capable(j.step)
 		byClip[j.clipID] = append(byClip[j.clipID], j)
 	}
 	if err = rows.Err(); err != nil {
@@ -229,7 +258,103 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 			board.Completed = append(board.Completed, card)
 		}
 	}
+	if err = s.explainFailures(ctx, &board); err != nil {
+		return taskCardBoard{}, err
+	}
 	return board, nil
+}
+
+// capableWorkerSteps returns the claim rule over the Workers that are not
+// revoked, were seen recently and can take work: a capability ending in ".*"
+// is a prefix, any other is an exact step.
+func (s *Server) capableWorkerSteps(ctx context.Context) (func(string) bool, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT supported_steps FROM workers WHERE revoked_at IS NULL AND last_seen_at >= now() - ($1 * interval '1 second') AND LEAST(max_concurrency,reported_concurrency) >= 1`, int64(workers.ConnectedWindow.Seconds()))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var capabilities []string
+	for rows.Next() {
+		var steps []string
+		if err = rows.Scan(&steps); err != nil {
+			return nil, err
+		}
+		capabilities = append(capabilities, steps...)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return func(step string) bool {
+		for _, capability := range capabilities {
+			if prefix, ok := strings.CutSuffix(capability, ".*"); ok {
+				if strings.HasPrefix(step, prefix+".") {
+					return true
+				}
+			} else if step == capability {
+				return true
+			}
+		}
+		return false
+	}, nil
+}
+
+// explainFailures fills the cause and the advised action of every card from the
+// latest persisted failure event of its current task (one query for the board).
+func (s *Server) explainFailures(ctx context.Context, board *taskCardBoard) error {
+	var ids []int64
+	for _, list := range [][]taskCard{board.Cards, board.Completed} {
+		for _, card := range list {
+			if card.JobID != nil {
+				ids = append(ids, *card.JobID)
+			}
+		}
+	}
+	causes := map[int64]string{}
+	if len(ids) > 0 {
+		rows, err := s.Pool.Query(ctx, `SELECT DISTINCT ON (job_id) job_id,error_code FROM job_events WHERE job_id = ANY($1) AND error_code <> '' ORDER BY job_id,id DESC`, ids)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var code string
+			if err = rows.Scan(&id, &code); err != nil {
+				return err
+			}
+			causes[id] = code
+		}
+		if err = rows.Err(); err != nil {
+			return err
+		}
+	}
+	for i := range board.Cards {
+		card := &board.Cards[i]
+		switch card.State {
+		case cardWaitingWorker:
+			action := actionStartWorker
+			card.RecommendedAction = &action
+		case cardRetry, cardFailed, cardDead, cardCancelled:
+			var action string
+			if card.JobID != nil {
+				if code, ok := causes[*card.JobID]; ok {
+					c := code
+					card.FailureCode = &c
+					action = jobs.RecommendedAction(code)
+				}
+			}
+			switch {
+			case card.State == cardCancelled:
+				action = actionReschedule
+			case card.State == cardDead && action == "":
+				action = actionRelaunch
+			}
+			if action != "" {
+				card.RecommendedAction = &action
+			}
+		}
+	}
+	return nil
 }
 
 // buildTaskCard derives the stages of one clip. complete is true when every
@@ -275,6 +400,12 @@ func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, j
 			unknown = append(unknown, j)
 		}
 	}
+	var unknownRef *unknownStepRef
+	for _, j := range unknown {
+		if j.status != "done" && (unknownRef == nil || cardAttention[j.state()] < cardAttention[unknownRef.State]) {
+			unknownRef = &unknownStepRef{Step: j.step, State: j.state(), JobID: j.id, LastError: j.lastError}
+		}
+	}
 	if len(unknown) > 0 {
 		home := stages[stepTranscription]
 		for _, key := range []string{stepDiarization, stepFingerprint} {
@@ -312,7 +443,7 @@ func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, j
 		}
 	}
 	ordered := []*cardStage{transcription, indexingStage, diarization, fingerprint, recognition}
-	card := taskCard{ClipID: clipID, OriginalName: name, Steps: []taskCardStep{}, UpdatedAt: newest, CurrentStep: stepTranscription, Column: columnTranscription, State: cardDone}
+	card := taskCard{UnknownStep: unknownRef, ClipID: clipID, OriginalName: name, Steps: []taskCardStep{}, UpdatedAt: newest, CurrentStep: stepTranscription, Column: columnTranscription, State: cardDone}
 	var current *cardStage
 	for _, stage := range ordered {
 		entry := taskCardStep{Key: stage.key, State: stage.state}

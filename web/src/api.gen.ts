@@ -2535,6 +2535,7 @@ export interface components {
       /** @enum {string} */
       state:
         | "queued"
+        | "waiting_worker"
         | "running"
         | "retry"
         | "failed"
@@ -2568,7 +2569,20 @@ export interface components {
       last_error: string;
       /** @description Calculé pour une carte de la colonne Terminé : une voix diarisée du clip n'a ni validation humaine, ni attribution automatique, ni suggestion. N'empêche pas Terminé. */
       voices_to_review: boolean;
+      /** @description Cause d'échec (voir FailureCode) du dernier événement d'échec persisté de la tâche courante. */
+      failure_code?: string | null;
+      /** @description Code de l'action conseillée, décidée par le serveur : celle de la cause d'échec, start_worker pour une attente de Worker, reschedule pour une tâche annulée. */
+      recommended_action?: string | null;
+      unknown_step?: components["schemas"]["TaskCardUnknownStep"];
     };
+    /** @description Tâche non terminée d'une étape inconnue rattachée à la carte : alerte et erreur visibles. */
+    TaskCardUnknownStep: {
+      step: string;
+      state: string;
+      /** Format: int64 */
+      job_id?: number;
+      last_error: string;
+    } | null;
     TaskCardStep: {
       /** @enum {string} */
       key:
@@ -2580,6 +2594,7 @@ export interface components {
       /** @enum {string} */
       state:
         | "queued"
+        | "waiting_worker"
         | "running"
         | "retry"
         | "failed"
