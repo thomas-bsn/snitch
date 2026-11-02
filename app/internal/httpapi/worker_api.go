@@ -578,6 +578,7 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		s.internal(w, err)
 	} else {
+		s.reconcileAnalysis(r.Context(), job.ClipID)
 		reply(w, http.StatusOK, job)
 	}
 }
@@ -601,6 +602,7 @@ func (s *Server) failWorkerJob(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		s.internal(w, err)
 	} else {
+		s.reconcileAnalysis(r.Context(), job.ClipID)
 		reply(w, http.StatusOK, job)
 	}
 }

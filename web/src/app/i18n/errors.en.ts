@@ -74,6 +74,9 @@ export const errorsEn = {
   invalid_account: "This account is not valid for this action.",
   invalid_audio_stream: "This audio track is not valid.",
   invalid_audio_track_rule: "This audio track rule is not valid.",
+  invalid_analysis_scope: "This analysis scope is not valid.",
+  analysis_scope_conflict:
+    "Another analysis with a different scope is already active on this clip.",
   invalid_clip_id: "This clip identifier is not valid.",
   invalid_content_range: "This part of the file is not valid.",
   invalid_credentials_format:

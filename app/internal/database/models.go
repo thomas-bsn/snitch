@@ -56,6 +56,29 @@ type Clip struct {
 	CaptureTimeEdited   bool               `json:"capture_time_edited"`
 }
 
+type ClipAnalysisRun struct {
+	ID         int64              `json:"id"`
+	ClipID     int64              `json:"clip_id"`
+	Scope      string             `json:"scope"`
+	Status     string             `json:"status"`
+	StartedBy  pgtype.Int8        `json:"started_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+}
+
+type ClipAnalysisStep struct {
+	RunID      int64              `json:"run_id"`
+	Step       string             `json:"step"`
+	Status     string             `json:"status"`
+	Reason     string             `json:"reason"`
+	JobID      pgtype.Int8        `json:"job_id"`
+	Attempt    int32              `json:"attempt"`
+	StartedAt  pgtype.Timestamptz `json:"started_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ClipAudioTrackOverride struct {
 	ClipID           int64              `json:"clip_id"`
 	AudioStreamIndex int32              `json:"audio_stream_index"`

@@ -19,7 +19,7 @@ import { VoicesTab } from "./VoicesTab";
 import { VoiceTrials } from "./VoiceTrials";
 import { formatTimecode, parseMoment } from "./clipFormat";
 import { fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
-import { TranscribeButton } from "./TranscribeButton";
+import { AnalyzeClip } from "./AnalyzeClip";
 
 const tabClass =
   "-mb-px inline-flex h-11 shrink-0 cursor-pointer items-center border-b-2 border-transparent px-3 font-medium whitespace-nowrap text-mute outline-none hover:text-ink data-[active]:border-accent data-[active]:text-ink md:h-10";
@@ -131,13 +131,11 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
           </div>
           <ClipMetadata clip={clip} onChanged={onChanged} />
           <ProgressBanner clip={clip} voice={voiceData} />
-          <TranscribeButton
+          <AnalyzeClip
             clipId={clip.id}
-            progress={clip.progress}
-            audioTrackSelection={clip.audio_track_selection}
-            hasCorrections={clip.transcription !== undefined}
-            onChanged={onChanged}
+            hasTranscription={clip.transcription !== undefined}
             audioTracks={clip.tracks?.filter((t) => t.type === "audio") ?? []}
+            onChanged={onChanged}
           />
           {clip.transcription && (
             <Retranscribe

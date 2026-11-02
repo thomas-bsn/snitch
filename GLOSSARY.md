@@ -7,6 +7,9 @@ Snitch permet de retrouver les paroles et les voix présentes dans des clips de 
 **Clip** : Une courte vidéo de jeu, accompagnée de sa provenance et des paroles qui y sont retrouvées.
 _Avoid_ : Enregistrement (qui peut être plus long), fichier (qui désigne un emplacement).
 
+**Analyse de clip** : Une exécution durable lancée par un administrateur, qui enchaîne les étapes applicables d'un clip (préparation, transcription, puis les suivantes) et explique l'état de chacune. Une seule est active par clip ; les résultats valides sont réutilisés.
+_Avoid_ : Traitement (trop vague), tâche (qui désigne un job).
+
 **Source** : Une origine de clips, comme un dossier surveillé ou un dépôt manuel.
 
 **Locuteur local** : Une voix distinguée au sein d'un clip, sans identité nécessairement connue.

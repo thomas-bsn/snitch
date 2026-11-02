@@ -1234,6 +1234,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Lecture seule : l'état des étapes avec statut et code de raison stables. */
+    get: operations["getClipAnalysis"];
+    put?: never;
+    /** @description Administrateurs. Lance une analyse durable du clip (préparation puis transcription) ; une seule analyse active par clip, un second appel renvoie l'analyse existante. Les résultats valides sont réutilisés. */
+    post: operations["startClipAnalysis"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/transcription": {
     parameters: {
       query?: never;
@@ -2259,6 +2277,56 @@ export interface components {
       model: string;
       url_from_environment: boolean;
       model_from_environment: boolean;
+    };
+    ClipAnalysisStep: {
+      /** @enum {string} */
+      step: "preparation" | "transcription";
+      /** @enum {string} */
+      status:
+        | "waiting"
+        | "running"
+        | "retry"
+        | "blocked"
+        | "failed"
+        | "done"
+        | "not_applicable";
+      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope. */
+      reason: string;
+      /** Format: int64 */
+      job_id: number | null;
+      attempt: number;
+      /** Format: date-time */
+      started_at: string | null;
+      /** Format: date-time */
+      finished_at: string | null;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    ClipAnalysisRun: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      scope: "preparation" | "transcription";
+      /** @enum {string} */
+      status: "active" | "completed" | "failed" | "cancelled";
+      /** Format: int64 */
+      started_by: number | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      steps: components["schemas"]["ClipAnalysisStep"][];
+    };
+    ClipAnalysisResponse: {
+      run: components["schemas"]["ClipAnalysisRun"] | null;
+    };
+    ClipAnalysisConflict: {
+      error: string;
+      run: components["schemas"]["ClipAnalysisRun"];
     };
     Error: {
       error: string;
@@ -7504,6 +7572,100 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid controls, 401 session required, 403 admin/origin/CSRF required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysis: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Analyse active du clip, ou la plus récente ; run vaut null si le clip n'a jamais été analysé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startClipAnalysis: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          /**
+           * @description Dernière étape à atteindre.
+           * @default transcription
+           * @enum {string}
+           */
+          scope?: "preparation" | "transcription";
+        };
+      };
+    };
+    responses: {
+      /** @description Une analyse du même périmètre est déjà active : elle est renvoyée, sans doublon */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Analyse démarrée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisConflict"];
+        };
+      };
+      /** @description Erreur (400 invalid_analysis_scope, invalid_clip_id ; 404 clip_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

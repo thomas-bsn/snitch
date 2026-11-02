@@ -22,6 +22,14 @@ from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
 from .clip import Clip
+from .clip_analysis_conflict import ClipAnalysisConflict
+from .clip_analysis_response import ClipAnalysisResponse
+from .clip_analysis_run import ClipAnalysisRun
+from .clip_analysis_run_scope import ClipAnalysisRunScope
+from .clip_analysis_run_status import ClipAnalysisRunStatus
+from .clip_analysis_step import ClipAnalysisStep
+from .clip_analysis_step_status import ClipAnalysisStepStatus
+from .clip_analysis_step_step import ClipAnalysisStepStep
 from .clip_filter_options import ClipFilterOptions
 from .clip_filter_options_owners_item import ClipFilterOptionsOwnersItem
 from .clip_filter_options_sources_item import ClipFilterOptionsSourcesItem
@@ -184,6 +192,8 @@ from .source_health import SourceHealth
 from .source_input import SourceInput
 from .source_list import SourceList
 from .source_visibility import SourceVisibility
+from .start_clip_analysis_body import StartClipAnalysisBody
+from .start_clip_analysis_body_scope import StartClipAnalysisBodyScope
 from .status import Status
 from .transcript_segment import TranscriptSegment
 from .transcript_word import TranscriptWord
@@ -348,6 +358,14 @@ __all__ = (
     "BrowseVideoRootResponse200",
     "BrowseVideoRootResponse200ItemsItem",
     "Clip",
+    "ClipAnalysisConflict",
+    "ClipAnalysisResponse",
+    "ClipAnalysisRun",
+    "ClipAnalysisRunScope",
+    "ClipAnalysisRunStatus",
+    "ClipAnalysisStep",
+    "ClipAnalysisStepStatus",
+    "ClipAnalysisStepStep",
     "ClipFilterOptions",
     "ClipFilterOptionsOwnersItem",
     "ClipFilterOptionsSourcesItem",
@@ -510,6 +528,8 @@ __all__ = (
     "SourceInput",
     "SourceList",
     "SourceVisibility",
+    "StartClipAnalysisBody",
+    "StartClipAnalysisBodyScope",
     "Status",
     "Transcription",
     "TranscriptionInput",

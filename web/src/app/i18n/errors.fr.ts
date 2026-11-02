@@ -82,6 +82,9 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_account: "Ce compte ne convient pas pour cette action.",
   invalid_audio_stream: "Cette piste audio n’est pas valide.",
   invalid_audio_track_rule: "Cette règle de piste audio n’est pas valide.",
+  invalid_analysis_scope: "Ce périmètre d’analyse n’est pas valide.",
+  analysis_scope_conflict:
+    "Une analyse d’un autre périmètre est déjà active sur ce clip.",
   invalid_clip_id: "Cet identifiant de clip n’est pas valide.",
   invalid_content_range: "Cette partie du fichier n’est pas valide.",
   invalid_credentials_format:

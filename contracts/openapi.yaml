@@ -4034,6 +4034,21 @@
         "description": "Administrateurs uniquement. La concurrence globale est bornée à 1–4."
       }
     },
+    "/api/admin/clips/{id}/analysis": {
+      "post": {
+        "operationId": "startClipAnalysis",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"type": "object", "properties": {"scope": {"type": "string", "enum": ["preparation", "transcription"], "default": "transcription", "description": "Dernière étape à atteindre."}}}}}},
+        "responses": {"201": {"description": "Analyse démarrée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "200": {"description": "Une analyse du même périmètre est déjà active : elle est renvoyée, sans doublon", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "409": {"description": "analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisConflict"}}}}, "default": {"description": "Erreur (400 invalid_analysis_scope, invalid_clip_id ; 404 clip_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Lance une analyse durable du clip (préparation puis transcription) ; une seule analyse active par clip, un second appel renvoie l'analyse existante. Les résultats valides sont réutilisés."
+      },
+      "get": {
+        "operationId": "getClipAnalysis",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Analyse active du clip, ou la plus récente ; run vaut null si le clip n'a jamais été analysé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "default": {"description": "Erreur (400 invalid_clip_id ; 404 clip_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Lecture seule : l'état des étapes avec statut et code de raison stables."
+      }
+    },
     "/api/admin/clips/{id}/transcription": {
       "post": {
         "operationId": "scheduleTranscription",
@@ -5521,6 +5536,10 @@
     },
     "schemas": {
       "EmbeddingSettings": {"type": "object", "required": ["url", "model", "url_from_environment", "model_from_environment"], "properties": {"url": {"type": "string"}, "model": {"type": "string"}, "url_from_environment": {"type": "boolean"}, "model_from_environment": {"type": "boolean"}}},
+      "ClipAnalysisStep": {"type": "object", "required": ["step", "status", "reason", "job_id", "attempt", "started_at", "finished_at", "updated_at"], "properties": {"step": {"type": "string", "enum": ["preparation", "transcription"]}, "status": {"type": "string", "enum": ["waiting", "running", "retry", "blocked", "failed", "done", "not_applicable"]}, "reason": {"type": "string", "description": "Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope."}, "job_id": {"type": "integer", "nullable": true, "format": "int64"}, "attempt": {"type": "integer"}, "started_at": {"type": "string", "nullable": true, "format": "date-time"}, "finished_at": {"type": "string", "nullable": true, "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}}},
+      "ClipAnalysisRun": {"type": "object", "required": ["id", "clip_id", "scope", "status", "started_by", "created_at", "updated_at", "finished_at", "steps"], "properties": {"id": {"type": "integer", "format": "int64"}, "clip_id": {"type": "integer", "format": "int64"}, "scope": {"type": "string", "enum": ["preparation", "transcription"]}, "status": {"type": "string", "enum": ["active", "completed", "failed", "cancelled"]}, "started_by": {"type": "integer", "nullable": true, "format": "int64"}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "finished_at": {"type": "string", "nullable": true, "format": "date-time"}, "steps": {"type": "array", "items": {"$ref": "#/components/schemas/ClipAnalysisStep"}}}},
+      "ClipAnalysisResponse": {"type": "object", "required": ["run"], "properties": {"run": {"allOf": [{"$ref": "#/components/schemas/ClipAnalysisRun"}], "nullable": true}}},
+      "ClipAnalysisConflict": {"type": "object", "required": ["error", "run"], "properties": {"error": {"type": "string"}, "run": {"$ref": "#/components/schemas/ClipAnalysisRun"}}},
       "Error": {
         "type": "object",
         "required": [
