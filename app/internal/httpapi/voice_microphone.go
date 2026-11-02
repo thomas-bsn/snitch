@@ -76,43 +76,73 @@ func matchTracks(tracks []audioTrack, index *int, title *string) []int {
 // resolveMicrophone decides which track of the clip is the microphone, from the
 // clip replacement first, then from the rules of the sources the clip belongs to.
 func (s *Server) resolveMicrophone(ctx context.Context, q querier, clipID int64, tracks []audioTrack) (microphoneDesignation, error) {
-	var disabled bool
-	var personID *int64
-	var personName *string
-	var overrideIndex *int
-	err := q.QueryRow(ctx, `SELECT o.disabled,o.audio_stream_index,o.person_id,p.display_name FROM clip_microphone_overrides o LEFT JOIN persons p ON p.id=o.person_id WHERE o.clip_id=$1`, clipID).Scan(&disabled, &overrideIndex, &personID, &personName)
+	var override *microphoneOverrideRow
+	var row microphoneOverrideRow
+	err := q.QueryRow(ctx, `SELECT o.disabled,o.audio_stream_index,o.person_id,p.display_name FROM clip_microphone_overrides o LEFT JOIN persons p ON p.id=o.person_id WHERE o.clip_id=$1`, clipID).Scan(&row.disabled, &row.index, &row.personID, &row.personName)
+	switch {
+	case err == nil:
+		override = &row
+	case errors.Is(err, pgx.ErrNoRows):
+	default:
+		return microphoneDesignation{}, err
+	}
+	return decideMicrophone(tracks, override, func() ([]microphoneRuleRow, error) {
+		return s.microphoneRules(ctx, q, clipID)
+	}, func(personID int64) (bool, error) {
+		var optedOut bool
+		err := q.QueryRow(ctx, `SELECT voice_profile_deleted_at IS NOT NULL FROM persons WHERE id=$1`, personID).Scan(&optedOut)
+		return optedOut, err
+	}, func(index int) (bool, error) {
+		var blocked bool
+		err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized' AND a.validation_state='validated')`, clipID, index).Scan(&blocked)
+		return blocked, err
+	})
+}
+
+// microphoneOverrideRow is the microphone replacement of a clip.
+type microphoneOverrideRow struct {
+	disabled   bool
+	index      *int
+	personID   *int64
+	personName *string
+}
+
+// decideMicrophone is the designation rule over what was read: the clip
+// replacement first, then the rules of its sources, then the opt-out of the
+// owner and the human validation that blocks the track. The rules, the opt-out
+// and the block are read through functions so that the single clip reads them
+// when needed and the task card board answers from what it loaded for all clips.
+func decideMicrophone(tracks []audioTrack, override *microphoneOverrideRow, rules func() ([]microphoneRuleRow, error), optedOut func(personID int64) (bool, error), blocked func(index int) (bool, error)) (microphoneDesignation, error) {
 	var d microphoneDesignation
 	switch {
-	case err == nil && disabled:
+	case override != nil && override.disabled:
 		return microphoneDesignation{Status: microphoneDisabled, Source: "clip_override", Candidates: []int{}}, nil
-	case err == nil:
-		d = microphoneDesignation{Status: microphoneDesigned, Source: "clip_override", Index: overrideIndex, Person: &personRef{ID: *personID, DisplayName: *personName}, Candidates: []int{}}
-		if !hasAudioTrack(tracks, *overrideIndex) {
+	case override != nil:
+		d = microphoneDesignation{Status: microphoneDesigned, Source: "clip_override", Index: override.index, Person: &personRef{ID: *override.personID, DisplayName: *override.personName}, Candidates: []int{}}
+		if !hasAudioTrack(tracks, *override.index) {
 			d.Status = microphoneMissing
 		}
-	case errors.Is(err, pgx.ErrNoRows):
-		rules, rulesErr := s.microphoneRules(ctx, q, clipID)
-		if rulesErr != nil {
-			return d, rulesErr
-		}
-		d = resolveMicrophoneRules(tracks, rules)
 	default:
-		return d, err
-	}
-	if d.Status == microphoneDesigned {
-		var optedOut bool
-		if err = q.QueryRow(ctx, `SELECT voice_profile_deleted_at IS NOT NULL FROM persons WHERE id=$1`, d.Person.ID).Scan(&optedOut); err != nil {
+		list, err := rules()
+		if err != nil {
 			return d, err
 		}
-		if optedOut {
+		d = resolveMicrophoneRules(tracks, list)
+	}
+	if d.Status == microphoneDesigned {
+		gone, err := optedOut(d.Person.ID)
+		if err != nil {
+			return d, err
+		}
+		if gone {
 			d.Status = microphoneOptedOut
 			return d, nil
 		}
-		var blocked bool
-		if err = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized' AND a.validation_state='validated')`, clipID, *d.Index).Scan(&blocked); err != nil {
+		stopped, err := blocked(*d.Index)
+		if err != nil {
 			return d, err
 		}
-		if blocked {
+		if stopped {
 			d.Status = microphoneBlocked
 		}
 	}

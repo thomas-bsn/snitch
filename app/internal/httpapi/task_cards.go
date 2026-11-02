@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"net/http"
 	"sort"
 	"strings"
@@ -50,8 +52,8 @@ const (
 type taskCardStep struct {
 	Key       string  `json:"key"`
 	State     string  `json:"state"`
-	JobID     *int64  `json:"job_id"`
-	JobStatus *string `json:"job_status"`
+	JobID     *int64  `json:"job_id,omitempty"`
+	JobStatus *string `json:"job_status,omitempty"`
 }
 
 type taskCard struct {
@@ -62,20 +64,20 @@ type taskCard struct {
 	CurrentStep   string         `json:"current_step"`
 	Steps         []taskCardStep `json:"steps"`
 	UpdatedAt     time.Time      `json:"updated_at"`
-	CompletedAt   *time.Time     `json:"completed_at"`
-	Worker        *string        `json:"worker"`
-	JobID         *int64         `json:"job_id"`
-	JobStatus     *string        `json:"job_status"`
+	CompletedAt   *time.Time     `json:"completed_at,omitempty"`
+	Worker        *string        `json:"worker,omitempty"`
+	JobID         *int64         `json:"job_id,omitempty"`
+	JobStatus     *string        `json:"job_status,omitempty"`
 	Attempt       int            `json:"attempt"`
 	MaxAttempts   int            `json:"max_attempts"`
-	NextAttemptAt *time.Time     `json:"next_attempt_at"`
+	NextAttemptAt *time.Time     `json:"next_attempt_at,omitempty"`
 	LastError     string         `json:"last_error"`
 	// VoicesToReview is only computed for a completed clip: a diarized voice with
 	// no human validation, automatic attribution or suggestion remains to settle.
 	VoicesToReview bool `json:"voices_to_review"`
 	// FailureCode and RecommendedAction come from the persisted job events (#122).
-	FailureCode       *string         `json:"failure_code"`
-	RecommendedAction *string         `json:"recommended_action"`
+	FailureCode       *string         `json:"failure_code,omitempty"`
+	RecommendedAction *string         `json:"recommended_action,omitempty"`
 	UnknownStep       *unknownStepRef `json:"unknown_step,omitempty"`
 }
 
@@ -83,7 +85,7 @@ type taskCard struct {
 type unknownStepRef struct {
 	Step      string `json:"step"`
 	State     string `json:"state"`
-	JobID     int64  `json:"job_id"`
+	JobID     int64  `json:"job_id,omitempty"`
 	LastError string `json:"last_error"`
 }
 
@@ -163,7 +165,27 @@ func (s *Server) listTaskCards(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	// The board is polled and large: compress it for clients that accept it.
+	if acceptsGzip(r) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Add("Vary", "Accept-Encoding")
+		w.WriteHeader(http.StatusOK)
+		zw := gzip.NewWriter(w)
+		_ = json.NewEncoder(zw).Encode(board)
+		_ = zw.Close()
+		return
+	}
 	reply(w, http.StatusOK, board)
+}
+
+func acceptsGzip(r *http.Request) bool {
+	for _, part := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+		if name, _, _ := strings.Cut(strings.TrimSpace(part), ";"); strings.EqualFold(name, "gzip") {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
@@ -227,26 +249,16 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 		return finished[a] > finished[b]
 	})
 	board := taskCardBoard{Cards: []taskCard{}, Completed: []taskCard{}}
-	names := map[int64]string{}
-	nameRows, err := s.Pool.Query(ctx, `SELECT c.id,c.original_name FROM clips c WHERE EXISTS (SELECT 1 FROM jobs j WHERE j.clip_id=c.id)`)
+	clipIDs := make([]int64, 0, len(byClip))
+	for id := range byClip {
+		clipIDs = append(clipIDs, id)
+	}
+	inputs, err := s.loadCardInputs(ctx, clipIDs)
 	if err != nil {
 		return taskCardBoard{}, err
 	}
-	for nameRows.Next() {
-		var id int64
-		var name string
-		if err = nameRows.Scan(&id, &name); err != nil {
-			nameRows.Close()
-			return taskCardBoard{}, err
-		}
-		names[id] = name
-	}
-	nameRows.Close()
-	if err = nameRows.Err(); err != nil {
-		return taskCardBoard{}, err
-	}
 	for _, id := range active {
-		card, complete, err := s.buildTaskCard(ctx, id, names[id], byClip[id], indexing[id])
+		card, complete, err := s.buildTaskCard(ctx, inputs, id, byClip[id], indexing[id])
 		if err != nil {
 			return taskCardBoard{}, err
 		}
@@ -258,7 +270,7 @@ func (s *Server) taskCardBoard(ctx context.Context) (taskCardBoard, error) {
 		if len(board.Completed) == completedCardLimit {
 			break
 		}
-		card, complete, err := s.buildTaskCard(ctx, id, names[id], byClip[id], indexing[id])
+		card, complete, err := s.buildTaskCard(ctx, inputs, id, byClip[id], indexing[id])
 		if err != nil {
 			return taskCardBoard{}, err
 		}
@@ -382,24 +394,17 @@ func (s *Server) explainFailures(ctx context.Context, board *taskCardBoard) erro
 
 // buildTaskCard derives the stages of one clip. complete is true when every
 // applicable stage is finished and no task is left unfinished.
-func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, jobs []cardJob, index cardIndex) (taskCard, bool, error) {
-	tracks, err := s.clipAudioTracks(ctx, clipID)
-	if err != nil {
-		tracks = nil
-	}
+func (s *Server) buildTaskCard(ctx context.Context, in *cardInputs, clipID int64, jobs []cardJob, index cardIndex) (taskCard, bool, error) {
+	name := in.names[clipID]
 	var selected *int
-	if len(tracks) > 0 {
-		selection, selErr := s.audioSelection(ctx, clipID, tracks)
-		if selErr != nil {
-			return taskCard{}, false, selErr
-		}
-		if selection.Status == "selected" {
+	if len(in.tracks[clipID]) > 0 {
+		if selection := in.selection(clipID); selection.Status == "selected" {
 			selected = selection.AudioStreamIndex
 		}
 	}
 	microphoneTrack := false
 	if selected != nil {
-		designation, micErr := s.resolveMicrophone(ctx, s.Pool, clipID, tracks)
+		designation, micErr := in.microphone(clipID)
 		if micErr != nil {
 			return taskCard{}, false, micErr
 		}
@@ -446,9 +451,7 @@ func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, j
 	diarization.settle(diarizationApplicable, cardReady)
 	speakers := 0
 	if diarization.state == cardDone && selected != nil {
-		if err = s.Pool.QueryRow(ctx, `SELECT count(*) FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='diarized'`, clipID, *selected).Scan(&speakers); err != nil {
-			return taskCard{}, false, err
-		}
+		speakers = in.diarizedCount[[2]int64{clipID, int64(*selected)}]
 	}
 	// Indexing is not a task of the job queue: its state is the index state.
 	indexingStage := &cardStage{key: stepIndexing, state: cardNotApplicable}
@@ -482,7 +485,7 @@ func (s *Server) buildTaskCard(ctx context.Context, clipID int64, name string, j
 	if current == nil {
 		completed := newest
 		card.Column, card.State, card.CurrentStep, card.CompletedAt = columnCompleted, cardDone, stepRecognition, &completed
-		if err = s.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.clip_id=$1 AND `+unknownSpeakerPredicate+` AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.decision_level='suggestion'))`, clipID).Scan(&card.VoicesToReview); err != nil {
+		if err := s.Pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.clip_id=$1 AND `+unknownSpeakerPredicate+` AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.decision_level='suggestion'))`, clipID).Scan(&card.VoicesToReview); err != nil {
 			return taskCard{}, false, err
 		}
 		return card, true, nil

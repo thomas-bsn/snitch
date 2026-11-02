@@ -214,7 +214,7 @@ export function JobWorkflow({
                     key={card.clip_id}
                     id={`clip-${card.clip_id}`}
                     data-state={card.state}
-                    className={`group rounded-xl border bg-surface shadow-sm transition-shadow hover:shadow-md motion-reduce:transition-none ${attention.includes(card.state) ? "border-warn-fg" : "border-line"}`}
+                    className={`group [contain-intrinsic-size:auto_96px] [content-visibility:auto] rounded-xl border bg-surface shadow-sm transition-shadow hover:shadow-md motion-reduce:transition-none ${attention.includes(card.state) ? "border-warn-fg" : "border-line"}`}
                   >
                     <summary
                       className={`relative flex min-h-24 cursor-pointer list-none gap-3 p-2.5 pr-2.5 ${thumbnailSize === "large" ? "flex-col" : "items-start"}`}

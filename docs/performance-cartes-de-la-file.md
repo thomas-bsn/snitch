@@ -52,3 +52,40 @@ Les miniatures restent bornées : seules les cartes proches de la fenêtre monte
 5. Page : fenêtrer le rendu (ne monter que les cartes proches de la fenêtre, ou au minimum `content-visibility: auto` sur les cartes) pour passer de 69 000 à quelques milliers de nœuds. Non mesuré ici.
 
 La mesure se rejoue avec `SNITCH_PERF=1` (serveur, jeu de données synthétique, test `task cards performance` de `TestFoundation`) et, pour la page, `SNITCH_PERF_CARDS=<fichier>` avec `SNITCH_PERF_DUMP=<fichier>` (test « mesure » du parcours de la file). Les deux sont ignorés par la CI.
+
+## Correction (après) : mesures refaites avec le même test
+
+Corrections faites sur la branche d'intégration de #117, sans changer les règles de dérivation ni les champs du contrat :
+
+- Pistes audio, surcharges de piste, règles de source, surcharges et règles de micro, désignations bloquées ou supprimées et nombre de voix diarisées sont lus par lots pour tous les clips qui ont des tâches (une requête par table, six au total). Les règles de sélection de piste et de désignation du micro sont les mêmes que pour un clip seul : elles ont été séparées de leur lecture en base pour s'appliquer aux données déjà chargées.
+- La colonne Terminé ne coûte plus de requête par clip : les cartes se dérivent en mémoire à partir des données déjà lues et s'arrêtent dès que trois cartes terminées sont trouvées. Seules ces trois cartes lisent encore leur indicateur « voix à relire » (une requête chacune).
+- Les champs nuls non requis du contrat (tâche, Worker, dates, cause, action conseillée) sont omis de la réponse au lieu d'être renvoyés à `null`. Le contrat n'a pas changé : ces champs n'étaient déjà pas requis.
+- La réponse est compressée en gzip pour les clients qui l'acceptent (le navigateur le fait toujours).
+- Page : chaque carte porte `content-visibility: auto` avec une taille intrinsèque de 96 px (la taille réelle est mémorisée une fois la carte rendue). Miniatures différées, accessibilité et parcours Playwright sont inchangés.
+
+### Serveur (médiane de 5 appels, mêmes jeux A, B et C)
+
+| Jeu de données | Durée avant | Durée après | Requêtes SQL avant | après | Réponse avant | après (brute) | après (gzip) |
+|---|---|---|---|---|---|---|---|
+| A. transcrits seulement | 3,3 s | 18 ms | 15 008 | 13 | 97 octets | 97 octets | 122 octets |
+| B. 3000 cartes actives | 3,5 s | 26 ms | 15 009 | 14 | 2,4 Mo | 1,8 Mo (environ 610 octets par carte) | 41 Ko |
+| C. B plus 3000 transcrits seulement | 6,9 s | 37 ms | 30 009 | 14 | 2,4 Mo | 1,8 Mo | 41 Ko |
+
+Objectifs : au plus 20 requêtes et moins de 300 ms pour 3000 cartes actives, atteints (14 requêtes, 26 ms). Réponse sous 300 Ko : atteinte seulement compressée (41 Ko). Brute, elle reste à 1,8 Mo : le reste est fait de champs requis du contrat (cinq étapes par carte, dates, compteurs d'essais, message d'erreur). Descendre plus bas sans compression demande de changer le contrat (étapes réduites à ce qui diffère de la colonne), ce qui n'a pas été fait ici.
+
+La colonne Terminé n'est pas bornée par une requête SQL de sélection : décider si un clip fini est terminé suppose la dérivation complète (piste retenue, micro, voix, indexation). Elle est bornée en mémoire (arrêt à trois cartes) sur des données lues une fois par lot, ce qui rend le coût SQL constant ; avec 3000 clips finis non terminés (jeu A) la dérivation en mémoire coûte quelques millisecondes.
+
+### Page : 3000 cartes actives (même réponse rejouée)
+
+| Mesure | Avant | Après |
+|---|---|---|
+| Nœuds DOM | 69 247 | 69 247 (toujours montés, mais ni mis en page ni peints hors fenêtre) |
+| Premier affichage de la première carte | 0,45 s | 0,29 s |
+| Mémoire JS | 58 Mo | 54 Mo |
+| Défilement : image médiane / 95e centile / pire | 38 / 56 / 170 ms | 17 / 23 / 24 ms |
+| Tâches longues pendant le chargement et le défilement | 4 (149 ms au plus) | 1 (137 ms) |
+| Un cycle de polling | 2 tâches longues, 119 ms au plus | 2 tâches longues, 89 ms au plus |
+
+Le nombre de nœuds n'a pas baissé : `content-visibility` évite la mise en page et la peinture, pas la création des nœuds. Un vrai fenêtrage (ne monter que les cartes proches de la fenêtre) reste à faire si les 69 000 nœuds, ou les 89 ms d'application d'un cycle de polling, deviennent un problème ; il n'a pas été tenté, car il touche la hauteur des cartes dépliées, les ancres et l'accessibilité.
+
+Restent les recommandations 4 (requête conditionnelle ou événements du live, #131) : non traitées ici.
