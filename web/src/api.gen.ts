@@ -1286,6 +1286,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/analysis/queue": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips dont le traitement automatique est terminé ; les tâches non terminées qu'aucune analyse ne suit. Repli du flux GET /api/admin/analysis/queue/events. */
+    get: operations["getAnalysisQueue"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/analysis/queue/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Même mécanisme que le flux d'analyse d'un clip, sujet admin:queue ; droits revérifiés avant chaque snapshot. */
+    get: operations["streamAnalysisQueueEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/analysis/events": {
     parameters: {
       query?: never;
@@ -2381,6 +2415,17 @@ export interface components {
     };
     ClipAnalysisResponse: {
       run: components["schemas"]["ClipAnalysisRun"] | null;
+    };
+    AnalysisQueueRun: components["schemas"]["ClipAnalysisRun"] & {
+      clip_name: string;
+    };
+    AnalysisQueueTask: components["schemas"]["Job"] & {
+      clip_name: string;
+    };
+    AnalysisQueue: {
+      active: components["schemas"]["AnalysisQueueRun"][];
+      completed: components["schemas"]["AnalysisQueueRun"][];
+      tasks: components["schemas"]["AnalysisQueueTask"][];
     };
     ClipAnalysisConflict: {
       error: string;
@@ -7799,6 +7844,64 @@ export interface operations {
         };
       };
       /** @description Erreur (400 invalid_clip_id, invalid_analysis_step ; 404 analysis_not_found ; 409 analysis_not_retryable : analyse terminée ou annulée, relancer une analyse ; 409 analysis_step_not_failed) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAnalysisQueue: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de la Task Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalysisQueue"];
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamAnalysisQueueEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: AnalysisQueue} : l'état complet, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
       default: {
         headers: {
           [name: string]: unknown;

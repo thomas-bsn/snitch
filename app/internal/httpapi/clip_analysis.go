@@ -344,3 +344,39 @@ func (s *Server) clipAnalysisEvents(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 }
+
+// adminQueueEvents streams the Task Queue: one snapshot of every analysis run and loose
+// task, then one per change. The administrator role is rechecked before every snapshot.
+func (s *Server) adminQueueEvents(w http.ResponseWriter, r *http.Request) {
+	s.Events.Stream(w, r, events.Topic{
+		Name:      "admin:queue",
+		Authorize: s.adminAuthorizer(r),
+		Snapshot: func(ctx context.Context) (any, error) {
+			return s.Analysis.Queue(ctx)
+		},
+	})
+}
+
+func (s *Server) adminAnalysisQueue(w http.ResponseWriter, r *http.Request) {
+	q, err := s.Analysis.Queue(r.Context())
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, q)
+}
+
+func (s *Server) adminAuthorizer(r *http.Request) func(context.Context) error {
+	return func(ctx context.Context) error {
+		ss, err := s.findSession(r.WithContext(ctx))
+		switch {
+		case errors.Is(err, pgx.ErrNoRows), errors.Is(err, http.ErrNoCookie):
+			return events.ErrForbidden
+		case err != nil:
+			return err
+		case !isAdministrator(ss.User.Role):
+			return events.ErrForbidden
+		}
+		return nil
+	}
+}

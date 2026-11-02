@@ -1,15 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
-
-/** The queue shows one card per clip and step; its actions live inside the collapsed card. */
-async function openCard(card: Locator) {
-  if (!(await card.getByRole("button", { name: "History" }).isVisible())) {
-    await card.locator("summary").click();
-  }
-}
 
 async function upload(page: Page, name: string, seed: number) {
   await page.goto("/import");
@@ -31,9 +24,9 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     storageState: await sessionFor(ADMIN),
   });
   const page = await context.newPage();
-  const queue = page.locator("[data-workflow-grid]");
+  // A technical task that no analysis follows has its own card, live, with its actions in view.
   const cardOf = (clipId: number) =>
-    queue.locator("details").filter({ hasText: `#${clipId}` });
+    page.locator("[data-task-card]").filter({ hasText: `#${clipId} ·` });
 
   // Concurrency controls, collapsed behind a disclosure panel.
   await page.goto("/admin/queue");
@@ -130,9 +123,8 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
   expect([200, 201], await response.text()).toContain(response.status());
   const cardA = cardOf(clipA);
   await expect(cardA).toContainText("Pending");
-  await openCard(cardA);
   await cardA.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(cardA).toContainText("Cancelled");
+  await expect(cardA).toHaveCount(0);
 
   // A task that runs out of attempts is retried, read in its history, then cancelled.
   const jobResponse = await page.request.post("/api/admin/jobs", {
@@ -165,23 +157,20 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     ).ok(),
   ).toBe(true);
 
-  await page.reload();
   const cardB = cardOf(clipB);
   await expect(cardB).toContainText("Exhausted");
-  await openCard(cardB);
   await cardB.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(cardB).toContainText("Pending");
-  await openCard(cardB);
   await cardB.getByRole("button", { name: "History", exact: true }).click();
   await expect(cardB).toContainText("Relaunched by administrator");
   await cardB.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(cardB).toContainText("Cancelled");
+  await expect(cardB).toHaveCount(0);
 
-  // The toolbar narrows the workflow down to one clip.
-  await page.getByLabel("Filter by clip ID").fill(String(clipB));
-  await page.getByRole("button", { name: "Filter", exact: true }).click();
-  await expect(cardOf(clipB)).toBeVisible();
-  await expect(cardOf(clipA)).toHaveCount(0);
+  // Live board: no manual refresh, no page to turn, no column of "other" tasks.
+  await expect(page.getByRole("status").first()).toHaveText("Live updates on");
+  await expect(page.getByRole("button", { name: /refresh/i })).toHaveCount(0);
+  await expect(page.getByLabel("Queue pagination")).toHaveCount(0);
+  await expect(page.getByText("Other tasks")).toHaveCount(0);
 
   // The completed-clip history is its own dialog.
   await page.getByRole("button", { name: "Clip history" }).click();
