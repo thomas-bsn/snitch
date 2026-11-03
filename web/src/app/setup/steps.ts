@@ -1,7 +1,7 @@
 import type { MessageKey } from "../i18n/messages";
 import type { SetupStep } from "./setupApi";
 
-/** The seven screens of the wizard, in order. */
+/** The screens of the wizard, in order. */
 export const STEP_IDS = [
   "code",
   "admin",
@@ -9,6 +9,7 @@ export const STEP_IDS = [
   "discord",
   "semantic",
   "worker",
+  "huggingface",
   "import",
   "summary",
 ] as const;
@@ -22,6 +23,7 @@ export const STEP_LABELS: Record<StepId, MessageKey> = {
   discord: "setup.steps.discord",
   semantic: "setup.steps.semantic",
   worker: "setup.steps.worker",
+  huggingface: "setup.steps.huggingface",
   import: "setup.steps.import",
   summary: "setup.steps.summary",
 };
@@ -56,6 +58,12 @@ export const OPTIONAL_STEPS: {
     server: "worker",
     where: "/admin/workers",
     whereLabel: "setup.where.worker",
+  },
+  {
+    id: "huggingface",
+    server: "huggingface",
+    where: "/admin/voice",
+    whereLabel: "setup.where.huggingface",
   },
   {
     id: "import",

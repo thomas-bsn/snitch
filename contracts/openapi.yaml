@@ -2253,6 +2253,21 @@
       }
     },
     "/api/admin/workers/{id}/transcription-model": {"put": {"operationId": "updateWorkerTranscriptionModel", "description": "Administrateurs uniquement. Un nom vide revient au modèle du profil.", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["model"], "properties": {"model": {"type": "string", "maxLength": 100}}}}}}, "responses": {"200": {"description": "Nom enregistré", "content": {"application/json": {"schema": {"type": "object", "required": ["model"], "properties": {"model": {"type": "string"}}}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/api/admin/workers/events": {
+      "get": {
+        "operationId": "streamWorkerEvents",
+        "responses": {"200": {"description": "Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerPage} : l'état complet de la liste des Workers, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (401 unauthorized ; 403 forbidden)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Liste des Workers en direct, sujet admin:workers ; un changement (création, présence, modèles, installation, révocation) envoie un nouvel état complet. Repli : GET /api/admin/workers."
+      }
+    },
+    "/api/admin/workers/{id}/events": {
+      "get": {
+        "operationId": "streamWorkerDetailEvents",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerDetail} : l'état complet de la fiche, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (401 unauthorized ; 403 forbidden)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Fiche d'un Worker en direct, sujet worker:<id> ; un Worker inexistant ferme le flux sans snapshot. Repli : GET /api/admin/workers/{id}."
+      }
+    },
     "/api/admin/workers/{id}": {
       "get": {
         "operationId": "getWorker",
@@ -2849,6 +2864,38 @@
         }
       }
     },
+    "/api/admin/hf-token": {
+      "get": {
+        "operationId": "getHFToken",
+        "description": "Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.",
+        "responses": {
+          "200": {"description": "État du token central", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HFTokenStatus"}}}},
+          "default": {"description": "Erreur (401 session required, 403 permission, 503 unavailable)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      },
+      "put": {
+        "operationId": "putHFToken",
+        "description": "Réservé au Super-administrateur : enregistre ou remplace le token central, chiffré au repos. Un token mal formé est refusé (invalid_hf_token) sans être renvoyé. Un Administrateur reçoit 403 super_administrator_required.",
+"parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+                "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HFTokenInput"}}}},
+        "responses": {
+          "204": {"description": "Token enregistré"},
+          "default": {"description": "Erreur (400 invalid_hf_token, 401, 403 CSRF ou rôle)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      },
+      "delete": {
+        "operationId": "deleteHFToken",
+        "description": "Réservé au Super-administrateur : supprime le token central. Les Workers purgent leur copie centrale à la version suivante ; une copie locale reste.",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {
+          "204": {"description": "Token supprimé"},
+          "default": {"description": "Erreur (401, 403 CSRF ou rôle)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/worker/hf-token/version": {"get": {"operationId": "getWorkerHFTokenVersion", "security": [{"workerBearer": []}], "description": "Version du token central, sans sa valeur. Un Worker compare cette version à la sienne et ne demande le token que si elle diffère.", "responses": {"200": {"description": "Version", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerHFTokenVersion"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/api/worker/hf-token": {"get": {"operationId": "getWorkerHFToken", "security": [{"workerBearer": []}], "description": "Token central pour un Worker authentifié et non révoqué, seulement lorsque sa version diffère de la sienne. Un token supprimé ou absent est renvoyé avec token null : le Worker purge alors sa copie centrale. Réponse sans cache.", "responses": {"200": {"description": "Version et token", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerHFToken"}}}}, "default": {"description": "Erreur (worker_token_required, worker_token_invalid)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/api/worker/hf-token/ack": {"post": {"operationId": "ackWorkerHFToken", "security": [{"workerBearer": []}], "description": "Accusé de réception d'une version par le Worker : appliquée, conservée (jeton local prioritaire), retirée ou en échec avec un code stable. Une version qui n'est plus la courante est refusée (stale_hf_token_version) : le Worker relit la version.", "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerHFTokenAck"}}}}, "responses": {"204": {"description": "Accusé enregistré"}, "default": {"description": "Erreur (400 invalid_hf_token_ack, 409 stale_hf_token_version, 401)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/worker/revocation": {"get": {"operationId": "getWorkerRevocation", "security": [{"workerBearer": []}], "description": "Confirmation étroite pour le Worker et son lanceur local, seul endroit où un jeton révoqué est accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une réponse révoquée est enregistrée comme confirmation : le Worker efface alors le contenu de son volume de modèles et cesse tout appel, le lanceur supprime le conteneur. Un 401 sans cette confirmation n'efface rien. Un jeton inconnu reçoit worker_token_invalid.", "responses": {"200": {"description": "État de révocation", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["revoked"], "properties": {"revoked": {"type": "boolean"}, "revoked_at": {"type": "string", "format": "date-time"}}}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/worker/install-events": {"post": {"operationId": "postWorkerInstallEvents", "security": [{"workerBearer": []}], "description": "Événements d'installation envoyés par le lanceur avec le jeton du Worker. Chaque événement porte uniquement une phase, un statut, un code de cause stable et son horodatage d'origine : aucun texte libre, aucun secret. Les événements mis en file hors ligne arrivent plus tard avec leur horodatage d'origine et sont marqués « reçus plus tard ». Un lot invalide est refusé en entier (invalid_install_event).", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["events"], "properties": {"events": {"type": "array", "minItems": 1, "maxItems": 50, "items": {"$ref": "#/components/schemas/WorkerInstallEventInput"}}}}}}}, "responses": {"204": {"description": "Événements enregistrés"}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/worker/transcription-config": {
@@ -6421,7 +6468,7 @@
         "additionalProperties": false,
         "required": ["step", "state"],
         "properties": {
-          "step": {"type": "string", "enum": ["location", "discord", "semantic_search", "worker", "import"]},
+          "step": {"type": "string", "enum": ["location", "discord", "semantic_search", "worker", "huggingface", "import"]},
           "state": {"type": "string", "enum": ["done", "skipped"]}
         }
       },
@@ -6429,7 +6476,7 @@
         "type": "object",
         "required": ["step", "state"],
         "properties": {
-          "step": {"type": "string", "enum": ["location", "discord", "semantic_search", "worker", "import"]},
+          "step": {"type": "string", "enum": ["location", "discord", "semantic_search", "worker", "huggingface", "import"]},
           "state": {"type": "string", "enum": ["done", "skipped", "todo"]}
         }
       },
@@ -7382,6 +7429,63 @@
               "$ref": "#/components/schemas/Worker"
             }
           }
+        }
+      },
+      "HFTokenInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["token"],
+        "properties": {"token": {"type": "string", "pattern": "^hf_[A-Za-z0-9]{8,200}$", "writeOnly": true, "description": "Token Hugging Face : écrit une fois, jamais renvoyé"}}
+      },
+      "HFTokenStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["configured", "fingerprint", "unreadable", "workers"],
+        "properties": {
+          "configured": {"type": "boolean"},
+          "fingerprint": {"type": "string", "description": "Empreinte non réversible, vide si non configuré"},
+          "unreadable": {"type": "boolean", "description": "Valeur présente mais illisible avec la clé maître courante : à ressaisir"},
+          "workers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "name", "source", "state", "error_code"],
+              "properties": {
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "source": {"type": "string", "enum": ["", "central", "local", "none"]},
+                "state": {"type": "string", "enum": ["synced", "pending", "error"], "description": "pending = non synchronisé"},
+                "error_code": {"type": "string", "enum": ["", "hf_token_store_failed"]}
+              }
+            }
+          }
+        }
+      },
+      "WorkerHFTokenVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version"],
+        "properties": {"version": {"type": "string", "description": "0 = aucun token central"}}
+      },
+      "WorkerHFToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "token"],
+        "properties": {
+          "version": {"type": "string"},
+          "token": {"type": "string", "nullable": true, "description": "null : copie centrale à purger"}
+        }
+      },
+      "WorkerHFTokenAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "outcome", "source"],
+        "properties": {
+          "version": {"type": "string"},
+          "outcome": {"type": "string", "enum": ["applied", "kept_local", "removed", "failed"]},
+          "source": {"type": "string", "enum": ["central", "local", "none"]},
+          "error_code": {"type": "string", "enum": ["", "hf_token_store_failed"]}
         }
       },
       "WorkerPulseInput": {
