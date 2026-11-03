@@ -9,16 +9,11 @@ export type PersonImpact = components["schemas"]["PersonImpact"];
 export type PersonEvent = components["schemas"]["PersonEvent"];
 export type PersonCorrectionResult =
   components["schemas"]["PersonCorrectionResult"];
-export type Verification = components["schemas"]["VoiceVerification"];
-export type VerificationCase = components["schemas"]["VoiceVerificationCase"];
-export type VerificationCounts =
-  components["schemas"]["VoiceVerificationCounts"];
 export type LocalSpeakerRead = components["schemas"]["LocalSpeakerRead"];
 export type VoiceGroup = components["schemas"]["VoiceGroup"];
 export type VoiceGroupMember = components["schemas"]["VoiceGroupMember"];
 export type VoiceGroupNaming = components["schemas"]["VoiceGroupNaming"];
 export type DecisionLevel = components["schemas"]["DecisionLevel"];
-export type VerificationFilter = "all" | "unknown" | "ambiguous";
 
 /** The person a case is settled for: an existing one, or a new one by name. */
 export type Choice = { personId: number } | { newName: string };
@@ -83,19 +78,6 @@ export const fetchPersonEvents = () =>
   guard(async () => {
     const { data, error } = await api.GET("/api/person-events");
     return data ? { ok: true, value: data.items } : failure(error);
-  });
-
-export const fetchVerification = (
-  level: VerificationFilter,
-  page: number,
-  pageSize: number,
-  clip?: number,
-) =>
-  guard(async () => {
-    const { data, error } = await api.GET("/api/voice-verification", {
-      params: { query: { level, page, page_size: pageSize, clip } },
-    });
-    return data ? { ok: true, value: data } : failure(error);
   });
 
 export type ToProcess = components["schemas"]["PeopleToProcess"];
