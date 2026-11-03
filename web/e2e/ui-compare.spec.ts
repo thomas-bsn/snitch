@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { request, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -30,14 +30,41 @@ const manifest = JSON.parse(
     screen: string;
     state: string;
     app: string;
-    prototypeClick?: string;
+    appClick?: string;
   }[];
 };
+
+async function configureVideoRoot() {
+  const api = await request.newContext({
+    baseURL: process.env.SNITCH_TEST_URL!,
+    extraHTTPHeaders: { Origin: process.env.SNITCH_TEST_URL! },
+    storageState: await sessionFor(ADMIN),
+  });
+  const me = await (await api.get("/api/auth/me")).json();
+  const response = await api.put("/api/admin/video-root", {
+    headers: { "X-CSRF-Token": me.csrf_token },
+    data: { path: process.env.SNITCH_TEST_EXPLORER_ROOT },
+  });
+  if (response.status() !== 200) throw new Error("video root refused");
+  await api.dispose();
+}
 
 test("capture et comparaison des états", async ({ browser }) => {
   test.setTimeout(10 * 60 * 1000);
   await installAdministrator();
   const { meetingId } = await seedUiCompare();
+  // Attributions des voix (validée, suggestion, ambiguë) écrites en base par le harnais Go.
+  const seedDir = process.env.SNITCH_UI_SEED_DIR!;
+  fs.writeFileSync(path.join(seedDir, "seed-request"), String(meetingId));
+  const done = path.join(seedDir, "seed-done");
+  for (let i = 0; i < 150 && !fs.existsSync(done); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  const seeded = fs.existsSync(done)
+    ? fs.readFileSync(done, "utf8")
+    : "timeout";
+  if (seeded !== "ok") throw new Error(`voice seeding failed: ${seeded}`);
+  await configureVideoRoot();
   await setAccountLanguage(ADMIN, "fr");
   const cookies = (await sessionFor(ADMIN)).cookies;
   const only = process.env.SNITCH_UI_ONLY;
@@ -57,12 +84,13 @@ test("capture et comparaison des états", async ({ browser }) => {
         await page.goto(s.app.replace("{clip}", String(meetingId)), {
           waitUntil: "networkidle",
         });
-        if (s.prototypeClick === "Icônes") {
+        if (s.appClick) {
           await page
-            .getByRole("button", { name: /Icônes|Icons/ })
+            .getByRole(s.appClick === "Voix" ? "tab" : "button", {
+              name: new RegExp(`^${s.appClick}`),
+            })
             .first()
-            .click({ timeout: 3000 })
-            .catch(() => undefined);
+            .click();
         }
         await page.waitForTimeout(400);
         const name = `${s.state}-${theme}-${width}.png`;

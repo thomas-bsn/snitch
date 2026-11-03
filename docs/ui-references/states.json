@@ -12,7 +12,8 @@
       "screen": "fiche-video",
       "state": "voix",
       "prototype": "/prototype/fiche-video?variant=C&tab=voices",
-      "app": "/clips/{clip}?tab=voices"
+      "app": "/clips/{clip}",
+      "appClick": "Voix"
     },
     {
       "screen": "people",
@@ -51,7 +52,8 @@
       "state": "icones",
       "prototype": "/prototype/library?variant=D",
       "prototypeClick": "Icônes",
-      "app": "/library"
+      "app": "/library",
+      "appClick": "Icônes"
     },
     {
       "screen": "import",

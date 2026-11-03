@@ -1399,6 +1399,7 @@ func TestFoundation(t *testing.T) {
 				videoRoot := ""
 				videoRoot2 := ""
 				explorerRoot := ""
+				seedDir := ""
 				providerURL := ""
 				if suite == "admin-semantic.spec.ts" || suite == "segment-reindex.spec.ts" {
 					providerURL = newReindexProvider(t).srv.URL
@@ -1448,7 +1449,10 @@ func TestFoundation(t *testing.T) {
 				if suite == "ui-compare.spec.ts" {
 					// Arborescence synthétique de la comparaison visuelle (#251), comme celle du prototype.
 					explorerRoot = t.TempDir()
-					config.ClipRoots = []string{explorerRoot}
+					seedDir = t.TempDir()
+					stopSeed := make(chan struct{})
+					defer close(stopSeed)
+					watchUICompareSeed(ctx, pool, seedDir, stopSeed)
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 					for dir, files := range map[string][]string{
@@ -1491,7 +1495,7 @@ func TestFoundation(t *testing.T) {
 				args := []string{"run", "test:e2e", "--", suite}
 				cmd := exec.Command("npm", args...)
 				cmd.Dir = "../../../web"
-				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384", "SNITCH_TEST_VIDEO_ROOT="+videoRoot, "SNITCH_TEST_VIDEO_ROOT_2="+videoRoot2, "SNITCH_TEST_EXPLORER_ROOT="+explorerRoot)
+				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384", "SNITCH_TEST_VIDEO_ROOT="+videoRoot, "SNITCH_TEST_VIDEO_ROOT_2="+videoRoot2, "SNITCH_TEST_EXPLORER_ROOT="+explorerRoot, "SNITCH_UI_SEED_DIR="+seedDir)
 				out, e := cmd.CombinedOutput()
 				t.Log(string(out))
 				if e != nil {

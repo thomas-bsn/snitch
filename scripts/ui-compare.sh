@@ -27,4 +27,5 @@ rm -rf "$SNITCH_UI_OUT"
 (cd web && npm ci --silent && npm run build --silent)
 (cd app && go test -tags integration ./internal/httpapi -run 'TestFoundation/browser/ui-compare' -count=1 -timeout 30m -v 2>&1 | grep -v '^=== ' | tail -n 60)
 
+node web/scripts/ui-diff.mjs "$SNITCH_UI_OUT"
 echo "Comparaisons : $SNITCH_UI_OUT/diff/<écran>/<état>-<thème>-<largeur>.png"

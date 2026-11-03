@@ -36,6 +36,10 @@ for (const s of manifest.states) {
           .first()
           .click();
       }
+      // Masque la barre noire de simulation du prototype.
+      await page.addStyleTag({
+        content: ".fixed.bottom-4 { display: none !important; }",
+      });
       await page.waitForTimeout(300);
       const dir = path.join(root, "docs/ui-references", s.screen);
       fs.mkdirSync(dir, { recursive: true });
