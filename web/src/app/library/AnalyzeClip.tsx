@@ -288,7 +288,7 @@ export function AnalyzeClip({
                       <span className="mt-1 flex flex-wrap gap-2">
                         {step.job_id !== null && (
                           <Link
-                            to="/admin/queue"
+                            to="/queue"
                             className="text-xs text-accent underline"
                           >
                             {t("clip.analysis.viewTask", { id: step.job_id })}

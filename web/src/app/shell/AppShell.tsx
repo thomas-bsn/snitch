@@ -14,6 +14,8 @@ import { NotificationsProvider } from "../notifications/useNotifications";
 import { SetupBanner } from "../setup/SetupBanner";
 import { AvatarMenu } from "./AvatarMenu";
 import { HeaderSearch } from "./HeaderSearch";
+import { useSession } from "../session";
+import { isAdministrator } from "../roles";
 import { NAV_ENTRIES } from "./navigation";
 import { useToProcessCount } from "./useToProcessCount";
 
@@ -34,6 +36,10 @@ export function AppShell() {
   const libraryAddress =
     location.pathname === "/search" ? `/library${location.search}` : "/library";
   const notice = params.get("notice");
+  const { user } = useSession();
+  const entries = NAV_ENTRIES.filter(
+    (entry) => !entry.adminOnly || (user !== null && isAdministrator(user)),
+  );
   const toProcess = useToProcessCount();
   // The badge of the People entry: hidden to assistive names, given as a description.
   const badge = (to: string, id: string) =>
@@ -66,7 +72,7 @@ export function AppShell() {
             <Brand />
           </Link>
           <nav aria-label={t("nav.label")} className="flex flex-col gap-1">
-            {NAV_ENTRIES.map(({ to, label, icon: Icon }) => (
+            {entries.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to === "/library" ? libraryAddress : to}
@@ -124,7 +130,7 @@ export function AppShell() {
           aria-label={t("nav.label")}
           className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-side md:hidden"
         >
-          {NAV_ENTRIES.map(({ to, label, icon: Icon }) => (
+          {entries.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to === "/library" ? libraryAddress : to}

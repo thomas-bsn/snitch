@@ -1226,7 +1226,7 @@ func TestFoundation(t *testing.T) {
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
 		suites := []string{
-			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts",
+			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
 			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
 			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts",
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
@@ -1241,7 +1241,7 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"setup-wizard.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SHELL") == "1" {
-			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts"}
+			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_ACCOUNT") == "1" {
 			suites = []string{"account-settings.spec.ts", "account-close.spec.ts"}

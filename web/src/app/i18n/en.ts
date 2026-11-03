@@ -741,6 +741,7 @@ export const en = {
     people: "People",
     peopleToProcess: "{count} voice(s) to decide",
     import: "Import",
+    queue: "Task queue",
   },
   notifications: {
     bell: "Notifications",
@@ -1136,7 +1137,6 @@ export const en = {
     tabs: {
       workers: "Workers",
       workerUpdates: "Updates",
-      queue: "Task queue",
       folders: "Folders",
       transcription: "Transcription",
       voice: "Voice processing",

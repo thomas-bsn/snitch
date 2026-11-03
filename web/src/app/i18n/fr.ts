@@ -758,6 +758,7 @@ export const fr: Messages = {
     people: "Personnes",
     peopleToProcess: "{count} voix à trancher",
     import: "Importer",
+    queue: "File de tâches",
   },
   notifications: {
     bell: "Notifications",
@@ -1160,7 +1161,6 @@ export const fr: Messages = {
     tabs: {
       workers: "Workers",
       workerUpdates: "Mises à jour",
-      queue: "File de tâches",
       folders: "Dossiers",
       transcription: "Transcription",
       voice: "Traitement vocal",

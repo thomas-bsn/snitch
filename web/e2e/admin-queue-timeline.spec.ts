@@ -98,7 +98,7 @@ async function open(browser: Browser, language: "fr" | "en") {
     storageState: await sessionFor(ADMIN),
   });
   const page = await context.newPage();
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   return { context, page };
 }
 

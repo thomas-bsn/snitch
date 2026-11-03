@@ -29,7 +29,7 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
     page.locator("[data-task-card]").filter({ hasText: `#${clipId} ·` });
 
   // Concurrency controls, collapsed behind a disclosure panel.
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   await page
     .locator("summary")
     .filter({ hasText: "Concurrency settings" })
@@ -103,7 +103,7 @@ test("l'administrateur pilote la file et voit les dossiers disponibles", async (
       })
     ).ok(),
   ).toBe(true);
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   await page.locator("[data-advanced-schedule] summary").click();
   await page.getByLabel("Clip ID", { exact: true }).fill(String(clipA));
   await page

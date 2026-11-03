@@ -155,7 +155,6 @@ test.describe.serial("administration et Workers", () => {
     await expect(tabs.getByRole("link")).toHaveText([
       "Workers",
       "Updates",
-      "Task queue",
       "Folders",
       "Location and metadata",
       "Transcription",

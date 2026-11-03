@@ -25,7 +25,7 @@ test("the page of a queue of thousands of runs", async ({ browser }) => {
     }).observe({ entryTypes: ["longtask"] });
   });
   const started = Date.now();
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   await page.waitForSelector("[data-run-card]", { timeout: 120_000 });
   const firstCard = Date.now() - started;
   await page.waitForTimeout(3000);
