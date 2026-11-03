@@ -25,6 +25,10 @@ const (
 	randomSpeakerLabel = "Random"
 )
 
+// notIgnoredVoice keeps an ignored voice out of a query over local_speakers aliased ls (ADR 0031):
+// no speaker on its segments, no verification, no group, no rapprochement, no statistic.
+const notIgnoredVoice = `NOT EXISTS (SELECT 1 FROM local_speaker_dispositions dsp WHERE dsp.local_speaker_id=ls.id AND dsp.disposition='ignored')`
+
 type dispositionInput struct {
 	Disposition string `json:"disposition"`
 }
