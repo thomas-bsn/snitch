@@ -2,27 +2,32 @@ import { useId } from "react";
 import { buttonClass } from "../components/buttons";
 import { DateField, Select } from "../components/FilterFields";
 import { useI18n } from "../i18n";
-import {
-  CLIP_STATES,
-  type ClipFilterOptions,
-  type LibraryFilters as Filters,
-  type Person,
-} from "./libraryApi";
+import { EXPLORER_STATES } from "./explorerApi";
+import type { ClipFilterOptions } from "./libraryApi";
 
-/** The library filters (game, date, Source, visibility, owner, Person, state), kept in the address. */
+/** The explorer's filters, kept in the address. */
+export type ExplorerFilters = {
+  q: string;
+  state: string;
+  game: string;
+  from: string;
+  to: string;
+  visibility: string;
+  owner: string;
+};
+
+/** The library filters: game, date, visibility, owner and state. A filter of a Person is not offered yet. */
 export function LibraryFilters({
   filters,
   options,
-  persons,
   active,
   onChange,
   onClear,
 }: {
-  filters: Filters;
+  filters: ExplorerFilters;
   options: ClipFilterOptions | null;
-  persons: Person[];
   active: boolean;
-  onChange: (patch: Partial<Filters>) => void;
+  onChange: (patch: Partial<ExplorerFilters>) => void;
   onClear: () => void;
 }) {
   const { t } = useI18n();
@@ -32,7 +37,7 @@ export function LibraryFilters({
       role="search"
       aria-label={t("library.filters.label")}
       onSubmit={(event) => event.preventDefault()}
-      className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7"
+      className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"
     >
       <p className="col-span-full text-sm text-mute">
         {t("metadata.dateFilterZone")}
@@ -59,18 +64,6 @@ export function LibraryFilters({
         onChange={(to) => onChange({ to })}
       />
       <Select
-        label={t("library.filters.source")}
-        value={filters.source}
-        onChange={(source) => onChange({ source })}
-      >
-        <option value="">{t("library.filters.any")}</option>
-        {options?.sources.map((source) => (
-          <option key={source.id} value={String(source.id)}>
-            {source.name}
-          </option>
-        ))}
-      </Select>
-      <Select
         label={t("search.filters.visibility")}
         value={filters.visibility}
         onChange={(visibility) => onChange({ visibility })}
@@ -92,27 +85,14 @@ export function LibraryFilters({
         ))}
       </Select>
       <Select
-        label={t("library.filters.person")}
-        value={filters.person}
-        onChange={(person) => onChange({ person })}
-      >
-        <option value="">{t("library.filters.any")}</option>
-        <option value="unknown">{t("library.filters.unknownVoices")}</option>
-        {persons.map((person) => (
-          <option key={person.id} value={String(person.id)}>
-            {person.display_name}
-          </option>
-        ))}
-      </Select>
-      <Select
         label={t("library.filters.state")}
         value={filters.state}
         onChange={(state) => onChange({ state })}
       >
         <option value="">{t("library.filters.any")}</option>
-        {CLIP_STATES.map((state) => (
+        {EXPLORER_STATES.map((state) => (
           <option key={state} value={state}>
-            {t(`library.state.${state}`)}
+            {t(`library.explorer.state.${state}`)}
           </option>
         ))}
       </Select>

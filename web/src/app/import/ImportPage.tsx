@@ -8,6 +8,7 @@ import { FolderPicker } from "../library/FolderPicker";
 import { DropZone, looksLikeVideo } from "./DropZone";
 import { TransferRow } from "./TransferRow";
 import type { Visibility } from "./uploadApi";
+import { ServerSelection } from "./ServerSelection";
 import { useTransfers } from "./useTransfers";
 
 /** Import: drop videos or choose them, follow each transfer, resume or cancel it. */
@@ -73,71 +74,86 @@ export function ImportPage() {
   const done = transfers.filter((x) => x.status === "done");
 
   return (
-    <section className="flex flex-col gap-5 px-4 py-6 md:px-7">
+    <section className="flex flex-col gap-8 px-4 py-6 md:px-7">
       <h1 className="text-[22px] font-semibold">{t("pages.import.title")}</h1>
 
-      <div className="flex max-w-xl flex-col gap-1.5">
-        <label htmlFor="import-visibility" className="font-medium">
-          {t("import.visibility.label")}
-        </label>
-        <select
-          id="import-visibility"
-          value={visibility}
-          onChange={(event) => setVisibility(event.target.value as Visibility)}
-          className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
-        >
-          <option value="shared">{t("import.visibility.shared")}</option>
-          <option value="private">{t("import.visibility.private")}</option>
-        </select>
-      </div>
+      <ServerSelection />
 
-      {root && (
-        <FolderPicker value={destination} onChange={chooseDestination} />
-      )}
-      {missing !== undefined && (
-        <ErrorAlert>
-          {t("import.destination.missing", { path: `/${missing}` })}
-        </ErrorAlert>
-      )}
-      <DropZone
-        onFiles={(files) => void receive(files)}
-        blocked={Boolean(root) && destination === undefined}
-        onBlocked={() => setBlocked(true)}
-      />
-      {blocked && <ErrorAlert>{t("import.destination.required")}</ErrorAlert>}
-
-      {rejected.map((name) => (
-        <ErrorAlert key={name}>{t("import.notVideo", { name })}</ErrorAlert>
-      ))}
-
-      {transfers.length > 0 && (
-        <ul aria-label={t("import.list.label")} className="flex flex-col gap-3">
-          {transfers.map((transfer) => (
-            <TransferRow
-              key={transfer.key}
-              transfer={transfer}
-              onResume={resume}
-              onRetry={(key) => void retry(key)}
-              onCancel={(key) => void cancel(key)}
-              onDismiss={dismiss}
-            />
-          ))}
-        </ul>
-      )}
-
-      <div className="sr-only" role="status">
-        {done.map((x) => (
-          <p key={x.key}>{t("import.doneAnnouncement", { name: x.name })}</p>
-        ))}
-      </div>
-
-      {done.length > 0 && (
-        <div>
-          <Link to="/library" className={buttonClass("secondary")}>
-            {t("import.viewInLibrary")}
-          </Link>
+      <section
+        aria-labelledby="import-computer"
+        className="flex flex-col gap-5 border-t border-line pt-8"
+      >
+        <h2 id="import-computer" className="text-lg font-semibold">
+          {t("import.sections.computer")}
+        </h2>
+        <div className="flex max-w-xl flex-col gap-1.5">
+          <label htmlFor="import-visibility" className="font-medium">
+            {t("import.visibility.label")}
+          </label>
+          <select
+            id="import-visibility"
+            value={visibility}
+            onChange={(event) =>
+              setVisibility(event.target.value as Visibility)
+            }
+            className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
+          >
+            <option value="shared">{t("import.visibility.shared")}</option>
+            <option value="private">{t("import.visibility.private")}</option>
+          </select>
         </div>
-      )}
+
+        {root && (
+          <FolderPicker value={destination} onChange={chooseDestination} />
+        )}
+        {missing !== undefined && (
+          <ErrorAlert>
+            {t("import.destination.missing", { path: `/${missing}` })}
+          </ErrorAlert>
+        )}
+        <DropZone
+          onFiles={(files) => void receive(files)}
+          blocked={Boolean(root) && destination === undefined}
+          onBlocked={() => setBlocked(true)}
+        />
+        {blocked && <ErrorAlert>{t("import.destination.required")}</ErrorAlert>}
+
+        {rejected.map((name) => (
+          <ErrorAlert key={name}>{t("import.notVideo", { name })}</ErrorAlert>
+        ))}
+
+        {transfers.length > 0 && (
+          <ul
+            aria-label={t("import.list.label")}
+            className="flex flex-col gap-3"
+          >
+            {transfers.map((transfer) => (
+              <TransferRow
+                key={transfer.key}
+                transfer={transfer}
+                onResume={resume}
+                onRetry={(key) => void retry(key)}
+                onCancel={(key) => void cancel(key)}
+                onDismiss={dismiss}
+              />
+            ))}
+          </ul>
+        )}
+
+        <div className="sr-only" role="status">
+          {done.map((x) => (
+            <p key={x.key}>{t("import.doneAnnouncement", { name: x.name })}</p>
+          ))}
+        </div>
+
+        {done.length > 0 && (
+          <div>
+            <Link to="/library" className={buttonClass("secondary")}>
+              {t("import.viewInLibrary")}
+            </Link>
+          </div>
+        )}
+      </section>
     </section>
   );
 }

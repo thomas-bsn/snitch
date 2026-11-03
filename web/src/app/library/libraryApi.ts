@@ -25,58 +25,10 @@ export const CLIP_STATES = [
 ] as const;
 export type ClipState = (typeof CLIP_STATES)[number];
 
-export const PAGE_SIZE = 12;
-
 const failure = (error: unknown): { ok: false; code: string } => ({
   ok: false,
   code: errorCode(error) ?? "unknown",
 });
-
-/** The filters of the library, as they live in the address. */
-export type LibraryFilters = {
-  game: string;
-  from: string;
-  to: string;
-  source: string;
-  visibility: string;
-  owner: string;
-  /** A Person's id, or "unknown" for the voices nobody identified. */
-  person: string;
-  state: string;
-  /** Folder path to filter by (e.g., "League of Legends" or "League of Legends/2024") */
-  folder: string;
-  page: number;
-};
-
-const positive = (value: string) =>
-  /^[1-9]\d*$/.test(value) ? Number(value) : undefined;
-
-export async function fetchClips(
-  filters: LibraryFilters,
-): Promise<Result<ClipPage>> {
-  const { data, error } = await api.GET("/api/clips", {
-    params: {
-      query: {
-        game: filters.game || undefined,
-        page: filters.page,
-        page_size: PAGE_SIZE,
-        from: filters.from || undefined,
-        to: filters.to || undefined,
-        source_id: positive(filters.source),
-        visibility:
-          filters.visibility === "shared" || filters.visibility === "private"
-            ? filters.visibility
-            : undefined,
-        owner_id: positive(filters.owner),
-        status: CLIP_STATES.find((state) => state === filters.state),
-        person_id: positive(filters.person),
-        person_unknown: filters.person === "unknown" ? true : undefined,
-        folder: filters.folder || undefined,
-      },
-    },
-  });
-  return data ? { ok: true, value: data } : failure(error);
-}
 
 export async function fetchFilterOptions(): Promise<
   Result<{ options: ClipFilterOptions; persons: Person[] }>

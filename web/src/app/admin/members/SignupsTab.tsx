@@ -7,6 +7,7 @@ import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
 import { isSuperAdministrator } from "../../roles";
 import { useSession } from "../../session";
+import { FolderRequests } from "./FolderRequests";
 async function load() {
   try {
     const [users, settings] = await Promise.all([
@@ -111,6 +112,7 @@ export function SignupsTab() {
             ))}
           </ul>
           {state.value.users.length === 0 && <p>{t("members.noPending")}</p>}
+          <FolderRequests />
           <form
             onSubmit={save}
             className="flex max-w-xl flex-col gap-3 rounded-xl border border-line p-4"
