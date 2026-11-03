@@ -266,6 +266,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipAnalysisDeletionCascades(t, pool)
 	})
+	t.Run("clip analysis deletion reports refusals", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionReportsRefusals(t, pool)
+	})
 	t.Run("clip analysis read-only view", func(t *testing.T) {
 		reset(t)
 		testClipAnalysisReadOnlyView(t, pool)
@@ -484,6 +488,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice refusal", func(t *testing.T) {
 		reset(t)
 		testVoiceRefusal(t, pool)
+	})
+	t.Run("refusal during active analysis", func(t *testing.T) {
+		reset(t)
+		testRefusalDuringActiveAnalysis(t, pool)
 	})
 	t.Run("library unknown filter matches search", func(t *testing.T) {
 		reset(t)

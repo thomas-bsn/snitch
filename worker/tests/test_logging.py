@@ -109,6 +109,21 @@ class ScrubTests(unittest.TestCase):
         [line] = read(stream)
         self.assertEqual(line["url"], "https://api.example.test/[masked]")
 
+    def test_masking_table_matches_the_server(self):
+        # The same table as app/internal/jobs/logscrub_test.go: the Worker and the server mask alike.
+        cases = [
+            ("Authorization: Bearer abc.def", "Authorization: Bearer [masked]"),
+            ("token hf_SyntheticToken123 ok", "token [masked] ok"),
+            ("lease rw_synthetic-token", "lease [masked]"),
+            ("https://ann:pw-synth@hub.example/path?sig=abc", "https://hub.example/[masked]"),
+            ("https://hub.example", "https://hub.example"),
+            ("clip /private/var/synthetic/audio.wav done", "clip [masked_path] done"),
+            ("synthetic-recording.mp4 uploaded", "[masked_path] uploaded"),
+            ("hf_not_found job 42 claimed for step voice.fingerprint", "hf_not_found job 42 claimed for step voice.fingerprint"),
+        ]
+        for text, want in cases:
+            self.assertEqual(log.scrub(text), want)
+
     def test_plain_text_and_stable_codes_survive(self):
         self.assertEqual(log.scrub("job 42 claimed for step voice.fingerprint"), "job 42 claimed for step voice.fingerprint")
         self.assertEqual(log.scrub("hf_not_found"), "hf_not_found")

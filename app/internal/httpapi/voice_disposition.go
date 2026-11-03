@@ -25,6 +25,10 @@ const (
 	randomSpeakerLabel = "Random"
 )
 
+// notIgnoredVoice keeps an ignored voice out of a query over local_speakers aliased ls (ADR 0031):
+// no speaker on its segments, no verification, no group, no rapprochement, no statistic.
+const notIgnoredVoice = `NOT EXISTS (SELECT 1 FROM local_speaker_dispositions dsp WHERE dsp.local_speaker_id=ls.id AND dsp.disposition='ignored')`
+
 type dispositionInput struct {
 	Disposition string `json:"disposition"`
 }
@@ -233,6 +237,15 @@ func (s *Server) refuseLocalSpeaker(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(ctx)
 	if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR SHARE`, sp.ClipID); err != nil {
 		s.internal(w, err)
+		return
+	}
+	// Like the deletion of analysis steps, a refusal waits for the analysis: nothing changes
+	// while a run or one of its voice jobs is active on the clip.
+	if busy, err := analysisActive(ctx, tx, sp.ClipID); err != nil {
+		s.internal(w, err)
+		return
+	} else if busy {
+		fail(w, http.StatusConflict, "analysis_active")
 		return
 	}
 	if _, err = tx.Exec(ctx, `SELECT id FROM local_speakers WHERE id=$1 FOR UPDATE`, sp.ID); err != nil {
