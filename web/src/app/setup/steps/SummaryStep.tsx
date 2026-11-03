@@ -17,8 +17,8 @@ export function SummaryStep({ progress }: { progress: SetupProgress }) {
   return (
     <div className="flex max-w-xl flex-col gap-5">
       <StepHeader
-        position={8}
-        total={8}
+        position={9}
+        total={9}
         title={t("setup.summary.title")}
         lead={
           remaining.length === 0

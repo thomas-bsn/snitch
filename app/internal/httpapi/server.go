@@ -258,6 +258,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/worker/jobs/{id}/logs", s.workerOnly(http.HandlerFunc(s.appendWorkerJobLogs)))
 	mux.Handle("POST /api/worker/jobs/{id}/complete", s.workerOnly(http.HandlerFunc(s.completeWorkerJob)))
 	mux.Handle("POST /api/worker/jobs/{id}/fail", s.workerOnly(http.HandlerFunc(s.failWorkerJob)))
+	mux.Handle("GET /api/admin/hf-token", s.protected(true, http.HandlerFunc(s.getHFToken)))
+	mux.Handle("PUT /api/admin/hf-token", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.putHFToken)))
+	mux.Handle("DELETE /api/admin/hf-token", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.deleteHFToken)))
+	mux.Handle("GET /api/worker/hf-token/version", s.workerOnly(http.HandlerFunc(s.workerHFTokenVersion)))
+	mux.Handle("GET /api/worker/hf-token", s.workerOnly(http.HandlerFunc(s.workerHFToken)))
+	mux.Handle("POST /api/worker/hf-token/ack", s.workerOnly(http.HandlerFunc(s.ackWorkerHFToken)))
 	mux.Handle("GET /api/admin/sources", s.protected(true, http.HandlerFunc(s.listSources)))
 	mux.Handle("POST /api/admin/sources", s.protected(true, http.HandlerFunc(s.createSource)))
 	mux.Handle("DELETE /api/admin/sources/{id}", s.protected(true, http.HandlerFunc(s.disableSource)))
@@ -561,7 +567,7 @@ func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, 200, map[string]any{"initialized": initialized, "discord_enabled": id != "" && secret != "", "phase": 0, "deferred_steps": []string{"Dossiers : phase 1", "Worker : phase 2", "Embeddings : phase 4", "Hugging Face : phase 5"}})
+	reply(w, 200, map[string]any{"initialized": initialized, "discord_enabled": id != "" && secret != "", "phase": 0, "deferred_steps": []string{"Dossiers : phase 1", "Worker : phase 2", "Embeddings : phase 4"}})
 }
 func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request) {
 	var c struct {

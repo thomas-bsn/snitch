@@ -19,7 +19,7 @@ export function WorkerStep({
     <div className="flex flex-col gap-5">
       <StepHeader
         position={6}
-        total={8}
+        total={9}
         title={t("setup.worker.title")}
         lead={t("setup.worker.lead")}
       />
