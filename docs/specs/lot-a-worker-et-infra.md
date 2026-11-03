@@ -31,7 +31,7 @@ Présence indépendante et perte de lease traitée tout de suite ([ADR 0029](../
 
 ## Hors périmètre
 
-Logs internes du serveur de transcription ; pourcentage de progression d'un job (aucun n'est mesuré) ; migration des pollings Voice, VoiceTrials et VideoStorage vers le SSE ; #152.
+Logs internes du serveur de transcription ; pourcentage de progression d'un job (aucun n'est mesuré) ; migration des pollings Voice et VideoStorage vers le SSE ; #152.
 
 ## Tickets
 

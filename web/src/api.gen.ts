@@ -2044,41 +2044,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/admin/clips/{id}/voice-trials": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** @description Administrateurs uniquement. Essais de diarisation d'un clip, du plus récent au plus ancien, avec leur état et, une fois terminés, un résumé par locuteur. Un essai n'est jamais le résultat voix du clip. */
-    get: operations["listVoiceTrials"];
-    put?: never;
-    /** @description Administrateurs uniquement. Lance un essai de diarisation avec le modèle candidat ou actif et, si le moteur le permet, un nombre de locuteurs (num_speakers, ou min_speakers et max_speakers). Un essai est conservé par (clip, piste, modèle, options) : le relancer remplace son résultat. Il ne change ni les locuteurs locaux, ni les attributions, ni les corrections, et n'alimente ni le matching, ni les empreintes, ni la recherche. Refusé (voice_trial_option_unsupported) si le moteur ne gère pas l'option, (voice_model_not_ready) si aucun Worker n'a le modèle prêt. */
-    post: operations["createVoiceTrial"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/admin/clips/{id}/voice-trials/{trial}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    /** @description Administrateurs uniquement. Supprime un essai de diarisation ; le résultat voix du clip n'est pas touché. */
-    delete: operations["deleteVoiceTrial"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/admin/clips/{id}/voice": {
     parameters: {
       query?: never;
@@ -3946,7 +3911,6 @@ export interface components {
       pipeline?: components["schemas"]["TranscriptionPipeline"];
       pipeline_version?: string;
       voice?: components["schemas"]["WorkerVoiceInput"];
-      voice_trial?: components["schemas"]["WorkerVoiceTrialInput"];
     };
     TranscriptionSettingsInput: {
       /** @enum {string} */
@@ -4010,36 +3974,6 @@ export interface components {
     };
     VoiceModelRetry: {
       retry_requested: boolean;
-    };
-    VoiceTrialRequest: {
-      model_id: string;
-      audio_stream_index?: number;
-      num_speakers?: number;
-      min_speakers?: number;
-      max_speakers?: number;
-    };
-    VoiceTrialSpeaker: {
-      label: string;
-      speaking_seconds: number;
-      turn_count: number;
-    };
-    VoiceTrial: {
-      /** Format: int64 */
-      id: number;
-      /** Format: int64 */
-      clip_id: number;
-      audio_stream_index: number;
-      model_id: string;
-      num_speakers: number | null;
-      min_speakers: number | null;
-      max_speakers: number | null;
-      /** @enum {string} */
-      status: "pending" | "running" | "done" | "failed";
-      speakers: components["schemas"]["VoiceTrialSpeaker"][];
-      created_at?: string;
-    };
-    VoiceTrials: {
-      trials: components["schemas"]["VoiceTrial"][];
     };
     VoiceModelWorkerState: {
       worker_id: string;
@@ -5019,22 +4953,6 @@ export interface components {
       speakers: components["schemas"]["LocalSpeaker"][];
       /** @description Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie. */
       history: components["schemas"]["VoiceHistoryEntry"][];
-    };
-    /** @description Entrée d'un essai de diarisation (étapes voicetrial.*) : le modèle du catalogue et les options choisis pour l'essai, jamais la configuration active ni une version de pipeline. */
-    WorkerVoiceTrialInput: {
-      config: components["schemas"]["VoiceTrialConfig"];
-      trial: {
-        audio_stream_index: number;
-      };
-    };
-    VoiceTrialConfig: {
-      /** @enum {string} */
-      provider: "pyannote" | "nemo";
-      model: string;
-      model_version: string;
-      num_speakers?: number;
-      min_speakers?: number;
-      max_speakers?: number;
     };
     WorkerVoiceInput: {
       pipeline_version: string;
@@ -11140,108 +11058,6 @@ export interface operations {
     };
     responses: {
       /** @description État enregistré */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Erreur */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Error"];
-        };
-      };
-    };
-  };
-  listVoiceTrials: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Essais */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["VoiceTrials"];
-        };
-      };
-      /** @description Erreur */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Error"];
-        };
-      };
-    };
-  };
-  createVoiceTrial: {
-    parameters: {
-      query?: never;
-      header: {
-        Origin: string;
-        "X-CSRF-Token": string;
-      };
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["VoiceTrialRequest"];
-      };
-    };
-    responses: {
-      /** @description Essai lancé */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["VoiceTrial"];
-        };
-      };
-      /** @description Erreur */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Error"];
-        };
-      };
-    };
-  };
-  deleteVoiceTrial: {
-    parameters: {
-      query?: never;
-      header: {
-        Origin: string;
-        "X-CSRF-Token": string;
-      };
-      path: {
-        id: number;
-        trial: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Essai supprimé */
       204: {
         headers: {
           [name: string]: unknown;

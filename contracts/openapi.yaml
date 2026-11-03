@@ -5268,11 +5268,6 @@
     "/api/admin/workers/{id}/voice-models/retry": {"post": {"operationId": "retryWorkerVoiceModel", "security": [{"session": []}], "description": "Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec. Refusé (no_voice_candidate) sans candidat ou sans échec à relancer.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}, {"in": "path", "name": "id", "required": true, "schema": {"type": "string", "maxLength": 64}}], "responses": {"200": {"description": "Relance demandée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceModelRetry"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/worker/voice-models": {"get": {"operationId": "getWorkerVoiceModels", "security": [{"workerBearer": []}], "description": "État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, et les modèles à supprimer. Jamais de jeton ni de chemin.", "responses": {"200": {"description": "État souhaité", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerVoiceModels"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/worker/voice-models/status": {"post": {"operationId": "postWorkerVoiceModelStatus", "security": [{"workerBearer": []}], "description": "Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus / total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou supprimé. Une cause n'accompagne qu'un échec.", "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WorkerVoiceModelStatus"}}}}, "responses": {"204": {"description": "État enregistré"}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
-    "/api/admin/clips/{id}/voice-trials": {
-      "get": {"operationId": "listVoiceTrials", "security": [{"session": []}], "description": "Administrateurs uniquement. Essais de diarisation d'un clip, du plus récent au plus ancien, avec leur état et, une fois terminés, un résumé par locuteur. Un essai n'est jamais le résultat voix du clip.", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}], "responses": {"200": {"description": "Essais", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceTrials"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}},
-      "post": {"operationId": "createVoiceTrial", "security": [{"session": []}], "description": "Administrateurs uniquement. Lance un essai de diarisation avec le modèle candidat ou actif et, si le moteur le permet, un nombre de locuteurs (num_speakers, ou min_speakers et max_speakers). Un essai est conservé par (clip, piste, modèle, options) : le relancer remplace son résultat. Il ne change ni les locuteurs locaux, ni les attributions, ni les corrections, et n'alimente ni le matching, ni les empreintes, ni la recherche. Refusé (voice_trial_option_unsupported) si le moteur ne gère pas l'option, (voice_model_not_ready) si aucun Worker n'a le modèle prêt.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}, {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceTrialRequest"}}}}, "responses": {"201": {"description": "Essai lancé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceTrial"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
-    },
-    "/api/admin/clips/{id}/voice-trials/{trial}": {"delete": {"operationId": "deleteVoiceTrial", "security": [{"session": []}], "description": "Administrateurs uniquement. Supprime un essai de diarisation ; le résultat voix du clip n'est pas touché.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}, {"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "path", "name": "trial", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}], "responses": {"204": {"description": "Essai supprimé"}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/admin/clips/{id}/voice": {
       "post": {
         "operationId": "scheduleVoice",
@@ -7804,8 +7799,7 @@
           },
           "pipeline": {"$ref": "#/components/schemas/TranscriptionPipeline"},
           "pipeline_version": {"type": "string"},
-          "voice": {"$ref": "#/components/schemas/WorkerVoiceInput"},
-          "voice_trial": {"$ref": "#/components/schemas/WorkerVoiceTrialInput"}
+          "voice": {"$ref": "#/components/schemas/WorkerVoiceInput"}
         }
       },
       "TranscriptionSettingsInput": {
@@ -7843,10 +7837,6 @@
       "VoiceModelChoice": {"type": "object", "additionalProperties": false, "required": ["model_id"], "properties": {"model_id": {"type": "string", "maxLength": 64}}},
       "VoiceModelCandidate": {"type": "object", "required": ["candidate"], "properties": {"candidate": {"type": "string"}}},
       "VoiceModelRetry": {"type": "object", "required": ["retry_requested"], "properties": {"retry_requested": {"type": "boolean"}}},
-      "VoiceTrialRequest": {"type": "object", "additionalProperties": false, "required": ["model_id"], "properties": {"model_id": {"type": "string", "maxLength": 64}, "audio_stream_index": {"type": "integer", "minimum": 0}, "num_speakers": {"type": "integer", "minimum": 1, "maximum": 32}, "min_speakers": {"type": "integer", "minimum": 1, "maximum": 32}, "max_speakers": {"type": "integer", "minimum": 1, "maximum": 32}}},
-      "VoiceTrialSpeaker": {"type": "object", "required": ["label", "speaking_seconds", "turn_count"], "properties": {"label": {"type": "string"}, "speaking_seconds": {"type": "number"}, "turn_count": {"type": "integer"}}},
-      "VoiceTrial": {"type": "object", "required": ["id", "clip_id", "audio_stream_index", "model_id", "num_speakers", "min_speakers", "max_speakers", "status", "speakers"], "properties": {"id": {"type": "integer", "format": "int64"}, "clip_id": {"type": "integer", "format": "int64"}, "audio_stream_index": {"type": "integer"}, "model_id": {"type": "string"}, "num_speakers": {"type": "integer", "nullable": true}, "min_speakers": {"type": "integer", "nullable": true}, "max_speakers": {"type": "integer", "nullable": true}, "status": {"type": "string", "enum": ["pending", "running", "done", "failed"]}, "speakers": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceTrialSpeaker"}}, "created_at": {"type": "string"}}},
-      "VoiceTrials": {"type": "object", "required": ["trials"], "properties": {"trials": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceTrial"}}}},
       "VoiceModelWorkerState": {"type": "object", "required": ["worker_id", "name", "connected", "state", "cause_code", "bytes_received", "bytes_total"], "properties": {"worker_id": {"type": "string"}, "name": {"type": "string"}, "connected": {"type": "boolean"}, "state": {"type": "string", "enum": ["not_installed", "downloading", "verifying", "ready", "failed"]}, "cause_code": {"type": "string", "enum": ["", "hf_token_missing", "hf_access_denied","hf_token_invalid","hf_gated_denied","hf_repo_invalid", "disk_full", "runtime_incompatible", "inference_failed", "hf_auth_required", "hf_not_found", "hf_network", "models_volume_unwritable", "hf_cache_error"]}, "bytes_received": {"type": "integer", "format": "int64"}, "bytes_total": {"type": "integer", "format": "int64"}}},
       "VoiceModel": {"type": "object", "required": ["id", "kind", "engine", "repo", "revision", "license", "gated", "max_speakers", "size_bytes", "supports_num_speakers", "active", "candidate", "installed", "workers"], "properties": {"id": {"type": "string"}, "kind": {"type": "string", "enum": ["diarization", "fingerprint"]}, "engine": {"type": "string"}, "repo": {"type": "string"}, "revision": {"type": "string"}, "license": {"type": "string"}, "gated": {"type": "boolean"}, "max_speakers": {"type": "integer", "nullable": true}, "size_bytes": {"type": "integer", "format": "int64"}, "supports_num_speakers": {"type": "boolean"}, "active": {"type": "boolean"}, "candidate": {"type": "boolean"}, "installed": {"type": "boolean", "description": "Au moins un Worker a le modèle prêt."}, "workers": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceModelWorkerState"}}}},
       "VoiceModels": {"type": "object", "required": ["models"], "properties": {"models": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceModel"}}}},
@@ -8315,27 +8305,6 @@
           "steps": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceStep"}},
           "speakers": {"type": "array", "items": {"$ref": "#/components/schemas/LocalSpeaker"}},
           "history": {"type": "array", "description": "Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie.", "items": {"$ref": "#/components/schemas/VoiceHistoryEntry"}}
-        }
-      },
-      "WorkerVoiceTrialInput": {
-        "type": "object",
-        "description": "Entrée d'un essai de diarisation (étapes voicetrial.*) : le modèle du catalogue et les options choisis pour l'essai, jamais la configuration active ni une version de pipeline.",
-        "required": ["config", "trial"],
-        "properties": {
-          "config": {"$ref": "#/components/schemas/VoiceTrialConfig"},
-          "trial": {"type": "object", "required": ["audio_stream_index"], "properties": {"audio_stream_index": {"type": "integer", "minimum": 0}}}
-        }
-      },
-      "VoiceTrialConfig": {
-        "type": "object", "additionalProperties": false,
-        "required": ["provider", "model", "model_version"],
-        "properties": {
-          "provider": {"type": "string", "enum": ["pyannote", "nemo"]},
-          "model": {"type": "string", "minLength": 1, "maxLength": 100},
-          "model_version": {"type": "string", "minLength": 1, "maxLength": 64},
-          "num_speakers": {"type": "integer", "minimum": 1, "maximum": 32},
-          "min_speakers": {"type": "integer", "minimum": 1, "maximum": 32},
-          "max_speakers": {"type": "integer", "minimum": 1, "maximum": 32}
         }
       },
       "WorkerVoiceInput": {

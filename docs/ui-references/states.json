@@ -16,6 +16,14 @@
       "appClick": "Voix"
     },
     {
+      "screen": "fiche-video",
+      "state": "analyse-panneau",
+      "prototype": "/prototype/fiche-video?variant=C",
+      "prototypeClick": "Analyse",
+      "app": "/clips/{clip}",
+      "appClick": "Analyse"
+    },
+    {
       "screen": "people",
       "state": "annuaire",
       "prototype": "/prototype/people?variant=D",

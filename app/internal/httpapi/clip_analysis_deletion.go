@@ -178,7 +178,6 @@ func (s *Server) deleteAnalysisSteps(ctx context.Context, clipID int64, steps []
 	}
 	if all {
 		for _, query := range []string{
-			`DELETE FROM voice_diarization_trials WHERE clip_id=$1`,
 			`DELETE FROM notifications WHERE clip_id=$1`,
 			`DELETE FROM clip_analysis_runs WHERE clip_id=$1`,
 		} {

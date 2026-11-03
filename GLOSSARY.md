@@ -94,9 +94,7 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 **Modèle vocal actif** : Le modèle de diarisation, ou d'empreinte, que Snitch utilise pour tous les nouveaux travaux vocaux, quel que soit le Worker. Un Worker qui ne l'a pas prêt ne traite pas ces travaux.
 _Avoid_ : Modèle du Worker, modèle installé.
 
-**Modèle vocal candidat** : Un modèle du catalogue choisi par l'administrateur pour être préparé sur les Workers et essayé avant d'être activé. Il ne produit aucun résultat de la bibliothèque tant qu'il n'est pas actif.
-
-**Essai de diarisation** : Une diarisation d'un clip avec un modèle candidat ou un nombre de locuteurs imposé, présentée à côté du résultat courant. Elle ne change ni les locuteurs locaux, ni les attributions, ni les corrections du clip.
+**Modèle vocal candidat** : Un modèle du catalogue choisi par l'administrateur pour être préparé sur les Workers et essayé avant d'être activé. Il ne produit aucun résultat de la bibliothèque tant qu'il n'est pas actif. _Historique_ : la fonction d'essai de diarisation sur la fiche d'un clip (ADR 0022, migrations 00057 et 00058) a été retirée à la demande de l'utilisateur ; la table des essais est supprimée par la migration 00090.
 
 **Transcription désactivée** : Choix explicite de ne pas produire de transcription pour la bibliothèque. Il se distingue d'un réglage encore incomplet ou non testé.
 
