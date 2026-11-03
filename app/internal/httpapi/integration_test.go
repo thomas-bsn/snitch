@@ -477,9 +477,17 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceDispositionTranscript(t, pool)
 	})
-	t.Run("voice disposition survives rediarization", func(t *testing.T) {
+	t.Run("rediarization carries dispositions", func(t *testing.T) {
 		reset(t)
-		testVoiceDispositionSurvivesRediarization(t, pool)
+		testRediarizationCarriesDispositions(t, pool)
+	})
+	t.Run("rediarization drops uncovered dispositions", func(t *testing.T) {
+		reset(t)
+		testRediarizationDropsUncoveredDispositions(t, pool)
+	})
+	t.Run("rediarization conflict drops dispositions", func(t *testing.T) {
+		reset(t)
+		testRediarizationConflictDropsDispositions(t, pool)
 	})
 	t.Run("random voice counts in verification", func(t *testing.T) {
 		reset(t)
@@ -496,6 +504,14 @@ func TestFoundation(t *testing.T) {
 	t.Run("refusal during active analysis", func(t *testing.T) {
 		reset(t)
 		testRefusalDuringActiveAnalysis(t, pool)
+	})
+	t.Run("voice refusal cancel", func(t *testing.T) {
+		reset(t)
+		testVoiceRefusalCancel(t, pool)
+	})
+	t.Run("refusal cancel during active analysis", func(t *testing.T) {
+		reset(t)
+		testRefusalCancelDuringActiveAnalysis(t, pool)
 	})
 	t.Run("library unknown filter matches search", func(t *testing.T) {
 		reset(t)
@@ -780,6 +796,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/local-speakers/999999/disposition", map[string]any{"disposition": "ignored"}, me.CSRF, 404)
 		call(client, "DELETE", "/api/local-speakers/999999/disposition", nil, me.CSRF, 404)
 		call(client, "POST", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusal", map[string]any{"person_id": 999999}, me.CSRF, 404)
+		call(client, "DELETE", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusals/999999", nil, me.CSRF, 200)
 		call(client, "PUT", "/api/voice-groups/999999/disposition", map[string]any{"disposition": "random"}, me.CSRF, 404)
 		// Voice matching settings and rematch (behavior in the voice matching suite).
 		call(client, "GET", "/api/voice-matching", nil, "", 200)

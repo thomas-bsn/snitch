@@ -2467,9 +2467,26 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne propose plus cette Personne pour cette voix. */
+    /** @description Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne propose plus cette Personne pour cette voix. Réversible (Annuler le refus) et journalisé. Une nouvelle diarisation reporte le refus sur la nouvelle voix qui couvre au moins la moitié du temps de parole de l'ancienne, sinon l'abandonne. */
     post: operations["refuseLocalSpeaker"];
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/refusals/{person_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Utilisateurs connectés, pour un clip visible : même droit que le refus (ADR 0031). « Annuler le refus » : la Personne n'est plus exclue du rapprochement pour cette voix. L'attribution retirée par le refus n'est pas rétablie. */
+    delete: operations["cancelLocalSpeakerRefusal"];
     options?: never;
     head?: never;
     patch?: never;
@@ -4174,6 +4191,7 @@ export interface components {
       local_speaker_id: number;
       /** Format: int64 */
       person_id: number;
+      /** @description Vrai après un refus, faux après son annulation. */
       refused: boolean;
     };
     VoiceGroupExclusion: {
@@ -4641,6 +4659,8 @@ export interface components {
        * @enum {string|null}
        */
       disposition?: "ignored" | "random" | null;
+      /** @description Personnes refusées pour cette voix (« Ce n'est pas X »), que le rapprochement ne propose plus ; chacune peut être rétablie par Annuler le refus (ADR 0031). */
+      refused_persons?: components["schemas"]["PersonRef"][];
     };
     ClipVoice: {
       /** Format: int64 */
@@ -12022,6 +12042,68 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceRefusal"];
+        };
+      };
+      /** @description analysis_active : une analyse est en cours sur le clip ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelLocalSpeakerRefusal: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        person_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Refus annulé (idempotent ; journalisé seulement s'il existait) : le rapprochement peut de nouveau proposer cette Personne pour cette voix */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRefusal"];
+        };
+      };
+      /** @description invalid_person_id */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description analysis_active : une analyse est en cours sur le clip ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */

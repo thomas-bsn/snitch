@@ -5464,8 +5464,17 @@
         "operationId": "refuseLocalSpeaker",
         "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRefusalInput"}}}},
-        "responses": {"200": {"description": "Refus enregistré : l'attribution de cette Personne est retirée, ses échantillons quittent la Référence", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRefusal"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
-        "description": "Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne propose plus cette Personne pour cette voix.",
+        "responses": {"200": {"description": "Refus enregistré : l'attribution de cette Personne est retirée, ses échantillons quittent la Référence", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRefusal"}}}}, "409": {"description": "analysis_active : une analyse est en cours sur le clip ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne propose plus cette Personne pour cette voix. Réversible (Annuler le refus) et journalisé. Une nouvelle diarisation reporte le refus sur la nouvelle voix qui couvre au moins la moitié du temps de parole de l'ancienne, sinon l'abandonne.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/refusals/{person_id}": {
+      "delete": {
+        "operationId": "cancelLocalSpeakerRefusal",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "path", "name": "person_id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Refus annulé (idempotent ; journalisé seulement s'il existait) : le rapprochement peut de nouveau proposer cette Personne pour cette voix", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRefusal"}}}}, "400": {"description": "invalid_person_id", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "analysis_active : une analyse est en cours sur le clip ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible : même droit que le refus (ADR 0031). « Annuler le refus » : la Personne n'est plus exclue du rapprochement pour cette voix. L'attribution retirée par le refus n'est pas rétablie.",
         "security": [{"session": []}]
       }
     },
@@ -7735,7 +7744,7 @@
       "VoiceRefusal": {
         "type": "object",
         "required": ["local_speaker_id", "person_id", "refused"],
-        "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "person_id": {"type": "integer", "format": "int64"}, "refused": {"type": "boolean"}}
+        "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "person_id": {"type": "integer", "format": "int64"}, "refused": {"type": "boolean", "description": "Vrai après un refus, faux après son annulation."}}
       },
       "VoiceGroupExclusion": {
         "type": "object",
@@ -7985,7 +7994,8 @@
           "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true, "description": "Personne de l'attribution effective (validation humaine prioritaire)."},
           "attribution": {"allOf": [{"$ref": "#/components/schemas/Attribution"}], "nullable": true},
           "fingerprints": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceFingerprint"}},
-          "disposition": {"type": "string", "nullable": true, "enum": ["ignored", "random"], "description": "ignored : voix mise de côté, sans locuteur sur ses segments ; random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031)."}
+          "disposition": {"type": "string", "nullable": true, "enum": ["ignored", "random"], "description": "ignored : voix mise de côté, sans locuteur sur ses segments ; random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031)."},
+          "refused_persons": {"type": "array", "items": {"$ref": "#/components/schemas/PersonRef"}, "description": "Personnes refusées pour cette voix (« Ce n'est pas X »), que le rapprochement ne propose plus ; chacune peut être rétablie par Annuler le refus (ADR 0031)."}
         }
       },
       "ClipVoice": {
