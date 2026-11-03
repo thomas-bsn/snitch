@@ -1,4 +1,4 @@
-import { Pencil } from "lucide-react";
+import { ChevronDown, Pencil } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../api/client";
 import { ErrorAlert } from "../components/Alert";
@@ -48,6 +48,17 @@ const originKey = (origin: string | null | undefined) =>
     : origin === "filename"
       ? "metadata.origin.filename"
       : "metadata.origin.manual";
+
+const formatSize = (bytes: number) => {
+  const units = ["o", "Ko", "Mo", "Go", "To"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)} ${units[unit]}`;
+};
 
 const pillClass = (manual: boolean) =>
   `ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${manual ? "bg-warn-bg text-warn-fg" : "bg-accent-soft text-accent-ink"}`;
@@ -104,12 +115,53 @@ export function ClipMetadata({ clip }: { clip: Clip }) {
         <dd className="m-0 break-all font-mono text-xs">
           {clip.original_name}
         </dd>
+        <dt className="text-mute">{t("metadata.format")}</dt>
+        <dd className="m-0">{clip.format_name || "—"}</dd>
+        <dt className="text-mute">{t("metadata.size")}</dt>
+        <dd className="m-0">{formatSize(clip.size_bytes)}</dd>
         <dt className="text-mute">{t("metadata.codecs")}</dt>
         <dd className="m-0">
           {[clip.video_codec, clip.audio_codec].filter(Boolean).join(" · ") ||
             "—"}
         </dd>
+        {clip.tracks.length > 0 && (
+          <>
+            <dt className="text-mute">{t("metadata.tracks")}</dt>
+            <dd className="m-0">
+              {clip.tracks
+                .map((track) => `${track.type} ${track.codec}`)
+                .join(" · ")}
+            </dd>
+          </>
+        )}
       </dl>
+    </div>
+  );
+}
+
+/** The full metadata of the clip, folded under the player so that the page starts with what matters. */
+export function MetadataDisclosure({ clip }: { clip: Clip }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const panel = useId();
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panel}
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex min-h-11 items-center gap-1.5 self-start font-medium text-accent-ink md:min-h-8"
+      >
+        <ChevronDown
+          aria-hidden="true"
+          className={`size-4 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+        {t("metadata.fullMetadata")}
+      </button>
+      <div id={panel} hidden={!open}>
+        <ClipMetadata clip={clip} />
+      </div>
     </div>
   );
 }
