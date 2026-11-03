@@ -42,6 +42,7 @@ import { NotificationsPage } from "./notifications/NotificationsPage";
 import { SearchPage } from "./search/SearchPage";
 import { ThemeProvider } from "./theme";
 import { FichePrototype } from "./library/prototype-fiche/FichePrototype";
+import { PeoplePrototype } from "./people/prototype-people/PeoplePrototype";
 
 /** Screens that need a signed-in person; others are sent to the sign-in screen. */
 function RequireSession() {
@@ -157,12 +158,12 @@ function Routing() {
 
 export function App() {
   // PROTOTYPE — fiche vidéo, sans session ni serveur. Branche jetable, jamais fusionnée.
-  if (window.location.pathname.startsWith("/prototype/fiche-video")) {
+  if (window.location.pathname.startsWith("/prototype/")) {
     return (
       <ThemeProvider>
         <I18nProvider>
           <BrowserRouter>
-            <FichePrototype />
+            {window.location.pathname.startsWith("/prototype/people") ? <PeoplePrototype /> : <FichePrototype />}
           </BrowserRouter>
         </I18nProvider>
       </ThemeProvider>

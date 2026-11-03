@@ -24,7 +24,9 @@ import type { Sim } from "./useFicheSim";
 type Tab = "transcript" | "voices";
 
 function WorkTabs({ sim, player, className = "" }: { sim: Sim; player: ReturnType<typeof usePlayer>; className?: string }) {
-  const [tab, setTab] = useState<Tab>("transcript");
+  const [tab, setTab] = useState<Tab>(() =>
+    new URLSearchParams(window.location.search).get("tab") === "voices" ? "voices" : "transcript",
+  );
   const todo = sim.voices.filter((v) => ["suggested", "ambiguous", "unknown"].includes(v.state)).length;
   return (
     <div className={`flex min-w-0 flex-col rounded-xl border border-line ${className}`}>
