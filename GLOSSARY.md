@@ -7,10 +7,22 @@ Snitch permet de retrouver les paroles et les voix présentes dans des clips de 
 **Clip** : Une courte vidéo de jeu, accompagnée de sa provenance et des paroles qui y sont retrouvées.
 _Avoid_ : Enregistrement (qui peut être plus long), fichier (qui désigne un emplacement).
 
-**Analyse de clip** : Une exécution durable lancée par un administrateur, qui enchaîne les étapes applicables d'un clip (préparation, transcription, puis les suivantes) et explique l'état de chacune. Une seule est active par clip ; les résultats valides sont réutilisés.
+**Analyse de clip** : Une exécution durable lancée par un administrateur, ou automatiquement à l'ajout d'une vidéo, qui enchaîne les étapes applicables d'un clip (préparation, transcription, puis les suivantes) et explique l'état de chacune. Une seule est active par clip ; les résultats valides sont réutilisés.
 _Avoid_ : Traitement (trop vague), tâche (qui désigne un job).
 
+**Analyse complète automatique** : Le réglage qui fait démarrer une Analyse de clip complète, de la transcription jusqu'aux voix, dès qu'une vidéo est ajoutée. Il ne concerne que les nouveaux ajouts.
+
+**Suppression d'analyse** : Le retrait volontaire des résultats d'étapes choisies d'un clip, avec tout ce qui en dépend. Le clip, ses fichiers et les Personnes restent ; les Références perdent les échantillons qui venaient de ce clip.
+_Avoid_ : Suppression du clip, réinitialisation.
+
 **Source** : Une origine de clips, comme un dossier surveillé ou un dépôt manuel.
+
+**Racine vidéo** : Le dossier unique dans lequel Snitch range et lit les vidéos de la bibliothèque, et le seul où il peut écrire.
+_Avoid_ : Source (qui désigne aussi les origines historiques en lecture seule).
+
+**Vidéo non indexée** : Un fichier vidéo présent dans la Racine vidéo que Snitch n'a encore ni lu ni reconnu par son contenu. Ce n'est pas encore un clip ; l'ouvrir l'indexe, sans le transcrire.
+
+**Demande de création de dossier** : La demande d'un utilisateur de créer un dossier dans la Racine vidéo. Elle attend l'approbation d'un Administrateur ; le dossier d'un Administrateur est créé sans demande.
 
 **Dossier privé** : Un dossier de premier niveau d'une Source que seul le Super-administrateur peut parcourir. Les autres utilisateurs voient son nom avec un cadenas, pas ses clips, sauf ceux qu'ils possèdent ou qui proviennent aussi d'un emplacement visible. Il est distinct de la visibilité d'un clip.
 _Avoid_ : Source privée, clip privé.
@@ -34,11 +46,27 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Voix ambiguë** : Une voix proche de plusieurs Personnes sans qu'aucune ne se détache ; elle est présentée avec ses candidates et jamais attribuée d'elle-même.
 
-**Voix inconnue** : Une voix sans validation humaine ni attribution automatique ; une suggestion ou une voix ambiguë reste inconnue tant qu'un utilisateur n'a pas tranché.
+**Voix inconnue** : Une voix sans validation humaine ni attribution automatique ; une suggestion ou une voix ambiguë reste inconnue tant qu'un utilisateur n'a pas tranché. Une voix ignorée ou une voix Random n'est pas une voix inconnue.
 
-**Cas de vérification** : Une voix inconnue ou ambiguë qu'un utilisateur doit trancher, identifiée par son Locuteur local. Il disparaît de la file dès qu'une Personne lui est attribuée par validation humaine ; « passer » un cas ne le tranche pas.
+**Voix ignorée** : Un Locuteur local déclaré par un utilisateur comme une fausse détection. Il ne compte pas : aucun locuteur n'est affiché pour ses paroles, et il n'est ni vérifié, ni groupé, ni rapproché d'une Personne. La décision est réversible.
+_Avoid_ : Bruit, voix supprimée.
 
-**Groupe de voix inconnues** : Un ensemble de voix inconnues proches proposé pour être nommé en une seule fois comme une Personne. Il n'est jamais confirmé automatiquement, et une voix isolée forme un groupe à elle seule.
+**Voix Random** : Un Locuteur local reconnu comme une vraie voix qu'on choisit de ne pas identifier. Ses paroles sont attribuées à « Random » ; il n'est ni vérifié, ni groupé, ni rapproché d'une Personne. La décision est réversible.
+_Avoid_ : Anonyme, inconnu (qui attend encore une décision).
+
+**Refus d'identification** : La décision qu'une voix n'est pas une Personne donnée. La voix redevient sans identité et cette Personne ne lui est plus proposée. Il ne supprime ni la voix ni ses paroles.
+_Avoid_ : Suppression de la voix, désattribution.
+
+**Cas de vérification** : Une voix inconnue ou ambiguë qu'un utilisateur doit trancher, identifiée par son Locuteur local. Il disparaît de la file dès qu'une Personne lui est attribuée par validation humaine, ou que la voix est déclarée ignorée ou Random ; « passer » un cas ne le tranche pas.
+
+**À traiter** : Les clips qui ont encore au moins une voix à trancher : un Cas de vérification ou une voix d'un Groupe de voix inconnues non nommé. On les traite clip par clip.
+_Avoid_ : Vérification (qui désigne un seul cas), file.
+
+**Groupe de voix inconnues** : Un ensemble de voix inconnues proches proposé pour être nommé en une seule fois comme une Personne. Il n'est jamais confirmé automatiquement, et une voix isolée forme un groupe à elle seule. L'interface les présente sous le nom « Voix inconnues ».
+_Avoid_ : Groupe (seul), cluster.
+
+**Forme d'onde** : Le tracé de l'audio d'un clip, coloré selon la voix qui parle à chaque instant. Elle sert à repérer qui parle quand.
+_Avoid_ : Spectre, spectrogramme (qui montre les fréquences).
 
 **Piste micro** : La piste audio d'une source qui ne contient que la voix de son propriétaire ; elle lui est attribuée directement, sans diarisation.
 
@@ -57,6 +85,9 @@ _Avoid_ : Jeton du Worker (qui désigne l'accès durable du Worker installé).
 
 **Voix prête** : État d'un Worker dont les modèles vocaux actifs sont présents et dont une inférence de test a réussi. Des modèles simplement téléchargés ne suffisent pas.
 _Avoid_ : Modèles prêts, voix installée.
+
+**Token Hugging Face central** : Le jeton d'accès aux modèles vocaux saisi une fois dans Snitch par le Super-administrateur et distribué aux Workers autorisés. Un jeton déposé directement sur un Worker reste le sien et n'est jamais remplacé en silence.
+_Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Catalogue de modèles vocaux** : Les modèles de diarisation et d'empreinte que Snitch sait exécuter. Seul un modèle du catalogue peut devenir candidat ou actif ; un dépôt quelconque n'en fait pas partie.
 
