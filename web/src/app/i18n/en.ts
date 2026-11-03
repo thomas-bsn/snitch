@@ -1484,6 +1484,12 @@ export const en = {
     },
   },
   import: {
+    choice: {
+      serverBody:
+        "The video is already in the video root. Pick files or a whole folder to analyse.",
+      computerBody: "Upload videos and choose the folder where to put them.",
+      back: "Change mode",
+    },
     sections: {
       server: "Already on the server",
       computer: "From my computer",

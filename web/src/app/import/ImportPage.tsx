@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, HardDrive, Upload } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
@@ -33,6 +35,14 @@ export function ImportPage() {
   useDocumentTitle(t("pages.import.title"));
   const { transfers, add, resume, retry, cancel, dismiss } = useTransfers();
   const [visibility, setVisibility] = useState<Visibility>("shared");
+  const [mode, setMode] = useState<null | "server" | "computer">(null);
+  // Transfers restored after a reload bring the person back to the upload view, once.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current || transfers.length === 0) return;
+    restored.current = true;
+    setMode((current) => current ?? "computer");
+  }, [transfers.length]);
   const [rejected, setRejected] = useState<string[]>([]);
 
   // A folder deleted or moved after it was chosen: sending stops and a new choice is required.
@@ -77,11 +87,38 @@ export function ImportPage() {
     <section className="flex flex-col gap-8 px-4 py-6 md:px-7">
       <h1 className="text-[22px] font-semibold">{t("pages.import.title")}</h1>
 
-      <ServerSelection />
+      {mode === null && (
+        <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
+          <Choice
+            icon={<HardDrive className="size-6" aria-hidden="true" />}
+            title={t("import.sections.server")}
+            body={t("import.choice.serverBody")}
+            onClick={() => setMode("server")}
+          />
+          <Choice
+            icon={<Upload className="size-6" aria-hidden="true" />}
+            title={t("import.sections.computer")}
+            body={t("import.choice.computerBody")}
+            onClick={() => setMode("computer")}
+          />
+        </div>
+      )}
+      {mode !== null && (
+        <button
+          type="button"
+          className="-mt-4 inline-flex min-h-11 w-fit items-center gap-1 text-sm text-mute hover:text-ink"
+          onClick={() => setMode(null)}
+        >
+          <ChevronLeft className="size-4" aria-hidden="true" />
+          {t("import.choice.back")}
+        </button>
+      )}
+
+      {mode === "server" && <ServerSelection />}
 
       <section
         aria-labelledby="import-computer"
-        className="flex flex-col gap-5 border-t border-line pt-8"
+        className={`${mode === "computer" ? "flex" : "hidden"} max-w-3xl flex-col gap-5`}
       >
         <h2 id="import-computer" className="text-lg font-semibold">
           {t("import.sections.computer")}
@@ -155,5 +192,29 @@ export function ImportPage() {
         )}
       </section>
     </section>
+  );
+}
+
+function Choice({
+  icon,
+  title,
+  body,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  body: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col gap-2 rounded-xl border border-line p-5 text-left hover:border-accent-solid hover:bg-accent-soft/40"
+    >
+      <span className="text-accent-ink">{icon}</span>
+      <span className="text-base font-semibold">{title}</span>
+      <span className="text-sm text-mute">{body}</span>
+    </button>
   );
 }

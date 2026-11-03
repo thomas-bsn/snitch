@@ -64,6 +64,7 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     });
     const page = await context.newPage();
     await page.goto("/import");
+    await page.getByRole("button", { name: "Already on the server" }).click();
     const section = serverSection(page);
     await expect(section.getByText("secret")).toBeVisible();
     await expect(section.getByLabel("Select secret")).toBeDisabled();
@@ -82,6 +83,7 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     });
     const page = await context.newPage();
     await page.goto("/import");
+    await page.getByRole("button", { name: "Already on the server" }).click();
     const section = serverSection(page);
     await expect(section.getByText("New folder")).toHaveCount(0);
 
@@ -115,6 +117,7 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     });
     const page = await member.newPage();
     await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
     await page.getByRole("button", { name: /Destination folder/ }).click();
     await page.getByLabel("Folder name").fill("requested-dir");
     await page.getByRole("button", { name: "New folder" }).click();
@@ -156,6 +159,7 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
 
     // Once approved, the folder exists and the member can use it as a destination.
     await page.reload();
+    await page.getByRole("button", { name: "From my computer" }).click();
     await page.getByRole("button", { name: /Destination folder/ }).click();
     // The page behind the dialog also names the folder: scope to the dialog.
     await expect(
@@ -175,6 +179,7 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     });
     const page = await context.newPage();
     await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
     await page.getByRole("button", { name: /Destination folder/ }).click();
     await page.getByLabel("Folder name").fill("direct-dir");
     await page.getByRole("button", { name: "New folder" }).click();
@@ -192,6 +197,7 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     });
     const page = await member.newPage();
     await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
     await page.getByRole("button", { name: /Destination folder/ }).click();
     await page.getByLabel("Folder name").fill("refused-dir");
     await page.getByRole("button", { name: "New folder" }).click();
@@ -210,6 +216,7 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     ).toBeVisible();
 
     await page.reload();
+    await page.getByRole("button", { name: "From my computer" }).click();
     await page.getByRole("button", { name: /Destination folder/ }).click();
     await expect(page.getByRole("button", { name: /refused-dir/ })).toHaveCount(
       0,

@@ -1511,6 +1511,13 @@ export const fr: Messages = {
     },
   },
   import: {
+    choice: {
+      serverBody:
+        "La vidéo est déjà dans la Racine vidéo. Choisissez des fichiers ou un dossier entier à analyser.",
+      computerBody:
+        "Téléversez des vidéos et choisissez le dossier où les ranger.",
+      back: "Changer de mode",
+    },
     sections: {
       server: "Déjà sur le serveur",
       computer: "Depuis mon ordinateur",
