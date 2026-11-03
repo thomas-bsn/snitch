@@ -326,6 +326,17 @@ test.describe.serial("personnes et vérification", () => {
     const claire = page.getByRole("region", { name: "Claire Synthétique" });
     await expect(claire).toContainText("1 voice(s)");
     await expect(claire).toContainText("1 validated sample(s)");
+    await expect(claire).toContainText("1 video(s)");
+    await expect(claire.getByRole("note")).toContainText(
+      "Reference to strengthen",
+    );
+    await expect(
+      claire
+        .getByRole("group", {
+          name: "Videos where Claire Synthétique is heard",
+        })
+        .getByRole("link"),
+    ).toHaveCount(1);
     const claireUrl = page.url();
 
     // Creation.

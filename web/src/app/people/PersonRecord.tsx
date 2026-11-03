@@ -7,7 +7,13 @@ import { StatusPill } from "../components/StatusPill";
 import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
 import { PersonActions } from "./PersonActions";
-import { PersonVoices } from "./PersonVoices";
+import {
+  Avatar,
+  ReferenceBadge,
+  referenceLevel,
+  speechText,
+} from "./PersonParts";
+import { PersonVideos, PersonVoices } from "./PersonVoices";
 import {
   fetchPerson,
   fetchPersonImpact,
@@ -82,7 +88,7 @@ export function PersonRecord({
   const back = (
     <Link
       to="/people"
-      className="inline-flex min-h-11 items-center gap-1 text-accent underline min-[821px]:hidden"
+      className="inline-flex min-h-11 items-center gap-1 text-accent underline"
     >
       <ChevronLeft className="size-4" aria-hidden="true" />
       {t("people.persons.back")}
@@ -115,7 +121,7 @@ export function PersonRecord({
         <p className="text-mute">{t("people.persons.notFoundBody")}</p>
         <Link
           to="/people"
-          className="inline-flex min-h-11 items-center text-accent underline max-[820px]:hidden"
+          className="inline-flex min-h-11 items-center text-accent underline"
         >
           {t("people.persons.back")}
         </Link>
@@ -130,7 +136,8 @@ export function PersonRecord({
       className="flex flex-col gap-4 rounded-xl border border-line p-4"
     >
       {back}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <Avatar name={person.display_name} size="lg" />
         <h2 id={headingId} className="text-lg font-semibold">
           {person.display_name}
         </h2>
@@ -143,9 +150,34 @@ export function PersonRecord({
           </StatusPill>
         )}
       </div>
-      <p>
-        <Counts person={person} />
-      </p>
+      <div
+        role="group"
+        aria-label={t("people.persons.figuresLabel", {
+          name: person.display_name,
+        })}
+        className="flex flex-wrap items-center gap-x-3 gap-y-1"
+      >
+        <span>
+          <Counts person={person} />
+        </span>
+        <span className="text-mute">
+          {t("people.persons.videoCount", { count: person.clip_count })}
+          {" · "}
+          {speechText(person.speaking_seconds, t)}
+        </span>
+        <ReferenceBadge samples={person.validated_sample_count} />
+      </div>
+      {referenceLevel(person.validated_sample_count) !== "good" && (
+        <div role="note" className="rounded-lg bg-warn-bg p-3 text-warn-fg">
+          <b className="block">{t("people.persons.referenceWarningTitle")}</b>
+          {t(
+            referenceLevel(person.validated_sample_count) === "none"
+              ? "people.persons.referenceWarningNone"
+              : "people.persons.referenceWarningWeak",
+            { name: person.display_name },
+          )}
+        </div>
+      )}
       <PersonActions
         key={person.id}
         person={person}
@@ -156,6 +188,7 @@ export function PersonRecord({
         onDeleted={onDeleted}
         onRefused={reload}
       />
+      <PersonVideos person={person} voices={voices} />
       <PersonVoices person={person} voices={voices} />
     </section>
   );

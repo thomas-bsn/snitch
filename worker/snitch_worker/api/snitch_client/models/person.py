@@ -30,6 +30,8 @@ class Person:
             validated_sample_count (int): Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre
                 n'est pas une garantie de qualité d'identification.
             local_speaker_count (int): Locuteurs locaux validés pour cette Personne.
+            clip_count (int): Vidéos où une voix validée de la Personne est entendue, parmi celles que l'appelant peut voir.
+            speaking_seconds (float): Temps de parole cumulé de ces voix validées, sur les vidéos visibles par l'appelant.
             voice_profile_deleted_at (datetime.datetime | None): Date de suppression du profil vocal : tant qu'elle est
                 renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée.
                 Aucune donnée vocale n'est conservée.
@@ -41,6 +43,8 @@ class Person:
     user_id: int | None
     validated_sample_count: int
     local_speaker_count: int
+    clip_count: int
+    speaking_seconds: float
     voice_profile_deleted_at: datetime.datetime | None
     created_at: datetime.datetime
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -61,6 +65,10 @@ class Person:
 
         local_speaker_count = self.local_speaker_count
 
+        clip_count = self.clip_count
+
+        speaking_seconds = self.speaking_seconds
+
         voice_profile_deleted_at: None | str
         if isinstance(self.voice_profile_deleted_at, datetime.datetime):
             voice_profile_deleted_at = self.voice_profile_deleted_at.isoformat()
@@ -78,6 +86,8 @@ class Person:
             "user_id": user_id,
             "validated_sample_count": validated_sample_count,
             "local_speaker_count": local_speaker_count,
+            "clip_count": clip_count,
+            "speaking_seconds": speaking_seconds,
             "voice_profile_deleted_at": voice_profile_deleted_at,
             "created_at": created_at,
         })
@@ -104,6 +114,10 @@ class Person:
         validated_sample_count = d.pop("validated_sample_count")
 
         local_speaker_count = d.pop("local_speaker_count")
+
+        clip_count = d.pop("clip_count")
+
+        speaking_seconds = d.pop("speaking_seconds")
 
         def _parse_voice_profile_deleted_at(data: object) -> datetime.datetime | None:
             if data is None:
@@ -134,6 +148,8 @@ class Person:
             user_id=user_id,
             validated_sample_count=validated_sample_count,
             local_speaker_count=local_speaker_count,
+            clip_count=clip_count,
+            speaking_seconds=speaking_seconds,
             voice_profile_deleted_at=voice_profile_deleted_at,
             created_at=created_at,
         )
