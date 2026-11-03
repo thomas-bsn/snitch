@@ -717,12 +717,20 @@
                           "size_bytes": {
                             "type": "integer",
                             "format": "int64"
+                          },
+                          "private": {
+                            "type": "boolean"
+                          },
+                          "locked": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "path",
                           "directory",
-                          "size_bytes"
+                          "size_bytes",
+                          "private",
+                          "locked"
                         ],
                         "additionalProperties": false
                       }
@@ -7935,7 +7943,7 @@
         }
       },
       "NotificationRead": {"type": "object", "required": ["id", "read"], "properties": {"id": {"type": "integer", "format": "int64"}, "read": {"type": "boolean"}}},
-      "Notification": {"type": "object", "required": ["id", "kind", "state", "clip_id", "clip_name", "pending_count", "read", "created_at", "updated_at", "resolved_at", "job_id", "step", "error_code", "generic"], "properties": {"id": {"type": "integer", "format": "int64"}, "kind": {"type": "string", "enum": ["needs_speaker_review", "worker_unavailable", "provider_unavailable", "model_missing", "job_failed", "job_blocked", "technical_incident"], "description": "Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail."}, "state": {"type": "string", "enum": ["active", "resolved"], "description": "Partagé : une action résolue l'est pour tous."}, "clip_id": {"type": "integer", "format": "int64", "nullable": true}, "clip_name": {"type": "string"}, "pending_count": {"type": "integer", "description": "Voix restant à décider, ou jobs concernés par l'incident."}, "read": {"type": "boolean", "description": "État de lecture du demandeur, indépendant de la résolution."}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "resolved_at": {"type": "string", "format": "date-time", "nullable": true}, "job_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Incident : dernier job concerné (administrateurs uniquement)."}, "step": {"type": "string", "description": "Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret."}, "error_code": {"type": "string", "description": "Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated), jamais l'erreur brute."}, "generic": {"type": "boolean", "description": "Vrai pour le message générique sûr vu par un non-administrateur."}}},
+      "Notification": {"type": "object", "required": ["id", "kind", "state", "clip_id", "clip_name", "pending_count", "read", "created_at", "updated_at", "resolved_at", "job_id", "step", "error_code", "generic"], "properties": {"id": {"type": "integer", "format": "int64"}, "kind": {"type": "string", "enum": ["needs_speaker_review", "worker_unavailable", "provider_unavailable", "model_missing", "job_failed", "job_blocked", "technical_incident", "folder_request_decided"], "description": "Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) : seul son demandeur la reçoit, sans clip."}, "state": {"type": "string", "enum": ["active", "resolved"], "description": "Partagé : une action résolue l'est pour tous."}, "clip_id": {"type": "integer", "format": "int64", "nullable": true}, "clip_name": {"type": "string"}, "pending_count": {"type": "integer", "description": "Voix restant à décider, ou jobs concernés par l'incident."}, "read": {"type": "boolean", "description": "État de lecture du demandeur, indépendant de la résolution."}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "resolved_at": {"type": "string", "format": "date-time", "nullable": true}, "job_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Incident : dernier job concerné (administrateurs uniquement)."}, "step": {"type": "string", "description": "Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret."}, "error_code": {"type": "string", "description": "Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated), jamais l'erreur brute."}, "generic": {"type": "boolean", "description": "Vrai pour le message générique sûr vu par un non-administrateur."}, "folder_path": {"type": "string", "description": "Décision sur une demande de dossier : chemin relatif de la Racine vidéo, vide sinon."}, "folder_outcome": {"type": "string", "enum": ["", "approved", "refused"], "description": "Décision sur une demande de dossier : approved ou refused, vide sinon."}}},
       "NotificationList": {"type": "object", "required": ["items", "unread", "pending", "total"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Notification"}}, "unread": {"type": "integer"}, "pending": {"type": "integer"}, "total": {"type": "integer", "description": "Nombre de notifications que sélectionnent l'état et le filtre, quelle que soit la page ; sert à proposer « Afficher plus »."}}},
       "VoiceVerification": {
         "type": "object",

@@ -98,7 +98,8 @@ export function BellMenu() {
                     )}
                     {item.state === "active" &&
                       !item.generic &&
-                      item.kind !== "needs_speaker_review" && (
+                      item.kind !== "needs_speaker_review" &&
+                      item.kind !== "folder_request_decided" && (
                         <span className="block text-xs text-accent">
                           {item.kind === "worker_unavailable" ||
                           item.kind === "job_blocked"

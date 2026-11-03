@@ -157,6 +157,7 @@ from .microphone_track_item_role import MicrophoneTrackItemRole
 from .microphone_track_rule_input import MicrophoneTrackRuleInput
 from .microphone_track_status import MicrophoneTrackStatus
 from .notification import Notification
+from .notification_folder_outcome import NotificationFolderOutcome
 from .notification_kind import NotificationKind
 from .notification_list import NotificationList
 from .notification_read import NotificationRead
@@ -590,6 +591,7 @@ __all__ = (
     "MicrophoneTrackRuleInput",
     "MicrophoneTrackStatus",
     "Notification",
+    "NotificationFolderOutcome",
     "NotificationKind",
     "NotificationList",
     "NotificationRead",

@@ -1,11 +1,19 @@
 import { Popover } from "@base-ui/react/popover";
-import { ChevronDown, ChevronRight, Folder } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, Lock } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import { useSession } from "../session";
 
-type Entry = { path: string; directory: boolean; size_bytes: number };
+type Entry = {
+  path: string;
+  directory: boolean;
+  size_bytes: number;
+  private?: boolean;
+  locked?: boolean;
+};
+
+type FolderRequest = { parent: string; name: string; path: string };
 
 /**
  * Picks the upload destination among the folders of the managed video root, in a compact menu: a filter,
@@ -29,6 +37,24 @@ export function FolderPicker({
   const [entries, setEntries] = useState<Entry[]>([]);
   const [filter, setFilter] = useState("");
   const [failure, setFailure] = useState("");
+  // Folders waiting for a decision (ADR 0033) cannot receive uploads; a member creates them by request.
+  const [waiting, setWaiting] = useState<string[]>([]);
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const loadWaiting = useCallback(async () => {
+    try {
+      const response = await fetch("/api/folder-requests", {
+        headers: { "X-CSRF-Token": csrf },
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { items: FolderRequest[] };
+      setWaiting(data.items.map((item) => item.path));
+    } catch {
+      setWaiting([]);
+    }
+  }, [csrf]);
 
   const load = useCallback(
     async (path: string) => {
@@ -52,6 +78,42 @@ export function FolderPicker({
     if (open) void load(directory);
   }, [open, directory, load]);
 
+  useEffect(() => {
+    if (open) void loadWaiting();
+  }, [open, loadWaiting]);
+
+  async function createFolder() {
+    const folder = name.trim();
+    if (!folder) return;
+    setCreating(true);
+    setNotice("");
+    setFailure("");
+    try {
+      const response = await fetch("/api/folder-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrf,
+        },
+        body: JSON.stringify({ parent: directory, name: folder }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "unavailable");
+      setName("");
+      if (data.status === "created") {
+        // An administrator's folder exists at once: it becomes the destination.
+        choose(data.path as string);
+        return;
+      }
+      setNotice(t("import.folder.requested"));
+      await loadWaiting();
+    } catch (e) {
+      setFailure(e instanceof Error ? e.message : "unavailable");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   function openChange(next: boolean) {
     setOpen(next);
     if (next) {
@@ -63,6 +125,10 @@ export function FolderPicker({
   function choose(path: string) {
     onChange(path);
     setOpen(false);
+  }
+
+  function isWaiting(path: string) {
+    return waiting.includes(path);
   }
 
   const parts = directory ? directory.split("/") : [];
@@ -150,18 +216,39 @@ export function FolderPicker({
                   <li key={entry.path}>
                     <button
                       type="button"
-                      className="flex min-h-11 w-full items-center gap-2 break-all text-left text-accent-ink"
+                      disabled={entry.locked || isWaiting(entry.path)}
+                      className="flex min-h-11 w-full items-center gap-2 break-all text-left text-accent-ink disabled:text-mute"
                       onClick={() => {
                         setDirectory(entry.path);
                         setFilter("");
                       }}
                     >
-                      <Folder
-                        size={18}
-                        className="shrink-0"
-                        aria-hidden="true"
-                      />
-                      {entry.path.split("/").pop()}
+                      {entry.locked ? (
+                        <Lock
+                          size={18}
+                          className="shrink-0"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <Folder
+                          size={18}
+                          className="shrink-0"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        {entry.path.split("/").pop()}
+                        {entry.locked && (
+                          <span className="block text-xs">
+                            {t("import.server.private")}
+                          </span>
+                        )}
+                        {isWaiting(entry.path) && (
+                          <span className="block text-xs">
+                            {t("import.folder.pending")}
+                          </span>
+                        )}
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -171,6 +258,41 @@ export function FolderPicker({
                   </li>
                 )}
               </ul>
+              <form
+                className="flex flex-col gap-2 border-t border-line pt-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void createFolder();
+                }}
+              >
+                <label
+                  className="text-sm font-medium"
+                  htmlFor={`${valueId}-new`}
+                >
+                  {t("import.folder.name")}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id={`${valueId}-new`}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    maxLength={255}
+                    className="h-11 min-w-0 flex-1 rounded-lg border border-line-strong bg-canvas px-3 md:h-9"
+                  />
+                  <button
+                    type="submit"
+                    disabled={creating || !name.trim()}
+                    className={buttonClass("secondary")}
+                  >
+                    {t("import.folder.new")}
+                  </button>
+                </div>
+              </form>
+              {notice && (
+                <p role="status" className="text-sm text-mute">
+                  {notice}
+                </p>
+              )}
               {failure && (
                 <p role="alert" className="text-sm text-bad-fg">
                   {error(failure)}

@@ -201,6 +201,31 @@ type Event struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type FolderRequest struct {
+	ID                int64              `json:"id"`
+	Parent            string             `json:"parent"`
+	Name              string             `json:"name"`
+	Status            string             `json:"status"`
+	RequestedBy       pgtype.Int8        `json:"requested_by"`
+	RequesterUsername string             `json:"requester_username"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	DecidedAt         pgtype.Timestamptz `json:"decided_at"`
+	DecidedBy         pgtype.Int8        `json:"decided_by"`
+	DecidedByUsername string             `json:"decided_by_username"`
+}
+
+type FolderRequestEvent struct {
+	ID                int64              `json:"id"`
+	Action            string             `json:"action"`
+	Parent            string             `json:"parent"`
+	Name              string             `json:"name"`
+	RequesterID       pgtype.Int8        `json:"requester_id"`
+	RequesterUsername string             `json:"requester_username"`
+	ActorID           pgtype.Int8        `json:"actor_id"`
+	ActorUsername     string             `json:"actor_username"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
 type Installation struct {
 	ID                   int32              `json:"id"`
 	Initialized          bool               `json:"initialized"`
@@ -300,18 +325,20 @@ type MicrophoneTrackEvent struct {
 }
 
 type Notification struct {
-	ID           int64              `json:"id"`
-	Kind         string             `json:"kind"`
-	ClipID       pgtype.Int8        `json:"clip_id"`
-	State        string             `json:"state"`
-	PendingCount int32              `json:"pending_count"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	ResolvedAt   pgtype.Timestamptz `json:"resolved_at"`
-	Cause        string             `json:"cause"`
-	JobID        pgtype.Int8        `json:"job_id"`
-	Step         string             `json:"step"`
-	ErrorCode    string             `json:"error_code"`
+	ID            int64              `json:"id"`
+	Kind          string             `json:"kind"`
+	ClipID        pgtype.Int8        `json:"clip_id"`
+	State         string             `json:"state"`
+	PendingCount  int32              `json:"pending_count"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ResolvedAt    pgtype.Timestamptz `json:"resolved_at"`
+	Cause         string             `json:"cause"`
+	JobID         pgtype.Int8        `json:"job_id"`
+	Step          string             `json:"step"`
+	ErrorCode     string             `json:"error_code"`
+	FolderPath    string             `json:"folder_path"`
+	FolderOutcome string             `json:"folder_outcome"`
 }
 
 type NotificationRecipient struct {
@@ -473,6 +500,7 @@ type SourceFile struct {
 	ScanRequested      bool               `json:"scan_requested"`
 	FirstSeenAt        pgtype.Timestamptz `json:"first_seen_at"`
 	PreviousClipID     pgtype.Int8        `json:"previous_clip_id"`
+	IndexOnly          bool               `json:"index_only"`
 }
 
 type SourceMicrophoneTrack struct {

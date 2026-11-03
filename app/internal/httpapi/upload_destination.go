@@ -32,6 +32,26 @@ func (s *Server) uploadDestination(w http.ResponseWriter, r *http.Request, name,
 		fail(w, 400, "invalid_upload")
 		return 0, "", "", false
 	}
+	// A folder waiting for an Administrator's decision (ADR 0033) takes no upload yet.
+	if waiting, err := s.pendingFolderRequestAt(r.Context(), folderRelative(folder)); err != nil {
+		s.internal(w, err)
+		return 0, "", "", false
+	} else if waiting {
+		fail(w, 409, "folder_request_pending")
+		return 0, "", "", false
+	}
+	// ADR 0026: a member may not put a file into a private folder it cannot open.
+	if !isSuperAdministrator(r.Context().Value(sessionKey{}).(session).User.Role) {
+		private, err := s.privateTopFolders(r, root.ID)
+		if err != nil {
+			s.internal(w, err)
+			return 0, "", "", false
+		}
+		if private[firstSegment(folder)] {
+			fail(w, 403, "forbidden")
+			return 0, "", "", false
+		}
+	}
 	parent, err := library.ManagedPath(root.Path, folder)
 	if err != nil {
 		fail(w, 422, "video_path_unavailable")
