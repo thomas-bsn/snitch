@@ -173,6 +173,10 @@ func testHFToken(t *testing.T, pool *pgxpool.Pool) {
 	// Acknowledgement: stale and unknown outcomes are refused; the right one is recorded and shown as synchronised.
 	hfAck(h, token, `{"version":"1","outcome":"applied","source":"central"}`, http.StatusConflict)
 	hfAck(h, token, `{"version":"`+first.Version+`","outcome":"forged","source":"central"}`, http.StatusBadRequest)
+	// Inconsistent combinations are refused: an error code only with a failure, a source matching the outcome.
+	hfAck(h, token, `{"version":"`+first.Version+`","outcome":"applied","source":"central","error_code":"hf_token_store_failed"}`, http.StatusBadRequest)
+	hfAck(h, token, `{"version":"`+first.Version+`","outcome":"failed","source":"central","error_code":"other_code"}`, http.StatusBadRequest)
+	hfAck(h, token, `{"version":"`+first.Version+`","outcome":"kept_local","source":"central"}`, http.StatusBadRequest)
 	hfAck(h, token, `{"version":"`+first.Version+`","outcome":"applied","source":"central"}`, http.StatusNoContent)
 	_, view = hfAdminGet(t, h)
 	if state, source := hfWorkerRow(view, id); state != "synced" || source != "central" {
@@ -189,6 +193,9 @@ func testHFToken(t *testing.T, pool *pgxpool.Pool) {
 	if second.Token == nil || *second.Token != hfSyntheticReplacement || second.Version == first.Version {
 		t.Fatalf("replacement not served: %+v", second)
 	}
+
+	// A removal is refused while a token is stored, and a copy is never acknowledged as applied for the wrong state.
+	hfAck(h, token, `{"version":"`+second.Version+`","outcome":"removed","source":"none"}`, http.StatusConflict)
 
 	// Local priority: a Worker keeping its own token acknowledges it, and the admin view says so.
 	hfAck(h, token, `{"version":"`+second.Version+`","outcome":"kept_local","source":"local"}`, http.StatusNoContent)
@@ -218,6 +225,8 @@ func testHFToken(t *testing.T, pool *pgxpool.Pool) {
 	if removed.Token != nil || removed.Version == second.Version {
 		t.Fatalf("deletion not served as a purge: %+v", removed)
 	}
+	hfAck(h, otherToken, `{"version":"`+removed.Version+`","outcome":"applied","source":"central"}`, http.StatusConflict)
+	hfAck(h, otherToken, `{"version":"`+removed.Version+`","outcome":"removed","source":"none"}`, http.StatusNoContent)
 
 	// Unreadable value (master key changed or row damaged): reported, counted as absent, never served or purged.
 	if _, err := pool.Exec(ctx, `UPDATE settings SET value=$1 WHERE key='hf_token_central'`, []byte("damaged")); err != nil {

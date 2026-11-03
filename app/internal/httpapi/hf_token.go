@@ -5,13 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // The central Hugging Face token (#194, ADR 0027). The value is sealed in the settings table under hfTokenKey; it is
@@ -240,7 +239,7 @@ func (s *Server) ackWorkerHFToken(w http.ResponseWriter, r *http.Request) {
 	default:
 		validSource = false
 	}
-	if input.Outcome != "failed" && input.ErrorCode != "" || !validSource {
+	if (input.Outcome != "failed" && input.ErrorCode != "") || !validSource {
 		fail(w, http.StatusBadRequest, "invalid_hf_token_ack")
 		return
 	}
@@ -253,14 +252,22 @@ func (s *Server) ackWorkerHFToken(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusConflict, "stale_hf_token_version")
 		return
 	}
+	// The write lands only for a Worker still known and not revoked: one deleted between the bearer check and here is
+	// refused like an unknown Worker. A version that moves during this write leaves the Worker pending for the new
+	// one, since the admin view compares acknowledged versions for equality only.
 	worker := currentWorker(r)
+	var tag pgconn.CommandTag
 	if input.Outcome == "failed" {
-		_, err = s.Pool.Exec(r.Context(), `INSERT INTO worker_hf_token(worker_id,source,error_code) VALUES($1,$2,$3) ON CONFLICT(worker_id) DO UPDATE SET source=EXCLUDED.source,error_code=EXCLUDED.error_code,updated_at=now()`, worker.ID, input.Source, input.ErrorCode)
+		tag, err = s.Pool.Exec(r.Context(), `INSERT INTO worker_hf_token(worker_id,source,error_code) SELECT w.id,$2::text,$3::text FROM workers w WHERE w.id=$1::text AND w.revoked_at IS NULL ON CONFLICT(worker_id) DO UPDATE SET source=EXCLUDED.source,error_code=EXCLUDED.error_code,updated_at=now()`, worker.ID, input.Source, input.ErrorCode)
 	} else {
-		_, err = s.Pool.Exec(r.Context(), `INSERT INTO worker_hf_token(worker_id,acked_version,source,error_code) VALUES($1,$2,$3,'') ON CONFLICT(worker_id) DO UPDATE SET acked_version=EXCLUDED.acked_version,source=EXCLUDED.source,error_code='',updated_at=now()`, worker.ID, input.Version, input.Source)
+		tag, err = s.Pool.Exec(r.Context(), `INSERT INTO worker_hf_token(worker_id,acked_version,source,error_code) SELECT w.id,$2::text,$3::text,'' FROM workers w WHERE w.id=$1::text AND w.revoked_at IS NULL ON CONFLICT(worker_id) DO UPDATE SET acked_version=EXCLUDED.acked_version,source=EXCLUDED.source,error_code='',updated_at=now()`, worker.ID, input.Version, input.Source)
 	}
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err != nil {
 		s.internal(w, err)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		fail(w, http.StatusUnauthorized, "worker_token_invalid")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
