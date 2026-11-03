@@ -1007,9 +1007,17 @@ export const en = {
     lead: "Name the voices Snitch hears. A human confirmation always comes first.",
     tabsLabel: "People sections",
     tabs: {
-      persons: "People",
-      verification: "Verification",
-      groups: "Voice groups",
+      persons: "Directory",
+      verification: "To process",
+      groups: "Unknown voices",
+    },
+    placeholder: {
+      caseTitle: "Verification case {case}",
+      caseLead:
+        "Processing this clip opens here. The screen is not available yet; the list below stays usable.",
+      voiceTitle: "Voice {voice}",
+      voiceLead:
+        "Naming this group opens here. The panel is not available yet; the list below stays usable.",
     },
     loading: "Loading…",
     persons: {

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
@@ -7,6 +8,7 @@ import { DecidePanel } from "./DecidePanel";
 import { ExcerptDialog, ExcerptThumb } from "./ExcerptThumb";
 import { useFailureText } from "./failureText";
 import { LevelBadge } from "./LevelBadge";
+import { QueryPlaceholder } from "./QueryPlaceholder";
 import {
   fetchPersons,
   fetchVerification,
@@ -30,6 +32,8 @@ const filterClass = (pressed: boolean) =>
 export function VerificationTab() {
   const { t } = useI18n();
   const failureText = useFailureText();
+  // The address of a verification case; its processing screen is not built yet.
+  const caseId = useSearchParams()[0].get("case");
   const [filter, setFilter] = useState<VerificationFilter>("all");
   const [page, setPage] = useState(1);
   const load = useCallback(
@@ -69,6 +73,7 @@ export function VerificationTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      {caseId && <QueryPlaceholder kind="case" value={caseId} />}
       <p className="max-w-2xl text-mute">{t("people.verification.lead")}</p>
       {counts && (
         <ul

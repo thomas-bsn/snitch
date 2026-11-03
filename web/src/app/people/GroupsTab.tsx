@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import { tintOf } from "./ExcerptThumb";
 import { GroupPanel } from "./GroupPanel";
+import { QueryPlaceholder } from "./QueryPlaceholder";
 import { useFailureText } from "./failureText";
 import { fetchPersons, fetchVoiceGroups, type VoiceGroup } from "./peopleApi";
 
@@ -26,6 +28,8 @@ function clipNames(group: VoiceGroup) {
 export function GroupsTab() {
   const { t } = useI18n();
   const failureText = useFailureText();
+  // The address of a voice's group; its naming panel is not built yet.
+  const voiceId = useSearchParams()[0].get("voice");
   const [page, setPage] = useState(1);
   const load = useCallback(() => fetchVoiceGroups(page, PAGE_SIZE), [page]);
   const { state, reload } = useLoaded(load);
@@ -48,6 +52,7 @@ export function GroupsTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      {voiceId && <QueryPlaceholder kind="voice" value={voiceId} />}
       <p className="max-w-2xl text-mute">{t("people.groups.lead")}</p>
       {notice && <StatusNotice>{notice}</StatusNotice>}
       {state.status === "loading" && (

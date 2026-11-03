@@ -1020,9 +1020,17 @@ export const fr: Messages = {
     lead: "Nommez les voix qu’entend Snitch. Une confirmation humaine passe toujours en premier.",
     tabsLabel: "Sections des Personnes",
     tabs: {
-      persons: "Personnes",
-      verification: "Vérification",
-      groups: "Groupes de voix",
+      persons: "Annuaire",
+      verification: "À traiter",
+      groups: "Voix inconnues",
+    },
+    placeholder: {
+      caseTitle: "Cas de vérification {case}",
+      caseLead:
+        "Le traitement de ce clip s’ouvre ici. L’écran n’est pas encore disponible ; la liste ci-dessous reste utilisable.",
+      voiceTitle: "Voix {voice}",
+      voiceLead:
+        "Le nommage de ce groupe s’ouvre ici. Le panneau n’est pas encore disponible ; la liste ci-dessous reste utilisable.",
     },
     loading: "Chargement…",
     persons: {
