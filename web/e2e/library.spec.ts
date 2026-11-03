@@ -79,7 +79,9 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       });
       const page = await context.newPage();
       await page.goto("/library");
-      await expect(page.getByText("2 items", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("0 folder(s) · 2 video(s)", { exact: true }),
+      ).toBeVisible();
       const card = (name: string) =>
         page.getByRole("link", { name: `Open the clip ${name}` });
       await expect(card("synthetic-shared.mp4")).toBeVisible();
@@ -89,6 +91,9 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
         page.getByRole("table").getByText("Not analysed", { exact: true }),
       ).toHaveCount(1);
 
+      // Filters are folded behind a button by default (mockup).
+      await expect(page.getByLabel("Owner")).toHaveCount(0);
+      await page.getByRole("button", { name: "Filters" }).click();
       // A filter lives in the address and narrows the list.
       await page.getByLabel("Owner").selectOption({ label: "administrator" });
       await expect(card("synthetic-private.mp4")).toBeVisible();
@@ -119,7 +124,9 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await expect(
         page.getByRole("link", { name: "Open the clip synthetic-shared.mp4" }),
       ).toBeVisible();
-      await expect(page.getByText("1 item", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("0 folder(s) · 1 video(s)", { exact: true }),
+      ).toBeVisible();
       await expect(
         page.getByRole("link", {
           name: "Open the clip synthetic-private.mp4",
@@ -365,7 +372,9 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       });
       const page = await context.newPage();
       await page.goto("/library");
-      await expect(page.getByText("3 items", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("0 folder(s) · 3 video(s)", { exact: true }),
+      ).toBeVisible();
       await expect(
         page.getByRole("link", { name: "Open the clip synthetic-delete.mp4" }),
       ).toBeVisible();
@@ -392,7 +401,9 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       expect(deleted.status()).toBe(200);
 
       await page.reload();
-      await expect(page.getByText("2 items", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("0 folder(s) · 2 video(s)", { exact: true }),
+      ).toBeVisible();
       await expect(
         page.getByRole("link", { name: "Open the clip synthetic-delete.mp4" }),
       ).toHaveCount(0);
@@ -412,7 +423,9 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       const page = await context.newPage();
       const links = page.getByRole("link", { name: /^Open the clip / });
       await page.goto("/library?size=5");
-      await expect(page.getByText("13 items", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("0 folder(s) · 13 video(s)", { exact: true }),
+      ).toBeVisible();
       await expect(links).toHaveCount(5);
       await expect(page.getByText("Page 1 of 3")).toBeVisible();
       await expect(
@@ -434,7 +447,9 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
         page.getByRole("button", { name: "Next page" }),
       ).toBeDisabled();
       // The total stays the whole selection, not the page.
-      await expect(page.getByText("13 items", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("0 folder(s) · 13 video(s)", { exact: true }),
+      ).toBeVisible();
 
       // Without a size in the address, a short library fits on one page and shows no pager.
       await page.goto("/library");

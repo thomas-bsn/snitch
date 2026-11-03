@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
-  ArrowUp,
-  FileVideo,
+  ChevronLeft,
+  ChevronRight,
+  File,
+  Film,
   Folder,
+  FolderLock,
+  HardDrive,
   Lock,
   LockOpen,
-  LayoutGrid,
-  List,
   MoreHorizontal,
-  Search,
-  SlidersHorizontal,
+  Play,
 } from "lucide-react";
 import { api, errorCode, mutation } from "../api/client";
 import { useLoaded } from "../api/loaded";
@@ -113,7 +114,8 @@ export function LibraryPage() {
     EXPLORER_MAX_LIMIT,
   );
   const pageNumber = readNumber(params.get("page"), 1, 1_000_000);
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  // Folded by default; open when the address already carries filters.
+  const [filtersOpen, setFiltersOpen] = useState(filtered);
   const [search, setSearch] = useState(filters.q);
 
   const listing = useLoaded(
@@ -376,45 +378,36 @@ export function LibraryPage() {
   const parentPath = crumbs.slice(0, -1).join("/");
   const flat = filtered;
 
+  const rootLabel = t("library.explorer.root");
+  const toggle = "rounded-md px-2.5 py-1 text-sm min-h-11 md:min-h-0";
   return (
-    <section className="flex flex-col gap-5 px-4 py-6 md:px-7">
-      <LibrarySearchTabs />
-      <div className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-[22px] font-semibold">
-          {t("pages.library.title")}
-        </h1>
-        {listing.state.status === "ready" && (
-          <p className="text-mute" aria-live="polite">
-            {total === 1
-              ? t("library.explorer.countOne")
-              : t("library.explorer.count", { count: total })}
-          </p>
-        )}
+    <section className="flex min-h-[85vh] flex-col">
+      <h1 className="sr-only">{t("pages.library.title")}</h1>
+      <div className="px-4 pt-3 md:px-6">
+        <LibrarySearchTabs />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 md:px-6">
         <button
           type="button"
-          className={buttonClass("secondary")}
+          className="flex size-11 items-center justify-center rounded-lg border border-line-strong disabled:opacity-40 md:size-9"
           onClick={() => openFolder(parentPath)}
           disabled={!folder}
           aria-label={t("library.parentFolder")}
         >
-          <ArrowUp size={16} aria-hidden="true" />
+          <ChevronLeft size={16} aria-hidden="true" />
         </button>
-        <nav
-          aria-label={t("library.explorer.breadcrumb")}
-          className="min-w-0 flex-1"
-        >
+        <nav aria-label={t("library.explorer.breadcrumb")} className="min-w-0">
           <ol className="m-0 flex list-none flex-wrap items-center gap-1 p-0 text-sm">
             <li>
               <button
                 type="button"
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1.5 py-1 text-ink hover:bg-hover md:min-h-0 md:min-w-0"
+                className="inline-flex min-h-11 items-center gap-1 rounded px-1.5 py-0.5 hover:bg-side md:min-h-0"
                 onClick={() => openFolder("")}
                 aria-current={folder ? undefined : "page"}
               >
-                {t("library.allClips")}
+                <HardDrive size={16} aria-hidden="true" />
+                {rootLabel}
               </button>
             </li>
             {crumbs.map((part, index) => {
@@ -422,12 +415,14 @@ export function LibraryPage() {
               const last = index === crumbs.length - 1;
               return (
                 <li key={path} className="flex items-center gap-1">
-                  <span aria-hidden="true" className="text-mute">
-                    /
-                  </span>
+                  <ChevronRight
+                    size={14}
+                    aria-hidden="true"
+                    className="text-mute"
+                  />
                   <button
                     type="button"
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1.5 py-1 text-ink hover:bg-hover md:min-h-0 md:min-w-0"
+                    className="inline-flex min-h-11 items-center rounded px-1.5 py-0.5 hover:bg-side md:min-h-0"
                     onClick={() => openFolder(path)}
                     aria-current={last ? "page" : undefined}
                   >
@@ -438,45 +433,40 @@ export function LibraryPage() {
             })}
           </ol>
         </nav>
-        <label className="flex min-w-[12rem] items-center gap-2 rounded-lg border border-line-strong bg-surface px-2.5 py-1.5">
-          <Search size={16} aria-hidden="true" className="text-mute" />
+        <label className="flex h-11 w-full items-center gap-2 rounded-lg border border-line-strong px-3 sm:ml-auto sm:w-64 md:h-9">
           <span className="sr-only">{t("library.explorer.searchLabel")}</span>
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder={t("library.explorer.searchPlaceholder")}
-            className="h-11 min-w-0 flex-1 bg-transparent text-ink outline-none md:h-7"
+            placeholder={t("library.explorer.searchIn", {
+              folder: crumbs.at(-1) ?? rootLabel,
+            })}
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
         </label>
         <button
           type="button"
-          className={`${buttonClass("secondary")} ${filtersOpen || filtered ? "bg-accent-soft font-semibold text-ink" : ""}`}
+          className={`${buttonClass("secondary")} ${filtersOpen || filtered ? "border-accent text-accent-ink" : ""}`}
           aria-expanded={filtersOpen}
           aria-controls="library-filters"
           onClick={() => setFiltersOpen((open) => !open)}
         >
-          <SlidersHorizontal size={16} aria-hidden="true" />
           {t("library.explorer.filters")}
         </button>
         <div
           role="group"
           aria-label={t("library.explorer.view")}
-          className="flex"
+          className="flex rounded-lg border border-line-strong p-0.5"
         >
           {(["list", "icons"] as const).map((mode) => (
             <button
               key={mode}
               type="button"
               aria-pressed={view === mode}
-              className={`${buttonClass("secondary")} ${view === mode ? "bg-accent-soft font-semibold text-ink" : ""}`}
+              className={`${toggle} ${view === mode ? "bg-accent-soft text-accent-ink" : "text-mute"}`}
               onClick={() => change({ view: mode === "list" ? "" : mode })}
             >
-              {mode === "list" ? (
-                <List size={16} aria-hidden="true" />
-              ) : (
-                <LayoutGrid size={16} aria-hidden="true" />
-              )}
               {t(
                 mode === "list"
                   ? "library.explorer.list"
@@ -488,7 +478,10 @@ export function LibraryPage() {
       </div>
 
       {filtersOpen && (
-        <div id="library-filters">
+        <div
+          id="library-filters"
+          className="border-b border-line bg-side px-4 py-3 md:px-6"
+        >
           <LibraryFilters
             filters={filters}
             options={
@@ -508,15 +501,21 @@ export function LibraryPage() {
         </div>
       )}
 
-      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(12rem,16rem)_minmax(0,1fr)]">
+      <div className="grid min-w-0 flex-1 grid-cols-1 md:grid-cols-[230px_minmax(0,1fr)]">
         <ExplorerTree current={folder} onOpen={openFolder} />
 
-        <div className="flex min-w-0 flex-col gap-3">
-          {flat && (
-            <p className="text-sm text-mute">
-              {t("library.explorer.flatHint", {
-                folder: folder || t("library.allClips"),
-              })}
+        <div className="flex min-w-0 flex-col gap-3 p-4 md:px-6">
+          {listing.state.status === "ready" && (
+            <p className="m-0 text-sm text-mute" aria-live="polite">
+              {flat
+                ? t("library.explorer.flatHint", {
+                    folder: crumbs.at(-1) ?? rootLabel,
+                  })
+                : t("library.explorer.counts", {
+                    folders: items.filter((item) => item.directory).length,
+                    videos:
+                      total - items.filter((item) => item.directory).length,
+                  })}
             </p>
           )}
           {listing.state.status === "ready" && !rootConfigured && (
@@ -595,40 +594,61 @@ export function LibraryPage() {
           {listing.state.status === "ready" &&
             items.length > 0 &&
             view === "list" && (
-              <div className="relative overflow-x-auto rounded-xl border border-line">
-                <table className="w-full min-w-[46rem] border-collapse text-sm">
+              <div className="relative overflow-x-auto">
+                <table className="w-full min-w-[40rem] border-collapse text-sm">
                   <caption className="sr-only">
                     {t("library.explorer.listCaption")}
                   </caption>
-                  <thead className="bg-side text-left text-xs text-mute">
+                  <thead className="text-left text-xs text-mute">
                     <tr>
-                      <th scope="col" className="px-3 py-2 font-medium">
+                      <th
+                        scope="col"
+                        className="border-b border-line px-2 py-2 font-medium"
+                      >
                         {t("library.explorer.columns.name")}
                       </th>
                       {flat && (
-                        <th scope="col" className="px-3 py-2 font-medium">
+                        <th
+                          scope="col"
+                          className="border-b border-line px-2 py-2 font-medium"
+                        >
                           {t("library.explorer.columns.folder")}
                         </th>
                       )}
-                      <th scope="col" className="px-3 py-2 font-medium">
+                      <th
+                        scope="col"
+                        className="border-b border-line px-2 py-2 font-medium"
+                      >
                         {t("library.explorer.columns.state")}
                       </th>
-                      <th scope="col" className="px-3 py-2 font-medium">
+                      <th
+                        scope="col"
+                        className="border-b border-line px-2 py-2 font-medium"
+                      >
                         {t("library.explorer.columns.duration")}
                       </th>
-                      <th scope="col" className="px-3 py-2 font-medium">
+                      <th
+                        scope="col"
+                        className="border-b border-line px-2 py-2 font-medium"
+                      >
                         {t("library.explorer.columns.owner")}
                       </th>
-                      <th scope="col" className="px-3 py-2 font-medium">
+                      <th
+                        scope="col"
+                        className="border-b border-line px-2 py-2 font-medium"
+                      >
                         {t("library.explorer.columns.added")}
                       </th>
-                      <th scope="col" className="px-3 py-2 font-medium">
+                      <th
+                        scope="col"
+                        className="border-b border-line px-2 py-2 font-medium"
+                      >
                         {t("library.explorer.columns.size")}
                       </th>
-                      <th scope="col" className="px-3 py-2 font-medium">
-                        {t("library.explorer.columns.voices")}
-                      </th>
-                      <th scope="col" className="px-3 py-2">
+                      <th
+                        scope="col"
+                        className="border-b border-line px-2 py-2"
+                      >
                         <span className="sr-only">
                           {t("library.explorer.columns.actions")}
                         </span>
@@ -664,7 +684,7 @@ export function LibraryPage() {
           {listing.state.status === "ready" &&
             items.length > 0 &&
             view === "icons" && (
-              <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 2xl:grid-cols-4">
+              <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 p-0">
                 {items.map((entry) => (
                   <li key={entry.path}>
                     <ExplorerIcon
@@ -821,12 +841,12 @@ function ExplorerRow({
     <span className="flex min-w-0 items-center gap-2">
       {entry.directory ? (
         entry.private ? (
-          <Lock size={16} aria-hidden="true" />
+          <FolderLock size={16} aria-hidden="true" />
         ) : (
-          <Folder size={16} aria-hidden="true" />
+          <Folder size={16} aria-hidden="true" className="text-accent" />
         )
       ) : (
-        <FileVideo size={16} aria-hidden="true" />
+        <Film size={16} aria-hidden="true" className="text-mute" />
       )}
       <span className="truncate">{entry.name}</span>
       {entry.private && (
@@ -838,74 +858,80 @@ function ExplorerRow({
   );
   const busy = busyPath === entry.path;
   return (
-    <tr className="border-t border-line align-middle">
-      <td className="px-3 py-2">
-        {entry.directory ? (
-          <button
-            type="button"
-            className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:no-underline md:min-h-0"
-            disabled={entry.locked}
-            title={
-              entry.locked ? t("library.privateFolder.lockedHint") : undefined
-            }
-            onClick={() => onOpenFolder(entry.path)}
-          >
-            {name}
-          </button>
-        ) : entry.clip_id ? (
-          <Link
-            to={`/clips/${entry.clip_id}`}
-            aria-label={t("library.card.open", { name: entry.name })}
-            className="inline-flex min-h-11 max-w-full items-center font-medium text-ink hover:underline md:min-h-0"
-          >
-            {name}
-          </Link>
-        ) : (
-          <button
-            type="button"
-            className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:opacity-60 md:min-h-0"
-            disabled={busy}
-            onClick={() => onOpenVideo(entry)}
-          >
-            {name}
-          </button>
-        )}
+    <tr className="border-b border-line align-middle hover:bg-side">
+      <td className="px-2 py-2">
+        <div className="flex items-center gap-2">
+          {entry.directory ? (
+            <button
+              type="button"
+              className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:no-underline md:min-h-0"
+              disabled={entry.locked}
+              title={
+                entry.locked ? t("library.privateFolder.lockedHint") : undefined
+              }
+              onClick={() => onOpenFolder(entry.path)}
+            >
+              {name}
+            </button>
+          ) : entry.clip_id ? (
+            <Link
+              to={`/clips/${entry.clip_id}`}
+              aria-label={t("library.card.open", { name: entry.name })}
+              className="inline-flex min-h-11 max-w-full items-center font-medium text-ink hover:underline md:min-h-0"
+            >
+              {name}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:opacity-60 md:min-h-0"
+              disabled={busy}
+              onClick={() => onOpenVideo(entry)}
+            >
+              {name}
+            </button>
+          )}
+          {entry.voices_pending > 0 && (
+            <span className="rounded-full bg-warn-bg px-1.5 text-xs whitespace-nowrap text-warn-fg">
+              {t("library.explorer.voicesToProcess", {
+                count: entry.voices_pending,
+              })}
+            </span>
+          )}
+        </div>
       </td>
       {flat && (
-        <td className="px-3 py-2 text-mute">
-          {folderFlat || t("library.allClips")}
+        <td className="px-2 py-2 text-mute">
+          {folderFlat || t("library.explorer.root")}
         </td>
       )}
-      <td className="px-3 py-2">
+      <td className="px-2 py-2">
         {entry.directory ? null : (
           <ExplorerStatePill state={busy ? "in_progress" : entry.state} />
         )}
       </td>
-      <td className="px-3 py-2 tabular-nums text-mute">
+      <td className="px-2 py-2 tabular-nums text-mute">
         {entry.duration_seconds != null
           ? formatTimecode(entry.duration_seconds)
           : "—"}
       </td>
-      <td className="px-3 py-2 text-mute">{entry.owner || "—"}</td>
-      <td className="px-3 py-2 text-mute">
+      <td className="px-2 py-2 text-mute">{entry.owner || "—"}</td>
+      <td className="px-2 py-2 text-mute">
         {entry.added_at
           ? new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(
               new Date(entry.added_at),
             )
           : "—"}
       </td>
-      <td className="px-3 py-2 tabular-nums text-mute">
+      <td className="px-2 py-2 tabular-nums text-mute">
         {entry.directory ? "—" : formatSize(entry.size_bytes, language)}
-      </td>
-      <td className="px-3 py-2 tabular-nums text-mute">
-        {entry.directory || entry.clip_id === null ? "—" : entry.voices_pending}
       </td>
       <td className="relative px-3 py-2 text-right">
         {entry.directory && (admin || superAdmin) && !entry.locked && (
           <>
             <button
               type="button"
-              className={buttonClass("secondary")}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1.5 text-mute hover:bg-line md:min-h-0 md:min-w-0"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               aria-label={t("library.explorer.folderMenu", {
@@ -971,16 +997,51 @@ function ExplorerIcon({
   onOpenVideo: (entry: ExplorerEntry) => void;
 }) {
   const { t } = useI18n();
+  const unindexed = entry.state === "not_indexed";
   const body = (
     <>
       {entry.directory ? (
         entry.private ? (
-          <Lock size={40} aria-hidden="true" className="text-mute" />
+          <FolderLock
+            size={56}
+            strokeWidth={1.2}
+            aria-hidden="true"
+            className="text-mute"
+          />
         ) : (
-          <Folder size={40} aria-hidden="true" className="text-accent" />
+          <Folder
+            size={56}
+            strokeWidth={1.2}
+            aria-hidden="true"
+            className="text-accent"
+            fill="var(--accent-soft)"
+          />
         )
       ) : (
-        <FileVideo size={40} aria-hidden="true" className="text-accent" />
+        <span
+          className={`relative flex h-14 w-20 items-center justify-center rounded-md ${
+            unindexed
+              ? "border-2 border-dashed border-line-strong text-mute"
+              : "bg-[#1b1b22] text-white/60"
+          }`}
+        >
+          {unindexed ? (
+            <File size={24} aria-hidden="true" />
+          ) : (
+            <Play size={20} aria-hidden="true" />
+          )}
+          {entry.voices_pending > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 rounded-full bg-warn-bg px-1.5 text-[10px] text-warn-fg">
+              {entry.voices_pending}
+              <span className="sr-only">
+                {" "}
+                {t("library.explorer.voicesToProcess", {
+                  count: entry.voices_pending,
+                })}
+              </span>
+            </span>
+          )}
+        </span>
       )}
       <span className="w-full truncate text-sm font-medium">{entry.name}</span>
       {flat && entry.folder && (
@@ -997,7 +1058,7 @@ function ExplorerIcon({
     </>
   );
   const tile =
-    "flex h-full w-full flex-col items-center gap-2 rounded-xl border border-line p-4 text-center hover:bg-hover disabled:opacity-60";
+    "flex w-full flex-col items-center gap-1 rounded-xl p-3 text-center hover:bg-side disabled:opacity-60";
   if (entry.directory) {
     return (
       <button
@@ -1033,10 +1094,10 @@ function ExplorerStatePill({
   const { t } = useI18n();
   if (!state) return null;
   const tone: Record<ExplorerState, string> = {
-    not_indexed: "bg-side text-mute",
-    in_progress: "bg-warn-bg text-warn-fg",
-    not_analyzed: "bg-side text-ink",
-    transcribed: "bg-accent-soft text-ink",
+    not_indexed: "border border-dashed border-line-strong text-mute",
+    in_progress: "bg-accent-soft text-accent-ink",
+    not_analyzed: "bg-side text-mute",
+    transcribed: "bg-ok-bg text-ok-fg",
     analyzed: "bg-ok-bg text-ok-fg",
     failed: "bg-bad-bg text-bad-fg",
   };
