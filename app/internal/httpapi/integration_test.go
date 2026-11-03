@@ -358,6 +358,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonValidation(t, pool)
 	})
+	t.Run("person figures", func(t *testing.T) {
+		reset(t)
+		testPersonFigures(t, pool)
+	})
 	t.Run("voice matching", func(t *testing.T) {
 		reset(t)
 		testVoiceMatching(t, pool)
@@ -377,6 +381,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice verification", func(t *testing.T) {
 		reset(t)
 		testVoiceVerification(t, pool)
+	})
+	t.Run("people to process", func(t *testing.T) {
+		reset(t)
+		testVoiceToProcess(t, pool)
 	})
 	t.Run("local speaker read", func(t *testing.T) {
 		reset(t)
@@ -842,7 +850,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", "/api/local-speakers/999999/disposition", nil, me.CSRF, 404)
 		call(client, "POST", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusal", map[string]any{"person_id": 999999}, me.CSRF, 404)
 		call(client, "DELETE", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusals/999999", nil, me.CSRF, 200)
-		call(client, "PUT", "/api/voice-groups/999999/disposition", map[string]any{"disposition": "random"}, me.CSRF, 404)
+		call(client, "PUT", "/api/voice-groups/999999/disposition", map[string]any{"disposition": "random", "local_speaker_ids": []int64{1}}, me.CSRF, 404)
 		// Voice matching settings and rematch (behavior in the voice matching suite).
 		call(client, "GET", "/api/voice-matching", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)
@@ -892,6 +900,9 @@ func TestFoundation(t *testing.T) {
 		// Review of unknown and ambiguous voices (behavior in the voice verification suite).
 		call(client, "GET", "/api/voice-verification", nil, "", 200)
 		call(client, "GET", "/api/voice-verification?level=ambiguous&page=1&page_size=5", nil, "", 200)
+		// Clips with voices to settle (behavior in the people to-process suite).
+		call(client, "GET", "/api/people/to-process", nil, "", 200)
+		call(client, "GET", "/api/people/to-process?filter=group&page=1&page_size=5", nil, "", 200)
 		// Microphone track of a clip: view, replacement, disabling and removal.
 		micPath := "/api/clips/" + strconv64(contractClipID) + "/microphone-track"
 		call(client, "GET", micPath, nil, "", 200)
@@ -1212,7 +1223,7 @@ func TestFoundation(t *testing.T) {
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
 			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
-			"people-groups.spec.ts", "people-directory.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
+			"people-groups.spec.ts", "people-groups-disposition.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
 			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-trial.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
 			"library-explorer.spec.ts",
 		}
@@ -1322,10 +1333,13 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"people.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PEOPLE") == "1" {
-			suites = []string{"people.spec.ts", "people-directory.spec.ts"}
+			suites = []string{"people.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_PEOPLE_PROCESS") == "1" {
+			suites = []string{"people-process.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PEOPLE_GROUPS") == "1" {
-			suites = []string{"people-groups.spec.ts"}
+			suites = []string{"people-groups.spec.ts", "people-groups-disposition.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PERSON_CORRECTIONS") == "1" {
 			suites = []string{"people.spec.ts", "clip-corrections.spec.ts"}
@@ -1384,7 +1398,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -1423,7 +1437,7 @@ func TestFoundation(t *testing.T) {
 					}
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}

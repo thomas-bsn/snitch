@@ -5,7 +5,7 @@ import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 // Installs an administrator and prepares a synthetic, diarized clip through the HTTP fixture.
 export async function prepareDiarizedClip(
   page: Page,
-  options: { secondFingerprintEnd?: number } = {},
+  options: { secondFingerprintEnd?: number; peaks?: boolean } = {},
 ): Promise<number> {
   await installAdministrator();
   const clipId = await uploadClip("synthetic-voices.mp4", "shared");

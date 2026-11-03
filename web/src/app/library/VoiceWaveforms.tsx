@@ -50,7 +50,10 @@ export function VoiceWaveforms({
   duration,
   playhead,
   onSeek,
+  activeId,
 }: {
+  /** The voice being worked on: the other tracks are dimmed. */
+  activeId?: number;
   speakers: LocalSpeaker[];
   segments: TranscriptSegment[];
   /** The peaks of the audio track the voices come from; absent before they were computed. */
@@ -90,7 +93,11 @@ export function VoiceWaveforms({
       className="m-0 flex list-none flex-col gap-2 p-0"
     >
       {tracks.map(({ speaker, turns, color, path }) => (
-        <li key={speaker.id} className="flex items-center gap-2">
+        <li
+          key={speaker.id}
+          data-active={activeId === speaker.id ? "true" : undefined}
+          className="flex items-center gap-2"
+        >
           <span
             aria-hidden="true"
             className="size-2.5 shrink-0 rounded-full"
@@ -112,7 +119,11 @@ export function VoiceWaveforms({
                 box.width > 0 ? (event.clientX - box.left) / box.width : 0;
               onSeek(Math.max(0, Math.min(1, fraction)) * total);
             }}
-            className="relative h-12 min-w-0 flex-1 cursor-pointer overflow-hidden rounded-md bg-side outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default"
+            className={`relative h-12 min-w-0 flex-1 cursor-pointer overflow-hidden rounded-md bg-side outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default ${
+              activeId !== undefined && activeId !== speaker.id
+                ? "opacity-50"
+                : ""
+            }`}
           >
             {path && (
               <svg

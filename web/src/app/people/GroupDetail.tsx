@@ -166,6 +166,29 @@ function GroupForm({
     );
   }
 
+  async function setAside(disposition: "ignored" | "random") {
+    setBusy(true);
+    setFailure(undefined);
+    const result = await actions.setDisposition(
+      group.id,
+      kept.map((m) => m.local_speaker_id),
+      disposition,
+    );
+    setBusy(false);
+    if (!result.ok) {
+      setFailure(result.code);
+      return;
+    }
+    onNamed(
+      t(
+        disposition === "ignored"
+          ? "people.group.savedIgnored"
+          : "people.group.savedRandom",
+        { count: result.value },
+      ),
+    );
+  }
+
   async function confirm() {
     if (!choice || !ready) return;
     setBusy(true);
@@ -198,6 +221,11 @@ function GroupForm({
           : t("people.group.titleIsolated")}
       </h2>
       <p className="max-w-2xl text-mute">{t("people.group.lead")}</p>
+      <p className="m-0 text-mute">
+        {t("people.group.videos", {
+          count: new Set(group.members.map((m) => m.clip_name)).size,
+        })}
+      </p>
       <ul
         aria-label={t("people.group.voices")}
         className="m-0 grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-2"
@@ -328,16 +356,33 @@ function GroupForm({
             total: group.members.length,
           })}
         </p>
-        <button
-          type="button"
-          disabled={!ready || busy || pending !== undefined || conflict}
-          onClick={() => void confirm()}
-          className={buttonClass("primary")}
-        >
-          {ready
-            ? t("people.group.name", { count: kept.length, person: who })
-            : t("people.group.nameNone")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {(["random", "ignored"] as const).map((disposition) => (
+            <button
+              key={disposition}
+              type="button"
+              disabled={busy || pending !== undefined || conflict}
+              onClick={() => void setAside(disposition)}
+              className={buttonClass()}
+            >
+              {t(
+                disposition === "random"
+                  ? "people.group.random"
+                  : "people.group.ignore",
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={!ready || busy || pending !== undefined || conflict}
+            onClick={() => void confirm()}
+            className={buttonClass("primary")}
+          >
+            {ready
+              ? t("people.group.name", { count: kept.length, person: who })
+              : t("people.group.nameNone")}
+          </button>
+        </div>
       </div>
     </>
   );

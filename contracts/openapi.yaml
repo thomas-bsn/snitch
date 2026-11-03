@@ -5537,8 +5537,8 @@
       "put": {
         "operationId": "setVoiceGroupDisposition",
         "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionInput"}}}},
-        "responses": {"200": {"description": "Disposition appliquée à chaque voix non exclue du groupe", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupDisposition"}}}}, "404": {"description": "voice_group_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "validated_voice : une voix du groupe est validée ; analysis_active : une analyse est en cours sur l'un de leurs clips ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupDispositionInput"}}}},
+        "responses": {"200": {"description": "Disposition appliquée à chaque voix non exclue du groupe", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupDisposition"}}}}, "404": {"description": "voice_group_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "group_changed : le groupe n'est plus exactement la liste de voix envoyée ; validated_voice : une voix du groupe est validée ; analysis_active : une analyse est en cours sur l'un de leurs clips ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "description": "Utilisateurs connectés. Une disposition vaut pour chacune des voix du groupe (ADR 0031).",
         "security": [{"session": []}]
       }
@@ -5549,6 +5549,15 @@
         "parameters": [{"in": "query", "name": "level", "required": false, "schema": {"type": "string", "enum": ["all", "unknown", "ambiguous"], "default": "all"}, "description": "Ne garder que les voix inconnues ou que les voix ambiguës."}, {"in": "query", "name": "clip", "required": false, "schema": {"type": "integer", "format": "int64", "minimum": 1}, "description": "Ne garder que les voix de ce clip (lien d'une notification)."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
         "responses": {"200": {"description": "Cas à vérifier, du plus fréquent au moins fréquent, et compteurs par niveau de décision", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceVerification"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "description": "Utilisateurs connectés. Vue de vérification : uniquement les voix inconnues ou ambiguës (avec leurs Personnes candidates), sur les clips visibles. Tri par fréquence : clips distincts du groupe proposé de la voix, puis nombre de voix du groupe, puis temps de parole. Trancher un cas est une validation humaine (POST /api/local-speakers/{id}/validation) : cette lecture n'écrit rien. Les compteurs par niveau sont calculés en base. Aucune promesse de qualité n'est dérivée du nombre d'extraits.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/people/to-process": {
+      "get": {
+        "operationId": "listPeopleToProcess",
+        "parameters": [{"in": "query", "name": "filter", "required": false, "schema": {"type": "string", "enum": ["all", "to_confirm", "unknown_ambiguous", "group"], "default": "all"}, "description": "Ne garder que les clips avec une voix à confirmer (suggestion), une voix inconnue ou ambiguë, ou un groupe proposé."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
+        "responses": {"200": {"description": "Un élément par clip visible ayant au moins une voix à trancher", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PeopleToProcess"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Vue « À traiter », calculée à la lecture sur les clips visibles : voix sans validation humaine ni attribution automatique, hors voix ignorées et Random (ADR 0031). Par clip : voix à confirmer (suggestion), ambiguës, inconnues, et nombre de groupes proposés (deux voix ou plus) auxquels ses voix appartiennent. Tri : plus de voix d'abord. `total` suit le filtre ; `totals` n'en dépend pas (compteurs de l'onglet). Cette lecture n'écrit rien.",
         "security": [{"session": []}]
       }
     },
@@ -7731,13 +7740,15 @@
       "PersonLinkRequestList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PersonLinkRequest"}}}},
       "Person": {
         "type": "object",
-        "required": ["id", "display_name", "user_id", "validated_sample_count", "local_speaker_count", "voice_profile_deleted_at", "created_at"],
+        "required": ["id", "display_name", "user_id", "validated_sample_count", "local_speaker_count", "clip_count", "speaking_seconds", "voice_profile_deleted_at", "created_at"],
         "properties": {
           "id": {"type": "integer", "format": "int64"},
           "display_name": {"type": "string"},
           "user_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Compte lié, le cas échéant : une Personne n'est jamais un compte."},
           "validated_sample_count": {"type": "integer", "description": "Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre n'est pas une garantie de qualité d'identification."},
           "local_speaker_count": {"type": "integer", "description": "Locuteurs locaux validés pour cette Personne."},
+          "clip_count": {"type": "integer", "description": "Vidéos où une voix validée de la Personne est entendue, parmi celles que l'appelant peut voir. Rempli en lecture (liste et fiche), 0 dans le résultat d'une correction."},
+          "speaking_seconds": {"type": "number", "description": "Temps de parole cumulé de ces voix validées, sur les vidéos visibles par l'appelant."},
           "voice_profile_deleted_at": {"type": "string", "format": "date-time", "nullable": true, "description": "Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée."},
           "created_at": {"type": "string", "format": "date-time"}
         }
@@ -7837,6 +7848,15 @@
         "additionalProperties": false,
         "properties": {"disposition": {"type": "string", "enum": ["ignored", "random"]}}
       },
+      "VoiceGroupDispositionInput": {
+        "type": "object",
+        "required": ["disposition", "local_speaker_ids"],
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {"type": "string", "enum": ["ignored", "random"]},
+          "local_speaker_ids": {"type": "array", "minItems": 1, "maxItems": 500, "items": {"type": "integer", "format": "int64", "minimum": 1}, "description": "Les voix du groupe affichées (non exclues) ; group_changed si le groupe n'est plus exactement cet ensemble."}
+        }
+      },
       "VoiceDispositionView": {
         "type": "object",
         "required": ["local_speaker_id", "disposition"],
@@ -7894,6 +7914,21 @@
           "group_voice_count": {"type": "integer", "description": "Présent avec group_id."},
           "group_clip_count": {"type": "integer", "description": "Présent avec group_id."}
         }
+      },
+      "PeopleToProcessClip": {
+        "type": "object",
+        "required": ["clip_id", "clip_name", "to_confirm", "ambiguous", "unknown", "groups"],
+        "properties": {"clip_id": {"type": "integer", "format": "int64"}, "clip_name": {"type": "string"}, "to_confirm": {"type": "integer"}, "ambiguous": {"type": "integer"}, "unknown": {"type": "integer"}, "groups": {"type": "integer"}}
+      },
+      "PeopleToProcessTotals": {
+        "type": "object",
+        "required": ["clips", "to_confirm", "ambiguous", "unknown", "groups"],
+        "properties": {"clips": {"type": "integer"}, "to_confirm": {"type": "integer"}, "ambiguous": {"type": "integer"}, "unknown": {"type": "integer"}, "groups": {"type": "integer"}}
+      },
+      "PeopleToProcess": {
+        "type": "object",
+        "required": ["items", "total", "totals"],
+        "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PeopleToProcessClip"}}, "total": {"type": "integer"}, "totals": {"$ref": "#/components/schemas/PeopleToProcessTotals"}}
       },
       "VoiceVerificationCounts": {
         "type": "object",

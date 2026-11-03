@@ -1,11 +1,8 @@
-import { useCallback, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import type { MessageKey } from "../i18n/messages";
-
-/** What a section may tell the layout: the number of cases left to decide. */
-export type PeopleOutlet = { reportToDecide: (count: number) => void };
+import { useToProcessCount } from "../shell/useToProcessCount";
 
 type PeopleTab = { path: string; label: MessageKey };
 
@@ -29,8 +26,7 @@ export function PeopleLayout() {
   useDocumentTitle(t("pages.people.title"));
   // The record of a Person lives under /people/:id, so the first tab stays current there.
   const { pathname } = useLocation();
-  const [toDecide, setToDecide] = useState<number>();
-  const reportToDecide = useCallback((count: number) => setToDecide(count), []);
+  const toProcess = useToProcessCount();
   const onPersons = !/^\/people\/(verification|groups)(\/|$)/.test(pathname);
   return (
     <section className="flex flex-col gap-4 px-4 py-6 md:px-7">
@@ -57,9 +53,9 @@ export function PeopleLayout() {
               ) : (
                 <NavLink to={`/people/${tab.path}`} end className={tabClass}>
                   {t(tab.label)}
-                  {tab.path === "verification" && toDecide !== undefined && (
+                  {tab.path === "verification" && toProcess !== undefined && (
                     <b className="ml-2 rounded-full bg-accent-soft px-2 text-xs text-accent-ink">
-                      {toDecide}
+                      {toProcess}
                     </b>
                   )}
                 </NavLink>
@@ -68,7 +64,7 @@ export function PeopleLayout() {
           ))}
         </ul>
       </nav>
-      <Outlet context={{ reportToDecide } satisfies PeopleOutlet} />
+      <Outlet />
     </section>
   );
 }

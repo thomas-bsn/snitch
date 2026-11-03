@@ -156,12 +156,16 @@ func (s *Server) validatedAttribution(ctx context.Context, speakerID int64) (*at
 }
 
 type personView struct {
-	ID                   int64     `json:"id"`
-	DisplayName          string    `json:"display_name"`
-	UserID               *int64    `json:"user_id"`
-	ValidatedSampleCount int       `json:"validated_sample_count"`
-	LocalSpeakerCount    int       `json:"local_speaker_count"`
-	CreatedAt            time.Time `json:"created_at"`
+	ID                   int64  `json:"id"`
+	DisplayName          string `json:"display_name"`
+	UserID               *int64 `json:"user_id"`
+	ValidatedSampleCount int    `json:"validated_sample_count"`
+	LocalSpeakerCount    int    `json:"local_speaker_count"`
+	// ClipCount and SpeakingSeconds cover the validated voices on the clips the caller
+	// can see; they are filled by loadPersonFigures.
+	ClipCount       int       `json:"clip_count"`
+	SpeakingSeconds float64   `json:"speaking_seconds"`
+	CreatedAt       time.Time `json:"created_at"`
 	// VoiceProfileDeletedAt is set once the Person deleted their voice profile; it
 	// holds no voice data and keeps matching from rebuilding the profile.
 	VoiceProfileDeletedAt *time.Time `json:"voice_profile_deleted_at"`
@@ -175,6 +179,41 @@ func scanPerson(row pgx.Row) (personView, error) {
 	var v personView
 	err := row.Scan(&v.ID, &v.DisplayName, &v.UserID, &v.CreatedAt, &v.ValidatedSampleCount, &v.LocalSpeakerCount, &v.VoiceProfileDeletedAt)
 	return v, err
+}
+
+// loadPersonFigures fills the clip count and speaking time of the given Persons in one
+// query, counting only the clips the signed-in caller can see.
+func (s *Server) loadPersonFigures(ctx context.Context, caller session, persons []personView) error {
+	if len(persons) == 0 {
+		return nil
+	}
+	ids := make([]int64, len(persons))
+	byID := map[int64]*personView{}
+	for i := range persons {
+		ids[i] = persons[i].ID
+		byID[persons[i].ID] = &persons[i]
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT a.person_id,count(DISTINCT ls.clip_id),COALESCE(sum(ls.speaking_seconds),0)
+		FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id
+		WHERE a.person_id=ANY($1) AND a.validation_state='validated' AND clip_readable(c.id,c.owner_id,c.visibility,$2,$3)
+		GROUP BY a.person_id`, ids, caller.User.ID, isAdministrator(caller.User.Role))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var personID int64
+		var clips int
+		var seconds float64
+		if err = rows.Scan(&personID, &clips, &seconds); err != nil {
+			return err
+		}
+		if v := byID[personID]; v != nil {
+			v.ClipCount = clips
+			v.SpeakingSeconds = seconds
+		}
+	}
+	return rows.Err()
 }
 
 func cleanPersonName(name string) (string, bool) {
@@ -242,6 +281,10 @@ func (s *Server) listPersons(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	if err = s.loadPersonFigures(r.Context(), r.Context().Value(sessionKey{}).(session), items); err != nil {
+		s.internal(w, err)
+		return
+	}
 	if !paged {
 		reply(w, http.StatusOK, map[string]any{"items": items})
 		return
@@ -294,7 +337,12 @@ func (s *Server) getPerson(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, v)
+	persons := []personView{v}
+	if err = s.loadPersonFigures(r.Context(), r.Context().Value(sessionKey{}).(session), persons); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, persons[0])
 }
 
 type speakerRef struct {

@@ -2630,6 +2630,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/people/to-process": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Vue « À traiter », calculée à la lecture sur les clips visibles : voix sans validation humaine ni attribution automatique, hors voix ignorées et Random (ADR 0031). Par clip : voix à confirmer (suggestion), ambiguës, inconnues, et nombre de groupes proposés (deux voix ou plus) auxquels ses voix appartiennent. Tri : plus de voix d'abord. `total` suit le filtre ; `totals` n'en dépend pas (compteurs de l'onglet). Cette lecture n'écrit rien. */
+    get: operations["listPeopleToProcess"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/notifications": {
     parameters: {
       query?: never;
@@ -4143,6 +4160,10 @@ export interface components {
       validated_sample_count: number;
       /** @description Locuteurs locaux validés pour cette Personne. */
       local_speaker_count: number;
+      /** @description Vidéos où une voix validée de la Personne est entendue, parmi celles que l'appelant peut voir. Rempli en lecture (liste et fiche), 0 dans le résultat d'une correction. */
+      clip_count: number;
+      /** @description Temps de parole cumulé de ces voix validées, sur les vidéos visibles par l'appelant. */
+      speaking_seconds: number;
       /**
        * Format: date-time
        * @description Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée.
@@ -4327,6 +4348,12 @@ export interface components {
       /** @enum {string} */
       disposition: "ignored" | "random";
     };
+    VoiceGroupDispositionInput: {
+      /** @enum {string} */
+      disposition: "ignored" | "random";
+      /** @description Les voix du groupe affichées (non exclues) ; group_changed si le groupe n'est plus exactement cet ensemble. */
+      local_speaker_ids: number[];
+    };
     VoiceDispositionView: {
       /** Format: int64 */
       local_speaker_id: number;
@@ -4402,6 +4429,27 @@ export interface components {
       group_voice_count?: number;
       /** @description Présent avec group_id. */
       group_clip_count?: number;
+    };
+    PeopleToProcessClip: {
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      to_confirm: number;
+      ambiguous: number;
+      unknown: number;
+      groups: number;
+    };
+    PeopleToProcessTotals: {
+      clips: number;
+      to_confirm: number;
+      ambiguous: number;
+      unknown: number;
+      groups: number;
+    };
+    PeopleToProcess: {
+      items: components["schemas"]["PeopleToProcessClip"][];
+      total: number;
+      totals: components["schemas"]["PeopleToProcessTotals"];
     };
     /** @description Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base. */
     VoiceVerificationCounts: {
@@ -12552,7 +12600,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["VoiceDispositionInput"];
+        "application/json": components["schemas"]["VoiceGroupDispositionInput"];
       };
     };
     responses: {
@@ -12574,7 +12622,7 @@ export interface operations {
           "application/json": components["schemas"]["Error"];
         };
       };
-      /** @description validated_voice : une voix du groupe est validée ; analysis_active : une analyse est en cours sur l'un de leurs clips ; rien n'est écrit */
+      /** @description group_changed : le groupe n'est plus exactement la liste de voix envoyée ; validated_voice : une voix du groupe est validée ; analysis_active : une analyse est en cours sur l'un de leurs clips ; rien n'est écrit */
       409: {
         headers: {
           [name: string]: unknown;
@@ -12617,6 +12665,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceVerification"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPeopleToProcess: {
+    parameters: {
+      query?: {
+        /** @description Ne garder que les clips avec une voix à confirmer (suggestion), une voix inconnue ou ambiguë, ou un groupe proposé. */
+        filter?: "all" | "to_confirm" | "unknown_ambiguous" | "group";
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Un élément par clip visible ayant au moins une voix à trancher */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PeopleToProcess"];
         };
       };
       /** @description Erreur */

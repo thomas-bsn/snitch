@@ -50,51 +50,36 @@ test.describe.serial("personnes et vérification", () => {
     await page.context().close();
   });
 
-  test("vérification : un cas à l'écran, passer en local, choisir au clavier et trancher", async () => {
+  test("traitement : une voix à l'écran, extrait écoutable, adresse d'un cas et voix tranchée", async () => {
     await page.goto("/people/verification");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("People");
     await expect(
-      page.getByRole("link", { name: /^Verification\s*2$/ }),
+      page.getByRole("link", { name: /^To process\s*2$/ }),
     ).toBeVisible();
+    await page.getByRole("link", { name: /^Process / }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`/people/verification\\?clip=${clipId}$`),
+    );
 
-    // The five states carry a label and the counts come from the server.
-    const counters = page.getByRole("list", { name: "Voices by state" });
-    await expect(
-      counters.getByRole("button", { name: /^Unknown\s*2$/ }),
-    ).toBeVisible();
-    await expect(
-      counters.getByRole("button", { name: /^Ambiguous\s*0$/ }),
-    ).toBeVisible();
-    for (const label of [
-      "Validated by a human",
-      "Automatic attribution",
-      "Suggestion",
-    ]) {
-      await expect(
-        counters.locator("li").filter({ hasText: label }),
-      ).toHaveCount(1);
-    }
-    // One case at a time, the most frequent first.
-    const current = page.getByRole("region", { name: "Voice to decide" });
+    // One voice at a time, in the order of the clip; the queue shows both.
+    const screen = page.getByRole("region", { name: "Clip processing" });
+    const current = screen.getByRole("region", {
+      name: "Who is speaking here?",
+    });
     await expect(current.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_00",
     );
-    await expect(current).toContainText("2 voice(s) left to decide");
-    await expect(current).toContainText("2 voice(s) in the group");
+    await expect(current).toContainText("Voice 1 of 2");
     await expect(
-      page.getByRole("list", { name: "Voices to decide" }),
-    ).toHaveCount(0);
+      screen
+        .getByRole("list", { name: "Voices to process" })
+        .getByRole("listitem"),
+    ).toHaveCount(2);
     await expectNoViolations(page);
     // A badge placed inside a button is not a button itself.
     await expect(page.locator("button button, a button")).toHaveCount(0);
 
-    // A counter filters the queue.
-    await counters.getByRole("button", { name: /^Ambiguous/ }).click();
-    await expect(page.getByText("Nothing left to decide here.")).toBeVisible();
-    await counters.getByRole("button", { name: /^To decide/ }).click();
-    await expect(current).toContainText("2 voice(s) left to decide");
-
-    // A direct link opens its voice first, while the queue alone starts with SPEAKER_00.
+    // A direct link opens its voice first, while the clip alone starts with SPEAKER_00.
     const { api: voiceApi } = await adminApi();
     const voices = (await (
       await voiceApi.get(`/api/clips/${clipId}/voice`)
@@ -106,10 +91,8 @@ test.describe.serial("personnes et vérification", () => {
     await expect(current.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_01",
     );
-    await expect(current).toContainText("2 voice(s) left to decide");
-    await expect(page.getByText("Already handled")).toHaveCount(0);
     await expectNoViolations(page);
-    await page.goto("/people/verification");
+    await page.goto(`/people/verification?clip=${clipId}`);
     await expect(current.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_00",
     );
@@ -126,65 +109,37 @@ test.describe.serial("personnes et vérification", () => {
       "audio/wav",
     );
 
-    // "Confirm" stays off until something is chosen, and Enter then does nothing.
-    const confirm = current.getByRole("button", { name: "Confirm" });
-    await expect(confirm).toBeDisabled();
-    await page.keyboard.press("Enter");
-    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
-      "SPEAKER_00",
-    );
-    await current.getByRole("radio", { name: "Create a person" }).check();
-    await expect(confirm).toBeDisabled();
-
-    // "Skip" is local: the next case comes, the counters do not move, and a reload
-    // brings the original order back.
-    await page.keyboard.press("s");
+    // Identifying with a new Person settles the voice and lowers the counter of the tab.
+    await current.getByRole("button", { name: "Identify" }).click();
+    await current
+      .getByLabel("Name of the new person")
+      .fill("Claire Synthétique");
+    await current.getByRole("button", { name: "Create and identify" }).click();
     await expect(current.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_01",
     );
     await expect(
-      counters.getByRole("button", { name: /^Unknown\s*2$/ }),
+      page.getByRole("link", { name: /^To process\s*1$/ }),
     ).toBeVisible();
-    await page.reload();
-    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
-      "SPEAKER_00",
-    );
+    // The sidebar follows the decision without a change of address; the voice left is
+    // only a suggestion, and it still counts: the list shows it.
     await expect(
-      counters.getByRole("button", { name: /^Unknown\s*2$/ }),
-    ).toBeVisible();
+      page
+        .getByRole("navigation", { name: "Main navigation" })
+        .first()
+        .getByRole("link", { name: "People" }),
+    ).toHaveAccessibleDescription("1 voice(s) to decide");
 
-    // The shortcuts are off in a text field: the name holds an "s" and "Enter".
-    await current.getByRole("radio", { name: "Create a person" }).check();
-    const name = current.getByLabel("Name of the new person");
-    await name.fill("Claire Synthétique");
-    await name.press("Enter");
-    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
-      "SPEAKER_00",
-    );
-    await expect(name).toHaveValue("Claire Synthétique");
-    await expectNoViolations(page);
-
-    // Settling creates the person, removes the case and lowers the counters.
-    await confirm.click();
-    await expect(page.getByRole("status")).toContainText(
-      "Saved: SPEAKER_00 is Claire Synthétique.",
-    );
-    await expect(page.getByText("Nothing left to decide here.")).toBeVisible();
-    await expect(
-      counters.locator("li").filter({ hasText: "Validated by a human" }),
-    ).toContainText("1");
-    await expect(
-      counters.locator("li").filter({ hasText: "Suggestion" }),
-    ).toContainText("1");
-    await expect(
-      counters.getByRole("button", { name: /^Unknown\s*0$/ }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: /^Verification\s*0$/ }),
-    ).toBeVisible();
-
-    // A link to the voice that was just settled says who attributed it, to whom, when.
+    // The address of the voice just settled opens its clip, with the voice marked settled.
     await page.goto(`/people/verification?case=${idOf("SPEAKER_00")}`);
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_00",
+    );
+    await expect(current).toContainText("Validated by a person");
+    await expect(
+      screen.getByRole("list", { name: "Voices to process" }),
+    ).toContainText("Claire Synthétique");
+    // The voice is already settled: the notice says who attributed it, to whom, when.
     const handled = page.getByRole("region", {
       name: "Direct link to a voice",
     });
@@ -197,13 +152,7 @@ test.describe.serial("personnes et vérification", () => {
     await expect(
       handled.getByRole("link", { name: "Open Claire Synthétique" }),
     ).toHaveAttribute("href", /^\/people\/\d+$/);
-    await expect(
-      page.getByRole("region", { name: "Voice to decide" }),
-    ).toHaveCount(0);
     await expectNoViolations(page);
-    await handled.getByRole("button", { name: "Continue the review" }).click();
-    await expect(page).toHaveURL(/\/people\/verification$/);
-    await expect(handled).toHaveCount(0);
   });
 
   test("badges de niveau avec légende et extraits écoutables sur la fiche", async () => {
@@ -326,9 +275,21 @@ test.describe.serial("personnes et vérification", () => {
     const claire = page.getByRole("region", { name: "Claire Synthétique" });
     await expect(claire).toContainText("1 voice(s)");
     await expect(claire).toContainText("1 validated sample(s)");
+    await expect(claire).toContainText("1 video(s)");
+    await expect(claire.getByRole("note")).toContainText(
+      "Reference to strengthen",
+    );
+    await expect(
+      claire
+        .getByRole("group", {
+          name: "Videos where Claire Synthétique is heard",
+        })
+        .getByRole("link"),
+    ).toHaveCount(1);
     const claireUrl = page.url();
 
-    // Creation.
+    // Creation, from the directory.
+    await page.getByRole("link", { name: "Back to people" }).click();
     await page.getByRole("button", { name: "New person" }).click();
     const creation = page.getByRole("dialog", { name: "New person" });
     await creation.getByLabel("Name").fill("Alicia Synthétique");
@@ -343,7 +304,7 @@ test.describe.serial("personnes et vérification", () => {
     // The list is searchable; a Person without a validated sample has no reference.
     await page.getByRole("searchbox", { name: "Search people" }).fill("alicia");
     await expect(list.getByRole("listitem")).toHaveCount(1);
-    await expect(list).toContainText("No reference");
+    await expect(list).toContainText("Reference: none");
     await page.getByRole("searchbox", { name: "Search people" }).fill("");
     await list.getByRole("link", { name: /Alicia Synthétique/ }).click();
     const alicia = page.getByRole("region", { name: "Alicia Synthétique" });
@@ -375,7 +336,9 @@ test.describe.serial("personnes et vérification", () => {
       "Alicia Synthétique was merged into Claire Synthétique",
     );
     await expect(page).toHaveURL(claireUrl);
+    await page.getByRole("link", { name: "Back to people" }).click();
     await expect(list).not.toContainText("Alicia Synthétique");
+    await list.getByRole("link", { name: /Claire Synthétique/ }).click();
 
     // Separation: an action of the header, which counts what it does.
     const voices = page.getByRole("group", {
@@ -422,7 +385,8 @@ test.describe.serial("personnes et vérification", () => {
       "Claire Synthétique has no confirmed voice to separate.",
     );
 
-    // The corrections are kept in the log.
+    // The corrections are kept in the log, on the directory.
+    await page.getByRole("link", { name: "Back to people" }).click();
     await page.getByRole("button", { name: "Corrections log" }).click();
     const log = page.getByRole("list", { name: "Person corrections" });
     await expect(log).toContainText(
@@ -431,10 +395,10 @@ test.describe.serial("personnes et vérification", () => {
     await expect(log).toContainText("Separation: Claire Synthétique");
 
     // The separated voice is back in the verification.
-    await page.goto("/people/verification");
+    await page.goto(`/people/verification?clip=${clipId}`);
     await expect(
       page
-        .getByRole("region", { name: "Voice to decide" })
+        .getByRole("region", { name: "Who is speaking here?" })
         .getByRole("heading", { level: 2 }),
     ).toHaveText("SPEAKER_00");
 
@@ -611,7 +575,11 @@ test.describe.serial("personnes et vérification", () => {
   test("personnes et vérification en thème sombre et à 390 pixels", async () => {
     await page.evaluate(() => localStorage.setItem("snitch-ui-theme", "dark"));
     await page.setViewportSize({ width: 390, height: 780 });
-    for (const path of ["/people", "/people/verification"]) {
+    for (const path of [
+      "/people",
+      "/people/verification",
+      `/people/verification?clip=${clipId}`,
+    ]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await expectNoViolations(page);
@@ -621,11 +589,11 @@ test.describe.serial("personnes et vérification", () => {
         ),
       ).toBe(true);
     }
-    const confirm = page
-      .getByRole("region", { name: "Voice to decide" })
-      .getByRole("button", { name: "Confirm" });
-    await expect(confirm).toBeVisible();
-    expect((await confirm.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    const identify = page
+      .getByRole("region", { name: "Who is speaking here?" })
+      .getByRole("button", { name: "Identify" });
+    await expect(identify).toBeVisible();
+    expect((await identify.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await expectNoViolations(page);
 
     // The record with its actions and written reasons, on a phone, in the dark.
@@ -652,9 +620,9 @@ test.describe.serial("personnes et vérification", () => {
   });
 
   test("la légende des badges reste lisible en thème sombre à 390 pixels", async () => {
-    await page.goto("/people/verification");
+    await page.goto(`/people/verification?clip=${clipId}`);
     const caseBadge = page
-      .getByRole("region", { name: "Voice to decide" })
+      .getByRole("region", { name: "Who is speaking here?" })
       .getByRole("button", { name: "Unknown" });
     await caseBadge.click();
     const legend = page.getByRole("dialog", { name: "Unknown" });
@@ -698,16 +666,16 @@ test.describe.serial("personnes et vérification", () => {
     await nameVoice(thirdVoices[1], "Référence Synthétique B");
     await page.evaluate(() => localStorage.setItem("snitch-ui-theme", "light"));
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/people/verification");
+    await page.goto(`/people/verification?clip=${second}`);
 
-    const current = page.getByRole("region", { name: "Voice to decide" });
+    const current = page.getByRole("region", { name: "Who is speaking here?" });
     const heading = current.getByRole("heading", { level: 2 });
-    const tab = page.getByRole("link", { name: /^Verification\s*\d+$/ });
+    const tab = page.getByRole("link", { name: /^To process\s*\d+$/ });
     await expect(heading).toBeVisible();
     const count = async () =>
       Number((await tab.innerText()).replace(/\D/g, ""));
+    await expect.poll(count).toBeGreaterThanOrEqual(2);
     const before = await count();
-    expect(before).toBeGreaterThanOrEqual(2);
     const speakerOf = async () =>
       Number(
         (await current.locator("audio").getAttribute("src"))!.match(
@@ -715,66 +683,55 @@ test.describe.serial("personnes et vérification", () => {
         )![1],
       );
 
-    // With nothing chosen, a number key changes nothing.
-    const confirm = current.getByRole("button", { name: "Confirm" });
-    await page.keyboard.press("9");
-    await expect(confirm).toBeDisabled();
+    // The closest people come with their proximity, never as a confirmation.
+    const candidates = current.getByRole("list", { name: "Closest people" });
+    await expect(candidates).toContainText("% proximity");
+    await expect(
+      candidates.getByRole("button", { name: /^It is Référence Synthétique/ }),
+    ).not.toHaveCount(0);
 
     // The search is made by the server: the eleventh person is found past the first page.
-    const search = current.getByRole("searchbox", { name: "Search people" });
-    await search.fill("Synthétique 11");
-    const eleven = current.getByRole("radio", { name: "Zoé Synthétique 11" });
-    await eleven.check();
-    await expect(confirm).toBeEnabled();
+    await current.getByRole("button", { name: "Identify" }).click();
+    await current
+      .getByRole("searchbox", { name: "Search people" })
+      .fill("Synthétique 11");
     const first = await speakerOf();
-    // Enter, with the focus on the choice, confirms; the next case follows by itself.
-    await page.keyboard.press("Enter");
-    await expect(page.getByRole("status")).toContainText(
-      "is Zoé Synthétique 11.",
-    );
+    await current
+      .getByRole("button", { name: "Identify as Zoé Synthétique 11" })
+      .click();
+    // The next voice follows by itself and the counter of the tab goes down.
     await expect.poll(speakerOf).not.toBe(first);
     await expect.poll(count).toBeLessThan(before);
 
-    // A candidate proposed by the server is chosen with its number and shows a proximity,
-    // never a confirmation.
-    const queue = (await (
-      await page.request.get("/api/voice-verification?level=all")
-    ).json()) as {
-      items: { candidates: { person: { display_name: string } }[] }[];
-    };
-    const candidates = queue.items[0]?.candidates ?? [];
-    expect(candidates.length).toBeGreaterThan(0);
-    await expect(current).toContainText("% proximity");
-    await page.keyboard.press("1");
-    await expect(
-      current.getByRole("radio", { name: candidates[0].person.display_name }),
-    ).toBeChecked();
-    await expect(confirm).toBeEnabled();
-    await expect(current).toContainText(
-      "Proximity is only a suggestion: nothing is attributed until you confirm.",
-    );
-
-    // Somebody else settles the displayed case first: the choice is refused, nothing is
-    // written for the chosen Person and the queue goes on.
+    // Somebody else settles the displayed voice first: the choice is refused, nothing is
+    // written for the chosen Person and the message names who won.
     const target = await speakerOf();
     const { api, post } = await adminApi();
     await post(`/api/local-speakers/${target}/validation`, {
       person_id: ids[0],
     });
-    await search.fill("Synthétique 12");
-    await current.getByRole("radio", { name: "Zoé Synthétique 12" }).check();
-    await confirm.click();
-    await expect(page.getByRole("status")).toContainText(
+    await current.getByRole("button", { name: "Identify" }).click();
+    await current
+      .getByRole("searchbox", { name: "Search people" })
+      .fill("Synthétique 12");
+    await current
+      .getByRole("button", { name: "Identify as Zoé Synthétique 12" })
+      .click();
+    await expect(page.getByRole("alert")).toContainText(
       "Already confirmed as Zoé Synthétique 01.",
     );
-    // Two cases were settled (by this session, then by the other one): the queue went on.
-    await expect.poll(count).toBe(before - 2);
-    await expect.poll(speakerOf).not.toBe(target);
     const twelve = (await (
       await api.get(`/api/persons/${ids[11]}`)
     ).json()) as { local_speaker_count: number };
     expect(twelve.local_speaker_count).toBe(0);
     await api.dispose();
+
+    // Reading the screen again: both voices of the clip are settled, the counter agrees.
+    await page.reload();
+    await expect(
+      page.getByText("All the voices of this clip are processed."),
+    ).toBeVisible();
+    await expect.poll(count).toBe(before - 2);
     await expectNoViolations(page);
   });
 

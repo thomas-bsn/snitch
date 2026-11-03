@@ -3,8 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { excerptUrl } from "./peopleApi";
 
-// One excerpt at a time: the player that starts stops the one that was playing.
+// One audio at a time: the player that starts stops the one that was playing.
 let current: (() => void) | undefined;
+
+/** Stops whatever plays and registers `stop` as what to stop when the next one starts. */
+export function claimPlayback(stop: () => void) {
+  if (current) current();
+  current = stop;
+}
 
 /**
  * A reusable player for the excerpt of a local speaker. The button names the voice and its
@@ -14,7 +20,10 @@ export function ExcerptPlayer({
   localSpeakerId,
   label,
   clip,
+  shortcut,
 }: {
+  /** Key (data-shortcut) a screen with keyboard shortcuts presses this button with. */
+  shortcut?: string;
   localSpeakerId: number;
   label: string;
   clip: string;
@@ -38,8 +47,7 @@ export function ExcerptPlayer({
       element.pause();
       return;
     }
-    if (current) current();
-    current = () => element.pause();
+    claimPlayback(() => element.pause());
     void element.play().catch(() => setPlaying(false));
   }
 
@@ -49,6 +57,8 @@ export function ExcerptPlayer({
       <button
         type="button"
         aria-pressed={playing}
+        data-shortcut={shortcut}
+        aria-keyshortcuts={shortcut === " " ? "Space" : shortcut}
         onClick={toggle}
         className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:bg-side"
         aria-label={t("people.excerpt.player", { label, clip })}

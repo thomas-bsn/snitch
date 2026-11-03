@@ -9,16 +9,11 @@ export type PersonImpact = components["schemas"]["PersonImpact"];
 export type PersonEvent = components["schemas"]["PersonEvent"];
 export type PersonCorrectionResult =
   components["schemas"]["PersonCorrectionResult"];
-export type Verification = components["schemas"]["VoiceVerification"];
-export type VerificationCase = components["schemas"]["VoiceVerificationCase"];
-export type VerificationCounts =
-  components["schemas"]["VoiceVerificationCounts"];
 export type LocalSpeakerRead = components["schemas"]["LocalSpeakerRead"];
 export type VoiceGroup = components["schemas"]["VoiceGroup"];
 export type VoiceGroupMember = components["schemas"]["VoiceGroupMember"];
 export type VoiceGroupNaming = components["schemas"]["VoiceGroupNaming"];
 export type DecisionLevel = components["schemas"]["DecisionLevel"];
-export type VerificationFilter = "all" | "unknown" | "ambiguous";
 
 /** The person a case is settled for: an existing one, or a new one by name. */
 export type Choice = { personId: number } | { newName: string };
@@ -85,15 +80,23 @@ export const fetchPersonEvents = () =>
     return data ? { ok: true, value: data.items } : failure(error);
   });
 
-export const fetchVerification = (
-  level: VerificationFilter,
+export type ToProcess = components["schemas"]["PeopleToProcess"];
+export type ToProcessClip = components["schemas"]["PeopleToProcessClip"];
+export type ToProcessFilter =
+  | "all"
+  | "to_confirm"
+  | "unknown_ambiguous"
+  | "group";
+
+/** The clips that still have a voice to settle, with their numbers (computed by the server). */
+export const fetchToProcess = (
+  filter: ToProcessFilter,
   page: number,
   pageSize: number,
-  clip?: number,
 ) =>
   guard(async () => {
-    const { data, error } = await api.GET("/api/voice-verification", {
-      params: { query: { level, page, page_size: pageSize, clip } },
+    const { data, error } = await api.GET("/api/people/to-process", {
+      params: { query: { filter, page, page_size: pageSize } },
     });
     return data ? { ok: true, value: data } : failure(error);
   });
@@ -220,6 +223,26 @@ export function useVoiceGroupActions() {
           { params: { path: { id: localSpeakerId }, header } },
         );
         return data ? { ok: true, value: true } : failure(error);
+      }),
+    /**
+     * Sets every voice of the group aside, or labels it Random (ADR 0031). Like the naming,
+     * it sends the voices displayed: the server refuses, and writes nothing, when the group
+     * is no longer exactly that set.
+     */
+    setDisposition: (
+      groupId: number,
+      localSpeakerIds: number[],
+      disposition: "ignored" | "random",
+    ) =>
+      guard<number>(async () => {
+        const { data, error } = await api.PUT(
+          "/api/voice-groups/{id}/disposition",
+          {
+            params: { path: { id: groupId }, header },
+            body: { disposition, local_speaker_ids: localSpeakerIds },
+          },
+        );
+        return data ? { ok: true, value: data.voices } : failure(error);
       }),
     /**
      * Names exactly the voices that were listened to. The server refuses, and writes
