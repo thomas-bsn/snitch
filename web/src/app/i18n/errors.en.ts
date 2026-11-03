@@ -29,6 +29,10 @@ export const errorsEn = {
   invalid_role: "This role is invalid.",
 
   invalid_worker_machine: "The Worker machine declaration is invalid.",
+  invalid_log_batch: "The job log batch is invalid.",
+  invalid_log_line: "A job log line is invalid.",
+  invalid_transcription_reachability:
+    "The transcription server reachability report is invalid.",
   account_already_linked: "This account is already linked to a person.",
   audio_selection_required: "Choose which audio track to use first.",
   audio_stream_not_found: "This audio track does not exist in the clip.",
