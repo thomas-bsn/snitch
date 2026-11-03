@@ -33,10 +33,13 @@ type Step = AdminRun["steps"][number];
 export function AnalyzeClip({
   clipId,
   audioTracks,
+  hasTranscription,
   onChanged,
 }: {
   clipId: number;
   audioTracks: MediaTrack[];
+  /** Whether the clip has a valid transcription, a prerequisite of the voices and the indexing. */
+  hasTranscription: boolean;
   onChanged: () => void;
 }) {
   const { t, error } = useI18n();
@@ -344,6 +347,7 @@ export function AnalyzeClip({
           {admin && (
             <ReanalyzeClip
               clipId={clipId}
+              hasTranscription={hasTranscription}
               open={reanalyzing}
               onOpenChange={setReanalyzing}
               onStarted={apply}

@@ -27,7 +27,7 @@ const fieldClass =
 
 /**
  * Every decision on one voice (ADR 0031 and the human validation): "C'est X", "Ce n'est pas X",
- * Identifier, Random, Ignorer, Rétablir and the excerpt. Shared by the clip's Voices tab and the
+ * Identifier, Random, Ignorer, Rétablir, "Annuler le refus" of each refused Person and the excerpt. Shared by the clip's Voices tab and the
  * voice processing screen; it writes through the existing calls and reports the change to
  * `onChanged`, which reloads whatever it shows.
  */
@@ -65,6 +65,7 @@ export function VoiceDecision({
   const validated = speaker.attribution?.validation_state === "validated";
   const disposition = speaker.disposition ?? null;
   const label = speaker.label;
+  const refused = speaker.refused_persons ?? [];
 
   // Shortcuts press the buttons of this decision, so each rule stays where it is.
   useEffect(() => {
@@ -380,6 +381,48 @@ export function VoiceDecision({
         </div>
       )}
 
+      {refused.length > 0 && (
+        <ul
+          aria-label={t("voiceDecision.refusedLabel", { label })}
+          className="m-0 flex list-none flex-wrap gap-2 p-0"
+        >
+          {refused.map((refusedPerson) => (
+            <li
+              key={refusedPerson.id}
+              className="flex items-center gap-2 text-sm text-mute"
+            >
+              <span>
+                {t("voiceDecision.refused", {
+                  person: refusedPerson.display_name,
+                })}
+              </span>
+              <button
+                type="button"
+                disabled={busy}
+                aria-label={t("voiceDecision.cancelRefusalLabel", {
+                  person: refusedPerson.display_name,
+                })}
+                onClick={() =>
+                  void act(() =>
+                    api.DELETE(
+                      "/api/local-speakers/{id}/refusals/{person_id}",
+                      {
+                        params: {
+                          path: { id: speaker.id, person_id: refusedPerson.id },
+                          header,
+                        },
+                      },
+                    ),
+                  )
+                }
+                className={buttonClass()}
+              >
+                {t("voiceDecision.cancelRefusal")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {validated && (
         <p className="m-0 text-xs text-mute">
           {t("voiceDecision.validatedHint")}

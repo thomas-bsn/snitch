@@ -99,7 +99,9 @@ test("Random et Ignorer : libellé ou absence de locuteur dans la transcription,
   await expect(firstSegment(page)).not.toContainText("Random");
 });
 
-test("Ce n'est pas X retire l'attribution de la voix", async ({ page }) => {
+test("Ce n'est pas X retire l'attribution de la voix, Annuler le refus la rend proposable", async ({
+  page,
+}) => {
   const clipId = await prepare(page, "fixture-voices-refusal.mp4", false);
   const [first] = await speakerIds(page, clipId);
   await nameVoice(first, "Camille");
@@ -109,10 +111,22 @@ test("Ce n'est pas X retire l'attribution de la voix", async ({ page }) => {
   await card(page, "SPEAKER_00")
     .getByRole("button", { name: "It is not Camille" })
     .click();
-  await expect(card(page, "SPEAKER_00").getByText("Camille")).toHaveCount(0);
   await expect(
     card(page, "SPEAKER_00").getByRole("button", { name: "It is not Camille" }),
   ).toHaveCount(0);
+  const refused = card(page, "SPEAKER_00").getByRole("list", {
+    name: "People refused for SPEAKER_00",
+  });
+  await expect(refused).toContainText("Not Camille");
+
+  await refused
+    .getByRole("button", { name: "Cancel the refusal of Camille" })
+    .click();
+  await expect(refused).toHaveCount(0);
+  const voice = await (
+    await page.request.get(`/api/clips/${clipId}/voice`)
+  ).json();
+  expect(voice.speakers[0].refused_persons).toEqual([]);
 });
 
 test("la fiche des voix passe l'analyse d'accessibilité", async ({ page }) => {

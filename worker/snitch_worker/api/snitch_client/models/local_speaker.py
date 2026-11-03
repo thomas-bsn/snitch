@@ -49,6 +49,8 @@ class LocalSpeaker:
             fingerprints (list[VoiceFingerprint]):
             disposition (LocalSpeakerDisposition | Unset): ignored : voix mise de côté, sans locuteur sur ses segments ;
                 random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031).
+            refused_persons (list[PersonRef] | Unset): Personnes refusées pour cette voix (« Ce n'est pas X »), que le
+                rapprochement ne propose plus ; chacune peut être rétablie par Annuler le refus (ADR 0031).
      """
 
     id: int
@@ -63,6 +65,7 @@ class LocalSpeaker:
     attribution: Attribution | None
     fingerprints: list[VoiceFingerprint]
     disposition: LocalSpeakerDisposition | Unset = UNSET
+    refused_persons: list[PersonRef] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -113,6 +116,15 @@ class LocalSpeaker:
             disposition = self.disposition.value
 
 
+        refused_persons: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.refused_persons, Unset):
+            refused_persons = []
+            for refused_persons_item_data in self.refused_persons:
+                refused_persons_item = refused_persons_item_data.to_dict()
+                refused_persons.append(refused_persons_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -131,6 +143,8 @@ class LocalSpeaker:
         })
         if disposition is not UNSET:
             field_dict["disposition"] = disposition
+        if refused_persons is not UNSET:
+            field_dict["refused_persons"] = refused_persons
 
         return field_dict
 
@@ -223,6 +237,18 @@ class LocalSpeaker:
 
 
 
+        _refused_persons = d.pop("refused_persons", UNSET)
+        refused_persons: list[PersonRef] | Unset = UNSET
+        if _refused_persons is not UNSET:
+            refused_persons = []
+            for refused_persons_item_data in _refused_persons:
+                refused_persons_item = PersonRef.from_dict(refused_persons_item_data)
+
+
+
+                refused_persons.append(refused_persons_item)
+
+
         local_speaker = cls(
             id=id,
             label=label,
@@ -236,6 +262,7 @@ class LocalSpeaker:
             attribution=attribution,
             fingerprints=fingerprints,
             disposition=disposition,
+            refused_persons=refused_persons,
         )
 
 

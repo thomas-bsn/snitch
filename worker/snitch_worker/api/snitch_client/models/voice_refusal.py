@@ -24,7 +24,7 @@ class VoiceRefusal:
         Attributes:
             local_speaker_id (int):
             person_id (int):
-            refused (bool):
+            refused (bool): Vrai après un refus, faux après son annulation.
      """
 
     local_speaker_id: int

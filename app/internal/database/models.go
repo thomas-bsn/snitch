@@ -743,6 +743,19 @@ type VoiceRefusal struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceRefusalEvent struct {
+	ID             int64              `json:"id"`
+	LocalSpeakerID pgtype.Int8        `json:"local_speaker_id"`
+	ClipID         int64              `json:"clip_id"`
+	PersonID       pgtype.Int8        `json:"person_id"`
+	PersonName     string             `json:"person_name"`
+	Action         string             `json:"action"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername string             `json:"author_username"`
+	Reason         string             `json:"reason"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type VoiceSample struct {
 	ID             int64              `json:"id"`
 	PersonID       int64              `json:"person_id"`

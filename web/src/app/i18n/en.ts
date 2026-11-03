@@ -1952,6 +1952,11 @@ export const en = {
         full: "Everything again, even where a valid result exists",
         steps: "Only the steps I choose",
       },
+      added: "Added automatically",
+      addedBecause: {
+        prerequisite: "{step} — added: prerequisite of {of}",
+        dependent: "{step} — added: depends on {of}",
+      },
       noteMissing:
         "Valid results are reused: nothing is replaced and no confirmation is needed.",
       noteTranscription:
@@ -2003,6 +2008,10 @@ export const en = {
     random: "Random",
     ignore: "Ignore",
     restore: "Restore",
+    refusedLabel: "People refused for {label}",
+    refused: "Not {person}",
+    cancelRefusal: "Cancel the refusal",
+    cancelRefusalLabel: "Cancel the refusal of {person}",
     decisionLabel: "Decision on {label}",
     group: "In the group of {count} unknown voices",
     identifyLabel: "Who is it?",

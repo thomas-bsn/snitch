@@ -1988,6 +1988,11 @@ export const fr: Messages = {
         full: "Tout de nouveau, même là où un résultat valide existe",
         steps: "Seulement les étapes que je choisis",
       },
+      added: "Ajoutées automatiquement",
+      addedBecause: {
+        prerequisite: "{step} — ajoutée : prérequis de {of}",
+        dependent: "{step} — ajoutée : dépend de {of}",
+      },
       noteMissing:
         "Les résultats valides sont réutilisés : rien n’est remplacé et aucune confirmation n’est nécessaire.",
       noteTranscription:
@@ -2039,6 +2044,10 @@ export const fr: Messages = {
     random: "Random",
     ignore: "Ignorer",
     restore: "Rétablir",
+    refusedLabel: "Personnes refusées pour {label}",
+    refused: "Pas {person}",
+    cancelRefusal: "Annuler le refus",
+    cancelRefusalLabel: "Annuler le refus de {person}",
     decisionLabel: "Décision sur {label}",
     group: "Dans le groupe de {count} voix inconnues",
     identifyLabel: "Qui est-ce ?",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -54,6 +55,7 @@ func (s *Server) registerVoiceDispositionRoutes(mux *http.ServeMux) {
 	mux.Handle("DELETE /api/local-speakers/{id}/disposition", s.protected(false, http.HandlerFunc(s.deleteLocalSpeakerDisposition)))
 	mux.Handle("PUT /api/voice-groups/{id}/disposition", s.protected(false, http.HandlerFunc(s.putVoiceGroupDisposition)))
 	mux.Handle("POST /api/local-speakers/{id}/refusal", s.protected(false, http.HandlerFunc(s.refuseLocalSpeaker)))
+	mux.Handle("DELETE /api/local-speakers/{id}/refusals/{person_id}", s.protected(false, http.HandlerFunc(s.cancelLocalSpeakerRefusal)))
 }
 
 // setDispositions applies a disposition to each local speaker, or restores them when
@@ -330,6 +332,10 @@ ON CONFLICT (local_speaker_id,person_id) DO UPDATE SET author_id=EXCLUDED.author
 		s.internal(w, err)
 		return
 	}
+	if _, err = tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username) VALUES($1,$2,$3,$4,'refuse',$5,$6)`, sp.ID, sp.ClipID, personID, name, ss.User.ID, ss.User.Username); err != nil {
+		s.internal(w, err)
+		return
+	}
 	if _, err = tx.Exec(ctx, `INSERT INTO attribution_events(local_speaker_id,clip_id,action,old_person_id,old_person_name,old_decision_level,old_sample_id,new_decision_level,author_id,author_username) VALUES($1,$2,'refuse',$3,$4,$5,$6,'unknown',$7,$8)`, sp.ID, sp.ClipID, personID, name, oldLevel, sampleID, ss.User.ID, ss.User.Username); err != nil {
 		s.internal(w, err)
 		return
@@ -341,4 +347,61 @@ ON CONFLICT (local_speaker_id,person_id) DO UPDATE SET author_id=EXCLUDED.author
 	// A removed reference or attribution changes what the other voices may match.
 	s.matchingChanged(ctx, 0)
 	reply(w, http.StatusOK, map[string]any{"local_speaker_id": sp.ID, "person_id": personID, "refused": true})
+}
+
+// cancelLocalSpeakerRefusal is "Annuler le refus": the Person is no longer kept out of the
+// matching of this voice. It needs the right of the refusal, waits for the analysis like it,
+// and is journaled when a refusal existed. The attribution removed by the refusal is not
+// restored: matching proposes it again, or a human decides.
+func (s *Server) cancelLocalSpeakerRefusal(w http.ResponseWriter, r *http.Request) {
+	sp, ok := s.authorizedSpeaker(w, r)
+	if !ok {
+		return
+	}
+	personID, err := strconv.ParseInt(r.PathValue("person_id"), 10, 64)
+	if err != nil || personID < 1 {
+		fail(w, http.StatusBadRequest, "invalid_person_id")
+		return
+	}
+	ss := r.Context().Value(sessionKey{}).(session)
+	ctx := r.Context()
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR SHARE`, sp.ClipID); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if busy, err := analysisActive(ctx, tx, sp.ClipID); err != nil {
+		s.internal(w, err)
+		return
+	} else if busy {
+		fail(w, http.StatusConflict, "analysis_active")
+		return
+	}
+	var name string
+	err = tx.QueryRow(ctx, `WITH cancelled AS (DELETE FROM voice_refusals WHERE local_speaker_id=$1 AND person_id=$2 RETURNING person_id)
+SELECT COALESCE(p.display_name,'') FROM cancelled c LEFT JOIN persons p ON p.id=c.person_id`, sp.ID, personID).Scan(&name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// No refusal: nothing to cancel, nothing journaled.
+		reply(w, http.StatusOK, map[string]any{"local_speaker_id": sp.ID, "person_id": personID, "refused": false})
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username) VALUES($1,$2,$3,$4,'cancel',$5,$6)`, sp.ID, sp.ClipID, personID, name, ss.User.ID, ss.User.Username); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if err = tx.Commit(ctx); err != nil {
+		s.internal(w, err)
+		return
+	}
+	s.matchingChanged(ctx, 0)
+	reply(w, http.StatusOK, map[string]any{"local_speaker_id": sp.ID, "person_id": personID, "refused": false})
 }
