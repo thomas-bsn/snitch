@@ -28,6 +28,7 @@ import {
   baseName,
   fetchExplorer,
   requestIndex,
+  asExplorerState,
   type ExplorerEntry,
   type ExplorerState,
 } from "./explorerApi";
@@ -50,7 +51,7 @@ const FILTER_KEYS = [
 function readFilters(params: URLSearchParams): ExplorerFilters {
   return {
     q: params.get("q") ?? "",
-    state: params.get("state") ?? "",
+    state: asExplorerState(params.get("state")),
     game: params.get("game") ?? "",
     from: params.get("from") ?? "",
     to: params.get("to") ?? "",
@@ -315,7 +316,7 @@ export function LibraryPage() {
             <li>
               <button
                 type="button"
-                className="inline-flex min-h-11 items-center rounded px-1.5 py-1 text-ink hover:bg-hover md:min-h-0"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1.5 py-1 text-ink hover:bg-hover md:min-h-0 md:min-w-0"
                 onClick={() => openFolder("")}
                 aria-current={folder ? undefined : "page"}
               >
@@ -332,7 +333,7 @@ export function LibraryPage() {
                   </span>
                   <button
                     type="button"
-                    className="inline-flex min-h-11 items-center rounded px-1.5 py-1 text-ink hover:bg-hover md:min-h-0"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1.5 py-1 text-ink hover:bg-hover md:min-h-0 md:min-w-0"
                     onClick={() => openFolder(path)}
                     aria-current={last ? "page" : undefined}
                   >

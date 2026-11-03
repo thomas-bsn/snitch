@@ -12,6 +12,11 @@ export const EXPLORER_STATES = [
 ] as const;
 export type ExplorerState = (typeof EXPLORER_STATES)[number];
 
+/** A state from the address bar: anything else is ignored, never sent to the server. */
+export function asExplorerState(value: string | null): ExplorerState | "" {
+  return EXPLORER_STATES.find((state) => state === value) ?? "";
+}
+
 /** A folder or a video of the Racine vidéo, as the explorer lists it. */
 export type ExplorerEntry = {
   name: string;
