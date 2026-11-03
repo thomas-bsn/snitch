@@ -5,6 +5,7 @@ import { ErrorAlert } from "../../components/Alert";
 import { useI18n } from "../../i18n";
 import { VoiceAdvanced } from "./VoiceAdvanced";
 import { VoiceHeader } from "./VoiceHeader";
+import { VoiceHuggingFace } from "./VoiceHuggingFace";
 import { VoiceInventory } from "./VoiceInventory";
 import { VoiceModelCards } from "./VoiceModelCards";
 
@@ -81,6 +82,7 @@ export function VoiceTab() {
         onChanged={reload}
       />
       <VoiceModelCards catalogue={models} onChanged={reload} />
+      <VoiceHuggingFace />
       <VoiceInventory overview={overview} />
       <VoiceAdvanced
         pipeline={pipeline.config}

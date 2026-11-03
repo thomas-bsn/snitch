@@ -290,11 +290,14 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await expect(
         page.getByText("This clip has never been analysed.", { exact: true }),
       ).toBeVisible();
+      // The launch is on the page itself, not behind the analysis pill.
+      const launch = page.getByRole("button", { name: "Launch analysis…" });
+      await expect(launch).toBeVisible();
+      await launch.click();
       await expect(
-        page
-          .getByRole("region", { name: "Clip analysis" })
-          .getByRole("button", { name: "Analyze all" }),
+        page.getByRole("dialog", { name: "Launch analysis" }),
       ).toBeVisible();
+      await page.keyboard.press("Escape");
       await expect(
         page.getByRole("button", { name: "Transcribe again" }),
       ).toHaveCount(0);

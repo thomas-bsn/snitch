@@ -100,6 +100,12 @@ from .get_worker_updates_response_200 import GetWorkerUpdatesResponse200
 from .get_worker_updates_response_200_workers_item import GetWorkerUpdatesResponse200WorkersItem
 from .get_worker_updates_response_200_workers_item_state import GetWorkerUpdatesResponse200WorkersItemState
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
+from .hf_token_input import HFTokenInput
+from .hf_token_status import HFTokenStatus
+from .hf_token_status_workers_item import HFTokenStatusWorkersItem
+from .hf_token_status_workers_item_error_code import HFTokenStatusWorkersItemErrorCode
+from .hf_token_status_workers_item_source import HFTokenStatusWorkersItemSource
+from .hf_token_status_workers_item_state import HFTokenStatusWorkersItemState
 from .job import Job
 from .job_controls import JobControls
 from .job_controls_input import JobControlsInput
@@ -366,6 +372,12 @@ from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
 from .worker_detail import WorkerDetail
 from .worker_failure_input import WorkerFailureInput
+from .worker_hf_token import WorkerHFToken
+from .worker_hf_token_ack import WorkerHFTokenAck
+from .worker_hf_token_ack_error_code import WorkerHFTokenAckErrorCode
+from .worker_hf_token_ack_outcome import WorkerHFTokenAckOutcome
+from .worker_hf_token_ack_source import WorkerHFTokenAckSource
+from .worker_hf_token_version import WorkerHFTokenVersion
 from .worker_install import WorkerInstall
 from .worker_install_cause import WorkerInstallCause
 from .worker_install_event import WorkerInstallEvent
@@ -519,6 +531,12 @@ __all__ = (
     "GetWorkerUpdatesResponse200WorkersItem",
     "GetWorkerUpdatesResponse200WorkersItemState",
     "HeartbeatWorkerJobResponse200",
+    "HFTokenInput",
+    "HFTokenStatus",
+    "HFTokenStatusWorkersItem",
+    "HFTokenStatusWorkersItemErrorCode",
+    "HFTokenStatusWorkersItemSource",
+    "HFTokenStatusWorkersItemState",
     "Job",
     "JobControls",
     "JobControlsInput",
@@ -785,6 +803,12 @@ __all__ = (
     "WorkerClaim",
     "WorkerDetail",
     "WorkerFailureInput",
+    "WorkerHFToken",
+    "WorkerHFTokenAck",
+    "WorkerHFTokenAckErrorCode",
+    "WorkerHFTokenAckOutcome",
+    "WorkerHFTokenAckSource",
+    "WorkerHFTokenVersion",
     "WorkerInstall",
     "WorkerInstallCause",
     "WorkerInstallEvent",

@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"snitch/internal/config"
+	"snitch/internal/events"
 	"snitch/internal/httpapi/contract"
 	"snitch/internal/jobs"
 	"snitch/internal/workers"
@@ -61,35 +62,40 @@ func currentWorker(r *http.Request) workers.Worker {
 }
 
 func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
-	items, err := s.Workers.List(r.Context())
+	page, err := s.workersPage(r)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
+	reply(w, http.StatusOK, page)
+}
+
+// workersPage is the Workers list, also the snapshot of the live list (admin:workers).
+func (s *Server) workersPage(r *http.Request) (map[string]any, error) {
+	items, err := s.Workers.List(r.Context())
+	if err != nil {
+		return nil, err
+	}
 	if err = s.withInstallProgress(r, items, false); err != nil {
-		s.internal(w, err)
-		return
+		return nil, err
 	}
 	var version string
 	var raw []byte
 	if err = s.Pool.QueryRow(r.Context(), `SELECT v.version,v.config FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&version, &raw); err != nil {
-		s.internal(w, err)
-		return
+		return nil, err
 	}
 	var profile transcriptionPipeline
 	if err = json.Unmarshal(raw, &profile); err != nil {
-		s.internal(w, err)
-		return
+		return nil, err
 	}
 	var mode, endpoint, settingsVersion string
 	err = s.Pool.QueryRow(r.Context(), `SELECT mode,endpoint,version FROM transcription_settings WHERE id=true`).Scan(&mode, &endpoint, &settingsVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		mode = "unconfigured"
 	} else if err != nil {
-		s.internal(w, err)
-		return
+		return nil, err
 	}
-	reply(w, http.StatusOK, map[string]any{
+	return map[string]any{
 		"items":        items,
 		"first_worker": len(items) == 0,
 		"snitch_url":   s.publicOrigin(r),
@@ -97,7 +103,7 @@ func (s *Server) listWorkers(w http.ResponseWriter, r *http.Request) {
 			"mode": mode, "endpoint": endpoint, "settings_version": settingsVersion,
 			"model": profile.Model, "language": profile.Language, "version": version,
 		},
-	})
+	}, nil
 }
 
 var (
@@ -247,7 +253,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 var errProfileAlreadySet = errors.New("transcription profile already set")
 
 func (s *Server) getWorker(w http.ResponseWriter, r *http.Request) {
-	detail, err := s.Workers.Get(r.Context(), r.PathValue("id"))
+	result, err := s.workerDetail(r, r.PathValue("id"))
 	if errors.Is(err, workers.ErrNotFound) {
 		fail(w, http.StatusNotFound, "worker_not_found")
 		return
@@ -256,17 +262,24 @@ func (s *Server) getWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	reply(w, http.StatusOK, result)
+}
+
+// workerDetail is the page of one Worker, also the snapshot of its live page (worker:<id>).
+func (s *Server) workerDetail(r *http.Request, id string) (map[string]any, error) {
+	detail, err := s.Workers.Get(r.Context(), id)
+	if err != nil {
+		return nil, err
+	}
 	one := []workers.Worker{detail.Worker}
 	if err = s.withInstallProgress(r, one, true); err != nil {
-		s.internal(w, err)
-		return
+		return nil, err
 	}
 	detail.Install = one[0].Install
 	// The token is never readable: the deployment file carries a placeholder.
 	bundle, err := s.workerBundle(r, workers.Placeholder, "")
 	if err != nil {
-		s.internal(w, err)
-		return
+		return nil, err
 	}
 	result := map[string]any{
 		"id": detail.ID, "name": detail.Name, "max_concurrency": detail.MaxConcurrency, "reported_concurrency": detail.ReportedConcurrency,
@@ -276,7 +289,47 @@ func (s *Server) getWorker(w http.ResponseWriter, r *http.Request) {
 	if detail.TranscriptionConfig != nil {
 		result["transcription_config"] = detail.TranscriptionConfig
 	}
-	reply(w, http.StatusOK, result)
+	return result, nil
+}
+
+// workersEvents streams the Workers list: a snapshot, then one per change (admin:workers).
+func (s *Server) workersEvents(w http.ResponseWriter, r *http.Request) {
+	s.Events.Stream(w, r, events.Topic{
+		Name:      "admin:workers",
+		Authorize: s.adminAuthorizer(r),
+		Snapshot: func(ctx context.Context) (any, error) {
+			return s.workersPage(r.WithContext(ctx))
+		},
+	})
+}
+
+// workerEvents streams the page of one Worker (worker:<id>). A Worker that does not exist ends
+// the stream without a snapshot; the page then falls back to GET and shows the error.
+func (s *Server) workerEvents(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	s.Events.Stream(w, r, events.Topic{
+		Name:      "worker:" + id,
+		Authorize: s.adminAuthorizer(r),
+		Snapshot: func(ctx context.Context) (any, error) {
+			return s.workerDetail(r.WithContext(ctx), id)
+		},
+	})
+}
+
+// serveWorkerPresence publishes the Offline changes that no write announces.
+func (s *Server) serveWorkerPresence(ctx context.Context) {
+	ticker := time.NewTicker(workers.PresenceCheckInterval)
+	defer ticker.Stop()
+	for {
+		if err := s.Workers.PublishDisconnections(ctx); err != nil && ctx.Err() == nil {
+			s.Log.Error("publish worker presence", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 func (s *Server) putWorkerTranscriptionModel(w http.ResponseWriter, r *http.Request) {

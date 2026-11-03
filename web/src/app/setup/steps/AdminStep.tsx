@@ -49,7 +49,7 @@ export function AdminStep({
     <form onSubmit={submit} className="flex max-w-xl flex-col gap-4">
       <StepHeader
         position={2}
-        total={8}
+        total={9}
         title={t("setup.admin.title")}
         lead={t("setup.admin.lead")}
       />

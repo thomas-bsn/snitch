@@ -22,6 +22,8 @@ import { VoiceTrials } from "./VoiceTrials";
 import { formatTimecode, parseMoment } from "./clipFormat";
 import { clipTitle, fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
 import { AnalyzeClip } from "./AnalyzeClip";
+import { ReanalyzeClip } from "./ReanalyzeClip";
+import { buttonClass } from "../components/buttons";
 
 const tabClass =
   "-mb-px inline-flex h-11 shrink-0 cursor-pointer items-center border-b-2 border-transparent px-3 font-medium whitespace-nowrap text-mute outline-none hover:text-ink data-[active]:border-accent data-[active]:text-ink md:h-10";
@@ -100,6 +102,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
 
   // Without transcription, the step of the analysis has never run: the launch is the page's way forward.
   const neverAnalysed = !clip.transcription;
+  const [launching, setLaunching] = useState(false);
 
   return (
     <section className="flex flex-col gap-4 px-4 py-4 md:px-7 md:py-5">
@@ -169,9 +172,28 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
           />
           <MetadataDisclosure clip={clip} />
           {neverAnalysed && (
-            <p className="m-0 rounded-xl border border-accent bg-accent-soft p-3 font-medium text-ink">
-              {t("clip.neverAnalysed")}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent bg-accent-soft p-3">
+              <p className="m-0 font-medium text-ink">
+                {t("clip.neverAnalysed")}
+              </p>
+              {admin && (
+                <button
+                  type="button"
+                  onClick={() => setLaunching(true)}
+                  className={buttonClass()}
+                >
+                  {t("clip.analysis.launch")}
+                </button>
+              )}
+            </div>
+          )}
+          {admin && (
+            <ReanalyzeClip
+              clipId={clip.id}
+              open={launching}
+              onOpenChange={setLaunching}
+              onStarted={() => onChanged()}
+            />
           )}
           <ProgressBanner clip={clip} voice={voiceData} />
         </div>

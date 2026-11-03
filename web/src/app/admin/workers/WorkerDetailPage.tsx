@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { useCallback, useId, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { useLoaded } from "../../api/loaded";
+import { useEventStream } from "../../api/useEventStream";
 import { ErrorAlert } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -14,6 +15,7 @@ import { InstallProgress } from "./InstallProgress";
 import {
   fetchWorker,
   useWorkerActions,
+  type WorkerDetail,
   type WorkerRegistration,
 } from "./workersApi";
 import { ROLES, declaredModelText, workerStatus } from "./workerView";
@@ -57,7 +59,9 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const actions = useWorkerActions();
   const navigate = useNavigate();
   const load = useCallback(() => fetchWorker(id), [id]);
-  const { state, reload } = useLoaded(load);
+  const { state, reload, set } = useLoaded(load);
+  // Live: the page follows the stream; the reload is the fallback while the stream is down.
+  useEventStream<WorkerDetail>(`/api/admin/workers/${id}/events`, set, reload);
   const [confirm, setConfirm] = useState<"token" | "revoke" | "forget" | null>(
     null,
   );
