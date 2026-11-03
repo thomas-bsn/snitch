@@ -61,7 +61,7 @@ export function AutomaticAnalysisSetting() {
       <h2 id={`${id}-title`} className="text-lg font-semibold">
         {t("folders.autoAnalysis.title")}
       </h2>
-      <label className="flex items-center gap-2">
+      <label className="flex min-h-11 items-center gap-2">
         <input
           type="checkbox"
           checked={enabled ?? false}
