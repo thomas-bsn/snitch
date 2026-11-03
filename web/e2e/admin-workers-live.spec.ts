@@ -15,6 +15,8 @@ test.describe.serial("Workers en direct", () => {
   test("la liste et la fiche changent d'état sans rechargement", async ({
     browser,
   }) => {
+    // Going Offline takes the connected window (30 s) plus a check: longer than the default timeout.
+    test.setTimeout(120_000);
     const context = await browser.newContext({
       storageState: await sessionFor(ADMIN),
     });

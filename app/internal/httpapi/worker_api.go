@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"snitch/internal/config"
 	"snitch/internal/events"
+	"snitch/internal/httpapi/contract"
 	"snitch/internal/jobs"
 	"snitch/internal/workers"
 )
@@ -469,6 +470,8 @@ func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 		SupportedSteps []string        `json:"supported_steps"`
 		Models         workers.Models  `json:"models"`
 		Machine        workers.Machine `json:"machine"`
+		// Joignabilité du serveur de transcription (#212) ; absente tant que le Worker n'a rien testé.
+		TranscriptionReachability *contract.WorkerTranscriptionReachabilityInput `json:"transcription_reachability"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -476,6 +479,10 @@ func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 	worker := currentWorker(r)
 	if input.Capacity < 1 || input.Capacity > worker.MaxConcurrency {
 		fail(w, http.StatusBadRequest, "invalid_worker_capacity")
+		return
+	}
+	if input.TranscriptionReachability != nil && !validReachability(input.TranscriptionReachability) {
+		fail(w, http.StatusBadRequest, "invalid_transcription_reachability")
 		return
 	}
 	remote, _, _ := net.SplitHostPort(r.RemoteAddr)
@@ -494,6 +501,10 @@ func (s *Server) workerPulse(w http.ResponseWriter, r *http.Request) {
 		} else {
 			s.internal(w, err)
 		}
+		return
+	}
+	if err := s.recordTranscriptionReachability(r.Context(), worker.ID, input.TranscriptionReachability); err != nil {
+		s.internal(w, err)
 		return
 	}
 	worker.ReportedConcurrency = input.Capacity

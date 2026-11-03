@@ -38,10 +38,22 @@ def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-# Closed vocabulary shared with the installer launcher and the install-events contract.
-CAUSE_CODES = ("hf_access_denied", "network_unreachable", "volume_not_writable", "hf_cache_not_writable", "gpu_unavailable", "unknown")
+# Closed vocabulary shared with the installer launcher. The fine Hugging Face causes are printed on
+# standard output by ``provision``; the launcher maps them onto the installation-event vocabulary.
+CAUSE_CODES = (
+    "hf_token_invalid",
+    "hf_gated_denied",
+    "hf_repo_invalid",
+    "network_unreachable",
+    "volume_not_writable",
+    "hf_cache_not_writable",
+    "gpu_unavailable",
+    "unknown",
+)
 CAUSE_TEXT = {
-    "hf_access_denied": "access refused: check that the token is valid and that the model terms were accepted with the account that owns it",
+    "hf_token_invalid": "Hugging Face refused the token (missing, mistyped or revoked): create a read token in your Hugging Face settings and rerun",
+    "hf_gated_denied": "the account that owns the token has not accepted the terms of both models (gated access refused): accept them on huggingface.co with that account and rerun",
+    "hf_repo_invalid": "a model repository or its revision was not found on Hugging Face: the Snitch version may not match, report it to the administrator",
     "network_unreachable": "network unreachable (huggingface.co could not be contacted)",
     "volume_not_writable": "models directory is not writable (mount it read-write for the first download)",
     "hf_cache_not_writable": "the Hugging Face/Xet cache is not writable (check the models volume ownership)",
@@ -50,12 +62,24 @@ CAUSE_TEXT = {
 }
 
 
+class NoRevisionError(LookupError):
+    """The Hub answered without a commit for the requested revision."""
+
+
+_REPO_INVALID_NAMES = {"RepositoryNotFoundError", "RevisionNotFoundError", "EntryNotFoundError", "NoRevisionError"}
+
+
 def cause_code(error: BaseException, environ: Mapping[str, str] | None = None) -> str:
     """A stable code. Never derived from, nor containing, the exception text (it may echo the token)."""
     names = {cls.__name__ for cls in type(error).__mro__}
     status = getattr(getattr(error, "response", None), "status_code", None)
-    if "GatedRepoError" in names or "RepositoryNotFoundError" in names or status in (401, 403, 404):
-        return "hf_access_denied"
+    # GatedRepoError subclasses RepositoryNotFoundError: the gate is checked first.
+    if "GatedRepoError" in names or status == 403:
+        return "hf_gated_denied"
+    if status == 401:
+        return "hf_token_invalid"
+    if names & _REPO_INVALID_NAMES or status == 404:
+        return "hf_repo_invalid"
     if names & {"ConnectionError", "Timeout", "TimeoutError", "OfflineModeIsEnabled", "ConnectTimeout", "ReadTimeout", "gaierror"}:
         return "network_unreachable"
     if names & {"PermissionError", "FileNotFoundError", "NotADirectoryError", "OSError"} and (
@@ -119,7 +143,7 @@ def _default_resolver(repo_id: str, revision: str, token: str) -> str:  # pragma
 
     sha = HfApi().model_info(repo_id, revision=revision or None, token=token).sha
     if not sha:
-        raise ValueError("no revision")
+        raise NoRevisionError(repo_id)
     return sha
 
 

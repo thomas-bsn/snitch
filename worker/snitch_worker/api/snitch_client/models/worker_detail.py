@@ -19,6 +19,7 @@ if TYPE_CHECKING:
   from ..models.worker_models import WorkerModels
   from ..models.worker_recent_task import WorkerRecentTask
   from ..models.worker_transcription_config import WorkerTranscriptionConfig
+  from ..models.worker_transcription_reachability import WorkerTranscriptionReachability
 
 
 
@@ -52,6 +53,8 @@ class WorkerDetail:
             transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
             transcription_config (WorkerTranscriptionConfig | Unset): Statut de synchronisation de la configuration de
                 transcription pour un Worker.
+            transcription_reachability (WorkerTranscriptionReachability | Unset): Dernier test GET /v1/models par le Worker.
+                Détail du dernier échec réservé aux administrateurs.
             transcription_config_ready (bool | Unset): Indique si le Worker supporte la configuration de transcription
                 centralisée (capability transcription.config.v1).
             install (WorkerInstall | Unset): Progression d'installation, indépendante de la transcription
@@ -78,6 +81,7 @@ class WorkerDetail:
     bundle: WorkerBundle
     transcription_model: str | Unset = UNSET
     transcription_config: WorkerTranscriptionConfig | Unset = UNSET
+    transcription_reachability: WorkerTranscriptionReachability | Unset = UNSET
     transcription_config_ready: bool | Unset = UNSET
     install: WorkerInstall | Unset = UNSET
     machine: WorkerMachine | Unset = UNSET
@@ -96,6 +100,7 @@ class WorkerDetail:
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
         from ..models.worker_transcription_config import WorkerTranscriptionConfig # noqa: PLC0415
+        from ..models.worker_transcription_reachability import WorkerTranscriptionReachability # noqa: PLC0415
         id = self.id
 
         name = self.name
@@ -143,6 +148,10 @@ class WorkerDetail:
         if not isinstance(self.transcription_config, Unset):
             transcription_config = self.transcription_config.to_dict()
 
+        transcription_reachability: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.transcription_reachability, Unset):
+            transcription_reachability = self.transcription_reachability.to_dict()
+
         transcription_config_ready = self.transcription_config_ready
 
         install: dict[str, Any] | Unset = UNSET
@@ -180,6 +189,8 @@ class WorkerDetail:
             field_dict["transcription_model"] = transcription_model
         if transcription_config is not UNSET:
             field_dict["transcription_config"] = transcription_config
+        if transcription_reachability is not UNSET:
+            field_dict["transcription_reachability"] = transcription_reachability
         if transcription_config_ready is not UNSET:
             field_dict["transcription_config_ready"] = transcription_config_ready
         if install is not UNSET:
@@ -203,6 +214,7 @@ class WorkerDetail:
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
         from ..models.worker_transcription_config import WorkerTranscriptionConfig # noqa: PLC0415
+        from ..models.worker_transcription_reachability import WorkerTranscriptionReachability # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -302,6 +314,16 @@ class WorkerDetail:
 
 
 
+        _transcription_reachability = d.pop("transcription_reachability", UNSET)
+        transcription_reachability: WorkerTranscriptionReachability | Unset
+        if isinstance(_transcription_reachability,  Unset):
+            transcription_reachability = UNSET
+        else:
+            transcription_reachability = WorkerTranscriptionReachability.from_dict(_transcription_reachability)
+
+
+
+
         transcription_config_ready = d.pop("transcription_config_ready", UNSET)
 
         _install = d.pop("install", UNSET)
@@ -351,6 +373,7 @@ class WorkerDetail:
             bundle=bundle,
             transcription_model=transcription_model,
             transcription_config=transcription_config,
+            transcription_reachability=transcription_reachability,
             transcription_config_ready=transcription_config_ready,
             install=install,
             machine=machine,

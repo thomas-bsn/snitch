@@ -30,6 +30,7 @@ from snitch_client.models.error import Error
 from snitch_client.models.worker_failure_input import WorkerFailureInput
 from snitch_client.models.worker_job_logs_input import WorkerJobLogsInput
 from snitch_client.models.worker_pulse_input import WorkerPulseInput
+from snitch_client.models.worker_transcription_reachability_input import WorkerTranscriptionReachabilityInput
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
@@ -37,7 +38,8 @@ from snitch_worker import log, revocation
 from snitch_worker import voice_models
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
-from snitch_worker.transcription_config import active_configuration, sync_configuration
+from snitch_worker import transcription_config
+from snitch_worker.transcription_config import ReachabilityMonitor, active_configuration, sync_configuration
 from snitch_worker.voice import DIARIZATION_STEP, TRIAL_STEP, VoiceProviderUnavailable, ensure_provider_ready, is_trial_step, is_voice_step, process_trial_step, process_voice_step, requires_audio
 
 
@@ -358,19 +360,18 @@ class LeaseWatch:
             self.lost.set()
 
 
-def _send_pulse(client: AuthenticatedClient, capacity: int) -> None:
-    _require_response(
-        pulse(
-            client=client,
-            body=WorkerPulseInput(
-                capacity=capacity,
-                supported_steps=["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"],
-                models=declared_models(os.environ, voice_models.active_repo()),
-                machine=declared_machine(),
-            ),
-        ),
-        "pulse",
+def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: ReachabilityMonitor | None = None) -> None:
+    body = WorkerPulseInput(
+        capacity=capacity,
+        supported_steps=["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"],
+        models=declared_models(os.environ, voice_models.active_repo()),
+        machine=declared_machine(),
     )
+    # The probe runs on its own thread: the pulse only reads its last result, never waits for it.
+    snapshot = (reachability or transcription_config.reachability).snapshot()
+    if snapshot is not None:
+        body.transcription_reachability = WorkerTranscriptionReachabilityInput.from_dict(snapshot)
+    _require_response(pulse(client=client, body=body), "pulse")
 
 
 def _presence_loop(
@@ -379,6 +380,7 @@ def _presence_loop(
     stop: threading.Event,
     interval: float,
     guard: revocation.RevocationGuard | None = None,
+    reachability: ReachabilityMonitor | None = None,
 ) -> None:
     failures = 0
     delay = interval
@@ -386,7 +388,7 @@ def _presence_loop(
         if guard is not None and guard.revoked.is_set():
             return
         try:
-            _send_pulse(client, capacity)
+            _send_pulse(client, capacity, reachability)
         except (httpx.HTTPError, RuntimeError):
             # Exception text is never logged: HTTP client errors can include URLs.
             failures += 1
@@ -719,6 +721,7 @@ def run_until_stopped(
     heartbeat_interval: float = 45.0,
     models_dir: str | None = None,
     presence_interval: float = PRESENCE_INTERVAL,
+    reachability: ReachabilityMonitor | None = None,
 ) -> bool:
     """Run a bounded pool; stop claiming on shutdown and drain active tasks.
 
@@ -730,13 +733,16 @@ def run_until_stopped(
         raise ValueError("worker intervals must be positive")
 
     guard = revocation.RevocationGuard(models_dir or revocation.models_dir(os.environ))
+    monitor = reachability or transcription_config.reachability
     presence = threading.Thread(
         target=_presence_loop,
-        args=(client, capacity, stop, presence_interval, guard),
+        args=(client, capacity, stop, presence_interval, guard, monitor),
         daemon=True,
         name="snitch-presence",
     )
+    probe = threading.Thread(target=monitor.run, args=(stop,), daemon=True, name="snitch-reachability")
     presence.start()
+    probe.start()
     with ThreadPoolExecutor(max_workers=capacity) as executor:
         workers = [
             executor.submit(
@@ -755,6 +761,7 @@ def run_until_stopped(
         for worker in workers:
             worker.result()
     presence.join()
+    probe.join()
     return guard.revoked.is_set()
 
 
