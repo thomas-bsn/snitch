@@ -25,18 +25,20 @@ var (
 
 // workerCatalogFor returns the registry catalogue of the configured Worker image, built once.
 func (s *Server) workerCatalogFor() *workerupdate.Catalog {
-	if s.workerCatalog != nil {
-		return s.workerCatalog // injected by tests, never set in production
-	}
+	// Written only inside Do and read only inside Do: no unsynchronised access.
 	s.workerCatalogOnce.Do(func() {
+		if s.workerCatalogOverride != nil { // injected by tests, never set in production
+			s.workerCatalogBuilt = s.workerCatalogOverride
+			return
+		}
 		registry, repo, err := workerupdate.RegistryOf(s.workerImage())
 		if err != nil {
 			s.Log.Error("worker update catalogue disabled: invalid worker image")
 			return
 		}
-		s.workerCatalog = &workerupdate.Catalog{Client: &http.Client{Timeout: 10 * time.Second}, Registry: registry, Repo: repo}
+		s.workerCatalogBuilt = &workerupdate.Catalog{Client: &http.Client{Timeout: 10 * time.Second}, Registry: registry, Repo: repo}
 	})
-	return s.workerCatalog
+	return s.workerCatalogBuilt
 }
 
 func (s *Server) workerImage() string {

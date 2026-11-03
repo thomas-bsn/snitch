@@ -39,27 +39,28 @@ import (
 )
 
 type Server struct {
-	Pool               *pgxpool.Pool
-	Config             config.Config
-	Log                *slog.Logger
-	Client             *http.Client
-	Store              settings.Store
-	Library            *library.Service
-	Jobs               *jobs.Service
-	Analysis           *analysis.Service
-	Events             *events.Service
-	Uploads            *uploads.Service
-	Workers            *workers.Service
-	workerCatalogOnce  sync.Once
-	workerCatalog      *workerupdate.Catalog
-	rates              sync.Map
-	backgroundCancel   context.CancelFunc
-	backgroundContext  context.Context
-	embeddingStartOnce sync.Once
-	backgroundWG       sync.WaitGroup
-	incidents          incidentSync
-	passwordSlots      chan struct{}
-	dummyPassword      string
+	Pool                  *pgxpool.Pool
+	Config                config.Config
+	Log                   *slog.Logger
+	Client                *http.Client
+	Store                 settings.Store
+	Library               *library.Service
+	Jobs                  *jobs.Service
+	Analysis              *analysis.Service
+	Events                *events.Service
+	Uploads               *uploads.Service
+	Workers               *workers.Service
+	workerCatalogOnce     sync.Once
+	workerCatalogOverride *workerupdate.Catalog
+	workerCatalogBuilt    *workerupdate.Catalog
+	rates                 sync.Map
+	backgroundCancel      context.CancelFunc
+	backgroundContext     context.Context
+	embeddingStartOnce    sync.Once
+	backgroundWG          sync.WaitGroup
+	incidents             incidentSync
+	passwordSlots         chan struct{}
+	dummyPassword         string
 }
 type session struct {
 	User             database.GetUserRow

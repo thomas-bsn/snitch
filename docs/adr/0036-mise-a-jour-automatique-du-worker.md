@@ -8,7 +8,7 @@ L'image du Worker est publiée sous `ghcr.io/thomas-bsn/snitch-worker`. Le défa
 
 ## Décision
 
-- **Versionnage** : une version est une étiquette git `vX.Y.Z`, publiée par le workflow existant (tags `v*`). Une étiquette publiée n'est jamais réécrite ; une correction publie une nouvelle version. `latest` n'est plus le chemin par défaut du lanceur ni du compose d'exemple.
+- **Versionnage** : une version est une étiquette git `vX.Y.Z`, publiée par le workflow existant (tags `v*`). Une étiquette publiée n'est jamais réécrite ; une correction publie une nouvelle version. Le défaut `latest` du lanceur et du compose d'exemple reste en place dans cette évolution : une mise à jour choisie dans Snitch l'emporte sur lui, mais le défaut lui-même doit être changé dans une évolution dédiée.
 - **Version cible** : un réglage unique, dans Snitch, contient la version cible du parc de Workers. Vide, aucune mise à jour automatique. Valeur choisie dans le catalogue, ou saisie manuelle, validée par `^v\d+\.\d+\.\d+$`. Un retour à une version antérieure est permis (rollback volontaire).
 - **Image construite par le serveur** : Snitch n'accepte jamais une référence d'image libre. L'image renvoyée aux Workers est `<dépôt configuré>:<version cible>`, le dépôt étant celui de `WORKER_IMAGE` sans l'étiquette.
 - **Catalogue** : les versions disponibles viennent de la liste des étiquettes du dépôt GHCR, filtrée par la même regex, triée en semver et mise en cache quelques minutes. Si GHCR est injoignable, l'administrateur peut saisir une version manuellement.

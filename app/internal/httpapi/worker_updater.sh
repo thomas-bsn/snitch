@@ -21,6 +21,8 @@ api_url=$(sed -n 's/^SNITCH_API_URL=//p' "$env_file" | head -n1)
 token=$(sed -n 's/^SNITCH_WORKER_TOKEN=//p' "$env_file" | head -n1)
 [ -n "$api_url" ] && [ -n "$token" ] || exit 0
 # One run at a time: cron may fire while a long pull is still running.
+# A lock older than 30 minutes is left by a killed run (power loss, SIGKILL): take it over.
+if [ -d "$lock" ] && [ -n "$(find "$lock" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then rmdir "$lock" 2>/dev/null || true; fi
 mkdir "$lock" 2>/dev/null || exit 0
 trap 'rmdir "$lock" 2>/dev/null || true; rm -f "$resp"' EXIT
 
@@ -49,6 +51,9 @@ if [ "$target" != "${current%:*}:$version" ]; then report failed "$version" "" t
 
 previous_id=$(docker inspect -f '{{.Image}}' "$container" 2>/dev/null || true)
 previous_version=${current##*:}
+# Rollback only to an image whose digest is known (ADR 0036): remember it before the container is replaced.
+previous_digest=$(docker image inspect -f '{{index .RepoDigests 0}}' "$previous_id" 2>/dev/null | sed 's/^[^@]*@//' || true)
+if ! [[ "$previous_digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then previous_id=''; fi
 
 report pulling "$version" "" ""
 if ! docker pull "$target" >/dev/null 2>&1; then report failed "$version" "" image_pull_failed; exit 0; fi
@@ -62,7 +67,8 @@ start() { docker run -d --name "$container" --restart unless-stopped --user 1000
 
 report restarting "$version" "$digest" ""
 docker rm -f "$container" >/dev/null 2>&1 || true
-if start "$target"; then
+# Start by digest: the tag can be rewritten after the pull, the digest cannot.
+if start "${target%:*}@$digest"; then
  sleep "$settle"
  # Up means running and never restarted: a crash loop under "unless-stopped" shows a restart count.
  if [ "$(docker inspect -f '{{.State.Running}} {{.RestartCount}}' "$container" 2>/dev/null || true)" = "true 0" ]; then

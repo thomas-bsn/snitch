@@ -135,7 +135,7 @@ func TestUpdaterDoesNothingWhenNoTargetOrAlreadyCurrent(t *testing.T) {
 func TestUpdaterUpdatesToTargetAndReportsDigest(t *testing.T) {
 	r := newUpdaterRun(t, repoFixture+":v1.1.0", newerTarget, "")
 	log := r.run(t)
-	if !strings.Contains(log, "pull "+repoFixture+":v1.2.0") || !strings.Contains(log, "--name snitch-worker-"+updaterWorkerID) {
+	if !strings.Contains(log, "pull "+repoFixture+":v1.2.0") || !strings.Contains(log, "--name snitch-worker-"+updaterWorkerID) || !strings.Contains(log, repoFixture+"@"+digestFixture) {
 		t.Fatalf("update not applied:\n%s", log)
 	}
 	rep := r.reported()
@@ -144,7 +144,7 @@ func TestUpdaterUpdatesToTargetAndReportsDigest(t *testing.T) {
 			t.Fatalf("missing %s in reports:\n%s", want, rep)
 		}
 	}
-	if strings.Contains(log, "sha256:previousimageid") {
+	if restartedWith(log, "sha256:previousimageid") {
 		t.Fatalf("a healthy update must not roll back:\n%s", log)
 	}
 }
@@ -191,4 +191,14 @@ func TestUpdaterRefusesTargetOfAnotherRepositoryAndUnknownDigest(t *testing.T) {
 	if rep := r.reported(); !strings.Contains(rep, `"cause_code":"digest_unknown"`) {
 		t.Fatalf("missing digest not reported:\n%s", rep)
 	}
+}
+
+// restartedWith reports whether docker run was called with the given image reference as its last argument.
+func restartedWith(log, image string) bool {
+	for _, line := range strings.Split(log, "\n") {
+		if strings.HasPrefix(line, "run -d --name snitch-worker-"+updaterWorkerID+" ") && strings.HasSuffix(line, " "+image) {
+			return true
+		}
+	}
+	return false
 }

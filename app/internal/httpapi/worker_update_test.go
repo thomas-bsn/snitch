@@ -31,7 +31,7 @@ func testWorkerUpdates(t *testing.T, pool *pgxpool.Pool) {
 		}
 	}))
 	t.Cleanup(registry.Close)
-	h.server.workerCatalog = &workerupdate.Catalog{Client: registry.Client(), Registry: registry.URL, Repo: "thomas-bsn/snitch-worker"}
+	h.server.workerCatalogOverride = &workerupdate.Catalog{Client: registry.Client(), Registry: registry.URL, Repo: "thomas-bsn/snitch-worker"}
 
 	type listing struct {
 		TargetVersion    *string  `json:"target_version"`
