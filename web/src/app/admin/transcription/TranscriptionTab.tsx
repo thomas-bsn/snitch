@@ -15,6 +15,8 @@ type Pipeline = components["schemas"]["TranscriptionPipeline"];
 type Settings = components["schemas"]["TranscriptionSettingsState"];
 type WorkerTranscriptionConfig =
   components["schemas"]["WorkerTranscriptionConfig"];
+type WorkerTranscriptionReachability =
+  components["schemas"]["WorkerTranscriptionReachability"];
 
 async function load() {
   try {
@@ -213,6 +215,53 @@ export function TranscriptionTab() {
     return worker.transcription_config;
   }
 
+  // Last test of the transcription server by this Worker, with the detail of the last failure.
+  function renderReachability(
+    reach: WorkerTranscriptionReachability | null | undefined,
+  ) {
+    if (!reach)
+      return <span className="text-mute">{t("transAdmin.reach.unknown")}</span>;
+    const failure = reach.last_failure;
+    return (
+      <div className="flex flex-col gap-1 text-sm">
+        <span className={reach.reachable ? "text-success" : "text-error"}>
+          {reach.reachable
+            ? t("transAdmin.reach.reachable")
+            : t("transAdmin.reach.unreachable")}
+        </span>
+        <span className="text-mute">
+          {t("transAdmin.reach.checkedAt")} :{" "}
+          {new Date(reach.checked_at).toLocaleString()} · {reach.latency_ms} ms
+        </span>
+        {failure && (
+          <details>
+            <summary className="cursor-pointer">
+              {t("transAdmin.reach.lastFailure")}
+            </summary>
+            <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+              <dt>{t("transAdmin.reach.method")}</dt>
+              <dd className="text-mono">{failure.method}</dd>
+              <dt>{t("transAdmin.reach.url")}</dt>
+              <dd className="text-mono break-all">{failure.url}</dd>
+              <dt>{t("transAdmin.reach.status")}</dt>
+              <dd className="text-mono">{failure.status_code ?? "—"}</dd>
+              <dt>{t("transAdmin.reach.latency")}</dt>
+              <dd className="text-mono">{failure.latency_ms} ms</dd>
+              <dt>{t("transAdmin.reach.errorType")}</dt>
+              <dd>{t(`transAdmin.reach.errorTypes.${failure.error_type}`)}</dd>
+              <dt>{t("transAdmin.reach.excerpt")}</dt>
+              <dd className="text-mono break-all">
+                {failure.body_excerpt || t("transAdmin.reach.none")}
+              </dd>
+              <dt>{t("transAdmin.reach.failedAt")}</dt>
+              <dd>{new Date(failure.failed_at).toLocaleString()}</dd>
+            </dl>
+          </details>
+        )}
+      </div>
+    );
+  }
+
   function getStatusBadge(config: WorkerTranscriptionConfig | undefined) {
     if (!config) return t("transAdmin.statusReceived");
     if (config.error_code === "connection_failed")
@@ -407,6 +456,7 @@ export function TranscriptionTab() {
                     "testedVersion",
                     "activeVersion",
                     "error",
+                    "reachability",
                     "status",
                   ] as const
                 ).map((key) => (
@@ -451,6 +501,9 @@ export function TranscriptionTab() {
                     </td>
                     <td className="p-2 text-mono text-sm">
                       {wconfig?.error_code || "—"}
+                    </td>
+                    <td className="p-2">
+                      {renderReachability(worker.transcription_reachability)}
                     </td>
                     <td className="p-2">
                       <span className={getStatusClass(wconfig)}>

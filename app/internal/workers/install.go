@@ -13,7 +13,7 @@ import (
 var (
 	InstallPhases   = []string{"prerequisites", "registration", "image", "permissions", "gpu", "voice-models", "voice-test", "service"}
 	InstallStatuses = []string{"started", "succeeded", "failed"}
-	InstallCauses   = []string{"unsupported_platform", "docker_unavailable", "registration_rejected", "network_unreachable", "image_pull_failed", "volume_not_writable", "hf_cache_not_writable", "gpu_unavailable", "service_start_failed", "hf_access_denied", "unknown"}
+	InstallCauses   = []string{"unsupported_platform", "docker_unavailable", "registration_rejected", "network_unreachable", "image_pull_failed", "volume_not_writable", "hf_cache_not_writable", "gpu_unavailable", "service_start_failed", "hf_access_denied", "hf_token_invalid", "hf_gated_denied", "hf_repo_invalid", "unknown"}
 )
 
 const (

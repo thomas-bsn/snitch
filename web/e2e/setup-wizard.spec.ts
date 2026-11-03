@@ -113,7 +113,7 @@ test.describe.serial("assistant d'installation", () => {
     ).toBeVisible();
     await expect(page).toHaveURL(/\/setup$/);
     const steps = page.getByRole("list", { name: "Setup steps" });
-    await expect(steps.getByRole("listitem")).toHaveCount(8);
+    await expect(steps.getByRole("listitem")).toHaveCount(9);
     await expect(steps.getByRole("listitem").nth(3)).toHaveAttribute(
       "aria-current",
       "step",
@@ -208,6 +208,11 @@ test.describe.serial("assistant d'installation", () => {
     await expectNoViolations(page);
     await page.getByRole("button", { name: "Done" }).click();
 
+    // The optional Hugging Face token step sits between the Worker and the import.
+    await expect(
+      page.getByRole("heading", { name: "Hugging Face token (optional)" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Skip for now" }).click();
     await expect(
       page.getByRole("heading", { name: "Import your first videos" }),
     ).toBeVisible();
@@ -219,12 +224,20 @@ test.describe.serial("assistant d'installation", () => {
     );
     await page.getByRole("button", { name: "Back", exact: true }).click();
     await expect(
+      page.getByRole("heading", { name: "Hugging Face token (optional)" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
       page.getByText("This step is complete. It will not be repeated."),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Create the Worker" }),
     ).toHaveCount(0);
+    // Continue goes to the next undecided step: the skipped token step is passed over.
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Import your first videos" }),
+    ).toBeVisible();
     await expectNoViolations(page);
     await page.getByRole("button", { name: "Skip for now" }).click();
 

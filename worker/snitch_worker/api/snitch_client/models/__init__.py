@@ -11,6 +11,7 @@ from .analysis_queue_summary import AnalysisQueueSummary
 from .analysis_queue_task import AnalysisQueueTask
 from .analysis_run_history import AnalysisRunHistory
 from .analysis_step_event import AnalysisStepEvent
+from .append_worker_job_logs_response_200 import AppendWorkerJobLogsResponse200
 from .attribution import Attribution
 from .attribution_author import AttributionAuthor
 from .attribution_candidate import AttributionCandidate
@@ -99,6 +100,12 @@ from .get_worker_updates_response_200 import GetWorkerUpdatesResponse200
 from .get_worker_updates_response_200_workers_item import GetWorkerUpdatesResponse200WorkersItem
 from .get_worker_updates_response_200_workers_item_state import GetWorkerUpdatesResponse200WorkersItemState
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
+from .hf_token_input import HFTokenInput
+from .hf_token_status import HFTokenStatus
+from .hf_token_status_workers_item import HFTokenStatusWorkersItem
+from .hf_token_status_workers_item_error_code import HFTokenStatusWorkersItemErrorCode
+from .hf_token_status_workers_item_source import HFTokenStatusWorkersItemSource
+from .hf_token_status_workers_item_state import HFTokenStatusWorkersItemState
 from .job import Job
 from .job_controls import JobControls
 from .job_controls_input import JobControlsInput
@@ -107,6 +114,8 @@ from .job_event_actor import JobEventActor
 from .job_event_event import JobEventEvent
 from .job_history import JobHistory
 from .job_input import JobInput
+from .job_log_line import JobLogLine
+from .job_logs import JobLogs
 from .job_page import JobPage
 from .job_result_type_0 import JobResultType0
 from .job_status import JobStatus
@@ -351,6 +360,12 @@ from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
 from .worker_detail import WorkerDetail
 from .worker_failure_input import WorkerFailureInput
+from .worker_hf_token import WorkerHFToken
+from .worker_hf_token_ack import WorkerHFTokenAck
+from .worker_hf_token_ack_error_code import WorkerHFTokenAckErrorCode
+from .worker_hf_token_ack_outcome import WorkerHFTokenAckOutcome
+from .worker_hf_token_ack_source import WorkerHFTokenAckSource
+from .worker_hf_token_version import WorkerHFTokenVersion
 from .worker_install import WorkerInstall
 from .worker_install_cause import WorkerInstallCause
 from .worker_install_event import WorkerInstallEvent
@@ -363,6 +378,7 @@ from .worker_install_voice import WorkerInstallVoice
 from .worker_install_voice_state import WorkerInstallVoiceState
 from .worker_job_input import WorkerJobInput
 from .worker_job_input_tracks_item import WorkerJobInputTracksItem
+from .worker_job_logs_input import WorkerJobLogsInput
 from .worker_machine import WorkerMachine
 from .worker_model import WorkerModel
 from .worker_models import WorkerModels
@@ -380,7 +396,12 @@ from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 from .worker_transcription_config import WorkerTranscriptionConfig
 from .worker_transcription_config_error_code import WorkerTranscriptionConfigErrorCode
+from .worker_transcription_failure_input import WorkerTranscriptionFailureInput
+from .worker_transcription_failure_input_error_type import WorkerTranscriptionFailureInputErrorType
+from .worker_transcription_failure_input_method import WorkerTranscriptionFailureInputMethod
 from .worker_transcription_profile import WorkerTranscriptionProfile
+from .worker_transcription_reachability import WorkerTranscriptionReachability
+from .worker_transcription_reachability_input import WorkerTranscriptionReachabilityInput
 from .worker_transcription_status_input import WorkerTranscriptionStatusInput
 from .worker_transcription_status_input_error_code import WorkerTranscriptionStatusInputErrorCode
 from .worker_vocabulary_term import WorkerVocabularyTerm
@@ -409,6 +430,7 @@ __all__ = (
     "AnalysisQueueTask",
     "AnalysisRunHistory",
     "AnalysisStepEvent",
+    "AppendWorkerJobLogsResponse200",
     "Attribution",
     "AttributionAuthor",
     "AttributionCandidate",
@@ -497,6 +519,12 @@ __all__ = (
     "GetWorkerUpdatesResponse200WorkersItem",
     "GetWorkerUpdatesResponse200WorkersItemState",
     "HeartbeatWorkerJobResponse200",
+    "HFTokenInput",
+    "HFTokenStatus",
+    "HFTokenStatusWorkersItem",
+    "HFTokenStatusWorkersItemErrorCode",
+    "HFTokenStatusWorkersItemSource",
+    "HFTokenStatusWorkersItemState",
     "Job",
     "JobControls",
     "JobControlsInput",
@@ -505,6 +533,8 @@ __all__ = (
     "JobEventEvent",
     "JobHistory",
     "JobInput",
+    "JobLogLine",
+    "JobLogs",
     "JobPage",
     "JobResultType0",
     "JobStatus",
@@ -749,6 +779,12 @@ __all__ = (
     "WorkerClaim",
     "WorkerDetail",
     "WorkerFailureInput",
+    "WorkerHFToken",
+    "WorkerHFTokenAck",
+    "WorkerHFTokenAckErrorCode",
+    "WorkerHFTokenAckOutcome",
+    "WorkerHFTokenAckSource",
+    "WorkerHFTokenVersion",
     "WorkerInstall",
     "WorkerInstallCause",
     "WorkerInstallEvent",
@@ -761,6 +797,7 @@ __all__ = (
     "WorkerInstallVoiceState",
     "WorkerJobInput",
     "WorkerJobInputTracksItem",
+    "WorkerJobLogsInput",
     "WorkerMachine",
     "WorkerModel",
     "WorkerModels",
@@ -778,7 +815,12 @@ __all__ = (
     "WorkerResultInputResult",
     "WorkerTranscriptionConfig",
     "WorkerTranscriptionConfigErrorCode",
+    "WorkerTranscriptionFailureInput",
+    "WorkerTranscriptionFailureInputErrorType",
+    "WorkerTranscriptionFailureInputMethod",
     "WorkerTranscriptionProfile",
+    "WorkerTranscriptionReachability",
+    "WorkerTranscriptionReachabilityInput",
     "WorkerTranscriptionStatusInput",
     "WorkerTranscriptionStatusInputErrorCode",
     "WorkerVocabularyTerm",

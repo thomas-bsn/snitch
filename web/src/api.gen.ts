@@ -676,6 +676,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Liste des Workers en direct, sujet admin:workers ; un changement (création, présence, modèles, installation, révocation) envoie un nouvel état complet. Repli : GET /api/admin/workers. */
+    get: operations["streamWorkerEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Fiche d'un Worker en direct, sujet worker:<id> ; un Worker inexistant ferme le flux sans snapshot. Repli : GET /api/admin/workers/{id}. */
+    get: operations["streamWorkerDetailEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/workers/{id}": {
     parameters: {
       query?: never;
@@ -808,6 +842,76 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["workerPulse"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/hf-token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée. */
+    get: operations["getHFToken"];
+    /** @description Réservé au Super-administrateur : enregistre ou remplace le token central, chiffré au repos. Un token mal formé est refusé (invalid_hf_token) sans être renvoyé. Un Administrateur reçoit 403 super_administrator_required. */
+    put: operations["putHFToken"];
+    post?: never;
+    /** @description Réservé au Super-administrateur : supprime le token central. Les Workers purgent leur copie centrale à la version suivante ; une copie locale reste. */
+    delete: operations["deleteHFToken"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/hf-token/version": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Version du token central, sans sa valeur. Un Worker compare cette version à la sienne et ne demande le token que si elle diffère. */
+    get: operations["getWorkerHFTokenVersion"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/hf-token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Token central pour un Worker authentifié et non révoqué, seulement lorsque sa version diffère de la sienne. Un token supprimé ou absent est renvoyé avec token null : le Worker purge alors sa copie centrale. Réponse sans cache. */
+    get: operations["getWorkerHFToken"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/hf-token/ack": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Accusé de réception d'une version par le Worker : appliquée, conservée (jeton local prioritaire), retirée ou en échec avec un code stable. Une version qui n'est plus la courante est refusée (stale_hf_token_version) : le Worker relit la version. */
+    post: operations["ackWorkerHFToken"];
     delete?: never;
     options?: never;
     head?: never;
@@ -976,6 +1080,40 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["heartbeatWorkerJob"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/jobs/{id}/logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Lignes de log d'un job envoyées par le Worker par lots (2 s ou 50 lignes), déjà masquées côté Worker. Le serveur ne garde que les 50 dernières lignes du job ; elles sont supprimées avec le job. Lease obligatoire. */
+    post: operations["appendWorkerJobLogs"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/jobs/{id}/logs/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Lignes de log d'un job (50 au plus, les plus récentes) : flux text/event-stream, un évènement snapshot {seq, snapshot: JobLogs} à chaque ajout ; le droit est revérifié avant chaque snapshot. */
+    get: operations["streamJobLogs"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3007,13 +3145,25 @@ export interface components {
     };
     SetupStepInput: {
       /** @enum {string} */
-      step: "location" | "discord" | "semantic_search" | "worker" | "import";
+      step:
+        | "location"
+        | "discord"
+        | "semantic_search"
+        | "worker"
+        | "huggingface"
+        | "import";
       /** @enum {string} */
       state: "done" | "skipped";
     };
     SetupStepState: {
       /** @enum {string} */
-      step: "location" | "discord" | "semantic_search" | "worker" | "import";
+      step:
+        | "location"
+        | "discord"
+        | "semantic_search"
+        | "worker"
+        | "huggingface"
+        | "import";
       /** @enum {string} */
       state: "done" | "skipped" | "todo";
     };
@@ -3241,6 +3391,16 @@ export interface components {
       /** @description Adresse Whisper propre à ce Worker, si définie. */
       endpoint_override?: string;
     };
+    /** @description Dernier test GET /v1/models par le Worker. Détail du dernier échec réservé aux administrateurs. */
+    WorkerTranscriptionReachability: {
+      reachable: boolean;
+      /** Format: date-time */
+      checked_at: string;
+      latency_ms: number;
+      last_failure:
+        | components["schemas"]["WorkerTranscriptionFailureInput"]
+        | null;
+    };
     WorkerTranscriptionStatusInput: {
       version: string;
       active: boolean;
@@ -3254,6 +3414,8 @@ export interface components {
       transcription_model?: string;
       /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachability"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
       install?: components["schemas"]["WorkerInstall"];
@@ -3306,6 +3468,9 @@ export interface components {
       | "gpu_unavailable"
       | "service_start_failed"
       | "hf_access_denied"
+      | "hf_token_invalid"
+      | "hf_gated_denied"
+      | "hf_repo_invalid"
       | "unknown";
     WorkerInstallEventInput: {
       phase: components["schemas"]["WorkerInstallPhase"];
@@ -3406,6 +3571,8 @@ export interface components {
       transcription_model?: string;
       /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachability"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
       install?: components["schemas"]["WorkerInstall"];
@@ -3481,12 +3648,78 @@ export interface components {
       };
       items: components["schemas"]["Worker"][];
     };
+    HFTokenInput: {
+      /** @description Token Hugging Face : écrit une fois, jamais renvoyé */
+      token: string;
+    };
+    HFTokenStatus: {
+      configured: boolean;
+      /** @description Empreinte non réversible, vide si non configuré */
+      fingerprint: string;
+      /** @description Valeur présente mais illisible avec la clé maître courante : à ressaisir */
+      unreadable: boolean;
+      workers: {
+        id: string;
+        name: string;
+        /** @enum {string} */
+        source: "" | "central" | "local" | "none";
+        /**
+         * @description pending = non synchronisé
+         * @enum {string}
+         */
+        state: "synced" | "pending" | "error";
+        /** @enum {string} */
+        error_code: "" | "hf_token_store_failed";
+      }[];
+    };
+    WorkerHFTokenVersion: {
+      /** @description 0 = aucun token central */
+      version: string;
+    };
+    WorkerHFToken: {
+      version: string;
+      /** @description null : copie centrale à purger */
+      token: string | null;
+    };
+    WorkerHFTokenAck: {
+      version: string;
+      /** @enum {string} */
+      outcome: "applied" | "kept_local" | "removed" | "failed";
+      /** @enum {string} */
+      source: "central" | "local" | "none";
+      /** @enum {string} */
+      error_code?: "" | "hf_token_store_failed";
+    };
     WorkerPulseInput: {
       machine?: components["schemas"]["WorkerMachine"];
       capacity: number;
       supported_steps: string[];
       /** @description Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer. */
       models?: components["schemas"]["WorkerModels"];
+      /** @description Dernier résultat de joignabilité du serveur de transcription, testé par le Worker toutes les 60 s hors du pouls. Omis tant que le Worker ne connaît pas de configuration. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachabilityInput"];
+    };
+    /** @description Résultat de GET /v1/models sur le serveur de transcription. Jamais d'identifiants : l'URL est déjà sans utilisateur ni requête. */
+    WorkerTranscriptionReachabilityInput: {
+      /** Format: date-time */
+      checked_at: string;
+      reachable: boolean;
+      latency_ms: number;
+      /** @description Détail du dernier échec connu pour la cible courante. */
+      last_failure?: components["schemas"]["WorkerTranscriptionFailureInput"];
+    };
+    WorkerTranscriptionFailureInput: {
+      /** Format: date-time */
+      failed_at: string;
+      /** @enum {string} */
+      method: "GET";
+      url: string;
+      status_code?: number | null;
+      latency_ms: number;
+      /** @enum {string} */
+      error_type: "timeout" | "connection" | "http_status" | "invalid_body";
+      /** @description Extrait borné de la réponse, vide hors statut HTTP ou corps invalide. */
+      body_excerpt: string;
     };
     WorkerClaim: {
       job: components["schemas"]["Job"] | null;
@@ -3614,6 +3847,9 @@ export interface components {
         | ""
         | "hf_token_missing"
         | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
         | "disk_full"
         | "runtime_incompatible"
         | "inference_failed"
@@ -3671,6 +3907,9 @@ export interface components {
         | ""
         | "hf_token_missing"
         | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
         | "disk_full"
         | "runtime_incompatible"
         | "inference_failed"
@@ -4563,6 +4802,20 @@ export interface components {
       | "hf_network"
       | "models_volume_unwritable"
       | "hf_cache_error";
+    WorkerJobLogsInput: {
+      lines: string[];
+    };
+    JobLogLine: {
+      /** Format: int64 */
+      seq: number;
+      /** @description Ligne JSON de log, masquée ; jamais de jeton, Bearer, URL avec identifiants ni chemin de clip. */
+      text: string;
+    };
+    JobLogs: {
+      /** Format: int64 */
+      job_id: number;
+      lines: components["schemas"]["JobLogLine"][];
+    };
     WorkerFailureInput: {
       /** @description Code de Cause d'échec (voir FailureCode). Un code inconnu est enregistré comme worker_failed. */
       error: string;
@@ -6911,6 +7164,66 @@ export interface operations {
       };
     };
   };
+  streamWorkerEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerPage} : l'état complet de la liste des Workers, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamWorkerDetailEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerDetail} : l'état complet de la fiche, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getWorker: {
     parameters: {
       query?: never;
@@ -7356,6 +7669,190 @@ export interface operations {
       };
     };
   };
+  getHFToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du token central */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HFTokenStatus"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putHFToken: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["HFTokenInput"];
+      };
+    };
+    responses: {
+      /** @description Token enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 invalid_hf_token, 401, 403 CSRF ou rôle) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteHFToken: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Token supprimé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (401, 403 CSRF ou rôle) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerHFTokenVersion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerHFTokenVersion"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerHFToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Version et token */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerHFToken"];
+        };
+      };
+      /** @description Erreur (worker_token_required, worker_token_invalid) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  ackWorkerHFToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerHFTokenAck"];
+      };
+    };
+    responses: {
+      /** @description Accusé enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 invalid_hf_token_ack, 409 stale_hf_token_version, 401) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getWorkerRevocation: {
     parameters: {
       query?: never;
@@ -7716,6 +8213,76 @@ export interface operations {
         };
       };
       /** @description Jeton invalide, lease perdu ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  appendWorkerJobLogs: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Worker-Lease-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerJobLogsInput"];
+      };
+    };
+    responses: {
+      /** @description Lignes reçues */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            stored: number;
+          };
+        };
+      };
+      /** @description Jeton invalide, lease perdu (409 lease_not_owned) ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamJobLogs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_job_id ; 401 unauthorized ; 403 forbidden ; 404 job_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

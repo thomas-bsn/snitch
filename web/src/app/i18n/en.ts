@@ -343,6 +343,7 @@ export const en = {
       testedVersion: "Tested",
       activeVersion: "Active",
       error: "Error",
+      reachability: "Reachability",
     },
     undeclared: "Not declared",
     online: "Connected",
@@ -364,6 +365,27 @@ export const en = {
     statusError: "Test failed: {error}",
     errorConnectionFailed: "Connection failed — check the address and network",
     errorModelMissing: "Model not available on the server",
+    reach: {
+      reachable: "Reachable",
+      unreachable: "Unreachable",
+      unknown: "Not tested",
+      lastFailure: "Last failure",
+      method: "Method",
+      url: "URL",
+      status: "HTTP status",
+      latency: "Latency",
+      errorType: "Error type",
+      excerpt: "Response excerpt",
+      failedAt: "Time",
+      checkedAt: "Last test",
+      none: "none",
+      errorTypes: {
+        timeout: "timeout",
+        connection: "connection failed",
+        http_status: "HTTP error response",
+        invalid_body: "unexpected response",
+      },
+    },
     noOverride: "Using common address",
     removeOverride: "Remove custom address",
   },
@@ -449,6 +471,12 @@ export const en = {
         "Hugging Face token missing on this Worker. Store it from the Worker machine with the store-token command (see docs/real-voice-worker.md), then retry.",
       hf_access_denied:
         "Hugging Face access refused: accept the model terms with the account that owns the token.",
+      hf_token_invalid:
+        "Hugging Face did not accept the token: check it (read access) and rerun the command.",
+      hf_gated_denied:
+        "The account that owns the token has not accepted the model terms: accept them on Hugging Face, then rerun.",
+      hf_repo_invalid:
+        "A model repository or revision was not found on Hugging Face: report it, the Snitch version may not match.",
       disk_full: "The Worker machine's disk is full.",
       hf_auth_required:
         "Hugging Face refused the token: check it and accept the model terms with its account.",
@@ -463,6 +491,43 @@ export const en = {
   },
   voiceAdmin: {
     title: "Voice processing",
+    hf: {
+      title: "Central Hugging Face token",
+      lead: "Enter the token once here. Snitch keeps it encrypted and never shows it again. Authorised Workers receive it on their own and keep it privately, so a new or rebuilt Worker can download voice models without any command on its machine.",
+      configured:
+        "Configured. The value is kept encrypted and cannot be read back.",
+      absent:
+        "Not configured. Workers keep the token they already have, if any.",
+      unreadable:
+        "The stored token cannot be read with the current master key. Enter it again.",
+      fingerprint: "Fingerprint {value}.",
+      field: "Hugging Face token",
+      hint: "Starts with hf_. Shown once, then hidden for good.",
+      save: "Save token",
+      replace: "Replace token",
+      remove: "Remove token",
+      cancelRemove: "Keep it",
+      removeHint:
+        "Workers purge their central copy at their next contact. A token a Worker keeps locally stays.",
+      owner: "Only the Super-administrator can change the token.",
+      savedNotice: "Token saved. Workers receive it at their next contact.",
+      removedNotice:
+        "Token removed. Workers purge their central copy at their next contact.",
+      workersTitle: "Workers",
+      workersLead:
+        "Each Worker reports the token it keeps. Not synchronised: the Worker is offline or has not yet acknowledged this version.",
+      state: {
+        synced: "Synchronised",
+        pending: "Not synchronised",
+        error: "Error",
+      },
+      source: {
+        central: "Snitch copy",
+        local: "Local token kept",
+        none: "No token",
+        unknown: "Not reported yet",
+      },
+    },
     saved: "Settings saved.",
     pipeline: "Voice pipeline",
     version: "Version {version}. No models are downloaded without your action.",
@@ -792,6 +857,14 @@ export const en = {
   },
   setup: {
     title: "Set up Snitch",
+    huggingface: {
+      title: "Hugging Face token (optional)",
+      lead: "Only needed to download voice models. Saved once, encrypted, then sent to your authorised Workers. You can also add it later in Voice processing.",
+      field: "Hugging Face token",
+      hint: "Starts with hf_. Shown once, then hidden for good.",
+      ownerOnly: "Only the Super-administrator can save the token.",
+      saved: "Token saved. Workers receive it at their next contact.",
+    },
     lead: "Create the Super-administrator account first. Everything else is optional, and nothing starts without your say-so.",
     stepOf: "Step {step} of {total}",
     stepsLabel: "Setup steps",
@@ -801,6 +874,7 @@ export const en = {
       discord: "Discord",
       semantic: "Semantic search",
       worker: "First Worker",
+      huggingface: "Hugging Face token",
       import: "Import videos",
       summary: "Summary",
     },
@@ -813,6 +887,7 @@ export const en = {
     where: {
       discord: "Administration, Users and access",
       semantic: "Administration, Semantic index",
+      huggingface: "Administration, Voice processing",
       worker: "Administration, Workers",
       import: "the Import page",
     },
@@ -1193,6 +1268,9 @@ export const en = {
         gpu_unavailable: "GPU unavailable to Docker",
         service_start_failed: "Service did not start",
         hf_access_denied: "Hugging Face access denied",
+        hf_token_invalid: "Hugging Face token refused",
+        hf_gated_denied: "Model terms not accepted",
+        hf_repo_invalid: "Model repository not found",
         unknown: "Unknown cause",
       },
       recovery: {
@@ -1215,6 +1293,12 @@ export const en = {
           "Inspect the Docker logs on the machine, then rerun the command.",
         hf_access_denied:
           "Check the Hugging Face token and the model terms, then rerun the command. Transcription is not affected.",
+        hf_token_invalid:
+          "Check the Hugging Face token (read access), then rerun the command. Transcription is not affected.",
+        hf_gated_denied:
+          "Accept the terms of both models with the account that owns the token, then rerun the command. Transcription is not affected.",
+        hf_repo_invalid:
+          "Report it to your administrator: a model repository or revision was not found. Transcription is not affected.",
         unknown:
           "Inspect the terminal output on the machine, then rerun the command.",
       },

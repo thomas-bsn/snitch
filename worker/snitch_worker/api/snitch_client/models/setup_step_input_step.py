@@ -2,6 +2,7 @@ from enum import StrEnum
 
 class SetupStepInputStep(StrEnum):
     DISCORD = "discord"
+    HUGGINGFACE = "huggingface"
     IMPORT = "import"
     LOCATION = "location"
     SEMANTIC_SEARCH = "semantic_search"

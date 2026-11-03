@@ -176,6 +176,25 @@ class BootstrapTests(unittest.TestCase):
             # Restore permissions for cleanup
             os.chmod(readonly_root.name, stat.S_IRWXU)
 
+    def test_a_failed_revision_lookup_is_reported_as_an_invalid_repository(self):
+        logs = []
+        report = {}
+
+        def resolve(repo_id, revision, token):
+            raise bootstrap.NoRevisionError(SECRET)
+
+        status = bootstrap.run_bootstrap(self.optin(**self.env), Fakes().downloader, resolve, logs.append, report)
+        self.assertEqual(status, "failed")
+        self.assertEqual(report["cause_code"], "hf_repo_invalid")
+        self.assertNotIn(SECRET, "\n".join(logs))
+
+    def test_a_second_provision_after_success_downloads_nothing(self):
+        fakes = Fakes()
+        self.assertEqual(self.run_bootstrap(fakes, **self.optin()), "downloaded")
+        calls = len(fakes.downloads)
+        self.assertEqual(self.run_bootstrap(Fakes(), **self.optin()), "present")
+        self.assertEqual(calls, 2)
+
 
 class StableCauseTests(unittest.TestCase):
     """Cause codes are the closed vocabulary shared with the launcher and the events contract."""
@@ -202,18 +221,63 @@ class StableCauseTests(unittest.TestCase):
         self.assertIn(report["cause_code"], bootstrap.CAUSE_CODES)
         return report["cause_code"]
 
-    def test_gated_repo_and_http_denials_are_hf_access_denied(self):
+    def test_gated_repo_refused_is_hf_gated_denied(self):
         class GatedRepoError(Exception):
             pass
 
+        self.assertEqual(self.code_for(GatedRepoError(SECRET)), "hf_gated_denied")
+
+    def test_gated_error_is_not_mistaken_for_a_missing_repository(self):
+        # GatedRepoError subclasses RepositoryNotFoundError in huggingface_hub: the gated cause must win.
+        class RepositoryNotFoundError(Exception):
+            pass
+
+        class GatedRepoError(RepositoryNotFoundError):
+            pass
+
+        self.assertEqual(self.code_for(GatedRepoError(SECRET)), "hf_gated_denied")
+
+    def test_http_401_is_an_invalid_token(self):
         class Resp:
             status_code = 401
 
         class HTTPError(Exception):
             response = Resp()
 
-        self.assertEqual(self.code_for(GatedRepoError(SECRET)), "hf_access_denied")
-        self.assertEqual(self.code_for(HTTPError(SECRET)), "hf_access_denied")
+        self.assertEqual(self.code_for(HTTPError(SECRET)), "hf_token_invalid")
+
+    def test_http_403_without_gate_is_a_refused_access(self):
+        class Resp:
+            status_code = 403
+
+        class HTTPError(Exception):
+            response = Resp()
+
+        self.assertEqual(self.code_for(HTTPError(SECRET)), "hf_gated_denied")
+
+    def test_missing_repository_or_revision_is_hf_repo_invalid(self):
+        class RepositoryNotFoundError(Exception):
+            pass
+
+        class RevisionNotFoundError(Exception):
+            pass
+
+        class Resp:
+            status_code = 404
+
+        class HTTPError(Exception):
+            response = Resp()
+
+        self.assertEqual(self.code_for(RepositoryNotFoundError(SECRET)), "hf_repo_invalid")
+        self.assertEqual(self.code_for(RevisionNotFoundError(SECRET)), "hf_repo_invalid")
+        self.assertEqual(self.code_for(HTTPError(SECRET)), "hf_repo_invalid")
+        self.assertEqual(self.code_for(bootstrap.NoRevisionError(SECRET)), "hf_repo_invalid")
+
+    def test_the_legacy_coarse_code_is_no_longer_emitted(self):
+        self.assertNotIn("hf_access_denied", bootstrap.CAUSE_CODES)
+        for code in ("hf_token_invalid", "hf_gated_denied", "hf_repo_invalid"):
+            self.assertIn(code, bootstrap.CAUSE_CODES)
+            self.assertTrue(bootstrap.CAUSE_TEXT[code])
 
     def test_network_errors(self):
         self.assertEqual(self.code_for(ConnectionError(SECRET)), "network_unreachable")
@@ -245,6 +309,19 @@ class StableCauseTests(unittest.TestCase):
             rc = bootstrap.cli(["provision"], self.env, Fakes(fail=ConnectionError(SECRET)).downloader, Fakes().resolve, lambda _l: None)
         self.assertEqual(rc, 1)
         self.assertEqual(out.getvalue().strip(), "cause=network_unreachable")
+
+    def test_cli_provision_prints_the_fine_cause_for_a_gated_refusal(self):
+        import io
+        from contextlib import redirect_stdout
+
+        class GatedRepoError(Exception):
+            pass
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = bootstrap.cli(["provision"], self.env, Fakes(fail=GatedRepoError(SECRET)).downloader, Fakes().resolve, lambda _l: None)
+        self.assertEqual(rc, 1)
+        self.assertEqual(out.getvalue().strip(), "cause=hf_gated_denied")
 
     def test_cli_check_reflects_manifest(self):
         self.assertEqual(bootstrap.cli(["check"], self.env), 1)
