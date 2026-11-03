@@ -12365,7 +12365,7 @@ export interface operations {
           "application/json": components["schemas"]["VoiceDispositionView"];
         };
       };
-      /** @description validated_voice : la voix a une validation humaine ; rien n'est écrit */
+      /** @description validated_voice : la voix a une validation humaine ; analysis_active : une analyse est en cours sur le clip ; rien n'est écrit */
       409: {
         headers: {
           [name: string]: unknown;
@@ -12406,6 +12406,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceDispositionView"];
+        };
+      };
+      /** @description analysis_active : une analyse est en cours sur le clip ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */
@@ -12555,7 +12564,7 @@ export interface operations {
           "application/json": components["schemas"]["Error"];
         };
       };
-      /** @description validated_voice : une voix du groupe est validée ; rien n'est écrit */
+      /** @description validated_voice : une voix du groupe est validée ; analysis_active : une analyse est en cours sur l'un de leurs clips ; rien n'est écrit */
       409: {
         headers: {
           [name: string]: unknown;

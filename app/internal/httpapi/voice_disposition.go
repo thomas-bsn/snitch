@@ -181,14 +181,22 @@ func nullableDisposition(disposition string) *string {
 	return &disposition
 }
 
-// changeDispositions writes the dispositions in one transaction and re-runs matching so the
-// machine attributions of the voices follow at once. It answers the error itself and
-// returns false when nothing was written.
+// changeDispositions writes the dispositions in one transaction gated on the analysis of
+// their clips, and re-runs matching so the machine attributions of the voices follow at once.
+// It answers the error itself and returns false when nothing was written.
 func (s *Server) changeDispositions(w http.ResponseWriter, r *http.Request, ids []int64, disposition string, ss session) bool {
 	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
+	clipIDs := []int64{}
+	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT clip_id FROM local_speakers WHERE id=ANY($1) ORDER BY clip_id`, ids)
+	if err == nil {
+		clipIDs, err = pgx.CollectRows(rows, pgx.RowTo[int64])
+	}
 	if err != nil {
 		s.internal(w, err)
+		return false
+	}
+	tx, ok := s.beginAnalysisGated(w, r, clipIDs...)
+	if !ok {
 		return false
 	}
 	defer tx.Rollback(ctx)
@@ -213,6 +221,41 @@ func (s *Server) changeDispositions(w http.ResponseWriter, r *http.Request, ids 
 	return true
 }
 
+// beginAnalysisGated opens the transaction of a change to the voices of the clips that waits
+// for their analysis, like the deletion of analysis steps. Each clip row is share-locked, in
+// id order: a diarization takes it FOR UPDATE while it plans the carry of dispositions and
+// refusals and deletes the old voices, so nothing can be committed in between. Under that
+// lock, an active run or voice job on a clip refuses the change (409 analysis_active). It
+// answers the error itself and returns false with the transaction rolled back; otherwise the
+// caller owns the transaction.
+func (s *Server) beginAnalysisGated(w http.ResponseWriter, r *http.Request, clipIDs ...int64) (pgx.Tx, bool) {
+	ctx := r.Context()
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		s.internal(w, err)
+		return nil, false
+	}
+	for _, clipID := range clipIDs {
+		if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR SHARE`, clipID); err != nil {
+			tx.Rollback(ctx)
+			s.internal(w, err)
+			return nil, false
+		}
+		busy, err := analysisActive(ctx, tx, clipID)
+		if err != nil {
+			tx.Rollback(ctx)
+			s.internal(w, err)
+			return nil, false
+		}
+		if busy {
+			tx.Rollback(ctx)
+			fail(w, http.StatusConflict, "analysis_active")
+			return nil, false
+		}
+	}
+	return tx, true
+}
+
 // refuseLocalSpeaker records "ce n'est pas X": the attribution of that Person on the voice
 // is removed (human or machine), its validated sample leaves the references, and the
 // refusal stops matching from proposing the Person for this voice.
@@ -231,26 +274,13 @@ func (s *Server) refuseLocalSpeaker(w http.ResponseWriter, r *http.Request) {
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
 	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		s.internal(w, err)
+	tx, ok := s.beginAnalysisGated(w, r, sp.ClipID)
+	if !ok {
 		return
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR SHARE`, sp.ClipID); err != nil {
-		s.internal(w, err)
-		return
-	}
-	// Like the deletion of analysis steps, a refusal waits for the analysis: nothing changes
-	// while a run or one of its voice jobs is active on the clip.
-	if busy, err := analysisActive(ctx, tx, sp.ClipID); err != nil {
-		s.internal(w, err)
-		return
-	} else if busy {
-		fail(w, http.StatusConflict, "analysis_active")
-		return
-	}
-	if _, err = tx.Exec(ctx, `SELECT id FROM local_speakers WHERE id=$1 FOR UPDATE`, sp.ID); err != nil {
+	_, err := tx.Exec(ctx, `SELECT id FROM local_speakers WHERE id=$1 FOR UPDATE`, sp.ID)
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -334,23 +364,11 @@ func (s *Server) cancelLocalSpeakerRefusal(w http.ResponseWriter, r *http.Reques
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
 	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		s.internal(w, err)
+	tx, ok := s.beginAnalysisGated(w, r, sp.ClipID)
+	if !ok {
 		return
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR SHARE`, sp.ClipID); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if busy, err := analysisActive(ctx, tx, sp.ClipID); err != nil {
-		s.internal(w, err)
-		return
-	} else if busy {
-		fail(w, http.StatusConflict, "analysis_active")
-		return
-	}
 	var name string
 	err = tx.QueryRow(ctx, `WITH cancelled AS (DELETE FROM voice_refusals WHERE local_speaker_id=$1 AND person_id=$2 RETURNING person_id)
 SELECT COALESCE(p.display_name,'') FROM cancelled c LEFT JOIN persons p ON p.id=c.person_id`, sp.ID, personID).Scan(&name)

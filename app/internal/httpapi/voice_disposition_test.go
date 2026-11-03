@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -300,10 +302,7 @@ func testVoiceRefusal(t *testing.T, pool *pgxpool.Pool) {
 // whose turns are given as [start,end] pairs, then returns the new voices by label.
 func (h *voiceHarness) rediarize(speakers map[string][][2]float64, order ...string) map[string]fixtureSpeaker {
 	h.t.Helper()
-	// The fingerprints of a previous rediarization are not needed: they leave the queue.
-	if _, err := h.pool.Exec(context.Background(), `UPDATE jobs SET status='failed',last_error='fixture' WHERE clip_id=$1 AND step LIKE 'voice.fingerprint.%' AND status='pending'`, h.clipID); err != nil {
-		h.t.Fatal(err)
-	}
+	h.dropPendingFingerprints()
 	h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusCreated)
 	job, ok := h.claim()
 	if !ok || job.Step != "voice.diarization.2" {
@@ -323,6 +322,15 @@ func (h *voiceHarness) rediarize(speakers map[string][][2]float64, order ...stri
 		voices[sp.Label] = fixtureSpeaker{ID: sp.ID, ClipID: h.clipID}
 	}
 	return voices
+}
+
+// dropPendingFingerprints takes the fingerprints queued by a rediarization out of the queue:
+// the fixtures do not need them, and a pending voice job keeps the analysis of the clip active.
+func (h *voiceHarness) dropPendingFingerprints() {
+	h.t.Helper()
+	if _, err := h.pool.Exec(context.Background(), `UPDATE jobs SET status='failed',last_error='fixture' WHERE clip_id=$1 AND step LIKE 'voice.fingerprint.%' AND status='pending'`, h.clipID); err != nil {
+		h.t.Fatal(err)
+	}
 }
 
 // refusalEvents counts the refusal journal rows of a clip with an action, whose reason
@@ -435,6 +443,7 @@ func testRediarizationConflictDropsDispositions(t *testing.T, pool *pgxpool.Pool
 	// A voice without disposition merged with an ignored one: ignoring the merged voice
 	// would hide the other, so the disposition is dropped too.
 	split := h.rediarize(map[string][][2]float64{"P": {{0, 1.5}}, "Q": {{1.5, 2.5}}}, "P", "Q")
+	h.dropPendingFingerprints()
 	h.setDisposition(split["P"], "ignored", http.StatusOK)
 	voices = h.rediarize(map[string][][2]float64{"ONE": {{0, 2.5}}}, "ONE")
 	if d := h.dispositionOf(voices["ONE"]); d != nil {
@@ -654,5 +663,84 @@ func testRefusalCancelDuringActiveAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodDelete, fmt.Sprintf("/api/local-speakers/%d/refusals/%d", second, bob), nil, http.StatusOK)
 	if n := h.count(`SELECT count(*) FROM voice_refusals WHERE local_speaker_id=$1`, second); n != 0 {
 		t.Fatalf("the refusal is cancelled once the analysis is over: %d", n)
+	}
+}
+
+// testDispositionDuringActiveAnalysis: like a refusal, a disposition waits for the analysis
+// (409 analysis_active, nothing written), for a voice, its restoration and a group.
+func testDispositionDuringActiveAnalysis(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, second := h.diarizeClip()
+	firstVoice := fixtureSpeaker{ID: first, ClipID: h.clipID}
+	h.setDisposition(firstVoice, "random", http.StatusOK)
+	h.startAnalysis(map[string]any{"scope": "voice", "mode": "full"}, http.StatusCreated)
+	errorOf := func(data []byte) string {
+		t.Helper()
+		var refused struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(data, &refused); err != nil {
+			t.Fatal(err)
+		}
+		return refused.Error
+	}
+	if got := errorOf(h.setDisposition(fixtureSpeaker{ID: second, ClipID: h.clipID}, "ignored", http.StatusConflict)); got != "analysis_active" {
+		t.Fatalf("a disposition during an active analysis must say so: %q", got)
+	}
+	if got := errorOf(h.adminCall(http.MethodDelete, fmt.Sprintf("/api/local-speakers/%d/disposition", first), nil, http.StatusConflict)); got != "analysis_active" {
+		t.Fatalf("a restoration during an active analysis must say so: %q", got)
+	}
+	if n := h.count(`SELECT count(*) FROM voice_disposition_events WHERE clip_id=$1`, h.clipID); n != 1 {
+		t.Fatalf("a refused disposition writes nothing: %d", n)
+	}
+	h.adminCall(http.MethodPost, h.analysisPath()+"/cancel", nil, http.StatusOK)
+	h.setDisposition(fixtureSpeaker{ID: second, ClipID: h.clipID}, "ignored", http.StatusOK)
+	h.restoreDisposition(firstVoice)
+}
+
+// testDispositionWaitsForDiarization: a disposition takes the clip row FOR SHARE, like a
+// validation or a refusal, so it cannot be committed while a diarization (which takes the row
+// FOR UPDATE, plans the carry, then deletes the old voices) is being ingested.
+func testDispositionWaitsForDiarization(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, _ := h.diarizeClip()
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR UPDATE`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan int, 1)
+	go func() {
+		req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/api/local-speakers/%d/disposition", h.ts.URL, first), strings.NewReader(`{"disposition":"ignored"}`))
+		req.Header.Set("Origin", h.ts.URL)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-CSRF-Token", h.csrf)
+		resp, err := h.admin.Do(req)
+		if err != nil {
+			done <- 0
+			return
+		}
+		resp.Body.Close()
+		done <- resp.StatusCode
+	}()
+	select {
+	case status := <-done:
+		t.Fatalf("the disposition must wait for the clip lock of the diarization, it answered %d", status)
+	case <-time.After(500 * time.Millisecond):
+	}
+	if err = tx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case status := <-done:
+		if status != http.StatusOK {
+			t.Fatalf("once the diarization is over the disposition is recorded: %d", status)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the disposition never completed")
 	}
 }
