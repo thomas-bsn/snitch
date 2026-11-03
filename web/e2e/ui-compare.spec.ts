@@ -97,6 +97,24 @@ function seedImportTree() {
   }
 }
 
+/** Deux vidéos du dossier octobre sont indexées (clip + miniature réelle) ; les autres restent sur disque. */
+async function indexThumbnailVideos() {
+  const api = await request.newContext({
+    baseURL: process.env.SNITCH_TEST_URL!,
+    extraHTTPHeaders: { Origin: process.env.SNITCH_TEST_URL! },
+    storageState: await sessionFor(ADMIN),
+  });
+  const me = await (await api.get("/api/auth/me")).json();
+  for (const name of ["interview-claire.mp4", "brief-lumiere.mp4"]) {
+    const response = await api.post("/api/library/explorer/index", {
+      headers: { "X-CSRF-Token": me.csrf_token },
+      data: { path: `2026/octobre/${name}` },
+    });
+    if (!response.ok()) throw new Error(`index refused: ${response.status()}`);
+  }
+  await api.dispose();
+}
+
 /** Les demandes de dossier créées par une capture sont refusées : chaque état repart de zéro. */
 async function clearFolderRequests() {
   const api = await request.newContext({
@@ -131,6 +149,7 @@ test("capture et comparaison des états", async ({ browser }) => {
   await configureVideoRoot();
   await setAccountLanguage(ADMIN, "fr");
   seedImportTree();
+  await indexThumbnailVideos();
   await createApprovedMember();
   await setAccountLanguage(MEMBER, "fr");
   const cookies = (await sessionFor(ADMIN)).cookies;

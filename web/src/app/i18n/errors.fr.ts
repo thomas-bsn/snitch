@@ -221,6 +221,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "La session à l’origine de la liaison a expiré ou changé. Recommencez depuis votre compte.",
   local_speaker_not_found: "Cette voix n’existe pas.",
   media_not_found: "Ce fichier média n’est pas disponible.",
+  thumbnail_not_found: "Cette miniature n’est pas disponible.",
   method_not_allowed: "Cette action n’est pas autorisée ici.",
   microphone_track_not_diarized: "La piste du micro n’a pas encore de voix.",
   no_linked_person: "Aucune personne n’est liée à votre compte.",

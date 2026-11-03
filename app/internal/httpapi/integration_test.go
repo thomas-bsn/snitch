@@ -643,6 +643,7 @@ func TestFoundation(t *testing.T) {
 		testWorkerModels(t, pool)
 	})
 	t.Run("account close", func(t *testing.T) { reset(t); testAccountClose(t, pool) })
+	t.Run("clip thumbnail", func(t *testing.T) { reset(t); testClipThumbnail(t, pool) })
 	t.Run("members", func(t *testing.T) { reset(t); testMembers(t, pool) })
 	t.Run("worker administration", func(t *testing.T) {
 		reset(t)
@@ -1142,7 +1143,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
+				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
 					continue // These contract operations are covered by their upload, search, worker, member, account, embedding, transcription, job log, worker update and Hugging Face token suites.
 				}
 				if !seen[method+" "+path] {
@@ -1435,6 +1436,7 @@ func TestFoundation(t *testing.T) {
 						"league/2026":     {"match.mp4", "other.mp4"},
 						"league/2026/sub": {"inner.mp4"},
 						"secret":          {"plan.mp4"},
+						"media":           {"clip.mp4", "plain.mp4"},
 					} {
 						if e = os.MkdirAll(filepath.Join(explorerRoot, dir), 0o700); e != nil {
 							t.Fatal(e)

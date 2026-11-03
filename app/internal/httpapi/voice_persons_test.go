@@ -5,6 +5,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,7 +26,13 @@ func syntheticFFmpegFixture(t *testing.T) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "ffmpeg.log")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '" + strings.ReplaceAll(log, "'", "'\\''") + "'\nprintf 'RIFF....WAVEsynthetic-excerpt'\n"
+	jpeg := filepath.Join(dir, "thumbnail.jpg")
+	if err := os.WriteFile(jpeg, syntheticJPEG(t), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	quote := func(v string) string { return "'" + strings.ReplaceAll(v, "'", "'\\''") + "'" }
+	// A thumbnail request (mjpeg output) answers with a real JPEG, an excerpt cut with a WAV stub.
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + quote(log) + "\ncase \"$*\" in *mjpeg*) cat " + quote(jpeg) + ";; *) printf 'RIFF....WAVEsynthetic-excerpt';; esac\n"
 	path := filepath.Join(dir, "ffmpeg-fixture")
 	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
@@ -441,4 +448,14 @@ func (h *voiceHarness) voiceAs(u *voiceUser) voiceView {
 		h.t.Fatal(err)
 	}
 	return v
+}
+
+// syntheticJPEG is a 160x90 one-colour JPEG (about one kilobyte), the answer of the stub ffmpeg to a thumbnail request.
+func syntheticJPEG(t *testing.T) []byte {
+	t.Helper()
+	data, err := base64.StdEncoding.DecodeString("/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAoKADAAQAAAABAAAAWgAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAWgCgAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMAAgICAgICAwICAwUDAwMFBgUFBQUGCAYGBgYGCAoICAgICAgKCgoKCgoKCgwMDAwMDA4ODg4ODw8PDw8PDw8PD//bAEMBAgICBAQEBwQEBxALCQsQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEP/dAAQACv/aAAwDAQACEQMRAD8A+e6KKK/oA/mcKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA/9D57ooor+gD+ZwooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/0fnuiiiv6AP5nCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/S+e6KKK/oA/mcKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA/9P57ooor+gD+ZwooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/1Pnuiiiv6AP5nCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }

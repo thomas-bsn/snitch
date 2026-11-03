@@ -1492,6 +1492,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/thumbnail": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Mêmes règles d’accès que le média. Seul un clip indexé a une miniature : aucune n’est produite pour un fichier non indexé. */
+    get: operations["getClipThumbnail"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}/transcription": {
     parameters: {
       query?: never;
@@ -9529,6 +9546,46 @@ export interface operations {
       416: {
         headers: {
           "Content-Range"?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipThumbnail: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Miniature JPEG (environ 320 px de large), générée une fois puis conservée */
+      200: {
+        headers: {
+          ETag?: string;
+          "Cache-Control"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "image/jpeg": string;
+        };
+      };
+      /** @description Clip introuvable ou non visible, ou extraction impossible */
+      404: {
+        headers: {
           [name: string]: unknown;
         };
         content?: never;

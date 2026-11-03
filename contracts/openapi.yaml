@@ -4405,6 +4405,61 @@
         "description": "Session requise et règles de visibilité identiques au détail. Le chemin disque n’est jamais exposé."
       }
     },
+    "/api/clips/{id}/thumbnail": {
+      "get": {
+        "operationId": "getClipThumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Miniature JPEG (environ 320 px de large), générée une fois puis conservée",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Clip introuvable ou non visible, ou extraction impossible"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Mêmes règles d’accès que le média. Seul un clip indexé a une miniature : aucune n’est produite pour un fichier non indexé."
+      }
+    },
     "/api/clips/{id}/transcription": {
       "post": {
         "operationId": "scheduleClipTranscription",

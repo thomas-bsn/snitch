@@ -24,6 +24,7 @@ import { useI18n } from "../i18n";
 import { isAdministrator, isSuperAdministrator } from "../roles";
 import { useSession } from "../session";
 import { formatTimecode } from "./clipFormat";
+import { ExplorerThumbnail } from "./ExplorerThumbnail";
 import { ExplorerTree } from "./ExplorerTree";
 import {
   EXPLORER_MAX_LIMIT,
@@ -1030,6 +1031,7 @@ function ExplorerIcon({
           ) : (
             <Play size={20} aria-hidden="true" />
           )}
+          {entry.clip_id ? <ExplorerThumbnail clipId={entry.clip_id} /> : null}
           {entry.voices_pending > 0 && (
             <span className="absolute -top-1.5 -right-1.5 rounded-full bg-warn-bg px-1.5 text-[10px] text-warn-fg">
               {entry.voices_pending}
