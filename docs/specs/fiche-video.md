@@ -21,13 +21,13 @@ Lecteur et onglets Transcript / Voices côte à côte ; métadonnées repliables
   - « Supprimer… » (Super-administrateur) : choix d'étapes, cascade affichée, liste des pertes ; désactivé pendant une analyse.
 - **Clip jamais analysé** (dont une Vidéo non indexée qui vient d'être indexée) : même fiche, sans transcription ni voix, avec le lancement en évidence.
 - **Transcript** : écouter depuis un segment, corriger le texte (corrections existantes) ; libellé « Random » pour une Voix Random ; aucun locuteur pour une Voix ignorée.
-- **Voices** : Forme d'onde colorée par voix, avec une piste par voix, cliquable pour se placer ; une pastille de couleur par voix ; par voix : « C'est X », « Ce n'est pas X » (Refus d'identification), Identifier (candidats, autres Personnes, nouvelle Personne), Random, Ignorer, Rétablir, écouter un extrait ; mention du Groupe de voix inconnues quand la voix y appartient. Le composant de décision sur une voix est unique et réutilisé par l'écran de traitement du lot C.
+- **Voices** : Forme d'onde colorée par voix, avec une piste par voix, cliquable pour se placer ; une pastille de couleur par voix ; par voix : « C'est X », « Ce n'est pas X » (Refus d'identification), « Annuler le refus » pour chaque Personne refusée, Identifier (candidats, autres Personnes, nouvelle Personne), Random, Ignorer, Rétablir, écouter un extrait ; mention du Groupe de voix inconnues quand la voix y appartient. Le composant de décision sur une voix est unique et réutilisé par l'écran de traitement du lot C.
 
 ## Critères d'acceptation
 
 - La pastille et le panneau changent d'état sans rechargement pendant une analyse simulée, y compris pour une erreur et une attente (parcours navigateur).
 - Une Voix ignorée disparaît de la vérification, des groupes et du rapprochement, et ses segments n'ont plus de locuteur ; Rétablir la remet (tests API et navigateur).
-- Après « Ce n'est pas X », un nouveau rapprochement ne propose plus X pour cette voix.
+- Après « Ce n'est pas X », un nouveau rapprochement ne propose plus X pour cette voix. « Annuler le refus » le permet de nouveau ; une nouvelle diarisation reporte le refus sur la voix qui couvre au moins la moitié de l'ancienne, sinon l'abandonne (ADR 0031).
 - Sans pics, Voices affiche les pistes sans tracé.
 - Accessibilité WCAG 2.2 AA ; thèmes clair et sombre ; mobile.
 

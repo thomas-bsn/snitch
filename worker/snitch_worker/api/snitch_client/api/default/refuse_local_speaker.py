@@ -56,6 +56,13 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
         return response_200
 
+    if response.status_code == 409:
+        response_409 = Error.from_dict(response.json())
+
+
+
+        return response_409
+
     response_default = Error.from_dict(response.json())
 
 
@@ -83,7 +90,9 @@ def sync_detailed(
 
 ) -> Response[Error | VoiceRefusal]:
     """  Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne
-    propose plus cette Personne pour cette voix.
+    propose plus cette Personne pour cette voix. Réversible (Annuler le refus) et journalisé. Une
+    nouvelle diarisation reporte le refus sur la nouvelle voix qui couvre au moins la moitié du temps de
+    parole de l'ancienne, sinon l'abandonne.
 
     Args:
         id (int):
@@ -124,7 +133,9 @@ def sync(
 
 ) -> Error | VoiceRefusal | None:
     """  Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne
-    propose plus cette Personne pour cette voix.
+    propose plus cette Personne pour cette voix. Réversible (Annuler le refus) et journalisé. Une
+    nouvelle diarisation reporte le refus sur la nouvelle voix qui couvre au moins la moitié du temps de
+    parole de l'ancienne, sinon l'abandonne.
 
     Args:
         id (int):
@@ -160,7 +171,9 @@ async def asyncio_detailed(
 
 ) -> Response[Error | VoiceRefusal]:
     """  Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne
-    propose plus cette Personne pour cette voix.
+    propose plus cette Personne pour cette voix. Réversible (Annuler le refus) et journalisé. Une
+    nouvelle diarisation reporte le refus sur la nouvelle voix qui couvre au moins la moitié du temps de
+    parole de l'ancienne, sinon l'abandonne.
 
     Args:
         id (int):
@@ -201,7 +214,9 @@ async def asyncio(
 
 ) -> Error | VoiceRefusal | None:
     """  Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne
-    propose plus cette Personne pour cette voix.
+    propose plus cette Personne pour cette voix. Réversible (Annuler le refus) et journalisé. Une
+    nouvelle diarisation reporte le refus sur la nouvelle voix qui couvre au moins la moitié du temps de
+    parole de l'ancienne, sinon l'abandonne.
 
     Args:
         id (int):
