@@ -1054,6 +1054,34 @@ export const fr: Messages = {
       merge: "Fusionner {name}",
       delete: "Supprimer {name}",
       created: "{name} a été créée.",
+      cardVideos: "{count} vidéo(s)",
+      cardSpeech: "{time} de parole",
+      cardReference: "Référence {level}",
+    },
+    figures: {
+      videos: "Vidéos",
+      speech: "Temps de parole",
+      samples: "Échantillons vocaux",
+      reference: "Référence",
+      hours: "{hours} h {minutes} min",
+      minutes: "{minutes} min",
+    },
+    reference: {
+      none: "absente",
+      weak: "faible",
+      good: "bonne",
+      levelLabel: "Qualité de la Référence : {level}",
+      warning:
+        "La Référence de {name} est {level} : la reconnaissance automatique de cette personne sera peu fiable. Confirmez davantage de ses voix pour la renforcer.",
+    },
+    page: {
+      back: "Toutes les personnes",
+      videosTitle: "Vidéos où {name} est entendue",
+      figuresTitle: "Chiffres de {name}",
+      loading: "Chargement…",
+      actions: "Actions sur {name}",
+      splitLead:
+        "Séparer une voix la rend inconnue : elle quitte {name} et son échantillon quitte les références.",
     },
     create: {
       title: "Nouvelle Personne",

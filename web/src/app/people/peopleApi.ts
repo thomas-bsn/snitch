@@ -41,6 +41,28 @@ export const fetchPersons = () =>
     return data ? { ok: true, value: data.items } : failure(error);
   });
 
+export const fetchPerson = (id: number) =>
+  guard(async () => {
+    const { data, error } = await api.GET("/api/persons/{id}", {
+      params: { path: { id } },
+    });
+    return data ? { ok: true, value: data } : failure(error);
+  });
+
+/** Validated voice samples from which a Reference is called good. */
+export const GOOD_REFERENCE_SAMPLES = 3;
+
+export type ReferenceLevel = "none" | "weak" | "good";
+
+/**
+ * The quality of a Person's Reference, read from its validated samples only. It is a
+ * reading aid, not a guarantee of recognition: the server says as much.
+ */
+export function referenceLevel(validatedSamples: number): ReferenceLevel {
+  if (validatedSamples <= 0) return "none";
+  return validatedSamples < GOOD_REFERENCE_SAMPLES ? "weak" : "good";
+}
+
 export const fetchPersonVoices = (id: number) =>
   guard(async () => {
     const { data, error } = await api.GET("/api/persons/{id}/voices", {

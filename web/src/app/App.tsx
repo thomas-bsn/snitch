@@ -35,6 +35,7 @@ import { AppShell } from "./shell/AppShell";
 import { GroupsTab } from "./people/GroupsTab";
 import { PeopleLayout } from "./people/PeopleLayout";
 import { PersonList } from "./people/PersonList";
+import { PersonPage } from "./people/PersonPage";
 import { VerificationTab } from "./people/VerificationTab";
 import { SearchPage } from "./search/SearchPage";
 import { ThemeProvider } from "./theme";
@@ -96,6 +97,7 @@ function Routing() {
             <Route index element={<PersonList />} />
             <Route path="verification" element={<VerificationTab />} />
             <Route path="groups" element={<GroupsTab />} />
+            <Route path=":id" element={<PersonPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
           <Route path="import" element={<ImportPage />} />

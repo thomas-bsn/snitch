@@ -1040,6 +1040,34 @@ export const en = {
       merge: "Merge {name}",
       delete: "Delete {name}",
       created: "{name} was created.",
+      cardVideos: "{count} video(s)",
+      cardSpeech: "{time} of speech",
+      cardReference: "Reference {level}",
+    },
+    figures: {
+      videos: "Videos",
+      speech: "Speaking time",
+      samples: "Voice samples",
+      reference: "Reference",
+      hours: "{hours} h {minutes} min",
+      minutes: "{minutes} min",
+    },
+    reference: {
+      none: "missing",
+      weak: "weak",
+      good: "good",
+      levelLabel: "Reference quality: {level}",
+      warning:
+        "The reference of {name} is {level}: automatic recognition of this person will be unreliable. Confirm more of their voices to strengthen it.",
+    },
+    page: {
+      back: "All people",
+      videosTitle: "Videos where {name} is heard",
+      figuresTitle: "Figures of {name}",
+      loading: "Loading…",
+      actions: "Actions of {name}",
+      splitLead:
+        "Splitting a voice makes it unknown again: it leaves {name} and its sample leaves the references.",
     },
     create: {
       title: "New person",

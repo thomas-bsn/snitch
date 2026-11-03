@@ -118,7 +118,7 @@ test.describe.serial("personnes et vérification", () => {
 
   test("personnes : création, fusion, séparation et suppression", async () => {
     await page.goto("/people");
-    const table = page.getByRole("table", { name: "People" });
+    const table = page.getByRole("list", { name: "People" });
     await expect(table).toContainText("Claire Synthétique");
     await expect(page.getByText("No person yet")).toHaveCount(0);
 
@@ -136,10 +136,19 @@ test.describe.serial("personnes et vérification", () => {
 
     // The list is searchable.
     await page.getByRole("searchbox", { name: "Search people" }).fill("alicia");
-    await expect(table.locator("tbody tr")).toHaveCount(1);
+    await expect(table.getByRole("listitem")).toHaveCount(1);
     await page.getByRole("searchbox", { name: "Search people" }).fill("");
 
-    // Merge: nothing happens until the confirmation, then the merged person disappears.
+    // Merge, from the full page of the person: nothing happens until the confirmation,
+    // then the merged person disappears from the directory.
+    await page.getByRole("link", { name: /Alicia Synthétique/ }).click();
+    await expect(
+      page.getByRole("heading", {
+        level: 2,
+        name: "Alicia Synthétique",
+        exact: true,
+      }),
+    ).toBeVisible();
     await page
       .getByRole("button", { name: "Merge Alicia Synthétique" })
       .click();
@@ -159,10 +168,8 @@ test.describe.serial("personnes et vérification", () => {
     );
     await expect(table).not.toContainText("Alicia Synthétique");
 
-    // Separation: the voice list, a cancelled then a confirmed separation.
-    await page
-      .getByRole("button", { name: "Voices of Claire Synthétique" })
-      .click();
+    // Separation on the full page: the voice list, a cancelled then a confirmed separation.
+    await page.getByRole("link", { name: /Claire Synthétique/ }).click();
     const voices = page.getByRole("group", {
       name: "Confirmed voices of Claire Synthétique",
     });
@@ -189,7 +196,8 @@ test.describe.serial("personnes et vérification", () => {
     );
     await expect(voices).toContainText("No confirmed voice you can see.");
 
-    // The corrections are kept in the log.
+    // The corrections are kept in the log, on the directory.
+    await page.goto("/people");
     await page.getByRole("button", { name: "Corrections log" }).click();
     const log = page.getByRole("list", { name: "Person corrections" });
     await expect(log).toContainText(
@@ -203,8 +211,9 @@ test.describe.serial("personnes et vérification", () => {
       page.getByRole("button", { name: "Decide who SPEAKER_00 is" }),
     ).toBeVisible();
 
-    // Deletion, after a confirmation.
+    // Deletion, from the full page, after a confirmation.
     await page.goto("/people");
+    await page.getByRole("link", { name: /Claire Synthétique/ }).click();
     await page
       .getByRole("button", { name: "Delete Claire Synthétique" })
       .click();
@@ -213,7 +222,13 @@ test.describe.serial("personnes et vérification", () => {
     });
     await expectNoViolations(page);
     await deletion.getByRole("button", { name: "Cancel" }).click();
-    await expect(table).toContainText("Claire Synthétique");
+    await expect(
+      page.getByRole("heading", {
+        level: 2,
+        name: "Claire Synthétique",
+        exact: true,
+      }),
+    ).toBeVisible();
     await page
       .getByRole("button", { name: "Delete Claire Synthétique" })
       .click();
@@ -222,6 +237,7 @@ test.describe.serial("personnes et vérification", () => {
       "Claire Synthétique was deleted",
     );
     await expect(page.getByText("No person yet")).toBeVisible();
+    await expect(page).toHaveURL(/\/people$/);
   });
 
   test("personnes et vérification en thème sombre et à 390 pixels", async () => {
