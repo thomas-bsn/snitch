@@ -9,8 +9,10 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.decision_level import DecisionLevel
+from ..models.local_speaker_disposition import LocalSpeakerDisposition
 from ..models.local_speaker_kind import LocalSpeakerKind
 from ..models.local_speaker_state import LocalSpeakerState
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -45,6 +47,8 @@ class LocalSpeaker:
             person (None | PersonRef): Personne de l'attribution effective (validation humaine prioritaire).
             attribution (Attribution | None):
             fingerprints (list[VoiceFingerprint]):
+            disposition (LocalSpeakerDisposition | Unset): ignored : voix mise de côté, sans locuteur sur ses segments ;
+                random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031).
      """
 
     id: int
@@ -58,6 +62,7 @@ class LocalSpeaker:
     person: None | PersonRef
     attribution: Attribution | None
     fingerprints: list[VoiceFingerprint]
+    disposition: LocalSpeakerDisposition | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -103,6 +108,11 @@ class LocalSpeaker:
 
 
 
+        disposition: str | Unset = UNSET
+        if not isinstance(self.disposition, Unset):
+            disposition = self.disposition.value
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -119,6 +129,8 @@ class LocalSpeaker:
             "attribution": attribution,
             "fingerprints": fingerprints,
         })
+        if disposition is not UNSET:
+            field_dict["disposition"] = disposition
 
         return field_dict
 
@@ -201,6 +213,16 @@ class LocalSpeaker:
             fingerprints.append(fingerprints_item)
 
 
+        _disposition = d.pop("disposition", UNSET)
+        disposition: LocalSpeakerDisposition | Unset
+        if isinstance(_disposition,  Unset):
+            disposition = UNSET
+        else:
+            disposition = LocalSpeakerDisposition(_disposition)
+
+
+
+
         local_speaker = cls(
             id=id,
             label=label,
@@ -213,6 +235,7 @@ class LocalSpeaker:
             person=person,
             attribution=attribution,
             fingerprints=fingerprints,
+            disposition=disposition,
         )
 
 

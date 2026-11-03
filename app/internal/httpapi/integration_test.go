@@ -445,6 +445,30 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceGroupLinksIgnoreKnownNeighbors(t, pool)
 	})
+	t.Run("voice disposition", func(t *testing.T) {
+		reset(t)
+		testVoiceDisposition(t, pool)
+	})
+	t.Run("voice disposition transcript", func(t *testing.T) {
+		reset(t)
+		testVoiceDispositionTranscript(t, pool)
+	})
+	t.Run("voice disposition survives rediarization", func(t *testing.T) {
+		reset(t)
+		testVoiceDispositionSurvivesRediarization(t, pool)
+	})
+	t.Run("random voice counts in verification", func(t *testing.T) {
+		reset(t)
+		testRandomCountsInVerificationCounters(t, pool)
+	})
+	t.Run("ignored voice never deduced", func(t *testing.T) {
+		reset(t)
+		testIgnoredVoiceNeverDeduced(t, pool)
+	})
+	t.Run("voice refusal", func(t *testing.T) {
+		reset(t)
+		testVoiceRefusal(t, pool)
+	})
 	t.Run("library unknown filter matches search", func(t *testing.T) {
 		reset(t)
 		testLibraryUnknownFilterMatchesSearch(t, pool)
@@ -712,6 +736,11 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/person-events?person_id="+strconv64(absorbed.ID), nil, "", 200)
 		call(client, "DELETE", "/api/persons/"+strconv64(kept.ID), nil, me.CSRF, 200)
 		call(client, "DELETE", "/api/persons/"+strconv64(kept.ID), nil, me.CSRF, 404)
+		// Disposition and refusal (behavior in the voice disposition suite).
+		call(client, "PUT", "/api/local-speakers/999999/disposition", map[string]any{"disposition": "ignored"}, me.CSRF, 404)
+		call(client, "DELETE", "/api/local-speakers/999999/disposition", nil, me.CSRF, 404)
+		call(client, "POST", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusal", map[string]any{"person_id": 999999}, me.CSRF, 404)
+		call(client, "PUT", "/api/voice-groups/999999/disposition", map[string]any{"disposition": "random"}, me.CSRF, 404)
 		// Voice matching settings and rematch (behavior in the voice matching suite).
 		call(client, "GET", "/api/voice-matching", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)

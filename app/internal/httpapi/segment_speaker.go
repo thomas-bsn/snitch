@@ -37,10 +37,11 @@ type segmentSpeakerView struct {
 
 // deducedSpeaker is the Local speaker that speaks most over [start,end] of the audio
 // stream of a clip (ties to the lowest ordinal): the rule of segmentSpeakerJoin and
-// attachLocalSpeakers. found is false without any overlapping turn.
+// attachLocalSpeakers. An ignored voice is no speaker (ADR 0031) and never deduced. found is
+// false without any overlapping turn.
 func deducedSpeaker(ctx context.Context, q queryer, clipID int64, stream int, start, end float64) (id int64, label string, found bool, err error) {
 	err = q.QueryRow(ctx, `SELECT ls.id,ls.label FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id
- WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND LEAST($4::double precision,st.end_seconds)-GREATEST($3::double precision,st.start_seconds)>0
+ WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND LEAST($4::double precision,st.end_seconds)-GREATEST($3::double precision,st.start_seconds)>0 AND NOT EXISTS (SELECT 1 FROM local_speaker_dispositions dsp WHERE dsp.local_speaker_id=ls.id AND dsp.disposition='ignored')
  GROUP BY ls.id,ls.label,ls.ordinal ORDER BY sum(LEAST($4::double precision,st.end_seconds)-GREATEST($3::double precision,st.start_seconds)) DESC,ls.ordinal LIMIT 1`, clipID, stream, start, end).Scan(&id, &label)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, "", false, nil
@@ -52,9 +53,15 @@ func deducedSpeaker(ctx context.Context, q queryer, clipID int64, stream int, st
 // designation of a microphone track): the segments that designate one of them return
 // to their deduced speaker, and each loss is recorded in the history (author
 // "system", version incremented) instead of vanishing through the foreign key's
-// ON DELETE SET NULL. condition selects the Local speakers (alias ls, placeholders
-// from $1).
+// ON DELETE SET NULL. Their dispositions are dropped with them (a new diarization creates
+// new voices), each one journaled by the system first: the journal outlives the voice.
+// condition selects the Local speakers (alias ls, placeholders from $1).
 func dropSpeakerOverrides(ctx context.Context, q queryer, condition string, args ...any) error {
+	if _, err := q.Exec(ctx, `INSERT INTO voice_disposition_events(local_speaker_id,clip_id,old_disposition,new_disposition,author_id,author_username,reason)
+SELECT ls.id,ls.clip_id,d.disposition,'',NULL,'system','Locuteur supprimé par une nouvelle diarisation ou la désignation d''une piste microphone'
+FROM local_speaker_dispositions d JOIN local_speakers ls ON ls.id=d.local_speaker_id WHERE `+condition, args...); err != nil {
+		return err
+	}
 	_, err := q.Exec(ctx, `WITH dropped AS (
  UPDATE segment_corrections sc SET speaker_override_id=NULL,speaker_author_id=NULL,speaker_author_username='',speaker_corrected_at=NULL,version=sc.version+1,updated_at=now()
  FROM local_speakers ls WHERE ls.id=sc.speaker_override_id AND `+condition+`

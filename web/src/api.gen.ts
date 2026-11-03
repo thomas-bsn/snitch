@@ -2336,6 +2336,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/local-speakers/{id}/disposition": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Met la voix de côté (ignored) ou la libellé « Random ». Même droit que la validation. Les rapprochements ne la considèrent plus. */
+    put: operations["setLocalSpeakerDisposition"];
+    post?: never;
+    /** @description Utilisateurs connectés, pour un clip visible (Rétablir). */
+    delete: operations["restoreLocalSpeakerDisposition"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/refusal": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne propose plus cette Personne pour cette voix. */
+    post: operations["refuseLocalSpeaker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-groups/{id}/disposition": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés. Une disposition vaut pour chacune des voix du groupe (ADR 0031). */
+    put: operations["setVoiceGroupDisposition"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/voice-verification": {
     parameters: {
       query?: never;
@@ -3922,6 +3974,34 @@ export interface components {
       /** @description Voix déjà validées par quelqu'un d'autre pendant l'opération. */
       skipped: number[];
     };
+    VoiceDispositionInput: {
+      /** @enum {string} */
+      disposition: "ignored" | "random";
+    };
+    VoiceDispositionView: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** @enum {string|null} */
+      disposition: "ignored" | "random" | null;
+    };
+    VoiceGroupDisposition: {
+      /** Format: int64 */
+      group_id: number;
+      /** @enum {string|null} */
+      disposition: "ignored" | "random" | null;
+      voices: number;
+    };
+    VoiceRefusalInput: {
+      /** Format: int64 */
+      person_id: number;
+    };
+    VoiceRefusal: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** Format: int64 */
+      person_id: number;
+      refused: boolean;
+    };
     VoiceGroupExclusion: {
       /** Format: int64 */
       local_speaker_id: number;
@@ -4382,6 +4462,11 @@ export interface components {
       person: components["schemas"]["PersonRef"] | null;
       attribution: components["schemas"]["Attribution"] | null;
       fingerprints: components["schemas"]["VoiceFingerprint"][];
+      /**
+       * @description ignored : voix mise de côté, sans locuteur sur ses segments ; random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031).
+       * @enum {string|null}
+       */
+      disposition?: "ignored" | "random" | null;
     };
     ClipVoice: {
       /** Format: int64 */
@@ -11292,6 +11377,181 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceGroupExclusion"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  setLocalSpeakerDisposition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceDispositionInput"];
+      };
+    };
+    responses: {
+      /** @description Disposition enregistrée (idempotent) ; journalisée seulement si elle change */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceDispositionView"];
+        };
+      };
+      /** @description validated_voice : la voix a une validation humaine ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  restoreLocalSpeakerDisposition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Disposition levée (idempotent) : la voix redevient traitée normalement */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceDispositionView"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  refuseLocalSpeaker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceRefusalInput"];
+      };
+    };
+    responses: {
+      /** @description Refus enregistré : l'attribution de cette Personne est retirée, ses échantillons quittent la Référence */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRefusal"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  setVoiceGroupDisposition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceDispositionInput"];
+      };
+    };
+    responses: {
+      /** @description Disposition appliquée à chaque voix non exclue du groupe */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupDisposition"];
+        };
+      };
+      /** @description voice_group_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description validated_voice : une voix du groupe est validée ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */
