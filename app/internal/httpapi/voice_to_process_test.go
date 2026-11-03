@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,6 +18,11 @@ type toProcessClipT struct {
 	Ambiguous int   `json:"ambiguous"`
 	Unknown   int   `json:"unknown"`
 	Groups    int   `json:"groups"`
+
+	Folder           string   `json:"folder"`
+	RecordedAt       string   `json:"recorded_at"`
+	DurationSeconds  *float64 `json:"duration_seconds"`
+	AnalysedRecently bool     `json:"analysed_recently"`
 }
 
 type toProcessT struct {
@@ -86,6 +92,25 @@ func testVoiceToProcess(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if all.Totals.Clips != 3 || all.Totals.ToConfirm != 1 || all.Totals.Ambiguous != 1 || all.Totals.Unknown != 4 {
 		t.Fatalf("totals: %+v", all.Totals)
+	}
+
+	// Under the title: the folder of the clip, its recording date, its duration, a recent analysis.
+	for _, q := range []string{
+		`UPDATE source_files SET relative_path='2026/octobre/parking/a.mp4' WHERE clip_id=` + strconv.FormatInt(clipA, 10),
+		`UPDATE clips SET duration_seconds=2292 WHERE id=` + strconv.FormatInt(clipA, 10),
+		`INSERT INTO clip_analysis_runs(clip_id,scope,status,finished_at) VALUES(` + strconv.FormatInt(clipA, 10) + `,'full','completed',now())`,
+	} {
+		if _, err := pool.Exec(context.Background(), q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	detail := h.toProcess(admin, "")
+	a, _ := detail.byClip(clipA)
+	if a.Folder != "2026/octobre/parking" || a.RecordedAt == "" || a.DurationSeconds == nil || *a.DurationSeconds != 2292 || !a.AnalysedRecently {
+		t.Fatalf("clip A details: %+v", a)
+	}
+	if b, _ := detail.byClip(clipB); b.Folder != "" || b.AnalysedRecently {
+		t.Fatalf("clip B has no folder and no recent analysis: %+v", b)
 	}
 
 	// Filters are applied by the database; the totals ignore them.

@@ -23,6 +23,22 @@
     },
     {
       "screen": "people",
+      "state": "annuaire-personne",
+      "prototype": "/prototype/people?variant=D",
+      "prototypeClick": "ML\\s*Marc Lefèvre",
+      "app": "/people",
+      "appLink": "Marc Lefèvre"
+    },
+    {
+      "screen": "people",
+      "state": "annuaire-personne-faible",
+      "prototype": "/prototype/people?variant=D",
+      "prototypeClick": "TR\\s*Thomas Roux",
+      "app": "/people",
+      "appLink": "Thomas Roux"
+    },
+    {
+      "screen": "people",
       "state": "a-traiter",
       "prototype": "/prototype/people?variant=D",
       "prototypeClick": "À traiter",

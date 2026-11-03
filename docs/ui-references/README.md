@@ -19,6 +19,8 @@ Chaque état existe en 4 fichiers (2 thèmes x 2 largeurs).
 | `fiche-video` | `echec` (étape d'empreintes en échec) | `/prototype/fiche-video?variant=C` |
 | `fiche-video` | `voix` | `/prototype/fiche-video?variant=C&tab=voices` |
 | `people` | `annuaire` | `/prototype/people?variant=D` |
+| `people` | `annuaire-personne` (clic sur la carte de Marc Lefèvre : fiche, Référence bonne) | `/prototype/people?variant=D` |
+| `people` | `annuaire-personne-faible` (clic sur la carte de Thomas Roux : fiche, alerte Référence faible) | `/prototype/people?variant=D` |
 | `people` | `a-traiter` (clic sur l'onglet « À traiter ») | `/prototype/people?variant=D` |
 | `people` | `voix-inconnues` (clic sur l'onglet) | `/prototype/people?variant=D` |
 | `traitement` | `traitement` | `/prototype/people?variant=D&traiter=40` |

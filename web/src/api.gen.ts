@@ -4253,6 +4253,8 @@ export interface components {
       /** Format: int64 */
       id: number;
       display_name: string;
+      /** @description Nom d'utilisateur du compte lié, rempli en lecture (liste et fiche) ; null sans compte lié ou dans le résultat d'une correction. */
+      account_username: string | null;
       /**
        * Format: int64
        * @description Compte lié, le cas échéant : une Personne n'est jamais un compte.
@@ -4328,6 +4330,11 @@ export interface components {
       clip_name: string;
       label: string;
       speaking_seconds: number;
+      /**
+       * Format: date-time
+       * @description Date d'enregistrement du clip.
+       */
+      recorded_at: string;
       /** @description Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait. */
       sample_count: number;
     };
@@ -4540,6 +4547,13 @@ export interface components {
       ambiguous: number;
       unknown: number;
       groups: number;
+      /** @description Dossier du clip dans sa source (chemin relatif sans le nom du fichier), vide s'il n'en a pas. */
+      folder: string;
+      /** Format: date-time */
+      recorded_at: string;
+      duration_seconds: number | null;
+      /** @description Une analyse du clip s'est terminée dans les 24 dernières heures. */
+      analysed_recently: boolean;
     };
     PeopleToProcessTotals: {
       clips: number;

@@ -10,6 +10,7 @@ import {
   publishToProcessCount,
   toProcessCount,
 } from "../shell/useToProcessCount";
+import { clock, shortDate } from "./PersonParts";
 import { fetchToProcess, type ToProcessFilter } from "./peopleApi";
 
 const PAGE_SIZE = 100;
@@ -44,7 +45,7 @@ function CountBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
  * to the counters of the tab and of the sidebar.
  */
 export function ToProcessList() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const failureText = useFailureText();
   const [filter, setFilter] = useState<ToProcessFilter>("all");
   const load = useCallback(
@@ -123,8 +124,24 @@ export function ToProcessList() {
               key={clip.clip_id}
               className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 last:border-b-0"
             >
-              <span className="min-w-0 flex-1 basis-48 font-medium break-words">
-                {clip.clip_name}
+              <span className="min-w-0 flex-1 basis-48">
+                <span className="block font-medium break-words">
+                  {clip.clip_name}
+                </span>
+                <span className="block text-xs text-mute">
+                  {[
+                    clip.folder,
+                    shortDate(clip.recorded_at, language),
+                    clip.duration_seconds === null
+                      ? ""
+                      : clock(clip.duration_seconds),
+                  ]
+                    .filter((part) => part !== "")
+                    .join(" · ")}
+                  {clip.analysed_recently
+                    ? ` · ${t("people.verification.byClip.analysedToday")}`
+                    : ""}
+                </span>
               </span>
               <span className="flex flex-wrap gap-1.5">
                 {clip.to_confirm > 0 && (

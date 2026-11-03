@@ -1,5 +1,6 @@
 import { adminApi, uploadClip } from "./library-fixture";
-import { createPersons } from "./people-fixture";
+import { createPersons, linkAccount } from "./people-fixture";
+import { createApprovedUser } from "./shell-fixture";
 
 // Jeu de données synthétique de la comparaison visuelle (ticket #251). Il reproduit celui des
 // prototypes (web/src/app/library/prototype-fiche/data.ts et people/prototype-people/data.ts
@@ -218,10 +219,44 @@ async function dismissSetupBanner() {
   await api.dispose();
 }
 
+/**
+ * Fiches de personnes (états `annuaire-personne*`) : des clips d'archives dont l'unique voix est
+ * validée, avec empreintes, donc des échantillons de Référence. Marc : 3 clips en plus de la
+ * réunion (Référence solide) ; Thomas : 1 clip (Référence faible, l'alerte jaune s'affiche).
+ */
+const ARCHIVES: [string, string][] = [
+  ["Archive plateau — prise A", "Marc Lefèvre"],
+  ["Archive plateau — prise B", "Marc Lefèvre"],
+  ["Archive plateau — prise C", "Marc Lefèvre"],
+  ["Archive régie — prise D", "Thomas Roux"],
+];
+
+async function seedArchives(personIds: Map<string, number>) {
+  for (const [title, who] of ARCHIVES) {
+    const id = await uploadClip(`${title}.mp4`, "shared");
+    await analyse(id, [[0, 8, 0, "Test de prise de son."]], 1, false);
+    const { api, post } = await adminApi();
+    const voice = (await (await api.get(`/api/clips/${id}/voice`)).json()) as {
+      speakers: { id: number; label: string }[];
+    };
+    const speaker = voice.speakers.find((v) => v.label === "SPEAKER_00")!;
+    await post(`/api/local-speakers/${speaker.id}/validation`, {
+      person_id: personIds.get(who),
+    });
+    await api.dispose();
+  }
+}
+
+/** Compte lié de Marc (`@marc`), comme la fiche du prototype. */
+export const MARC_ACCOUNT = {
+  username: "marc",
+  password: "synthetic-password-789",
+};
+
 /** Crée toutes les données et renvoie l'id du clip de la réunion. */
 export async function seedUiCompare(): Promise<{ meetingId: number }> {
   await dismissSetupBanner();
-  await createPersons(PEOPLE);
+  const personIds = await createPersons(PEOPLE);
   const meetingId = await uploadClip(`${MEETING}.mp4`, "shared");
   await analyse(meetingId, SEGMENTS, 5, true);
   for (const title of OTHER_CLIPS) {
@@ -236,5 +271,8 @@ export async function seedUiCompare(): Promise<{ meetingId: number }> {
       false,
     );
   }
+  await seedArchives(new Map(PEOPLE.map((name, i) => [name, personIds[i]])));
+  await createApprovedUser(MARC_ACCOUNT);
+  await linkAccount(personIds[0], MARC_ACCOUNT.username);
   return { meetingId };
 }

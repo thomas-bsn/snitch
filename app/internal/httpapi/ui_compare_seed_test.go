@@ -97,5 +97,34 @@ func seedUICompareVoices(ctx context.Context, pool *pgxpool.Pool, clipID int64) 
 	if err := attribute("SPEAKER_01", "suggestion", "unvalidated", "Julie Martin", f(0.91), matchingOrigin, map[string]float64{"Julie Martin": 0.91, "Claire Dubois": 0.8}); err != nil {
 		return err
 	}
-	return attribute("SPEAKER_02", "ambiguous", "unvalidated", "", f(0.83), matchingOrigin, map[string]float64{"Thomas Roux": 0.83, "Hugo Bernard": 0.81})
+	if err := attribute("SPEAKER_02", "ambiguous", "unvalidated", "", f(0.83), matchingOrigin, map[string]float64{"Thomas Roux": 0.83, "Hugo Bernard": 0.81}); err != nil {
+		return err
+	}
+	return seedUICompareFolders(ctx, pool)
+}
+
+// The folders shown under the titles of the "To process" list, as in the prototype: one source
+// file per clip (the clips themselves were uploaded, so they have none).
+func seedUICompareFolders(ctx context.Context, pool *pgxpool.Pool) error {
+	// Display titles without the file extension, like the prototype's titles.
+	if _, err := pool.Exec(ctx, `UPDATE clips SET display_title=regexp_replace(original_name,'\.mp4$','') WHERE display_title IS NULL`); err != nil {
+		return err
+	}
+	var sourceID int64
+	if err := pool.QueryRow(ctx, `INSERT INTO clip_sources(name,root_path,owner_id) SELECT 'ui-compare-folders','/nonexistent/ui-compare-folders',id FROM users WHERE username='administrator' RETURNING id`).Scan(&sourceID); err != nil {
+		return err
+	}
+	for title, folder := range map[string]string{
+		"Réunion de préparation — tournage S12": "2026/novembre",
+		"Rushes parking — prise 3":              "2026/octobre/parking",
+		"Interview Claire — making-of":          "2026/octobre",
+		"Brief équipe lumière":                  "2026/octobre",
+		"Visio production — budget":             "2026/septembre",
+		"Repérages Studio B":                    "2026/septembre",
+	} {
+		if _, err := pool.Exec(ctx, `INSERT INTO source_files(source_id,relative_path,clip_id,size_bytes,modified_at,last_seen_generation,status) SELECT $1,$2||'/'||original_name,id,10,now(),0,'ready' FROM clips WHERE original_name=$3`, sourceID, folder, title+".mp4"); err != nil {
+			return err
+		}
+	}
+	return nil
 }

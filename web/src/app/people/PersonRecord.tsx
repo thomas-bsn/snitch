@@ -7,12 +7,7 @@ import { StatusPill } from "../components/StatusPill";
 import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
 import { PersonActions } from "./PersonActions";
-import {
-  Avatar,
-  ReferenceBadge,
-  referenceLevel,
-  speechText,
-} from "./PersonParts";
+import { Avatar, referenceLevel, shortDate, speechShort } from "./PersonParts";
 import { PersonVideos, PersonVoices } from "./PersonVoices";
 import {
   fetchPerson,
@@ -58,7 +53,7 @@ export function PersonRecord({
   onMerged: (target: Person, message: string) => void;
   onDeleted: (message: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const failureText = useFailureText();
   const headingId = useId();
   const valid = /^[1-9]\d{0,14}$/.test(id);
@@ -88,10 +83,11 @@ export function PersonRecord({
   const back = (
     <Link
       to="/people"
-      className="inline-flex min-h-11 items-center gap-1 text-accent underline"
+      aria-label={t("people.persons.back")}
+      className="inline-flex min-h-11 w-fit items-center gap-1 text-mute hover:text-ink md:min-h-0"
     >
       <ChevronLeft className="size-4" aria-hidden="true" />
-      {t("people.persons.back")}
+      {t("people.persons.backShort")}
     </Link>
   );
 
@@ -124,64 +120,104 @@ export function PersonRecord({
   }
 
   const { person, impact, voices } = state.value;
+  const level = referenceLevel(person.validated_sample_count);
+  const lastHeard = voices.reduce<string | undefined>(
+    (latest, voice) =>
+      latest === undefined || voice.recorded_at > latest
+        ? voice.recorded_at
+        : latest,
+    undefined,
+  );
+  const account =
+    person.user_id === null
+      ? t("people.persons.noAccount")
+      : person.account_username
+        ? t("people.persons.linkedTo", { username: person.account_username })
+        : t("people.persons.linkedNoName");
+  const tiles: [string, string, boolean][] = [
+    [t("people.persons.tiles.videos"), String(person.clip_count), false],
+    [
+      t("people.persons.tiles.speech"),
+      speechShort(person.speaking_seconds),
+      false,
+    ],
+    [
+      t("people.persons.tiles.samples"),
+      String(person.validated_sample_count),
+      false,
+    ],
+    [
+      t("people.persons.tiles.quality"),
+      t(`people.reference.${level}`),
+      level !== "good",
+    ],
+  ];
   return (
-    <section
-      aria-labelledby={headingId}
-      className="flex flex-col gap-4 rounded-xl border border-line p-4"
-    >
+    <section aria-labelledby={headingId} className="flex flex-col gap-4">
       {back}
       <div className="flex flex-wrap items-center gap-3">
-        <Avatar name={person.display_name} size="lg" />
-        <h2 id={headingId} className="text-lg font-semibold">
-          {person.display_name}
-        </h2>
-        {person.user_id !== null && (
-          <StatusPill tone="ok">{t("people.persons.linkedAccount")}</StatusPill>
-        )}
-        {person.voice_profile_deleted_at !== null && (
-          <StatusPill tone="idle">
-            {t("people.persons.profileDeleted")}
-          </StatusPill>
-        )}
+        <Avatar name={person.display_name} size="record" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id={headingId} className="m-0 text-lg font-semibold">
+              {person.display_name}
+            </h2>
+            {person.voice_profile_deleted_at !== null && (
+              <StatusPill tone="idle">
+                {t("people.persons.profileDeleted")}
+              </StatusPill>
+            )}
+          </div>
+          <p className="m-0 text-sm text-mute">
+            {account}
+            {lastHeard !== undefined &&
+              ` · ${t("people.persons.lastHeard", { date: shortDate(lastHeard, language) })}`}
+          </p>
+        </div>
+        <PersonActions
+          key={person.id}
+          person={person}
+          impact={impact}
+          voices={voices}
+          onChanged={onChanged}
+          onMerged={onMerged}
+          onDeleted={onDeleted}
+          onRefused={reload}
+        />
       </div>
       <div
         role="group"
         aria-label={t("people.persons.figuresLabel", {
           name: person.display_name,
         })}
-        className="flex flex-wrap items-center gap-x-3 gap-y-1"
       >
-        <span>
-          <Counts person={person} />
-        </span>
-        <span className="text-mute">
-          {t("people.persons.videoCount", { count: person.clip_count })}
-          {" · "}
-          {speechText(person.speaking_seconds, t)}
-        </span>
-        <ReferenceBadge samples={person.validated_sample_count} />
+        <dl className="m-0 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {tiles.map(([label, value, warn]) => (
+            <div key={label} className="rounded-lg border border-line p-3">
+              <dt className="text-xs text-mute">{label}</dt>
+              <dd
+                className={`m-0 mt-1 text-base font-semibold ${warn ? "text-warn-fg" : ""}`}
+              >
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
-      {referenceLevel(person.validated_sample_count) !== "good" && (
-        <div role="note" className="rounded-lg bg-warn-bg p-3 text-warn-fg">
+      {level !== "good" && (
+        <div
+          role="note"
+          className="rounded-lg bg-warn-bg px-3 py-2 text-sm text-warn-fg"
+        >
           <b className="block">{t("people.persons.referenceWarningTitle")}</b>
           {t(
-            referenceLevel(person.validated_sample_count) === "none"
+            level === "none"
               ? "people.persons.referenceWarningNone"
               : "people.persons.referenceWarningWeak",
             { name: person.display_name },
           )}
         </div>
       )}
-      <PersonActions
-        key={person.id}
-        person={person}
-        impact={impact}
-        voices={voices}
-        onChanged={onChanged}
-        onMerged={onMerged}
-        onDeleted={onDeleted}
-        onRefused={reload}
-      />
       <PersonVideos person={person} voices={voices} />
       <PersonVoices person={person} voices={voices} />
     </section>

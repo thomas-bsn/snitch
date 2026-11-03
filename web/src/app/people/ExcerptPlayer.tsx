@@ -22,7 +22,10 @@ export function ExcerptPlayer({
   clip,
   shortcut,
   link = false,
+  compact = false,
 }: {
+  /** A small square icon button, for a line of a list. */
+  compact?: boolean;
   /** A text link ("Listen to an excerpt") instead of the round icon button. */
   link?: boolean;
   /** Key (data-shortcut) a screen with keyboard shortcuts presses this button with. */
@@ -75,7 +78,11 @@ export function ExcerptPlayer({
           data-shortcut={shortcut}
           aria-keyshortcuts={shortcut === " " ? "Space" : shortcut}
           onClick={toggle}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:bg-side"
+          className={
+            compact
+              ? "flex size-11 shrink-0 items-center justify-center rounded-md text-mute hover:bg-side md:size-8"
+              : "flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:bg-side"
+          }
           aria-label={t("people.excerpt.player", { label, clip })}
         >
           <Icon className="size-4" aria-hidden="true" />

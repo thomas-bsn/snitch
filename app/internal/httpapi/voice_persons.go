@@ -166,6 +166,8 @@ type personView struct {
 	ClipCount       int       `json:"clip_count"`
 	SpeakingSeconds float64   `json:"speaking_seconds"`
 	CreatedAt       time.Time `json:"created_at"`
+	// AccountUsername is the linked account's name, filled with the figures (null otherwise).
+	AccountUsername *string `json:"account_username"`
 	// VoiceProfileDeletedAt is set once the Person deleted their voice profile; it
 	// holds no voice data and keeps matching from rebuilding the profile.
 	VoiceProfileDeletedAt *time.Time `json:"voice_profile_deleted_at"`
@@ -213,7 +215,25 @@ func (s *Server) loadPersonFigures(ctx context.Context, caller session, persons 
 			v.SpeakingSeconds = seconds
 		}
 	}
-	return rows.Err()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	names, err := s.Pool.Query(ctx, `SELECT p.id,u.username FROM persons p JOIN users u ON u.id=p.user_id WHERE p.id=ANY($1) AND u.deleted_at IS NULL`, ids)
+	if err != nil {
+		return err
+	}
+	defer names.Close()
+	for names.Next() {
+		var personID int64
+		var username string
+		if err = names.Scan(&personID, &username); err != nil {
+			return err
+		}
+		if v := byID[personID]; v != nil {
+			v.AccountUsername = &username
+		}
+	}
+	return names.Err()
 }
 
 func cleanPersonName(name string) (string, bool) {

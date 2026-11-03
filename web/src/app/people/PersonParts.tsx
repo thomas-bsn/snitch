@@ -25,13 +25,17 @@ export function Avatar({
   size = "md",
 }: {
   name: string;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "record";
 }) {
   return (
     <span
       aria-hidden="true"
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-avatar-bg font-semibold text-accent-ink ${
-        size === "lg" ? "size-14 text-xs" : "size-10 text-xs"
+        size === "lg"
+          ? "size-14 text-xs"
+          : size === "record"
+            ? "size-12 text-xs"
+            : "size-10 text-xs"
       }`}
     >
       {initials(name)}
@@ -71,4 +75,29 @@ export function ReferenceBadge({ samples }: { samples: number }) {
       })}
     </span>
   );
+}
+
+/** A short date such as "28 oct." (the year is left out: these lists are about recent clips). */
+export function shortDate(iso: string, language: string): string {
+  return new Intl.DateTimeFormat(language, {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(iso));
+}
+
+/** A duration as m:ss, or h:mm:ss from an hour. */
+export function clock(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
+/** Speaking time as "6 h 52 min" or "41 min", without the trailing words. */
+export function speechShort(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  return minutes < 60
+    ? `${minutes} min`
+    : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }

@@ -51,6 +51,8 @@ const manifest = JSON.parse(
     state: string;
     app: string;
     appClick?: string;
+    /** Lien (carte de l'annuaire) à suivre avant la capture. */
+    appLink?: string;
     appSteps?: Step[];
     appUser?: "member";
   }[];
@@ -159,6 +161,13 @@ test("capture et comparaison des états", async ({ browser }) => {
             })
             .first()
             .click();
+        }
+        if (s.appLink) {
+          await page
+            .getByRole("link", { name: new RegExp(s.appLink) })
+            .first()
+            .click();
+          await page.waitForLoadState("networkidle");
         }
         await runSteps(page, s.appSteps);
         await page.waitForTimeout(400);

@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from typing import cast
+import datetime
 
 
 
@@ -28,6 +30,10 @@ class PeopleToProcessClip:
             ambiguous (int):
             unknown (int):
             groups (int):
+            folder (str): Dossier du clip dans sa source (chemin relatif sans le nom du fichier), vide s'il n'en a pas.
+            recorded_at (datetime.datetime):
+            duration_seconds (float | None):
+            analysed_recently (bool): Une analyse du clip s'est terminée dans les 24 dernières heures.
      """
 
     clip_id: int
@@ -36,6 +42,10 @@ class PeopleToProcessClip:
     ambiguous: int
     unknown: int
     groups: int
+    folder: str
+    recorded_at: datetime.datetime
+    duration_seconds: float | None
+    analysed_recently: bool
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -55,6 +65,15 @@ class PeopleToProcessClip:
 
         groups = self.groups
 
+        folder = self.folder
+
+        recorded_at = self.recorded_at.isoformat()
+
+        duration_seconds: float | None
+        duration_seconds = self.duration_seconds
+
+        analysed_recently = self.analysed_recently
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -65,6 +84,10 @@ class PeopleToProcessClip:
             "ambiguous": ambiguous,
             "unknown": unknown,
             "groups": groups,
+            "folder": folder,
+            "recorded_at": recorded_at,
+            "duration_seconds": duration_seconds,
+            "analysed_recently": analysed_recently,
         })
 
         return field_dict
@@ -86,6 +109,23 @@ class PeopleToProcessClip:
 
         groups = d.pop("groups")
 
+        folder = d.pop("folder")
+
+        recorded_at = datetime.datetime.fromisoformat(d.pop("recorded_at"))
+
+
+
+
+        def _parse_duration_seconds(data: object) -> float | None:
+            if data is None:
+                return data
+            return cast(float | None, data)
+
+        duration_seconds = _parse_duration_seconds(d.pop("duration_seconds"))
+
+
+        analysed_recently = d.pop("analysed_recently")
+
         people_to_process_clip = cls(
             clip_id=clip_id,
             clip_name=clip_name,
@@ -93,6 +133,10 @@ class PeopleToProcessClip:
             ambiguous=ambiguous,
             unknown=unknown,
             groups=groups,
+            folder=folder,
+            recorded_at=recorded_at,
+            duration_seconds=duration_seconds,
+            analysed_recently=analysed_recently,
         )
 
 
