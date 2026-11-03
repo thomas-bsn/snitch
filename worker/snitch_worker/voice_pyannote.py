@@ -24,6 +24,7 @@ from typing import Any, Callable, MutableMapping
 
 from snitch_worker import log, voice_manifest, voice_models
 from snitch_worker.voice import (
+    MIN_EMBEDDABLE_SECONDS,
     VoiceProviderUnavailable,
     diarization_from_turns,
     fingerprints_from_embedder,
@@ -77,6 +78,20 @@ def _classify(exc: BaseException, default: str) -> str:
     return default
 
 
+def bounded_segment(start: float, end: float, duration: float) -> tuple[float, float] | None:
+    """The part of ``[start, end]`` that exists in audio of ``duration`` seconds, or None when too short.
+
+    Sortformer and pyannote can return a turn ending a few hundredths of a second after the real end of
+    the WAV; ``Inference.crop`` rejects such a segment. The clamped bounds are used only for the crop:
+    the diarization keeps the original timestamps.
+    """
+    low = max(0.0, float(start))
+    high = min(float(duration), float(end))
+    if high - low < MIN_EMBEDDABLE_SECONDS:
+        return None
+    return low, high
+
+
 def _probe_device() -> str:
     try:
         import torch  # noqa: PLC0415 - lazy on purpose
@@ -107,9 +122,16 @@ def _load_embedder(path: str, device: str) -> Callable[[str], Callable[[float, f
     def open_audio(audio_path: str) -> Callable[[float, float], Any]:
         waveform, sample_rate = torchaudio.load(audio_path)  # decoded once per task
         audio = {"waveform": waveform, "sample_rate": sample_rate}
+        duration = waveform.shape[-1] / sample_rate
 
         def embed(start: float, end: float) -> Any:
-            return inference.crop(audio, Segment(start, end)).reshape(-1).tolist()
+            bounded = bounded_segment(start, end, duration)
+            if bounded is None:
+                log.emit(logging.DEBUG, "embedding_segment_skipped", duration_ms=int((end - start) * 1000))
+                return None  # outside (or almost outside) the audio: no embedding for this turn
+            if bounded != (start, end):
+                log.emit(logging.DEBUG, "embedding_segment_clamped", overshoot_ms=int((end - bounded[1]) * 1000))
+            return inference.crop(audio, Segment(*bounded)).reshape(-1).tolist()
 
         return embed
 
@@ -238,7 +260,9 @@ class PyannoteProvider:
         except VoiceProviderUnavailable:
             raise
         except Exception as exc:  # noqa: BLE001
-            raise VoiceProviderUnavailable(_classify(exc, "inference_failed")) from None
+            reason = _classify(exc, "inference_failed")
+            log.emit(logging.WARNING, "diarization_inference_failed", code=reason, exc_class=type(exc).__name__, device=self._device)
+            raise VoiceProviderUnavailable(reason) from None
         log.emit(logging.INFO, "diarization_inference_done", device=self._device, inference_ms=int((time.monotonic() - started) * 1000))
         return diarization_from_turns(config, turns, stream_index)
 
@@ -256,5 +280,7 @@ class PyannoteProvider:
             return fingerprints_from_embedder(config, diarization, embed, stream_index, name, version)
         except VoiceProviderUnavailable:
             raise
-        except Exception:  # noqa: BLE001
-            raise VoiceProviderUnavailable("inference_failed") from None
+        except Exception as exc:  # noqa: BLE001
+            reason = _classify(exc, "inference_failed")
+            log.emit(logging.WARNING, "fingerprint_inference_failed", code=reason, exc_class=type(exc).__name__, device=self._device)
+            raise VoiceProviderUnavailable(reason) from None

@@ -216,6 +216,148 @@ class FingerprintTests(unittest.TestCase):
         self.assertEqual(loaded, [])
 
 
+class BoundedSegmentTests(unittest.TestCase):
+    """Non-regression: Sortformer/pyannote turns can end after the real end of the WAV (clip #106: 15.19 s for 15.172646 s)."""
+
+    def test_a_segment_inside_the_audio_is_untouched(self):
+        self.assertEqual(voice_pyannote.bounded_segment(1.0, 4.0, 15.0), (1.0, 4.0))
+
+    def test_an_overshoot_is_clamped_to_the_real_duration(self):
+        self.assertEqual(voice_pyannote.bounded_segment(12.0, 15.19, 15.172646), (12.0, 15.172646))
+
+    def test_a_negative_start_is_clamped_to_zero(self):
+        self.assertEqual(voice_pyannote.bounded_segment(-0.02, 2.0, 10.0), (0.0, 2.0))
+
+    def test_a_segment_that_starts_after_the_audio_is_dropped(self):
+        self.assertIsNone(voice_pyannote.bounded_segment(15.5, 16.0, 15.172646))
+
+    def test_a_segment_that_becomes_too_short_after_clamping_is_dropped(self):
+        # 0.6 s turn long enough to be embedded, but only 0.2 s of audio left under it.
+        self.assertIsNone(voice_pyannote.bounded_segment(14.97, 15.57, 15.172646))
+
+    def test_a_segment_exactly_at_the_floor_is_kept(self):
+        self.assertEqual(voice_pyannote.bounded_segment(14.0, 14.5, 15.0), (14.0, 14.5))
+
+
+class FakeTorchAudioModules:
+    """Stands in for torch, torchaudio and pyannote so the real ``_load_embedder`` closure runs without models.
+
+    ``Inference.crop`` rejects segments that end after the audio, as pyannote does.
+    """
+
+    def __init__(self, duration):
+        self.duration = duration
+        self.crops = []
+
+    def modules(self):
+        outer = self
+
+        class Waveform:
+            shape = (1, int(round(outer.duration * 1_000_000)))  # 1 MHz: the duration survives exactly
+
+        class Crop:
+            def __init__(self, values):
+                self.values = values
+
+            def reshape(self, _):
+                return self
+
+            def tolist(self):
+                return self.values
+
+        class Inference:
+            def __init__(self, model, window, device):
+                pass
+
+            def crop(self, audio, segment):
+                outer.crops.append((segment.start, segment.end))
+                if segment.end > outer.duration + 1e-9:
+                    raise ValueError("requested segment exceeds the audio duration")
+                return Crop([segment.start + 1.0, segment.end - segment.start, 2.0])
+
+        class Segment:
+            def __init__(self, start, end):
+                self.start, self.end = start, end
+
+        torch = SimpleNamespace(device=lambda name: name)
+        torchaudio = SimpleNamespace(load=lambda path: (Waveform(), 1_000_000))
+        pyannote_audio = SimpleNamespace(Inference=Inference, Model=SimpleNamespace(from_pretrained=lambda path: None))
+        pyannote_core = SimpleNamespace(Segment=Segment)
+        pyannote = SimpleNamespace(audio=pyannote_audio, core=pyannote_core)
+        return {
+            "torch": torch,
+            "torchaudio": torchaudio,
+            "pyannote": pyannote,
+            "pyannote.audio": pyannote_audio,
+            "pyannote.core": pyannote_core,
+        }
+
+
+class OvershootFingerprintTests(unittest.TestCase):
+    CLIP = 15.172646
+
+    def fingerprint(self, turns):
+        fake = FakeTorchAudioModules(self.CLIP)
+        diarization = {"job_id": 9, "speakers": [{"label": "SPEAKER_00", "turns": turns}]}
+        with model_dirs() as env, patch.dict(sys.modules, fake.modules()):
+            p = provider(env, load_embedder=voice_pyannote._load_embedder)
+            result = p.fingerprint(CONFIG, diarization, "/clip.wav", 0)
+        return result, fake
+
+    def test_a_turn_ending_after_the_wav_is_embedded_within_the_audio(self):
+        result, fake = self.fingerprint([{"index": 0, "start": 12.0, "end": 15.19}])
+        self.assertEqual(fake.crops, [(12.0, self.CLIP)])  # one crop per turn, bounded to the audio
+        turn = [f for f in result["fingerprints"] if f["scope"] == "turn"][0]
+        self.assertEqual((turn["start"], turn["end"]), (12.0, 15.19))  # original timestamps kept
+
+    def test_a_turn_starting_after_the_wav_is_skipped_without_failing_the_clip(self):
+        result, fake = self.fingerprint([{"index": 0, "start": 0.0, "end": 4.0}, {"index": 1, "start": 15.4, "end": 16.2}])
+        self.assertEqual([f["scope"] for f in result["fingerprints"]], ["speaker", "turn"])
+        self.assertEqual(result["fingerprints"][1]["turn_index"], 0)
+        self.assertTrue(all(end <= self.CLIP + 1e-9 for _, end in fake.crops))
+
+    def test_a_speaker_whose_only_turns_fall_outside_the_audio_gets_no_fingerprint(self):
+        result, _ = self.fingerprint([{"index": 0, "start": 15.3, "end": 15.9}])
+        self.assertEqual(result["fingerprints"], [])
+
+
+class InferenceDiagnosticLogTests(unittest.TestCase):
+    def test_an_inference_failure_logs_its_code_and_class_but_never_its_text(self):
+        class CudaBoom(Exception):
+            pass
+
+        def pipeline(path, **options):
+            raise CudaBoom("secret path /private/x and token hf_SECRET")
+
+        with model_dirs() as env, self.assertLogs("snitch_worker", level="WARNING") as logs:
+            p = provider(env, load_pipeline=lambda path, device: pipeline)
+            with self.assertRaises(voice.VoiceProviderUnavailable) as caught:
+                p.diarize(CONFIG, "/a.wav", 0)
+        self.assertEqual(caught.exception.reason, "inference_failed")
+        event = logs.records[0]
+        self.assertEqual(event.getMessage(), "diarization_inference_failed")
+        self.assertEqual(event.fields["code"], "inference_failed")
+        self.assertEqual(event.fields["exc_class"], "CudaBoom")
+        self.assertNotIn("hf_SECRET", str(event.fields))
+        self.assertNotIn("/private", str(event.fields))
+
+    def test_a_fingerprint_failure_is_logged_with_the_same_safe_fields(self):
+        def broken_open(path):
+            def embed(start, end):
+                raise RuntimeError("cuda out of memory on /private/x")
+
+            return embed
+
+        with model_dirs() as env, self.assertLogs("snitch_worker", level="WARNING") as logs:
+            p = provider(env, load_embedder=lambda path, device: broken_open)
+            diarization = {"job_id": 1, "speakers": [{"label": "SPEAKER_00", "turns": [{"index": 0, "start": 0.0, "end": 2.0}]}]}
+            with self.assertRaises(voice.VoiceProviderUnavailable) as caught:
+                p.fingerprint(CONFIG, diarization, "/a.wav", 0)
+        self.assertEqual(caught.exception.reason, "gpu_out_of_memory")
+        self.assertEqual(logs.records[0].fields["exc_class"], "RuntimeError")
+        self.assertNotIn("/private", str(logs.records[0].fields))
+
+
 class RobustnessTests(unittest.TestCase):
     def test_models_are_loaded_once_per_process(self):
         loads = []
