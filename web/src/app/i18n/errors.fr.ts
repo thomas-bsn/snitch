@@ -135,6 +135,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_job_error: "Cette erreur de tâche n’est pas valide.",
   invalid_job_filter: "Un des filtres de tâches n’est pas valide.",
   invalid_job_id: "Cet identifiant de tâche n’est pas valide.",
+  invalid_log_batch: "Le lot de lignes de log n’est pas valide.",
+  invalid_log_line: "Une des lignes de log n’est pas valide.",
   invalid_job_result: "Ce résultat de tâche n’est pas valide.",
   invalid_language: "Cette langue n’est pas prise en charge.",
   invalid_microphone_override: "Ce choix de micro n’est pas valide.",
@@ -152,6 +154,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_source_id: "Cet identifiant de dossier n’est pas valide.",
   invalid_transcription_pipeline:
     "Ces réglages de transcription ne sont pas valides.",
+  invalid_transcription_reachability:
+    "Le rapport de joignabilité du serveur de transcription n’est pas valide.",
   invalid_transcription_settings:
     "Saisissez une URL Whisper/Speaches et un modèle valides, et choisissez une langue dans la liste.",
   invalid_transcription_config_status:

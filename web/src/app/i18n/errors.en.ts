@@ -126,6 +126,8 @@ export const errorsEn = {
   invalid_job_error: "This task error is not valid.",
   invalid_job_filter: "One of the task filters is not valid.",
   invalid_job_id: "This task identifier is not valid.",
+  invalid_log_batch: "The log batch is not valid.",
+  invalid_log_line: "One of the log lines is not valid.",
   invalid_job_result: "This task result is not valid.",
   invalid_language: "This language is not supported.",
   invalid_microphone_override: "This microphone choice is not valid.",
@@ -142,6 +144,8 @@ export const errorsEn = {
   invalid_sort: "This sort order is not valid.",
   invalid_source_id: "This folder identifier is not valid.",
   invalid_transcription_pipeline: "These transcription settings are not valid.",
+  invalid_transcription_reachability:
+    "The transcription server reachability report is not valid.",
   invalid_transcription_settings:
     "Enter a valid Whisper/Speaches URL and model, and choose a language from the list.",
   invalid_transcription_config_status:
