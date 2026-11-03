@@ -489,6 +489,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerInstallInvitation(t, pool)
 	})
+	t.Run("worker live events", func(t *testing.T) {
+		reset(t)
+		testWorkerLiveEvents(t, pool)
+	})
 	t.Run("worker revocation", func(t *testing.T) {
 		reset(t)
 		testWorkerRevocation(t, pool)
@@ -995,7 +999,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" {
+				if path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" || strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" {
 					continue // These contract operations are covered by their upload, search, worker, member, account, embedding, transcription and job log suites.
 				}
 				if !seen[method+" "+path] {
@@ -1079,7 +1083,7 @@ func TestFoundation(t *testing.T) {
 			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
 			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts",
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
-			"admin-workers.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
+			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
 			"people-groups.spec.ts", "people-directory.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
 			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-trial.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts",
@@ -1122,6 +1126,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_WORKERS") == "1" {
 			suites = []string{"admin-workers.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_WORKERS_LIVE") == "1" {
+			suites = []string{"admin-workers-live.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_CONTROLS") == "1" {
 			suites = []string{"admin-queue-folders.spec.ts"}

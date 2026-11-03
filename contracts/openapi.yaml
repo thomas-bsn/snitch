@@ -2253,6 +2253,21 @@
       }
     },
     "/api/admin/workers/{id}/transcription-model": {"put": {"operationId": "updateWorkerTranscriptionModel", "description": "Administrateurs uniquement. Un nom vide revient au modèle du profil.", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["model"], "properties": {"model": {"type": "string", "maxLength": 100}}}}}}, "responses": {"200": {"description": "Nom enregistré", "content": {"application/json": {"schema": {"type": "object", "required": ["model"], "properties": {"model": {"type": "string"}}}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/api/admin/workers/events": {
+      "get": {
+        "operationId": "streamWorkerEvents",
+        "responses": {"200": {"description": "Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerPage} : l'état complet de la liste des Workers, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (401 unauthorized ; 403 forbidden)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Liste des Workers en direct, sujet admin:workers ; un changement (création, présence, modèles, installation, révocation) envoie un nouvel état complet. Repli : GET /api/admin/workers."
+      }
+    },
+    "/api/admin/workers/{id}/events": {
+      "get": {
+        "operationId": "streamWorkerDetailEvents",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerDetail} : l'état complet de la fiche, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu.", "content": {"text/event-stream": {"schema": {"type": "string"}}}}, "default": {"description": "Erreur (401 unauthorized ; 403 forbidden)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs. Fiche d'un Worker en direct, sujet worker:<id> ; un Worker inexistant ferme le flux sans snapshot. Repli : GET /api/admin/workers/{id}."
+      }
+    },
     "/api/admin/workers/{id}": {
       "get": {
         "operationId": "getWorker",

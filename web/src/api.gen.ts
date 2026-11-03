@@ -676,6 +676,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Liste des Workers en direct, sujet admin:workers ; un changement (création, présence, modèles, installation, révocation) envoie un nouvel état complet. Repli : GET /api/admin/workers. */
+    get: operations["streamWorkerEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Fiche d'un Worker en direct, sujet worker:<id> ; un Worker inexistant ferme le flux sans snapshot. Repli : GET /api/admin/workers/{id}. */
+    get: operations["streamWorkerDetailEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/workers/{id}": {
     parameters: {
       query?: never;
@@ -6839,6 +6873,66 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamWorkerEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerPage} : l'état complet de la liste des Workers, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamWorkerDetailEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerDetail} : l'état complet de la fiche, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
       default: {
         headers: {
           [name: string]: unknown;

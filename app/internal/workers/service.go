@@ -478,4 +478,22 @@ func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedS
 	return nil
 }
 
+// PresenceCheckInterval is how often PublishDisconnections looks for Workers that went silent.
+const PresenceCheckInterval = 5 * time.Second
+
+// PublishDisconnections publishes the live-page event of each Worker that went Offline. Going
+// Offline writes nothing: a silent Worker is only seen once its last pulse is older than the
+// connected window; the look covers the last check interval, so a silence is seen once, or
+// twice at the boundary, which is harmless: a snapshot is always the whole state.
+func (s *Service) PublishDisconnections(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO events(topic,kind)
+SELECT t,'workers' FROM workers w, LATERAL (VALUES ('worker:'||w.id),('admin:workers')) v(t)
+WHERE w.revoked_at IS NULL AND w.last_seen_at < now() - make_interval(secs => $1::float8) AND w.last_seen_at >= now() - make_interval(secs => ($1::float8 + $2::float8))`,
+		ConnectedWindow.Seconds(), PresenceCheckInterval.Seconds())
+	if err != nil {
+		return fmt.Errorf("publish worker disconnections: %w", err)
+	}
+	return nil
+}
+
 func validID(id string) bool { return len(id) >= 23 && len(id) <= 63 && strings.HasPrefix(id, "wk_") }
