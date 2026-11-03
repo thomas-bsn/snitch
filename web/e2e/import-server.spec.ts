@@ -157,8 +157,11 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     // Once approved, the folder exists and the member can use it as a destination.
     await page.reload();
     await page.getByRole("button", { name: /Destination folder/ }).click();
+    // The page behind the dialog also names the folder: scope to the dialog.
     await expect(
-      page.getByRole("button", { name: /requested-dir/ }),
+      page
+        .getByRole("dialog", { name: "Choose the destination folder" })
+        .getByRole("button", { name: "requested-dir" }),
     ).toBeVisible();
     await member.close();
     await admin.close();
