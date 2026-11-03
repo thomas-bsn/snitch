@@ -380,7 +380,12 @@ from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 from .worker_transcription_config import WorkerTranscriptionConfig
 from .worker_transcription_config_error_code import WorkerTranscriptionConfigErrorCode
+from .worker_transcription_failure_input import WorkerTranscriptionFailureInput
+from .worker_transcription_failure_input_error_type import WorkerTranscriptionFailureInputErrorType
+from .worker_transcription_failure_input_method import WorkerTranscriptionFailureInputMethod
 from .worker_transcription_profile import WorkerTranscriptionProfile
+from .worker_transcription_reachability import WorkerTranscriptionReachability
+from .worker_transcription_reachability_input import WorkerTranscriptionReachabilityInput
 from .worker_transcription_status_input import WorkerTranscriptionStatusInput
 from .worker_transcription_status_input_error_code import WorkerTranscriptionStatusInputErrorCode
 from .worker_vocabulary_term import WorkerVocabularyTerm
@@ -778,7 +783,12 @@ __all__ = (
     "WorkerResultInputResult",
     "WorkerTranscriptionConfig",
     "WorkerTranscriptionConfigErrorCode",
+    "WorkerTranscriptionFailureInput",
+    "WorkerTranscriptionFailureInputErrorType",
+    "WorkerTranscriptionFailureInputMethod",
     "WorkerTranscriptionProfile",
+    "WorkerTranscriptionReachability",
+    "WorkerTranscriptionReachabilityInput",
     "WorkerTranscriptionStatusInput",
     "WorkerTranscriptionStatusInputErrorCode",
     "WorkerVocabularyTerm",
