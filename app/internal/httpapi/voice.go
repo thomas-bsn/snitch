@@ -348,6 +348,8 @@ type localSpeakerView struct {
 	Fingerprints    []voiceFingerprintView `json:"fingerprints"`
 	// Disposition is "ignored" or "random" when the voice is set aside (ADR 0031), else absent.
 	Disposition *string `json:"disposition"`
+	// RefusedPersons are the Persons refused for the voice (ADR 0031), each one cancellable.
+	RefusedPersons []personRef `json:"refused_persons"`
 }
 
 // applyAttribution fills the identity fields of a local speaker from its effective
@@ -407,6 +409,10 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 		microphone, micErr := s.microphoneSpeakerViews(r.Context(), clip.ID, attributions)
 		if micErr != nil {
 			s.internal(w, micErr)
+			return
+		}
+		if err = s.attachRefusedPersons(r.Context(), clip.ID, microphone); err != nil {
+			s.internal(w, err)
 			return
 		}
 		view["speakers"] = microphone
@@ -492,6 +498,10 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	if err = s.attachRefusedPersons(r.Context(), clip.ID, speakers); err != nil {
+		s.internal(w, err)
+		return
+	}
 	history, err := s.voiceHistory(r.Context(), clip.ID, index)
 	if err != nil {
 		s.internal(w, err)
@@ -499,6 +509,31 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	}
 	view["status"], view["audio_stream_index"], view["steps"], view["speakers"], view["history"] = status, index, steps, speakers, history
 	reply(w, http.StatusOK, view)
+}
+
+// attachRefusedPersons lists on each voice the Persons refused for it (ADR 0031).
+func (s *Server) attachRefusedPersons(ctx context.Context, clipID int64, speakers []localSpeakerView) error {
+	byID := map[int64]int{}
+	for i := range speakers {
+		speakers[i].RefusedPersons = []personRef{}
+		byID[speakers[i].ID] = i
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT vr.local_speaker_id,p.id,p.display_name FROM voice_refusals vr JOIN local_speakers ls ON ls.id=vr.local_speaker_id JOIN persons p ON p.id=vr.person_id WHERE ls.clip_id=$1 ORDER BY p.display_name,p.id`, clipID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var speakerID int64
+		var p personRef
+		if err = rows.Scan(&speakerID, &p.ID, &p.DisplayName); err != nil {
+			return err
+		}
+		if at, found := byID[speakerID]; found {
+			speakers[at].RefusedPersons = append(speakers[at].RefusedPersons, p)
+		}
+	}
+	return rows.Err()
 }
 
 // attachLocalSpeakers labels each transcript segment with its local speaker: the one a
