@@ -18,6 +18,22 @@ const manifest = JSON.parse(
 const base = process.env.PROTO_URL ?? "http://localhost:5199";
 const only = process.argv[2]; // filtre optionnel sur l'écran
 
+/** Étapes pilotées d'un état : { click } (bouton), { check } (case), { fill } (champ du dialogue). */
+async function runSteps(page, steps = []) {
+  for (const step of steps) {
+    if (step.click)
+      await page
+        .getByRole("button", { name: new RegExp("^" + step.click) })
+        .first()
+        .click();
+    else if (step.check)
+      await page.getByLabel(new RegExp("^" + step.check)).check();
+    else if (step.fill)
+      await page.getByRole("dialog").getByRole("textbox").fill(step.fill);
+    await page.waitForTimeout(150);
+  }
+}
+
 const browser = await chromium.launch();
 for (const s of manifest.states) {
   if (only && s.screen !== only) continue;
@@ -36,6 +52,10 @@ for (const s of manifest.states) {
           .first()
           .click();
       }
+      // Rôle simulé par la barre du prototype (écran d'import), puis étapes pilotées.
+      if (s.prototypeRole)
+        await page.locator("select").first().selectOption(s.prototypeRole);
+      await runSteps(page, s.prototypeSteps);
       // Masque la barre noire de simulation du prototype.
       await page.addStyleTag({
         content: ".fixed.bottom-4 { display: none !important; }",

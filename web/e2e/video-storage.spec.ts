@@ -125,16 +125,13 @@ test.describe.serial("racine vidéo et photo de profil", () => {
     page,
   }) => {
     await page.goto("/import");
-    // The destination popover is scoped by its label: the server card above
-    // lists the same folder names, and its buttons are not the destination.
-    const picker = page.locator('[aria-label="Choose the destination folder"]');
-    await page.getByRole("button", { name: /Destination folder/ }).click();
+    await page.getByRole("button", { name: "From my computer" }).click();
+    const picker = page.getByRole("dialog", { name: "Destination folder" });
+    await page.getByRole("button", { name: "Choose a folder…" }).click();
     await expect(picker).toBeVisible();
     await picker.getByRole("button", { name: "matches", exact: true }).click();
-    await picker.getByRole("button", { name: "Use this folder" }).click();
-    await expect(
-      page.getByRole("button", { name: "Destination folder /matches" }),
-    ).toBeVisible();
+    await picker.getByRole("button", { name: "Choose this folder" }).click();
+    await expect(page.getByText("/matches", { exact: true })).toBeVisible();
 
     await page.getByLabel("choose files").setInputFiles(video("game.mp4", 9));
     await expect(row(page, "game.mp4")).toContainText("Added to the library", {
@@ -187,8 +184,9 @@ test.describe.serial("racine vidéo et photo de profil", () => {
       });
     });
     await page.goto("/import");
-    const trigger = page.getByRole("button", { name: /Destination folder/ });
-    await expect(trigger).toContainText("Choose a folder");
+    await page.getByRole("button", { name: "From my computer" }).click();
+    const trigger = page.getByRole("button", { name: "Choose a folder…" });
+    await expect(trigger).toBeVisible();
     await expect(page.getByText("Nothing is sent until")).toBeVisible();
 
     // Neither the picker nor a drop reaches the server, and nothing is queued.
@@ -199,7 +197,7 @@ test.describe.serial("racine vidéo et photo de profil", () => {
     await expect(page.getByRole("list", { name: "Transfers" })).toHaveCount(0);
     // aria-disabled: announced as unavailable, yet pressing it explains why (hence force).
     await page
-      .locator("button", { hasText: "choose files" })
+      .locator("button", { hasText: "Browse my computer" })
       .click({ force: true });
     await expect(page.getByRole("alert")).toContainText(
       "Choose a destination folder first",
@@ -208,14 +206,14 @@ test.describe.serial("racine vidéo et photo de profil", () => {
 
     // The root is an explicit choice, never the default.
     await trigger.click();
-    await page.getByRole("button", { name: "Use the video root" }).click();
-    await expect(trigger).toContainText("Video root");
+    await page.getByRole("button", { name: "Choose this folder" }).click();
+    await expect(page.getByText("/", { exact: true })).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
 
     // The folder vanished: sending stops and a new choice is required.
     await page.getByLabel("choose files").setInputFiles(video("late.mp4", 2));
     await expect(page.getByText("is no longer available")).toBeVisible();
-    await expect(trigger).toContainText("Choose a folder");
+    await expect(trigger).toBeVisible();
     expect(created).toBe(1);
     await page.unroute("**/api/uploads");
   });
@@ -239,12 +237,11 @@ test.describe.serial("racine vidéo et photo de profil", () => {
     });
     await page.setViewportSize({ width: 390, height: 800 });
     await page.goto("/import");
-    const trigger = page.getByRole("button", { name: /Destination folder/ });
+    await page.getByRole("button", { name: "From my computer" }).click();
+    const trigger = page.getByRole("button", { name: "Choose a folder…" });
     await trigger.focus();
     await page.keyboard.press("Enter");
-    const menu = page.getByRole("dialog", {
-      name: "Choose the destination folder",
-    });
+    const menu = page.getByRole("dialog", { name: "Destination folder" });
     await expect(menu).toBeVisible();
     // The long list scrolls inside the menu, never in the page.
     const list = menu.getByRole("list");

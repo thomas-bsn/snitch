@@ -27,7 +27,7 @@ async function expectNoViolations(page: Page) {
 }
 
 const serverSection = (page: Page) =>
-  page.getByRole("region", { name: "Already on the server" });
+  page.getByRole("dialog", { name: "Pick from the library" });
 
 test.describe.serial("import depuis le serveur et demandes de dossier", () => {
   test.skip(!ROOT, "requires the explorer harness");
@@ -69,7 +69,7 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     await expect(section.getByText("secret")).toBeVisible();
     await expect(section.getByLabel("Select secret")).toBeDisabled();
     await expect(section.getByText("plan.mp4")).toHaveCount(0);
-    // Creating a folder belongs to the upload destination, not to this section.
+    // Creating a folder belongs to the upload destination, not to this dialog.
     await expect(section.getByText("New folder")).toHaveCount(0);
     await expectNoViolations(page);
     await context.close();
@@ -89,23 +89,22 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
 
     await section.getByLabel("Select top.mp4").check();
     await section.getByLabel("Select league").check();
-    await expect(section.getByText("2 item(s) selected")).toBeVisible();
-    await section.getByRole("button", { name: "Count the videos" }).click();
-    // top.mp4 plus the three videos of league, sub-folders included.
+    // top.mp4 plus the three videos of league, sub-folders included, counted by the server.
     await expect(
-      section.getByText("4 video(s) will be added to the library."),
+      section.getByText("2 item(s) · 4 video(s), sub-folders included"),
     ).toBeVisible();
     await expectNoViolations(page);
 
-    // Cancelling the confirmation queues nothing; counting again then confirming does.
+    // Cancelling queues nothing; selecting again then confirming does.
     await section.getByRole("button", { name: "Cancel" }).click();
-    await expect(section.getByText(/will be added/)).toHaveCount(0);
-    await section.getByRole("button", { name: "Count the videos" }).click();
-    await section.getByRole("button", { name: "Add 4 video(s)" }).click();
-    await expect(section.getByRole("status")).toContainText(
-      "4 video(s) added.",
-    );
-    await expect(section.getByText("0 item(s) selected")).toBeVisible();
+    await expect(section).toHaveCount(0);
+    await expect(page.getByRole("status")).toHaveCount(0);
+    await page.getByRole("button", { name: "Change mode" }).click();
+    await page.getByRole("button", { name: "Already on the server" }).click();
+    await section.getByLabel("Select top.mp4").check();
+    await section.getByLabel("Select league").check();
+    await section.getByRole("button", { name: "Analyse 4 video(s)" }).click();
+    await expect(page.getByRole("status")).toContainText("4 video(s) added.");
     await context.close();
   });
 
@@ -118,9 +117,10 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     const page = await member.newPage();
     await page.goto("/import");
     await page.getByRole("button", { name: "From my computer" }).click();
-    await page.getByRole("button", { name: /Destination folder/ }).click();
-    await page.getByLabel("Folder name").fill("requested-dir");
+    await page.getByRole("button", { name: "Choose a folder…" }).click();
     await page.getByRole("button", { name: "New folder" }).click();
+    await page.getByLabel("Folder name").fill("requested-dir");
+    await page.getByRole("button", { name: "Send the request" }).click();
     await expect(
       page.getByText(/Request sent\. An administrator will decide/),
     ).toBeVisible();
@@ -160,11 +160,11 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     // Once approved, the folder exists and the member can use it as a destination.
     await page.reload();
     await page.getByRole("button", { name: "From my computer" }).click();
-    await page.getByRole("button", { name: /Destination folder/ }).click();
+    await page.getByRole("button", { name: "Choose a folder…" }).click();
     // The page behind the dialog also names the folder: scope to the dialog.
     await expect(
       page
-        .getByRole("dialog", { name: "Choose the destination folder" })
+        .getByRole("dialog", { name: "Destination folder" })
         .getByRole("button", { name: "requested-dir" }),
     ).toBeVisible();
     await member.close();
@@ -180,13 +180,12 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     const page = await context.newPage();
     await page.goto("/import");
     await page.getByRole("button", { name: "From my computer" }).click();
-    await page.getByRole("button", { name: /Destination folder/ }).click();
-    await page.getByLabel("Folder name").fill("direct-dir");
+    await page.getByRole("button", { name: "Choose a folder…" }).click();
     await page.getByRole("button", { name: "New folder" }).click();
+    await page.getByLabel("Folder name").fill("direct-dir");
+    await page.getByRole("button", { name: "Create" }).click();
     // The created folder becomes the destination at once.
-    await expect(
-      page.getByRole("button", { name: /Destination folder.*\/direct-dir/ }),
-    ).toBeVisible();
+    await expect(page.getByText("/direct-dir", { exact: true })).toBeVisible();
     await expect(page.getByText(/Request sent/)).toHaveCount(0);
     await context.close();
   });
@@ -198,9 +197,10 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
     const page = await member.newPage();
     await page.goto("/import");
     await page.getByRole("button", { name: "From my computer" }).click();
-    await page.getByRole("button", { name: /Destination folder/ }).click();
-    await page.getByLabel("Folder name").fill("refused-dir");
+    await page.getByRole("button", { name: "Choose a folder…" }).click();
     await page.getByRole("button", { name: "New folder" }).click();
+    await page.getByLabel("Folder name").fill("refused-dir");
+    await page.getByRole("button", { name: "Send the request" }).click();
     await expect(page.getByText(/Request sent/)).toBeVisible();
 
     const admin = await browser.newContext({
@@ -217,7 +217,7 @@ test.describe.serial("import depuis le serveur et demandes de dossier", () => {
 
     await page.reload();
     await page.getByRole("button", { name: "From my computer" }).click();
-    await page.getByRole("button", { name: /Destination folder/ }).click();
+    await page.getByRole("button", { name: "Choose a folder…" }).click();
     await expect(page.getByRole("button", { name: /refused-dir/ })).toHaveCount(
       0,
     );

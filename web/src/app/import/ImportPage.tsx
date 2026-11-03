@@ -84,11 +84,13 @@ export function ImportPage() {
   const done = transfers.filter((x) => x.status === "done");
 
   return (
-    <section className="flex flex-col gap-8 px-4 py-6 md:px-7">
-      <h1 className="text-[22px] font-semibold">{t("pages.import.title")}</h1>
+    <section className="flex max-w-3xl flex-col gap-5 px-4 py-6 md:px-7">
+      <h1 className="m-0 text-[22px] font-semibold">
+        {t("pages.import.title")}
+      </h1>
 
       {mode === null && (
-        <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Choice
             icon={<HardDrive className="size-6" aria-hidden="true" />}
             title={t("import.sections.server")}
@@ -106,7 +108,7 @@ export function ImportPage() {
       {mode !== null && (
         <button
           type="button"
-          className="-mt-4 inline-flex min-h-11 w-fit items-center gap-1 text-sm text-mute hover:text-ink"
+          className="inline-flex min-h-11 w-fit items-center gap-1 text-sm text-mute hover:text-ink"
           onClick={() => setMode(null)}
         >
           <ChevronLeft className="size-4" aria-hidden="true" />
@@ -118,41 +120,41 @@ export function ImportPage() {
 
       <section
         aria-labelledby="import-computer"
-        className={`${mode === "computer" ? "flex" : "hidden"} max-w-3xl flex-col gap-5`}
+        className={`${mode === "computer" ? "flex" : "hidden"} flex-col gap-5`}
       >
-        <h2 id="import-computer" className="text-lg font-semibold">
+        <h2 id="import-computer" className="sr-only">
           {t("import.sections.computer")}
         </h2>
-        <div className="flex max-w-xl flex-col gap-1.5">
-          <label htmlFor="import-visibility" className="font-medium">
-            {t("import.visibility.label")}
-          </label>
-          <select
-            id="import-visibility"
-            value={visibility}
-            onChange={(event) =>
-              setVisibility(event.target.value as Visibility)
-            }
-            className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
-          >
-            <option value="shared">{t("import.visibility.shared")}</option>
-            <option value="private">{t("import.visibility.private")}</option>
-          </select>
-        </div>
-
-        {root && (
-          <FolderPicker value={destination} onChange={chooseDestination} />
-        )}
+        <DropZone
+          onFiles={(files) => void receive(files)}
+          blocked={Boolean(root) && destination === undefined}
+          onBlocked={() => setBlocked(true)}
+        >
+          {root && (
+            <FolderPicker value={destination} onChange={chooseDestination} />
+          )}
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <label htmlFor="import-visibility" className="text-mute">
+              {t("import.visibility.label")}
+            </label>
+            <select
+              id="import-visibility"
+              value={visibility}
+              onChange={(event) =>
+                setVisibility(event.target.value as Visibility)
+              }
+              className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-9"
+            >
+              <option value="shared">{t("import.visibility.shared")}</option>
+              <option value="private">{t("import.visibility.private")}</option>
+            </select>
+          </div>
+        </DropZone>
         {missing !== undefined && (
           <ErrorAlert>
             {t("import.destination.missing", { path: `/${missing}` })}
           </ErrorAlert>
         )}
-        <DropZone
-          onFiles={(files) => void receive(files)}
-          blocked={Boolean(root) && destination === undefined}
-          onBlocked={() => setBlocked(true)}
-        />
         {blocked && <ErrorAlert>{t("import.destination.required")}</ErrorAlert>}
 
         {rejected.map((name) => (

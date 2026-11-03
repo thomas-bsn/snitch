@@ -1,8 +1,10 @@
-import { request, test } from "@playwright/test";
+import { request, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import {
   ADMIN,
+  MEMBER,
+  createApprovedMember,
   installAdministrator,
   sessionFor,
   setAccountLanguage,
@@ -21,6 +23,24 @@ test.skip(
 const repo = path.resolve(process.cwd(), "..");
 const references = path.join(repo, "docs/ui-references");
 const out = process.env.SNITCH_UI_OUT ?? path.join(repo, "ui-compare-out");
+type Step = { click?: string; check?: string; fill?: string };
+
+/** Étapes pilotées d'un état : { click } (bouton), { check } (case), { fill } (champ du dialogue). */
+async function runSteps(page: Page, steps: Step[] = []) {
+  for (const step of steps) {
+    if (step.click)
+      await page
+        .getByRole("button", { name: new RegExp(`^${step.click}`) })
+        .first()
+        .click();
+    else if (step.check)
+      await page.getByLabel(new RegExp(`^${step.check}`)).check();
+    else if (step.fill)
+      await page.getByRole("dialog").getByRole("textbox").fill(step.fill);
+    await page.waitForTimeout(150);
+  }
+}
+
 const manifest = JSON.parse(
   fs.readFileSync(path.join(references, "states.json"), "utf8"),
 ) as {
@@ -31,6 +51,8 @@ const manifest = JSON.parse(
     state: string;
     app: string;
     appClick?: string;
+    appSteps?: Step[];
+    appUser?: "member";
   }[];
 };
 
@@ -46,6 +68,46 @@ async function configureVideoRoot() {
     data: { path: process.env.SNITCH_TEST_EXPLORER_ROOT },
   });
   if (response.status() !== 200) throw new Error("video root refused");
+  // Instance configurée : sans la bannière « Finir la configuration », qui fausserait les écarts.
+  const dismissed = await api.post("/api/admin/setup-progress/dismiss", {
+    headers: { "X-CSRF-Token": me.csrf_token },
+  });
+  if (dismissed.status() !== 200) throw new Error("banner dismiss refused");
+  await api.dispose();
+}
+
+/** Arborescence et fichiers que le sélecteur d'import du prototype montre (jamais lus : quelques octets). */
+function seedImportTree() {
+  const root = process.env.SNITCH_TEST_EXPLORER_ROOT!;
+  for (const [dir, names] of [
+    [
+      "2026/novembre",
+      ["essai-micro-hf.mov", "rush-nuit-01.mp4", "rush-nuit-02.mp4"],
+    ],
+    ["archives-2025", ["bout-a-bout-v3.mov"]],
+  ] as const) {
+    fs.mkdirSync(path.join(root, dir), { recursive: true });
+    for (const name of names)
+      fs.writeFileSync(
+        path.join(root, dir, name),
+        `synthetic-ui-compare ${name}`,
+      );
+  }
+}
+
+/** Les demandes de dossier créées par une capture sont refusées : chaque état repart de zéro. */
+async function clearFolderRequests() {
+  const api = await request.newContext({
+    baseURL: process.env.SNITCH_TEST_URL!,
+    extraHTTPHeaders: { Origin: process.env.SNITCH_TEST_URL! },
+    storageState: await sessionFor(ADMIN),
+  });
+  const me = await (await api.get("/api/auth/me")).json();
+  const list = await (await api.get("/api/admin/folder-requests")).json();
+  for (const item of list.items ?? [])
+    await api.post(`/api/admin/folder-requests/${item.id}/refuse`, {
+      headers: { "X-CSRF-Token": me.csrf_token },
+    });
   await api.dispose();
 }
 
@@ -66,7 +128,11 @@ test("capture et comparaison des états", async ({ browser }) => {
   if (seeded !== "ok") throw new Error(`voice seeding failed: ${seeded}`);
   await configureVideoRoot();
   await setAccountLanguage(ADMIN, "fr");
+  seedImportTree();
+  await createApprovedMember();
+  await setAccountLanguage(MEMBER, "fr");
   const cookies = (await sessionFor(ADMIN)).cookies;
+  const memberCookies = (await sessionFor(MEMBER)).cookies;
   const only = process.env.SNITCH_UI_ONLY;
   const files: string[] = [];
 
@@ -79,7 +145,9 @@ test("capture et comparaison des états", async ({ browser }) => {
           colorScheme: theme,
           reducedMotion: "reduce",
         });
-        await context.addCookies(cookies);
+        await context.addCookies(
+          s.appUser === "member" ? memberCookies : cookies,
+        );
         const page = await context.newPage();
         await page.goto(s.app.replace("{clip}", String(meetingId)), {
           waitUntil: "networkidle",
@@ -92,6 +160,7 @@ test("capture et comparaison des états", async ({ browser }) => {
             .first()
             .click();
         }
+        await runSteps(page, s.appSteps);
         await page.waitForTimeout(400);
         const name = `${s.state}-${theme}-${width}.png`;
         const dir = path.join(out, "current", s.screen);
@@ -99,6 +168,7 @@ test("capture et comparaison des états", async ({ browser }) => {
         await page.screenshot({ path: path.join(dir, name), fullPage: true });
         files.push(path.join(s.screen, name));
         await context.close();
+        if (s.appUser === "member") await clearFolderRequests();
       }
     }
   }

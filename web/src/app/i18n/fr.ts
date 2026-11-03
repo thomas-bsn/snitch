@@ -1523,6 +1523,11 @@ export const fr: Messages = {
       computer: "Depuis mon ordinateur",
     },
     server: {
+      title: "Choisir dans la bibliothèque",
+      close: "Fermer",
+      hint: "Cochez des vidéos ou des dossiers",
+      summary: "{items} élément(s) · {videos} vidéo(s), sous-dossiers compris",
+      analyze: "Analyser {count} vidéo(s)",
       intro:
         "Choisissez des vidéos déjà présentes dans la Racine vidéo. Un dossier ajoute ses vidéos, sous-dossiers compris.",
       unconfigured: "La Racine vidéo n’est pas encore configurée.",
@@ -1544,6 +1549,11 @@ export const fr: Messages = {
         "{count} vidéo(s) ajoutée(s). Elles seront indexées puis analysées selon le réglage.",
     },
     folder: {
+      createIn: "Nouveau dossier dans {path}",
+      userHint:
+        "Un administrateur doit valider la création. Vous serez notifié ; en attendant, vous ne pouvez pas y téléverser.",
+      create: "Créer",
+      send: "Envoyer la demande",
       new: "Nouveau dossier",
       name: "Nom du dossier",
       created: "Le dossier « {path} » a été créé.",
@@ -1558,7 +1568,8 @@ export const fr: Messages = {
       private: "Privées (vous et les administrateurs)",
     },
     drop: {
-      title: "Déposez des vidéos ici",
+      browse: "Parcourir mon ordinateur",
+      title: "Glissez des vidéos ici",
       or: "ou",
       choose: "choisissez des fichiers",
       hint: "Les envois sont découpés en parties pour reprendre après une coupure.",
@@ -1590,9 +1601,15 @@ export const fr: Messages = {
     viewInLibrary: "Ouvrir la bibliothèque",
     doneAnnouncement: "« {name} » a été vérifiée et ajoutée à la bibliothèque.",
     destination: {
+      into: "Ranger dans",
+      unset: "Aucun dossier choisi",
+      change: "Changer…",
+      close: "Fermer",
+      current: "Destination : {path}",
+      useThis: "Choisir ce dossier",
       label: "Dossier de destination",
       root: "Racine du dossier vidéo",
-      choose: "Choisir un dossier",
+      choose: "Choisir un dossier…",
       menu: "Choisir le dossier de destination",
       filter: "Filtrer les dossiers",
       path: "Chemin du dossier courant",

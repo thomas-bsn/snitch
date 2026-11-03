@@ -1495,6 +1495,11 @@ export const en = {
       computer: "From my computer",
     },
     server: {
+      title: "Pick from the library",
+      close: "Close",
+      hint: "Tick videos or folders",
+      summary: "{items} item(s) · {videos} video(s), sub-folders included",
+      analyze: "Analyse {count} video(s)",
       intro:
         "Pick videos already in the video root. A folder adds its videos, sub-folders included.",
       unconfigured: "The video root is not configured yet.",
@@ -1516,6 +1521,11 @@ export const en = {
         "{count} video(s) added. They are indexed, then analysed as set in the settings.",
     },
     folder: {
+      createIn: "New folder in {path}",
+      userHint:
+        "An administrator must approve the creation. You will be notified; until then you cannot upload into it.",
+      create: "Create",
+      send: "Send the request",
       new: "New folder",
       name: "Folder name",
       created: "The folder « {path} » was created.",
@@ -1530,6 +1540,7 @@ export const en = {
       private: "Private (you and administrators)",
     },
     drop: {
+      browse: "Browse my computer",
       title: "Drop videos here",
       or: "or",
       choose: "choose files",
@@ -1561,9 +1572,15 @@ export const en = {
     viewInLibrary: "Open the library",
     doneAnnouncement: "“{name}” was checked and added to the library.",
     destination: {
+      into: "Put in",
+      unset: "No folder chosen",
+      change: "Change…",
+      close: "Close",
+      current: "Destination: {path}",
+      useThis: "Choose this folder",
       label: "Destination folder",
       root: "Root of the video folder",
-      choose: "Choose a folder",
+      choose: "Choose a folder…",
       menu: "Choose the destination folder",
       filter: "Filter folders",
       path: "Path of the current folder",

@@ -60,6 +60,133 @@
       "state": "import",
       "prototype": "/prototype/import?variant=A",
       "app": "/import"
+    },
+    {
+      "screen": "import",
+      "state": "selecteur",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [{ "click": "Déjà sur le serveur" }],
+      "appSteps": [
+        { "click": "Déjà sur le serveur" },
+        { "click": "2026" },
+        { "click": "novembre" }
+      ]
+    },
+    {
+      "screen": "import",
+      "state": "selection",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Déjà sur le serveur" },
+        { "check": "Sélectionner rush-nuit-01.mp4" },
+        { "check": "Sélectionner rush-nuit-02.mp4" }
+      ],
+      "appSteps": [
+        { "click": "Déjà sur le serveur" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "check": "Sélectionner rush-nuit-01.mp4" },
+        { "check": "Sélectionner rush-nuit-02.mp4" }
+      ]
+    },
+    {
+      "screen": "import",
+      "state": "televersement",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [{ "click": "Depuis mon ordinateur" }],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "click": "Choisir ce dossier" }
+      ]
+    },
+    {
+      "screen": "import",
+      "state": "destination",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Changer…" }
+      ],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" }
+      ]
+    },
+    {
+      "screen": "import",
+      "state": "nouveau-dossier-utilisateur",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Changer…" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" }
+      ],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" }
+      ],
+      "prototypeRole": "user",
+      "appUser": "member"
+    },
+    {
+      "screen": "import",
+      "state": "demande-envoyee",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Changer…" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" },
+        { "click": "Envoyer la demande" }
+      ],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" },
+        { "click": "Envoyer la demande" }
+      ],
+      "prototypeRole": "user",
+      "appUser": "member"
+    },
+    {
+      "screen": "import",
+      "state": "nouveau-dossier-admin",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Changer…" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" }
+      ],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" }
+      ],
+      "prototypeRole": "admin"
     }
   ]
 }
