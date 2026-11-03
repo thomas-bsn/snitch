@@ -5473,8 +5473,8 @@
       "put": {
         "operationId": "setVoiceGroupDisposition",
         "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionInput"}}}},
-        "responses": {"200": {"description": "Disposition appliquée à chaque voix non exclue du groupe", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupDisposition"}}}}, "404": {"description": "voice_group_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "validated_voice : une voix du groupe est validée ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupDispositionInput"}}}},
+        "responses": {"200": {"description": "Disposition appliquée à chaque voix non exclue du groupe", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupDisposition"}}}}, "404": {"description": "voice_group_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "group_changed : le groupe n'est plus exactement la liste de voix envoyée ; validated_voice : une voix du groupe est validée ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "description": "Utilisateurs connectés. Une disposition vaut pour chacune des voix du groupe (ADR 0031).",
         "security": [{"session": []}]
       }
@@ -7726,6 +7726,15 @@
         "required": ["disposition"],
         "additionalProperties": false,
         "properties": {"disposition": {"type": "string", "enum": ["ignored", "random"]}}
+      },
+      "VoiceGroupDispositionInput": {
+        "type": "object",
+        "required": ["disposition", "local_speaker_ids"],
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {"type": "string", "enum": ["ignored", "random"]},
+          "local_speaker_ids": {"type": "array", "minItems": 1, "maxItems": 500, "items": {"type": "integer", "format": "int64", "minimum": 1}, "description": "Les voix du groupe affichées (non exclues) ; group_changed si le groupe n'est plus exactement cet ensemble."}
+        }
       },
       "VoiceDispositionView": {
         "type": "object",

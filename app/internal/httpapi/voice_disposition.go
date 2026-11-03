@@ -33,6 +33,13 @@ type dispositionInput struct {
 	Disposition string `json:"disposition"`
 }
 
+// voiceGroupDispositionInput carries what the panel displayed, like the naming: the voices of
+// the group the caller looked at.
+type voiceGroupDispositionInput struct {
+	Disposition     string  `json:"disposition"`
+	LocalSpeakerIDs []int64 `json:"local_speaker_ids"`
+}
+
 type dispositionView struct {
 	LocalSpeakerID int64   `json:"local_speaker_id"`
 	Disposition    *string `json:"disposition"`
@@ -122,19 +129,33 @@ func (s *Server) deleteLocalSpeakerDisposition(w http.ResponseWriter, r *http.Re
 }
 
 // putVoiceGroupDisposition applies a disposition to every voice of a group the caller sees.
-// Excluded members are not part of the group any more and are left alone.
+// Excluded members are not part of the group any more and are left alone. Like the naming, the
+// caller sends the voices it displayed: if the group is no longer exactly that set nothing is
+// written and the answer is 409 group_changed.
 func (s *Server) putVoiceGroupDisposition(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r, "invalid_voice_group_id")
 	if !ok {
 		return
 	}
-	var input dispositionInput
+	var input voiceGroupDispositionInput
 	if !decode(w, r, &input) {
 		return
 	}
 	if input.Disposition != dispositionIgnored && input.Disposition != dispositionRandom {
 		fail(w, http.StatusBadRequest, "invalid_disposition")
 		return
+	}
+	if len(input.LocalSpeakerIDs) == 0 || len(input.LocalSpeakerIDs) > 500 {
+		fail(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	sent := map[int64]bool{}
+	for _, voiceID := range input.LocalSpeakerIDs {
+		if voiceID < 1 || sent[voiceID] {
+			fail(w, http.StatusBadRequest, "invalid_request")
+			return
+		}
+		sent[voiceID] = true
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
 	rows, err := s.Pool.Query(r.Context(), voiceGroupsCTE+` SELECT id,excluded FROM members WHERE group_id=$3 ORDER BY id`, ss.User.ID, isAdministrator(ss.User.Role), id)
@@ -165,6 +186,16 @@ func (s *Server) putVoiceGroupDisposition(w http.ResponseWriter, r *http.Request
 	if !found {
 		fail(w, http.StatusNotFound, "voice_group_not_found")
 		return
+	}
+	if len(ids) != len(sent) {
+		fail(w, http.StatusConflict, "group_changed")
+		return
+	}
+	for _, voiceID := range ids {
+		if !sent[voiceID] {
+			fail(w, http.StatusConflict, "group_changed")
+			return
+		}
 	}
 	if !s.changeDispositions(w, r, ids, input.Disposition, ss) {
 		return

@@ -788,7 +788,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/local-speakers/999999/disposition", map[string]any{"disposition": "ignored"}, me.CSRF, 404)
 		call(client, "DELETE", "/api/local-speakers/999999/disposition", nil, me.CSRF, 404)
 		call(client, "POST", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusal", map[string]any{"person_id": 999999}, me.CSRF, 404)
-		call(client, "PUT", "/api/voice-groups/999999/disposition", map[string]any{"disposition": "random"}, me.CSRF, 404)
+		call(client, "PUT", "/api/voice-groups/999999/disposition", map[string]any{"disposition": "random", "local_speaker_ids": []int64{1}}, me.CSRF, 404)
 		// Voice matching settings and rematch (behavior in the voice matching suite).
 		call(client, "GET", "/api/voice-matching", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)

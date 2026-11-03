@@ -242,14 +242,22 @@ export function useVoiceGroupActions() {
         );
         return data ? { ok: true, value: true } : failure(error);
       }),
-    /** Sets every voice of the group aside, or labels it Random (ADR 0031). */
-    setDisposition: (groupId: number, disposition: "ignored" | "random") =>
+    /**
+     * Sets every voice of the group aside, or labels it Random (ADR 0031). Like the naming,
+     * it sends the voices displayed: the server refuses, and writes nothing, when the group
+     * is no longer exactly that set.
+     */
+    setDisposition: (
+      groupId: number,
+      localSpeakerIds: number[],
+      disposition: "ignored" | "random",
+    ) =>
       guard<number>(async () => {
         const { data, error } = await api.PUT(
           "/api/voice-groups/{id}/disposition",
           {
             params: { path: { id: groupId }, header },
-            body: { disposition },
+            body: { disposition, local_speaker_ids: localSpeakerIds },
           },
         );
         return data ? { ok: true, value: data.voices } : failure(error);
