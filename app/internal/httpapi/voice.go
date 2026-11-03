@@ -244,7 +244,7 @@ WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized' AND a.va
 	if err != nil {
 		return stake, false, err
 	}
-	corrections, _, err := s.clipCorrections(ctx, clipID)
+	corrections, _, err := s.clipCorrections(ctx, s.Pool, clipID)
 	if err != nil {
 		return stake, false, err
 	}

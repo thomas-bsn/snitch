@@ -301,3 +301,37 @@ func testClipAnalysisDeletionReportsRefusals(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("the clip-level audit must record the refusals and the dispositions lost by the deletion")
 	}
 }
+
+// testClipAnalysisDeletionStakeAtConfirm: a correction saved between the preview and the
+// confirmation is part of the stake of the confirmation. The stake is read in the locked
+// transaction of the deletion, so the confirm without confirm_loss refuses instead of deleting.
+func testClipAnalysisDeletionStakeAtConfirm(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	h.diarizeClip()
+	previewPath := fmt.Sprintf("%s?steps=transcription", h.analysisPath())
+	var preview struct {
+		Stake struct {
+			Corrections *correctionsAtStake `json:"corrections"`
+		} `json:"stake"`
+	}
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, previewPath, nil, http.StatusOK), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.Stake.Corrections != nil {
+		t.Fatalf("the preview must not show corrections before one is saved: %+v", preview.Stake.Corrections)
+	}
+
+	// The correction arrives after the preview and before the confirmation.
+	h.adminCall(http.MethodPut, fmt.Sprintf("/api/clips/%d/segments/0/text", h.clipID), map[string]any{"text": "corrigé tardivement", "expected_version": 0}, http.StatusOK)
+
+	var refusal deletionRefusal
+	if err := json.Unmarshal(h.adminCall(http.MethodDelete, h.analysisPath(), map[string]any{"steps": []string{"transcription"}}, http.StatusConflict), &refusal); err != nil {
+		t.Fatal(err)
+	}
+	if refusal.Error != "analysis_deletion_confirmation_required" || refusal.Stake.Corrections == nil || refusal.Stake.Corrections.TextSegments != 1 {
+		t.Fatalf("a correction saved before the confirmation must be refused as stake: %+v", refusal)
+	}
+	if n := h.count(`SELECT count(*) FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%'`, h.clipID); n == 0 {
+		t.Fatal("the refused confirmation deleted the transcription")
+	}
+}

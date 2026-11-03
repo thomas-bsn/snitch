@@ -128,6 +128,8 @@ export const errorsEn = {
   invalid_job_id: "This task identifier is not valid.",
   invalid_job_result: "This task result is not valid.",
   invalid_language: "This language is not supported.",
+  invalid_log_batch: "This batch of log lines is not valid.",
+  invalid_log_line: "This log line is not valid.",
   invalid_microphone_override: "This microphone choice is not valid.",
   invalid_microphone_rule: "This microphone rule is not valid.",
   invalid_mode: "This search mode is not valid.",
@@ -149,6 +151,8 @@ export const errorsEn = {
   stale_transcription_config:
     "The transcription configuration changed. Try again.",
   invalid_transcription_result: "This transcription result is not valid.",
+  invalid_transcription_reachability:
+    "This transcription server reachability report is not valid.",
   invalid_turn: "This speaker turn is not valid.",
   invalid_upload: "This upload is not valid.",
   invalid_video: "This file is not a readable video.",
@@ -164,6 +168,9 @@ export const errorsEn = {
   invalid_worker: "This worker is not valid.",
   invalid_worker_capabilities: "These worker capabilities are not valid.",
   invalid_worker_capacity: "This worker capacity is not valid.",
+  invalid_worker_update_status: "This update report is not valid.",
+  invalid_worker_version:
+    "This worker version is not a released version (vX.Y.Z).",
   invalid_revoke_reason:
     "The reason must be 200 characters or fewer, on a single line.",
   invalid_worker_models: "These worker models are not valid.",

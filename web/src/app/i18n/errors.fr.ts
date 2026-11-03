@@ -137,6 +137,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_job_id: "Cet identifiant de tâche n’est pas valide.",
   invalid_job_result: "Ce résultat de tâche n’est pas valide.",
   invalid_language: "Cette langue n’est pas prise en charge.",
+  invalid_log_batch: "Ce lot de lignes de journal n’est pas valide.",
+  invalid_log_line: "Cette ligne de journal n’est pas valide.",
   invalid_microphone_override: "Ce choix de micro n’est pas valide.",
   invalid_microphone_rule: "Cette règle de micro n’est pas valide.",
   invalid_mode: "Ce mode de recherche n’est pas valide.",
@@ -160,6 +162,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "La configuration de transcription a changé. Réessayez.",
   invalid_transcription_result:
     "Ce résultat de transcription n’est pas valide.",
+  invalid_transcription_reachability:
+    "Ce rapport de joignabilité du serveur de transcription n’est pas valide.",
   invalid_turn: "Ce tour de parole n’est pas valide.",
   invalid_upload: "Cet envoi n’est pas valide.",
   invalid_video: "Ce fichier n’est pas une vidéo lisible.",
@@ -177,6 +181,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker: "Ce Worker n’est pas valide.",
   invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
+  invalid_worker_update_status:
+    "Ce compte rendu de mise à jour n’est pas valide.",
+  invalid_worker_version:
+    "Cette version de Worker n’est pas une version publiée (vX.Y.Z).",
   invalid_revoke_reason:
     "Le motif doit faire 200 caractères au plus, sur une seule ligne.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",

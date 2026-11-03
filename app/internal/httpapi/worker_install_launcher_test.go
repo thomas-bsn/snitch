@@ -48,6 +48,8 @@ if [ "$1" = rm ]; then rm -f "$FAKE_LOG.container"; fi
 if [ "$1" = inspect ]; then echo sha256:previous; fi
 exit 0
 `)
+	// crontab is faked: the installer schedules the updater, and a test must never edit the real crontab.
+	write("crontab", `case "${1:-}" in -l) [ -f "$FAKE_CRON" ] && cat "$FAKE_CRON"; exit 0;; *) cat > "$FAKE_CRON";; esac`)
 	write("uname", `if [ "${1:-}" = -r ]; then echo "${FAKE_UNAME_R:-6.8.0-generic}"; else echo "${FAKE_UNAME:-Linux}"; fi`)
 	write("curl", `out=''; data=''; url=''; while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift;; --data-binary) data=${2#@}; shift;; http*) url=$1;; esac; shift; done
 cat >/dev/null
@@ -56,6 +58,10 @@ case "$url" in *install-events)
  if [ "$status" = 000 ]; then printf 000; exit 7; fi
  cat "$data" >> "$FAKE_LOG.events"; printf '\n' >> "$FAKE_LOG.events"
  printf '%s' "${FAKE_EVENTS_STATUS:-204}"; exit 0;;
+esac
+case "$url" in *worker/update)
+ if [ "$status" = 200 ]; then printf '%s' "${FAKE_UPDATE_BODY:-}" > "$out"; fi
+ printf '%s' "$status"; exit 0;;
 esac
 case "$url" in *worker/revocation)
  rstatus=${FAKE_REVOCATION_STATUS:-401}
@@ -77,14 +83,14 @@ func (r *installerRun) run(t *testing.T, token string, env ...string) (stdout, s
 	err = workerInstallScript.Execute(&script, map[string]string{
 		"WorkerID": "wk_syntheticFixtureWorker123", "APIURL": b64("https://snitch.example.org"), "Token": b64(token),
 		"Image": b64("ghcr.io/thomas-bsn/snitch-worker:fixture"), "TranscriptionMode": "unconfigured",
-		"TranscriptionEndpoint": b64(""), "TranscriptionModel": b64(""), "TranscriptionLanguage": b64(""),
+		"TranscriptionEndpoint": b64(""), "TranscriptionModel": b64(""), "TranscriptionLanguage": b64(""), "UpdaterScript": b64(workerUpdaterScript),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	cmd := exec.Command("bash", "-s")
 	cmd.Stdin = &script
-	cmd.Env = append([]string{"HOME=" + r.home, "PATH=" + r.bin + ":/usr/bin:/bin", "FAKE_LOG=" + r.log}, env...)
+	cmd.Env = append([]string{"HOME=" + r.home, "PATH=" + r.bin + ":/usr/bin:/bin", "FAKE_LOG=" + r.log, "FAKE_CRON=" + r.log + ".cron"}, env...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // no controlling terminal: the voice prompt is skipped
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
@@ -323,7 +329,7 @@ func (r *installerRun) runTTY(t *testing.T, token string, answers []string, env 
 	if err = workerInstallScript.Execute(&script, map[string]string{
 		"WorkerID": "wk_syntheticFixtureWorker123", "APIURL": b64("https://snitch.example.org"), "Token": b64(token),
 		"Image": b64("ghcr.io/thomas-bsn/snitch-worker:fixture"), "TranscriptionMode": "unconfigured",
-		"TranscriptionEndpoint": b64(""), "TranscriptionModel": b64(""), "TranscriptionLanguage": b64(""),
+		"TranscriptionEndpoint": b64(""), "TranscriptionModel": b64(""), "TranscriptionLanguage": b64(""), "UpdaterScript": b64(workerUpdaterScript),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +342,7 @@ func (r *installerRun) runTTY(t *testing.T, token string, answers []string, env 
 		t.Fatal(err)
 	}
 	cmd := exec.Command("bash", scriptPath)
-	cmd.Env = append([]string{"HOME=" + r.home, "PATH=" + r.bin + ":/usr/bin:/bin:/opt/homebrew/bin", "FAKE_LOG=" + r.log, "FAKE_CURL_BODY=" + fakeConfig}, env...)
+	cmd.Env = append([]string{"HOME=" + r.home, "PATH=" + r.bin + ":/usr/bin:/bin:/opt/homebrew/bin", "FAKE_LOG=" + r.log, "FAKE_CRON=" + r.log + ".cron", "FAKE_CURL_BODY=" + fakeConfig}, env...)
 	return driveOnPTY(t, cmd, answers)
 }
 
@@ -658,5 +664,55 @@ func TestInstallerWSL2RefusesWindowsMountStorage(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "Linux home") || !strings.Contains(stderr, "dossier personnel Linux") {
 		t.Errorf("recovery text missing:\n%s", stderr)
+	}
+}
+
+// The launcher follows the version chosen in Snitch, but only a released tag of the invitation's repository.
+func TestInstallerUsesTargetVersionOfSameRepository(t *testing.T) {
+	const good = `{"target_version":"v1.2.0","target_image":"ghcr.io/thomas-bsn/snitch-worker:v1.2.0"}`
+	for name, tc := range map[string]struct {
+		body, wantPull string
+	}{
+		"target followed":                  {good, "pull ghcr.io/thomas-bsn/snitch-worker:v1.2.0"},
+		"foreign image refused":            {`{"target_version":"v1.2.0","target_image":"evil.example/x:v1.2.0"}`, "pull ghcr.io/thomas-bsn/snitch-worker:fixture"},
+		"non release tag refused":          {`{"target_version":"latest","target_image":"ghcr.io/thomas-bsn/snitch-worker:latest"}`, "pull ghcr.io/thomas-bsn/snitch-worker:fixture"},
+		"no target keeps invitation image": {`{"target_version":null,"target_image":null}`, "pull ghcr.io/thomas-bsn/snitch-worker:fixture"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newInstallerRun(t)
+			r.fakeNvidia(t)
+			if stdout, stderr, err := r.run(t, "rw_synthetic-fixture-token", "FAKE_CURL_BODY="+fakeConfig, "FAKE_UPDATE_BODY="+tc.body); err != nil {
+				t.Fatalf("install failed: %v\n%s\n%s", err, stdout, stderr)
+			}
+			if log := r.dockerLog(); !strings.Contains(log, tc.wantPull+"\n") {
+				t.Fatalf("want %q in docker log:\n%s", tc.wantPull, log)
+			}
+		})
+	}
+}
+
+// The launcher installs the local updater and schedules it every 10 minutes, once.
+func TestInstallerSchedulesLocalUpdaterOnce(t *testing.T) {
+	r := newInstallerRun(t)
+	r.fakeNvidia(t)
+	for i := 0; i < 2; i++ {
+		if stdout, stderr, err := r.run(t, "rw_synthetic-fixture-token", "FAKE_CURL_BODY="+fakeConfig); err != nil {
+			t.Fatalf("install %d failed: %v\n%s\n%s", i, err, stdout, stderr)
+		}
+	}
+	updater := filepath.Join(r.home, ".local", "share", "snitch-worker", "wk_syntheticFixtureWorker123", "updater.sh")
+	info, err := os.Stat(updater)
+	if err != nil {
+		t.Fatalf("updater not installed: %v", err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Fatalf("updater mode %v, want 700", info.Mode().Perm())
+	}
+	cron, _ := os.ReadFile(r.log + ".cron")
+	if got := strings.Count(string(cron), updater); got != 1 {
+		t.Fatalf("updater scheduled %d times, want once:\n%s", got, cron)
+	}
+	if !strings.Contains(string(cron), `*/10 * * * * "`+updater+`"`) {
+		t.Fatalf("schedule not every 10 minutes:\n%s", cron)
 	}
 }

@@ -34,29 +34,33 @@ import (
 	"snitch/internal/setup"
 	"snitch/internal/uploads"
 	"snitch/internal/workers"
+	"snitch/internal/workerupdate"
 	"snitch/ui"
 )
 
 type Server struct {
-	Pool               *pgxpool.Pool
-	Config             config.Config
-	Log                *slog.Logger
-	Client             *http.Client
-	Store              settings.Store
-	Library            *library.Service
-	Jobs               *jobs.Service
-	Analysis           *analysis.Service
-	Events             *events.Service
-	Uploads            *uploads.Service
-	Workers            *workers.Service
-	rates              sync.Map
-	backgroundCancel   context.CancelFunc
-	backgroundContext  context.Context
-	embeddingStartOnce sync.Once
-	backgroundWG       sync.WaitGroup
-	incidents          incidentSync
-	passwordSlots      chan struct{}
-	dummyPassword      string
+	Pool                  *pgxpool.Pool
+	Config                config.Config
+	Log                   *slog.Logger
+	Client                *http.Client
+	Store                 settings.Store
+	Library               *library.Service
+	Jobs                  *jobs.Service
+	Analysis              *analysis.Service
+	Events                *events.Service
+	Uploads               *uploads.Service
+	Workers               *workers.Service
+	workerCatalogOnce     sync.Once
+	workerCatalogOverride *workerupdate.Catalog
+	workerCatalogBuilt    *workerupdate.Catalog
+	rates                 sync.Map
+	backgroundCancel      context.CancelFunc
+	backgroundContext     context.Context
+	embeddingStartOnce    sync.Once
+	backgroundWG          sync.WaitGroup
+	incidents             incidentSync
+	passwordSlots         chan struct{}
+	dummyPassword         string
 }
 type session struct {
 	User             database.GetUserRow
@@ -237,6 +241,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/jobs/{id}/logs/events", s.protected(true, http.HandlerFunc(s.jobLogsEvents)))
 	mux.Handle("GET /api/admin/job-controls", s.protected(true, http.HandlerFunc(s.getJobControls)))
 	mux.Handle("PUT /api/admin/job-controls", s.protected(true, http.HandlerFunc(s.updateJobControls)))
+	mux.Handle("GET /api/admin/worker-updates", s.protected(true, http.HandlerFunc(s.getWorkerUpdates)))
+	mux.Handle("PUT /api/admin/worker-updates", s.protected(true, http.HandlerFunc(s.putWorkerUpdateTarget)))
 	mux.Handle("GET /api/admin/workers", s.protected(true, http.HandlerFunc(s.listWorkers)))
 	mux.Handle("POST /api/admin/workers", s.protected(true, http.HandlerFunc(s.registerWorker)))
 	mux.Handle("PUT /api/admin/workers/{id}/transcription-model", s.protected(true, http.HandlerFunc(s.putWorkerTranscriptionModel)))
@@ -251,6 +257,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/worker/revocation", http.HandlerFunc(s.workerRevocation))
 	mux.Handle("POST /api/worker/pulse", s.workerOnly(http.HandlerFunc(s.workerPulse)))
 	mux.Handle("POST /api/worker/install-events", s.workerOnly(http.HandlerFunc(s.postWorkerInstallEvents)))
+	mux.Handle("GET /api/worker/update", s.workerOnly(http.HandlerFunc(s.getWorkerUpdate)))
+	mux.Handle("POST /api/worker/update-status", s.workerOnly(http.HandlerFunc(s.postWorkerUpdateStatus)))
 	mux.Handle("GET /api/worker/transcription-config", s.workerOnly(http.HandlerFunc(s.getWorkerTranscriptionConfig)))
 	mux.Handle("POST /api/worker/transcription-config/status", s.workerOnly(http.HandlerFunc(s.postWorkerTranscriptionStatus)))
 	mux.Handle("POST /api/worker/jobs/claim", s.workerOnly(http.HandlerFunc(s.claimWorkerJob)))
