@@ -193,9 +193,29 @@ voice_selftest() {
  if docker run --rm "${gpu[@]}" --user 10001:10001 --env-file "$env_file" -e HF_HUB_OFFLINE=1 -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.voice_selftest; then emit voice-test succeeded
  else emit voice-test failed unknown; printf 'Warning [unknown]: the synthetic voice test failed; voice stays unavailable, transcription still works.\nAvertissement [unknown] : le test vocal synthétique a échoué ; la voix reste indisponible, la transcription fonctionne.\n' >&2; fi
 }
+# Installation events keep the closed launcher vocabulary: every Hugging Face access cause is hf_access_denied.
+install_cause() {
+ case "$1" in
+  hf_token_invalid|hf_gated_denied|hf_access_denied) printf 'hf_access_denied' ;;
+  network_unreachable|volume_not_writable|hf_cache_not_writable|gpu_unavailable) printf '%s' "$1" ;;
+  *) printf 'unknown' ;;
+ esac
+}
+# voice_warn CAUSE: one actionable bilingual line per cause; the transcription and the Worker are never blocked.
 voice_warn() {
- emit voice-models failed "$1"
- printf 'Warning [%s]: voice models unavailable; transcription stays available. Fix the cause, then rerun this command.\nAvertissement [%s] : modèles vocaux indisponibles ; la transcription reste disponible. Corrigez la cause, puis relancez cette commande.\n' "$1" "$1" >&2
+ local cause=$1 en fr
+ emit voice-models failed "$(install_cause "$cause")"
+ case "$cause" in
+  hf_token_invalid) en='Hugging Face did not accept the token (missing, mistyped or revoked). Create a read token and rerun.'; fr='Hugging Face n’a pas accepté le jeton (absent, mal saisi ou révoqué). Créez un jeton de lecture et relancez.' ;;
+  hf_gated_denied) en='The account that owns the token has not accepted the terms of pyannote/speaker-diarization-community-1 and pyannote/wespeaker-voxceleb-resnet34-LM. Accept both on huggingface.co with that account, then rerun.'; fr='Le compte propriétaire du jeton n’a pas accepté les conditions de pyannote/speaker-diarization-community-1 et pyannote/wespeaker-voxceleb-resnet34-LM. Acceptez-les sur huggingface.co avec ce compte, puis relancez.' ;;
+  hf_repo_invalid) en='A model repository or revision was not found on Hugging Face. Report it to your administrator; the Snitch version may not match.'; fr='Un dépôt ou une révision de modèle est introuvable sur Hugging Face. Signalez-le à votre administrateur ; la version de Snitch ne correspond peut-être pas.' ;;
+  network_unreachable) en='huggingface.co is unreachable from Docker. Check the network or proxy, then rerun.'; fr='huggingface.co est injoignable depuis Docker. Vérifiez le réseau ou le proxy, puis relancez.' ;;
+  volume_not_writable) en='The models volume is not writable. Check the Docker volume permissions, then rerun.'; fr='Le volume des modèles n’est pas inscriptible. Vérifiez ses permissions Docker, puis relancez.' ;;
+  hf_cache_not_writable) en='The Hugging Face cache is not writable. Check the models volume ownership, then rerun.'; fr='Le cache Hugging Face n’est pas inscriptible. Vérifiez le propriétaire du volume des modèles, puis relancez.' ;;
+  gpu_unavailable) en='No usable NVIDIA GPU for the voice models. Check the GPU runtime, then rerun.'; fr='Aucun GPU NVIDIA utilisable pour les modèles vocaux. Vérifiez le runtime GPU, puis relancez.' ;;
+  *) en='Unexpected error. Rerun this command; report it if it persists.'; fr='Erreur inattendue. Relancez cette commande ; signalez-la si elle persiste.' ;;
+ esac
+ printf 'Warning [%s]: voice models unavailable; transcription stays available. %s\nAvertissement [%s] : modèles vocaux indisponibles ; la transcription reste disponible. %s\n' "$cause" "$en" "$cause" "$fr" >&2
 }
 if [ ${#gpu[@]} -gt 0 ]; then
  stage=voice-models
@@ -215,6 +235,8 @@ if [ ${#gpu[@]} -gt 0 ]; then
     stty -echo < /dev/tty
     IFS= read -r hf_token < /dev/tty || hf_token=''
     stty echo < /dev/tty; printf '\n' > /dev/tty
+    # Pasted tokens may carry a carriage return or blanks: they are not part of the token.
+    hf_token=${hf_token//[$' \t\r']/}
     if [[ "$hf_token" =~ ^hf_[A-Za-z0-9]+$ ]]; then
      # The token reaches the container only through this private (0600) env file, never argv, logs or worker.env.
      bootstrap_env=$(mktemp "$dir/bootstrap.XXXXXX")
@@ -224,9 +246,9 @@ if [ ${#gpu[@]} -gt 0 ]; then
      rc=0; cause=$(docker run --rm "${gpu[@]}" --user 10001:10001 --env-file "$bootstrap_env" -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.bootstrap provision 2>/dev/null) || rc=$?
      rm -f "$bootstrap_env"; trap - EXIT
      cause=${cause##*cause=}; cause=${cause%%[!a-z_]*}
-     case "$cause" in hf_access_denied|network_unreachable|volume_not_writable|hf_cache_not_writable|gpu_unavailable) ;; *) cause=unknown ;; esac
+     case "$cause" in hf_token_invalid|hf_gated_denied|hf_repo_invalid|hf_access_denied|network_unreachable|volume_not_writable|hf_cache_not_writable|gpu_unavailable) ;; *) cause=unknown ;; esac
      if [ "$rc" -eq 0 ]; then emit voice-models succeeded; voice_selftest; else voice_warn "$cause"; fi
-    else trap - EXIT; unset hf_token; voice_warn hf_access_denied; fi
+    else trap - EXIT; unset hf_token; voice_warn hf_token_invalid; fi
    else printf 'Terms not confirmed: voice models skipped.\nConditions non confirmées : modèles vocaux ignorés.\n' >&2; fi
   fi
  fi
