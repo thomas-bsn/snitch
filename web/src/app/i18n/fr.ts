@@ -1622,7 +1622,6 @@ export const fr: Messages = {
     loading: "Chargement du clip…",
     videoLabel: "Vidéo du clip",
     videoFailed: "La vidéo ne peut pas être lue ici.",
-    waveformLabel: "Forme d’onde de la piste audio",
     meta: {
       owner: "Importé par {owner}",
       sources: "Source : {sources}",
@@ -1675,6 +1674,9 @@ export const fr: Messages = {
       listLabel: "Voix du clip",
       speaking: "{seconds} s de parole, {turns} tours",
       unidentified: "Non identifiée",
+      track: "Piste de {label}",
+      waveformLabel: "Forme d’onde par voix",
+      tracksLabel: "Pistes du clip, une par voix",
     },
     history: {
       empty: "Aucun segment de ce clip n’a été corrigé.",
@@ -1896,6 +1898,30 @@ export const fr: Messages = {
       retranscribeTitle: "Remplacer les corrections ?",
       retranscribeWarning:
         "Cette opération remplacera {texts} correction(s) de texte et {speakers} de locuteur par {authors}. Elles resteront obsolètes dans l’historique.",
+    },
+  },
+  voiceDecision: {
+    listenLabel: "Écouter un extrait de {label}",
+    yes: "C’est {person}",
+    no: "Ce n’est pas {person}",
+    identify: "Identifier",
+    random: "Random",
+    ignore: "Ignorer",
+    restore: "Rétablir",
+    decisionLabel: "Décision sur {label}",
+    group: "Dans le groupe de {count} voix inconnues",
+    identifyLabel: "Qui est-ce ?",
+    search: "Rechercher une Personne",
+    searchLabel: "Rechercher une Personne",
+    noMatch: "Aucune Personne trouvée.",
+    asPerson: "Identifier comme {person}",
+    createName: "Nom de la nouvelle Personne",
+    create: "Créer et identifier",
+    validatedHint:
+      "Validée par une personne : seule une nouvelle identification la change.",
+    status: {
+      random: "Random",
+      ignored: "Ignorée",
     },
   },
   people: {

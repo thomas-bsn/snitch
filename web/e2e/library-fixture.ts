@@ -76,9 +76,14 @@ export const SEGMENTS: Segment[] = [
  * (SPEAKER_00 until 2.2 s, SPEAKER_01 after) and gives them fingerprints. Returns the ids
  * of the two local speakers.
  */
+/** Amplitude peaks sent with the simulated results when a test wants a drawn waveform. */
+const PEAKS = Array.from({ length: 400 }, (_, index) =>
+  Math.round(40 + 180 * Math.abs(Math.sin(index / 9))),
+);
+
 export async function transcribeAndDiarize(
   clipId: number,
-  options: { secondFingerprintEnd?: number } = {},
+  options: { secondFingerprintEnd?: number; peaks?: boolean } = {},
 ) {
   const { api, post, put } = await adminApi();
   await put(`/api/admin/clips/${clipId}/audio-track`, {
@@ -115,6 +120,7 @@ export async function transcribeAndDiarize(
         version: "deterministic-v1",
         language: "fr",
         audio_stream_index: 2,
+        ...(options.peaks ? { peaks: PEAKS } : {}),
         segments: SEGMENTS.map((segment) => ({
           ...segment,
           words: [
@@ -154,6 +160,7 @@ export async function transcribeAndDiarize(
         model: config.model,
         model_version: config.model_version,
         audio_stream_index: 2,
+        ...(options.peaks ? { peaks: PEAKS } : {}),
         speakers: [
           { label: "SPEAKER_00", turns: [{ start: 0, end: 2.2 }] },
           { label: "SPEAKER_01", turns: [{ start: 2.2, end: 4.2 }] },

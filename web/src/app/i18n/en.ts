@@ -1595,7 +1595,6 @@ export const en = {
     loading: "Loading the clip…",
     videoLabel: "Video of the clip",
     videoFailed: "The video cannot be played here.",
-    waveformLabel: "Waveform of the audio track",
     meta: {
       owner: "Imported by {owner}",
       sources: "Source: {sources}",
@@ -1648,6 +1647,9 @@ export const en = {
       listLabel: "Voices of the clip",
       speaking: "{seconds} s of speech, {turns} turns",
       unidentified: "Not identified",
+      track: "Track of {label}",
+      waveformLabel: "Waveform by voice",
+      tracksLabel: "Tracks of the clip, one per voice",
     },
     history: {
       empty: "No segment of this clip was corrected.",
@@ -1864,6 +1866,30 @@ export const en = {
       retranscribeTitle: "Replace corrections?",
       retranscribeWarning:
         "This will replace {texts} text and {speakers} speaker correction(s) by {authors}. They remain in history as obsolete.",
+    },
+  },
+  voiceDecision: {
+    listenLabel: "Listen to an excerpt of {label}",
+    yes: "It is {person}",
+    no: "It is not {person}",
+    identify: "Identify",
+    random: "Random",
+    ignore: "Ignore",
+    restore: "Restore",
+    decisionLabel: "Decision on {label}",
+    group: "In the group of {count} unknown voices",
+    identifyLabel: "Who is it?",
+    search: "Search people",
+    searchLabel: "Search people",
+    noMatch: "No match.",
+    asPerson: "Identify as {person}",
+    createName: "Name of the new person",
+    create: "Create and identify",
+    validatedHint:
+      "Validated by a person: only a new identification changes it.",
+    status: {
+      random: "Random",
+      ignored: "Ignored",
     },
   },
   people: {

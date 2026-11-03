@@ -19,7 +19,6 @@ import { TranscriptTab } from "./TranscriptTab";
 import { RelaunchVoice } from "./RelaunchVoice";
 import { VoicesTab } from "./VoicesTab";
 import { VoiceTrials } from "./VoiceTrials";
-import { Waveform } from "./Waveform";
 import { formatTimecode, parseMoment } from "./clipFormat";
 import { clipTitle, fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
 import { AnalyzeClip } from "./AnalyzeClip";
@@ -86,6 +85,13 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
     setPlayhead(seconds);
     keepMoment(Math.floor(seconds));
   }
+
+  // A decision changes the voices and the transcript: both are read again.
+  const reloadVoices = voice.reload;
+  const refreshVoices = useCallback(() => {
+    onChanged();
+    reloadVoices();
+  }, [onChanged, reloadVoices]);
 
   const date = clip.recorded_at
     ? formatDate(clip.recorded_at)
@@ -156,9 +162,6 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             onMoment={keepMoment}
             onPlayhead={setPlayhead}
           />
-          {waveform && (
-            <Waveform peaks={waveform.peaks} label={t("clip.waveformLabel")} />
-          )}
           <MetadataDisclosure clip={clip} />
           {neverAnalysed && (
             <p className="m-0 rounded-xl border border-accent bg-accent-soft p-3 font-medium text-ink">
@@ -219,7 +222,16 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             value="voices"
             className="max-h-[70vh] overflow-y-auto outline-none"
           >
-            <VoicesTab voice={voiceData} />
+            <VoicesTab
+              voice={voiceData}
+              segments={segments}
+              peaks={waveform?.peaks}
+              duration={clip.duration_seconds}
+              playhead={playhead}
+              onSeek={seek}
+              clipName={clipTitle(clip)}
+              onChanged={refreshVoices}
+            />
             {voiceData && (
               <div className="flex flex-col gap-3 p-3">
                 <VoiceTrials clipId={clip.id} voice={voiceData} />
