@@ -138,6 +138,48 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(page.getByRole("table")).toBeVisible();
   });
 
+  test("en vue icônes, une vidéo indexée affiche sa miniature, une non indexée garde la tuile en pointillés", async ({
+    page,
+  }) => {
+    const api = await request.newContext({
+      baseURL: process.env.SNITCH_TEST_URL!,
+      extraHTTPHeaders: { Origin: process.env.SNITCH_TEST_URL! },
+      storageState: await sessionFor(ADMIN),
+    });
+    const me = await (await api.get("/api/auth/me")).json();
+    const indexed = await api.post("/api/library/explorer/index", {
+      headers: { "X-CSRF-Token": me.csrf_token },
+      data: { path: "media/clip.webm" },
+    });
+    expect(indexed.ok()).toBe(true);
+    await api.dispose();
+    // The indexing is asynchronous: the clip exists once the file is stable.
+    await expect(async () => {
+      await page.goto("/library?folder=media&view=icons");
+      await expect(page.getByRole("link", { name: /clip\.webm/ })).toBeVisible({
+        timeout: 1000,
+      });
+    }).toPass({ timeout: 15000 });
+    const withClip = page.getByRole("link", { name: /clip\.webm/ });
+    await expect(withClip).toBeVisible();
+    await expect(withClip.locator("[data-thumbnail]")).toHaveAttribute(
+      "data-thumbnail",
+      "ready",
+    );
+    const frame = withClip.locator("video");
+    await expect(frame).toHaveCount(1);
+    expect(
+      await frame.evaluate(
+        (video: HTMLVideoElement) => video.videoWidth > 0 && !video.error,
+      ),
+    ).toBe(true);
+    const plain = page.getByRole("button", { name: /plain\.webm/ });
+    await expect(plain).toBeVisible();
+    await expect(plain.locator("video")).toHaveCount(0);
+    await expect(plain.locator("[data-thumbnail]")).toHaveCount(0);
+    await expect(plain.locator("span.border-dashed").first()).toBeVisible();
+  });
+
   test("un membre ne voit ni le contenu ni le chemin d'un dossier privé", async ({
     browser,
   }) => {

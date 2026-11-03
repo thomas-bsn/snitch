@@ -1435,12 +1435,17 @@ func TestFoundation(t *testing.T) {
 						"league/2026":     {"match.mp4", "other.mp4"},
 						"league/2026/sub": {"inner.mp4"},
 						"secret":          {"plan.mp4"},
+						"media":           {"clip.webm", "plain.webm"},
 					} {
 						if e = os.MkdirAll(filepath.Join(explorerRoot, dir), 0o700); e != nil {
 							t.Fatal(e)
 						}
 						for _, name := range files {
-							if e = os.WriteFile(filepath.Join(explorerRoot, dir, name), []byte("synthetic-explorer "+name), 0o600); e != nil {
+							content := []byte("synthetic-explorer " + name)
+							if strings.HasSuffix(name, ".webm") {
+								content = thumbnailWebM(t)
+							}
+							if e = os.WriteFile(filepath.Join(explorerRoot, dir, name), content, 0o600); e != nil {
 								t.Fatal(e)
 							}
 						}
@@ -1468,7 +1473,11 @@ func TestFoundation(t *testing.T) {
 							t.Fatal(e)
 						}
 						for _, name := range files {
-							if e = os.WriteFile(filepath.Join(explorerRoot, dir, name), []byte("synthetic-ui-compare "+name), 0o600); e != nil {
+							content := []byte("synthetic-ui-compare " + name)
+							if name == "interview-claire.mp4" || name == "brief-lumiere.mp4" {
+								content = thumbnailWebM(t)
+							}
+							if e = os.WriteFile(filepath.Join(explorerRoot, dir, name), content, 0o600); e != nil {
 								t.Fatal(e)
 							}
 						}
@@ -1514,4 +1523,15 @@ func TestFoundation(t *testing.T) {
 	if e == nil {
 		t.Log("PostgreSQL container at test end:", string(stats))
 	}
+}
+
+// thumbnailWebM : une vidéo WebM synthétique valide (une seconde, 160x90, une couleur unie, moins d'1 Ko),
+// pour que le navigateur puisse en tirer une vraie miniature sans aucun média réel.
+func thumbnailWebM(t *testing.T) []byte {
+	t.Helper()
+	data, err := os.ReadFile("../../../web/e2e/fixtures/thumbnail.webm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
