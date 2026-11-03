@@ -37,7 +37,7 @@ Après le changement :
 
 ## Demander un scan
 
-Depuis la bibliothèque, ouvrez **Scanner des vidéos et gérer les dossiers**, naviguez dans la racine et :
+Dans **Administration › Dossiers**, ouvrez **Scanner des vidéos et gérer les dossiers**, naviguez dans la racine et :
 
 1. cochez un ou plusieurs fichiers ou sous-dossiers, ou utilisez **Scanner toute la racine** ;
 2. prévisualisez la liste des fichiers vidéo trouvés ;
@@ -53,9 +53,19 @@ Un sous-dossier sélectionné inclut ses sous-dossiers. Rien n'est analysé avan
 
 Un fichier n'est jamais présenté comme indexé tant que sa demande n'est pas réellement traitée.
 
+## Explorer la racine
+
+La **Bibliothèque** parcourt la racine comme un explorateur (ADR 0032) : un arbre des dossiers à gauche, une barre d'outils (dossier parent, fil d'Ariane, recherche dans le dossier, Filtres, vue Liste ou Icônes), et pour chaque vidéo son état : **Non indexée**, **En cours**, **Non analysée**, **Transcrite**, **Analysée** ou **Échec**.
+
+- Lister lit seulement le répertoire ; aucune vidéo n'est lue ni indexée par la navigation, et rien n'est scanné en arrière-plan.
+- Ouvrir une vidéo **non indexée** l'indexe sans la transcrire, puis ouvre sa fiche ; l'analyse se lance ensuite depuis la fiche. Ce parcours n'exige pas de Worker.
+- Avec un filtre actif (recherche, État, Jeu, dates, visibilité, propriétaire), les résultats sont à plat, avec leur dossier, pour le dossier courant et ses sous-dossiers.
+- Le menu d'un dossier propose **Analyser les vidéos non analysées** (administrateurs) et **Rendre privé / partagé** (Super-administrateur, voir ci-dessous).
+- Les clips sans fichier dans la racine (envois non publiés dans la racine, anciennes sources) restent visibles dans « Tous les clips ».
+
 ## Dossiers privés
 
-Le Super-administrateur peut rendre privé un dossier de premier niveau de la racine (ADR 0026). Le dossier reste visible avec un cadenas pour les autres utilisateurs, mais son contenu n'est ni listé, ni prévisualisé, ni ajouté à la file, ni créé dessous, y compris pour les administrateurs. Un clip présent aussi dans un autre dossier reste accessible par ce dossier-là.
+Le Super-administrateur peut rendre privé un dossier de premier niveau de la racine (ADR 0026). Le dossier reste visible avec un cadenas pour les autres utilisateurs, mais son contenu n'est ni listé, ni prévisualisé, ni ajouté à la file, ni créé dessous, y compris pour les administrateurs. Dans la Bibliothèque, son nom reste dans l'arbre avec un cadenas, et ses vidéos n'apparaissent ni dans la liste, ni dans les résultats filtrés, ni dans la recherche. Un clip présent aussi dans un autre dossier reste accessible par ce dossier-là.
 
 ## Créer un sous-dossier et y importer
 

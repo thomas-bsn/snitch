@@ -178,6 +178,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVideoRootBrowse(t, pool)
 	})
+	t.Run("explorer", func(t *testing.T) {
+		reset(t)
+		testExplorer(t, pool)
+	})
 	t.Run("video root private folders", func(t *testing.T) {
 		reset(t)
 		testVideoRootPrivacy(t, pool)
@@ -1087,6 +1091,7 @@ func TestFoundation(t *testing.T) {
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
 			"people-groups.spec.ts", "people-directory.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
 			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-trial.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts",
+			"library-explorer.spec.ts",
 		}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = []string{"setup-wizard.spec.ts"}
@@ -1114,6 +1119,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_IMPORT") == "1" {
 			suites = []string{"import.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_EXPLORER") == "1" {
+			suites = []string{"library-explorer.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_LIBRARY") == "1" {
 			suites = []string{"library.spec.ts"}
@@ -1228,6 +1236,7 @@ func TestFoundation(t *testing.T) {
 				sourceRoot := ""
 				videoRoot := ""
 				videoRoot2 := ""
+				explorerRoot := ""
 				providerURL := ""
 				if suite == "admin-semantic.spec.ts" || suite == "segment-reindex.spec.ts" {
 					providerURL = newReindexProvider(t).srv.URL
@@ -1243,13 +1252,36 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "clip-analysis.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "library-explorer.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
 					config.UploadChunkBytes = 16 * 1024
 					config.UploadSessionTTL = time.Hour
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
+				}
+				if suite == "library-explorer.spec.ts" {
+					// The explorer's synthetic tree (ADR 0032): an imported clip, unindexed videos and a private folder.
+					explorerRoot = t.TempDir()
+					config.UploadRoot = t.TempDir()
+					config.ProbePath = syntheticProbeFixture(t)
+					config.StabilityWindow = 10 * time.Millisecond
+					config.ReconcileInterval = 100 * time.Millisecond
+					for dir, files := range map[string][]string{
+						"":                {"top.mp4"},
+						"league/2026":     {"match.mp4", "other.mp4"},
+						"league/2026/sub": {"inner.mp4"},
+						"secret":          {"plan.mp4"},
+					} {
+						if e = os.MkdirAll(filepath.Join(explorerRoot, dir), 0o700); e != nil {
+							t.Fatal(e)
+						}
+						for _, name := range files {
+							if e = os.WriteFile(filepath.Join(explorerRoot, dir, name), []byte("synthetic-explorer "+name), 0o600); e != nil {
+								t.Fatal(e)
+							}
+						}
+					}
 				}
 				if suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" {
 					videoRoot = t.TempDir()
@@ -1259,7 +1291,7 @@ func TestFoundation(t *testing.T) {
 					}
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "clip-analysis.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "library-explorer.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
@@ -1275,7 +1307,7 @@ func TestFoundation(t *testing.T) {
 				args := []string{"run", "test:e2e", "--", suite}
 				cmd := exec.Command("npm", args...)
 				cmd.Dir = "../../../web"
-				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384", "SNITCH_TEST_VIDEO_ROOT="+videoRoot, "SNITCH_TEST_VIDEO_ROOT_2="+videoRoot2)
+				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384", "SNITCH_TEST_VIDEO_ROOT="+videoRoot, "SNITCH_TEST_VIDEO_ROOT_2="+videoRoot2, "SNITCH_TEST_EXPLORER_ROOT="+explorerRoot)
 				out, e := cmd.CombinedOutput()
 				t.Log(string(out))
 				if e != nil {

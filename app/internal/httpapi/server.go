@@ -166,6 +166,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/video-root", s.protected(false, http.HandlerFunc(s.videoRoot)))
 	mux.Handle("PUT /api/admin/video-root", s.protected(true, http.HandlerFunc(s.videoRoot)))
 	mux.Handle("GET /api/admin/video-root/browse", s.protected(false, http.HandlerFunc(s.videoBrowse)))
+	mux.Handle("GET /api/library/explorer", s.protected(false, http.HandlerFunc(s.explorerList)))
+	mux.Handle("POST /api/library/explorer/index", s.protected(false, http.HandlerFunc(s.explorerIndex)))
 	mux.Handle("POST /api/admin/video-root/folders", s.protected(true, http.HandlerFunc(s.videoFolder)))
 	mux.Handle("POST /api/admin/video-root/scan", s.protected(true, http.HandlerFunc(s.videoScan)))
 

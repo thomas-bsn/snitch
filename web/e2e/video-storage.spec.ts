@@ -68,10 +68,7 @@ test.describe.serial("racine vidéo et photo de profil", () => {
   test("une sélection est prévisualisée puis attend un Worker", async ({
     page,
   }) => {
-    await page.goto("/library");
-    await page
-      .getByRole("button", { name: "Scan videos and manage folders" })
-      .click();
+    await page.goto("/admin/folders");
     await page
       .getByRole("checkbox", { name: "Select browser-fixture.mp4" })
       .check();
