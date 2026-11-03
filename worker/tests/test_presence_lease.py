@@ -282,6 +282,34 @@ class PresenceAndLeaseTests(unittest.TestCase):
             duration = self._voice_job("voice.fingerprint.0", "pyannote", pyannote, {"diarization": diarization})
         self._assert_cancelled_without_result(duration)
 
+    def test_refused_lease_stops_a_simulated_provider_at_its_next_cancellation_point(self):
+        """A provider built on the shared embedding helper stops between two embeddings."""
+        from snitch_worker import voice
+
+        embedded = []
+
+        class SimulatedProvider:
+            def ensure_diarization_ready(self, _config):
+                pass
+
+            def ensure_ready(self, _config):
+                pass
+
+            def fingerprint(self, config, diarization, _audio, stream_index):
+                def embed(start, _end):
+                    embedded.append(start)
+                    inference_started.append(1)
+                    time.sleep(0.2)  # a short unit of work, returning to Python each time
+                    return [1.0, 0.0]
+
+                return voice.fingerprints_from_embedder(config, diarization, embed, stream_index, "m", "v1")
+
+        turns = [{"index": i, "start": float(i * 3), "end": float(i * 3 + 2)} for i in range(400)]
+        diarization = {"speakers": [{"label": "s0", "turns": turns}]}
+        duration = self._voice_job("voice.fingerprint.0", "simulated", SimulatedProvider(), {"diarization": diarization})
+        self._assert_cancelled_without_result(duration)
+        self.assertLess(len(embedded), 40)  # 400 turns would take 80 s; the job stopped within seconds
+
     def test_result_is_discarded_when_the_lease_expired_during_an_outage(self):
         with (
             patch.object(runner, "pulse", return_value=object()),

@@ -567,7 +567,9 @@ def _run_claimed(
                     wav_path = os.path.join(temporary, "prepared.wav")
                     download_media(client, task_input, lease_token, original)
                     stream_index = int(job.step.rsplit(".", 1)[1])
+                    cancellation.check()
                     prepare_audio(original, wav_path, stream_index)
+                    cancellation.check()
                     pipeline_value = getattr(task_input, "pipeline", None)
                     pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
                     override = getattr(task_input, "transcription_model", None)
@@ -578,6 +580,7 @@ def _run_claimed(
                         {"term": term.term, "variants": term.variants, "preferred_spelling": term.preferred_spelling}
                         for term in (task_input.vocabulary or [])
                     ]
+                    cancellation.check()
                     result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
                     result["audio_stream_index"] = stream_index
                     attach_peaks(result, wav_path)

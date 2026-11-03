@@ -12,6 +12,8 @@ import sys
 import wave
 from typing import Any
 
+from snitch_worker import cancellation
+
 PEAK_COUNT = 1200
 _CHUNK_FRAMES = 1 << 18
 _FULL_SCALE = 32768
@@ -39,6 +41,7 @@ def _read_peaks(wav_path: str, count: int) -> list[int]:
         per_read = bucket * max(1, _CHUNK_FRAMES // bucket)
         peaks: list[int] = []
         while True:
+            cancellation.check()
             data = audio.readframes(per_read)
             if not data:
                 break
