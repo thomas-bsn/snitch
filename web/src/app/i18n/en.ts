@@ -491,6 +491,43 @@ export const en = {
   },
   voiceAdmin: {
     title: "Voice processing",
+    hf: {
+      title: "Central Hugging Face token",
+      lead: "Enter the token once here. Snitch keeps it encrypted and never shows it again. Authorised Workers receive it on their own and keep it privately, so a new or rebuilt Worker can download voice models without any command on its machine.",
+      configured:
+        "Configured. The value is kept encrypted and cannot be read back.",
+      absent:
+        "Not configured. Workers keep the token they already have, if any.",
+      unreadable:
+        "The stored token cannot be read with the current master key. Enter it again.",
+      fingerprint: "Fingerprint {value}.",
+      field: "Hugging Face token",
+      hint: "Starts with hf_. Shown once, then hidden for good.",
+      save: "Save token",
+      replace: "Replace token",
+      remove: "Remove token",
+      cancelRemove: "Keep it",
+      removeHint:
+        "Workers purge their central copy at their next contact. A token a Worker keeps locally stays.",
+      owner: "Only the Super-administrator can change the token.",
+      savedNotice: "Token saved. Workers receive it at their next contact.",
+      removedNotice:
+        "Token removed. Workers purge their central copy at their next contact.",
+      workersTitle: "Workers",
+      workersLead:
+        "Each Worker reports the token it keeps. Not synchronised: the Worker is offline or has not yet acknowledged this version.",
+      state: {
+        synced: "Synchronised",
+        pending: "Not synchronised",
+        error: "Error",
+      },
+      source: {
+        central: "Snitch copy",
+        local: "Local token kept",
+        none: "No token",
+        unknown: "Not reported yet",
+      },
+    },
     saved: "Settings saved.",
     pipeline: "Voice pipeline",
     version: "Version {version}. No models are downloaded without your action.",
@@ -813,6 +850,14 @@ export const en = {
   },
   setup: {
     title: "Set up Snitch",
+    huggingface: {
+      title: "Hugging Face token (optional)",
+      lead: "Only needed to download voice models. Saved once, encrypted, then sent to your authorised Workers. You can also add it later in Voice processing.",
+      field: "Hugging Face token",
+      hint: "Starts with hf_. Shown once, then hidden for good.",
+      ownerOnly: "Only the Super-administrator can save the token.",
+      saved: "Token saved. Workers receive it at their next contact.",
+    },
     lead: "Create the Super-administrator account first. Everything else is optional, and nothing starts without your say-so.",
     stepOf: "Step {step} of {total}",
     stepsLabel: "Setup steps",
@@ -822,6 +867,7 @@ export const en = {
       discord: "Discord",
       semantic: "Semantic search",
       worker: "First Worker",
+      huggingface: "Hugging Face token",
       import: "Import videos",
       summary: "Summary",
     },
@@ -834,6 +880,7 @@ export const en = {
     where: {
       discord: "Administration, Users and access",
       semantic: "Administration, Semantic index",
+      huggingface: "Administration, Voice processing",
       worker: "Administration, Workers",
       import: "the Import page",
     },

@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useLoaded } from "../../api/loaded";
+import { useEventStream } from "../../api/useEventStream";
 import { ErrorAlert } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { StatusPill } from "../../components/StatusPill";
@@ -9,7 +10,7 @@ import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
 import { WorkerCreateForm } from "./WorkerCreateForm";
 import { WorkerDetailPage } from "./WorkerDetailPage";
-import { fetchWorkers, type Worker } from "./workersApi";
+import { fetchWorkers, type Worker, type WorkerPage } from "./workersApi";
 import { installStatus, workerModelSummary, workerStatus } from "./workerView";
 
 /** The Workers tab of the administration: the list, the creation form and a Worker's page. */
@@ -43,7 +44,9 @@ function CreateWorker() {
 function WorkersList() {
   const { t, error } = useI18n();
   const formatDate = useFormatDate();
-  const { state } = useLoaded(fetchWorkers);
+  const { state, set, reload } = useLoaded(fetchWorkers);
+  // Live: the list is redrawn from each change of the stream; the reload is the fallback.
+  useEventStream<WorkerPage>("/api/admin/workers/events", set, reload);
   useDocumentTitle(t("workers.title"));
 
   return (
