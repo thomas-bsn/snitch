@@ -1173,6 +1173,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_JOBS") == "1" {
 			suites = []string{"admin-queue-folders.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_CLIP_ANALYSIS") == "1" {
+			suites = []string{"clip-analysis.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_WORKERS") == "1" {
 			suites = []string{"admin-workers.spec.ts"}
 		}

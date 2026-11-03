@@ -1674,10 +1674,45 @@ export const en = {
       liveLost:
         "Access to this live view was lost. Reload the page to sign in again.",
       steps: "Analysis steps",
-      full: "Analyze all",
-      more: "More analysis options",
-      transcription: "Transcribe only",
-      voice: "Detect voices",
+      panelTitle: "Clip analysis",
+      launch: "Launch analysis…",
+      launchFull: "Full analysis",
+      launchMissing: "Only what is missing",
+      quick: "Quick choice",
+      pill: {
+        never: "Never analysed",
+        busy: "Running",
+        running: "Running: {step}",
+        waiting: "Waiting: {reason}",
+        failed: "Failed: {step}",
+        failedNoStep: "Failed",
+        cancelled: "Analysis cancelled",
+        complete: "Analysis complete",
+      },
+      logs: {
+        title: "Last 50 log lines",
+        empty: "No log line for this task yet.",
+        liveOff: "Log lines paused: reconnecting.",
+      },
+      delete: {
+        open: "Delete…",
+        title: "Delete part of the analysis",
+        intro: "Choose what to delete. Nothing is deleted before you confirm.",
+        what: "Steps to delete",
+        all: "The whole analysis",
+        blocked: "Cancel the running analysis before deleting steps.",
+        losses: "This deletion will lose:",
+        none: "Nothing would be lost.",
+        lossSegments: "{count} transcript segments",
+        lossCorrections:
+          "{text} corrected segment texts and {speaker} speaker corrections",
+        lossVoices: "{voices} local voices, {validated} of them validated",
+        lossSamples: "{samples} voice samples removed from the reference",
+        lossPersons: "{persons} people affected (kept, without these samples)",
+        kept: "People are never deleted.",
+        cancel: "Cancel",
+        confirm: "Delete the selection",
+      },
       step: {
         preparation: "Preparation",
         transcription: "Transcription",
@@ -1744,7 +1779,7 @@ export const en = {
       track: "Audio track",
       trackPlaceholder: "Choose a track…",
       trackConfirm: "Confirm track",
-      cancel: "Cancel analysis",
+      cancel: "Cancel the rest",
       cancelled:
         "Analysis cancelled. Valid results are kept; start a new analysis to continue.",
       failure: {
@@ -1810,8 +1845,7 @@ export const en = {
       profile: "Profile: {profile}",
     },
     reanalyze: {
-      menu: "Reanalyze…",
-      title: "Reanalyze this clip",
+      title: "Launch analysis",
       close: "Close",
       scopeLabel: "What to analyze",
       scope: {
