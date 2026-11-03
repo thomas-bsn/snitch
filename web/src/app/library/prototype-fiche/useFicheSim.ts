@@ -41,13 +41,17 @@ export function launchPlan(steps: Step[], selected: StepKey[]) {
   return { plan, added };
 }
 
+const never = new URLSearchParams(window.location.search).get("etat") === "jamais";
+
 export function useFicheSim() {
-  const [steps, setSteps] = useState<Step[]>(initialSteps);
-  const [voices, setVoices] = useState<Voice[]>(initialVoices);
-  const [segments, setSegments] = useState<Segment[]>(initialSegments);
-  const [logs, setLogs] = useState<Record<string, string[]>>({
-    fingerprints: failureLogs(),
-  });
+  const [steps, setSteps] = useState<Step[]>(() =>
+    never ? initialSteps().map((s) => ({ ...s, status: "absent" as const, error: undefined, durationS: undefined, worker: undefined })) : initialSteps(),
+  );
+  const [voices, setVoices] = useState<Voice[]>(never ? [] : initialVoices);
+  const [segments, setSegments] = useState<Segment[]>(never ? [] : initialSegments);
+  const [logs, setLogs] = useState<Record<string, string[]>>(
+    never ? {} : { fingerprints: failureLogs() },
+  );
   const [failNext, setFailNext] = useState<"none" | "fingerprints" | "transcription">("fingerprints");
   const [voiceWorkerMissing, setVoiceWorkerMissing] = useState(false);
   const failRef = useRef(failNext);

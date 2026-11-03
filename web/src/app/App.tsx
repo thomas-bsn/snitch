@@ -43,6 +43,7 @@ import { SearchPage } from "./search/SearchPage";
 import { ThemeProvider } from "./theme";
 import { FichePrototype } from "./library/prototype-fiche/FichePrototype";
 import { PeoplePrototype } from "./people/prototype-people/PeoplePrototype";
+import { LibraryPrototype } from "./library/prototype-fiche/LibraryPrototype";
 
 /** Screens that need a signed-in person; others are sent to the sign-in screen. */
 function RequireSession() {
@@ -163,7 +164,15 @@ export function App() {
       <ThemeProvider>
         <I18nProvider>
           <BrowserRouter>
-            {window.location.pathname.startsWith("/prototype/people") ? <PeoplePrototype /> : <FichePrototype />}
+            {window.location.pathname.startsWith("/prototype/people") ? (
+              <PeoplePrototype />
+            ) : window.location.pathname.startsWith("/prototype/library") ? (
+              <LibraryPrototype screen="library" />
+            ) : window.location.pathname.startsWith("/prototype/import") ? (
+              <LibraryPrototype screen="import" />
+            ) : (
+              <FichePrototype />
+            )}
           </BrowserRouter>
         </I18nProvider>
       </ThemeProvider>
