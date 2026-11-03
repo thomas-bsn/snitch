@@ -105,7 +105,7 @@ export function ExplorerTree({
             )}
             <button
               type="button"
-              className={`flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-hover ${
+              className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-hover md:min-h-0 ${
                 isCurrent ? "bg-accent-soft font-semibold text-ink" : "text-ink"
               }`}
               aria-current={isCurrent ? "true" : undefined}
@@ -145,7 +145,7 @@ export function ExplorerTree({
     >
       <button
         type="button"
-        className={`mb-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm font-semibold hover:bg-hover ${
+        className={`mb-1 flex min-h-11 w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm font-semibold hover:bg-hover md:min-h-0 ${
           current === "" ? "bg-accent-soft text-ink" : "text-ink"
         }`}
         aria-current={current === "" ? "true" : undefined}

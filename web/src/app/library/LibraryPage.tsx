@@ -315,7 +315,7 @@ export function LibraryPage() {
             <li>
               <button
                 type="button"
-                className="rounded px-1.5 py-1 text-ink hover:bg-hover"
+                className="inline-flex min-h-11 items-center rounded px-1.5 py-1 text-ink hover:bg-hover md:min-h-0"
                 onClick={() => openFolder("")}
                 aria-current={folder ? undefined : "page"}
               >
@@ -332,7 +332,7 @@ export function LibraryPage() {
                   </span>
                   <button
                     type="button"
-                    className="rounded px-1.5 py-1 text-ink hover:bg-hover"
+                    className="inline-flex min-h-11 items-center rounded px-1.5 py-1 text-ink hover:bg-hover md:min-h-0"
                     onClick={() => openFolder(path)}
                     aria-current={last ? "page" : undefined}
                   >
@@ -351,7 +351,7 @@ export function LibraryPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t("library.explorer.searchPlaceholder")}
-            className="min-w-0 flex-1 bg-transparent text-ink outline-none"
+            className="h-11 min-w-0 flex-1 bg-transparent text-ink outline-none md:h-7"
           />
         </label>
         <button
@@ -701,7 +701,7 @@ function ExplorerRow({
         {entry.directory ? (
           <button
             type="button"
-            className="max-w-full text-left font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:no-underline"
+            className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:no-underline md:min-h-0"
             disabled={entry.locked}
             title={
               entry.locked ? t("library.privateFolder.lockedHint") : undefined
@@ -714,14 +714,14 @@ function ExplorerRow({
           <Link
             to={`/clips/${entry.clip_id}`}
             aria-label={t("library.card.open", { name: entry.name })}
-            className="max-w-full font-medium text-ink hover:underline"
+            className="inline-flex min-h-11 max-w-full items-center font-medium text-ink hover:underline md:min-h-0"
           >
             {name}
           </Link>
         ) : (
           <button
             type="button"
-            className="max-w-full text-left font-medium text-ink hover:underline disabled:opacity-60"
+            className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:opacity-60 md:min-h-0"
             disabled={busy}
             onClick={() => onOpenVideo(entry)}
           >
