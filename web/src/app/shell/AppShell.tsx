@@ -15,6 +15,7 @@ import { SetupBanner } from "../setup/SetupBanner";
 import { AvatarMenu } from "./AvatarMenu";
 import { HeaderSearch } from "./HeaderSearch";
 import { NAV_ENTRIES } from "./navigation";
+import { useToProcessCount } from "./useToProcessCount";
 
 const sidebarLink =
   "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-nav aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-ink hover:bg-surface";
@@ -33,6 +34,24 @@ export function AppShell() {
   const libraryAddress =
     location.pathname === "/search" ? `/library${location.search}` : "/library";
   const notice = params.get("notice");
+  const toProcess = useToProcessCount();
+  // The badge of the People entry: hidden to assistive names, given as a description.
+  const badge = (to: string, id: string) =>
+    to === "/people" && toProcess ? (
+      <>
+        <b
+          aria-hidden="true"
+          className="ml-auto rounded-full bg-accent-soft px-2 text-xs text-accent-ink"
+        >
+          {toProcess}
+        </b>
+        <span id={id} className="sr-only">
+          {t("nav.peopleToProcess", { count: toProcess })}
+        </span>
+      </>
+    ) : null;
+  const described = (to: string, id: string) =>
+    to === "/people" && toProcess ? id : undefined;
   return (
     <NotificationsProvider>
       <div className="flex min-h-dvh bg-canvas text-ink">
@@ -52,9 +71,11 @@ export function AppShell() {
                 key={to}
                 to={to === "/library" ? libraryAddress : to}
                 className={sidebarLink}
+                aria-describedby={described(to, "nav-side-to-process")}
               >
                 <Icon className="size-4" />
                 {t(label)}
+                {badge(to, "nav-side-to-process")}
               </NavLink>
             ))}
           </nav>
@@ -108,9 +129,11 @@ export function AppShell() {
               key={to}
               to={to === "/library" ? libraryAddress : to}
               className={tabLink}
+              aria-describedby={described(to, "nav-tab-to-process")}
             >
               <Icon className="size-5" />
               {t(label)}
+              {badge(to, "nav-tab-to-process")}
             </NavLink>
           ))}
         </nav>

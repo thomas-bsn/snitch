@@ -5488,6 +5488,15 @@
         "security": [{"session": []}]
       }
     },
+    "/api/people/to-process": {
+      "get": {
+        "operationId": "listPeopleToProcess",
+        "parameters": [{"in": "query", "name": "filter", "required": false, "schema": {"type": "string", "enum": ["all", "to_confirm", "unknown_ambiguous", "group"], "default": "all"}, "description": "Ne garder que les clips avec une voix à confirmer (suggestion), une voix inconnue ou ambiguë, ou un groupe proposé."}, {"in": "query", "name": "page", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}}, {"in": "query", "name": "page_size", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}],
+        "responses": {"200": {"description": "Un élément par clip visible ayant au moins une voix à trancher", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PeopleToProcess"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Vue « À traiter », calculée à la lecture sur les clips visibles : voix sans validation humaine ni attribution automatique, hors voix ignorées et Random (ADR 0031). Par clip : voix à confirmer (suggestion), ambiguës, inconnues, et nombre de groupes proposés (deux voix ou plus) auxquels ses voix appartiennent. Tri : plus de voix d'abord. `total` suit le filtre ; `totals` n'en dépend pas (compteurs de l'onglet). Cette lecture n'écrit rien.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/notifications": {
       "get": {
         "operationId": "listNotifications",
@@ -7773,6 +7782,21 @@
           "group_voice_count": {"type": "integer", "description": "Présent avec group_id."},
           "group_clip_count": {"type": "integer", "description": "Présent avec group_id."}
         }
+      },
+      "PeopleToProcessClip": {
+        "type": "object",
+        "required": ["clip_id", "clip_name", "to_confirm", "ambiguous", "unknown", "groups"],
+        "properties": {"clip_id": {"type": "integer", "format": "int64"}, "clip_name": {"type": "string"}, "to_confirm": {"type": "integer"}, "ambiguous": {"type": "integer"}, "unknown": {"type": "integer"}, "groups": {"type": "integer"}}
+      },
+      "PeopleToProcessTotals": {
+        "type": "object",
+        "required": ["clips", "to_confirm", "ambiguous", "unknown", "groups"],
+        "properties": {"clips": {"type": "integer"}, "to_confirm": {"type": "integer"}, "ambiguous": {"type": "integer"}, "unknown": {"type": "integer"}, "groups": {"type": "integer"}}
+      },
+      "PeopleToProcess": {
+        "type": "object",
+        "required": ["items", "total", "totals"],
+        "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PeopleToProcessClip"}}, "total": {"type": "integer"}, "totals": {"$ref": "#/components/schemas/PeopleToProcessTotals"}}
       },
       "VoiceVerificationCounts": {
         "type": "object",

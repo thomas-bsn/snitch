@@ -122,6 +122,7 @@ from .list_library_folders_response_200 import ListLibraryFoldersResponse200
 from .list_members_response_200 import ListMembersResponse200
 from .list_notifications_filter import ListNotificationsFilter
 from .list_notifications_state import ListNotificationsState
+from .list_people_to_process_filter import ListPeopleToProcessFilter
 from .list_person_link_requests_status import ListPersonLinkRequestsStatus
 from .list_voice_groups_sort import ListVoiceGroupsSort
 from .list_voice_verification_level import ListVoiceVerificationLevel
@@ -156,6 +157,9 @@ from .notification_read import NotificationRead
 from .notification_state import NotificationState
 from .obsolete_correction import ObsoleteCorrection
 from .obsolete_corrections import ObsoleteCorrections
+from .people_to_process import PeopleToProcess
+from .people_to_process_clip import PeopleToProcessClip
+from .people_to_process_totals import PeopleToProcessTotals
 from .person import Person
 from .person_account_input import PersonAccountInput
 from .person_correction_result import PersonCorrectionResult
@@ -537,6 +541,7 @@ __all__ = (
     "ListMembersResponse200",
     "ListNotificationsFilter",
     "ListNotificationsState",
+    "ListPeopleToProcessFilter",
     "ListPersonLinkRequestsStatus",
     "ListVoiceGroupsSort",
     "ListVoiceVerificationLevel",
@@ -571,6 +576,9 @@ __all__ = (
     "NotificationState",
     "ObsoleteCorrection",
     "ObsoleteCorrections",
+    "PeopleToProcess",
+    "PeopleToProcessClip",
+    "PeopleToProcessTotals",
     "Person",
     "PersonAccountInput",
     "PersonCorrectionResult",

@@ -2509,6 +2509,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/people/to-process": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Vue « À traiter », calculée à la lecture sur les clips visibles : voix sans validation humaine ni attribution automatique, hors voix ignorées et Random (ADR 0031). Par clip : voix à confirmer (suggestion), ambiguës, inconnues, et nombre de groupes proposés (deux voix ou plus) auxquels ses voix appartiennent. Tri : plus de voix d'abord. `total` suit le filtre ; `totals` n'en dépend pas (compteurs de l'onglet). Cette lecture n'écrit rien. */
+    get: operations["listPeopleToProcess"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/notifications": {
     parameters: {
       query?: never;
@@ -4226,6 +4243,27 @@ export interface components {
       group_voice_count?: number;
       /** @description Présent avec group_id. */
       group_clip_count?: number;
+    };
+    PeopleToProcessClip: {
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      to_confirm: number;
+      ambiguous: number;
+      unknown: number;
+      groups: number;
+    };
+    PeopleToProcessTotals: {
+      clips: number;
+      to_confirm: number;
+      ambiguous: number;
+      unknown: number;
+      groups: number;
+    };
+    PeopleToProcess: {
+      items: components["schemas"]["PeopleToProcessClip"][];
+      total: number;
+      totals: components["schemas"]["PeopleToProcessTotals"];
     };
     /** @description Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base. */
     VoiceVerificationCounts: {
@@ -12114,6 +12152,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceVerification"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPeopleToProcess: {
+    parameters: {
+      query?: {
+        /** @description Ne garder que les clips avec une voix à confirmer (suggestion), une voix inconnue ou ambiguë, ou un groupe proposé. */
+        filter?: "all" | "to_confirm" | "unknown_ambiguous" | "group";
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Un élément par clip visible ayant au moins une voix à trancher */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PeopleToProcess"];
         };
       };
       /** @description Erreur */

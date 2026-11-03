@@ -98,6 +98,27 @@ export const fetchVerification = (
     return data ? { ok: true, value: data } : failure(error);
   });
 
+export type ToProcess = components["schemas"]["PeopleToProcess"];
+export type ToProcessClip = components["schemas"]["PeopleToProcessClip"];
+export type ToProcessFilter =
+  | "all"
+  | "to_confirm"
+  | "unknown_ambiguous"
+  | "group";
+
+/** The clips that still have a voice to settle, with their numbers (computed by the server). */
+export const fetchToProcess = (
+  filter: ToProcessFilter,
+  page: number,
+  pageSize: number,
+) =>
+  guard(async () => {
+    const { data, error } = await api.GET("/api/people/to-process", {
+      params: { query: { filter, page, page_size: pageSize } },
+    });
+    return data ? { ok: true, value: data } : failure(error);
+  });
+
 /** The proposed groups of unknown voices (two voices or more), most frequent first. */
 export const fetchVoiceGroups = (page: number, pageSize: number) =>
   guard(async () => {

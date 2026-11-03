@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { buttonClass } from "../components/buttons";
@@ -14,6 +14,7 @@ import {
   type VerificationCase,
   type VerificationFilter,
 } from "./peopleApi";
+import { ToProcessList } from "./ToProcessList";
 import { VerificationCaseCard } from "./VerificationCaseCard";
 
 // The most a page of the server holds: settled cases leave, so the next ones come in.
@@ -151,11 +152,8 @@ export function VerificationTab() {
 
   const data = state.status === "ready" ? state.value : undefined;
   const counts = data?.counts;
-  const toDecide = counts ? counts.unknown + counts.ambiguous : undefined;
+  // The counter of the tab comes from the "To process" list (same voices as before).
   const report = outlet?.reportToDecide;
-  useEffect(() => {
-    if (toDecide !== undefined) report?.(toDecide);
-  }, [toDecide, report]);
 
   // The queue: what was not skipped first, then the skipped ones in the order they were.
   const pinned =
@@ -212,6 +210,7 @@ export function VerificationTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      <ToProcessList version={gone.length} onToDecide={report} />
       <p className="max-w-2xl text-mute">{t("people.verification.lead")}</p>
       {clip !== undefined && (
         <div
