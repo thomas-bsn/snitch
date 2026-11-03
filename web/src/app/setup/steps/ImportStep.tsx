@@ -18,8 +18,8 @@ export function ImportStep({
   return (
     <div className="flex max-w-xl flex-col gap-5">
       <StepHeader
-        position={7}
-        total={8}
+        position={8}
+        total={9}
         title={t("setup.import.title")}
         lead={t("setup.import.lead")}
       />

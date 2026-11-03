@@ -39,7 +39,7 @@ export function DiscordStep({ onDone, skip }: StepProps) {
   const header = (
     <StepHeader
       position={4}
-      total={8}
+      total={9}
       title={t("setup.discord.title")}
       lead={t("setup.discord.lead")}
     />

@@ -775,6 +775,14 @@ type Worker struct {
 	RevocationAcknowledgedAt pgtype.Timestamptz `json:"revocation_acknowledged_at"`
 }
 
+type WorkerHfToken struct {
+	WorkerID     string             `json:"worker_id"`
+	AckedVersion string             `json:"acked_version"`
+	Source       string             `json:"source"`
+	ErrorCode    string             `json:"error_code"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type WorkerInstallEvent struct {
 	ID         int64              `json:"id"`
 	WorkerID   string             `json:"worker_id"`

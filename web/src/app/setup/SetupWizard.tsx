@@ -14,6 +14,7 @@ import {
 import { AdminStep, type AccountDraft } from "./steps/AdminStep";
 import { CodeStep } from "./steps/CodeStep";
 import { DiscordStep } from "./steps/DiscordStep";
+import { HuggingFaceStep } from "./steps/HuggingFaceStep";
 import { ImportStep } from "./steps/ImportStep";
 import { SemanticStep } from "./steps/SemanticStep";
 import { SummaryStep } from "./steps/SummaryStep";
@@ -183,7 +184,7 @@ export function SetupWizard() {
           <div data-active-step className="flex max-w-xl flex-col gap-5">
             <StepHeader
               position={STEP_IDS.indexOf(step) + 1}
-              total={8}
+              total={9}
               title={t(STEP_LABELS[step])}
             />
             <p>{t("setup.completed")}</p>
@@ -198,7 +199,7 @@ export function SetupWizard() {
         )}
         {progress && step === "location" && (
           <div data-active-step className="flex max-w-xl flex-col gap-5">
-            <StepHeader position={3} total={8} title={t("metadata.title")} />
+            <StepHeader position={3} total={9} title={t("metadata.title")} />
             <MetadataSettings onSaved={() => void leave("location", "done")} />
             {skip("location")}
           </div>
@@ -234,7 +235,7 @@ export function SetupWizard() {
               <div className="flex max-w-xl flex-col gap-5">
                 <StepHeader
                   position={6}
-                  total={8}
+                  total={9}
                   title={t("setup.worker.title")}
                 />
                 <p>{t("setup.completed")}</p>
@@ -252,6 +253,17 @@ export function SetupWizard() {
                 skip={skip("worker")}
               />
             )}
+          </div>
+        )}
+        {progress && visited.has("huggingface") && (
+          <div
+            hidden={step !== "huggingface"}
+            data-active-step={step === "huggingface" ? "" : undefined}
+          >
+            <HuggingFaceStep
+              onDone={() => leave("huggingface", "done")}
+              skip={skip("huggingface")}
+            />
           </div>
         )}
         {progress && step === "import" && (
