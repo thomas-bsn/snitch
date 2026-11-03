@@ -7619,13 +7619,15 @@
       "PersonLinkRequestList": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PersonLinkRequest"}}}},
       "Person": {
         "type": "object",
-        "required": ["id", "display_name", "user_id", "validated_sample_count", "local_speaker_count", "voice_profile_deleted_at", "created_at"],
+        "required": ["id", "display_name", "user_id", "validated_sample_count", "local_speaker_count", "clip_count", "speaking_seconds", "voice_profile_deleted_at", "created_at"],
         "properties": {
           "id": {"type": "integer", "format": "int64"},
           "display_name": {"type": "string"},
           "user_id": {"type": "integer", "format": "int64", "nullable": true, "description": "Compte lié, le cas échéant : une Personne n'est jamais un compte."},
           "validated_sample_count": {"type": "integer", "description": "Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre n'est pas une garantie de qualité d'identification."},
           "local_speaker_count": {"type": "integer", "description": "Locuteurs locaux validés pour cette Personne."},
+          "clip_count": {"type": "integer", "description": "Vidéos où une voix validée de la Personne est entendue, parmi celles que l'appelant peut voir. Rempli en lecture (liste et fiche), 0 dans le résultat d'une correction."},
+          "speaking_seconds": {"type": "number", "description": "Temps de parole cumulé de ces voix validées, sur les vidéos visibles par l'appelant."},
           "voice_profile_deleted_at": {"type": "string", "format": "date-time", "nullable": true, "description": "Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée."},
           "created_at": {"type": "string", "format": "date-time"}
         }

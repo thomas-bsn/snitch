@@ -3985,6 +3985,10 @@ export interface components {
       validated_sample_count: number;
       /** @description Locuteurs locaux validés pour cette Personne. */
       local_speaker_count: number;
+      /** @description Vidéos où une voix validée de la Personne est entendue, parmi celles que l'appelant peut voir. Rempli en lecture (liste et fiche), 0 dans le résultat d'une correction. */
+      clip_count: number;
+      /** @description Temps de parole cumulé de ces voix validées, sur les vidéos visibles par l'appelant. */
+      speaking_seconds: number;
       /**
        * Format: date-time
        * @description Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée.
