@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, request, test, type Page } from "@playwright/test";
 import {
   SEGMENTS,
   correctSpeaker,
@@ -354,64 +354,72 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await context.close();
     });
 
-    // Gap of #195: the explorer has no row action yet for the visibility change and the permanent
-    // deletion that the grid offered; the pagination of twelve clips is not server-side yet either.
-    test.fixme(
-      "le super-administrateur supprime définitivement un clip",
-      async ({ browser }) => {
-        const id = await uploadClip("synthetic-delete.mp4", "shared");
-        const context = await browser.newContext({
-          storageState: await sessionFor(ADMIN),
-        });
-        const page = await context.newPage();
-        await page.goto("/library");
-        const card = page.locator("article").filter({
-          has: page.getByRole("link", {
-            name: "Open the clip synthetic-delete.mp4",
-          }),
-        });
-        await expect(
-          card.locator(`video[src="/api/clips/${id}/media#t=0.1"]`),
-        ).toHaveCount(1);
-        await card.getByRole("button", { name: "Change visibility" }).click();
-        await card.getByRole("button", { name: "Delete permanently" }).click();
-        const dialog = page.getByRole("alertdialog");
-        await expect(dialog.getByText(/deleted from disk/)).toBeVisible();
-        await dialog
-          .getByRole("button", { name: "Delete permanently" })
-          .click();
-        await expect(dialog).toBeHidden();
-        await expect(page.getByText("2 clips", { exact: true })).toBeVisible();
-        await expect(card).toHaveCount(0);
-        await context.close();
-      },
-    );
+    // The explorer has no row action for the permanent deletion (ADR 0032): it stays an API action of
+    // the Super-administrator, and the library must forget the clip afterwards.
+    test("le super-administrateur supprime définitivement un clip, un membre ne le peut pas", async ({
+      browser,
+    }) => {
+      const id = await uploadClip("synthetic-delete.mp4", "shared");
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto("/library");
+      await expect(page.getByText("3 items", { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Open the clip synthetic-delete.mp4" }),
+      ).toBeVisible();
 
-    // Gap of #195: the explorer lists a folder at once (no server pagination yet, ADR 0032).
-    test.fixme(
-      "la pagination parcourt plus de douze clips",
-      async ({ browser }) => {
-        for (let i = 1; i <= 11; i++) {
-          await uploadClip(`synthetic-bulk-${i}.mp4`, "shared");
-        }
-        const context = await browser.newContext({
-          storageState: await sessionFor(ADMIN),
-        });
-        const page = await context.newPage();
-        await page.goto("/library");
-        await expect(page.getByText("13 clips", { exact: true })).toBeVisible();
-        const grid = page.getByRole("link", { name: /^Open the clip / });
-        await expect(grid).toHaveCount(12);
-        await expect(page.getByText("Page 1 of 2")).toBeVisible();
-        await page.getByRole("button", { name: "Next page" }).click();
-        await expect(page).toHaveURL(/page=2/);
-        await expect(grid).toHaveCount(1);
-        await expect(page.getByText("Page 2 of 2")).toBeVisible();
-        await page.getByRole("button", { name: "Previous page" }).click();
-        await expect(grid).toHaveCount(12);
-        await context.close();
-      },
-    );
+      const memberApi = await request.newContext({
+        baseURL: process.env.SNITCH_TEST_URL!,
+        extraHTTPHeaders: { Origin: process.env.SNITCH_TEST_URL! },
+        storageState: await sessionFor(MEMBER),
+      });
+      const memberMe = await (await memberApi.get("/api/auth/me")).json();
+      const refused = await memberApi.delete(`/api/admin/clips/${id}`, {
+        headers: { "X-CSRF-Token": memberMe.csrf_token },
+      });
+      expect(refused.status()).toBe(403);
+      await memberApi.dispose();
+
+      const me = await (await page.request.get("/api/auth/me")).json();
+      const deleted = await page.request.delete(`/api/admin/clips/${id}`, {
+        headers: {
+          "X-CSRF-Token": me.csrf_token,
+          Origin: process.env.SNITCH_TEST_URL!,
+        },
+      });
+      expect(deleted.status()).toBe(200);
+
+      await page.reload();
+      await expect(page.getByText("2 items", { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Open the clip synthetic-delete.mp4" }),
+      ).toHaveCount(0);
+      await context.close();
+    });
+
+    // The explorer lists a folder at once (no server pagination, ADR 0032): every clip is on the page.
+    test("l'explorateur liste plus de douze clips d'un coup, sans pagination", async ({
+      browser,
+    }) => {
+      for (let i = 1; i <= 11; i++) {
+        await uploadClip(`synthetic-bulk-${i}.mp4`, "shared");
+      }
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto("/library");
+      await expect(page.getByText("13 items", { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: /^Open the clip / }),
+      ).toHaveCount(13);
+      await expect(page.getByRole("button", { name: "Next page" })).toHaveCount(
+        0,
+      );
+      await context.close();
+    });
 
     test("un administrateur modifie titre, jeu et date ; les corrections se restaurent", async ({
       browser,
