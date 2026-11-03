@@ -85,7 +85,7 @@ test.describe.serial("personnes : écran de traitement d'un clip", () => {
     const queue = screen.getByRole("list", { name: "Voices to process" });
     await expect(queue.getByRole("listitem")).toHaveCount(2);
     await expect(
-      screen.getByRole("link", { name: "Open the clip sheet" }),
+      screen.getByRole("link", { name: "Full sheet" }),
     ).toHaveAttribute("href", `/clips/${clipId}`);
 
     const card = screen.getByRole("region", { name: "Who is speaking here?" });

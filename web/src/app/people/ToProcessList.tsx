@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { buttonClass } from "../components/buttons";
@@ -14,11 +15,28 @@ import { fetchToProcess, type ToProcessFilter } from "./peopleApi";
 const PAGE_SIZE = 100;
 
 const filterClass = (pressed: boolean) =>
-  `inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium md:min-h-9 ${
+  `inline-flex min-h-11 items-center rounded-full border px-3 py-1 text-sm md:min-h-0 ${
     pressed
       ? "border-accent bg-accent-soft text-accent-ink"
-      : "border-line-strong bg-surface text-ink hover:bg-side"
+      : "border-line text-mute hover:text-ink"
   }`;
+
+type Tone = "accent" | "warn" | "idle";
+
+function CountBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
+  const c = {
+    accent: "bg-accent-soft text-accent-ink",
+    warn: "bg-warn-bg text-warn-fg",
+    idle: "bg-side text-mute",
+  }[tone];
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${c}`}
+    >
+      {children}
+    </span>
+  );
+}
 
 /**
  * The "To process" list: one row per clip that still has a voice to settle, with what is
@@ -41,26 +59,22 @@ export function ToProcessList() {
     if (toSettle !== undefined) publishToProcessCount(toSettle);
   }, [toSettle]);
 
-  const filters: { value: ToProcessFilter; label: string; count?: number }[] = [
+  const filters: { value: ToProcessFilter; label: string }[] = [
     {
       value: "all",
       label: t("people.verification.byClip.all"),
-      count: totals?.clips,
     },
     {
       value: "to_confirm",
       label: t("people.verification.byClip.toConfirm"),
-      count: totals?.to_confirm,
     },
     {
       value: "unknown_ambiguous",
       label: t("people.verification.byClip.unknownAmbiguous"),
-      count: totals ? totals.unknown + totals.ambiguous : undefined,
     },
     {
       value: "group",
       label: t("people.verification.byClip.withGroup"),
-      count: totals?.groups,
     },
   ];
 
@@ -69,13 +83,10 @@ export function ToProcessList() {
       aria-label={t("people.verification.byClip.label")}
       className="flex flex-col gap-3"
     >
-      <p className="max-w-2xl text-mute">
-        {t("people.verification.byClip.lead")}
-      </p>
       <div
         role="group"
         aria-label={t("people.verification.byClip.filtersLabel")}
-        className="flex flex-wrap gap-2"
+        className="flex flex-wrap items-center gap-2"
       >
         {filters.map((item) => (
           <button
@@ -86,9 +97,16 @@ export function ToProcessList() {
             className={filterClass(filter === item.value)}
           >
             {item.label}
-            {item.count !== undefined && <b>{item.count}</b>}
           </button>
         ))}
+        {totals && (
+          <span className="ml-auto text-sm text-mute">
+            {t("people.verification.byClip.summary", {
+              voices: toSettle ?? 0,
+              clips: totals.clips,
+            })}
+          </span>
+        )}
       </div>
       {state.status === "failed" && (
         <ErrorAlert>{failureText(state.code)}</ErrorAlert>
@@ -99,45 +117,59 @@ export function ToProcessList() {
         </p>
       )}
       {data && data.items.length > 0 && (
-        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        <ul className="m-0 flex list-none flex-col rounded-xl border border-line p-0">
           {data.items.map((clip) => (
             <li
               key={clip.clip_id}
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line p-3"
+              className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 last:border-b-0"
             >
-              <b className="min-w-0 flex-1 basis-48 break-words">
+              <span className="min-w-0 flex-1 basis-48 font-medium break-words">
                 {clip.clip_name}
-              </b>
-              <span className="flex flex-wrap gap-x-3 text-sm text-mute">
-                <span>
-                  {t("people.verification.byClip.toConfirmCount", {
-                    count: clip.to_confirm,
-                  })}
-                </span>
-                <span>
-                  {t("people.verification.byClip.ambiguousCount", {
-                    count: clip.ambiguous,
-                  })}
-                </span>
-                <span>
-                  {t("people.verification.byClip.unknownCount", {
-                    count: clip.unknown,
-                  })}
-                </span>
-                <span>
-                  {t("people.verification.byClip.groupsCount", {
-                    count: clip.groups,
-                  })}
-                </span>
+              </span>
+              <span className="flex flex-wrap gap-1.5">
+                {clip.to_confirm > 0 && (
+                  <CountBadge tone="accent">
+                    {t("people.verification.byClip.toConfirmCount", {
+                      count: clip.to_confirm,
+                    })}
+                  </CountBadge>
+                )}
+                {clip.ambiguous > 0 && (
+                  <CountBadge tone="warn">
+                    {t("people.verification.byClip.ambiguousCount", {
+                      count: clip.ambiguous,
+                    })}
+                  </CountBadge>
+                )}
+                {clip.unknown > 0 && (
+                  <CountBadge tone="idle">
+                    {t("people.verification.byClip.unknownCount", {
+                      count: clip.unknown,
+                    })}
+                  </CountBadge>
+                )}
+                {clip.groups > 0 && (
+                  <CountBadge tone="idle">
+                    {t("people.verification.byClip.groupsCount", {
+                      count: clip.groups,
+                    })}
+                  </CountBadge>
+                )}
               </span>
               <Link
                 to={`/people/verification?clip=${clip.clip_id}`}
-                aria-label={t("people.verification.byClip.processLabel", {
-                  clip: clip.clip_name,
-                })}
-                className={buttonClass("secondary")}
+                className={buttonClass("primary")}
               >
-                {t("people.verification.byClip.process")}
+                <span aria-hidden="true">
+                  {t("people.verification.byClip.process")}{" "}
+                  {clip.to_confirm + clip.ambiguous + clip.unknown}
+                </span>
+                <span className="sr-only">
+                  {t("people.verification.byClip.processLabel", {
+                    clip: clip.clip_name,
+                  })}
+                </span>
+                <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
             </li>
           ))}

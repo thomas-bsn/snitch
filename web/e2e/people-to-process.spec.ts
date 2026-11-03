@@ -22,8 +22,6 @@ test.describe.serial("personnes : à traiter par clip", () => {
     const row = list.getByRole("listitem");
     await expect(row).toHaveCount(1);
     await expect(row).toContainText("2 unknown");
-    await expect(row).toContainText("0 ambiguous");
-    await expect(row).toContainText("0 to confirm");
     await expect(
       page.getByRole("link", { name: /^To process\s*2$/ }),
     ).toBeVisible();
