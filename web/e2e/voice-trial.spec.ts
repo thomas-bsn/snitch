@@ -54,6 +54,8 @@ test("un administrateur essaie un modèle sur un clip et compare au résultat co
   ).toBe(204);
 
   await page.reload();
+  // The trials live in the Voices tab.
+  await page.getByRole("tab", { name: "Voices" }).click();
   const section = page.getByRole("region", { name: "Diarization trial" });
   await expect(section).toBeVisible();
   await expect(

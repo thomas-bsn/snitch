@@ -236,6 +236,72 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await context.close();
     });
 
+    test("la fiche : en-tête, lecteur et onglets côte à côte, métadonnées repliées", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto(`/clips/${sharedId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "synthetic-shared.mp4" }),
+      ).toBeVisible();
+      // The file name is always in the header, as the title is still the file name.
+      await expect(
+        page.getByText("File: synthetic-shared.mp4", { exact: true }),
+      ).toBeVisible();
+
+      // The player and the tabs share the row: the tabs start after the player ends.
+      const video = await page.locator("video").boundingBox();
+      const tabs = await page.getByRole("tablist").boundingBox();
+      expect(video).not.toBeNull();
+      expect(tabs).not.toBeNull();
+      expect(tabs!.x).toBeGreaterThanOrEqual(video!.x + video!.width);
+
+      // Full metadata folds under the player and unfolds on demand.
+      const toggle = page.getByRole("button", { name: "Full metadata" });
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByText("Codecs", { exact: true })).toBeHidden();
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await expect(page.getByText("Codecs", { exact: true })).toBeVisible();
+      await expect(page.getByText("Format", { exact: true })).toBeVisible();
+      await expect(page.getByText("Size", { exact: true })).toBeVisible();
+      await expectNoViolations(page);
+
+      // The transcription action lives in the Transcript tab, not stacked above the tabs.
+      await expect(
+        page.getByRole("tabpanel").getByRole("button", {
+          name: "Transcribe again",
+        }),
+      ).toHaveCount(1);
+      await context.close();
+    });
+
+    test("une fiche jamais analysée met le lancement en évidence", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto(`/clips/${privateId}`);
+      await expect(
+        page.getByText("This clip has never been analysed.", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole("region", { name: "Clip analysis" })
+          .getByRole("button", { name: "Analyze all" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Transcribe again" }),
+      ).toHaveCount(0);
+      await expectNoViolations(page);
+      await context.close();
+    });
+
     for (const theme of ["light", "dark"] as const) {
       test(`accessibilité de la bibliothèque et du clip, thème ${theme}`, async ({
         browser,

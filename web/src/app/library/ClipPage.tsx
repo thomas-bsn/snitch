@@ -7,7 +7,9 @@ import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
-import { ClipMetadata, EditMetadata } from "./ClipMetadata";
+import { isAdministrator } from "../roles";
+import { useSession } from "../session";
+import { EditMetadata, MetadataDisclosure } from "./ClipMetadata";
 import { ClipPlayer } from "./ClipPlayer";
 import { ClipStatePill } from "./ClipStatePill";
 import { HistoryTab } from "./HistoryTab";
@@ -28,6 +30,8 @@ type TabName = "transcript" | "voices" | "history";
 
 function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
   const { t } = useI18n();
+  const { user } = useSession();
+  const admin = !!user && isAdministrator(user);
   const formatDate = useFormatDate();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
@@ -77,18 +81,60 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
     : t("clip.speaker.unknown");
   const voiceData = voice.state.status === "ready" ? voice.state.value : null;
 
+  // Without transcription, the step of the analysis has never run: the launch is the page's way forward.
+  const neverAnalysed = !clip.transcription;
+
   return (
     <section className="flex flex-col gap-4 px-4 py-4 md:px-7 md:py-5">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <Link
-          to={back}
-          className="inline-flex min-h-11 items-center gap-1.5 text-mute hover:text-ink md:min-h-8"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          {t(back.startsWith("/search") ? "clip.backToSearch" : "clip.back")}
-        </Link>
-        <ClipStatePill status={clip.status} />
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link
+            to={back}
+            className="inline-flex min-h-11 items-center gap-1.5 text-mute hover:text-ink md:min-h-8"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            {t(back.startsWith("/search") ? "clip.backToSearch" : "clip.back")}
+          </Link>
+          <ClipStatePill status={clip.status} />
+        </div>
+        <EditMetadata clip={clip} onChanged={onChanged} />
       </div>
+
+      <header className="flex min-w-0 flex-col gap-1">
+        <h1 className="m-0 text-[22px] font-semibold break-words">
+          {clipTitle(clip)}
+        </h1>
+        <p className="m-0 text-xs text-mute">
+          {clip.display_title
+            ? t("metadata.fileKept", { name: clip.original_name })
+            : t("clip.meta.file", { name: clip.original_name })}
+        </p>
+        <p className="m-0 text-mute">
+          {[
+            t("clip.meta.owner", {
+              owner: clip.owner_deleted
+                ? t("library.deletedOwner")
+                : clip.owner,
+            }),
+            date,
+            typeof clip.duration_seconds === "number"
+              ? formatTimecode(clip.duration_seconds)
+              : null,
+            t(
+              clip.visibility === "shared"
+                ? "clip.meta.shared"
+                : "clip.meta.private",
+            ),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+        {clip.sources && clip.sources.length > 0 && (
+          <p className="m-0 text-mute">
+            {t("clip.meta.sources", { sources: clip.sources.join(", ") })}
+          </p>
+        )}
+      </header>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
@@ -99,58 +145,18 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             onMoment={keepMoment}
             onPlayhead={setPlayhead}
           />
-          <div>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <h1 className="m-0 text-[22px] font-semibold break-words">
-                {clipTitle(clip)}
-              </h1>
-              <EditMetadata clip={clip} onChanged={onChanged} />
-            </div>
-            {clip.display_title && (
-              <p className="mt-1 mb-0 text-xs text-mute">
-                {t("metadata.fileKept", { name: clip.original_name })}
-              </p>
-            )}
-            <p className="mt-1 mb-0 text-mute">
-              {[
-                t("clip.meta.owner", {
-                  owner: clip.owner_deleted
-                    ? t("library.deletedOwner")
-                    : clip.owner,
-                }),
-                date,
-                typeof clip.duration_seconds === "number"
-                  ? formatTimecode(clip.duration_seconds)
-                  : null,
-                t(
-                  clip.visibility === "shared"
-                    ? "clip.meta.shared"
-                    : "clip.meta.private",
-                ),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+          <MetadataDisclosure clip={clip} />
+          {neverAnalysed && (
+            <p className="m-0 rounded-xl border border-accent bg-accent-soft p-3 font-medium text-ink">
+              {t("clip.neverAnalysed")}
             </p>
-            {clip.sources && clip.sources.length > 0 && (
-              <p className="mt-0.5 mb-0 text-mute">
-                {t("clip.meta.sources", { sources: clip.sources.join(", ") })}
-              </p>
-            )}
-          </div>
-          <ClipMetadata clip={clip} />
+          )}
           <ProgressBanner clip={clip} voice={voiceData} />
           <AnalyzeClip
             clipId={clip.id}
             audioTracks={clip.tracks?.filter((t) => t.type === "audio") ?? []}
             onChanged={onChanged}
           />
-          {clip.transcription && (
-            <Retranscribe
-              id={clip.id}
-              stream={clip.transcription.audio_stream_index}
-            />
-          )}
-          <VoiceTrials clipId={clip.id} voice={voiceData} />
         </div>
 
         <Tabs.Root
@@ -177,6 +183,14 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             value="transcript"
             className="max-h-[70vh] overflow-y-auto outline-none"
           >
+            {admin && clip.transcription && (
+              <div className="border-b border-line p-3">
+                <Retranscribe
+                  id={clip.id}
+                  stream={clip.transcription.audio_stream_index}
+                />
+              </div>
+            )}
             <TranscriptTab
               clipId={clip.id}
               jobId={clip.transcription?.transcription_job_id}
@@ -193,11 +207,14 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
           >
             <VoicesTab voice={voiceData} />
             {voiceData && (
-              <RelaunchVoice
-                clipId={clip.id}
-                voice={voiceData}
-                onScheduled={voice.reload}
-              />
+              <div className="flex flex-col gap-3 p-3">
+                <VoiceTrials clipId={clip.id} voice={voiceData} />
+                <RelaunchVoice
+                  clipId={clip.id}
+                  voice={voiceData}
+                  onScheduled={voice.reload}
+                />
+              </div>
             )}
           </Tabs.Panel>
           <Tabs.Panel
