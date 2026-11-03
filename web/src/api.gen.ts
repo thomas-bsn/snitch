@@ -930,6 +930,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/worker/jobs/{id}/logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Lignes de log d'un job envoyées par le Worker par lots (2 s ou 50 lignes), déjà masquées côté Worker. Le serveur ne garde que les 50 dernières lignes du job ; elles sont supprimées avec le job. Lease obligatoire. */
+    post: operations["appendWorkerJobLogs"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/jobs/{id}/logs/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Lignes de log d'un job (50 au plus, les plus récentes) : flux text/event-stream, un évènement snapshot {seq, snapshot: JobLogs} à chaque ajout ; le droit est revérifié avant chaque snapshot. */
+    get: operations["streamJobLogs"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/worker/jobs/{id}/complete": {
     parameters: {
       query?: never;
@@ -4462,6 +4496,20 @@ export interface components {
       | "hf_network"
       | "models_volume_unwritable"
       | "hf_cache_error";
+    WorkerJobLogsInput: {
+      lines: string[];
+    };
+    JobLogLine: {
+      /** Format: int64 */
+      seq: number;
+      /** @description Ligne JSON de log, masquée ; jamais de jeton, Bearer, URL avec identifiants ni chemin de clip. */
+      text: string;
+    };
+    JobLogs: {
+      /** Format: int64 */
+      job_id: number;
+      lines: components["schemas"]["JobLogLine"][];
+    };
     WorkerFailureInput: {
       /** @description Code de Cause d'échec (voir FailureCode). Un code inconnu est enregistré comme worker_failed. */
       error: string;
@@ -7438,6 +7486,76 @@ export interface operations {
         };
       };
       /** @description Jeton invalide, lease perdu ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  appendWorkerJobLogs: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Worker-Lease-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerJobLogsInput"];
+      };
+    };
+    responses: {
+      /** @description Lignes reçues */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            stored: number;
+          };
+        };
+      };
+      /** @description Jeton invalide, lease perdu (409 lease_not_owned) ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamJobLogs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_job_id ; 401 unauthorized ; 403 forbidden ; 404 job_not_found) */
       default: {
         headers: {
           [name: string]: unknown;
