@@ -1,14 +1,54 @@
+import contextlib
 import io
+import os
+import tempfile
 import threading
 import time
 import unittest
+import wave
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
 from snitch_client.models.error import Error
 
-from snitch_worker import log, runner
+from snitch_worker import log, runner, voice_nemo, voice_pyannote
+
+# Set once a fake inference is running, so the server refuses the lease mid-inference.
+inference_started = []
+
+
+def _long_inference(*_args, **_kwargs):
+    """A model that computes for a minute in Python, as torch does between its layers."""
+    inference_started.append(1)
+    deadline = time.monotonic() + 60
+    total = 0
+    while time.monotonic() < deadline:
+        total += sum(range(100))
+    return total
+
+
+def _model_env(root):
+    env = {
+        "SNITCH_VOICE_DIARIZATION_MODEL_PATH": os.path.join(root, "diarization"),
+        "SNITCH_VOICE_EMBEDDING_MODEL_PATH": os.path.join(root, "embedding"),
+        "SNITCH_VOICE_EMBEDDING_MODEL_VERSION": "wespeaker-test-1",
+    }
+    os.makedirs(env["SNITCH_VOICE_DIARIZATION_MODEL_PATH"])
+    os.makedirs(env["SNITCH_VOICE_EMBEDDING_MODEL_PATH"])
+    with open(os.path.join(env["SNITCH_VOICE_DIARIZATION_MODEL_PATH"], "model.nemo"), "w"):
+        pass
+    return env
+
+
+def _write_silence(path, seconds=1):
+    with wave.open(path, "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(16000)
+        audio.writeframes(b"\0\0" * 16000 * seconds)
 
 
 class PresenceAndLeaseTests(unittest.TestCase):
@@ -114,6 +154,124 @@ class PresenceAndLeaseTests(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 10)
         complete.assert_not_called()
         fail.assert_not_called()
+
+    def _refused_long_job(self, step, task_input, started_work=lambda: True, voice_providers=None, **patches):
+        """Run a job the server refuses to renew once its work has started; return its duration."""
+        renewals = []
+
+        def heartbeat(**_kwargs):
+            renewals.append(1)
+            if len(renewals) < 3 or not started_work():
+                return object()
+            return Error.from_dict({"error": "lease_not_owned"})
+
+        self.task.step = step
+        started = time.monotonic()
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch.object(runner, "pulse", return_value=object()))
+            stack.enter_context(patch.object(runner, "claim_job", return_value=self.claim))
+            stack.enter_context(patch.object(runner, "get_job_input", return_value=task_input))
+            stack.enter_context(patch.object(runner, "heartbeat_job", side_effect=heartbeat))
+            self.complete_mock = stack.enter_context(patch.object(runner, "complete_job", return_value=object()))
+            self.fail_mock = stack.enter_context(patch.object(runner, "fail_job", return_value=object()))
+            for name, value in patches.items():
+                stack.enter_context(patch.object(runner, name, value))
+            self.assertTrue(runner.run_once(self.client, heartbeat_interval=0.05, voice_providers=voice_providers))
+        return time.monotonic() - started
+
+    def _assert_cancelled_without_result(self, duration):
+        self.assertLess(duration, 10)
+        self.complete_mock.assert_not_called()
+        self.fail_mock.assert_not_called()
+
+    def test_refused_lease_aborts_a_long_remote_transcription(self):
+        release = threading.Event()
+        self.addCleanup(release.set)
+
+        class HangingWhisper(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers["Content-Length"]))
+                release.wait(60)  # a transcription far longer than the test budget
+                self.send_response(500)
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), HangingWhisper)
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        transcriber = runner.OpenAICompatibleTranscriber(f"http://127.0.0.1:{server.server_port}", "synthetic-model")
+        task_input = SimpleNamespace(pipeline={"vad": {"mode": "off"}}, vocabulary=[], transcription_model=None)
+        duration = self._refused_long_job(
+            "transcription.audio.0",
+            task_input,
+            download_media=lambda *_args: None,
+            prepare_audio=lambda _src, wav, _index: _write_silence(wav),
+            configured_transcriber=lambda *_args: transcriber,
+        )
+        self._assert_cancelled_without_result(duration)
+
+    def test_refused_lease_kills_a_long_audio_preparation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ffmpeg = Path(directory) / "ffmpeg"
+            ffmpeg.write_text("#!/bin/sh\necho $$ > \"$(dirname \"$0\")/pid\"\nexec sleep 60\n")
+            ffmpeg.chmod(0o755)
+            with patch.dict(os.environ, {"PATH": directory + os.pathsep + os.environ["PATH"]}):
+                duration = self._refused_long_job(
+                    "transcription.audio.0",
+                    SimpleNamespace(pipeline=None, vocabulary=[], transcription_model=None),
+                    started_work=(Path(directory) / "pid").exists,
+                    download_media=lambda *_args: None,
+                )
+            pid = int((Path(directory) / "pid").read_text())
+        self._assert_cancelled_without_result(duration)
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
+
+    def _voice_job(self, step, provider_name, provider, voice_extra=None):
+        inference_started.clear()
+        config = {"provider": provider_name, "model": "synthetic/model", "model_version": "v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.4}
+        voice_input = {"config": config, **(voice_extra or {})}
+        task_input = SimpleNamespace(voice=SimpleNamespace(to_dict=lambda: voice_input), duration_seconds=4.0)
+        return self._refused_long_job(
+            step,
+            task_input,
+            started_work=lambda: bool(inference_started),
+            download_media=lambda *_args: None,
+            prepare_audio=lambda _src, wav, _index: _write_silence(wav),
+            voice_providers={provider_name: provider},
+        )
+
+    def test_refused_lease_interrupts_an_in_process_pyannote_diarization(self):
+        with tempfile.TemporaryDirectory() as root:
+            env = _model_env(root)
+            pyannote = voice_pyannote.PyannoteProvider(environ=env, load_pipeline=lambda _p, _d: _long_inference, device_probe=lambda: "cpu")
+            duration = self._voice_job("voice.diarization.0", "pyannote", pyannote)
+        self._assert_cancelled_without_result(duration)
+        self.assertFalse(pyannote._inference_lock.locked())
+
+    def test_refused_lease_interrupts_an_in_process_nemo_diarization(self):
+        with tempfile.TemporaryDirectory() as root:
+            env = _model_env(root)
+            nemo = voice_nemo.NemoProvider(environ=env, load_pipeline=lambda _p, _d: _long_inference, device_probe=lambda: "cpu")
+            duration = self._voice_job("voice.diarization.0", "nemo", nemo)
+        self._assert_cancelled_without_result(duration)
+        self.assertFalse(nemo._inference_lock.locked())
+
+    def test_refused_lease_stops_fingerprints_between_and_inside_embeddings(self):
+        def open_audio(_path):
+            return voice_pyannote.DecodedAudio(lambda start, end: _long_inference(None), 16000, 1, 16000 * 3600)
+
+        turns = [{"start": float(i), "end": float(i) + 2.0} for i in range(0, 600, 3)]
+        diarization = {"speakers": [{"label": "s0", "turns": turns}]}
+        with tempfile.TemporaryDirectory() as root:
+            env = _model_env(root)
+            pyannote = voice_pyannote.PyannoteProvider(environ=env, load_embedder=lambda _p, _d: open_audio, device_probe=lambda: "cpu")
+            duration = self._voice_job("voice.fingerprint.0", "pyannote", pyannote, {"diarization": diarization})
+        self._assert_cancelled_without_result(duration)
 
     def test_result_is_discarded_when_the_lease_expired_during_an_outage(self):
         with (
