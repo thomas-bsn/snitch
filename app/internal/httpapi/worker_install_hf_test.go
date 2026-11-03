@@ -35,19 +35,20 @@ func TestInstallerMalformedTokenIsRefusedBeforeAnyHuggingFaceCall(t *testing.T) 
 	if !strings.Contains(out, "[hf_token_invalid]") || strings.Contains(out, "not-a-token") {
 		t.Fatalf("expected an actionable token message without echoing the input:\n%s", out)
 	}
-	if !strings.Contains(r.events(), `"phase":"voice-models","status":"failed","occurred_at":`) || !strings.Contains(r.events(), `"cause_code":"hf_access_denied"`) {
-		t.Fatalf("malformed token not reported as an access cause:\n%s", r.events())
+	if !strings.Contains(r.events(), `"phase":"voice-models","status":"failed","occurred_at":`) || !strings.Contains(r.events(), `"cause_code":"hf_token_invalid"`) {
+		t.Fatalf("malformed token not reported with its fine cause:\n%s", r.events())
 	}
 	if !strings.Contains(r.events(), `"phase":"service","status":"succeeded"`) {
 		t.Fatalf("transcription must stay available:\n%s", r.events())
 	}
 }
 
+// Each fine cause reaches the installation events unchanged (#203): the launcher emits the stable code.
 func TestInstallerMapsHuggingFaceCausesOntoTheInstallVocabulary(t *testing.T) {
 	cases := []struct{ provision, event, message string }{
-		{"hf_token_invalid", "hf_access_denied", "[hf_token_invalid]"},
-		{"hf_gated_denied", "hf_access_denied", "[hf_gated_denied]"},
-		{"hf_repo_invalid", "unknown", "[hf_repo_invalid]"},
+		{"hf_token_invalid", "hf_token_invalid", "[hf_token_invalid]"},
+		{"hf_gated_denied", "hf_gated_denied", "[hf_gated_denied]"},
+		{"hf_repo_invalid", "hf_repo_invalid", "[hf_repo_invalid]"},
 		{"network_unreachable", "network_unreachable", "[network_unreachable]"},
 		{"hf_access_denied", "hf_access_denied", "[hf_access_denied]"},
 		{"not_a_cause", "unknown", "[unknown]"},

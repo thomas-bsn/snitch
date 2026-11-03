@@ -193,11 +193,10 @@ voice_selftest() {
  if docker run --rm "${gpu[@]}" --user 10001:10001 --env-file "$env_file" -e HF_HUB_OFFLINE=1 -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.voice_selftest; then emit voice-test succeeded
  else emit voice-test failed unknown; printf 'Warning [unknown]: the synthetic voice test failed; voice stays unavailable, transcription still works.\nAvertissement [unknown] : le test vocal synthétique a échoué ; la voix reste indisponible, la transcription fonctionne.\n' >&2; fi
 }
-# Installation events keep the closed launcher vocabulary: every Hugging Face access cause is hf_access_denied.
+# Installation events carry the stable fine cause (the closed vocabulary of the installation events).
 install_cause() {
  case "$1" in
-  hf_token_invalid|hf_gated_denied|hf_access_denied) printf 'hf_access_denied' ;;
-  network_unreachable|volume_not_writable|hf_cache_not_writable|gpu_unavailable) printf '%s' "$1" ;;
+  hf_token_invalid|hf_gated_denied|hf_repo_invalid|hf_access_denied|network_unreachable|volume_not_writable|hf_cache_not_writable|gpu_unavailable) printf '%s' "$1" ;;
   *) printf 'unknown' ;;
  esac
 }
