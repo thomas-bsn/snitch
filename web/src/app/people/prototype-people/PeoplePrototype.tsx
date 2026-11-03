@@ -356,9 +356,88 @@ function VariantC() {
   );
 }
 
+/* ---------- D : retenue — annuaire de C + onglets À traiter et Voix inconnues de A ---------- */
+
+function TodoList() {
+  const [filter, setFilter] = useState<"all" | "confirm" | "unknown" | "groups">("all");
+  const rows = todo.filter((v) => filter === "all" || (filter === "confirm" ? v.suggestions > 0 : filter === "unknown" ? v.unknown + v.ambiguous > 0 : v.groups.length > 0));
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        {([["all", "Tout"], ["confirm", "À confirmer"], ["unknown", "Inconnues / ambiguës"], ["groups", "Avec un groupe"]] as const).map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setFilter(k)} className={`rounded-full border px-3 py-1 text-sm ${filter === k ? "border-accent bg-accent-soft text-accent-ink" : "border-line text-mute hover:text-ink"}`}>{l}</button>
+        ))}
+        <span className="ml-auto text-sm text-mute">{totalVoices} voix dans {todo.length} vidéos</span>
+      </div>
+      <ul className="m-0 flex list-none flex-col rounded-xl border border-line p-0">
+        {rows.map((v) => (
+          <li key={v.id} className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
+            <span className="min-w-0 flex-1">
+              <a href={ficheVoices(v.id)} className="block font-medium hover:underline">{v.title}</a>
+              <span className="block text-xs text-mute">{v.folder} · {v.date} · {v.duration}{v.recentlyAnalysed ? " · analysée aujourd'hui" : ""}</span>
+            </span>
+            <Counts v={v} />
+            <a href={ficheVoices(v.id)} className={buttonClass("primary")}>Traiter {total(v)} <ArrowRight className="size-4" /></a>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function VariantD() {
+  const [tab, setTab] = useState<"persons" | "todo" | "groups">("persons");
+  const [person, setPerson] = useState<Person | null>(null);
+  const [group, setGroup] = useState<Group | null>(null);
+  return (
+    <section className="flex flex-col gap-4 px-4 py-6 md:px-7">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="m-0 flex-1 text-[22px] font-semibold">Personnes</h1>
+        {tab === "persons" && !person && (
+          <>
+            <SearchBox />
+            <button type="button" className={buttonClass()}><UserPlus className="size-4" /> Nouvelle</button>
+          </>
+        )}
+      </div>
+      <div className="flex gap-1 border-b border-line">
+        <button type="button" className={tabBtn(tab === "persons")} onClick={() => { setTab("persons"); setPerson(null); }}>Annuaire <span className="text-xs text-mute">{people.length}</span></button>
+        <button type="button" className={tabBtn(tab === "todo")} onClick={() => setTab("todo")}>À traiter <span className="rounded-full bg-warn-bg px-2 text-xs text-warn-fg">{totalVoices}</span></button>
+        <button type="button" className={tabBtn(tab === "groups")} onClick={() => setTab("groups")}>Voix inconnues <span className="text-xs text-mute">{groups.length}</span></button>
+      </div>
+      {tab === "persons" &&
+        (person ? (
+          <PersonRecord p={person} onBack={() => setPerson(null)} />
+        ) : (
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 p-0">
+            {people.map((p) => (
+              <li key={p.id}>
+                <button type="button" onClick={() => setPerson(p)} className="flex w-full flex-col items-center gap-2 rounded-xl border border-line p-4 text-center hover:border-accent">
+                  <Avatar name={p.name} size="size-14" />
+                  <span className="font-semibold">{p.name}</span>
+                  <span className="text-xs text-mute">{p.videos} vidéos · {Math.round(p.speakingMin / 60)} h de parole</span>
+                  {p.referenceQuality !== "bonne" ? <Badge tone="warn">Référence {p.referenceQuality}</Badge> : <Badge tone="ok">Référence bonne</Badge>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ))}
+      {tab === "todo" && <TodoList />}
+      {tab === "groups" && (
+        <>
+          <p className="m-0 text-mute">Voix entendues dans plusieurs vidéos sans qu'on sache qui c'est. Les nommer identifie la personne partout d'un coup.</p>
+          <GroupList onOpen={setGroup} />
+        </>
+      )}
+      <GroupNaming g={group} onClose={() => setGroup(null)} />
+    </section>
+  );
+}
+
 /* ---------- cadre + barre de variantes ---------- */
 
 const VARIANTS = [
+  { key: "D", name: "Retenue : annuaire + onglets", C: VariantD },
   { key: "A", name: "Onglets, À traiter d'abord", C: VariantA },
   { key: "B", name: "File de travail", C: VariantB },
   { key: "C", name: "Annuaire + rail À traiter", C: VariantC },
