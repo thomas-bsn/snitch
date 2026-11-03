@@ -13,6 +13,7 @@ export type AdminTab = {
 /** The tabs of the administration, in order. Each ticket fills in its own tab's screen. */
 export const ADMIN_TABS: AdminTab[] = [
   { path: "workers", label: "admin.tabs.workers" },
+  { path: "worker-updates", label: "admin.tabs.workerUpdates" },
   { path: "queue", label: "admin.tabs.queue" },
   { path: "folders", label: "admin.tabs.folders" },
   { path: "metadata", label: "metadata.title" },

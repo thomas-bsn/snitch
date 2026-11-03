@@ -25,6 +25,7 @@ func TestWorkerInstallerScriptIsExecutableWithoutRepositoryFiles(t *testing.T) {
 		TranscriptionEndpoint string
 		TranscriptionModel    string
 		TranscriptionLanguage string
+		UpdaterScript         string
 	}{
 		WorkerID:              "wk_syntheticFixtureWorker123",
 		APIURL:                base64.StdEncoding.EncodeToString([]byte("https://snitch.example.org")),
@@ -34,6 +35,7 @@ func TestWorkerInstallerScriptIsExecutableWithoutRepositoryFiles(t *testing.T) {
 		TranscriptionEndpoint: endpointB64,
 		TranscriptionModel:    modelB64,
 		TranscriptionLanguage: languageB64,
+		UpdaterScript:         base64.StdEncoding.EncodeToString([]byte(workerUpdaterScript)),
 	}
 	if err := workerInstallScript.Execute(&script, data); err != nil {
 		t.Fatal(err)

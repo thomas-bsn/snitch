@@ -88,7 +88,7 @@ func (s *Server) analysisDeletionLoss(ctx context.Context, q queryer, clipID int
 		if err := q.QueryRow(ctx, `SELECT COALESCE(sum(CASE WHEN jsonb_typeof(result->'segments')='array' THEN jsonb_array_length(result->'segments') ELSE 0 END),0)::int FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%' AND status='done'`, clipID).Scan(&stake.Segments); err != nil {
 			return stake, err
 		}
-		corrections, found, err := s.clipCorrections(ctx, clipID)
+		corrections, found, err := s.clipCorrections(ctx, q, clipID)
 		if err != nil {
 			return stake, err
 		}

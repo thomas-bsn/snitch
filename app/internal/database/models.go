@@ -70,6 +70,8 @@ type ClipAnalysisDeletion struct {
 	LostValidatedVoices int32              `json:"lost_validated_voices"`
 	LostPersons         int32              `json:"lost_persons"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	LostRefusals        int32              `json:"lost_refusals"`
+	LostDispositions    int32              `json:"lost_dispositions"`
 }
 
 type ClipAnalysisRun struct {
@@ -811,6 +813,21 @@ type WorkerTranscriptionConfig struct {
 	ReachCheckedAt   pgtype.Timestamptz `json:"reach_checked_at"`
 	ReachLatencyMs   int32              `json:"reach_latency_ms"`
 	ReachFailure     []byte             `json:"reach_failure"`
+}
+
+type WorkerUpdateStatus struct {
+	WorkerID   string             `json:"worker_id"`
+	State      string             `json:"state"`
+	Version    string             `json:"version"`
+	Digest     string             `json:"digest"`
+	CauseCode  string             `json:"cause_code"`
+	ReportedAt pgtype.Timestamptz `json:"reported_at"`
+}
+
+type WorkerUpdateTarget struct {
+	ID        bool               `json:"id"`
+	Version   pgtype.Text        `json:"version"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type WorkerVoiceModel struct {
