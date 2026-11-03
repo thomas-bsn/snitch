@@ -390,6 +390,7 @@ func revokeTx(ctx context.Context, tx pgx.Tx, id, reason string) error {
 		`DELETE FROM worker_install_events WHERE worker_id=$1`,
 		`DELETE FROM worker_install_invites WHERE worker_id=$1`,
 		`DELETE FROM worker_transcription_config WHERE worker_id=$1`,
+		`DELETE FROM worker_update_status WHERE worker_id=$1`,
 	} {
 		if _, err = tx.Exec(ctx, statement, id); err != nil {
 			return fmt.Errorf("delete revoked worker details: %w", err)

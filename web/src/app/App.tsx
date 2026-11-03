@@ -20,6 +20,7 @@ import { FoldersTab } from "./admin/folders/FoldersTab";
 import { QueueTab } from "./admin/queue/QueueTab";
 import { SemanticTab } from "./admin/semantic/SemanticTab";
 import { WorkersTab } from "./admin/workers/WorkersTab";
+import { WorkerUpdatesTab } from "./admin/workers/WorkerUpdatesTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
 import { Forbidden, NotFound } from "./pages/pages";
@@ -112,6 +113,7 @@ function Routing() {
               <Route path="users/person-links" element={<PersonLinksTab />} />
               <Route path="exports" element={<ExportsTab />} />
               <Route path="workers" element={<WorkersTab />} />
+              <Route path="worker-updates" element={<WorkerUpdatesTab />} />
               <Route path="queue" element={<QueueTab />} />
               <Route path="folders" element={<FoldersTab />} />
               <Route path="metadata" element={<MetadataSettings reprocess />} />
@@ -127,6 +129,7 @@ function Routing() {
                 (tab) =>
                   ![
                     "workers",
+                    "worker-updates",
                     "queue",
                     "folders",
                     "metadata",
