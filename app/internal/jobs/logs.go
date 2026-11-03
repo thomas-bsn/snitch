@@ -21,7 +21,8 @@ type JobLogLine struct {
 
 // AppendLogs stores a batch of log lines sent by the Worker holding the lease, keeps only the
 // KeptLogLines most recent lines of the job and signals the change on the job's event topic.
-// Lines are stored as received: the Worker masks them before sending.
+// Lines are masked again here (ScrubLogLine) before storage: the Worker masks them too, and the
+// server never trusts it to have done so.
 func (s *Service) AppendLogs(ctx context.Context, id int64, workerID, leaseToken string, lines []string) (int, error) {
 	if !validLeaseToken(leaseToken) {
 		return 0, ErrLeaseNotOwned
@@ -39,7 +40,11 @@ func (s *Service) AppendLogs(ctx context.Context, id int64, workerID, leaseToken
 	if err != nil {
 		return 0, fmt.Errorf("check job lease for logs: %w", err)
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO job_log_lines (job_id, text) SELECT $1, unnest($2::text[])`, id, lines); err != nil {
+	masked := make([]string, len(lines))
+	for i, line := range lines {
+		masked[i] = ScrubLogLine(line)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO job_log_lines (job_id, text) SELECT $1, unnest($2::text[])`, id, masked); err != nil {
 		return 0, fmt.Errorf("store job logs: %w", err)
 	}
 	if _, err = tx.Exec(ctx, `DELETE FROM job_log_lines WHERE job_id=$1 AND id <= COALESCE((SELECT id FROM job_log_lines WHERE job_id=$1 ORDER BY id DESC OFFSET $2 LIMIT 1), 0)`, id, KeptLogLines); err != nil {
