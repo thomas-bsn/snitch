@@ -56,7 +56,7 @@ async function expectTouchTargets(page: Page) {
         if (box.width === 0 || box.height === 0) return [];
         return box.width < 44 || box.height < 44
           ? [
-              `${element.tagName.toLowerCase()} ${element.getAttribute("type") ?? ""} ${element.getAttribute("aria-label") ?? ""} ${Math.round(box.width)}x${Math.round(box.height)}`,
+              `${element.tagName.toLowerCase()} ${element.getAttribute("type") ?? ""} ${element.getAttribute("aria-label") ?? ""} ${Math.round(box.width)}x${Math.round(box.height)} text="${(element.textContent ?? "").trim().slice(0, 60)}" html=${element.outerHTML.slice(0, 300)}`,
             ]
           : [];
       }),

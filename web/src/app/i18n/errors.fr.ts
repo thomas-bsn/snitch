@@ -21,6 +21,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   video_selection_too_large: "Sélectionnez moins de fichiers (10 000 maximum).",
   invalid_folder_name:
     "Choisissez un nom de dossier sans barre oblique ni point initial.",
+  folder_request_not_found: "Cette demande de dossier n’existe pas.",
+  folder_exists: "Un dossier porte déjà ce nom.",
+  folder_request_pending:
+    "Ce dossier attend la décision d’un administrateur. Rien ne peut y être téléversé pour l’instant.",
   folder_not_created: "Le dossier existe déjà ou ne peut pas être créé.",
   invalid_video_selection: "Sélectionnez les fichiers ou dossiers à scanner.",
   video_scan_incomplete:

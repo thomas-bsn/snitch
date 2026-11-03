@@ -4322,7 +4322,7 @@ export interface components {
       /** Format: int64 */
       id: number;
       /**
-       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail.
+       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) : seul son demandeur la reçoit, sans clip.
        * @enum {string}
        */
       kind:
@@ -4332,7 +4332,8 @@ export interface components {
         | "model_missing"
         | "job_failed"
         | "job_blocked"
-        | "technical_incident";
+        | "technical_incident"
+        | "folder_request_decided";
       /**
        * @description Partagé : une action résolue l'est pour tous.
        * @enum {string}
@@ -4362,6 +4363,13 @@ export interface components {
       error_code: string;
       /** @description Vrai pour le message générique sûr vu par un non-administrateur. */
       generic: boolean;
+      /** @description Décision sur une demande de dossier : chemin relatif de la Racine vidéo, vide sinon. */
+      folder_path?: string;
+      /**
+       * @description Décision sur une demande de dossier : approved ou refused, vide sinon.
+       * @enum {string}
+       */
+      folder_outcome?: "" | "approved" | "refused";
     };
     NotificationList: {
       items: components["schemas"]["Notification"][];
@@ -5962,6 +5970,8 @@ export interface operations {
               directory: boolean;
               /** Format: int64 */
               size_bytes: number;
+              private: boolean;
+              locked: boolean;
             }[];
           };
         };

@@ -17,6 +17,10 @@ export const errorsEn = {
   video_path_unavailable: "This path is unavailable or outside the video root.",
   video_selection_too_large: "Select fewer files (10,000 maximum).",
   invalid_folder_name: "Choose a folder name without slashes or leading dots.",
+  folder_request_not_found: "The folder request does not exist.",
+  folder_exists: "A folder with this name already exists.",
+  folder_request_pending:
+    "This folder waits for an administrator's decision. Nothing can be uploaded into it yet.",
   folder_not_created: "The folder already exists or could not be created.",
   invalid_video_selection: "Select files or folders to scan.",
   video_scan_incomplete:
