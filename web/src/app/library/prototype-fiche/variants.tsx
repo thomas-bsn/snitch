@@ -40,7 +40,7 @@ function WorkTabs({ sim, player, className = "" }: { sim: Sim; player: ReturnTyp
         </button>
       </div>
       <div className="max-h-[70vh] overflow-y-auto">
-        {tab === "transcript" ? <TranscriptPanel sim={sim} playhead={player.playhead} onSeek={player.seek} /> : <VoicesPanel sim={sim} onSeek={player.seek} />}
+        {tab === "transcript" ? <TranscriptPanel sim={sim} playhead={player.playhead} onSeek={player.seek} /> : <VoicesPanel sim={sim} onSeek={player.seek} playhead={player.playhead} />}
       </div>
     </div>
   );

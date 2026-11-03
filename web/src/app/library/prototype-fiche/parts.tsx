@@ -35,6 +35,7 @@ import {
   type Voice,
 } from "./data";
 import { launchPlan, type Sim } from "./useFicheSim";
+import { VoiceDot, Waveform } from "./waveform";
 
 export function fmt(s: number) {
   const m = Math.floor(s / 60);
@@ -219,7 +220,7 @@ const stateLabel: Record<Voice["state"], string> = {
   random: "Random",
 };
 
-export function VoicesPanel({ sim, onSeek }: { sim: Sim; onSeek: (s: number) => void }) {
+export function VoicesPanel({ sim, onSeek, playhead }: { sim: Sim; onSeek: (s: number) => void; playhead?: number }) {
   if (sim.voices.length === 0)
     return <Empty>Pas de voix détectées. Lancez l'étape « Détection des voix » depuis l'analyse.</Empty>;
   const todo = sim.voices.filter((v) => ["suggested", "ambiguous", "unknown"].includes(v.state)).length;
@@ -230,6 +231,9 @@ export function VoicesPanel({ sim, onSeek }: { sim: Sim; onSeek: (s: number) => 
           <AlertTriangle className="size-4" /> {todo} voix à traiter dans cette vidéo
         </p>
       )}
+      <div className="border-b border-line px-4 py-3">
+        <Waveform segments={sim.segments} voices={sim.voices} playhead={playhead} onSeek={onSeek} lanes height={64} />
+      </div>
       <ul className="m-0 flex list-none flex-col p-0">
         {sim.voices.map((v) => (
           <VoiceRow key={v.id} v={v} sim={sim} onSeek={onSeek} />
@@ -239,13 +243,14 @@ export function VoicesPanel({ sim, onSeek }: { sim: Sim; onSeek: (s: number) => 
   );
 }
 
-function VoiceRow({ v, sim, onSeek }: { v: Voice; sim: Sim; onSeek: (s: number) => void }) {
+export function VoiceRow({ v, sim, onSeek }: { v: Voice; sim: Sim; onSeek: (s: number) => void }) {
   const a = sim.voiceActions;
   const first = sim.segments.find((s) => s.voiceId === v.id);
   const muted = v.state === "ignored" || v.state === "random";
   return (
     <li className={`flex flex-col gap-2 border-b border-line px-4 py-3 ${muted ? "bg-side/60" : ""}`}>
       <div className="flex flex-wrap items-center gap-2">
+        <VoiceDot id={v.id} ignored={v.state === "ignored"} />
         <span className="font-mono text-xs text-mute">{v.label.toLowerCase()}</span>
         <SpeakerChip v={v} />
         <span className="text-xs text-mute">· {stateLabel[v.state]} · {v.turns} interventions · {fmt(v.speakingS)} de parole</span>

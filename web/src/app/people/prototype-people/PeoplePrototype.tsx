@@ -21,6 +21,7 @@ import { useSearchParams } from "react-router";
 import { buttonClass } from "../../components/buttons";
 import { Brand } from "../../components/Logo";
 import { Modal } from "../../components/Modal";
+import { Triage } from "./Triage";
 import { appearances, ficheVoices, groups, people, todo, total, type Group, type Person, type TodoVideo } from "./data";
 
 const totalVoices = todo.reduce((n, v) => n + total(v), 0);
@@ -358,7 +359,7 @@ function VariantC() {
 
 /* ---------- D : retenue — annuaire de C + onglets À traiter et Voix inconnues de A ---------- */
 
-function TodoList() {
+function TodoList({ onTreat }: { onTreat: (v: TodoVideo) => void }) {
   const [filter, setFilter] = useState<"all" | "confirm" | "unknown" | "groups">("all");
   const rows = todo.filter((v) => filter === "all" || (filter === "confirm" ? v.suggestions > 0 : filter === "unknown" ? v.unknown + v.ambiguous > 0 : v.groups.length > 0));
   return (
@@ -373,11 +374,11 @@ function TodoList() {
         {rows.map((v) => (
           <li key={v.id} className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
             <span className="min-w-0 flex-1">
-              <a href={ficheVoices(v.id)} className="block font-medium hover:underline">{v.title}</a>
+              <button type="button" onClick={() => onTreat(v)} className="block text-left font-medium hover:underline">{v.title}</button>
               <span className="block text-xs text-mute">{v.folder} · {v.date} · {v.duration}{v.recentlyAnalysed ? " · analysée aujourd'hui" : ""}</span>
             </span>
             <Counts v={v} />
-            <a href={ficheVoices(v.id)} className={buttonClass("primary")}>Traiter {total(v)} <ArrowRight className="size-4" /></a>
+            <button type="button" onClick={() => onTreat(v)} className={buttonClass("primary")}>Traiter {total(v)} <ArrowRight className="size-4" /></button>
           </li>
         ))}
       </ul>
@@ -386,9 +387,22 @@ function TodoList() {
 }
 
 function VariantD() {
-  const [tab, setTab] = useState<"persons" | "todo" | "groups">("persons");
+  const [treating, setTreating] = useState<TodoVideo | null>(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("traiter"));
+    return todo.find((v) => v.id === id) ?? null;
+  });
+  const [tab, setTab] = useState<"persons" | "todo" | "groups">(treating ? "todo" : "persons");
   const [person, setPerson] = useState<Person | null>(null);
   const [group, setGroup] = useState<Group | null>(null);
+  if (treating)
+    return (
+      <Triage
+        key={treating.id}
+        video={treating}
+        onBack={() => setTreating(null)}
+        onNext={() => setTreating(todo[(todo.indexOf(treating) + 1) % todo.length])}
+      />
+    );
   return (
     <section className="flex flex-col gap-4 px-4 py-6 md:px-7">
       <div className="flex flex-wrap items-center gap-3">
@@ -422,7 +436,7 @@ function VariantD() {
             ))}
           </ul>
         ))}
-      {tab === "todo" && <TodoList />}
+      {tab === "todo" && <TodoList onTreat={setTreating} />}
       {tab === "groups" && (
         <>
           <p className="m-0 text-mute">Voix entendues dans plusieurs vidéos sans qu'on sache qui c'est. Les nommer identifie la personne partout d'un coup.</p>
