@@ -14,6 +14,8 @@ import math
 import re
 from typing import Any, Callable, Mapping, Sequence
 
+from snitch_worker import cancellation
+
 logger = logging.getLogger(__name__)
 
 DIARIZATION_STEP = re.compile(r"voice\.diarization\.(\d+)")
@@ -187,6 +189,7 @@ def fingerprints_from_embedder(
             length = turn["end"] - turn["start"]
             if length < MIN_EMBEDDABLE_SECONDS:
                 continue
+            cancellation.check()  # between two embeddings, whatever the provider
             raw = embed(float(turn["start"]), float(turn["end"]))
             if raw is None:  # no audio left under this turn: kept in the diarization, not fingerprinted
                 continue
@@ -287,10 +290,12 @@ def process_voice_step(
     fingerprint_match = FINGERPRINT_STEP.fullmatch(step)
     if not diarization_match and not (fingerprint_match and voice.get("diarization")):
         raise ValueError("unsupported voice step")
+    cancellation.check()
     ensure_provider_ready(voice, providers)
     provider = (providers or default_providers())[config["provider"]]
     if requires_audio(config) and not audio_path:
         raise VoiceProviderUnavailable("audio_missing")
+    cancellation.check()  # last point before the provider's opaque call
     try:
         if diarization_match:
             stream = int(diarization_match.group(1))
