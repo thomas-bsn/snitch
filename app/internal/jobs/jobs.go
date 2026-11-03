@@ -122,7 +122,6 @@ type Input struct {
 	PipelineVersion    string           `json:"pipeline_version"`
 	TranscriptionModel string           `json:"transcription_model"`
 	Voice              json.RawMessage  `json:"voice,omitempty"`
-	VoiceTrial         json.RawMessage  `json:"voice_trial,omitempty"`
 }
 
 type VocabularyTerm struct {
@@ -483,17 +482,9 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		      OR (j.step LIKE 'voice.diarization.%' AND $4::jsonb->'diarization'->>'model' = COALESCE(pin.config->>'model',$5::text))
 		      OR (j.step LIKE 'voice.fingerprint.%' AND $4::jsonb->'fingerprint'->>'model' = $6::text)
 		  )
-		  AND (
-		      j.step NOT LIKE 'voicetrial.%'
-		      OR EXISTS (
-		          SELECT 1 FROM voice_diarization_trials t JOIN worker_voice_models m ON m.model_id=t.model_id
-		          WHERE t.clip_id=j.clip_id AND j.step='voicetrial.diarization.'||t.id
-		            AND m.worker_id=$7::text AND m.state='ready' AND m.removal_requested=false
-		      )
-		  )
 		ORDER BY j.priority DESC,j.created_at,j.id
 		FOR UPDATE OF j SKIP LOCKED LIMIT 1
-	`, supportedSteps, activeVersion, voiceProvider, string(declaredModels), diarizationModel, ActiveEmbeddingModel, workerID))
+	`, supportedSteps, activeVersion, voiceProvider, string(declaredModels), diarizationModel, ActiveEmbeddingModel))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -561,11 +552,7 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 			return Input{}, fmt.Errorf("read transcription pipeline snapshot: %w", queryErr)
 		}
 	}
-	if strings.HasPrefix(input.Job.Step, "voicetrial.") {
-		if err = s.trialInput(ctx, &input); err != nil {
-			return Input{}, err
-		}
-	} else if strings.HasPrefix(input.Job.Step, "voice.") {
+	if strings.HasPrefix(input.Job.Step, "voice.") {
 		if err = s.voiceInput(ctx, &input); err != nil {
 			return Input{}, err
 		}

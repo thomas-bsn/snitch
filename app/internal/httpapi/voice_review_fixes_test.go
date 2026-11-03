@@ -93,57 +93,6 @@ func testVoiceModelConcurrency(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-// A trial runs with the engine of its catalogue model, never a hard-coded one.
-func testVoiceTrialEngine(t *testing.T, pool *pgxpool.Pool) {
-	h := newVoiceHarness(t, pool)
-	h.diarizeClip()
-	h.adminCall(http.MethodPut, "/api/admin/voice-models/candidate", map[string]any{"model_id": sortformerID}, http.StatusOK)
-	h.reportModel(sortformerID, "ready", "", 1, 1, http.StatusNoContent)
-	path := fmt.Sprintf("/api/admin/clips/%d/voice-trials", h.clipID)
-	h.adminCall(http.MethodPost, path, map[string]any{"model_id": sortformerID, "audio_stream_index": 2}, http.StatusCreated)
-	job, ok := h.claimTrial()
-	if !ok {
-		t.Fatal("the Sortformer trial must be claimable")
-	}
-	var input struct {
-		VoiceTrial struct {
-			Config map[string]any `json:"config"`
-		} `json:"voice_trial"`
-	}
-	if err := json.Unmarshal(h.workerCall(http.MethodGet, fmt.Sprintf("/api/worker/jobs/%d/input", job.ID), nil, job.Lease, http.StatusOK), &input); err != nil {
-		t.Fatal(err)
-	}
-	if input.VoiceTrial.Config["provider"] != "nemo" || input.VoiceTrial.Config["model"] != sortformerRepo {
-		t.Fatalf("a Sortformer trial must run with the nemo engine: %+v", input.VoiceTrial.Config)
-	}
-	// A result from another engine is refused; the right engine is recorded.
-	wrong := diarizationPayload("A", "B")
-	wrong["provider"], wrong["model"], wrong["model_version"] = "pyannote", sortformerRepo, sortformerRevision
-	h.complete(job, wrong, http.StatusBadRequest)
-	right := diarizationPayload("A", "B")
-	right["provider"], right["model"], right["model_version"] = "nemo", sortformerRepo, sortformerRevision
-	h.complete(job, right, http.StatusOK)
-	if list := h.trials(); len(list) != 1 || list[0].Status != "done" || len(list[0].Speakers) != 2 {
-		t.Fatalf("unexpected trials %+v", list)
-	}
-
-	// A rerun keeps the previous result visible until the new run succeeds.
-	h.adminCall(http.MethodPost, path, map[string]any{"model_id": sortformerID, "audio_stream_index": 2}, http.StatusCreated)
-	if list := h.trials(); len(list) != 1 || list[0].Status != "pending" || len(list[0].Speakers) != 2 {
-		t.Fatalf("the previous result must stay visible during a rerun: %+v", list)
-	}
-	job, ok = h.claimTrial()
-	if !ok {
-		t.Fatal("the rerun must be claimable")
-	}
-	right = diarizationPayload("A", "B", "C")
-	right["provider"], right["model"], right["model_version"] = "nemo", sortformerRepo, sortformerRevision
-	h.complete(job, right, http.StatusOK)
-	if list := h.trials(); len(list) != 1 || list[0].Status != "done" || len(list[0].Speakers) != 3 {
-		t.Fatalf("a successful rerun replaces the result: %+v", list)
-	}
-}
-
 // After a relaunch the validated speaker is archived: it no longer makes the clip match its person.
 func testVoiceArchivedSpeakersFilter(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)

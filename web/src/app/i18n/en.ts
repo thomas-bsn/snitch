@@ -2519,32 +2519,6 @@ export const en = {
     entry:
       "Model {model} ({version}), {date}: {speakers} voice(s), {validated} validated.",
   },
-  voiceTrial: {
-    title: "Diarization trial",
-    hint: "Run the candidate or active model on this clip, optionally with a number of speakers, and compare it with the current result. A trial never changes the speakers, attributions or corrections of the clip.",
-    model: "Model",
-    active: "active",
-    candidate: "candidate",
-    numSpeakers: "Number of speakers",
-    automatic: "Automatic",
-    noNumSpeakers: "This engine cannot be given a number of speakers.",
-    noModel:
-      "No candidate or active model is ready on a Worker: prepare one in Admin, Voice processing.",
-    run: "Run the trial",
-    starting: "Starting…",
-    current: "Current result",
-    count: "{count} speakers",
-    speaker: "{label}: {seconds} s, {turns} turns",
-    none: "No trial yet on this clip.",
-    imposed: "{count} speakers imposed",
-    delete: "Delete this trial",
-    status: {
-      pending: "waiting for a Worker",
-      running: "running",
-      done: "done",
-      failed: "failed",
-    },
-  },
   errors: errorsEn,
   errorFallback: "Something went wrong ({code}). Try again.",
 };

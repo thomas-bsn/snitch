@@ -2564,32 +2564,6 @@ export const fr: Messages = {
     entry:
       "Modèle {model} ({version}), {date} : {speakers} voix, dont {validated} validée(s).",
   },
-  voiceTrial: {
-    title: "Essai de diarisation",
-    hint: "Lancez le modèle candidat ou actif sur ce clip, au besoin avec un nombre de locuteurs, et comparez-le au résultat courant. Un essai ne change jamais les locuteurs, les attributions ni les corrections du clip.",
-    model: "Modèle",
-    active: "actif",
-    candidate: "candidat",
-    numSpeakers: "Nombre de locuteurs",
-    automatic: "Automatique",
-    noNumSpeakers: "Ce moteur ne permet pas d’imposer le nombre de locuteurs.",
-    noModel:
-      "Aucun modèle candidat ou actif n’est prêt sur un Worker : préparez-en un dans Administration, Traitement vocal.",
-    run: "Lancer l’essai",
-    starting: "Lancement…",
-    current: "Résultat courant",
-    count: "{count} locuteurs",
-    speaker: "{label} : {seconds} s, {turns} tours de parole",
-    none: "Aucun essai sur ce clip.",
-    imposed: "{count} locuteurs imposés",
-    delete: "Supprimer cet essai",
-    status: {
-      pending: "en attente d’un Worker",
-      running: "en cours",
-      done: "terminé",
-      failed: "échec",
-    },
-  },
   errors: errorsFr,
   errorFallback: "Une erreur est survenue ({code}). Réessayez.",
 };

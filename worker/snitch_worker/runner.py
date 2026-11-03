@@ -41,16 +41,7 @@ from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
 from snitch_worker import transcription_config
 from snitch_worker.transcription_config import ReachabilityMonitor, active_configuration, sync_configuration
-from snitch_worker.voice import DIARIZATION_STEP, TRIAL_STEP, VoiceProviderUnavailable, ensure_provider_ready, is_trial_step, is_voice_step, process_trial_step, process_voice_step, requires_audio
-
-
-def trial_voice_input(task_input: Any) -> dict[str, Any]:
-    """A diarization trial's own input (``voice_trial``): its pinned model, options and audio stream.
-
-    It is distinct from the regular pipeline input (``voice``), which a trial never receives.
-    """
-    value = getattr(task_input, "voice_trial", None)
-    return value.to_dict() if hasattr(value, "to_dict") else {}
+from snitch_worker.voice import DIARIZATION_STEP, VoiceProviderUnavailable, ensure_provider_ready, is_voice_step, process_voice_step, requires_audio
 
 
 def fake_provider(step: str) -> dict[str, Any]:
@@ -101,7 +92,7 @@ DIARIZATION_FAILURE_CODES = {
 
 
 def _is_diarization_step(step: str) -> bool:
-    return bool(DIARIZATION_STEP.fullmatch(step) or TRIAL_STEP.fullmatch(step))
+    return bool(DIARIZATION_STEP.fullmatch(step))
 
 
 def _voice_config(task_input: Any) -> dict[str, Any]:
@@ -400,7 +391,7 @@ def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
 def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: ReachabilityMonitor | None = None) -> None:
     body = WorkerPulseInput(
         capacity=capacity,
-        supported_steps=["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"],
+        supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
         models=declared_models(os.environ, voice_models.active_repo()),
         machine=declared_machine(),
     )
@@ -626,15 +617,6 @@ def _run_claimed(
                 else:
                     # No audio is prepared here, so no peaks: a result without them is accepted (ADR 0034).
                     result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
-            elif is_trial_step(job.step):
-                voice_input = trial_voice_input(task_input)
-                trial = voice_input.get("trial") or {}
-                with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
-                    original = os.path.join(temporary, "original.media")
-                    wav_path = os.path.join(temporary, "prepared.wav")
-                    download_media(client, task_input, lease_token, original)
-                    prepare_audio(original, wav_path, int(trial.get("audio_stream_index", 0)))
-                    result = process_trial_step(job.step, voice_input, wav_path, voice_providers)
             else:
                 raise ValueError("unsupported worker step")
         heartbeat_stop.set()
