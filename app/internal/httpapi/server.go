@@ -104,7 +104,11 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	s.Library.OnManagedReady = func(ctx context.Context, id int64) error {
 		_, _, err := s.scheduleResolvedTranscription(ctx, id, nil, true)
-		return err
+		if err != nil {
+			return err
+		}
+		s.startAutomaticAnalysis(ctx, id)
+		return nil
 	}
 	if err := s.Library.Start(ctx); err != nil {
 		s.Uploads.Close()

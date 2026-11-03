@@ -194,6 +194,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipAnalysis(t, pool)
 	})
+	t.Run("automatic full analysis", func(t *testing.T) {
+		reset(t)
+		testAutomaticFullAnalysis(t, pool)
+	})
 	t.Run("clip analysis control", func(t *testing.T) {
 		reset(t)
 		testClipAnalysisControl(t, pool)

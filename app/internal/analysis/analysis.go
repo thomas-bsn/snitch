@@ -333,7 +333,12 @@ func (s *Service) StartWith(ctx context.Context, clipID int64, scope string, adm
 		return Run{}, false, err
 	}
 	defer tx.Rollback(ctx)
-	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO clip_analysis_runs(clip_id,scope,started_by,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations,confirmed_stake_at) VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN cardinality($5::text[])>0 THEN LEAST(COALESCE($8::timestamptz,now()),now()) END) ON CONFLICT (clip_id) WHERE status='active' DO NOTHING RETURNING `+runColumns, clipID, scope, adminID, opts.Mode, forced, opts.ConfirmReplaceCorrections, opts.ConfirmReplaceValidations, stakeAt))
+	// An automatic start (adminID 0, ADR 0035) has no administrator: started_by stays NULL.
+	var starter *int64
+	if adminID != 0 {
+		starter = &adminID
+	}
+	run, err := scanRun(tx.QueryRow(ctx, `INSERT INTO clip_analysis_runs(clip_id,scope,started_by,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations,confirmed_stake_at) VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN cardinality($5::text[])>0 THEN LEAST(COALESCE($8::timestamptz,now()),now()) END) ON CONFLICT (clip_id) WHERE status='active' DO NOTHING RETURNING `+runColumns, clipID, scope, starter, opts.Mode, forced, opts.ConfirmReplaceCorrections, opts.ConfirmReplaceValidations, stakeAt))
 	created := err == nil
 	if errors.Is(err, pgx.ErrNoRows) {
 		run, err = scanRun(tx.QueryRow(ctx, `SELECT `+runColumns+` FROM clip_analysis_runs WHERE clip_id=$1 AND status='active'`, clipID))
