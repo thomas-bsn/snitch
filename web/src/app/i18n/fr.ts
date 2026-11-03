@@ -595,6 +595,11 @@ export const fr: Messages = {
     saved: "Modifications enregistrées.",
     approve: "Approuver {name}",
     noPending: "Aucune inscription en attente.",
+    folderRequests: "Demandes de création de dossier",
+    folderRequest: "{name} demande le dossier « {path} ».",
+    folderApprove: "Approuver le dossier {path}",
+    folderRefuse: "Refuser le dossier {path}",
+    noFolderRequests: "Aucune demande de dossier en attente de décision.",
     accessSettings: "Paramètres des inscriptions et Discord",
     ownerOnly: "Seul le Super-administrateur peut modifier ces réglages.",
     requireApproval: "Exiger une approbation des inscriptions",
@@ -734,6 +739,8 @@ export const fr: Messages = {
     incidentGeneric:
       "Un incident technique ralentit le traitement. Les administrateurs ont été prévenus.",
     incidentResolved: "Incident technique résolu",
+    folderApproved: "Votre demande de dossier « {path} » a été approuvée.",
+    folderRefused: "Votre demande de dossier « {path} » a été refusée.",
     incidentWorkerAction: "Vérifier le worker",
     incidentJobAction: "Voir les jobs",
   },
@@ -1370,6 +1377,40 @@ export const fr: Messages = {
     },
   },
   import: {
+    sections: {
+      server: "Déjà sur le serveur",
+      computer: "Depuis mon ordinateur",
+    },
+    server: {
+      intro:
+        "Choisissez des vidéos déjà présentes dans la Racine vidéo. Un dossier ajoute ses vidéos, sous-dossiers compris.",
+      unconfigured: "La Racine vidéo n’est pas encore configurée.",
+      path: "Dossier courant",
+      rootName: "Racine vidéo",
+      private: "Dossier privé : seul le Super-administrateur peut l’ouvrir.",
+      select: "Sélectionner {name}",
+      clear: "Vider la sélection",
+      selected: "{count} élément(s) sélectionné(s)",
+      up: "Dossier parent",
+      empty: "Rien ici.",
+      check: "Compter les vidéos",
+      counting: "Comptage…",
+      none: "Aucune vidéo dans cette sélection.",
+      total: "{count} vidéo(s) seront ajoutées à la bibliothèque.",
+      confirm: "Ajouter {count} vidéo(s)",
+      cancel: "Annuler",
+      queued:
+        "{count} vidéo(s) ajoutée(s). Elles seront indexées puis analysées selon le réglage.",
+    },
+    folder: {
+      new: "Nouveau dossier",
+      name: "Nom du dossier",
+      created: "Le dossier « {path} » a été créé.",
+      requested:
+        "Demande envoyée. Un administrateur décidera ; vous ne pouvez pas téléverser dans ce dossier d’ici là.",
+      pending: "Demande en attente",
+      cancel: "Annuler",
+    },
     visibility: {
       label: "Qui peut voir ces vidéos",
       shared: "Partagées avec les membres",

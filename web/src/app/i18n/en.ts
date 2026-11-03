@@ -580,6 +580,11 @@ export const en = {
     saved: "Changes saved.",
     approve: "Approve {name}",
     noPending: "No sign-ups awaiting approval.",
+    folderRequests: "Folder requests",
+    folderRequest: "{name} asks for the folder « {path} ».",
+    folderApprove: "Approve the folder {path}",
+    folderRefuse: "Refuse the folder {path}",
+    noFolderRequests: "No folder request awaiting a decision.",
     accessSettings: "Sign-up and Discord settings",
     ownerOnly: "Only the Super-administrator can change these settings.",
     requireApproval: "Require approval for sign-ups",
@@ -717,6 +722,8 @@ export const en = {
     incidentGeneric:
       "A technical incident is slowing processing down. Administrators have been notified.",
     incidentResolved: "Technical incident resolved",
+    folderApproved: "Your folder request « {path} » was approved.",
+    folderRefused: "Your folder request « {path} » was refused.",
     incidentWorkerAction: "Check the worker",
     incidentJobAction: "View the jobs",
   },
@@ -1345,6 +1352,40 @@ export const en = {
     },
   },
   import: {
+    sections: {
+      server: "Already on the server",
+      computer: "From my computer",
+    },
+    server: {
+      intro:
+        "Pick videos already in the video root. A folder adds its videos, sub-folders included.",
+      unconfigured: "The video root is not configured yet.",
+      path: "Current folder",
+      rootName: "Video root",
+      private: "Private folder: only the Super-administrator can open it.",
+      select: "Select {name}",
+      clear: "Clear the selection",
+      selected: "{count} item(s) selected",
+      up: "Parent folder",
+      empty: "Nothing here.",
+      check: "Count the videos",
+      counting: "Counting…",
+      none: "No video in this selection.",
+      total: "{count} video(s) will be added to the library.",
+      confirm: "Add {count} video(s)",
+      cancel: "Cancel",
+      queued:
+        "{count} video(s) added. They are indexed, then analysed as set in the settings.",
+    },
+    folder: {
+      new: "New folder",
+      name: "Folder name",
+      created: "The folder « {path} » was created.",
+      requested:
+        "Request sent. An administrator will decide; you cannot upload into this folder until then.",
+      pending: "Request pending",
+      cancel: "Cancel",
+    },
     visibility: {
       label: "Who can see these videos",
       shared: "Shared with members",

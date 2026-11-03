@@ -73,6 +73,22 @@ Dans le même panneau, **Nouveau sous-dossier** crée un dossier dans le dossier
 
 À l'import, **Choisir un dossier** permet de sélectionner un sous-dossier existant comme destination. Sans choix, le fichier va à la racine. Le fichier est d'abord envoyé dans un staging, puis publié dans la racine une fois complet.
 
+## Importer : deux choix
+
+L'écran **Importer** propose deux cartes.
+
+- **Déjà sur le serveur** : tout utilisateur connecté choisit des vidéos déjà présentes dans la racine (fichiers, plusieurs à la fois, dossiers entiers, sous-dossiers compris). Le total est affiché, puis la sélection est ajoutée à la file après confirmation ; elle est ensuite indexée puis analysée selon le réglage de la bibliothèque. Ce sélecteur ne crée aucun dossier. Il applique la règle des Dossiers privés : un dossier privé apparaît avec son cadenas, ne peut pas être sélectionné, et son contenu n'est ni compté ni ajouté, sauf pour le Super-administrateur (`POST /api/library/import/scan`, même décompte qu'un scan).
+- **Depuis mon ordinateur** : téléversement par blocs, avec le dossier de destination (racine par défaut une fois choisie). Un dossier privé n'est pas une destination pour un utilisateur, et un dossier en attente de décision n'en est pas une non plus.
+
+## Demander un dossier
+
+Au choix de la destination d'un téléversement, **Nouveau dossier** (ADR 0033) :
+
+- un Administrateur crée le dossier aussitôt (`POST /api/folder-requests`, réponse `created`) ;
+- un utilisateur envoie une **demande de création de dossier**, en attente : rien ne peut être téléversé dans ce dossier (`folder_request_pending`) tant qu'elle n'est pas tranchée.
+
+Les demandes apparaissent dans **Administration › Inscriptions**, à côté des inscriptions en attente, avec **Approuver** (le dossier est créé) ou **Refuser** (rien n'est créé). Le demandeur reçoit une notification de la décision. Une demande sous un dossier privé est réservée au Super-administrateur. Le journal des demandes et des décisions est immuable (`folder_request_events`) ; une demande refusée peut être redemandée.
+
 ## Écraser un fichier existant
 
 Si un fichier porte déjà ce nom, Snitch demande confirmation et affiche le chemin. Après confirmation :

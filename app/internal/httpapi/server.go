@@ -174,6 +174,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/library/explorer/index", s.protected(false, http.HandlerFunc(s.explorerIndex)))
 	mux.Handle("POST /api/admin/video-root/folders", s.protected(true, http.HandlerFunc(s.videoFolder)))
 	mux.Handle("POST /api/admin/video-root/scan", s.protected(true, http.HandlerFunc(s.videoScan)))
+	// The import picker (#224): any signed-in user, with the same Dossier privé rule as the scan above.
+	mux.Handle("POST /api/library/import/scan", s.protected(false, http.HandlerFunc(s.videoScan)))
+	mux.Handle("POST /api/folder-requests", s.protected(false, http.HandlerFunc(s.createFolderRequest)))
+	mux.Handle("GET /api/folder-requests", s.protected(false, http.HandlerFunc(s.listFolderRequests)))
+	mux.Handle("GET /api/admin/folder-requests", s.protected(true, http.HandlerFunc(s.listFolderRequests)))
+	mux.Handle("POST /api/admin/folder-requests/{id}/approve", s.protected(true, http.HandlerFunc(s.approveFolderRequest)))
+	mux.Handle("POST /api/admin/folder-requests/{id}/refuse", s.protected(true, http.HandlerFunc(s.refuseFolderRequest)))
 
 	for _, method := range []string{"GET", "PUT", "DELETE"} {
 		mux.Handle(method+" /api/account/avatar", s.protected(false, http.HandlerFunc(s.accountAvatar)))

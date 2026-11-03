@@ -186,6 +186,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVideoRootPrivacy(t, pool)
 	})
+	t.Run("import selection", func(t *testing.T) {
+		reset(t)
+		testImportSelection(t, pool)
+	})
+	t.Run("folder requests", func(t *testing.T) {
+		reset(t)
+		testFolderRequests(t, pool)
+	})
 	t.Run("clip library", func(t *testing.T) {
 		reset(t)
 		testClipLibrary(t, pool)
