@@ -266,6 +266,22 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipReanalysis(t, pool)
 	})
+	t.Run("clip analysis step deletion", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletion(t, pool)
+	})
+	t.Run("clip analysis deletion stake at confirm", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionStakeAtConfirm(t, pool)
+	})
+	t.Run("clip analysis deletion keeps other voices", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionKeepsOtherVoices(t, pool)
+	})
+	t.Run("clip analysis deletion cascades", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionCascades(t, pool)
+	})
 	t.Run("clip analysis read-only view", func(t *testing.T) {
 		reset(t)
 		testClipAnalysisReadOnlyView(t, pool)

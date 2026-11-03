@@ -19,6 +19,7 @@ if TYPE_CHECKING:
   from ..models.clip_origins_item import ClipOriginsItem
   from ..models.clip_person import ClipPerson
   from ..models.clip_progress import ClipProgress
+  from ..models.clip_waveforms_item import ClipWaveformsItem
   from ..models.media_track import MediaTrack
   from ..models.transcription import Transcription
 
@@ -54,6 +55,8 @@ class Clip:
             uploaders (list[str]):
             owner_deleted (bool | Unset): Le compte propriétaire a été supprimé.
             origins (list[ClipOriginsItem] | Unset):
+            waveforms (list[ClipWaveformsItem] | Unset): Pics de forme d’onde par piste audio (ADR 0034), un élément par
+                piste ayant reçu des pics ; liste vide tant qu’aucune analyse n’en a fourni.
             game (None | str | Unset):
             game_origin (None | str | Unset):
             capture_time_origin (None | str | Unset):
@@ -86,6 +89,7 @@ class Clip:
     uploaders: list[str]
     owner_deleted: bool | Unset = UNSET
     origins: list[ClipOriginsItem] | Unset = UNSET
+    waveforms: list[ClipWaveformsItem] | Unset = UNSET
     game: None | str | Unset = UNSET
     game_origin: None | str | Unset = UNSET
     capture_time_origin: None | str | Unset = UNSET
@@ -108,6 +112,7 @@ class Clip:
         from ..models.clip_origins_item import ClipOriginsItem # noqa: PLC0415
         from ..models.clip_person import ClipPerson # noqa: PLC0415
         from ..models.clip_progress import ClipProgress # noqa: PLC0415
+        from ..models.clip_waveforms_item import ClipWaveformsItem # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         id = self.id
@@ -166,6 +171,15 @@ class Clip:
             for origins_item_data in self.origins:
                 origins_item = origins_item_data.to_dict()
                 origins.append(origins_item)
+
+
+
+        waveforms: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.waveforms, Unset):
+            waveforms = []
+            for waveforms_item_data in self.waveforms:
+                waveforms_item = waveforms_item_data.to_dict()
+                waveforms.append(waveforms_item)
 
 
 
@@ -247,6 +261,8 @@ class Clip:
             field_dict["owner_deleted"] = owner_deleted
         if origins is not UNSET:
             field_dict["origins"] = origins
+        if waveforms is not UNSET:
+            field_dict["waveforms"] = waveforms
         if game is not UNSET:
             field_dict["game"] = game
         if game_origin is not UNSET:
@@ -279,6 +295,7 @@ class Clip:
         from ..models.clip_origins_item import ClipOriginsItem # noqa: PLC0415
         from ..models.clip_person import ClipPerson # noqa: PLC0415
         from ..models.clip_progress import ClipProgress # noqa: PLC0415
+        from ..models.clip_waveforms_item import ClipWaveformsItem # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         d = dict(src_dict)
@@ -379,6 +396,18 @@ class Clip:
 
 
                 origins.append(origins_item)
+
+
+        _waveforms = d.pop("waveforms", UNSET)
+        waveforms: list[ClipWaveformsItem] | Unset = UNSET
+        if _waveforms is not UNSET:
+            waveforms = []
+            for waveforms_item_data in _waveforms:
+                waveforms_item = ClipWaveformsItem.from_dict(waveforms_item_data)
+
+
+
+                waveforms.append(waveforms_item)
 
 
         def _parse_game(data: object) -> None | str | Unset:
@@ -487,6 +516,7 @@ class Clip:
             uploaders=uploaders,
             owner_deleted=owner_deleted,
             origins=origins,
+            waveforms=waveforms,
             game=game,
             game_origin=game_origin,
             capture_time_origin=capture_time_origin,

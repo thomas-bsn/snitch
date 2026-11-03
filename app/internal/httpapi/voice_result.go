@@ -158,6 +158,11 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 			}
 		}
 	}
+	project = chainProjections(project, waveformProjection(step, result))
+	if summarize == nil && strings.HasPrefix(step, "voice.diarization.") {
+		// Peaks are stored per track by the waveform projection, never in jobs.result.
+		summarize = withoutPeaks
+	}
 	job, err := s.Jobs.CompleteWith(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), inputVersion, result, jobs.CompleteOptions{MaxResultBytes: maxVoiceResultBytes, Summarize: summarize, Project: project})
 	switch {
 	case errors.Is(err, jobs.ErrInvalidInput):

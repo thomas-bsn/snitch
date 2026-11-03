@@ -54,7 +54,7 @@ func (h analysisHooks) Transcribe(ctx context.Context, clipID int64, since time.
 		return analysis.Transcription{}, err
 	}
 	// A transcription of an older input version stays when corrections would be replaced.
-	if _, found, corrErr := h.s.clipCorrections(ctx, clipID); corrErr != nil {
+	if _, found, corrErr := h.s.clipCorrections(ctx, h.s.Pool, clipID); corrErr != nil {
 		return analysis.Transcription{}, corrErr
 	} else if found && !force {
 		if visible, ok, visErr := h.s.visibleTranscription(ctx, h.s.Pool, clipID); visErr != nil {
@@ -422,7 +422,7 @@ func (s *Server) reanalysisConfirmed(w http.ResponseWriter, r *http.Request, cli
 	}
 	var stake reanalysisStake
 	if slices.Contains(forced, analysis.StepTranscription) && !opts.ConfirmReplaceCorrections {
-		at, found, corrErr := s.clipCorrections(r.Context(), clipID)
+		at, found, corrErr := s.clipCorrections(r.Context(), s.Pool, clipID)
 		if corrErr != nil {
 			s.internal(w, corrErr)
 			return false
