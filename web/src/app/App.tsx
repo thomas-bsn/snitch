@@ -41,6 +41,7 @@ import { VerificationTab } from "./people/VerificationTab";
 import { NotificationsPage } from "./notifications/NotificationsPage";
 import { SearchPage } from "./search/SearchPage";
 import { ThemeProvider } from "./theme";
+import { FichePrototype } from "./library/prototype-fiche/FichePrototype";
 
 /** Screens that need a signed-in person; others are sent to the sign-in screen. */
 function RequireSession() {
@@ -155,6 +156,18 @@ function Routing() {
 }
 
 export function App() {
+  // PROTOTYPE — fiche vidéo, sans session ni serveur. Branche jetable, jamais fusionnée.
+  if (window.location.pathname.startsWith("/prototype/fiche-video")) {
+    return (
+      <ThemeProvider>
+        <I18nProvider>
+          <BrowserRouter>
+            <FichePrototype />
+          </BrowserRouter>
+        </I18nProvider>
+      </ThemeProvider>
+    );
+  }
   return (
     <ThemeProvider>
       <I18nProvider>
