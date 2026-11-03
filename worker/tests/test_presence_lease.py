@@ -1,4 +1,5 @@
 import contextlib
+import inspect
 import io
 import os
 import tempfile
@@ -68,6 +69,14 @@ class PresenceAndLeaseTests(unittest.TestCase):
     def test_presence_retry_delay_grows_and_is_capped_at_ten_seconds(self):
         delays = [runner.presence_retry_delay(attempt) for attempt in range(1, 8)]
         self.assertEqual(delays, [1, 2, 4, 8, 10, 10, 10])
+
+    def test_by_default_a_refused_lease_is_seen_within_ten_seconds(self):
+        # ADR 0029: a refusal cancels the job "immédiatement"; the renewal is what hears it. The
+        # server lease lasts 2 minutes, so a network error still leaves many retries.
+        for entry in (runner.run_once, runner.run_until_stopped):
+            interval = inspect.signature(entry).parameters["heartbeat_interval"].default
+            self.assertLessEqual(interval, 10, entry.__name__)
+            self.assertGreaterEqual(120 / interval, 10, entry.__name__)
 
     def test_presence_pulses_on_its_own_thread_while_a_job_runs(self):
         stop = threading.Event()
