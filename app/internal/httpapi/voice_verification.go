@@ -125,7 +125,7 @@ FROM cases ORDER BY clips DESC,voices DESC,speaking_seconds DESC,id LIMIT $4 OFF
 FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id AND ls.kind<>'archived'
 LEFT JOIN speaker_attributions v ON v.local_speaker_id=ls.id AND v.validation_state='validated'
 LEFT JOIN speaker_attributions m ON m.local_speaker_id=ls.id AND m.validation_state='unvalidated'
-WHERE clip_readable(c.id,c.owner_id,c.visibility,$1,$2) AND NOT EXISTS (SELECT 1 FROM local_speaker_dispositions d WHERE d.local_speaker_id=ls.id) GROUP BY 1`, ss.User.ID, admin)
+WHERE clip_readable(c.id,c.owner_id,c.visibility,$1,$2) AND NOT EXISTS (SELECT 1 FROM local_speaker_dispositions d WHERE d.local_speaker_id=ls.id AND d.disposition='ignored') GROUP BY 1`, ss.User.ID, admin)
 	if err != nil {
 		s.internal(w, err)
 		return

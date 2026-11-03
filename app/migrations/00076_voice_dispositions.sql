@@ -14,15 +14,18 @@ CREATE TABLE local_speaker_dispositions (
 );
 
 -- Journal of every change of disposition, restoration included. Append-only, like the
--- attribution history; names are snapshots.
+-- attribution history; names are snapshots. It outlives its voice: when re-diarization or a
+-- microphone designation deletes the local speaker, the event keeps its clip and loses its
+-- speaker (ON DELETE SET NULL, an UPDATE done by the cascade, allowed by the trigger below).
 CREATE TABLE voice_disposition_events (
     id bigserial PRIMARY KEY,
-    local_speaker_id bigint NOT NULL REFERENCES local_speakers(id) ON DELETE CASCADE,
+    local_speaker_id bigint REFERENCES local_speakers(id) ON DELETE SET NULL,
     clip_id bigint NOT NULL,
     old_disposition text NOT NULL DEFAULT '' CHECK (old_disposition IN ('','ignored','random')),
     new_disposition text NOT NULL DEFAULT '' CHECK (new_disposition IN ('','ignored','random')),
     author_id bigint,
     author_username text NOT NULL DEFAULT '',
+    reason text NOT NULL DEFAULT '',
     created_at timestamptz NOT NULL DEFAULT now(),
     CHECK (old_disposition <> new_disposition)
 );
@@ -31,7 +34,8 @@ CREATE INDEX voice_disposition_events_speaker ON voice_disposition_events(local_
 -- +goose StatementBegin
 CREATE FUNCTION voice_disposition_events_immutable() RETURNS trigger AS $$
 BEGIN
-    -- Depth 1 is a direct statement; deeper is a foreign-key cascade.
+    -- Depth 1 is a direct statement; deeper is a foreign-key action (ON DELETE SET NULL of
+    -- local_speaker_id), which is the only update the journal admits.
     IF pg_trigger_depth() < 2 THEN
         RAISE EXCEPTION 'voice_disposition_events is append-only' USING ERRCODE = '23001';
     END IF;

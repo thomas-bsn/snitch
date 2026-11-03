@@ -294,3 +294,91 @@ func testVoiceRefusal(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("a human may still validate a refused Person: %+v", got)
 	}
 }
+
+// testVoiceDispositionSurvivesRediarization: a new diarization replaces the local speakers
+// and drops their dispositions and refusals with them, but the journal stays. Each dropped
+// disposition is recorded once, by the system, and its event keeps the clip.
+func testVoiceDispositionSurvivesRediarization(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, second := h.diarizeClip()
+	h.setDisposition(fixtureSpeaker{ID: first, ClipID: h.clipID}, "ignored", http.StatusOK)
+	h.setDisposition(fixtureSpeaker{ID: second, ClipID: h.clipID}, "random", http.StatusOK)
+	if got := h.count(`SELECT count(*) FROM voice_disposition_events WHERE clip_id=$1`, h.clipID); got != 2 {
+		t.Fatalf("two journal events before the rediarization, got %d", got)
+	}
+
+	h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusCreated)
+	job, ok := h.claim()
+	if !ok || job.Step != "voice.diarization.2" {
+		t.Fatalf("expected the relaunched diarization: %+v", job)
+	}
+	h.complete(job, diarizationPayload("NEW_A", "NEW_B"), http.StatusOK)
+
+	if got := h.count(`SELECT count(*) FROM local_speaker_dispositions`); got != 0 {
+		t.Fatalf("dispositions go with the dropped voices, got %d", got)
+	}
+	if got := h.count(`SELECT count(*) FROM voice_disposition_events WHERE clip_id=$1`, h.clipID); got != 4 {
+		t.Fatalf("the journal must survive the rediarization (2 before, 2 system events), got %d", got)
+	}
+	if got := h.count(`SELECT count(*) FROM voice_disposition_events WHERE clip_id=$1 AND local_speaker_id IS NULL`, h.clipID); got != 4 {
+		t.Fatalf("the journal rows of dropped voices keep their clip with a NULL speaker, got %d", got)
+	}
+	if got := h.count(`SELECT count(*) FROM voice_disposition_events WHERE clip_id=$1 AND author_username='system' AND author_id IS NULL AND new_disposition='' AND old_disposition IN ('ignored','random')`, h.clipID); got != 2 {
+		t.Fatalf("one system event per dropped disposition, got %d", got)
+	}
+}
+
+// testRandomCountsInVerificationCounters: a random voice stays in the counters of the
+// verification (ADR 0031 excludes it from verification, groups and rapprochement only); an
+// ignored voice leaves them.
+func testRandomCountsInVerificationCounters(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, second := h.diarizeClip()
+	admin := h.adminUser()
+	total := func() int {
+		t.Helper()
+		var page struct {
+			Counts map[string]int `json:"counts"`
+		}
+		if err := json.Unmarshal(h.userCall(admin, http.MethodGet, "/api/voice-verification", nil, http.StatusOK), &page); err != nil {
+			t.Fatal(err)
+		}
+		sum := 0
+		for _, n := range page.Counts {
+			sum += n
+		}
+		return sum
+	}
+	before := total()
+	if before != 2 {
+		t.Fatalf("two unknown voices start in the counters, got %d", before)
+	}
+	h.setDisposition(fixtureSpeaker{ID: first, ClipID: h.clipID}, "random", http.StatusOK)
+	if got := total(); got != before {
+		t.Fatalf("a random voice stays in the counters: %d, want %d", got, before)
+	}
+	h.setDisposition(fixtureSpeaker{ID: second, ClipID: h.clipID}, "ignored", http.StatusOK)
+	if got := total(); got != before-1 {
+		t.Fatalf("an ignored voice leaves the counters: %d, want %d", got, before-1)
+	}
+}
+
+// testIgnoredVoiceNeverDeduced: "retour à l'auto" must not attribute a segment to an
+// ignored voice, even when that voice is the one speaking most over it.
+func testIgnoredVoiceNeverDeduced(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, second := h.diarizeClip() // segment 0 is spoken by first only
+	path := fmt.Sprintf("/api/clips/%d/segments/0/speaker", h.clipID)
+	var designated speakerResponse
+	if err := json.Unmarshal(h.adminCall(http.MethodPut, path, map[string]any{"local_speaker_id": second, "expected_version": 0}, http.StatusOK), &designated); err != nil {
+		t.Fatal(err)
+	}
+	h.setDisposition(fixtureSpeaker{ID: first, ClipID: h.clipID}, "ignored", http.StatusOK)
+	var back speakerResponse
+	if err := json.Unmarshal(h.adminCall(http.MethodPut, path, map[string]any{"local_speaker_id": nil, "expected_version": designated.Version}, http.StatusOK), &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.ID != nil {
+		t.Fatalf("the deduced speaker of segment 0 is ignored, so the segment has none: %+v", back)
+	}
+}

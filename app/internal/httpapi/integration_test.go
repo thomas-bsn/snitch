@@ -453,6 +453,18 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceDispositionTranscript(t, pool)
 	})
+	t.Run("voice disposition survives rediarization", func(t *testing.T) {
+		reset(t)
+		testVoiceDispositionSurvivesRediarization(t, pool)
+	})
+	t.Run("random voice counts in verification", func(t *testing.T) {
+		reset(t)
+		testRandomCountsInVerificationCounters(t, pool)
+	})
+	t.Run("ignored voice never deduced", func(t *testing.T) {
+		reset(t)
+		testIgnoredVoiceNeverDeduced(t, pool)
+	})
 	t.Run("voice refusal", func(t *testing.T) {
 		reset(t)
 		testVoiceRefusal(t, pool)
