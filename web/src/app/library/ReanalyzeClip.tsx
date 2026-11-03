@@ -12,6 +12,7 @@ type Stake = components["schemas"]["ClipReanalysisStake"];
 type Scope = Run["scope"];
 type Mode = Run["mode"];
 type ForcedStep = Run["forced_steps"][number];
+type Choice = { scope: Scope; mode: Mode; steps: ForcedStep[] };
 
 const FORCEABLE: ForcedStep[] = ["transcription", "indexing", "diarization"];
 
@@ -48,6 +49,9 @@ export function ReanalyzeClip({
   const [stake, setStake] = useState<Stake>();
   // When the server read the stake it showed: only the work that existed then is replaced.
   const [stakeAt, setStakeAt] = useState<string>();
+  // What the stake was read for: a confirmation replaces exactly this choice, even when it
+  // came from a quick choice.
+  const [pick, setPick] = useState<Choice>();
   const [failure, setFailure] = useState<string>();
   const [busy, setBusy] = useState(false);
 
@@ -63,16 +67,20 @@ export function ReanalyzeClip({
     onOpenChange(next);
   }
 
-  async function submit(confirm: boolean) {
+  async function submit(confirm: boolean, quick?: Choice) {
+    const current: Choice = { scope, mode, steps: chosen };
+    // A confirmation replays the choice whose consequences were shown; a new request uses the choice made now.
+    const next: Choice = confirm ? (pick ?? current) : (quick ?? current);
+    if (!confirm) setPick(next);
     setBusy(true);
     setFailure(undefined);
     try {
       const r = await api.POST("/api/admin/clips/{id}/analysis", {
         params: { path: { id: clipId }, header: mutation(session?.csrf_token) },
         body: {
-          scope,
-          mode,
-          ...(mode === "steps" ? { steps: chosen } : {}),
+          scope: next.scope,
+          mode: next.mode,
+          ...(next.mode === "steps" ? { steps: next.steps } : {}),
           ...(confirm
             ? {
                 confirm_replace_corrections: true,
@@ -153,7 +161,7 @@ export function ReanalyzeClip({
             <button
               type="button"
               disabled={busy}
-              onClick={() => void submit(true)}
+              onClick={() => void submit(true, pick)}
               className={buttonClass("danger")}
             >
               {t("clip.reanalyze.confirm")}
@@ -168,6 +176,36 @@ export function ReanalyzeClip({
             void submit(false);
           }}
         >
+          <div
+            role="group"
+            aria-label={t("clip.analysis.quick")}
+            className="flex flex-col gap-2"
+          >
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void submit(false, { scope: "full", mode: "full", steps: [] })
+              }
+              className={buttonClass()}
+            >
+              {t("clip.analysis.launchFull")}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void submit(false, {
+                  scope: "full",
+                  mode: "missing",
+                  steps: [],
+                })
+              }
+              className={buttonClass("secondary")}
+            >
+              {t("clip.analysis.launchMissing")}
+            </button>
+          </div>
           <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
             <legend className="mb-1 text-sm font-medium">
               {t("clip.reanalyze.scopeLabel")}

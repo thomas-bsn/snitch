@@ -1703,10 +1703,47 @@ export const fr: Messages = {
       liveLost:
         "L’accès à cette vue en direct a été perdu. Rechargez la page pour vous reconnecter.",
       steps: "Étapes de l’analyse",
-      full: "Tout analyser",
-      more: "Autres options d’analyse",
-      transcription: "Transcrire seulement",
-      voice: "Détection des voix",
+      panelTitle: "Analyse du clip",
+      launch: "Lancer l’analyse…",
+      launchFull: "Analyse complète",
+      launchMissing: "Seulement ce qui manque",
+      quick: "Choix rapides",
+      pill: {
+        never: "Jamais analysé",
+        busy: "En cours",
+        running: "En cours : {step}",
+        waiting: "En attente : {reason}",
+        failed: "Échec : {step}",
+        failedNoStep: "Échec",
+        cancelled: "Analyse annulée",
+        complete: "Analyse complète",
+      },
+      logs: {
+        title: "50 dernières lignes de log",
+        empty: "Aucune ligne de log pour cette tâche pour l’instant.",
+        liveOff: "Lignes de log en pause : reconnexion.",
+      },
+      delete: {
+        open: "Supprimer…",
+        title: "Supprimer une partie de l’analyse",
+        intro:
+          "Choisissez ce qui disparaît. Rien n’est supprimé avant votre confirmation.",
+        what: "Étapes à supprimer",
+        all: "Toute l’analyse",
+        blocked: "Annulez l’analyse en cours avant de supprimer des étapes.",
+        losses: "Cette suppression fera perdre :",
+        none: "Rien ne serait perdu.",
+        lossSegments: "{count} segments de transcription",
+        lossCorrections:
+          "{text} textes de segments corrigés et {speaker} corrections de locuteur",
+        lossVoices: "{voices} voix locales, dont {validated} validées",
+        lossSamples: "{samples} échantillons de voix retirés de la référence",
+        lossPersons:
+          "{persons} Personnes touchées (conservées, sans ces échantillons)",
+        kept: "Les Personnes ne sont jamais supprimées.",
+        cancel: "Annuler",
+        confirm: "Supprimer la sélection",
+      },
       step: {
         preparation: "Préparation",
         transcription: "Transcription",
@@ -1774,7 +1811,7 @@ export const fr: Messages = {
       track: "Piste audio",
       trackPlaceholder: "Choisir une piste…",
       trackConfirm: "Confirmer la piste",
-      cancel: "Annuler l’analyse",
+      cancel: "Annuler la suite",
       cancelled:
         "Analyse annulée. Les résultats valides sont conservés ; relancez une analyse pour continuer.",
       failure: {
@@ -1843,8 +1880,7 @@ export const fr: Messages = {
       profile: "Profil : {profile}",
     },
     reanalyze: {
-      menu: "Réanalyser…",
-      title: "Réanalyser ce clip",
+      title: "Lancer l’analyse",
       close: "Fermer",
       scopeLabel: "Que faut-il analyser",
       scope: {
