@@ -12,7 +12,13 @@ type Stake = components["schemas"]["ClipReanalysisStake"];
 type Scope = Run["scope"];
 type Mode = Run["mode"];
 type ForcedStep = Run["forced_steps"][number];
+type StepName = Run["steps"][number]["step"];
 type Choice = { scope: Scope; mode: Mode; steps: ForcedStep[] };
+type Added = {
+  step: StepName;
+  reason: "prerequisite" | "dependent";
+  of: StepName;
+};
 
 const FORCEABLE: ForcedStep[] = ["transcription", "indexing", "diarization"];
 
@@ -24,6 +30,34 @@ function applicable(scope: Scope, step: ForcedStep) {
 }
 
 /**
+ * Mirrors the server's closure of chosen steps (it recomputes it, never trusting this one): a
+ * missing transcription is a prerequisite of the indexing and of the voice detection, the
+ * indexing follows a transcription, the fingerprints and the matching follow the voice
+ * detection.
+ */
+export function closeSteps(
+  chosen: ForcedStep[],
+  hasTranscription: boolean,
+): Added[] {
+  const added: Added[] = [];
+  const has = (step: StepName) =>
+    (chosen as StepName[]).includes(step) || added.some((a) => a.step === step);
+  if (!has("transcription") && !hasTranscription) {
+    const needer = (["indexing", "diarization"] as const).find(has);
+    if (needer)
+      added.push({ step: "transcription", reason: "prerequisite", of: needer });
+  }
+  if (has("transcription") && !has("indexing"))
+    added.push({ step: "indexing", reason: "dependent", of: "transcription" });
+  if (has("diarization"))
+    added.push(
+      { step: "fingerprints", reason: "dependent", of: "diarization" },
+      { step: "matching", reason: "dependent", of: "fingerprints" },
+    );
+  return added;
+}
+
+/**
  * Reanalysis of a clip that was already processed: the administrator picks the scope, then
  * what runs again (the missing steps only, everything, or chosen steps). When the choice
  * would make human work obsolete, the server answers with the consequences; they are shown
@@ -32,11 +66,14 @@ function applicable(scope: Scope, step: ForcedStep) {
  */
 export function ReanalyzeClip({
   clipId,
+  hasTranscription,
   open,
   onOpenChange,
   onStarted,
 }: {
   clipId: number;
+  /** Whether the clip has a valid transcription: without it, it is a prerequisite. */
+  hasTranscription: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStarted: (run: Run | null) => void;
@@ -55,8 +92,11 @@ export function ReanalyzeClip({
   const [failure, setFailure] = useState<string>();
   const [busy, setBusy] = useState(false);
 
-  const chosen = steps.filter((s) => applicable(scope, s));
+  // Every step can be chosen: what it needs and what follows it are added, and the scope
+  // widens on the server to hold them.
+  const chosen = FORCEABLE.filter((s) => steps.includes(s));
   const invalid = mode === "steps" && chosen.length === 0;
+  const added = mode === "steps" ? closeSteps(chosen, hasTranscription) : [];
 
   function close(next: boolean) {
     if (!next) {
@@ -242,12 +282,10 @@ export function ReanalyzeClip({
                 {FORCEABLE.map((step) => (
                   <label
                     key={step}
-                    className="flex min-h-11 items-center gap-2 aria-disabled:text-mute"
-                    aria-disabled={!applicable(scope, step)}
+                    className="flex min-h-11 items-center gap-2"
                   >
                     <input
                       type="checkbox"
-                      disabled={!applicable(scope, step)}
                       checked={chosen.includes(step)}
                       onChange={(e) =>
                         setSteps(
@@ -260,6 +298,21 @@ export function ReanalyzeClip({
                     {t(`clip.analysis.step.${step}`)}
                   </label>
                 ))}
+                {added.length > 0 && (
+                  <ul
+                    aria-label={t("clip.reanalyze.added")}
+                    className="m-0 flex list-none flex-col gap-1 p-0 text-sm text-mute"
+                  >
+                    {added.map((a) => (
+                      <li key={a.step}>
+                        {t(`clip.reanalyze.addedBecause.${a.reason}`, {
+                          step: t(`clip.analysis.step.${a.step}`),
+                          of: t(`clip.analysis.step.${a.of}`),
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </fieldset>

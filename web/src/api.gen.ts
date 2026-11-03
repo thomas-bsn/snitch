@@ -9390,7 +9390,7 @@ export interface operations {
            * @enum {string}
            */
           mode?: "missing" | "full" | "steps";
-          /** @description Avec mode steps : étapes à relancer, applicables au périmètre (sinon 400 invalid_reanalysis). */
+          /** @description Avec mode steps : étapes à relancer (au moins une, sans doublon ; sinon 400 invalid_reanalysis). Le serveur ferme le choix sur le graphe des étapes : une transcription absente s'ajoute comme prérequis de l'indexation ou de la détection des voix, l'indexation suit une transcription, les empreintes et le rapprochement suivent la détection des voix ; le périmètre de l'exécution s'élargit pour les contenir. Seules les étapes choisies sont forcées (forced_steps). */
           steps?: ("transcription" | "indexing" | "diarization")[];
           /** @description Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections). */
           confirm_replace_corrections?: boolean;

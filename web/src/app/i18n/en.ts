@@ -1951,6 +1951,11 @@ export const en = {
         full: "Everything again, even where a valid result exists",
         steps: "Only the steps I choose",
       },
+      added: "Added automatically",
+      addedBecause: {
+        prerequisite: "{step} — added: prerequisite of {of}",
+        dependent: "{step} — added: depends on {of}",
+      },
       noteMissing:
         "Valid results are reused: nothing is replaced and no confirmation is needed.",
       noteTranscription:

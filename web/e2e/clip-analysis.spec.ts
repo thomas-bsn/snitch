@@ -55,6 +55,18 @@ test("analyser un clip jusqu'à sa transcription, durablement", async ({
   let analysis = await openPanel(page);
   await analysis.getByRole("button", { name: "Launch analysis…" }).click();
   let dialog = page.getByRole("dialog", { name: "Launch analysis" });
+  // Picking a step adds, visibly, the missing transcription it needs and what follows it.
+  await dialog.getByLabel("Only the steps I choose").check();
+  await dialog.getByLabel("Voice detection").check();
+  const added = dialog.getByRole("list", { name: "Added automatically" });
+  await expect(added.getByRole("listitem")).toHaveText([
+    "Transcription — added: prerequisite of Voice detection",
+    "Indexing — added: depends on Transcription",
+    "Voice fingerprints — added: depends on Voice detection",
+    "Voice matching — added: depends on Voice fingerprints",
+  ]);
+  await dialog.getByLabel("Only the missing steps").check();
+  await expect(added).toHaveCount(0);
   // Voice detection never transcribes behind the scenes: it explains what is missing.
   await dialog.getByLabel("Voices only").check();
   await dialog.getByRole("button", { name: "Start reanalysis" }).click();
@@ -154,6 +166,15 @@ test("réanalyser un clip traité en confirmant les conséquences", async ({
   ).toBeDisabled();
   await dialog.getByLabel("Voice detection").check();
   await expect(dialog).toContainText("validated voices");
+  // The clip is transcribed: only the steps after the voice detection are added.
+  await expect(
+    dialog
+      .getByRole("list", { name: "Added automatically" })
+      .getByRole("listitem"),
+  ).toHaveText([
+    "Voice fingerprints — added: depends on Voice detection",
+    "Voice matching — added: depends on Voice fingerprints",
+  ]);
 
   // The consequences are explained before anything starts; going back changes nothing.
   await dialog.getByRole("button", { name: "Start reanalysis" }).click();

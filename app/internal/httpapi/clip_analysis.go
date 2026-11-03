@@ -398,11 +398,19 @@ type reanalysisStake struct {
 // returns true when the caller may start the run. An active run is never changed by a start,
 // so nothing is asked in that case.
 func (s *Server) reanalysisConfirmed(w http.ResponseWriter, r *http.Request, clipID int64, scope string, opts analysis.Options) bool {
-	forced, err := analysis.ForcedSteps(scope, opts)
-	if err != nil {
+	plan, err := s.Analysis.Plan(r.Context(), clipID, scope, opts)
+	switch {
+	case errors.Is(err, analysis.ErrInvalidScope):
+		fail(w, http.StatusBadRequest, "invalid_analysis_scope")
+		return false
+	case errors.Is(err, analysis.ErrInvalidReanalysis):
 		fail(w, http.StatusBadRequest, "invalid_reanalysis")
 		return false
+	case err != nil:
+		s.internal(w, err)
+		return false
 	}
+	forced := plan.Forced
 	if len(forced) == 0 {
 		return true
 	}
