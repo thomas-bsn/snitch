@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -49,23 +50,33 @@ func deducedSpeaker(ctx context.Context, q queryer, clipID int64, stream int, st
 	return id, label, err == nil, err
 }
 
-// dropSpeakerOverrides runs before Local speakers are deleted (a new diarization, the
-// designation of a microphone track): the segments that designate one of them return
-// to their deduced speaker, and each loss is recorded in the history (author
-// "system", version incremented) instead of vanishing through the foreign key's
-// ON DELETE SET NULL. Their dispositions and refusals still there are dropped with them, each
-// one journaled by the system first: the journal outlives the voice. A new diarization has
-// already carried or dropped them itself (voiceCarry), so this only concerns a microphone
-// designation.
-// condition selects the Local speakers (alias ls, placeholders from $1).
-func dropSpeakerOverrides(ctx context.Context, q queryer, condition string, args ...any) error {
+// Causes of the deletion of Local speakers, journaled by dropSpeakerOverrides.
+const (
+	droppedByDiarization          = "Locuteur supprimé par une nouvelle diarisation"
+	droppedByMicrophone           = "Locuteur supprimé par la désignation de la piste microphone"
+	droppedByMicrophoneWithdrawal = "Locuteur supprimé par le retrait de la désignation de la piste microphone"
+)
+
+// dropSpeakerOverrides runs before Local speakers are deleted, with the cause of the
+// deletion (a new diarization, the designation of a microphone track or its withdrawal): the
+// segments that designate one of them return to their deduced speaker, and each loss is
+// recorded in the history (author "system", version incremented) instead of vanishing
+// through the foreign key's ON DELETE SET NULL. The dispositions and refusals still held by
+// those speakers are dropped with them, each one journaled by the system first: the journal
+// outlives the voice. A new diarization has already carried or dropped them itself
+// (voiceCarry), so none is left in that case.
+// condition selects the Local speakers (alias ls, placeholders from $1); the cause is the
+// next placeholder.
+func dropSpeakerOverrides(ctx context.Context, q queryer, cause, condition string, args ...any) error {
+	reason := "$" + strconv.Itoa(len(args)+1)
+	args = append(args, cause)
 	if _, err := q.Exec(ctx, `INSERT INTO voice_disposition_events(local_speaker_id,clip_id,old_disposition,new_disposition,author_id,author_username,reason)
-SELECT ls.id,ls.clip_id,d.disposition,'',NULL,'system','Locuteur supprimé par une nouvelle diarisation ou la désignation d''une piste microphone'
+SELECT ls.id,ls.clip_id,d.disposition,'',NULL,'system',`+reason+`::text
 FROM local_speaker_dispositions d JOIN local_speakers ls ON ls.id=d.local_speaker_id WHERE `+condition, args...); err != nil {
 		return err
 	}
 	if _, err := q.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username,reason)
-SELECT ls.id,ls.clip_id,vr.person_id,COALESCE(p.display_name,''),'drop',NULL,'system','Locuteur supprimé par une nouvelle diarisation ou la désignation d''une piste microphone'
+SELECT ls.id,ls.clip_id,vr.person_id,COALESCE(p.display_name,''),'drop',NULL,'system',`+reason+`::text
 FROM voice_refusals vr JOIN local_speakers ls ON ls.id=vr.local_speaker_id LEFT JOIN persons p ON p.id=vr.person_id WHERE `+condition, args...); err != nil {
 		return err
 	}
@@ -75,7 +86,7 @@ FROM voice_refusals vr JOIN local_speakers ls ON ls.id=vr.local_speaker_id LEFT 
  RETURNING sc.transcription_job_id job,sc.segment_index idx,sc.clip_id,sc.version,sc.text,ls.id speaker_id,ls.label)
 INSERT INTO segment_correction_events(transcription_job_id,segment_index,clip_id,kind,old_text,new_text,old_corrected,new_corrected,old_speaker_id,old_speaker_label,new_speaker_id,new_speaker_label,reason,version_before,version_after,author_id,author_username)
 SELECT d.job,d.idx,d.clip_id,'`+eventSpeaker+`',COALESCE(d.text,j.result->'segments'->d.idx->>'text',''),COALESCE(d.text,j.result->'segments'->d.idx->>'text',''),d.text IS NOT NULL,d.text IS NOT NULL,d.speaker_id,d.label,NULL,'',
- 'Locuteur supprimé par une nouvelle diarisation ou la désignation d''une piste microphone',d.version-1,d.version,NULL,'system'
+ `+reason+`::text,d.version-1,d.version,NULL,'system'
 FROM dropped d JOIN jobs j ON j.id=d.job`, args...)
 	return err
 }

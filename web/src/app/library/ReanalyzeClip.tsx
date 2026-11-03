@@ -14,30 +14,33 @@ type Mode = Run["mode"];
 type ForcedStep = Run["forced_steps"][number];
 type StepName = Run["steps"][number]["step"];
 type Choice = { scope: Scope; mode: Mode; steps: ForcedStep[] };
-type Added = {
-  step: StepName;
-  reason: "prerequisite" | "dependent";
-  of: StepName;
-};
+type Added =
+  | { step: StepName; reason: "prerequisite" | "dependent"; of: StepName }
+  | { step: StepName; reason: "missing" };
 
 const FORCEABLE: ForcedStep[] = ["transcription", "indexing", "diarization"];
 
-// Mirrors the server: which steps a scope can run again.
-function applicable(scope: Scope, step: ForcedStep) {
-  if (step === "transcription") return true;
+// Mirrors the server: which steps a scope runs.
+function applicable(scope: Scope, step: StepName) {
+  if (step === "preparation" || step === "transcription") return true;
   if (step === "indexing") return scope === "full";
   return scope === "voice" || scope === "full";
 }
+
+const VOICE_STEPS: StepName[] = ["diarization", "fingerprints", "matching"];
 
 /**
  * Mirrors the server's closure of chosen steps (it recomputes it, never trusting this one): a
  * missing transcription is a prerequisite of the indexing and of the voice detection, the
  * indexing follows a transcription, the fingerprints and the matching follow the voice
- * detection.
+ * detection. The scope then widens to hold them all; a scope widened to the full analysis
+ * also runs the voice steps that never ran, listed as missing.
  */
 export function closeSteps(
+  scope: Scope,
   chosen: ForcedStep[],
   hasTranscription: boolean,
+  hasVoices: boolean,
 ): Added[] {
   const added: Added[] = [];
   const has = (step: StepName) =>
@@ -54,6 +57,19 @@ export function closeSteps(
       { step: "fingerprints", reason: "dependent", of: "diarization" },
       { step: "matching", reason: "dependent", of: "fingerprints" },
     );
+  // A voice scope never transcribes and only the full scope indexes.
+  const transcribes = scope !== "voice" || has("transcription");
+  const voices = scope !== "transcription" || has("diarization");
+  const widened: Scope =
+    scope === "full" || has("indexing") || (transcribes && voices)
+      ? "full"
+      : voices
+        ? "voice"
+        : "transcription";
+  if (!hasVoices)
+    for (const step of VOICE_STEPS)
+      if (!applicable(scope, step) && applicable(widened, step) && !has(step))
+        added.push({ step, reason: "missing" });
   return added;
 }
 
@@ -67,6 +83,7 @@ export function closeSteps(
 export function ReanalyzeClip({
   clipId,
   hasTranscription,
+  hasVoices,
   open,
   onOpenChange,
   onStarted,
@@ -74,6 +91,8 @@ export function ReanalyzeClip({
   clipId: number;
   /** Whether the clip has a valid transcription: without it, it is a prerequisite. */
   hasTranscription: boolean;
+  /** Whether a voice detection was ever launched on the clip (its voices are not "none"). */
+  hasVoices: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStarted: (run: Run | null) => void;
@@ -96,7 +115,10 @@ export function ReanalyzeClip({
   // widens on the server to hold them.
   const chosen = FORCEABLE.filter((s) => steps.includes(s));
   const invalid = mode === "steps" && chosen.length === 0;
-  const added = mode === "steps" ? closeSteps(chosen, hasTranscription) : [];
+  const added =
+    mode === "steps"
+      ? closeSteps(scope, chosen, hasTranscription, hasVoices)
+      : [];
 
   function close(next: boolean) {
     if (!next) {
@@ -305,10 +327,14 @@ export function ReanalyzeClip({
                   >
                     {added.map((a) => (
                       <li key={a.step}>
-                        {t(`clip.reanalyze.addedBecause.${a.reason}`, {
-                          step: t(`clip.analysis.step.${a.step}`),
-                          of: t(`clip.analysis.step.${a.of}`),
-                        })}
+                        {a.reason === "missing"
+                          ? t("clip.reanalyze.addedBecause.missing", {
+                              step: t(`clip.analysis.step.${a.step}`),
+                            })
+                          : t(`clip.reanalyze.addedBecause.${a.reason}`, {
+                              step: t(`clip.analysis.step.${a.step}`),
+                              of: t(`clip.analysis.step.${a.of}`),
+                            })}
                       </li>
                     ))}
                   </ul>

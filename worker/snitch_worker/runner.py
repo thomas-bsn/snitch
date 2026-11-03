@@ -339,6 +339,10 @@ def _require_response(value: Any, operation: str) -> Any:
 
 # ADR 0029. Presence pulses from a dedicated thread, independently of jobs and leases.
 PRESENCE_INTERVAL = 10.0
+# ADR 0029. The lease renewal is what hears a refusal from the server (job reassigned, cancelled,
+# Worker revoked): renewing every 10 s cancels the job within 10 s. The server lease lasts 2
+# minutes, which leaves about a dozen renewals for a network error to be retried.
+HEARTBEAT_INTERVAL = 10.0
 # Reconnection delays grow from 1 s and never exceed this cap.
 PRESENCE_RETRY_CAP = 10.0
 # Lease duration set by the server on claim and on each renewal (2 minutes).
@@ -456,7 +460,7 @@ def _heartbeat_loop(
 def run_once(
     client: AuthenticatedClient,
     capacity: int = 1,
-    heartbeat_interval: float = 45.0,
+    heartbeat_interval: float = HEARTBEAT_INTERVAL,
     stop: threading.Event | None = None,
     transcriber: Transcriber | None = None,
     voice_providers: Mapping[str, Any] | None = None,
@@ -742,7 +746,7 @@ def run_until_stopped(
     capacity: int,
     stop: threading.Event,
     poll_interval: float = 5.0,
-    heartbeat_interval: float = 45.0,
+    heartbeat_interval: float = HEARTBEAT_INTERVAL,
     models_dir: str | None = None,
     presence_interval: float = PRESENCE_INTERVAL,
     reachability: ReachabilityMonitor | None = None,

@@ -102,6 +102,8 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
 
   // Without transcription, the step of the analysis has never run: the launch is the page's way forward.
   const neverAnalysed = !clip.transcription;
+  // Until the voices are read, they are taken as detected: no step is announced as never run.
+  const hasVoices = voiceData ? voiceData.status !== "none" : true;
   const [launching, setLaunching] = useState(false);
 
   return (
@@ -120,6 +122,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             clipId={clip.id}
             audioTracks={clip.tracks?.filter((t) => t.type === "audio") ?? []}
             hasTranscription={!neverAnalysed}
+            hasVoices={hasVoices}
             onChanged={onChanged}
           />
         </div>
@@ -192,6 +195,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             <ReanalyzeClip
               clipId={clip.id}
               hasTranscription={!neverAnalysed}
+              hasVoices={hasVoices}
               open={launching}
               onOpenChange={setLaunching}
               onStarted={() => onChanged()}

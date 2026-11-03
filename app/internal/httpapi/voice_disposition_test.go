@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -272,8 +274,14 @@ func testVoiceRefusal(t *testing.T, pool *pgxpool.Pool) {
 	if got := h.matched(validated); got.DecisionLevel != "unknown" || got.Person != nil {
 		t.Fatalf("a refused validation leaves the voice unknown: %+v", got)
 	}
-	if n := h.count(`SELECT count(*) FROM voice_samples WHERE local_speaker_id=$1`, validated.ID); n != 0 {
+	if n := h.count(`SELECT count(*) FROM voice_samples WHERE local_speaker_id=$1 AND retired_at IS NULL`, validated.ID); n != 0 {
 		t.Fatalf("the samples of a refused validation leave the references: %d", n)
+	}
+	// They are retired, like a corrected sample, not deleted: the refusal in the history
+	// still points to an existing sample.
+	if n := h.count(`SELECT count(*) FROM voice_samples vs JOIN attribution_events e ON e.old_sample_id=vs.id
+ WHERE e.local_speaker_id=$1 AND e.action='refuse' AND vs.retired_at IS NOT NULL AND vs.retired_reason='refus_identification' AND vs.retired_by IS NOT NULL`, validated.ID); n != 1 {
+		t.Fatalf("the sample of a refused validation is retired, and the refusal keeps it: %d", n)
 	}
 	h.rematch()
 	if got := h.matched(validated); got.Person != nil {
@@ -310,11 +318,14 @@ func testVoiceRefusal(t *testing.T, pool *pgxpool.Pool) {
 // whose turns are given as [start,end] pairs, then returns the new voices by label.
 func (h *voiceHarness) rediarize(speakers map[string][][2]float64, order ...string) map[string]fixtureSpeaker {
 	h.t.Helper()
-	// The fingerprints of a previous rediarization are not needed: they leave the queue.
-	if _, err := h.pool.Exec(context.Background(), `UPDATE jobs SET status='failed',last_error='fixture' WHERE clip_id=$1 AND step LIKE 'voice.fingerprint.%' AND status='pending'`, h.clipID); err != nil {
-		h.t.Fatal(err)
-	}
-	h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusCreated)
+	return h.rediarizeWith(map[string]any{"audio_stream_index": 2}, speakers, order...)
+}
+
+// rediarizeWith is rediarize with the body of the relaunch (a confirmation, for instance).
+func (h *voiceHarness) rediarizeWith(relaunch map[string]any, speakers map[string][][2]float64, order ...string) map[string]fixtureSpeaker {
+	h.t.Helper()
+	h.dropPendingFingerprints()
+	h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), relaunch, http.StatusCreated)
 	job, ok := h.claim()
 	if !ok || job.Step != "voice.diarization.2" {
 		h.t.Fatalf("expected the relaunched diarization: %+v", job)
@@ -333,6 +344,15 @@ func (h *voiceHarness) rediarize(speakers map[string][][2]float64, order ...stri
 		voices[sp.Label] = fixtureSpeaker{ID: sp.ID, ClipID: h.clipID}
 	}
 	return voices
+}
+
+// dropPendingFingerprints takes the fingerprints queued by a rediarization out of the queue:
+// the fixtures do not need them, and a pending voice job keeps the analysis of the clip active.
+func (h *voiceHarness) dropPendingFingerprints() {
+	h.t.Helper()
+	if _, err := h.pool.Exec(context.Background(), `UPDATE jobs SET status='failed',last_error='fixture' WHERE clip_id=$1 AND step LIKE 'voice.fingerprint.%' AND status='pending'`, h.clipID); err != nil {
+		h.t.Fatal(err)
+	}
 }
 
 // refusalEvents counts the refusal journal rows of a clip with an action, whose reason
@@ -445,6 +465,7 @@ func testRediarizationConflictDropsDispositions(t *testing.T, pool *pgxpool.Pool
 	// A voice without disposition merged with an ignored one: ignoring the merged voice
 	// would hide the other, so the disposition is dropped too.
 	split := h.rediarize(map[string][][2]float64{"P": {{0, 1.5}}, "Q": {{1.5, 2.5}}}, "P", "Q")
+	h.dropPendingFingerprints()
 	h.setDisposition(split["P"], "ignored", http.StatusOK)
 	voices = h.rediarize(map[string][][2]float64{"ONE": {{0, 2.5}}}, "ONE")
 	if d := h.dispositionOf(voices["ONE"]); d != nil {
@@ -664,5 +685,128 @@ func testRefusalCancelDuringActiveAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodDelete, fmt.Sprintf("/api/local-speakers/%d/refusals/%d", second, bob), nil, http.StatusOK)
 	if n := h.count(`SELECT count(*) FROM voice_refusals WHERE local_speaker_id=$1`, second); n != 0 {
 		t.Fatalf("the refusal is cancelled once the analysis is over: %d", n)
+	}
+}
+
+// testDispositionDuringActiveAnalysis: like a refusal, a disposition waits for the analysis
+// (409 analysis_active, nothing written), for a voice, its restoration and a group.
+func testDispositionDuringActiveAnalysis(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, second := h.diarizeClip()
+	firstVoice := fixtureSpeaker{ID: first, ClipID: h.clipID}
+	h.setDisposition(firstVoice, "random", http.StatusOK)
+	h.startAnalysis(map[string]any{"scope": "voice", "mode": "full"}, http.StatusCreated)
+	errorOf := func(data []byte) string {
+		t.Helper()
+		var refused struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(data, &refused); err != nil {
+			t.Fatal(err)
+		}
+		return refused.Error
+	}
+	if got := errorOf(h.setDisposition(fixtureSpeaker{ID: second, ClipID: h.clipID}, "ignored", http.StatusConflict)); got != "analysis_active" {
+		t.Fatalf("a disposition during an active analysis must say so: %q", got)
+	}
+	if got := errorOf(h.adminCall(http.MethodDelete, fmt.Sprintf("/api/local-speakers/%d/disposition", first), nil, http.StatusConflict)); got != "analysis_active" {
+		t.Fatalf("a restoration during an active analysis must say so: %q", got)
+	}
+	if n := h.count(`SELECT count(*) FROM voice_disposition_events WHERE clip_id=$1`, h.clipID); n != 1 {
+		t.Fatalf("a refused disposition writes nothing: %d", n)
+	}
+	h.adminCall(http.MethodPost, h.analysisPath()+"/cancel", nil, http.StatusOK)
+	h.setDisposition(fixtureSpeaker{ID: second, ClipID: h.clipID}, "ignored", http.StatusOK)
+	h.restoreDisposition(firstVoice)
+}
+
+// testDispositionWaitsForDiarization: a disposition takes the clip row FOR SHARE, like a
+// validation or a refusal, so it cannot be committed while a diarization (which takes the row
+// FOR UPDATE, plans the carry, then deletes the old voices) is being ingested.
+func testDispositionWaitsForDiarization(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, _ := h.diarizeClip()
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR UPDATE`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan int, 1)
+	go func() {
+		req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/api/local-speakers/%d/disposition", h.ts.URL, first), strings.NewReader(`{"disposition":"ignored"}`))
+		req.Header.Set("Origin", h.ts.URL)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-CSRF-Token", h.csrf)
+		resp, err := h.admin.Do(req)
+		if err != nil {
+			done <- 0
+			return
+		}
+		resp.Body.Close()
+		done <- resp.StatusCode
+	}()
+	select {
+	case status := <-done:
+		t.Fatalf("the disposition must wait for the clip lock of the diarization, it answered %d", status)
+	case <-time.After(500 * time.Millisecond):
+	}
+	if err = tx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case status := <-done:
+		if status != http.StatusOK {
+			t.Fatalf("once the diarization is over the disposition is recorded: %d", status)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the disposition never completed")
+	}
+}
+
+// testDroppedSpeakerReasonNamesCause: when Local speakers are deleted, what they held (a
+// segment's speaker, a disposition, a refusal) is journaled by the system with the actual
+// cause: a new diarization, or the designation of a microphone track (ADR 0031).
+func testDroppedSpeakerReasonNamesCause(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	_, second := h.diarizeClip()
+	segment := fmt.Sprintf("/api/clips/%d/segments/0/speaker", h.clipID)
+	h.adminCall(http.MethodPut, segment, map[string]any{"local_speaker_id": second, "expected_version": 0}, http.StatusOK)
+	segmentEvents := func(reason string) int {
+		t.Helper()
+		return h.count(`SELECT count(*) FROM segment_correction_events WHERE clip_id=$1 AND author_username='system' AND reason=$2`, h.clipID, reason)
+	}
+
+	// A new diarization: the segment returns to its deduced speaker, for that reason.
+	voices := h.rediarizeWith(map[string]any{"audio_stream_index": 2, "confirm_replace_validations": true}, map[string][][2]float64{"NEW_A": {{0, 1.5}}, "NEW_B": {{1.5, 2.5}}}, "NEW_A", "NEW_B")
+	if n := segmentEvents("Locuteur supprimé par une nouvelle diarisation"); n != 1 {
+		t.Fatalf("the dropped segment speaker names the new diarization: %d", n)
+	}
+
+	// The designation of the microphone track: the dropped speaker, disposition and refusal
+	// are journaled before the voices go, naming the designation.
+	h.dropPendingFingerprints()
+	bob := h.createPerson("Bob")
+	h.setDisposition(voices["NEW_A"], "ignored", http.StatusOK)
+	h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/refusal", voices["NEW_B"].ID), map[string]any{"person_id": bob}, http.StatusOK)
+	// The designation and the system's return to the deduced speaker each made a version.
+	h.adminCall(http.MethodPut, segment, map[string]any{"local_speaker_id": voices["NEW_B"].ID, "expected_version": 2}, http.StatusOK)
+	var sourceID int64
+	if err := pool.QueryRow(context.Background(), `SELECT id FROM clip_sources ORDER BY id LIMIT 1`).Scan(&sourceID); err != nil {
+		t.Fatal(err)
+	}
+	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/sources/%d/microphone-track", sourceID), map[string]any{"title": "Voix", "person_id": h.createPerson("Alice")}, http.StatusOK)
+	const designation = "Locuteur supprimé par la désignation de la piste microphone"
+	if n := h.count(`SELECT count(*) FROM voice_disposition_events WHERE local_speaker_id IS NULL AND clip_id=$1 AND old_disposition='ignored' AND new_disposition='' AND author_username='system' AND reason=$2`, h.clipID, designation); n != 1 {
+		t.Fatalf("the dropped disposition is journaled with the designation as its cause: %d", n)
+	}
+	if n := h.count(`SELECT count(*) FROM voice_refusal_events WHERE local_speaker_id IS NULL AND clip_id=$1 AND person_id=$2 AND action='drop' AND author_username='system' AND reason=$3`, h.clipID, bob, designation); n != 1 {
+		t.Fatalf("the dropped refusal is journaled with the designation as its cause: %d", n)
+	}
+	if n := segmentEvents(designation); n != 1 {
+		t.Fatalf("the dropped segment speaker names the designation: %d", n)
 	}
 }

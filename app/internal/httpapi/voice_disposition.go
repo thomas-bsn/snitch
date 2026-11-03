@@ -28,7 +28,19 @@ const (
 
 // notIgnoredVoice keeps an ignored voice out of a query over local_speakers aliased ls (ADR 0031):
 // no speaker on its segments, no verification, no group, no rapprochement, no statistic.
-const notIgnoredVoice = `NOT EXISTS (SELECT 1 FROM local_speaker_dispositions dsp WHERE dsp.local_speaker_id=ls.id AND dsp.disposition='ignored')`
+const notIgnoredVoice = `NOT EXISTS (SELECT 1 FROM local_speaker_dispositions dsp WHERE dsp.local_speaker_id=ls.id AND dsp.disposition='` + dispositionIgnored + `')`
+
+// requestedDisposition tells whether a disposition can be requested (ignored or random).
+func requestedDisposition(disposition string) bool {
+	return disposition == dispositionIgnored || disposition == dispositionRandom
+}
+
+// journalRefusal appends an event to the refusal journal (append-only): a refusal, its
+// cancellation, or what a new diarization does with it. The system writes with no author id.
+func journalRefusal(ctx context.Context, tx pgx.Tx, speakerID, clipID, personID int64, personName, action string, author authorRef, reason string) error {
+	_, err := tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, speakerID, clipID, personID, personName, action, author.ID, author.Username, reason)
+	return err
+}
 
 type dispositionInput struct {
 	Disposition string `json:"disposition"`
@@ -107,7 +119,7 @@ func (s *Server) putLocalSpeakerDisposition(w http.ResponseWriter, r *http.Reque
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.Disposition != dispositionIgnored && input.Disposition != dispositionRandom {
+	if !requestedDisposition(input.Disposition) {
 		fail(w, http.StatusBadRequest, "invalid_disposition")
 		return
 	}
@@ -143,7 +155,7 @@ func (s *Server) putVoiceGroupDisposition(w http.ResponseWriter, r *http.Request
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.Disposition != dispositionIgnored && input.Disposition != dispositionRandom {
+	if !requestedDisposition(input.Disposition) {
 		fail(w, http.StatusBadRequest, "invalid_disposition")
 		return
 	}
@@ -212,14 +224,22 @@ func nullableDisposition(disposition string) *string {
 	return &disposition
 }
 
-// changeDispositions writes the dispositions in one transaction and re-runs matching so the
-// machine attributions of the voices follow at once. It answers the error itself and
-// returns false when nothing was written.
+// changeDispositions writes the dispositions in one transaction gated on the analysis of
+// their clips, and re-runs matching so the machine attributions of the voices follow at once.
+// It answers the error itself and returns false when nothing was written.
 func (s *Server) changeDispositions(w http.ResponseWriter, r *http.Request, ids []int64, disposition string, ss session) bool {
 	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
+	clipIDs := []int64{}
+	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT clip_id FROM local_speakers WHERE id=ANY($1) ORDER BY clip_id`, ids)
+	if err == nil {
+		clipIDs, err = pgx.CollectRows(rows, pgx.RowTo[int64])
+	}
 	if err != nil {
 		s.internal(w, err)
+		return false
+	}
+	tx, ok := s.beginAnalysisGated(w, r, clipIDs...)
+	if !ok {
 		return false
 	}
 	defer tx.Rollback(ctx)
@@ -244,6 +264,41 @@ func (s *Server) changeDispositions(w http.ResponseWriter, r *http.Request, ids 
 	return true
 }
 
+// beginAnalysisGated opens the transaction of a change to the voices of the clips that waits
+// for their analysis, like the deletion of analysis steps. Each clip row is share-locked, in
+// id order: a diarization takes it FOR UPDATE while it plans the carry of dispositions and
+// refusals and deletes the old voices, so nothing can be committed in between. Under that
+// lock, an active run or voice job on a clip refuses the change (409 analysis_active). It
+// answers the error itself and returns false with the transaction rolled back; otherwise the
+// caller owns the transaction.
+func (s *Server) beginAnalysisGated(w http.ResponseWriter, r *http.Request, clipIDs ...int64) (pgx.Tx, bool) {
+	ctx := r.Context()
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		s.internal(w, err)
+		return nil, false
+	}
+	for _, clipID := range clipIDs {
+		if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR SHARE`, clipID); err != nil {
+			tx.Rollback(ctx)
+			s.internal(w, err)
+			return nil, false
+		}
+		busy, err := analysisActive(ctx, tx, clipID)
+		if err != nil {
+			tx.Rollback(ctx)
+			s.internal(w, err)
+			return nil, false
+		}
+		if busy {
+			tx.Rollback(ctx)
+			fail(w, http.StatusConflict, "analysis_active")
+			return nil, false
+		}
+	}
+	return tx, true
+}
+
 // refuseLocalSpeaker records "ce n'est pas X": the attribution of that Person on the voice
 // is removed (human or machine), its validated sample leaves the references, and the
 // refusal stops matching from proposing the Person for this voice.
@@ -262,26 +317,13 @@ func (s *Server) refuseLocalSpeaker(w http.ResponseWriter, r *http.Request) {
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
 	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		s.internal(w, err)
+	tx, ok := s.beginAnalysisGated(w, r, sp.ClipID)
+	if !ok {
 		return
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR SHARE`, sp.ClipID); err != nil {
-		s.internal(w, err)
-		return
-	}
-	// Like the deletion of analysis steps, a refusal waits for the analysis: nothing changes
-	// while a run or one of its voice jobs is active on the clip.
-	if busy, err := analysisActive(ctx, tx, sp.ClipID); err != nil {
-		s.internal(w, err)
-		return
-	} else if busy {
-		fail(w, http.StatusConflict, "analysis_active")
-		return
-	}
-	if _, err = tx.Exec(ctx, `SELECT id FROM local_speakers WHERE id=$1 FOR UPDATE`, sp.ID); err != nil {
+	_, err := tx.Exec(ctx, `SELECT id FROM local_speakers WHERE id=$1 FOR UPDATE`, sp.ID)
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -294,8 +336,10 @@ func (s *Server) refuseLocalSpeaker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	// Like a correction, the refusal retires the reference sample rather than deleting it:
+	// the history keeps pointing to it (attribution_events.old_sample_id).
 	var sampleID *int64
-	err = tx.QueryRow(ctx, `DELETE FROM voice_samples WHERE local_speaker_id=$1 AND person_id=$2 AND retired_at IS NULL RETURNING id`, sp.ID, personID).Scan(&sampleID)
+	err = tx.QueryRow(ctx, `UPDATE voice_samples SET retired_at=now(),retired_by=$3,retired_reason='refus_identification' WHERE local_speaker_id=$1 AND person_id=$2 AND retired_at IS NULL RETURNING id`, sp.ID, personID, ss.User.ID).Scan(&sampleID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		s.internal(w, err)
 		return
@@ -332,7 +376,7 @@ ON CONFLICT (local_speaker_id,person_id) DO UPDATE SET author_id=EXCLUDED.author
 		s.internal(w, err)
 		return
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username) VALUES($1,$2,$3,$4,'refuse',$5,$6)`, sp.ID, sp.ClipID, personID, name, ss.User.ID, ss.User.Username); err != nil {
+	if err = journalRefusal(ctx, tx, sp.ID, sp.ClipID, personID, name, "refuse", authorRef{ID: &ss.User.ID, Username: ss.User.Username}, ""); err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -365,23 +409,11 @@ func (s *Server) cancelLocalSpeakerRefusal(w http.ResponseWriter, r *http.Reques
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
 	ctx := r.Context()
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		s.internal(w, err)
+	tx, ok := s.beginAnalysisGated(w, r, sp.ClipID)
+	if !ok {
 		return
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR SHARE`, sp.ClipID); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if busy, err := analysisActive(ctx, tx, sp.ClipID); err != nil {
-		s.internal(w, err)
-		return
-	} else if busy {
-		fail(w, http.StatusConflict, "analysis_active")
-		return
-	}
 	var name string
 	err = tx.QueryRow(ctx, `WITH cancelled AS (DELETE FROM voice_refusals WHERE local_speaker_id=$1 AND person_id=$2 RETURNING person_id)
 SELECT COALESCE(p.display_name,'') FROM cancelled c LEFT JOIN persons p ON p.id=c.person_id`, sp.ID, personID).Scan(&name)
@@ -394,7 +426,7 @@ SELECT COALESCE(p.display_name,'') FROM cancelled c LEFT JOIN persons p ON p.id=
 		s.internal(w, err)
 		return
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username) VALUES($1,$2,$3,$4,'cancel',$5,$6)`, sp.ID, sp.ClipID, personID, name, ss.User.ID, ss.User.Username); err != nil {
+	if err = journalRefusal(ctx, tx, sp.ID, sp.ClipID, personID, name, "cancel", authorRef{ID: &ss.User.ID, Username: ss.User.Username}, ""); err != nil {
 		s.internal(w, err)
 		return
 	}

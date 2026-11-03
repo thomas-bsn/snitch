@@ -2057,6 +2057,7 @@ export const en = {
       addedBecause: {
         prerequisite: "{step} — added: prerequisite of {of}",
         dependent: "{step} — added: depends on {of}",
+        missing: "{step} — added: never run, included by the full analysis",
       },
       noteMissing:
         "Valid results are reused: nothing is replaced and no confirmation is needed.",

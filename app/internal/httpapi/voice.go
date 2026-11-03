@@ -582,7 +582,7 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 		return err
 	}
 	object["local_speakers"] = speakerList
-	rows, err := s.Pool.Query(ctx, `SELECT ls.id,ls.label,st.start_seconds,st.end_seconds FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND NOT EXISTS (SELECT 1 FROM local_speaker_dispositions dsp WHERE dsp.local_speaker_id=ls.id AND dsp.disposition='ignored') ORDER BY ls.ordinal,st.turn_index`, clipID, int(index))
+	rows, err := s.Pool.Query(ctx, `SELECT ls.id,ls.label,st.start_seconds,st.end_seconds FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND `+notIgnoredVoice+` ORDER BY ls.ordinal,st.turn_index`, clipID, int(index))
 	if err != nil {
 		return err
 	}
