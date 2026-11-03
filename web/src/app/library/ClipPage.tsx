@@ -15,6 +15,9 @@ import { ClipStatePill } from "./ClipStatePill";
 import { HistoryTab } from "./HistoryTab";
 import { Retranscribe } from "./Retranscribe";
 import { ProgressBanner } from "./ProgressBanner";
+import { clipSteps, legacyAnalysisState } from "./progress";
+import { voiceToDecide } from "./speakerState";
+import type { PillState } from "./AnalysisPill";
 import { TranscriptTab } from "./TranscriptTab";
 import { RelaunchVoice } from "./RelaunchVoice";
 import { VoicesTab } from "./VoicesTab";
@@ -26,7 +29,7 @@ import { ReanalyzeClip } from "./ReanalyzeClip";
 import { buttonClass } from "../components/buttons";
 
 const tabClass =
-  "-mb-px inline-flex h-11 shrink-0 cursor-pointer items-center border-b-2 border-transparent px-3 font-medium whitespace-nowrap text-mute outline-none hover:text-ink data-[active]:border-accent data-[active]:text-ink md:h-10";
+  "-mb-px inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 border-b-2 border-transparent px-3 font-medium whitespace-nowrap text-mute outline-none hover:text-ink data-[active]:border-accent data-[active]:text-ink md:h-10";
 
 type TabName = "transcript" | "voices" | "history";
 
@@ -105,68 +108,89 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
   // Until the voices are read, they are taken as detected: no step is announced as never run.
   const hasVoices = voiceData ? voiceData.status !== "none" : true;
   const [launching, setLaunching] = useState(false);
+  // A clip processed step by step has no run: its header still tells what its steps say.
+  const legacyKind = legacyAnalysisState(clipSteps(clip, voiceData));
+  const failedVoiceStep = voiceData?.steps.find(
+    (s) => s.status === "failed" || s.status === "dead",
+  )?.step;
+  const legacy: PillState | null =
+    legacyKind === "failed"
+      ? {
+          kind: "failed",
+          step: (["diarization", "fingerprints", "matching"] as const).find(
+            (name) => failedVoiceStep?.includes(name.slice(0, 6)),
+          ),
+        }
+      : legacyKind
+        ? { kind: legacyKind }
+        : null;
+  const toDecide = voiceData?.speakers.filter(voiceToDecide).length ?? 0;
 
   return (
     <section className="flex flex-col gap-4 px-4 py-4 md:px-7 md:py-5">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link
-            to={back}
-            className="inline-flex min-h-11 items-center gap-1.5 text-mute hover:text-ink md:min-h-8"
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            {t(back.startsWith("/search") ? "clip.backToSearch" : "clip.back")}
-          </Link>
-          <ClipStatePill status={clip.status} />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Link
+          to={back}
+          className="inline-flex min-h-11 items-center gap-1.5 text-mute hover:text-ink md:min-h-8"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          {t(back.startsWith("/search") ? "clip.backToSearch" : "clip.back")}
+        </Link>
+        <ClipStatePill status={clip.status} />
+      </div>
+
+      <div className="flex flex-wrap items-start gap-3">
+        <header className="flex min-w-0 flex-1 flex-col gap-1">
+          <h1 className="m-0 text-[22px] font-semibold break-words">
+            {clipTitle(clip)}
+          </h1>
+          <p className="m-0 text-xs text-mute">
+            {clip.display_title
+              ? t("metadata.fileKept", { name: clip.original_name })
+              : t("clip.meta.file", { name: clip.original_name })}
+          </p>
+          <p className="m-0 mt-1 text-mute">
+            {[
+              t("clip.meta.owner", {
+                owner: clip.owner_deleted
+                  ? t("library.deletedOwner")
+                  : clip.owner,
+              }),
+              date,
+              typeof clip.duration_seconds === "number"
+                ? formatTimecode(clip.duration_seconds)
+                : null,
+              t(
+                clip.visibility === "shared"
+                  ? "clip.meta.shared"
+                  : "clip.meta.private",
+              ),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          {clip.sources && clip.sources.length > 0 && (
+            <p className="m-0 text-mute">
+              {t("clip.meta.sources", { sources: clip.sources.join(", ") })}
+            </p>
+          )}
+        </header>
+        <div className="flex flex-wrap items-center gap-2">
+          <EditMetadata clip={clip} onChanged={onChanged} />
           <AnalyzeClip
             clipId={clip.id}
             audioTracks={clip.tracks?.filter((t) => t.type === "audio") ?? []}
             hasTranscription={!neverAnalysed}
             hasVoices={hasVoices}
             onChanged={onChanged}
+            legacy={legacy}
+            summary={<ProgressBanner clip={clip} voice={voiceData} />}
           />
         </div>
-        <EditMetadata clip={clip} onChanged={onChanged} />
       </div>
 
-      <header className="flex min-w-0 flex-col gap-1">
-        <h1 className="m-0 text-[22px] font-semibold break-words">
-          {clipTitle(clip)}
-        </h1>
-        <p className="m-0 text-xs text-mute">
-          {clip.display_title
-            ? t("metadata.fileKept", { name: clip.original_name })
-            : t("clip.meta.file", { name: clip.original_name })}
-        </p>
-        <p className="m-0 text-mute">
-          {[
-            t("clip.meta.owner", {
-              owner: clip.owner_deleted
-                ? t("library.deletedOwner")
-                : clip.owner,
-            }),
-            date,
-            typeof clip.duration_seconds === "number"
-              ? formatTimecode(clip.duration_seconds)
-              : null,
-            t(
-              clip.visibility === "shared"
-                ? "clip.meta.shared"
-                : "clip.meta.private",
-            ),
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {clip.sources && clip.sources.length > 0 && (
-          <p className="m-0 text-mute">
-            {t("clip.meta.sources", { sources: clip.sources.join(", ") })}
-          </p>
-        )}
-      </header>
-
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:self-start">
           <ClipPlayer
             clipId={clip.id}
             videoRef={videoRef}
@@ -175,6 +199,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             onPlayhead={setPlayhead}
           />
           <MetadataDisclosure clip={clip} />
+          <ProgressBanner clip={clip} voice={voiceData} assistiveOnly />
           {neverAnalysed && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent bg-accent-soft p-3">
               <p className="m-0 font-medium text-ink">
@@ -201,7 +226,6 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
               onStarted={() => onChanged()}
             />
           )}
-          <ProgressBanner clip={clip} voice={voiceData} />
         </div>
 
         <Tabs.Root
@@ -216,9 +240,22 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
           >
             <Tabs.Tab value="transcript" className={tabClass}>
               {t("clip.tabs.transcript")}
+              {segments.length > 0 && (
+                <span className="text-xs text-mute">{segments.length}</span>
+              )}
             </Tabs.Tab>
             <Tabs.Tab value="voices" className={tabClass}>
               {t("clip.tabs.voices")}
+              {voiceData && voiceData.speakers.length > 0 && (
+                <span className="text-xs text-mute">
+                  {voiceData.speakers.length}
+                </span>
+              )}
+              {toDecide > 0 && (
+                <span className="rounded-full bg-warn-bg px-1.5 text-xs text-warn-fg">
+                  {t("clip.tabs.todo", { count: toDecide })}
+                </span>
+              )}
             </Tabs.Tab>
             <Tabs.Tab value="history" className={tabClass}>
               {t("clip.tabs.history")}

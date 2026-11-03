@@ -73,3 +73,11 @@ export function speakerState(
       return "unknown";
   }
 }
+
+/** Whether a voice still waits for a decision: not set aside, not settled by a person. */
+export function voiceToDecide(voice: {
+  disposition?: string | null;
+  decision_level: string;
+}): boolean {
+  return !voice.disposition && voice.decision_level !== "human";
+}

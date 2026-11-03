@@ -1,3 +1,11 @@
+import {
+  Check,
+  ChevronDown,
+  Dices,
+  EyeOff,
+  RotateCcw,
+  UserX,
+} from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { components } from "../../api.gen";
 import { api, errorCode, mutation } from "../api/client";
@@ -46,7 +54,10 @@ export function VoiceDecision({
   onChanged,
   shortcuts = false,
   showCandidates = false,
+  excerpt = true,
 }: {
+  /** Whether the excerpt player closes the decision; false when the screen places it itself. */
+  excerpt?: boolean;
   /** O, N, R, I and Space press the matching button, except inside a text field. */
   shortcuts?: boolean;
   /** Lists the closest people the server proposes, each with its proximity. */
@@ -240,6 +251,7 @@ export function VoiceDecision({
             aria-keyshortcuts={shortcuts ? "O" : undefined}
             className={buttonClass("primary")}
           >
+            <Check className="size-4" aria-hidden="true" />
             {t("voiceDecision.yes", { person: person.display_name })}
           </button>
         )}
@@ -259,6 +271,7 @@ export function VoiceDecision({
             aria-keyshortcuts={shortcuts ? "N" : undefined}
             className={buttonClass()}
           >
+            <UserX className="size-4" aria-hidden="true" />
             {t("voiceDecision.no", { person: person.display_name })}
           </button>
         )}
@@ -267,9 +280,10 @@ export function VoiceDecision({
           aria-expanded={identifying}
           aria-controls={groupId}
           onClick={() => setIdentifying((open) => !open)}
-          className={buttonClass()}
+          className={buttonClass(person ? "secondary" : "primary")}
         >
           {t("voiceDecision.identify")}
+          <ChevronDown className="size-4" aria-hidden="true" />
         </button>
         {disposition !== DISPOSITION.random && (
           <button
@@ -287,6 +301,7 @@ export function VoiceDecision({
             aria-keyshortcuts={shortcuts ? "R" : undefined}
             className={buttonClass()}
           >
+            <Dices className="size-4" aria-hidden="true" />
             {t("voiceDecision.random")}
           </button>
         )}
@@ -306,6 +321,7 @@ export function VoiceDecision({
             aria-keyshortcuts={shortcuts ? "I" : undefined}
             className={buttonClass()}
           >
+            <EyeOff className="size-4" aria-hidden="true" />
             {t("voiceDecision.ignore")}
           </button>
         )}
@@ -322,15 +338,18 @@ export function VoiceDecision({
             }
             className={buttonClass()}
           >
+            <RotateCcw className="size-4" aria-hidden="true" />
             {t("voiceDecision.restore")}
           </button>
         )}
-        <ExcerptPlayer
-          localSpeakerId={speaker.id}
-          label={label}
-          clip={clipName}
-          shortcut={shortcuts ? " " : undefined}
-        />
+        {excerpt && (
+          <ExcerptPlayer
+            localSpeakerId={speaker.id}
+            label={label}
+            clip={clipName}
+            shortcut={shortcuts ? " " : undefined}
+          />
+        )}
       </div>
 
       {identifying && (

@@ -26,15 +26,22 @@ const looks: Record<StepState, { icon: LucideIcon; className: string }> = {
 export function ProgressBanner({
   clip,
   voice,
+  assistiveOnly = false,
 }: {
   clip: Clip;
   voice: ClipVoice | null;
+  /**
+   * On the page the steps are read by assistive technology only (the analysis panel shows
+   * them); the panel's copy is then the visual one, hidden from it.
+   */
+  assistiveOnly?: boolean;
 }) {
   const { t } = useI18n();
   return (
     <ol
       aria-label={t("clip.progress.label")}
-      className="m-0 grid list-none grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-line bg-side p-3sm:grid-cols-3 xl:grid-cols-5"
+      aria-hidden={assistiveOnly ? undefined : true}
+      className={`${assistiveOnly ? "sr-only " : ""}m-0 grid list-none grid-cols-1 gap-y-2.5 rounded-xl border border-line bg-side p-3`}
     >
       {clipSteps(clip, voice).map((step) => {
         const { icon: Icon, className } = looks[step.state];
