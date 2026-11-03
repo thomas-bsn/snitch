@@ -1645,6 +1645,8 @@ export const en = {
         "Videos not indexed yet ({count}) are indexed first, then analysed.",
       analysisFailed: "The analysis could not be prepared.",
       analysisQueued: "{count} analyses requested.",
+      analysisPending:
+        "{count} analyses requested, {pending} videos are still being indexed: try again in a moment.",
       analysisPartial: "{count} analyses requested, {failed} refused.",
     },
     deletedOwner: "Deleted user",

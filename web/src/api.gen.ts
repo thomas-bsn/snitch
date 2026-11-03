@@ -9022,7 +9022,10 @@ export interface operations {
   putAutomaticAnalysisSetting: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
       path?: never;
       cookie?: never;
     };

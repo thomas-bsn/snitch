@@ -238,6 +238,36 @@ func testExplorer(t *testing.T, pool *pgxpool.Pool) {
 		h.userCall(member, http.MethodGet, "/api/library/explorer?path=league&limit=0", nil, http.StatusBadRequest)
 		h.userCall(member, http.MethodGet, "/api/library/explorer?path=league&offset=-1", nil, http.StatusBadRequest)
 	})
+	t.Run("a large synthetic folder pages cheaply and a folder beyond the ceiling is refused", func(t *testing.T) {
+		big := t.TempDir()
+		for _, dir := range []string{"big", "huge"} {
+			if err := os.MkdirAll(filepath.Join(big, dir), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		fill := func(dir string, n int) {
+			for i := 0; i < n; i++ {
+				if err := os.WriteFile(filepath.Join(big, dir, fmt.Sprintf("v%05d.mp4", i)), nil, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		fill("big", 5000)
+		fill("huge", explorerMaxEntries+1)
+		h.adminCall(http.MethodPut, "/api/admin/video-root", map[string]string{"path": big}, http.StatusOK)
+		var page struct {
+			Items []entry `json:"items"`
+			Total int     `json:"total"`
+		}
+		if err := json.Unmarshal(h.userCall(superAdmin, http.MethodGet, "/api/library/explorer?path=big&limit=100&offset=4950", nil, http.StatusOK), &page); err != nil {
+			t.Fatal(err)
+		}
+		if page.Total != 5000 || len(page.Items) != 50 || page.Items[0].Path != "big/v04950.mp4" || page.Items[0].State != "not_indexed" {
+			t.Fatalf("large folder page: total %d, %d items, %+v", page.Total, len(page.Items), page.Items)
+		}
+		h.userCall(superAdmin, http.MethodGet, "/api/library/explorer?path=huge", nil, http.StatusUnprocessableEntity)
+		h.userCall(superAdmin, http.MethodGet, "/api/library/explorer?recursive=1", nil, http.StatusUnprocessableEntity)
+	})
 }
 
 // insertExplorerClip creates an analysable clip row owned by ownerID with a synthetic content hash.

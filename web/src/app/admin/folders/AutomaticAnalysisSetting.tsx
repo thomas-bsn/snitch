@@ -37,7 +37,7 @@ export function AutomaticAnalysisSetting() {
     setFailure(undefined);
     try {
       const r = await api.PUT("/api/admin/settings/automatic-analysis", {
-        params: { header: mutation(session?.csrf_token) } as never,
+        params: { header: mutation(session?.csrf_token) },
         body: { enabled: next },
       });
       if (r.data) setEnabled(r.data.enabled);

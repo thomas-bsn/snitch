@@ -1675,6 +1675,8 @@ export const fr: Messages = {
         "Les vidéos non indexées ({count}) sont d’abord indexées, puis analysées.",
       analysisFailed: "Impossible de préparer l’analyse.",
       analysisQueued: "{count} analyses demandées.",
+      analysisPending:
+        "{count} analyses demandées, {pending} vidéos sont encore en cours d'indexation : réessayez dans un instant.",
       analysisPartial: "{count} analyses demandées, {failed} refusées.",
     },
     deletedOwner: "Utilisateur supprimé",

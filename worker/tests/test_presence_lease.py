@@ -167,11 +167,13 @@ class PresenceAndLeaseTests(unittest.TestCase):
     def _refused_long_job(self, step, task_input, started_work=lambda: True, voice_providers=None, **patches):
         """Run a job the server refuses to renew once its work has started; return its duration."""
         renewals = []
+        refusals = {}
 
         def heartbeat(**_kwargs):
             renewals.append(1)
             if len(renewals) < 3 or not started_work():
                 return object()
+            refusals.setdefault("at", time.monotonic())
             return Error.from_dict({"error": "lease_not_owned"})
 
         self.task.step = step
@@ -186,10 +188,14 @@ class PresenceAndLeaseTests(unittest.TestCase):
             for name, value in patches.items():
                 stack.enter_context(patch.object(runner, name, value))
             self.assertTrue(runner.run_once(self.client, heartbeat_interval=0.05, voice_providers=voice_providers))
+        self.assertIn("at", refusals, "the server never refused the lease")
+        # The fake work would last a minute: the job must end soon after the refusal, with margin for slow CI.
+        self.stopped_after_refusal = time.monotonic() - refusals["at"]
         return time.monotonic() - started
 
     def _assert_cancelled_without_result(self, duration):
         self.assertLess(duration, 10)
+        self.assertLess(self.stopped_after_refusal, 10)
         self.complete_mock.assert_not_called()
         self.fail_mock.assert_not_called()
 

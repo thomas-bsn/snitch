@@ -117,11 +117,15 @@ export async function fetchExplorer(
   };
 }
 
+/** Largest page the server answers: keep equal to explorerMaxLimit in app/internal/httpapi/explorer.go
+ * (and to the maximum of the limit parameter in contracts/openapi.yaml). */
+export const EXPLORER_MAX_LIMIT = 500;
+
 /** Every item of a selection, page after page. */
 export async function fetchExplorerAll(
   query: ExplorerQuery,
 ): Promise<Result<ExplorerListing>> {
-  const limit = 500;
+  const limit = EXPLORER_MAX_LIMIT;
   let offset = 0;
   const items: ExplorerEntry[] = [];
   for (;;) {

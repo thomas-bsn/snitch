@@ -22,13 +22,19 @@ import (
 // opens it (POST /api/library/explorer/index), and that indexing never transcribes it.
 
 // The listing is paged on the server (#243): limit and offset bound the items answered, total counts the
-// whole selection. The directory walk itself has no ceiling any more.
+// whole selection. Without a metadata filter the database is read for the
+// displayed page only; the walk itself stays bounded by explorerMaxEntries.
 const (
 	explorerDefaultLimit = 100
 	explorerMaxLimit     = 500
+	// explorerMaxEntries is the safety ceiling of what one request walks (entries of a folder, or of a
+	// recursive walk, and loose clips): beyond it the request fails with video_selection_too_large.
+	explorerMaxEntries = 10000
 	// explorerRecordBatch bounds the paths sent to one database query.
 	explorerRecordBatch = 5000
 )
+
+var errExplorerTooLarge = errors.New("explorer: too many entries")
 
 // explorerStates are the states a video can carry, in the order the interface lists them.
 var explorerStates = []string{"not_indexed", "in_progress", "not_analyzed", "transcribed", "analyzed", "failed"}
@@ -490,11 +496,18 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 			if e != nil {
 				return nil
 			}
+			if len(candidates) >= explorerMaxEntries {
+				return errExplorerTooLarge
+			}
 			candidates = append(candidates, candidate{rel: rel, folder: filepath.ToSlash(filepath.Dir(rel)), name: entry.Name(), size: info.Size()})
 			return nil
 		})
 		if err != nil {
 			if r.Context().Err() != nil {
+				return
+			}
+			if errors.Is(err, errExplorerTooLarge) {
+				fail(w, 422, "video_selection_too_large")
 				return
 			}
 			fail(w, 422, "video_path_unavailable")
@@ -504,6 +517,10 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 		entries, err := os.ReadDir(base)
 		if err != nil {
 			fail(w, 422, "video_path_unavailable")
+			return
+		}
+		if len(entries) > explorerMaxEntries {
+			fail(w, 422, "video_selection_too_large")
 			return
 		}
 		for _, entry := range entries {
@@ -524,6 +541,55 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 			}
 			candidates = append(candidates, c)
 		}
+	}
+
+	if !filters.active() {
+		// Without a filter, nothing in the database decides which entries are listed or in what order:
+		// sort the entries as they are on disk, cut the page, and read the database for that page only.
+		out := make([]explorerEntry, 0, len(candidates))
+		for _, c := range candidates {
+			out = append(out, explorerEntry{Name: c.name, Path: c.rel, Folder: c.folder, Directory: c.directory, SizeBytes: c.size, Private: c.private, Locked: c.private && !superAdmin})
+		}
+		if relative == "" {
+			loose, looseRecords, err := s.explorerLoose(r, root.ID, ss.User.ID, admin, filters.person)
+			if err != nil {
+				s.internal(w, err)
+				return
+			}
+			for _, e := range loose {
+				e.State, _ = explorerState(looseRecords[e.Path], true)
+				out = append(out, e)
+			}
+		}
+		sortExplorerEntries(out)
+		window := page.window(out)
+		var files []string
+		for _, e := range window {
+			if !e.Directory && e.ClipID == nil {
+				files = append(files, e.Path)
+			}
+		}
+		records, err := s.explorerRecords(r, root.ID, files, ss.User.ID, admin, filters.person)
+		if err != nil {
+			s.internal(w, err)
+			return
+		}
+		items := make([]explorerEntry, 0, len(window))
+		for _, e := range window {
+			if !e.Directory && e.ClipID == nil {
+				rec, found := records[e.Path]
+				if found && rec.hidden {
+					continue
+				}
+				e.State, _ = explorerState(rec, found)
+				if found {
+					fillExplorerEntry(&e, rec)
+				}
+			}
+			items = append(items, e)
+		}
+		reply(w, 200, map[string]any{"source_id": root.ID, "root_configured": true, "items": items, "total": len(out), "states": explorerStates})
+		return
 	}
 
 	var files []string
@@ -557,9 +623,7 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 		}
 		e.State, _ = explorerState(rec, found)
 		if found {
-			e.ClipID, e.OwnerID, e.Owner, e.Visibility = rec.clipID, rec.ownerID, rec.owner, rec.visibility
-			e.DurationSeconds, e.AddedAt, e.RecordedAt, e.Game = rec.duration, rec.added, rec.recorded, rec.game
-			e.VoicesPending = rec.voices
+			fillExplorerEntry(&e, rec)
 		}
 		out = append(out, e)
 	}
@@ -578,13 +642,25 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 			out = append(out, e)
 		}
 	}
+	sortExplorerEntries(out)
+	reply(w, 200, map[string]any{"source_id": root.ID, "root_configured": true, "items": page.window(out), "total": len(out), "states": explorerStates})
+}
+
+// fillExplorerEntry copies what the database knows about a video onto its entry.
+func fillExplorerEntry(e *explorerEntry, rec explorerRecord) {
+	e.ClipID, e.OwnerID, e.Owner, e.Visibility = rec.clipID, rec.ownerID, rec.owner, rec.visibility
+	e.DurationSeconds, e.AddedAt, e.RecordedAt, e.Game = rec.duration, rec.added, rec.recorded, rec.game
+	e.VoicesPending = rec.voices
+}
+
+// sortExplorerEntries lists folders first, then everything by path.
+func sortExplorerEntries(out []explorerEntry) {
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Directory != out[j].Directory {
 			return out[i].Directory
 		}
 		return strings.ToLower(out[i].Path) < strings.ToLower(out[j].Path)
 	})
-	reply(w, 200, map[string]any{"source_id": root.ID, "root_configured": true, "items": page.window(out), "total": len(out), "states": explorerStates})
 }
 
 // explorerIndex asks for the indexing of one video the viewer opened in the explorer (#195). The
@@ -658,7 +734,7 @@ func (s *Server) explorerLoose(r *http.Request, rootID, userID int64, admin bool
 	  WHERE clip_readable(c.id,c.owner_id,c.visibility,$1,$2)
 	  AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.source_id=$3)
 	  AND NOT EXISTS(SELECT 1 FROM uploaded_media um JOIN upload_destinations d ON d.upload_id=um.upload_id WHERE um.clip_id=c.id AND d.source_id=$3)
-	  ORDER BY c.id DESC`, userID, admin, rootID)
+	  ORDER BY c.id DESC LIMIT $4`, userID, admin, rootID, explorerMaxEntries)
 	if err != nil {
 		return nil, nil, err
 	}

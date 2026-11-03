@@ -25,6 +25,7 @@ import { useSession } from "../session";
 import { formatTimecode } from "./clipFormat";
 import { ExplorerTree } from "./ExplorerTree";
 import {
+  EXPLORER_MAX_LIMIT,
   baseName,
   fetchExplorer,
   fetchExplorerAll,
@@ -53,6 +54,9 @@ const FILTER_KEYS = [
 
 /** Items per page when the address does not ask for another size. */
 const DEFAULT_PAGE_SIZE = 50;
+// How long the analysis of a folder waits for videos it asked to index: 60 polls, 2 s apart.
+const INDEX_WAIT_ATTEMPTS = 60;
+const INDEX_WAIT_MS = 2000;
 
 function readNumber(value: string | null, fallback: number, max: number) {
   const n = Number(value);
@@ -103,7 +107,11 @@ export function LibraryPage() {
       key === "owner" ? filters.owner : filters[key as keyof ExplorerFilters];
     return value !== "";
   });
-  const pageSize = readNumber(params.get("size"), DEFAULT_PAGE_SIZE, 500);
+  const pageSize = readNumber(
+    params.get("size"),
+    DEFAULT_PAGE_SIZE,
+    EXPLORER_MAX_LIMIT,
+  );
   const pageNumber = readNumber(params.get("page"), 1, 1_000_000);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [search, setSearch] = useState(filters.q);
@@ -261,7 +269,7 @@ export function LibraryPage() {
   async function prepareAnalysis(entry: ExplorerEntry) {
     setMenuFor(null);
     setAnalysisNotice(null);
-    const [indexed, unindexed] = await Promise.all([
+    const [indexed, unindexed, indexing] = await Promise.all([
       fetchExplorerAll({
         path: entry.path,
         recursive: true,
@@ -272,8 +280,14 @@ export function LibraryPage() {
         recursive: true,
         state: "not_indexed",
       }),
+      // Videos whose indexing was asked for but has not finished: no clip yet, so a later click resumes them.
+      fetchExplorerAll({
+        path: entry.path,
+        recursive: true,
+        state: "in_progress",
+      }),
     ]);
-    if (!indexed.ok || !unindexed.ok) {
+    if (!indexed.ok || !unindexed.ok || !indexing.ok) {
       setAnalysisNotice(t("library.explorer.analysisFailed"));
       return;
     }
@@ -283,7 +297,10 @@ export function LibraryPage() {
     setAnalysisTarget({
       path: entry.path,
       clips,
-      unindexed: unindexed.value.items.map((item) => item.path),
+      unindexed: [
+        ...unindexed.value.items,
+        ...indexing.value.items.filter((item) => item.clip_id === null),
+      ].map((item) => item.path),
     });
   }
 
@@ -304,8 +321,12 @@ export function LibraryPage() {
         clips.push(indexed.value.clip_id);
       }
     }
-    for (let attempt = 0; waiting.size > 0 && attempt < 60; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+    for (
+      let attempt = 0;
+      waiting.size > 0 && attempt < INDEX_WAIT_ATTEMPTS;
+      attempt += 1
+    ) {
+      await new Promise((resolve) => window.setTimeout(resolve, INDEX_WAIT_MS));
       const found = await fetchExplorerAll({
         path: analysisTarget.path,
         recursive: true,
@@ -318,7 +339,8 @@ export function LibraryPage() {
         }
       }
     }
-    failed += waiting.size;
+    // Still indexing after the delay: not a failure, the next click resumes them.
+    const pending = waiting.size;
     for (const id of clips) {
       const { error: failure } = await api.POST(
         "/api/admin/clips/{id}/analysis",
@@ -333,14 +355,19 @@ export function LibraryPage() {
     }
     setAnalysisBusy(false);
     setAnalysisNotice(
-      failed === 0
-        ? t("library.explorer.analysisQueued", {
-            count: clips.length,
-          })
-        : t("library.explorer.analysisPartial", {
+      pending > 0
+        ? t("library.explorer.analysisPending", {
             count: clips.length - failed,
-            failed,
-          }),
+            pending,
+          })
+        : failed === 0
+          ? t("library.explorer.analysisQueued", {
+              count: clips.length,
+            })
+          : t("library.explorer.analysisPartial", {
+              count: clips.length - failed,
+              failed,
+            }),
     );
     setAnalysisTarget(null);
   }

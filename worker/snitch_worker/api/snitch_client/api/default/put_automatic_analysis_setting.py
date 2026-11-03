@@ -17,9 +17,15 @@ from typing import cast
 def _get_kwargs(
     *,
     body: AutomaticAnalysisSetting,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+    headers["Origin"] = origin
+
+    headers["X-CSRF-Token"] = x_csrf_token
+
 
 
 
@@ -69,11 +75,15 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AutomaticAnalysisSetting,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Response[AutomaticAnalysisSetting | Error]:
     """ Activer ou désactiver l'analyse complète des clips ajoutés (administrateur)
 
     Args:
+        origin (str):
+        x_csrf_token (str):
         body (AutomaticAnalysisSetting):
 
     Raises:
@@ -87,6 +97,8 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     )
 
@@ -100,11 +112,15 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: AutomaticAnalysisSetting,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> AutomaticAnalysisSetting | Error | None:
     """ Activer ou désactiver l'analyse complète des clips ajoutés (administrateur)
 
     Args:
+        origin (str):
+        x_csrf_token (str):
         body (AutomaticAnalysisSetting):
 
     Raises:
@@ -119,6 +135,8 @@ def sync(
     return sync_detailed(
         client=client,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     ).parsed
 
@@ -126,11 +144,15 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AutomaticAnalysisSetting,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Response[AutomaticAnalysisSetting | Error]:
     """ Activer ou désactiver l'analyse complète des clips ajoutés (administrateur)
 
     Args:
+        origin (str):
+        x_csrf_token (str):
         body (AutomaticAnalysisSetting):
 
     Raises:
@@ -144,6 +166,8 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     )
 
@@ -157,11 +181,15 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: AutomaticAnalysisSetting,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> AutomaticAnalysisSetting | Error | None:
     """ Activer ou désactiver l'analyse complète des clips ajoutés (administrateur)
 
     Args:
+        origin (str):
+        x_csrf_token (str):
         body (AutomaticAnalysisSetting):
 
     Raises:
@@ -176,5 +204,7 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     )).parsed
