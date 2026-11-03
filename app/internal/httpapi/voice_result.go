@@ -230,7 +230,7 @@ SELECT EXISTS(SELECT 1 FROM cutoff, local_speakers ls WHERE ls.clip_id=$1 AND ls
 		return fmt.Errorf("release dispositions and refusals: %w", err)
 	}
 	// Speaker corrections point to the replaced speakers: they become obsolete (history kept).
-	if err := dropSpeakerOverrides(ctx, tx, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, job.ClipID, index); err != nil {
+	if err := dropSpeakerOverrides(ctx, tx, droppedByDiarization, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, job.ClipID, index); err != nil {
 		return fmt.Errorf("record dropped speaker corrections: %w", err)
 	}
 	// The speakers a human validated are archived, never deleted: the validated

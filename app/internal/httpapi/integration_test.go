@@ -525,6 +525,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testDispositionWaitsForDiarization(t, pool)
 	})
+	t.Run("dropped speaker reason names cause", func(t *testing.T) {
+		reset(t)
+		testDroppedSpeakerReasonNamesCause(t, pool)
+	})
 	t.Run("library unknown filter matches search", func(t *testing.T) {
 		reset(t)
 		testLibraryUnknownFilterMatchesSearch(t, pool)
