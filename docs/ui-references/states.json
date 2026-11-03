@@ -1,0 +1,65 @@
+{
+  "widths": [1440, 390],
+  "themes": ["light", "dark"],
+  "states": [
+    {
+      "screen": "fiche-video",
+      "state": "echec",
+      "prototype": "/prototype/fiche-video?variant=C",
+      "app": "/clips/{clip}"
+    },
+    {
+      "screen": "fiche-video",
+      "state": "voix",
+      "prototype": "/prototype/fiche-video?variant=C&tab=voices",
+      "app": "/clips/{clip}",
+      "appClick": "Voix"
+    },
+    {
+      "screen": "people",
+      "state": "annuaire",
+      "prototype": "/prototype/people?variant=D",
+      "app": "/people"
+    },
+    {
+      "screen": "people",
+      "state": "a-traiter",
+      "prototype": "/prototype/people?variant=D",
+      "prototypeClick": "À traiter",
+      "app": "/people/verification"
+    },
+    {
+      "screen": "people",
+      "state": "voix-inconnues",
+      "prototype": "/prototype/people?variant=D",
+      "prototypeClick": "Voix inconnues",
+      "app": "/people/groups"
+    },
+    {
+      "screen": "traitement",
+      "state": "traitement",
+      "prototype": "/prototype/people?variant=D&traiter=40",
+      "app": "/people/verification?clip={clip}"
+    },
+    {
+      "screen": "bibliotheque",
+      "state": "liste",
+      "prototype": "/prototype/library?variant=D",
+      "app": "/library"
+    },
+    {
+      "screen": "bibliotheque",
+      "state": "icones",
+      "prototype": "/prototype/library?variant=D",
+      "prototypeClick": "Icônes",
+      "app": "/library",
+      "appClick": "Icônes"
+    },
+    {
+      "screen": "import",
+      "state": "import",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import"
+    }
+  ]
+}
