@@ -717,12 +717,20 @@
                           "size_bytes": {
                             "type": "integer",
                             "format": "int64"
+                          },
+                          "private": {
+                            "type": "boolean"
+                          },
+                          "locked": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "path",
                           "directory",
-                          "size_bytes"
+                          "size_bytes",
+                          "private",
+                          "locked"
                         ],
                         "additionalProperties": false
                       }

@@ -53,6 +53,10 @@ Un sous-dossier sélectionné inclut ses sous-dossiers. Rien n'est analysé avan
 
 Un fichier n'est jamais présenté comme indexé tant que sa demande n'est pas réellement traitée.
 
+## Dossiers privés
+
+Le Super-administrateur peut rendre privé un dossier de premier niveau de la racine (ADR 0026). Le dossier reste visible avec un cadenas pour les autres utilisateurs, mais son contenu n'est ni listé, ni prévisualisé, ni ajouté à la file, ni créé dessous, y compris pour les administrateurs. Un clip présent aussi dans un autre dossier reste accessible par ce dossier-là.
+
 ## Créer un sous-dossier et y importer
 
 Dans le même panneau, **Nouveau sous-dossier** crée un dossier dans le dossier courant. Le nom ne peut pas contenir de barre oblique ni commencer par un point.

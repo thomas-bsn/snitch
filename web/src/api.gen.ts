@@ -5609,6 +5609,8 @@ export interface operations {
               directory: boolean;
               /** Format: int64 */
               size_bytes: number;
+              private: boolean;
+              locked: boolean;
             }[];
           };
         };
