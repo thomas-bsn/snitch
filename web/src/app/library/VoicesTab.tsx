@@ -1,5 +1,5 @@
 import { useI18n } from "../i18n";
-import { VoiceDecision } from "../voices/VoiceDecision";
+import { DISPOSITION, VoiceDecision } from "../voices/VoiceDecision";
 import type { ClipVoice, TranscriptSegment } from "./libraryApi";
 import { SPEAKER_LOOKS, speakerState } from "./speakerState";
 import { VoiceWaveforms, voiceColor } from "./VoiceWaveforms";
@@ -77,7 +77,7 @@ export function VoicesTab({
                 {speaker.disposition ? (
                   <span className="inline-flex items-center rounded-full bg-side px-2 py-px text-[11px] font-medium text-ink">
                     {t(
-                      speaker.disposition === "random"
+                      speaker.disposition === DISPOSITION.random
                         ? "voiceDecision.status.random"
                         : "voiceDecision.status.ignored",
                     )}

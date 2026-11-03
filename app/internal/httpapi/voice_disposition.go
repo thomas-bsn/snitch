@@ -28,7 +28,19 @@ const (
 
 // notIgnoredVoice keeps an ignored voice out of a query over local_speakers aliased ls (ADR 0031):
 // no speaker on its segments, no verification, no group, no rapprochement, no statistic.
-const notIgnoredVoice = `NOT EXISTS (SELECT 1 FROM local_speaker_dispositions dsp WHERE dsp.local_speaker_id=ls.id AND dsp.disposition='ignored')`
+const notIgnoredVoice = `NOT EXISTS (SELECT 1 FROM local_speaker_dispositions dsp WHERE dsp.local_speaker_id=ls.id AND dsp.disposition='` + dispositionIgnored + `')`
+
+// requestedDisposition tells whether a disposition can be requested (ignored or random).
+func requestedDisposition(disposition string) bool {
+	return disposition == dispositionIgnored || disposition == dispositionRandom
+}
+
+// journalRefusal appends an event to the refusal journal (append-only): a refusal, its
+// cancellation, or what a new diarization does with it. The system writes with no author id.
+func journalRefusal(ctx context.Context, tx pgx.Tx, speakerID, clipID, personID int64, personName, action string, author authorRef, reason string) error {
+	_, err := tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, speakerID, clipID, personID, personName, action, author.ID, author.Username, reason)
+	return err
+}
 
 type dispositionInput struct {
 	Disposition string `json:"disposition"`
@@ -100,7 +112,7 @@ func (s *Server) putLocalSpeakerDisposition(w http.ResponseWriter, r *http.Reque
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.Disposition != dispositionIgnored && input.Disposition != dispositionRandom {
+	if !requestedDisposition(input.Disposition) {
 		fail(w, http.StatusBadRequest, "invalid_disposition")
 		return
 	}
@@ -134,7 +146,7 @@ func (s *Server) putVoiceGroupDisposition(w http.ResponseWriter, r *http.Request
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.Disposition != dispositionIgnored && input.Disposition != dispositionRandom {
+	if !requestedDisposition(input.Disposition) {
 		fail(w, http.StatusBadRequest, "invalid_disposition")
 		return
 	}
@@ -333,7 +345,7 @@ ON CONFLICT (local_speaker_id,person_id) DO UPDATE SET author_id=EXCLUDED.author
 		s.internal(w, err)
 		return
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username) VALUES($1,$2,$3,$4,'refuse',$5,$6)`, sp.ID, sp.ClipID, personID, name, ss.User.ID, ss.User.Username); err != nil {
+	if err = journalRefusal(ctx, tx, sp.ID, sp.ClipID, personID, name, "refuse", authorRef{ID: &ss.User.ID, Username: ss.User.Username}, ""); err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -383,7 +395,7 @@ SELECT COALESCE(p.display_name,'') FROM cancelled c LEFT JOIN persons p ON p.id=
 		s.internal(w, err)
 		return
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username) VALUES($1,$2,$3,$4,'cancel',$5,$6)`, sp.ID, sp.ClipID, personID, name, ss.User.ID, ss.User.Username); err != nil {
+	if err = journalRefusal(ctx, tx, sp.ID, sp.ClipID, personID, name, "cancel", authorRef{ID: &ss.User.ID, Username: ss.User.Username}, ""); err != nil {
 		s.internal(w, err)
 		return
 	}

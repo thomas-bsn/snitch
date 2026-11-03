@@ -16,6 +16,15 @@ import { useSession } from "../session";
 /** The voice as the decision needs it: who it is, how it is settled, and its disposition. */
 export type DecidedVoice = components["schemas"]["LocalSpeaker"];
 
+/** A disposition of a voice (ADR 0031), as the generated contract types it. */
+export type Disposition =
+  components["schemas"]["VoiceDispositionInput"]["disposition"];
+/** The dispositions by name, checked against the generated enum. */
+export const DISPOSITION = {
+  ignored: "ignored",
+  random: "random",
+} as const satisfies { [D in Disposition]: D };
+
 type Outcome = { data?: unknown; error?: unknown };
 
 const SEARCH_DELAY_MS = 250;
@@ -178,7 +187,7 @@ export function VoiceDecision({
         >
           {t("voiceDecision.identify")}
         </button>
-        {disposition !== "random" && (
+        {disposition !== DISPOSITION.random && (
           <button
             type="button"
             disabled={busy}
@@ -186,7 +195,7 @@ export function VoiceDecision({
               void act(() =>
                 api.PUT("/api/local-speakers/{id}/disposition", {
                   params: { path: { id: speaker.id }, header },
-                  body: { disposition: "random" },
+                  body: { disposition: DISPOSITION.random },
                 }),
               )
             }
@@ -195,7 +204,7 @@ export function VoiceDecision({
             {t("voiceDecision.random")}
           </button>
         )}
-        {disposition !== "ignored" && (
+        {disposition !== DISPOSITION.ignored && (
           <button
             type="button"
             disabled={busy}
@@ -203,7 +212,7 @@ export function VoiceDecision({
               void act(() =>
                 api.PUT("/api/local-speakers/{id}/disposition", {
                   params: { path: { id: speaker.id }, header },
-                  body: { disposition: "ignored" },
+                  body: { disposition: DISPOSITION.ignored },
                 }),
               )
             }

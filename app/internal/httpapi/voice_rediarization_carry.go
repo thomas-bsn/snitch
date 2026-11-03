@@ -17,6 +17,9 @@ import (
 // carry and every drop is journaled by the system with its reason, before the old voices
 // are deleted.
 
+// systemAuthor writes what the system decides, with no author id.
+var systemAuthor = authorRef{Username: "system"}
+
 // carryMinShare is the share of an old voice's speaking time a new voice must cover.
 const carryMinShare = 0.5
 
@@ -115,45 +118,63 @@ ORDER BY ls.ordinal,ls.id`, clipID, index)
 	if err = turns.Err(); err != nil {
 		return nil, err
 	}
-	var newTurns [][]voiceTurn
+	var newTurns [][][2]float64
 	if result.Speakers != nil {
 		for _, sp := range *result.Speakers {
-			newTurns = append(newTurns, *sp.Turns)
+			turnsOfNew := make([][2]float64, 0, len(*sp.Turns))
+			for _, t := range *sp.Turns {
+				turnsOfNew = append(turnsOfNew, [2]float64{*t.Start, *t.End})
+			}
+			newTurns = append(newTurns, turnsOfNew)
 		}
 	}
 	for i := range plan.voices {
 		v := &plan.voices[i]
-		total := 0.0
-		for _, t := range oldTurns[v.ID] {
-			total += t[1] - t[0]
-		}
-		if total <= 0 {
-			continue
-		}
-		best, second, target := 0.0, 0.0, -1
-		for ordinal, turnsOfNew := range newTurns {
-			covered := 0.0
-			for _, o := range oldTurns[v.ID] {
-				for _, n := range turnsOfNew {
-					if overlap := min(o[1], *n.End) - max(o[0], *n.Start); overlap > 0 {
-						covered += overlap
-					}
+		v.Target, v.Share, v.Tied = carryTarget(oldTurns[v.ID], newTurns)
+	}
+	plan.conflict = carryConflicts(plan.voices)
+	return plan, nil
+}
+
+// carryTarget maps an old voice, by its turns, to the new voice (by ordinal) whose turns cover
+// the largest share of its speaking time; target is -1 when that share is below carryMinShare
+// or when two new voices cover the same best share (tied).
+func carryTarget(old [][2]float64, news [][][2]float64) (target int, share float64, tied bool) {
+	total := 0.0
+	for _, t := range old {
+		total += t[1] - t[0]
+	}
+	if total <= 0 {
+		return -1, 0, false
+	}
+	best, second, bestOrdinal := 0.0, 0.0, -1
+	for ordinal, turnsOfNew := range news {
+		covered := 0.0
+		for _, o := range old {
+			for _, n := range turnsOfNew {
+				if overlap := min(o[1], n[1]) - max(o[0], n[0]); overlap > 0 {
+					covered += overlap
 				}
 			}
-			if covered > best {
-				best, second, target = covered, best, ordinal
-			} else if covered > second {
-				second = covered
-			}
 		}
-		v.Share = best / total
-		v.Tied = best > 0 && second == best
-		if v.Share >= carryMinShare && !v.Tied {
-			v.Target = target
+		if covered > best {
+			best, second, bestOrdinal = covered, best, ordinal
+		} else if covered > second {
+			second = covered
 		}
 	}
+	share, tied = best/total, best > 0 && second == best
+	if share >= carryMinShare && !tied {
+		return bestOrdinal, share, false
+	}
+	return -1, share, tied
+}
+
+// carryConflicts marks the new voices on which old voices with different dispositions (no
+// disposition included) land: none of those dispositions is carried.
+func carryConflicts(voices []oldVoice) map[int]bool {
 	dispositions := map[int]map[string]bool{}
-	for _, v := range plan.voices {
+	for _, v := range voices {
 		if v.Target < 0 {
 			continue
 		}
@@ -162,10 +183,17 @@ ORDER BY ls.ordinal,ls.id`, clipID, index)
 		}
 		dispositions[v.Target][v.Disposition] = true
 	}
+	conflict := map[int]bool{}
 	for target, seen := range dispositions {
-		plan.conflict[target] = len(seen) > 1
+		conflict[target] = len(seen) > 1
 	}
-	return plan, nil
+	return conflict
+}
+
+// carriedReason is the journal sentence of a carry: what was done ("Reportée sur", "Reprise
+// de", "Repris de"), the voice and its diarization, and the share of speaking time.
+func carriedReason(done, label, diarization string, share float64) string {
+	return fmt.Sprintf("%s la voix %s de la %s (%s de son temps de parole)", done, label, diarization, percent(share))
 }
 
 func percent(share float64) string {
@@ -192,7 +220,7 @@ func (c *voiceCarry) release(ctx context.Context, tx pgx.Tx, newLabels []string)
 		if v.Disposition != "" {
 			reason := "Abandonnée à la nouvelle diarisation : " + c.dropReason(v, true, newLabels)
 			if v.Target >= 0 && !c.conflict[v.Target] {
-				reason = fmt.Sprintf("Reportée sur la voix %s de la nouvelle diarisation (%s de son temps de parole)", newLabels[v.Target], percent(v.Share))
+				reason = carriedReason("Reportée sur", newLabels[v.Target], "nouvelle diarisation", v.Share)
 			}
 			if _, err := tx.Exec(ctx, `INSERT INTO voice_disposition_events(local_speaker_id,clip_id,old_disposition,new_disposition,author_id,author_username,reason) VALUES($1,$2,$3,'',NULL,'system',$4)`, v.ID, c.clipID, v.Disposition, reason); err != nil {
 				return err
@@ -203,7 +231,7 @@ func (c *voiceCarry) release(ctx context.Context, tx pgx.Tx, newLabels []string)
 		}
 		if why := c.dropReason(v, false, newLabels); why != "" {
 			for _, r := range v.Refusals {
-				if _, err := tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username,reason) VALUES($1,$2,$3,$4,'drop',NULL,'system',$5)`, v.ID, c.clipID, r.PersonID, r.PersonName, "Abandonné à la nouvelle diarisation : "+why); err != nil {
+				if err := journalRefusal(ctx, tx, v.ID, c.clipID, r.PersonID, r.PersonName, "drop", systemAuthor, "Abandonné à la nouvelle diarisation : "+why); err != nil {
 					return err
 				}
 			}
@@ -226,7 +254,7 @@ func (c *voiceCarry) apply(ctx context.Context, tx pgx.Tx, newIDs []int64) error
 			if _, err := tx.Exec(ctx, `INSERT INTO local_speaker_dispositions(local_speaker_id,disposition,author_id,author_username) VALUES($1,$2,NULL,'system') ON CONFLICT (local_speaker_id) DO NOTHING`, target, v.Disposition); err != nil {
 				return err
 			}
-			reason := fmt.Sprintf("Reprise de la voix %s de la diarisation précédente (%s de son temps de parole)", v.Label, percent(v.Share))
+			reason := carriedReason("Reprise de", v.Label, "diarisation précédente", v.Share)
 			if _, err := tx.Exec(ctx, `INSERT INTO voice_disposition_events(local_speaker_id,clip_id,old_disposition,new_disposition,author_id,author_username,reason)
 SELECT $1,$2,'',$3,NULL,'system',$4 WHERE NOT EXISTS (SELECT 1 FROM voice_disposition_events WHERE local_speaker_id=$1)`, target, c.clipID, v.Disposition, reason); err != nil {
 				return err
@@ -236,8 +264,8 @@ SELECT $1,$2,'',$3,NULL,'system',$4 WHERE NOT EXISTS (SELECT 1 FROM voice_dispos
 			if _, err := tx.Exec(ctx, `INSERT INTO voice_refusals(local_speaker_id,person_id,author_id,author_username) VALUES($1,$2,$3,$4) ON CONFLICT (local_speaker_id,person_id) DO NOTHING`, target, r.PersonID, r.AuthorID, r.AuthorUsername); err != nil {
 				return err
 			}
-			reason := fmt.Sprintf("Repris de la voix %s de la diarisation précédente (%s de son temps de parole)", v.Label, percent(v.Share))
-			if _, err := tx.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username,reason) VALUES($1,$2,$3,$4,'carry',NULL,'system',$5)`, target, c.clipID, r.PersonID, r.PersonName, reason); err != nil {
+			reason := carriedReason("Repris de", v.Label, "diarisation précédente", v.Share)
+			if err := journalRefusal(ctx, tx, target, c.clipID, r.PersonID, r.PersonName, "carry", systemAuthor, reason); err != nil {
 				return err
 			}
 		}
