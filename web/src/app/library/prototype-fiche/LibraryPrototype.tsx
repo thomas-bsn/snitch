@@ -242,6 +242,172 @@ function LibC() {
   );
 }
 
+/* D — Retenue : vrai explorateur. Arbre de navigation, vue liste ou icônes, mêmes filtres que la Bibliothèque actuelle.
+   Plus de panneau « Dossiers » ni de bloc « Scanner les vidéos et gérer les dossiers ». */
+
+const OWNERS = ["Thomas", "Julie", "Marc"];
+const PEOPLE_F = ["Marc Lefèvre", "Julie Martin", "Claire Dubois"];
+const facts = (n: Video) => {
+  const h = [...n.name].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return { owner: OWNERS[h % 3], person: PEOPLE_F[h % 3], game: h % 2 ? "Court-métrage « Parking »" : "Making-of", visibility: h % 4 === 0 ? "Privée" : "Partagée", source: "videos" };
+};
+
+type Filters = { q: string; game: string; from: string; to: string; visibility: string; owner: string; person: string; state: string };
+const EMPTY: Filters = { q: "", game: "", from: "", to: "", visibility: "", owner: "", person: "", state: "" };
+
+function flatten(f: Folder, p: string[]): { v: Video; path: string[] }[] {
+  return f.children.flatMap((c) => (c.kind === "video" ? [{ v: c, path: p }] : flatten(c, [...p, c.name])));
+}
+
+function LibD() {
+  const [path, setPath] = useState<string[]>(["2026", "octobre"]);
+  const [view, setView] = useState<"list" | "icons">("list");
+  const [showFilters, setShowFilters] = useState(false);
+  const [f, setF] = useState<Filters>(EMPTY);
+  const [menu, setMenu] = useState<string | null>(null);
+  const { indexing, open } = useOpenVideo();
+  const cur = at(path);
+  const active = Object.entries(f).filter(([, v]) => v).length;
+  const match = (v: Video) => {
+    const x = facts(v);
+    return (
+      (!f.q || (v.title ?? v.name).toLowerCase().includes(f.q.toLowerCase())) &&
+      (!f.game || x.game === f.game) &&
+      (!f.visibility || x.visibility === f.visibility) &&
+      (!f.owner || x.owner === f.owner) &&
+      (!f.person || (f.person === "unknown" ? !!v.todo : x.person === f.person)) &&
+      (!f.state || v.state === f.state)
+    );
+  };
+  // Filtre actif : résultats du dossier courant ET de ses sous-dossiers, à plat, avec leur chemin.
+  const filtering = active > 0;
+  const folders = filtering ? [] : cur.children.filter((c): c is Folder => c.kind === "folder");
+  const videos = filtering ? flatten(cur, path).filter(({ v }) => match(v)) : cur.children.filter((c): c is Video => c.kind === "video").map((v) => ({ v, path }));
+
+  function Tree({ node, p, depth }: { node: Folder; p: string[]; depth: number }) {
+    const selected = p.join("/") === path.join("/");
+    const openNode = path.join("/").startsWith(p.join("/"));
+    return (
+      <li>
+        <button type="button" onClick={() => setPath(p)} style={{ paddingLeft: 8 + depth * 14 }} className={`flex w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left text-sm ${selected ? "bg-accent-soft text-accent-ink" : "hover:bg-side"}`}>
+          {depth === 0 ? <HardDrive className="size-4" /> : <FolderIcon f={node} />}
+          <span className="min-w-0 flex-1 truncate">{node.name}</span>
+        </button>
+        {openNode && <ul className="m-0 list-none p-0">{node.children.filter((c): c is Folder => c.kind === "folder").map((c) => <Tree key={c.name} node={c} p={[...p, c.name]} depth={depth + 1} />)}</ul>}
+      </li>
+    );
+  }
+  const sel = (label: string, key: keyof Filters, options: [string, string][]) => (
+    <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-mute">
+      {label}
+      <select value={f[key]} onChange={(e) => setF({ ...f, [key]: e.target.value })} className="h-9 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink">
+        <option value="">Toutes</option>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </label>
+  );
+  const FolderMenu = ({ fo }: { fo: Folder }) => (
+    <span className="relative" onClick={(e) => e.stopPropagation()}>
+      <button type="button" aria-label="Actions du dossier" onClick={() => setMenu(menu === fo.name ? null : fo.name)} className="rounded px-1.5 text-mute hover:bg-line">⋯</button>
+      {menu === fo.name && (
+        <span className="absolute right-0 z-10 mt-1 flex w-52 flex-col rounded-lg border border-line bg-surface p-1 text-sm shadow-pop">
+          <button type="button" className="rounded px-2 py-1.5 text-left hover:bg-side" onClick={() => setMenu(null)}>Analyser les {countVideos(fo).total - countVideos(fo).done} vidéos non analysées</button>
+          <button type="button" className="rounded px-2 py-1.5 text-left hover:bg-side" onClick={() => setMenu(null)}>{fo.private ? "Rendre partagé" : "Rendre privé"} <span className="text-xs text-mute">(admin)</span></button>
+        </span>
+      )}
+    </span>
+  );
+  return (
+    <section className="flex min-h-[85vh] flex-col">
+      {/* Barre d'outils de l'explorateur */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 md:px-6">
+        <button type="button" disabled={!path.length} onClick={() => setPath(path.slice(0, -1))} className="flex size-9 items-center justify-center rounded-lg border border-line-strong disabled:opacity-40" aria-label="Dossier parent"><ChevronLeft className="size-4" /></button>
+        <Crumbs path={path} onGo={setPath} />
+        <label className="ml-auto flex h-9 w-64 items-center gap-2 rounded-lg border border-line-strong px-3">
+          <input value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} placeholder={`Rechercher dans ${path.at(-1) ?? "videos"}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+        </label>
+        <button type="button" onClick={() => setShowFilters((s) => !s)} className={`${buttonClass()} ${showFilters || active ? "border-accent text-accent-ink" : ""}`}>Filtres{active ? ` · ${active}` : ""}</button>
+        <div className="flex rounded-lg border border-line-strong p-0.5" role="group" aria-label="Affichage">
+          {(["list", "icons"] as const).map((m) => (
+            <button key={m} type="button" aria-pressed={view === m} onClick={() => setView(m)} className={`rounded-md px-2.5 py-1 text-sm ${view === m ? "bg-accent-soft text-accent-ink" : "text-mute"}`}>{m === "list" ? "Liste" : "Icônes"}</button>
+          ))}
+        </div>
+      </div>
+      {showFilters && (
+        <div className="grid grid-cols-2 gap-3 border-b border-line bg-side px-4 py-3 md:grid-cols-4 md:px-6 xl:grid-cols-8">
+          {sel("Jeu", "game", [["Court-métrage « Parking »", "Court-métrage « Parking »"], ["Making-of", "Making-of"]])}
+          <label className="flex flex-col gap-1 text-xs font-medium text-mute">Du<input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} className="h-9 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink" /></label>
+          <label className="flex flex-col gap-1 text-xs font-medium text-mute">Au<input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} className="h-9 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink" /></label>
+          {sel("Visibilité", "visibility", [["Partagée", "Partagée"], ["Privée", "Privée"]])}
+          {sel("Propriétaire", "owner", OWNERS.map((o) => [o, o]))}
+          {sel("Personne", "person", [...PEOPLE_F.map((p) => [p, p] as [string, string]), ["unknown", "Voix à traiter"]])}
+          {sel("État", "state", (Object.keys(STATE_LABEL) as VideoState[]).map((s) => [s, STATE_LABEL[s]]))}
+          <div className="flex items-end"><button type="button" className="text-sm text-accent-ink hover:underline" onClick={() => setF(EMPTY)}>Effacer les filtres</button></div>
+        </div>
+      )}
+      <div className="grid flex-1 md:grid-cols-[230px_minmax(0,1fr)]">
+        <aside className="hidden border-r border-line p-2 md:block"><ul className="m-0 list-none p-0"><Tree node={root as Folder} p={[]} depth={0} /></ul></aside>
+        <div className="min-w-0 p-4 md:px-6">
+          <p className="m-0 mb-3 text-sm text-mute">
+            {filtering ? `${videos.length} résultat(s) dans ${path.at(-1) ?? "videos"} et ses sous-dossiers` : `${folders.length} dossier(s) · ${videos.length} vidéo(s)`}
+          </p>
+          {view === "list" ? (
+            <table className="w-full border-collapse text-sm">
+              <thead><tr className="border-b border-line text-left text-xs text-mute"><th className="py-2 font-medium">Nom</th>{filtering && <th className="font-medium">Dossier</th>}<th className="font-medium">État</th><th className="font-medium">Durée</th><th className="font-medium">Propriétaire</th><th className="font-medium">Ajoutée</th><th className="font-medium">Taille</th><th /></tr></thead>
+              <tbody>
+                {folders.map((fo) => (
+                  <tr key={fo.name} onDoubleClick={() => setPath([...path, fo.name])} onClick={() => setPath([...path, fo.name])} className="cursor-pointer border-b border-line hover:bg-side">
+                    <td className="py-2"><span className="flex items-center gap-2 font-medium"><FolderIcon f={fo} /> {fo.name}{fo.private && <span className="text-xs text-mute">privé</span>}</span></td>
+                    <td className="text-xs text-mute">{countVideos(fo).total} vidéos · {countVideos(fo).done} analysées</td>
+                    <td /><td /><td /><td /><td className="text-right"><FolderMenu fo={fo} /></td>
+                  </tr>
+                ))}
+                {videos.map(({ v: n, path: p }) => (
+                  <tr key={p.join("/") + n.name} onClick={() => open(n)} className="cursor-pointer border-b border-line hover:bg-side">
+                    <td className="py-2"><span className="flex items-center gap-2"><Film className="size-4 text-mute" /><span className="min-w-0"><span className="block">{n.title ?? n.name}</span>{n.title && <span className="block text-xs text-mute">{n.name}</span>}</span>{n.todo ? <span className="rounded-full bg-warn-bg px-1.5 text-xs whitespace-nowrap text-warn-fg">{n.todo} voix à traiter</span> : null}</span></td>
+                    {filtering && <td className="text-xs text-mute">/{p.join("/")}</td>}
+                    <td><StateTag s={n.state} /></td>
+                    <td className="text-mute tabular-nums">{n.duration ?? "—"}</td>
+                    <td className="text-mute">{facts(n).owner}</td>
+                    <td className="text-mute">{n.date}</td>
+                    <td className="text-mute">{n.size}</td>
+                    <td />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 p-0">
+              {folders.map((fo) => (
+                <li key={fo.name}>
+                  <button type="button" onClick={() => setPath([...path, fo.name])} className="flex w-full flex-col items-center gap-1 rounded-xl p-3 text-center hover:bg-side">
+                    {fo.private ? <FolderLock className="size-14 text-mute" strokeWidth={1.2} /> : <Folder className="size-14 text-accent" strokeWidth={1.2} fill="var(--accent-soft)" />}
+                    <span className="w-full truncate text-sm font-medium">{fo.name}</span>
+                    <span className="text-xs text-mute">{countVideos(fo).total} vidéos</span>
+                  </button>
+                </li>
+              ))}
+              {videos.map(({ v: n, path: p }) => (
+                <li key={p.join("/") + n.name}>
+                  <button type="button" onClick={() => open(n)} className="flex w-full flex-col items-center gap-1 rounded-xl p-3 text-center hover:bg-side">
+                    <span className={`relative flex h-14 w-20 items-center justify-center rounded-md ${n.state === "unindexed" ? "border-2 border-dashed border-line-strong text-mute" : "bg-[#1b1b22] text-white/60"}`}>
+                      {n.state === "unindexed" ? <File className="size-6" /> : <Play className="size-5" />}
+                      {n.todo ? <span className="absolute -top-1.5 -right-1.5 rounded-full bg-warn-bg px-1.5 text-[10px] text-warn-fg">{n.todo}</span> : null}
+                    </span>
+                    <span className="w-full truncate text-sm">{n.title ?? n.name}</span>
+                    <StateTag s={n.state} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+      <IndexingToast name={indexing} />
+    </section>
+  );
+}
+
 /* ---------- Import ---------- */
 
 type Role = "user" | "admin";
@@ -407,6 +573,7 @@ function ImpC({ role }: { role: Role }) {
 
 const SCREENS = {
   library: [
+    { key: "D", name: "Retenue : explorateur", C: LibD },
     { key: "A", name: "Arbre + tableau", C: LibA },
     { key: "B", name: "Colonnes (Finder)", C: LibB },
     { key: "C", name: "Vignettes", C: LibC },
