@@ -94,6 +94,10 @@ from .get_video_root_response_200 import GetVideoRootResponse200
 from .get_worker_revocation_response_200 import GetWorkerRevocationResponse200
 from .get_worker_transcription_config_response_200 import GetWorkerTranscriptionConfigResponse200
 from .get_worker_transcription_config_response_200_mode import GetWorkerTranscriptionConfigResponse200Mode
+from .get_worker_update_response_200 import GetWorkerUpdateResponse200
+from .get_worker_updates_response_200 import GetWorkerUpdatesResponse200
+from .get_worker_updates_response_200_workers_item import GetWorkerUpdatesResponse200WorkersItem
+from .get_worker_updates_response_200_workers_item_state import GetWorkerUpdatesResponse200WorkersItemState
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
 from .job import Job
 from .job_controls import JobControls
@@ -171,6 +175,8 @@ from .post_worker_install_events_body import PostWorkerInstallEventsBody
 from .post_worker_transcription_config_status_body import PostWorkerTranscriptionConfigStatusBody
 from .post_worker_transcription_config_status_body_error_code import PostWorkerTranscriptionConfigStatusBodyErrorCode
 from .post_worker_transcription_config_status_response_200 import PostWorkerTranscriptionConfigStatusResponse200
+from .post_worker_update_status_body import PostWorkerUpdateStatusBody
+from .post_worker_update_status_body_state import PostWorkerUpdateStatusBodyState
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .put_clip_metadata_body import PutClipMetadataBody
 from .put_clip_metadata_response_200 import PutClipMetadataResponse200
@@ -179,6 +185,8 @@ from .put_metadata_location_body import PutMetadataLocationBody
 from .put_metadata_location_response_200 import PutMetadataLocationResponse200
 from .put_worker_transcription_override_body import PutWorkerTranscriptionOverrideBody
 from .put_worker_transcription_override_response_200 import PutWorkerTranscriptionOverrideResponse200
+from .put_worker_update_target_body import PutWorkerUpdateTargetBody
+from .put_worker_update_target_response_200 import PutWorkerUpdateTargetResponse200
 from .read_all_notifications_response_200 import ReadAllNotificationsResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
@@ -483,6 +491,10 @@ __all__ = (
     "GetWorkerRevocationResponse200",
     "GetWorkerTranscriptionConfigResponse200",
     "GetWorkerTranscriptionConfigResponse200Mode",
+    "GetWorkerUpdateResponse200",
+    "GetWorkerUpdatesResponse200",
+    "GetWorkerUpdatesResponse200WorkersItem",
+    "GetWorkerUpdatesResponse200WorkersItemState",
     "HeartbeatWorkerJobResponse200",
     "Job",
     "JobControls",
@@ -560,6 +572,8 @@ __all__ = (
     "PostWorkerTranscriptionConfigStatusBody",
     "PostWorkerTranscriptionConfigStatusBodyErrorCode",
     "PostWorkerTranscriptionConfigStatusResponse200",
+    "PostWorkerUpdateStatusBody",
+    "PostWorkerUpdateStatusBodyState",
     "PreviewTranscriptionBatchResponse200",
     "PutClipMetadataBody",
     "PutClipMetadataResponse200",
@@ -568,6 +582,8 @@ __all__ = (
     "PutMetadataLocationResponse200",
     "PutWorkerTranscriptionOverrideBody",
     "PutWorkerTranscriptionOverrideResponse200",
+    "PutWorkerUpdateTargetBody",
+    "PutWorkerUpdateTargetResponse200",
     "ReadAllNotificationsResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",

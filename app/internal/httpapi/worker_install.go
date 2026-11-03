@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -47,6 +48,11 @@ func (s *Server) createWorkerInstallCommand(ctx context.Context, workerID, token
 	// The launcher is kept only once downloaded: rerunning the command reuses it, a failed download needs a new invitation.
 	return fmt.Sprintf(`bash -c 'set -euo pipefail; d="%s"; mkdir -p "$d"; chmod 700 "$d"; if [ ! -s "$d/install.sh" ]; then umask 077; curl -fsS --proto "%s" --tlsv1.2 %q -o "$d/install.sh.tmp"; mv "$d/install.sh.tmp" "$d/install.sh"; fi; bash "$d/install.sh"'`, dir, proto, endpoint), "", nil
 }
+
+// workerUpdaterScript is the local updater the launcher installs (ADR 0036); it is static, no template.
+//
+//go:embed worker_updater.sh
+var workerUpdaterScript string
 
 var workerInstallScript = template.Must(template.New("install").Parse(`#!/usr/bin/env bash
 # Snitch Worker launcher. Safe to rerun: identity, service, volume and models are reused.
@@ -146,6 +152,15 @@ json_field() { sed -n 's/.*"'"$1"'":"\([^"]*\)".*/\1/p' "$dir/config.json" | hea
 # Current Snitch configuration wins over what the first download carried.
 transcription_endpoint=$(json_field endpoint); transcription_model=$(json_field model); transcription_language=$(json_field language)
 rm -f "$dir/config.json"
+# The version chosen in Snitch wins over the image of the invitation (ADR 0036). It must be a released
+# tag of the same repository; anything else keeps the invitation's image.
+update_json="$dir/update.json"
+update_code=$(printf 'header = "Authorization: Bearer %s"\n' "$worker_token" | curl -sS --max-time 20 -K - -o "$update_json" -w '%{http_code}' "$api_url/api/worker/update" 2>/dev/null || true)
+if [ "$update_code" = 200 ]; then
+ target_image=$(sed -n 's/.*"target_image":"\([^"]*\)".*/\1/p' "$update_json" | head -n1)
+ if [ -n "$target_image" ] && [ "$target_image" != "$image" ] && [[ "$target_image" == "${image%:*}:"* ]] && [[ "${target_image##*:}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then image=$target_image; fi
+fi
+rm -f "$update_json"
 emit registration succeeded
 printf 'SNITCH_API_URL=%s\nSNITCH_WORKER_TOKEN=%s\nTRANSCRIPTION_API_URL=%s\nTRANSCRIPTION_MODEL=%s\nTRANSCRIPTION_LANGUAGE=%s\nSNITCH_VOICE_DOWNLOAD_ON_START=0\nSNITCH_VOICE_CONFIRM_TERMS=0\nHOME=/tmp\nXDG_CACHE_HOME=/models/.cache\nHF_HOME=/models/.cache/huggingface\nHF_XET_CACHE=/models/.cache/huggingface/xet\n' "$api_url" "$worker_token" "$transcription_endpoint" "$transcription_model" "$transcription_language" > "$env_file.tmp"
 chmod 600 "$env_file.tmp"; mv "$env_file.tmp" "$env_file"; unset worker_token
@@ -245,6 +260,18 @@ if ! start_service "$image"; then
  fail service_start_failed 'Could not start the Worker. Inspect Docker logs, then rerun.' 'Impossible de démarrer le Worker. Consultez les journaux Docker, puis relancez.'
 fi
 emit service succeeded
+# The local updater (ADR 0036) runs from cron every 10 minutes. Without cron, updates need this command to be rerun.
+# Never fatal: the Worker runs whether or not its updater could be installed.
+if printf '%s' '{{.UpdaterScript}}' | base64 -d > "$dir/updater.sh.tmp" 2>/dev/null && [ -s "$dir/updater.sh.tmp" ] && chmod 700 "$dir/updater.sh.tmp" && mv "$dir/updater.sh.tmp" "$dir/updater.sh"; then
+ if command -v crontab >/dev/null 2>&1; then
+  { crontab -l 2>/dev/null | grep -vF "$dir/updater.sh" || true; printf '*/10 * * * * "%s" >/dev/null 2>&1\n' "$dir/updater.sh"; } | crontab - 2>/dev/null || printf 'Warning: could not schedule automatic updates; rerun this command to update.\n' >&2
+ else
+  printf 'Warning: crontab not found: automatic updates are off on this machine; rerun this command to update.\n' >&2
+ fi
+else
+ rm -f "$dir/updater.sh.tmp"
+ printf 'Warning: could not install the local updater; rerun this command to update.\n' >&2
+fi
 printf 'Snitch Worker started. Check Admin > Workers for connection and models.\n'
 `))
 
@@ -295,6 +322,7 @@ func (s *Server) serveWorkerInstall(w http.ResponseWriter, r *http.Request) {
 		TranscriptionEndpoint string
 		TranscriptionModel    string
 		TranscriptionLanguage string
+		UpdaterScript         string
 	}{
 		WorkerID:              workerID,
 		APIURL:                base64.StdEncoding.EncodeToString([]byte(apiURL)),
@@ -304,6 +332,7 @@ func (s *Server) serveWorkerInstall(w http.ResponseWriter, r *http.Request) {
 		TranscriptionEndpoint: base64.StdEncoding.EncodeToString([]byte(transcriptionEndpoint)),
 		TranscriptionModel:    base64.StdEncoding.EncodeToString([]byte(transcriptionModel)),
 		TranscriptionLanguage: base64.StdEncoding.EncodeToString([]byte(transcriptionLanguage)),
+		UpdaterScript:         base64.StdEncoding.EncodeToString([]byte(workerUpdaterScript)),
 	}
 	var script bytes.Buffer
 	if err = workerInstallScript.Execute(&script, data); err != nil {
