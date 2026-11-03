@@ -66,6 +66,7 @@ from .clip_step_state import ClipStepState
 from .clip_visibility import ClipVisibility
 from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
+from .clip_waveforms_item import ClipWaveformsItem
 from .corrections_to_replace import CorrectionsToReplace
 from .corrections_warning import CorrectionsWarning
 from .create_video_folder_body import CreateVideoFolderBody
@@ -448,6 +449,7 @@ __all__ = (
     "ClipVisibility",
     "ClipVoice",
     "ClipVoiceStatus",
+    "ClipWaveformsItem",
     "CorrectionsToReplace",
     "CorrectionsWarning",
     "CreateVideoFolderBody",

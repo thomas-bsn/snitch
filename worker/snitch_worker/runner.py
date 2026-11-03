@@ -33,6 +33,7 @@ from snitch_client.models.worker_result_input_result import WorkerResultInputRes
 
 from snitch_worker import log, revocation
 from snitch_worker import voice_models
+from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
 from snitch_worker.transcription_config import active_configuration, sync_configuration
@@ -451,6 +452,7 @@ def run_once(
                 ]
                 result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
                 result["audio_stream_index"] = stream_index
+                attach_peaks(result, wav_path)
         elif is_voice_step(job.step):
             voice_value = getattr(task_input, "voice", None)
             voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
@@ -466,7 +468,10 @@ def run_once(
                     download_media(client, task_input, lease_token, original)
                     prepare_audio(original, wav_path, int(job.step.rsplit(".", 1)[1]))
                     result = process_voice_step(job.step, voice_input, duration, wav_path, voice_providers)
+                    if _is_diarization_step(job.step):
+                        attach_peaks(result, wav_path)
             else:
+                # No audio is prepared here, so no peaks: a result without them is accepted (ADR 0034).
                 result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
         elif is_trial_step(job.step):
             voice_input = trial_voice_input(task_input)

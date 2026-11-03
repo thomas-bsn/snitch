@@ -133,6 +133,14 @@ type ClipSource struct {
 	ManagedRoot    bool               `json:"managed_root"`
 }
 
+type ClipWaveform struct {
+	ClipID           int64              `json:"clip_id"`
+	AudioStreamIndex int32              `json:"audio_stream_index"`
+	JobID            int64              `json:"job_id"`
+	Peaks            []byte             `json:"peaks"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type EmbeddingIndexState struct {
 	ID                 int32              `json:"id"`
 	ActiveProfileID    pgtype.Int8        `json:"active_profile_id"`

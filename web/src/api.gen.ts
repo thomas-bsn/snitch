@@ -4581,6 +4581,13 @@ export interface components {
         kind: "source" | "upload";
         name: string | null;
       }[];
+      /** @description Pics de forme d’onde par piste audio (ADR 0034), un élément par piste ayant reçu des pics ; liste vide tant qu’aucune analyse n’en a fourni. */
+      waveforms?: {
+        audio_stream_index: number;
+        /** Format: int64 */
+        job_id: number;
+        peaks: number[];
+      }[];
       game?: string | null;
       game_origin?: string | null;
       capture_time_origin?: string | null;
