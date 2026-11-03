@@ -66,10 +66,27 @@ def fake_provider(step: str) -> dict[str, Any]:
 class TranscriptionError(RuntimeError):
     """A categorised Whisper failure. It carries a catalogue code and a status, never the provider text."""
 
-    def __init__(self, code: str, http_status: int | None = None) -> None:
+    def __init__(self, code: str, http_status: int | None = None, url: str = "", excerpt: str = "") -> None:
         super().__init__(code)
         self.code = code
         self.http_status = http_status
+        # What the Worker observed of its own call (ADR 0028); only log_whisper_failure writes them, scrubbed.
+        self.method = "POST"
+        self.url = url
+        self.excerpt = excerpt
+
+
+EXCERPT_LIMIT = 240
+
+
+def log_whisper_failure(error: "TranscriptionError", latency_ms: int) -> None:
+    """Log the Worker's view of a failed Whisper call: method, URL, status, latency and a bounded cleaned excerpt."""
+    fields: dict[str, Any] = {"code": error.code, "method": error.method, "url": error.url, "latency_ms": latency_ms}
+    if error.http_status is not None:
+        fields["http_status"] = error.http_status
+    if error.excerpt:
+        fields["excerpt"] = log.scrub(error.excerpt)[:EXCERPT_LIMIT]
+    log.emit(logging.WARNING, "whisper_request_failed", **fields)
 
 
 # Provider reasons of a diarization step mapped to the catalogue; other reasons keep the generic code.
@@ -117,7 +134,12 @@ class OpenAICompatibleTranscriber:
             raise TranscriptionError("whisper_timeout") from exc
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
-            raise TranscriptionError("whisper_model_missing" if status == 404 else "whisper_http_error", status) from exc
+            try:
+                excerpt = " ".join(exc.response.text.split())[:1000]
+            except (httpx.HTTPError, UnicodeError):
+                excerpt = ""
+            code = "whisper_model_missing" if status == 404 else "whisper_http_error"
+            raise TranscriptionError(code, status, self.endpoint + "/v1/audio/transcriptions", excerpt) from exc
         except httpx.TransportError as exc:
             raise TranscriptionError("whisper_network") from exc
         except (TypeError, ValueError, KeyError, AttributeError) as exc:
@@ -567,7 +589,9 @@ def _run_claimed(
                     wav_path = os.path.join(temporary, "prepared.wav")
                     download_media(client, task_input, lease_token, original)
                     stream_index = int(job.step.rsplit(".", 1)[1])
+                    cancellation.check()
                     prepare_audio(original, wav_path, stream_index)
+                    cancellation.check()
                     pipeline_value = getattr(task_input, "pipeline", None)
                     pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
                     override = getattr(task_input, "transcription_model", None)
@@ -578,6 +602,7 @@ def _run_claimed(
                         {"term": term.term, "variants": term.variants, "preferred_spelling": term.preferred_spelling}
                         for term in (task_input.vocabulary or [])
                     ]
+                    cancellation.check()
                     result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
                     result["audio_stream_index"] = stream_index
                     attach_peaks(result, wav_path)
@@ -674,6 +699,7 @@ def _run_claimed(
                 diagnostic["model"] = model
             if exc.http_status is not None:
                 diagnostic["http_status"] = exc.http_status
+            log_whisper_failure(exc, diagnostic["duration_ms"])
         elif isinstance(exc, VoiceProviderUnavailable) and _is_diarization_step(job.step) and exc.reason in DIARIZATION_FAILURE_CODES:
             error_code = DIARIZATION_FAILURE_CODES[exc.reason]
             voice_config = _voice_config(task_input)

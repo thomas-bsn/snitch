@@ -500,7 +500,6 @@ export const en = {
         "Not configured. Workers keep the token they already have, if any.",
       unreadable:
         "The stored token cannot be read with the current master key. Enter it again.",
-      fingerprint: "Fingerprint {value}.",
       field: "Hugging Face token",
       hint: "Starts with hf_. Shown once, then hidden for good.",
       save: "Save token",

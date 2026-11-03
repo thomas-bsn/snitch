@@ -26,13 +26,11 @@ class HFTokenStatus:
     """
         Attributes:
             configured (bool):
-            fingerprint (str): Empreinte non réversible, vide si non configuré
             unreadable (bool): Valeur présente mais illisible avec la clé maître courante : à ressaisir
             workers (list[HFTokenStatusWorkersItem]):
      """
 
     configured: bool
-    fingerprint: str
     unreadable: bool
     workers: list[HFTokenStatusWorkersItem]
 
@@ -43,8 +41,6 @@ class HFTokenStatus:
     def to_dict(self) -> dict[str, Any]:
         from ..models.hf_token_status_workers_item import HFTokenStatusWorkersItem # noqa: PLC0415
         configured = self.configured
-
-        fingerprint = self.fingerprint
 
         unreadable = self.unreadable
 
@@ -60,7 +56,6 @@ class HFTokenStatus:
 
         field_dict.update({
             "configured": configured,
-            "fingerprint": fingerprint,
             "unreadable": unreadable,
             "workers": workers,
         })
@@ -74,8 +69,6 @@ class HFTokenStatus:
         from ..models.hf_token_status_workers_item import HFTokenStatusWorkersItem # noqa: PLC0415
         d = dict(src_dict)
         configured = d.pop("configured")
-
-        fingerprint = d.pop("fingerprint")
 
         unreadable = d.pop("unreadable")
 
@@ -91,7 +84,6 @@ class HFTokenStatus:
 
         hf_token_status = cls(
             configured=configured,
-            fingerprint=fingerprint,
             unreadable=unreadable,
             workers=workers,
         )

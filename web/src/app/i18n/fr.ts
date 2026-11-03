@@ -512,7 +512,6 @@ export const fr: Messages = {
         "Non configuré. Les Workers gardent le token qu’ils ont déjà, le cas échéant.",
       unreadable:
         "Le token enregistré ne peut pas être lu avec la clé maître actuelle. Saisissez-le à nouveau.",
-      fingerprint: "Empreinte {value}.",
       field: "Token Hugging Face",
       hint: "Commence par hf_. Affiché une seule fois, puis masqué définitivement.",
       save: "Enregistrer le token",

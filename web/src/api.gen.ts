@@ -855,7 +855,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée. */
+    /** @description Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée. */
     get: operations["getHFToken"];
     /** @description Réservé au Super-administrateur : enregistre ou remplace le token central, chiffré au repos. Un token mal formé est refusé (invalid_hf_token) sans être renvoyé. Un Administrateur reçoit 403 super_administrator_required. */
     put: operations["putHFToken"];
@@ -3740,8 +3740,6 @@ export interface components {
     };
     HFTokenStatus: {
       configured: boolean;
-      /** @description Empreinte non réversible, vide si non configuré */
-      fingerprint: string;
       /** @description Valeur présente mais illisible avec la clé maître courante : à ressaisir */
       unreadable: boolean;
       workers: {

@@ -136,11 +136,7 @@ export function VoiceHuggingFace() {
     >
       {heading}
       <p className="text-sm text-ink-soft">{t("voiceAdmin.hf.lead")}</p>
-      <StatusNotice>
-        {view.fingerprint
-          ? `${configuredText} ${t("voiceAdmin.hf.fingerprint", { value: view.fingerprint })}`
-          : configuredText}
-      </StatusNotice>
+      <StatusNotice>{configuredText}</StatusNotice>
       {notice && (
         <StatusNotice>
           {notice === "saved"
