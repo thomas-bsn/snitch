@@ -118,9 +118,6 @@ test.describe.serial("personnes et vérification", () => {
     await expect(current.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_01",
     );
-    await expect(
-      page.getByRole("link", { name: /^To process\s*1$/ }),
-    ).toBeVisible();
     // The sidebar follows the decision without a change of address; the voice left is
     // only a suggestion, and it still counts: the list shows it.
     await expect(
@@ -670,10 +667,12 @@ test.describe.serial("personnes et vérification", () => {
 
     const current = page.getByRole("region", { name: "Who is speaking here?" });
     const heading = current.getByRole("heading", { level: 2 });
-    const tab = page.getByRole("link", { name: /^To process\s*\d+$/ });
+    const tab = page
+      .getByRole("navigation", { name: "Main navigation" })
+      .first()
+      .getByRole("link", { name: "People" });
     await expect(heading).toBeVisible();
-    const count = async () =>
-      Number((await tab.innerText()).replace(/\D/g, ""));
+    const count = async () => Number((await tab.innerText()).match(/\d+/)![0]);
     await expect.poll(count).toBeGreaterThanOrEqual(2);
     const before = await count();
     const speakerOf = async () =>

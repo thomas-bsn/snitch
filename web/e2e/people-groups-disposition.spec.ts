@@ -16,7 +16,7 @@ test.describe.serial("groupe de voix : disposition", () => {
 
   test("un groupe modifié entre-temps est refusé sans rien écrire", async () => {
     await page.goto("/people/groups");
-    await page.getByRole("button", { name: /^Listen and name/ }).click();
+    await page.getByRole("button", { name: /^Proposed grouping of/ }).click();
     await expect(
       page.getByRole("heading", { name: "Proposed grouping of 2 voices" }),
     ).toBeVisible();
@@ -58,7 +58,7 @@ test.describe.serial("groupe de voix : disposition", () => {
 
   test("ignorer tout le groupe le retire de la liste", async () => {
     await page.goto("/people/groups");
-    await page.getByRole("button", { name: /^Listen and name/ }).click();
+    await page.getByRole("button", { name: /^Proposed grouping of/ }).click();
     await expect(
       page.getByRole("heading", { name: "Proposed grouping of 2 voices" }),
     ).toBeVisible();
