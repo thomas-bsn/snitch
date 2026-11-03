@@ -223,6 +223,27 @@ func (s *Server) reconcileAnalysis(ctx context.Context, clipID int64) {
 	}
 }
 
+// settingAutoFullAnalysis is the administration setting "Analyse complète automatique". It
+// is on unless it holds "false" (ADR 0035): the absence of a value means the default.
+const settingAutoFullAnalysis = "analysis_auto_full"
+
+// startAutomaticAnalysis starts the full analysis of a newly added clip when the setting is
+// on. Without a Worker for the voices the run keeps the reasons on its steps; a refusal here
+// (an active run of another scope, a missing transcription) never fails the addition.
+func (s *Server) startAutomaticAnalysis(ctx context.Context, clipID int64) {
+	enabled, err := s.Store.Get(ctx, settingAutoFullAnalysis)
+	if err != nil {
+		s.Log.Warn("read automatic analysis setting", "clip", clipID, "error", err)
+		return
+	}
+	if enabled == "false" {
+		return
+	}
+	if _, _, err := s.Analysis.Start(ctx, clipID, analysis.ScopeFull, 0); err != nil {
+		s.Log.Warn("start automatic analysis", "clip", clipID, "error", err)
+	}
+}
+
 func (s *Server) startClipAnalysis(w http.ResponseWriter, r *http.Request) {
 	clipID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || clipID < 1 {
