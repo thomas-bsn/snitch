@@ -73,6 +73,14 @@ func (h analysisHooks) HasTranscription(ctx context.Context, clipID int64) (bool
 	return ok, err
 }
 
+// HasVoices tells whether a voice detection was launched on the clip: the clip voices then
+// show a status other than none (getClipVoice), and the analysis client reads it the same way.
+func (h analysisHooks) HasVoices(ctx context.Context, clipID int64) (bool, error) {
+	var has bool
+	err := h.s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs WHERE clip_id=$1 AND step LIKE 'voice.diarization.%')`, clipID).Scan(&has)
+	return has, err
+}
+
 // Index follows the semantic indexing of the visible transcription. A missing or failing
 // semantic index never touches the text search, which is fed by the transcription itself.
 func (h analysisHooks) Index(ctx context.Context, clipID int64) (analysis.StepResult, error) {

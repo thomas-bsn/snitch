@@ -1991,6 +1991,8 @@ export const fr: Messages = {
       addedBecause: {
         prerequisite: "{step} — ajoutée : prérequis de {of}",
         dependent: "{step} — ajoutée : dépend de {of}",
+        missing:
+          "{step} — ajoutée : jamais lancée, incluse par l’analyse complète",
       },
       noteMissing:
         "Les résultats valides sont réutilisés : rien n’est remplacé et aucune confirmation n’est nécessaire.",

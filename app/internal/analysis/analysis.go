@@ -64,18 +64,27 @@ type Options struct {
 // fingerprints and the matching come after a diarization).
 var forceable = []string{StepTranscription, StepIndexing, StepDiarization}
 
-// Why a step joins a choice of steps it was not part of.
+// Why a step joins a choice of steps it was not part of. A missing step never ran and runs
+// because the scope widened to the full analysis, which includes it.
 const (
 	AddedPrerequisite = "prerequisite"
 	AddedDependent    = "dependent"
+	AddedMissing      = "missing"
 )
 
 // AddedStep is a step the closure added to the chosen ones: Of is the step that needs it
-// (prerequisite) or that it follows (dependent).
+// (prerequisite) or that it follows (dependent); a missing step has none.
 type AddedStep struct {
 	Step   string `json:"step"`
 	Reason string `json:"reason"`
 	Of     string `json:"of"`
+}
+
+// Existing tells which results the clip already has: a valid transcription, and a voice
+// detection launched at least once (a diarization job exists).
+type Existing struct {
+	Transcription bool
+	Voices        bool
 }
 
 // Plan is what a start really runs: the scope, widened to hold the closed set of steps, the
@@ -90,9 +99,10 @@ type Plan struct {
 // indexing; transcription → diarization → fingerprints → matching, the voices needing a
 // valid transcription but never depending on its text, ADR 0030). With chosen steps, a
 // missing transcription is added as a prerequisite, the steps after a chosen one are added
-// as dependents, and the scope widens to hold them all. Added steps are not forced: a
-// prerequisite runs because it is missing, a dependent follows the step before it.
-func Resolve(scope string, opts Options, hasTranscription bool) (Plan, error) {
+// as dependents, and the scope widens to hold them all. A widened scope also runs the voice
+// steps that never ran: they are added as missing. Added steps are not forced: a prerequisite
+// or a missing step runs because it has no result, a dependent follows the step before it.
+func Resolve(scope string, opts Options, existing Existing) (Plan, error) {
 	switch opts.Mode {
 	case "", ModeMissing:
 		return Plan{Scope: scope, Forced: []string{}, Added: []AddedStep{}}, nil
@@ -122,7 +132,7 @@ func Resolve(scope string, opts Options, hasTranscription bool) (Plan, error) {
 	in := func(step string) bool {
 		return slices.Contains(forced, step) || slices.ContainsFunc(added, func(a AddedStep) bool { return a.Step == step })
 	}
-	if !in(StepTranscription) && !hasTranscription {
+	if !in(StepTranscription) && !existing.Transcription {
 		for _, step := range []string{StepIndexing, StepDiarization} {
 			if in(step) {
 				added = append(added, AddedStep{Step: StepTranscription, Reason: AddedPrerequisite, Of: step})
@@ -148,6 +158,14 @@ func Resolve(scope string, opts Options, hasTranscription bool) (Plan, error) {
 		plan.Scope = ScopeFull
 	case voices:
 		plan.Scope = ScopeVoice
+	}
+	// The indexing follows any transcription by itself; the voice steps may never have run.
+	if !existing.Voices {
+		for _, step := range []string{StepDiarization, StepFingerprints, StepMatching} {
+			if !applicable(scope, step) && applicable(plan.Scope, step) && !in(step) {
+				plan.Added = append(plan.Added, AddedStep{Step: step, Reason: AddedMissing})
+			}
+		}
 	}
 	return plan, nil
 }
@@ -306,6 +324,8 @@ type Hooks interface {
 	Transcribe(ctx context.Context, clipID int64, since time.Time, force bool) (Transcription, error)
 	// HasTranscription tells whether the clip has a valid transcription to build on.
 	HasTranscription(ctx context.Context, clipID int64) (bool, error)
+	// HasVoices tells whether a voice detection was launched at least once on the clip.
+	HasVoices(ctx context.Context, clipID int64) (bool, error)
 	// Index tells where the semantic indexing of the visible transcription stands. The text
 	// search never depends on it.
 	Index(ctx context.Context, clipID int64) (StepResult, error)
@@ -453,14 +473,17 @@ func (s *Service) Plan(ctx context.Context, clipID int64, scope string, opts Opt
 	if !validScope(scope) {
 		return Plan{}, ErrInvalidScope
 	}
-	has := true
+	existing := Existing{Transcription: true, Voices: true}
 	if opts.Mode == ModeSteps {
 		var err error
-		if has, err = s.hooks.HasTranscription(ctx, clipID); err != nil {
+		if existing.Transcription, err = s.hooks.HasTranscription(ctx, clipID); err != nil {
+			return Plan{}, err
+		}
+		if existing.Voices, err = s.hooks.HasVoices(ctx, clipID); err != nil {
 			return Plan{}, err
 		}
 	}
-	return Resolve(scope, opts, has)
+	return Resolve(scope, opts, existing)
 }
 
 // Latest returns the active run of the clip, or else the most recent one; nil when the

@@ -34,12 +34,15 @@ export function AnalyzeClip({
   clipId,
   audioTracks,
   hasTranscription,
+  hasVoices,
   onChanged,
 }: {
   clipId: number;
   audioTracks: MediaTrack[];
   /** Whether the clip has a valid transcription, a prerequisite of the voices and the indexing. */
   hasTranscription: boolean;
+  /** Whether a voice detection was ever launched on the clip. */
+  hasVoices: boolean;
   onChanged: () => void;
 }) {
   const { t, error } = useI18n();
@@ -348,6 +351,7 @@ export function AnalyzeClip({
             <ReanalyzeClip
               clipId={clipId}
               hasTranscription={hasTranscription}
+              hasVoices={hasVoices}
               open={reanalyzing}
               onOpenChange={setReanalyzing}
               onStarted={apply}

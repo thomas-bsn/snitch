@@ -65,6 +65,21 @@ test("analyser un clip jusqu'à sa transcription, durablement", async ({
     "Voice fingerprints — added: depends on Voice detection",
     "Voice matching — added: depends on Voice fingerprints",
   ]);
+  // From the transcription scope, a retranscription brings its indexing, which only the full
+  // analysis runs: the voice steps that never ran then run too, and are listed.
+  await dialog.getByLabel("Voice detection").uncheck();
+  await dialog.getByLabel("Transcription only").check();
+  await dialog.getByLabel("Transcription", { exact: true }).check();
+  await expect(added.getByRole("listitem")).toHaveText([
+    "Indexing — added: depends on Transcription",
+    "Voice detection — added: never run, included by the full analysis",
+    "Voice fingerprints — added: never run, included by the full analysis",
+    "Voice matching — added: never run, included by the full analysis",
+  ]);
+  await dialog.getByLabel("Transcription", { exact: true }).uncheck();
+  await dialog
+    .getByLabel("Everything: transcription, indexing and voices")
+    .check();
   await dialog.getByLabel("Only the missing steps").check();
   await expect(added).toHaveCount(0);
   // Voice detection never transcribes behind the scenes: it explains what is missing.
@@ -175,6 +190,20 @@ test("réanalyser un clip traité en confirmant les conséquences", async ({
     "Voice fingerprints — added: depends on Voice detection",
     "Voice matching — added: depends on Voice fingerprints",
   ]);
+  // Its voices were detected: widening the transcription scope adds no voice step.
+  await dialog.getByLabel("Voice detection").uncheck();
+  await dialog.getByLabel("Transcription only").check();
+  await dialog.getByLabel("Transcription", { exact: true }).check();
+  await expect(
+    dialog
+      .getByRole("list", { name: "Added automatically" })
+      .getByRole("listitem"),
+  ).toHaveText(["Indexing — added: depends on Transcription"]);
+  await dialog.getByLabel("Transcription", { exact: true }).uncheck();
+  await dialog
+    .getByLabel("Everything: transcription, indexing and voices")
+    .check();
+  await dialog.getByLabel("Voice detection").check();
 
   // The consequences are explained before anything starts; going back changes nothing.
   await dialog.getByRole("button", { name: "Start reanalysis" }).click();
