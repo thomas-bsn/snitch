@@ -282,7 +282,7 @@ function PickerDialog({ open, onClose, mode, role }: { open: boolean; onClose: (
           <li className="flex items-center gap-2 rounded-md px-2 py-1.5 text-mute"><Folder className="size-4" /> {requested} <span className="rounded-full bg-warn-bg px-2 text-xs text-warn-fg">demande en attente</span></li>
         )}
       </ul>
-      {creating ? (
+      {mode === "sources" ? null : creating ? (
         <div className="flex flex-col gap-2 rounded-lg border border-line p-3">
           <label className="flex flex-col gap-1 text-sm"><span className="font-medium">Nouveau dossier dans /{["videos", ...path].join("/")}</span><input value={name} onChange={(e) => setName(e.target.value)} className="h-9 rounded-lg border border-line-strong bg-surface px-3" autoFocus /></label>
           {role === "user" && <p className="m-0 text-xs text-mute">Un administrateur doit valider la création. Vous serez notifié ; en attendant, vous ne pouvez pas y téléverser.</p>}
