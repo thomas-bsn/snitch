@@ -2252,6 +2252,11 @@ export const fr: Messages = {
       savedLeftOut:
         "Enregistré : {count} voix sont maintenant {person}. {out} écartée(s).",
       savedSkipped: "{skipped} déjà confirmée(s) par quelqu’un d’autre.",
+      videos: "Entendu dans {count} vidéo(s)",
+      random: "Random pour tout le groupe",
+      ignore: "Ignorer tout le groupe",
+      savedRandom: "Random : {count} voix libellées Random.",
+      savedIgnored: "Ignoré : {count} voix mises de côté.",
     },
     levels: {
       human: "Validé par un humain",

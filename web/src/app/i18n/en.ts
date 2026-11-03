@@ -2214,6 +2214,11 @@ export const en = {
       saved: "Saved: {count} voice(s) are now {person}.",
       savedLeftOut: "Saved: {count} voice(s) are now {person}. {out} left out.",
       savedSkipped: "{skipped} already confirmed by someone else.",
+      videos: "Heard in {count} video(s)",
+      random: "Random for the whole group",
+      ignore: "Ignore the whole group",
+      savedRandom: "Random: {count} voice(s) labelled Random.",
+      savedIgnored: "Ignored: {count} voice(s) set aside.",
     },
     levels: {
       human: "Validated by a human",
