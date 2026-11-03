@@ -602,7 +602,11 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	job, err := s.Jobs.Complete(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.InputVersion, input.Result)
+	var options jobs.CompleteOptions
+	if stepErr == nil && strings.HasPrefix(step, "transcription.audio.") {
+		options = jobs.CompleteOptions{MaxResultBytes: maxTranscriptionResultBytes, Summarize: withoutPeaks, Project: waveformProjection(step, input.Result)}
+	}
+	job, err := s.Jobs.CompleteWith(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.InputVersion, input.Result, options)
 	if errors.Is(err, jobs.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_job_result")
 	} else if errors.Is(err, jobs.ErrLeaseNotOwned) {

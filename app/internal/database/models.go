@@ -58,6 +58,20 @@ type Clip struct {
 	DetectedMetadata    []byte             `json:"detected_metadata"`
 }
 
+type ClipAnalysisDeletion struct {
+	ID                  int64              `json:"id"`
+	ClipID              int64              `json:"clip_id"`
+	Steps               []string           `json:"steps"`
+	DeletedBy           pgtype.Int8        `json:"deleted_by"`
+	DeletedByUsername   string             `json:"deleted_by_username"`
+	LostSegments        int32              `json:"lost_segments"`
+	LostCorrections     int32              `json:"lost_corrections"`
+	LostVoices          int32              `json:"lost_voices"`
+	LostValidatedVoices int32              `json:"lost_validated_voices"`
+	LostPersons         int32              `json:"lost_persons"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
 type ClipAnalysisRun struct {
 	ID                          int64              `json:"id"`
 	ClipID                      int64              `json:"clip_id"`
@@ -131,6 +145,14 @@ type ClipSource struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	HealthMessage  string             `json:"health_message"`
 	ManagedRoot    bool               `json:"managed_root"`
+}
+
+type ClipWaveform struct {
+	ClipID           int64              `json:"clip_id"`
+	AudioStreamIndex int32              `json:"audio_stream_index"`
+	JobID            int64              `json:"job_id"`
+	Peaks            []byte             `json:"peaks"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 type EmbeddingIndexState struct {

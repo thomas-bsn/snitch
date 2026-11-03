@@ -19,6 +19,7 @@ import { TranscriptTab } from "./TranscriptTab";
 import { RelaunchVoice } from "./RelaunchVoice";
 import { VoicesTab } from "./VoicesTab";
 import { VoiceTrials } from "./VoiceTrials";
+import { Waveform } from "./Waveform";
 import { formatTimecode, parseMoment } from "./clipFormat";
 import { clipTitle, fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
 import { AnalyzeClip } from "./AnalyzeClip";
@@ -45,6 +46,16 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
   useDocumentTitle(clipTitle(clip));
 
   const back = (location.state as { from?: string } | null)?.from ?? "/library";
+  // The drawing follows the track the transcript and the voices come from; without peaks
+  // (an analysis made before they existed) nothing is drawn.
+  const waveform = useMemo(
+    () =>
+      clip.waveforms?.find(
+        (entry) =>
+          entry.audio_stream_index === clip.transcription?.audio_stream_index,
+      ),
+    [clip.waveforms, clip.transcription?.audio_stream_index],
+  );
   const segments = useMemo(
     () => clip.transcription?.segments ?? [],
     [clip.transcription],
@@ -145,6 +156,9 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             onMoment={keepMoment}
             onPlayhead={setPlayhead}
           />
+          {waveform && (
+            <Waveform peaks={waveform.peaks} label={t("clip.waveformLabel")} />
+          )}
           <MetadataDisclosure clip={clip} />
           {neverAnalysed && (
             <p className="m-0 rounded-xl border border-accent bg-accent-soft p-3 font-medium text-ink">

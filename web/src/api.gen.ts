@@ -1331,6 +1331,24 @@ export interface paths {
     put?: never;
     /** @description Administrateurs. Lance une analyse durable du clip (préparation puis transcription) ; une seule analyse active par clip, un second appel renvoie l'analyse existante. Les résultats valides sont réutilisés. */
     post: operations["startClipAnalysis"];
+    /** @description Super-administrateur seulement. Suppression d'étapes ou de toute l'analyse d'un clip, refusée pendant une analyse active. Les Personnes ne sont jamais supprimées. */
+    delete: operations["deleteClipAnalysis"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/deletion-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Calcul préalable des pertes d'une suppression d'analyse (segments, corrections, voix, voix validées, échantillons, Personnes touchées). */
+    get: operations["getClipAnalysisDeletionPreview"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2895,6 +2913,29 @@ export interface components {
        * @description Instant où l'enjeu a été lu ; à renvoyer en confirmed_stake_at.
        */
       stake_at?: string;
+    };
+    /** @description Pertes d'une suppression d'analyse ; rien n'est supprimé par ce calcul. Les Personnes et leurs échantillons validés ne sont jamais supprimés, seulement retirés de la référence. */
+    ClipAnalysisDeletionStake: {
+      /** @description Segments des transcriptions supprimées. */
+      segments: number;
+      /** @description Corrections de segments de la transcription visible (retranscription). */
+      corrections: {
+        /** Format: int64 */
+        transcription_job_id: number;
+        text_segments: number;
+        speaker_segments: number;
+        authors: string[];
+        /** Format: date-time */
+        last_corrected_at: string | null;
+      } | null;
+      /** @description Locuteurs locaux du clip (diarisation). */
+      voices: number;
+      /** @description Locuteurs locaux validés par un humain. */
+      validated_voices: number;
+      /** @description Échantillons actifs de la référence retirés. */
+      voice_samples: number;
+      /** @description Personnes dont une voix validée ou un échantillon actif est touché. */
+      persons: number;
     };
     /** @description Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés). */
     ClipReanalysisStake: {
@@ -4760,6 +4801,13 @@ export interface components {
         /** @enum {string} */
         kind: "source" | "upload";
         name: string | null;
+      }[];
+      /** @description Pics de forme d’onde par piste audio (ADR 0034), un élément par piste ayant reçu des pics ; liste vide tant qu’aucune analyse n’en a fourni. */
+      waveforms?: {
+        audio_stream_index: number;
+        /** Format: int64 */
+        job_id: number;
+        peaks: number[];
       }[];
       game?: string | null;
       game_origin?: string | null;
@@ -8743,6 +8791,99 @@ export interface operations {
         };
       };
       /** @description Erreur (400 invalid_analysis_scope, invalid_reanalysis, invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteClipAnalysis: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Étapes à supprimer, avec ce qui dépend d'elles (ADR 0030) : transcription supprime l'indexation et les corrections ; diarisation supprime les voix, leurs empreintes, le rapprochement et les identifications, y compris les voix validées (leurs échantillons quittent la référence ; les Personnes restent) ; empreintes supprime le rapprochement. */
+          steps?: (
+            | "transcription"
+            | "diarization"
+            | "fingerprints"
+            | "matching"
+          )[];
+          /** @description Vrai pour supprimer toute l'analyse : les étapes ci-dessus, l'historique des analyses, les essais de diarisation et les notifications du clip. Remplace steps. */
+          all?: boolean;
+          /** @description Vrai pour confirmer les pertes indiquées par le calcul préalable (stake). Sans lui, 409 analysis_deletion_confirmation_required quand la suppression perd quelque chose. */
+          confirm_loss?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Étapes supprimées ; la trace d'audit du clip est conservée. run est l'analyse la plus récente (null après suppression de tout) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            run: components["schemas"]["ClipAnalysisRun"] | null;
+            deleted_steps: string[];
+            stake: components["schemas"]["ClipAnalysisDeletionStake"];
+          };
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id, invalid_analysis_step ; 403 forbidden : réservé au Super-administrateur ; 404 clip_not_found ; 409 analysis_active : une analyse est active, l'annuler d'abord ; 409 analysis_deletion_confirmation_required : les pertes sont dans stake, à confirmer avec confirm_loss) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysisDeletionPreview: {
+    parameters: {
+      query?: {
+        /** @description Étapes séparées par des virgules : transcription, diarization, fingerprints, matching. */
+        steps?: string;
+        /** @description Vrai pour le calcul de toute l'analyse. */
+        all?: boolean;
+      };
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Pertes qu'une suppression des étapes entraînerait, sans rien supprimer */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            steps: string[];
+            stake: components["schemas"]["ClipAnalysisDeletionStake"];
+          };
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id, invalid_analysis_step ; 404 clip_not_found) */
       default: {
         headers: {
           [name: string]: unknown;
