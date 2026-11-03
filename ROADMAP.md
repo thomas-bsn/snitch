@@ -99,6 +99,10 @@ Livrée : voir le [bilan](docs/phase-6-report.md) et l’[ADR 0012](docs/adr/001
 
 Front seulement, sauf des ajouts de backend : progression du wizard, langue du compte, déclaration de machine d’un worker et démarrage sans configuration (mot de passe de la base, clé maître et adresse publique produits ou déduits). Le jeton de worker reste affiché une seule fois. Voir la [spec](docs/specs/phase-6bis.md) pour les lots, les questions ouvertes et les ADR à écrire.
 
+### Évolutions des lots A à D
+
+Hors phase 7, qui garde son autorisation propre. Cinq PR, dans l'ordre : [lot A, Worker et infrastructure](docs/specs/lot-a-worker-et-infra.md) ; [lot B, chaîne d'analyse](docs/specs/lot-b-chaine-d-analyse.md) ; [fiche vidéo](docs/specs/fiche-video.md) ; [lot C, Personnes](docs/specs/lot-c-people.md) ; [lot D, Bibliothèque et import](docs/specs/lot-d-bibliotheque-et-import.md). Décisions : ADR 0027 à 0035. Référence visuelle jetable : branche `prototype/fiche-video`. Seul le parcours de l'arborescence de la Racine vidéo est autorisé sur la vraie bibliothèque ; les tests restent sur des fixtures.
+
 ### Phase 7
 
 Mesurer distributions de temps par étape, clips/heure et concurrence worker 1–4, pics RAM/VRAM/CPU, WER sur références humaines, qualité de diarisation et d'identification, pertinence des requêtes, taille et mémoire des index, latence NAS, erreurs et reprise. Aucun débit ni durée pour 1 To promis avant ces mesures. Tester restauration de la base et des secrets avec la clé conservée séparément. Demucs peut être évalué au benchmark, sans devenir une fonction V1.
