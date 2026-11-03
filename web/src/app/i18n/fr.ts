@@ -1964,9 +1964,9 @@ export const fr: Messages = {
     lead: "Nommez les voix qu’entend Snitch. Une confirmation humaine passe toujours en premier.",
     tabsLabel: "Sections des Personnes",
     tabs: {
-      persons: "Personnes",
-      verification: "Vérification",
-      groups: "Groupes de voix",
+      persons: "Annuaire",
+      verification: "À traiter",
+      groups: "Voix inconnues",
     },
     loading: "Chargement…",
     persons: {

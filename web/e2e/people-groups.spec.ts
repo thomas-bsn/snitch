@@ -65,7 +65,7 @@ test.describe.serial("groupes de voix", () => {
     await page.goto("/people/groups");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("People");
     await expect(
-      page.getByRole("link", { name: "Voice groups" }),
+      page.getByRole("link", { name: "Unknown voices" }),
     ).toHaveAttribute("aria-current", "page");
     await expect(page.getByText("no group is ever confirmed")).toBeVisible();
 

@@ -54,7 +54,7 @@ test.describe.serial("personnes et vérification", () => {
     await page.goto("/people/verification");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("People");
     await expect(
-      page.getByRole("link", { name: /^Verification\s*2$/ }),
+      page.getByRole("link", { name: /^To process\s*2$/ }),
     ).toBeVisible();
 
     // The five states carry a label and the counts come from the server.
@@ -180,7 +180,7 @@ test.describe.serial("personnes et vérification", () => {
       counters.getByRole("button", { name: /^Unknown\s*0$/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: /^Verification\s*0$/ }),
+      page.getByRole("link", { name: /^To process\s*0$/ }),
     ).toBeVisible();
 
     // A link to the voice that was just settled says who attributed it, to whom, when.
@@ -702,7 +702,7 @@ test.describe.serial("personnes et vérification", () => {
 
     const current = page.getByRole("region", { name: "Voice to decide" });
     const heading = current.getByRole("heading", { level: 2 });
-    const tab = page.getByRole("link", { name: /^Verification\s*\d+$/ });
+    const tab = page.getByRole("link", { name: /^To process\s*\d+$/ });
     await expect(heading).toBeVisible();
     const count = async () =>
       Number((await tab.innerText()).replace(/\D/g, ""));

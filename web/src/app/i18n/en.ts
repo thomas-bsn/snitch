@@ -1930,9 +1930,9 @@ export const en = {
     lead: "Name the voices Snitch hears. A human confirmation always comes first.",
     tabsLabel: "People sections",
     tabs: {
-      persons: "People",
-      verification: "Verification",
-      groups: "Voice groups",
+      persons: "Directory",
+      verification: "To process",
+      groups: "Unknown voices",
     },
     loading: "Loading…",
     persons: {

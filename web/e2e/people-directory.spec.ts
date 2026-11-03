@@ -150,7 +150,7 @@ test.describe.serial("liste des personnes", () => {
     await expect(
       page
         .getByRole("navigation", { name: "People sections" })
-        .getByRole("link", { name: "People", exact: true }),
+        .getByRole("link", { name: "Directory", exact: true }),
     ).toHaveAttribute("aria-current", "page");
 
     // The address works on its own, in a fresh page.
