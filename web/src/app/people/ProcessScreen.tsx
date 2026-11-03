@@ -1,6 +1,6 @@
 import { Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useOutletContext } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
@@ -10,8 +10,13 @@ import type { LocalSpeaker, TranscriptSegment } from "../library/libraryApi";
 import { VoiceWaveforms, voiceColor } from "../library/VoiceWaveforms";
 import { VoiceDecision } from "../voices/VoiceDecision";
 import { useFailureText } from "./failureText";
+import { claimPlayback } from "./ExcerptPlayer";
+import { HandledNotice } from "./HandledNotice";
 import { LevelBadge } from "./LevelBadge";
-import type { PeopleOutlet } from "./PeopleLayout";
+import {
+  publishToProcessCount,
+  toProcessCount,
+} from "../shell/useToProcessCount";
 import { fetchToProcess } from "./peopleApi";
 
 const EXCERPTS = 4;
@@ -23,6 +28,12 @@ const isPending = (voice: LocalSpeaker) =>
   (voice.decision_level === "unknown" ||
     voice.decision_level === "ambiguous" ||
     voice.decision_level === "suggestion");
+
+/** The voices after the one at `index`, then those before it: where to go next. */
+const following = (speakers: LocalSpeaker[], index: number) => [
+  ...speakers.slice(index + 1),
+  ...speakers.slice(0, index),
+];
 
 const moment = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -44,8 +55,6 @@ export function ProcessScreen({
   const { t } = useI18n();
   const failureText = useFailureText();
   const navigate = useNavigate();
-  const outlet = useOutletContext<PeopleOutlet | null>();
-  const report = outlet?.reportToDecide;
 
   const clip = useLoaded(useCallback(() => fetchClip(clipId), [clipId])).state;
   const voiceLoad = useLoaded(
@@ -61,6 +70,15 @@ export function ProcessScreen({
   const [selected, setSelected] = useState<number | undefined>(focusId);
   const current =
     speakers.find((speaker) => speaker.id === selected) ?? pending[0];
+  // A direct link to a voice already settled says so, once, on arrival.
+  const [arrival, setArrival] = useState<LocalSpeaker>();
+  const arrived = useRef(false);
+  useEffect(() => {
+    if (arrived.current || !voice) return;
+    arrived.current = true;
+    const target = speakers.find((speaker) => speaker.id === focusId);
+    if (target && !isPending(target)) setArrival(target);
+  }, [voice, speakers, focusId]);
   // The voice just decided, until the voices have been read again.
   const decided = useRef<number | undefined>(undefined);
 
@@ -71,10 +89,9 @@ export function ProcessScreen({
       (speaker) => speaker.id === decided.current,
     );
     decided.current = undefined;
-    const after = [...speakers.slice(index + 1), ...speakers.slice(0, index)];
     const stillPending = speakers[index] && isPending(speakers[index]);
     if (stillPending) return;
-    setSelected(after.find(isPending)?.id);
+    setSelected(following(speakers, index).find(isPending)?.id);
   }, [voice, speakers]);
 
   // The other clips with something to process, for "Next video"; the tab counter follows.
@@ -83,13 +100,13 @@ export function ProcessScreen({
   const refreshList = useCallback(() => {
     void fetchToProcess("all", 1, LIST_SIZE).then((result) => {
       if (!result.ok) return;
-      report?.(result.value.totals.unknown + result.value.totals.ambiguous);
+      publishToProcessCount(toProcessCount(result.value.totals));
       setNext(
         result.value.items.find((item) => item.clip_id !== clipId)?.clip_id ??
           null,
       );
     });
-  }, [clipId, report]);
+  }, [clipId]);
   useEffect(() => {
     refreshList();
   }, [refreshList, voice]);
@@ -101,9 +118,9 @@ export function ProcessScreen({
 
   function skip() {
     if (!current) return;
-    const index = speakers.indexOf(current);
-    const after = [...speakers.slice(index + 1), ...speakers.slice(0, index)];
-    const other = after.find(isPending);
+    const other = following(speakers, speakers.indexOf(current)).find(
+      isPending,
+    );
     if (other) setSelected(other.id);
   }
 
@@ -119,6 +136,7 @@ export function ProcessScreen({
       element.pause();
       return;
     }
+    claimPlayback(() => element.pause());
     element.currentTime = start;
     stopAt.current = end;
     setPlayhead(start);
@@ -178,6 +196,7 @@ export function ProcessScreen({
           if (time >= stopAt.current) event.currentTarget.pause();
         }}
       />
+      {arrival && <HandledNotice voice={arrival} />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-col">
           <h2 className="m-0 truncate text-lg font-semibold">

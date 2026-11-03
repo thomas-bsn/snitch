@@ -5,6 +5,10 @@ import { buttonClass } from "../components/buttons";
 import { ErrorAlert } from "../components/Alert";
 import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
+import {
+  publishToProcessCount,
+  toProcessCount,
+} from "../shell/useToProcessCount";
 import { fetchToProcess, type ToProcessFilter } from "./peopleApi";
 
 const PAGE_SIZE = 100;
@@ -18,31 +22,24 @@ const filterClass = (pressed: boolean) =>
 
 /**
  * The "To process" list: one row per clip that still has a voice to settle, with what is
- * left in it. Numbers and filters come from the server. `version` changes when the caller
- * settled something, so the list is read again; `onToDecide` receives the number of voices
- * to decide (unknown + ambiguous) for the counter of the tab.
+ * left in it. Numbers and filters come from the server; the number of voices to settle goes
+ * to the counters of the tab and of the sidebar.
  */
-export function ToProcessList({
-  version,
-  onToDecide,
-}: {
-  version: number;
-  onToDecide?: (count: number) => void;
-}) {
+export function ToProcessList() {
   const { t } = useI18n();
   const failureText = useFailureText();
   const [filter, setFilter] = useState<ToProcessFilter>("all");
-  const load = useCallback(() => {
-    void version;
-    return fetchToProcess(filter, 1, PAGE_SIZE);
-  }, [filter, version]);
+  const load = useCallback(
+    () => fetchToProcess(filter, 1, PAGE_SIZE),
+    [filter],
+  );
   const { state } = useLoaded(load);
   const data = state.status === "ready" ? state.value : undefined;
   const totals = data?.totals;
-  const toDecide = totals ? totals.unknown + totals.ambiguous : undefined;
+  const toSettle = totals ? toProcessCount(totals) : undefined;
   useEffect(() => {
-    if (toDecide !== undefined) onToDecide?.(toDecide);
-  }, [toDecide, onToDecide]);
+    if (toSettle !== undefined) publishToProcessCount(toSettle);
+  }, [toSettle]);
 
   const filters: { value: ToProcessFilter; label: string; count?: number }[] = [
     {

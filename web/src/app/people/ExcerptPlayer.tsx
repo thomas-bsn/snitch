@@ -3,8 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { excerptUrl } from "./peopleApi";
 
-// One excerpt at a time: the player that starts stops the one that was playing.
+// One audio at a time: the player that starts stops the one that was playing.
 let current: (() => void) | undefined;
+
+/** Stops whatever plays and registers `stop` as what to stop when the next one starts. */
+export function claimPlayback(stop: () => void) {
+  if (current) current();
+  current = stop;
+}
 
 /**
  * A reusable player for the excerpt of a local speaker. The button names the voice and its
@@ -41,8 +47,7 @@ export function ExcerptPlayer({
       element.pause();
       return;
     }
-    if (current) current();
-    current = () => element.pause();
+    claimPlayback(() => element.pause());
     void element.play().catch(() => setPlaying(false));
   }
 

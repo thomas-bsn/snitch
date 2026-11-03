@@ -119,8 +119,16 @@ test.describe.serial("personnes et vérification", () => {
       "SPEAKER_01",
     );
     await expect(
-      page.getByRole("link", { name: /^To process\s*0$/ }),
+      page.getByRole("link", { name: /^To process\s*1$/ }),
     ).toBeVisible();
+    // The sidebar follows the decision without a change of address; the voice left is
+    // only a suggestion, and it still counts: the list shows it.
+    await expect(
+      page
+        .getByRole("navigation", { name: "Main navigation" })
+        .first()
+        .getByRole("link", { name: "People" }),
+    ).toHaveAccessibleDescription("1 voice(s) to decide");
 
     // The address of the voice just settled opens its clip, with the voice marked settled.
     await page.goto(`/people/verification?case=${idOf("SPEAKER_00")}`);
@@ -131,6 +139,19 @@ test.describe.serial("personnes et vérification", () => {
     await expect(
       screen.getByRole("list", { name: "Voices to process" }),
     ).toContainText("Claire Synthétique");
+    // The voice is already settled: the notice says who attributed it, to whom, when.
+    const handled = page.getByRole("region", {
+      name: "Direct link to a voice",
+    });
+    await expect(handled.getByRole("heading", { level: 2 })).toHaveText(
+      "Already handled",
+    );
+    await expect(handled).toContainText(
+      /SPEAKER_00 was attributed to Claire Synthétique by .+ on .+\./,
+    );
+    await expect(
+      handled.getByRole("link", { name: "Open Claire Synthétique" }),
+    ).toHaveAttribute("href", /^\/people\/\d+$/);
     await expectNoViolations(page);
   });
 

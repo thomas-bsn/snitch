@@ -1,11 +1,10 @@
 import { useCallback } from "react";
-import { useOutletContext, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { buttonClass } from "../components/buttons";
 import { ErrorAlert } from "../components/Alert";
 import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
-import type { PeopleOutlet } from "./PeopleLayout";
 import { fetchLocalSpeaker } from "./peopleApi";
 import { ProcessScreen } from "./ProcessScreen";
 import { ToProcessList } from "./ToProcessList";
@@ -80,7 +79,6 @@ function CaseScreen({
  * former single-case address, which opens the clip of that case).
  */
 export function VerificationTab() {
-  const outlet = useOutletContext<PeopleOutlet | null>();
   const [params, setParams] = useSearchParams();
   const clip = positive(params.get("clip"));
   const voiceId = positive(params.get("case"));
@@ -93,5 +91,5 @@ export function VerificationTab() {
     );
   }
   if (clip !== undefined) return <ProcessScreen key={clip} clipId={clip} />;
-  return <ToProcessList version={0} onToDecide={outlet?.reportToDecide} />;
+  return <ToProcessList />;
 }
