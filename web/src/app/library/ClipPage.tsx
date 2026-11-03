@@ -107,6 +107,11 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             {t(back.startsWith("/search") ? "clip.backToSearch" : "clip.back")}
           </Link>
           <ClipStatePill status={clip.status} />
+          <AnalyzeClip
+            clipId={clip.id}
+            audioTracks={clip.tracks?.filter((t) => t.type === "audio") ?? []}
+            onChanged={onChanged}
+          />
         </div>
         <EditMetadata clip={clip} onChanged={onChanged} />
       </div>
@@ -166,11 +171,6 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
             </p>
           )}
           <ProgressBanner clip={clip} voice={voiceData} />
-          <AnalyzeClip
-            clipId={clip.id}
-            audioTracks={clip.tracks?.filter((t) => t.type === "audio") ?? []}
-            onChanged={onChanged}
-          />
         </div>
 
         <Tabs.Root
