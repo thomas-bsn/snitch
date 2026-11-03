@@ -60,3 +60,46 @@ test("un administrateur ajoute et configure un dossier synthétique", async ({
   ).toEqual([]);
   await context.close();
 });
+
+test("l'administrateur règle l'analyse complète automatique", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    storageState: await sessionFor(ADMIN),
+  });
+  const page = await context.newPage();
+  await page.goto("/admin/folders");
+  const setting = page.getByRole("checkbox", {
+    name: "Full automatic analysis",
+  });
+  // On by default, with its help text.
+  await expect(setting).toBeChecked();
+  await expect(
+    page.getByText("every video added to the library", { exact: false }),
+  ).toBeVisible();
+  await setting.uncheck();
+  await expect(setting).not.toBeChecked();
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await page.request.get("/api/admin/settings/automatic-analysis")
+          ).json()
+        ).enabled,
+    )
+    .toBe(false);
+  await page.reload();
+  await expect(setting).not.toBeChecked();
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  // Back to the default for the scenarios that follow.
+  await setting.check();
+  await expect(setting).toBeChecked();
+  await context.close();
+});

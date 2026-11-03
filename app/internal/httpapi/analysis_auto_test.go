@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
@@ -44,5 +45,43 @@ func testAutomaticFullAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if n := h.count(`SELECT count(*) FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.%'`, other); n == 0 {
 		t.Fatal("the transcription must still be scheduled when the setting is off")
+	}
+}
+
+// testAutomaticAnalysisSetting drives the administration endpoints of the setting (#215): on by
+// default, changed by an Administrator, and stored under analysis_auto_full.
+func testAutomaticAnalysisSetting(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarnessClips(t, pool, 1)
+	read := func() bool {
+		var got struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/settings/automatic-analysis", nil, http.StatusOK), &got); err != nil {
+			t.Fatal(err)
+		}
+		return got.Enabled
+	}
+	if !read() {
+		t.Fatal("the automatic full analysis must be on by default")
+	}
+	h.adminCall(http.MethodPut, "/api/admin/settings/automatic-analysis", map[string]any{"enabled": false}, http.StatusOK)
+	if read() {
+		t.Fatal("the setting must stay off once switched off")
+	}
+	if v, _ := h.api.Store.Get(context.Background(), settingAutoFullAnalysis); v != "false" {
+		t.Fatalf("the setting is stored under analysis_auto_full, got %q", v)
+	}
+	h.adminCall(http.MethodPut, "/api/admin/settings/automatic-analysis", map[string]any{}, http.StatusBadRequest)
+	h.adminCall(http.MethodPut, "/api/admin/settings/automatic-analysis", map[string]any{"enabled": true}, http.StatusOK)
+	if !read() {
+		t.Fatal("the setting must come back on")
+	}
+	resp, err := http.Get(h.ts.URL + "/api/admin/settings/automatic-analysis")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous read: %d", resp.StatusCode)
 	}
 }

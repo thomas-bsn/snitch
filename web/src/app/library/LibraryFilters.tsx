@@ -3,7 +3,7 @@ import { buttonClass } from "../components/buttons";
 import { DateField, Select } from "../components/FilterFields";
 import { useI18n } from "../i18n";
 import { EXPLORER_STATES } from "./explorerApi";
-import type { ClipFilterOptions } from "./libraryApi";
+import type { ClipFilterOptions, Person } from "./libraryApi";
 
 /** The explorer's filters, kept in the address. */
 export type ExplorerFilters = {
@@ -14,18 +14,23 @@ export type ExplorerFilters = {
   to: string;
   visibility: string;
   owner: string;
+  person: string;
+  /** "pending" keeps the videos with voices to process. */
+  voices: string;
 };
 
-/** The library filters: game, date, visibility, owner and state. A filter of a Person is not offered yet. */
+/** The library filters: game, date, visibility, owner and state. Person and voices to process. */
 export function LibraryFilters({
   filters,
   options,
+  persons,
   active,
   onChange,
   onClear,
 }: {
   filters: ExplorerFilters;
   options: ClipFilterOptions | null;
+  persons: Person[];
   active: boolean;
   onChange: (patch: Partial<ExplorerFilters>) => void;
   onClear: () => void;
@@ -83,6 +88,26 @@ export function LibraryFilters({
             {owner.username}
           </option>
         ))}
+      </Select>
+      <Select
+        label={t("library.filters.person")}
+        value={filters.person}
+        onChange={(person) => onChange({ person })}
+      >
+        <option value="">{t("library.filters.any")}</option>
+        {persons.map((person) => (
+          <option key={person.id} value={String(person.id)}>
+            {person.display_name}
+          </option>
+        ))}
+      </Select>
+      <Select
+        label={t("library.filters.voices")}
+        value={filters.voices}
+        onChange={(voices) => onChange({ voices })}
+      >
+        <option value="">{t("library.filters.any")}</option>
+        <option value="pending">{t("library.filters.voicesPending")}</option>
       </Select>
       <Select
         label={t("library.filters.state")}

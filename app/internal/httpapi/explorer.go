@@ -21,7 +21,14 @@ import (
 // else. Listing reads directory entries only, never file contents; no file is indexed unless someone
 // opens it (POST /api/library/explorer/index), and that indexing never transcribes it.
 
-const explorerMaxEntries = 10000
+// The listing is paged on the server (#243): limit and offset bound the items answered, total counts the
+// whole selection. The directory walk itself has no ceiling any more.
+const (
+	explorerDefaultLimit = 100
+	explorerMaxLimit     = 500
+	// explorerRecordBatch bounds the paths sent to one database query.
+	explorerRecordBatch = 5000
+)
 
 // explorerStates are the states a video can carry, in the order the interface lists them.
 var explorerStates = []string{"not_indexed", "in_progress", "not_analyzed", "transcribed", "analyzed", "failed"}
@@ -62,15 +69,22 @@ type explorerRecord struct {
 	duration          *float64
 	added, recorded   *time.Time
 	game              string
+	// person is set when the clip has a voice attributed to the filtered Person.
+	person bool
 }
 
 type explorerFilters struct {
 	query, state, game, visibility, from, to string
-	owner                                    int64
+	owner, person                            int64
+	// voices keeps the videos that still have voices to process.
+	voices bool
 }
 
+// explorerPage is the requested window of the listing.
+type explorerPage struct{ limit, offset int }
+
 func (f explorerFilters) active() bool {
-	return f.query != "" || f.state != "" || f.game != "" || f.visibility != "" || f.from != "" || f.to != "" || f.owner != 0
+	return f.query != "" || f.state != "" || f.game != "" || f.visibility != "" || f.from != "" || f.to != "" || f.owner != 0 || f.person != 0 || f.voices
 }
 
 func explorerFiltersFrom(r *http.Request) (explorerFilters, bool) {
@@ -96,6 +110,20 @@ func explorerFiltersFrom(r *http.Request) (explorerFilters, bool) {
 			}
 		}
 	}
+	switch q.Get("voices") {
+	case "":
+	case "pending":
+		f.voices = true
+	default:
+		return f, false
+	}
+	if raw := q.Get("person_id"); raw != "" {
+		var ok bool
+		f.person, ok = parsePositive(raw)
+		if !ok {
+			return f, false
+		}
+	}
 	if raw := q.Get("owner_id"); raw != "" {
 		var ok bool
 		f.owner, ok = parsePositive(raw)
@@ -104,6 +132,38 @@ func explorerFiltersFrom(r *http.Request) (explorerFilters, bool) {
 		}
 	}
 	return f, true
+}
+
+func explorerPageFrom(r *http.Request) (explorerPage, bool) {
+	page := explorerPage{limit: explorerDefaultLimit}
+	q := r.URL.Query()
+	if raw := q.Get("limit"); raw != "" {
+		n, ok := parsePositive(raw)
+		if !ok || n > explorerMaxLimit {
+			return page, false
+		}
+		page.limit = int(n)
+	}
+	if raw := q.Get("offset"); raw != "" {
+		n, ok := parsePositive(raw)
+		if !ok && raw != "0" {
+			return page, false
+		}
+		page.offset = int(n)
+	}
+	return page, true
+}
+
+// window cuts the sorted selection to the requested page.
+func (p explorerPage) window(items []explorerEntry) []explorerEntry {
+	if p.offset >= len(items) {
+		return []explorerEntry{}
+	}
+	end := p.offset + p.limit
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[p.offset:end]
 }
 
 func contains(list []string, value string) bool {
@@ -130,11 +190,21 @@ func parsePositive(raw string) (int64, bool) {
 }
 
 // explorerRecords reads the state of the given root-relative video paths in two queries.
-func (s *Server) explorerRecords(r *http.Request, sourceID int64, paths []string, userID int64, admin bool) (map[string]explorerRecord, error) {
+func (s *Server) explorerRecords(r *http.Request, sourceID int64, paths []string, userID int64, admin bool, person int64) (map[string]explorerRecord, error) {
 	out := map[string]explorerRecord{}
-	if len(paths) == 0 {
-		return out, nil
+	for start := 0; start < len(paths); start += explorerRecordBatch {
+		end := start + explorerRecordBatch
+		if end > len(paths) {
+			end = len(paths)
+		}
+		if err := s.explorerRecordsBatch(r, sourceID, paths[start:end], userID, admin, person, out); err != nil {
+			return nil, err
+		}
 	}
+	return out, nil
+}
+
+func (s *Server) explorerRecordsBatch(r *http.Request, sourceID int64, paths []string, userID int64, admin bool, person int64, out map[string]explorerRecord) error {
 	// A file of the root is indexed through its scan row, or through the upload published to that path.
 	rows, err := s.Pool.Query(r.Context(), `SELECT f.relative_path,f.status,f.error_code,f.requested,f.clip_id,
 	  COALESCE(clip_readable(c.id,c.owner_id,c.visibility,$3,$4),false),c.owner_id,COALESCE(u.username,''),COALESCE(c.visibility,''),c.duration_seconds,c.discovered_at,c.recorded_at,COALESCE(c.game,'')
@@ -144,7 +214,7 @@ func (s *Server) explorerRecords(r *http.Request, sourceID int64, paths []string
 	    SELECT d.relative_path,'ready','',false,um.clip_id FROM upload_destinations d JOIN uploaded_media um ON um.upload_id=d.upload_id WHERE d.source_id=$1 AND d.relative_path=ANY($2) AND um.clip_id IS NOT NULL
 	  ) f LEFT JOIN clips c ON c.id=f.clip_id LEFT JOIN users u ON u.id=c.owner_id`, sourceID, paths, userID, admin)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	clipIDs := []int64{}
 	for rows.Next() {
@@ -153,7 +223,7 @@ func (s *Server) explorerRecords(r *http.Request, sourceID int64, paths []string
 		var requested bool
 		if err := rows.Scan(&rel, &rec.status, &rec.errorCode, &requested, &rec.clipID, &rec.readable, &rec.ownerID, &rec.owner, &rec.visibility, &rec.duration, &rec.added, &rec.recorded, &rec.game); err != nil {
 			rows.Close()
-			return nil, err
+			return err
 		}
 		if _, seen := out[rel]; seen {
 			continue
@@ -170,19 +240,24 @@ func (s *Server) explorerRecords(r *http.Request, sourceID int64, paths []string
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return err
 	}
 	if len(clipIDs) == 0 {
-		return out, nil
+		return nil
 	}
 	states, err := s.explorerAnalysis(r, clipIDs)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	people, err := s.explorerPersonClips(r, clipIDs, person)
+	if err != nil {
+		return err
 	}
 	for rel, rec := range out {
 		if rec.clipID == nil || rec.hidden {
 			continue
 		}
+		rec.person = people[*rec.clipID]
 		st := states[*rec.clipID]
 		rec.state, rec.voices = analysisLabel(st.done, st.latest), st.voicesPending
 		if rec.state == "transcribed" && rec.voices == 0 {
@@ -190,7 +265,31 @@ func (s *Server) explorerRecords(r *http.Request, sourceID int64, paths []string
 		}
 		out[rel] = rec
 	}
-	return out, nil
+	return nil
+}
+
+// explorerPersonClips tells which of the clips have a voice attributed to the Person, through the effective
+// attribution (validated first, else machine) at the levels that identify a Person (see person_filter.go).
+func (s *Server) explorerPersonClips(r *http.Request, clipIDs []int64, person int64) (map[int64]bool, error) {
+	out := map[int64]bool{}
+	if person == 0 || len(clipIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.Pool.Query(r.Context(), `SELECT DISTINCT ls.clip_id FROM local_speakers ls,
+	  LATERAL (`+effectiveAttributionOf("ls")+`) eff
+	  WHERE ls.clip_id=ANY($1) AND eff.person_id=$2 AND eff.decision_level IN `+identifiedLevels, clipIDs, person)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
 }
 
 type analysisState struct {
@@ -270,7 +369,10 @@ func (f explorerFilters) matches(name, folder string, rec explorerRecord, found 
 		return false
 	}
 	if !found || rec.clipID == nil {
-		return f.game == "" && f.visibility == "" && f.from == "" && f.to == "" && f.owner == 0
+		return f.game == "" && f.visibility == "" && f.from == "" && f.to == "" && f.owner == 0 && f.person == 0 && !f.voices
+	}
+	if f.person != 0 && !rec.person || f.voices && rec.voices == 0 {
+		return false
 	}
 	if f.game != "" && !strings.Contains(strings.ToLower(rec.game), strings.ToLower(f.game)) {
 		return false
@@ -301,10 +403,15 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "invalid_filter")
 		return
 	}
+	page, ok := explorerPageFrom(r)
+	if !ok {
+		fail(w, 400, "invalid_filter")
+		return
+	}
 	root, err := s.Library.ManagedRoot(r.Context())
 	if errors.Is(err, pgx.ErrNoRows) && relative == "" {
 		// Without a Racine vidéo, all clips still list: uploads and older sources have no folder here.
-		loose, looseRecords, err := s.explorerLoose(r, 0, ss.User.ID, admin)
+		loose, looseRecords, err := s.explorerLoose(r, 0, ss.User.ID, admin, filters.person)
 		if err != nil {
 			s.internal(w, err)
 			return
@@ -317,7 +424,7 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 				out = append(out, e)
 			}
 		}
-		reply(w, 200, map[string]any{"source_id": 0, "root_configured": false, "items": out, "states": explorerStates})
+		reply(w, 200, map[string]any{"source_id": 0, "root_configured": false, "items": page.window(out), "total": len(out), "states": explorerStates})
 		return
 	}
 	if err != nil {
@@ -384,13 +491,13 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 				return nil
 			}
 			candidates = append(candidates, candidate{rel: rel, folder: filepath.ToSlash(filepath.Dir(rel)), name: entry.Name(), size: info.Size()})
-			if len(candidates) > explorerMaxEntries {
-				return errors.New("selection too large")
-			}
 			return nil
 		})
 		if err != nil {
-			fail(w, 422, "video_selection_too_large")
+			if r.Context().Err() != nil {
+				return
+			}
+			fail(w, 422, "video_path_unavailable")
 			return
 		}
 	} else {
@@ -416,10 +523,6 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 				c.private = private[entry.Name()]
 			}
 			candidates = append(candidates, c)
-			if len(candidates) > explorerMaxEntries {
-				fail(w, 422, "video_selection_too_large")
-				return
-			}
 		}
 	}
 
@@ -429,7 +532,7 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 			files = append(files, c.rel)
 		}
 	}
-	records, err := s.explorerRecords(r, root.ID, files, ss.User.ID, admin)
+	records, err := s.explorerRecords(r, root.ID, files, ss.User.ID, admin, filters.person)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -461,7 +564,7 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 		out = append(out, e)
 	}
 	if relative == "" {
-		loose, looseRecords, err := s.explorerLoose(r, root.ID, ss.User.ID, admin)
+		loose, looseRecords, err := s.explorerLoose(r, root.ID, ss.User.ID, admin, filters.person)
 		if err != nil {
 			s.internal(w, err)
 			return
@@ -481,7 +584,7 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 		}
 		return strings.ToLower(out[i].Path) < strings.ToLower(out[j].Path)
 	})
-	reply(w, 200, map[string]any{"source_id": root.ID, "root_configured": true, "items": out, "states": explorerStates})
+	reply(w, 200, map[string]any{"source_id": root.ID, "root_configured": true, "items": page.window(out), "total": len(out), "states": explorerStates})
 }
 
 // explorerIndex asks for the indexing of one video the viewer opened in the explorer (#195). The
@@ -549,13 +652,13 @@ func (s *Server) explorerIndex(w http.ResponseWriter, r *http.Request) {
 // explorerLoose lists the clips the viewer may read that have no file in the Racine vidéo: uploads not
 // published there and clips of the older read-only sources. They appear in "Tous les clips" only, and
 // open their clip page directly (ADR 0032 keeps them visible rather than hidden).
-func (s *Server) explorerLoose(r *http.Request, rootID, userID int64, admin bool) ([]explorerEntry, map[string]explorerRecord, error) {
+func (s *Server) explorerLoose(r *http.Request, rootID, userID int64, admin bool, person int64) ([]explorerEntry, map[string]explorerRecord, error) {
 	rows, err := s.Pool.Query(r.Context(), `SELECT c.id,c.owner_id,u.username,c.visibility,COALESCE(c.display_title,''),c.original_name,c.size_bytes,c.duration_seconds,c.discovered_at,c.recorded_at,COALESCE(c.game,'')
 	  FROM clips c JOIN users u ON u.id=c.owner_id
 	  WHERE clip_readable(c.id,c.owner_id,c.visibility,$1,$2)
 	  AND NOT EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.source_id=$3)
 	  AND NOT EXISTS(SELECT 1 FROM uploaded_media um JOIN upload_destinations d ON d.upload_id=um.upload_id WHERE um.clip_id=c.id AND d.source_id=$3)
-	  ORDER BY c.id DESC LIMIT $4`, userID, admin, rootID, explorerMaxEntries)
+	  ORDER BY c.id DESC`, userID, admin, rootID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -593,10 +696,15 @@ func (s *Server) explorerLoose(r *http.Request, rootID, userID int64, admin bool
 	if err != nil {
 		return nil, nil, err
 	}
+	people, err := s.explorerPersonClips(r, ids, person)
+	if err != nil {
+		return nil, nil, err
+	}
 	out := []explorerEntry{}
 	records := map[string]explorerRecord{}
 	for _, l := range found {
 		st := states[*l.rec.clipID]
+		l.rec.person = people[*l.rec.clipID]
 		l.rec.state, l.rec.voices = analysisLabel(st.done, st.latest), st.voicesPending
 		if l.rec.state == "transcribed" && l.rec.voices == 0 {
 			l.rec.state = "analyzed"

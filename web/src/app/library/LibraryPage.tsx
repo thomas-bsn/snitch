@@ -27,6 +27,7 @@ import { ExplorerTree } from "./ExplorerTree";
 import {
   baseName,
   fetchExplorer,
+  fetchExplorerAll,
   requestIndex,
   asExplorerState,
   type ExplorerEntry,
@@ -46,7 +47,17 @@ const FILTER_KEYS = [
   "to",
   "visibility",
   "owner",
+  "person",
+  "voices",
 ] as const;
+
+/** Items per page when the address does not ask for another size. */
+const DEFAULT_PAGE_SIZE = 50;
+
+function readNumber(value: string | null, fallback: number, max: number) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 ? Math.min(n, max) : fallback;
+}
 
 function readFilters(params: URLSearchParams): ExplorerFilters {
   return {
@@ -57,6 +68,8 @@ function readFilters(params: URLSearchParams): ExplorerFilters {
     to: params.get("to") ?? "",
     visibility: params.get("visibility") ?? "",
     owner: params.get("owner") ?? "",
+    person: params.get("person") ?? "",
+    voices: params.get("voices") === "pending" ? "pending" : "",
   };
 }
 
@@ -90,6 +103,8 @@ export function LibraryPage() {
       key === "owner" ? filters.owner : filters[key as keyof ExplorerFilters];
     return value !== "";
   });
+  const pageSize = readNumber(params.get("size"), DEFAULT_PAGE_SIZE, 500);
+  const pageNumber = readNumber(params.get("page"), 1, 1_000_000);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [search, setSearch] = useState(filters.q);
 
@@ -106,13 +121,20 @@ export function LibraryPage() {
           to: filters.to,
           visibility: filters.visibility,
           owner_id: filters.owner,
+          person_id: filters.person,
+          voices: filters.voices,
+          limit: pageSize,
+          offset: (pageNumber - 1) * pageSize,
         }),
-      [folder, filtered, filters],
+      [folder, filtered, filters, pageSize, pageNumber],
     ),
   );
   const choices = useLoaded(fetchFilterOptions);
   const items: ExplorerEntry[] =
     listing.state.status === "ready" ? listing.state.value.items : [];
+  const total =
+    listing.state.status === "ready" ? listing.state.value.total : 0;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
   const sourceId =
     listing.state.status === "ready" ? listing.state.value.sourceId : 0;
   const rootConfigured =
@@ -151,6 +173,8 @@ export function LibraryPage() {
 
   function change(patch: Partial<Record<string, string | number>>) {
     update((next) => {
+      // Any change of the selection starts again at the first page.
+      if (!("page" in patch)) next.delete("page");
       for (const [key, value] of Object.entries(patch)) {
         if (value === "" || value === undefined) next.delete(key);
         else next.set(key, String(value));
@@ -162,6 +186,7 @@ export function LibraryPage() {
     setMenuFor(null);
     setOpening(null);
     update((next) => {
+      next.delete("page");
       if (path) next.set("folder", path);
       else next.delete("folder");
     });
@@ -170,6 +195,7 @@ export function LibraryPage() {
   function clearFilters() {
     setSearch("");
     update((next) => {
+      next.delete("page");
       for (const key of FILTER_KEYS) next.delete(key);
     });
   }
@@ -202,6 +228,8 @@ export function LibraryPage() {
   const [analysisTarget, setAnalysisTarget] = useState<{
     path: string;
     clips: number[];
+    /** Videos not indexed yet: indexed first, then analysed. */
+    unindexed: string[];
   } | null>(null);
   const [analysisBusy, setAnalysisBusy] = useState(false);
   const [analysisNotice, setAnalysisNotice] = useState<string | null>(null);
@@ -233,26 +261,65 @@ export function LibraryPage() {
   async function prepareAnalysis(entry: ExplorerEntry) {
     setMenuFor(null);
     setAnalysisNotice(null);
-    const result = await fetchExplorer({
-      path: entry.path,
-      recursive: true,
-      state: "not_analyzed",
-    });
-    if (!result.ok) {
+    const [indexed, unindexed] = await Promise.all([
+      fetchExplorerAll({
+        path: entry.path,
+        recursive: true,
+        state: "not_analyzed",
+      }),
+      fetchExplorerAll({
+        path: entry.path,
+        recursive: true,
+        state: "not_indexed",
+      }),
+    ]);
+    if (!indexed.ok || !unindexed.ok) {
       setAnalysisNotice(t("library.explorer.analysisFailed"));
       return;
     }
-    const clips = result.value.items
+    const clips = indexed.value.items
       .map((item) => item.clip_id)
       .filter((id): id is number => id !== null);
-    setAnalysisTarget({ path: entry.path, clips });
+    setAnalysisTarget({
+      path: entry.path,
+      clips,
+      unindexed: unindexed.value.items.map((item) => item.path),
+    });
   }
 
   async function runAnalysis() {
     if (!analysisTarget) return;
     setAnalysisBusy(true);
     let failed = 0;
-    for (const id of analysisTarget.clips) {
+    const clips = [...analysisTarget.clips];
+    // Videos not indexed yet are indexed first (no analysis), then analysed once their clip exists.
+    const waiting = new Set(analysisTarget.unindexed);
+    for (const path of analysisTarget.unindexed) {
+      const indexed = await requestIndex(path, csrf);
+      if (!indexed.ok) {
+        waiting.delete(path);
+        failed += 1;
+      } else if (indexed.value.clip_id) {
+        waiting.delete(path);
+        clips.push(indexed.value.clip_id);
+      }
+    }
+    for (let attempt = 0; waiting.size > 0 && attempt < 60; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      const found = await fetchExplorerAll({
+        path: analysisTarget.path,
+        recursive: true,
+      });
+      if (!found.ok) continue;
+      for (const item of found.value.items) {
+        if (waiting.has(item.path) && item.clip_id) {
+          waiting.delete(item.path);
+          clips.push(item.clip_id);
+        }
+      }
+    }
+    failed += waiting.size;
+    for (const id of clips) {
       const { error: failure } = await api.POST(
         "/api/admin/clips/{id}/analysis",
         {
@@ -268,10 +335,10 @@ export function LibraryPage() {
     setAnalysisNotice(
       failed === 0
         ? t("library.explorer.analysisQueued", {
-            count: analysisTarget.clips.length,
+            count: clips.length,
           })
         : t("library.explorer.analysisPartial", {
-            count: analysisTarget.clips.length - failed,
+            count: clips.length - failed,
             failed,
           }),
     );
@@ -291,9 +358,9 @@ export function LibraryPage() {
         </h1>
         {listing.state.status === "ready" && (
           <p className="text-mute" aria-live="polite">
-            {items.length === 1
+            {total === 1
               ? t("library.explorer.countOne")
-              : t("library.explorer.count", { count: items.length })}
+              : t("library.explorer.count", { count: total })}
           </p>
         )}
       </div>
@@ -401,6 +468,11 @@ export function LibraryPage() {
               choices.state.status === "ready"
                 ? choices.state.value.options
                 : null
+            }
+            persons={
+              choices.state.status === "ready"
+                ? choices.state.value.persons
+                : []
             }
             active={filtered}
             onChange={(patch) => change(patch)}
@@ -578,6 +650,36 @@ export function LibraryPage() {
                 ))}
               </ul>
             )}
+
+          {listing.state.status === "ready" && total > pageSize && (
+            <nav
+              aria-label={t("library.pagination.label")}
+              className="flex flex-wrap items-center gap-3"
+            >
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                disabled={pageNumber <= 1}
+                onClick={() => change({ page: pageNumber - 1 })}
+              >
+                {t("library.pagination.previous")}
+              </button>
+              <span aria-live="polite">
+                {t("library.pagination.position", {
+                  page: pageNumber,
+                  pages,
+                })}
+              </span>
+              <button
+                type="button"
+                className={buttonClass("secondary")}
+                disabled={pageNumber >= pages}
+                onClick={() => change({ page: pageNumber + 1 })}
+              >
+                {t("library.pagination.next")}
+              </button>
+            </nav>
+          )}
         </div>
       </div>
 
@@ -625,19 +727,31 @@ export function LibraryPage() {
           })}
           cancelLabel={t("segmentEdit.cancel")}
           confirmLabel={t("library.explorer.analysisConfirm", {
-            count: analysisTarget.clips.length,
+            count:
+              analysisTarget.clips.length + analysisTarget.unindexed.length,
           })}
           busy={analysisBusy}
-          confirmDisabled={analysisTarget.clips.length === 0}
+          confirmDisabled={
+            analysisTarget.clips.length + analysisTarget.unindexed.length === 0
+          }
           onConfirm={runAnalysis}
         >
           <p>
-            {analysisTarget.clips.length === 0
+            {analysisTarget.clips.length + analysisTarget.unindexed.length === 0
               ? t("library.explorer.analysisNone")
               : t("library.explorer.analysisBody", {
-                  count: analysisTarget.clips.length,
+                  count:
+                    analysisTarget.clips.length +
+                    analysisTarget.unindexed.length,
                 })}
           </p>
+          {analysisTarget.unindexed.length > 0 && (
+            <p>
+              {t("library.explorer.analysisIndexFirst", {
+                count: analysisTarget.unindexed.length,
+              })}
+            </p>
+          )}
         </ConfirmDialog>
       )}
     </section>

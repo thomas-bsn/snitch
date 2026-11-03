@@ -175,6 +175,69 @@ func testExplorer(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("name search: %+v", got)
 		}
 	})
+	t.Run("the explorer filters by Person and by voices to process (#243)", func(t *testing.T) {
+		var personID, identified int64
+		if err := pool.QueryRow(ctx, `INSERT INTO persons(display_name) VALUES('Explorer Person') RETURNING id`).Scan(&personID); err != nil {
+			t.Fatal(err)
+		}
+		var job int64
+		if err := pool.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,status) VALUES($1,'voice.diarization.2','explorer-pv','done') RETURNING id`, clipID).Scan(&job); err != nil {
+			t.Fatal(err)
+		}
+		for ordinal, label := range []string{"SPEAKER_00", "SPEAKER_01"} {
+			var id int64
+			if err := pool.QueryRow(ctx, `INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count) VALUES($1,2,$2,$3,$4,2,1) RETURNING id`, clipID, job, label, ordinal).Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			if ordinal == 0 {
+				identified = id
+			}
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,origin) VALUES($1,$2,'human','validated','test')`, identified, personID); err != nil {
+			t.Fatal(err)
+		}
+		got := list(member, fmt.Sprintf("path=&recursive=1&person_id=%d", personID), http.StatusOK)
+		if len(got) != 1 || got["league/2026/match.mp4"].ClipID == nil {
+			t.Fatalf("person filter: %+v", got)
+		}
+		got = list(member, "path=&recursive=1&person_id=999999", http.StatusOK)
+		if len(got) != 0 {
+			t.Fatalf("an unknown Person matches nothing: %+v", got)
+		}
+		got = list(member, "path=&recursive=1&voices=pending", http.StatusOK)
+		if len(got) != 1 || got["league/2026/match.mp4"].ClipID == nil {
+			t.Fatalf("voices to process filter: %+v", got)
+		}
+		list(member, "path=&recursive=1&person_id=abc", http.StatusBadRequest)
+		list(member, "path=&recursive=1&voices=all", http.StatusBadRequest)
+	})
+	t.Run("the explorer pages on the server and counts the whole selection (#243)", func(t *testing.T) {
+		type page struct {
+			Items []entry `json:"items"`
+			Total int     `json:"total"`
+		}
+		fetch := func(query string) page {
+			var p page
+			if err := json.Unmarshal(h.userCall(member, http.MethodGet, "/api/library/explorer?"+query, nil, http.StatusOK), &p); err != nil {
+				t.Fatal(err)
+			}
+			return p
+		}
+		all := fetch("path=league&recursive=1&limit=500")
+		if all.Total != 3 || len(all.Items) != 3 {
+			t.Fatalf("the whole selection: total=%d items=%d", all.Total, len(all.Items))
+		}
+		first := fetch("path=league&recursive=1&limit=2&offset=0")
+		second := fetch("path=league&recursive=1&limit=2&offset=2")
+		if first.Total != 3 || second.Total != 3 || len(first.Items) != 2 || len(second.Items) != 1 {
+			t.Fatalf("pages: %d/%d items, totals %d/%d", len(first.Items), len(second.Items), first.Total, second.Total)
+		}
+		if second.Items[0].Path != all.Items[2].Path || first.Items[1].Path != all.Items[1].Path {
+			t.Fatalf("pages must follow one stable order: %+v %+v", first.Items, second.Items)
+		}
+		h.userCall(member, http.MethodGet, "/api/library/explorer?path=league&limit=0", nil, http.StatusBadRequest)
+		h.userCall(member, http.MethodGet, "/api/library/explorer?path=league&offset=-1", nil, http.StatusBadRequest)
+	})
 }
 
 // insertExplorerClip creates an analysable clip row owned by ownerID with a synthetic content hash.

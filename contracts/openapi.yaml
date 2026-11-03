@@ -3977,6 +3977,62 @@
         }
       }
     },
+    "/api/library/explorer": {
+      "get": {
+        "operationId": "listLibraryExplorer",
+        "summary": "Explorateur de la Racine vidéo : dossiers et vidéos croisés avec la base, paginés côté serveur (ADR 0032)",
+        "parameters": [
+          {"in": "query", "name": "path", "schema": {"type": "string"}, "description": "Dossier relatif à la Racine vidéo (vide : la racine)"},
+          {"in": "query", "name": "recursive", "schema": {"type": "string", "enum": ["1", "true"]}, "description": "Liste à plat tous les descendants"},
+          {"in": "query", "name": "q", "schema": {"type": "string"}},
+          {"in": "query", "name": "state", "schema": {"type": "string", "enum": ["not_indexed", "in_progress", "not_analyzed", "transcribed", "analyzed", "failed"]}},
+          {"in": "query", "name": "game", "schema": {"type": "string"}},
+          {"in": "query", "name": "visibility", "schema": {"type": "string", "enum": ["shared", "private"]}},
+          {"in": "query", "name": "from", "schema": {"type": "string", "format": "date"}},
+          {"in": "query", "name": "to", "schema": {"type": "string", "format": "date"}},
+          {"in": "query", "name": "owner_id", "schema": {"type": "integer", "minimum": 1}},
+          {"in": "query", "name": "person_id", "schema": {"type": "integer", "minimum": 1}, "description": "Vidéos dont une voix est attribuée à cette Personne (attribution validée ou automatique)"},
+          {"in": "query", "name": "voices", "schema": {"type": "string", "enum": ["pending"]}, "description": "Vidéos qui ont encore des voix à traiter"},
+          {"in": "query", "name": "limit", "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 100}},
+          {"in": "query", "name": "offset", "schema": {"type": "integer", "minimum": 0, "default": 0}}
+        ],
+        "responses": {
+          "200": {"description": "Une page de la sélection", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ExplorerListing"}}}},
+          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/library/explorer/index": {
+      "post": {
+        "operationId": "indexExplorerVideo",
+        "summary": "Demander l'indexation d'une vidéo ouverte dans l'explorateur, sans analyse",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["path"], "properties": {"path": {"type": "string"}}}}}},
+        "responses": {
+          "200": {"description": "Déjà indexée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ExplorerIndexResult"}}}},
+          "202": {"description": "Indexation demandée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ExplorerIndexResult"}}}},
+          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/admin/settings/automatic-analysis": {
+      "get": {
+        "operationId": "getAutomaticAnalysisSetting",
+        "summary": "Réglage « Analyse complète automatique » (administrateur ; actif par défaut)",
+        "responses": {
+          "200": {"description": "Réglage", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AutomaticAnalysisSetting"}}}},
+          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      },
+      "put": {
+        "operationId": "putAutomaticAnalysisSetting",
+        "summary": "Activer ou désactiver l'analyse complète des clips ajoutés (administrateur)",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AutomaticAnalysisSetting"}}}},
+        "responses": {
+          "200": {"description": "Réglage appliqué", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AutomaticAnalysisSetting"}}}},
+          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
     "/api/admin/library/folders/privacy": {
       "put": {
         "operationId": "putFolderPrivacy",
@@ -6276,6 +6332,54 @@
           "path": {"type": "string"},
           "private": {"type": "boolean", "description": "Dossier rendu privé par le Super-administrateur"},
           "locked": {"type": "boolean", "description": "Privé et non ouvrable par l'utilisateur courant : seul son nom est exposé"}
+        }
+      },
+      "AutomaticAnalysisSetting": {
+        "type": "object",
+        "required": ["enabled"],
+        "properties": {"enabled": {"type": "boolean", "description": "Vrai : un clip ajouté démarre une Analyse de clip complète (ADR 0035)"}}
+      },
+      "ExplorerIndexResult": {
+        "type": "object",
+        "required": ["path", "state"],
+        "properties": {
+          "path": {"type": "string"},
+          "state": {"type": "string", "enum": ["indexed", "in_progress"]},
+          "clip_id": {"type": "integer", "format": "int64"}
+        }
+      },
+      "ExplorerEntry": {
+        "type": "object",
+        "required": ["name", "path", "folder", "directory", "size_bytes", "private", "locked", "clip_id", "owner_id", "owner", "duration_seconds", "added_at", "recorded_at", "game", "voices_pending"],
+        "properties": {
+          "name": {"type": "string"},
+          "path": {"type": "string", "description": "Chemin relatif à la Racine vidéo, ou clip:<id> pour un clip sans fichier dans la racine"},
+          "folder": {"type": "string"},
+          "directory": {"type": "boolean"},
+          "size_bytes": {"type": "integer", "format": "int64"},
+          "private": {"type": "boolean"},
+          "locked": {"type": "boolean"},
+          "state": {"type": "string", "enum": ["not_indexed", "in_progress", "not_analyzed", "transcribed", "analyzed", "failed"]},
+          "clip_id": {"type": "integer", "format": "int64", "nullable": true},
+          "owner_id": {"type": "integer", "format": "int64", "nullable": true},
+          "owner": {"type": "string"},
+          "visibility": {"type": "string"},
+          "duration_seconds": {"type": "number", "nullable": true},
+          "added_at": {"type": "string", "format": "date-time", "nullable": true},
+          "recorded_at": {"type": "string", "format": "date-time", "nullable": true},
+          "game": {"type": "string"},
+          "voices_pending": {"type": "integer"}
+        }
+      },
+      "ExplorerListing": {
+        "type": "object",
+        "required": ["source_id", "root_configured", "items", "total", "states"],
+        "properties": {
+          "source_id": {"type": "integer", "format": "int64"},
+          "root_configured": {"type": "boolean"},
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/ExplorerEntry"}},
+          "total": {"type": "integer", "description": "Taille de la sélection entière, hors pagination"},
+          "states": {"type": "array", "items": {"type": "string"}}
         }
       },
       "FolderPrivacy": {

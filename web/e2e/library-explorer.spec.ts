@@ -152,4 +152,26 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(page.getByText("plan.mp4")).toHaveCount(0);
     await context.close();
   });
+
+  test("l'analyse d'un dossier indexe d'abord ses vidéos non indexées", async ({
+    page,
+  }) => {
+    await page.goto("/library?folder=league%2F2026");
+    await expect(row(page, "sub")).toBeVisible();
+    await row(page, "sub")
+      .getByRole("button", { name: "Actions for folder sub" })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Analyse the unanalysed videos" })
+      .click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toContainText(
+      "Videos not indexed yet (1) are indexed first, then analysed.",
+    );
+    await dialog.getByRole("button", { name: "Analyse 1 videos" }).click();
+    await expect(dialog).toBeHidden({ timeout: 30000 });
+    // The video of the folder now has a clip: it is no longer unindexed.
+    await page.goto("/library?folder=league%2F2026%2Fsub");
+    await expect(row(page, "inner.mp4")).not.toContainText("Not indexed");
+  });
 });

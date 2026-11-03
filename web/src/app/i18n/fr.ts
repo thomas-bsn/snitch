@@ -204,6 +204,11 @@ export const fr: Messages = {
     retry: "Relancer",
   },
   folders: {
+    autoAnalysis: {
+      title: "Analyse automatique",
+      label: "Analyse complète automatique",
+      help: "Activée, chaque vidéo ajoutée à la bibliothèque (trouvée dans la Racine vidéo, publiée depuis un téléversement ou choisie depuis un import) démarre son analyse complète : transcription, voix et indexation. Désactivée, seule la transcription est planifiée et l’analyse se lance à la main.",
+    },
     correctedSkipped:
       "{count} clip(s) corrigé(s) n’ont pas été retranscrits ; une confirmation explicite est nécessaire.",
     health: {
@@ -1666,6 +1671,8 @@ export const fr: Messages = {
       analysisConfirm: "Analyser {count} vidéos",
       analysisNone: "Aucune vidéo non analysée dans ce dossier.",
       analysisBody: "{count} vidéos seront mises en file d’analyse.",
+      analysisIndexFirst:
+        "Les vidéos non indexées ({count}) sont d’abord indexées, puis analysées.",
       analysisFailed: "Impossible de préparer l’analyse.",
       analysisQueued: "{count} analyses demandées.",
       analysisPartial: "{count} analyses demandées, {failed} refusées.",
@@ -1694,6 +1701,8 @@ export const fr: Messages = {
       state: "État",
       any: "Tous",
       unknownVoices: "Voix inconnues",
+      voices: "Voix",
+      voicesPending: "Avec des voix à traiter",
       clear: "Effacer les filtres",
     },
     state: {

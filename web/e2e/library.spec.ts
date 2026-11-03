@@ -399,8 +399,8 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await context.close();
     });
 
-    // The explorer lists a folder at once (no server pagination, ADR 0032): every clip is on the page.
-    test("l'explorateur liste plus de douze clips d'un coup, sans pagination", async ({
+    // The explorer pages on the server: the address carries the page and its size (#243).
+    test("l'explorateur pagine côté serveur et compte toute la sélection", async ({
       browser,
     }) => {
       for (let i = 1; i <= 11; i++) {
@@ -410,11 +410,35 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
         storageState: await sessionFor(ADMIN),
       });
       const page = await context.newPage();
-      await page.goto("/library");
+      const links = page.getByRole("link", { name: /^Open the clip / });
+      await page.goto("/library?size=5");
       await expect(page.getByText("13 items", { exact: true })).toBeVisible();
+      await expect(links).toHaveCount(5);
+      await expect(page.getByText("Page 1 of 3")).toBeVisible();
       await expect(
-        page.getByRole("link", { name: /^Open the clip / }),
-      ).toHaveCount(13);
+        page.getByRole("button", { name: "Previous page" }),
+      ).toBeDisabled();
+      const hrefs = () =>
+        links.evaluateAll((all) => all.map((a) => a.getAttribute("href")));
+      const firstPage = await hrefs();
+
+      await page.getByRole("button", { name: "Next page" }).click();
+      await expect(page.getByText("Page 2 of 3")).toBeVisible();
+      await expect(links).toHaveCount(5);
+      await expect.poll(hrefs).not.toEqual(firstPage);
+
+      await page.getByRole("button", { name: "Next page" }).click();
+      await expect(page.getByText("Page 3 of 3")).toBeVisible();
+      await expect(links).toHaveCount(3);
+      await expect(
+        page.getByRole("button", { name: "Next page" }),
+      ).toBeDisabled();
+      // The total stays the whole selection, not the page.
+      await expect(page.getByText("13 items", { exact: true })).toBeVisible();
+
+      // Without a size in the address, a short library fits on one page and shows no pager.
+      await page.goto("/library");
+      await expect(links).toHaveCount(13);
       await expect(page.getByRole("button", { name: "Next page" })).toHaveCount(
         0,
       );
