@@ -138,6 +138,9 @@ func testHFToken(t *testing.T, pool *pgxpool.Pool) {
 	if !view.Configured || view.Fingerprint == "" || view.Unreadable || bytes.Contains(raw, []byte(hfSyntheticToken)) {
 		t.Fatalf("admin view after save: %s", raw)
 	}
+	if bytes.Contains(logs.Bytes(), []byte(hfSyntheticToken)) || bytes.Contains(logs.Bytes(), []byte(hfFingerprint(hfSyntheticToken))) {
+		t.Fatalf("save log carries the value or its fingerprint: %s", logs.String())
+	}
 	var stored int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM settings WHERE position(convert_to($1,'UTF8') in value) > 0`, hfSyntheticToken).Scan(&stored); err != nil || stored != 0 {
 		t.Fatalf("plain value stored: %d %v", stored, err)

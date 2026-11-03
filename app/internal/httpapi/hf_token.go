@@ -161,8 +161,8 @@ func (s *Server) putHFToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	// The value is never logged: the author, the new version and the fingerprint identify the change.
-	s.Log.Info("hf token saved", "user_id", ss.User.ID, "version", next.Version, "fingerprint", hfFingerprint(next.Token))
+	// The value and its fingerprint are never logged: the author and the new version identify the change.
+	s.Log.Info("hf token saved", "user_id", ss.User.ID, "version", next.Version)
 	w.WriteHeader(http.StatusNoContent)
 }
 
