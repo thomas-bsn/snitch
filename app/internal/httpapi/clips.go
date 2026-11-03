@@ -328,6 +328,12 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response["progress"] = progress
+	waveforms, waveformsErr := s.clipWaveforms(r.Context(), v.ID)
+	if waveformsErr != nil {
+		s.internal(w, waveformsErr)
+		return
+	}
+	response["waveforms"] = waveforms
 	if transcript != nil {
 		var value any
 		if json.Unmarshal(transcript, &value) == nil {

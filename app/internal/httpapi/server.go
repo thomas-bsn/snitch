@@ -108,7 +108,11 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	s.Library.OnManagedReady = func(ctx context.Context, id int64) error {
 		_, _, err := s.scheduleResolvedTranscription(ctx, id, nil, true)
-		return err
+		if err != nil {
+			return err
+		}
+		s.startAutomaticAnalysis(ctx, id)
+		return nil
 	}
 	if err := s.Library.Start(ctx); err != nil {
 		s.Uploads.Close()
@@ -220,6 +224,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/clips/{id}/analysis", s.protected(true, http.HandlerFunc(s.getClipAnalysis)))
 	mux.Handle("GET /api/admin/clips/{id}/analysis/history", s.protected(true, http.HandlerFunc(s.getClipAnalysisHistory)))
 	mux.Handle("POST /api/admin/clips/{id}/analysis/cancel", s.protected(true, http.HandlerFunc(s.cancelClipAnalysis)))
+	mux.Handle("DELETE /api/admin/clips/{id}/analysis", s.protected(true, http.HandlerFunc(s.deleteClipAnalysis)))
+	mux.Handle("GET /api/admin/clips/{id}/analysis/deletion-preview", s.protected(true, http.HandlerFunc(s.getClipAnalysisDeletionPreview)))
 	mux.Handle("POST /api/admin/clips/{id}/analysis/steps/{step}/retry", s.protected(true, http.HandlerFunc(s.retryClipAnalysisStep)))
 	mux.Handle("GET /api/admin/analysis/queue", s.protected(true, http.HandlerFunc(s.adminAnalysisQueue)))
 	mux.Handle("GET /api/admin/analysis/history", s.protected(true, http.HandlerFunc(s.adminAnalysisHistory)))

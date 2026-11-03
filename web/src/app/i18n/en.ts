@@ -1601,6 +1601,7 @@ export const en = {
     loading: "Loading the clip…",
     videoLabel: "Video of the clip",
     videoFailed: "The video cannot be played here.",
+    waveformLabel: "Waveform of the audio track",
     meta: {
       owner: "Imported by {owner}",
       sources: "Source: {sources}",

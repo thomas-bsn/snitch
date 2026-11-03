@@ -358,8 +358,18 @@ func testVoiceDiarization(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("a rejected result left partial speakers")
 	}
 	h.workerCall(http.MethodPost, fmt.Sprintf("/api/worker/jobs/%d/complete", job.ID), map[string]any{"input_version": "d5-stale", "result": diarizationPayload("A")}, job.Lease, http.StatusConflict)
-	h.complete(job, diarizationPayload("SPEAKER_00", "SPEAKER_01"), http.StatusOK)
-	h.complete(job, diarizationPayload("SPEAKER_00", "SPEAKER_01"), http.StatusOK) // lost response retried
+	withPeaks := diarizationPayload("SPEAKER_00", "SPEAKER_01")
+	withPeaks["peaks"] = []int{0, 128, 255}
+	h.complete(job, withPeaks, http.StatusOK)
+	h.complete(job, withPeaks, http.StatusOK) // lost response retried
+	var storedPeaks bool
+	var storedWaveforms int
+	if err := pool.QueryRow(context.Background(), `SELECT result ? 'peaks' FROM jobs WHERE id=$1`, job.ID).Scan(&storedPeaks); err != nil || storedPeaks {
+		t.Fatalf("diarization result kept peaks in jobs.result: %v err=%v", storedPeaks, err)
+	}
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM clip_waveforms WHERE audio_stream_index=2 AND job_id=$1`, job.ID).Scan(&storedWaveforms); err != nil || storedWaveforms != 1 {
+		t.Fatalf("diarization peaks were not stored for the track: %d err=%v", storedWaveforms, err)
+	}
 
 	view := h.voice()
 	if len(view.Speakers) != 2 || view.Speakers[0].State != "unidentified" || view.Status != "queued" {
