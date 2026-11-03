@@ -29,6 +29,10 @@ export const errorsEn = {
   invalid_role: "This role is invalid.",
 
   invalid_worker_machine: "The Worker machine declaration is invalid.",
+  invalid_log_batch: "The job log batch is invalid.",
+  invalid_log_line: "A job log line is invalid.",
+  invalid_transcription_reachability:
+    "The transcription server reachability report is invalid.",
   account_already_linked: "This account is already linked to a person.",
   audio_selection_required: "Choose which audio track to use first.",
   audio_stream_not_found: "This audio track does not exist in the clip.",
@@ -172,6 +176,13 @@ export const errorsEn = {
   clip_delete_failed:
     "The video could not be deleted completely. Check its files and permissions, then retry.",
   super_administrator_required: "Only the Super-administrator can do this.",
+  invalid_hf_token:
+    "The token must start with hf_ and contain only letters and digits.",
+  invalid_hf_token_ack: "The Worker acknowledgement is invalid.",
+  stale_hf_token_version:
+    "The token changed in the meantime. The Worker will read it again.",
+  hf_token_store_failed:
+    "The Worker could not store the token in its models volume. Check that the volume is writable.",
   invalid_transcription_language:
     "Choose one of the languages Whisper supports, by its code (for example fr).",
   invalid_transcription_model: "This model name is not valid.",

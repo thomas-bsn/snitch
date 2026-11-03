@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import time
 import unittest
 
 from snitch_worker import log
@@ -85,6 +86,98 @@ class StructuredLogTests(unittest.TestCase):
         for key in ("error", "detail", "reason"):
             self.assertEqual(line[key], {"code": "operation_error", "category": "internal"})
         self.assertEqual(line["exception"], {"code": "timeout", "category": "timeout"})
+
+
+class ScrubTests(unittest.TestCase):
+    def test_tokens_bearer_urls_with_credentials_and_clip_paths_are_masked_in_values(self):
+        stream = io.StringIO()
+        log.configure("DEBUG", stream=stream)
+        log.emit(
+            logging.INFO, "probe",
+            message="Authorization: Bearer abc.def; hf_SyntheticToken123 and rw_synthetic-token",
+            url="https://ann:pw-synth@api.example.test/v1/audio?sig=abc&X-Amz-Signature=def",
+            path="/var/folders/xy/snitch-voice-1/original.media",
+            clip="/Users/ann/Movies/clip-private-42.mp4",
+            wav="prepared.wav",
+            lease="lt_synthetic-lease-token",
+        )
+        output = stream.getvalue()
+        for leaked in ("abc.def", "hf_SyntheticToken123", "rw_synthetic-token", "ann:pw-synth", "sig=abc",
+                       "X-Amz-Signature", "/var/folders", "original.media", "/Users/ann", "clip-private-42",
+                       "prepared.wav", "lt_synthetic-lease-token"):
+            self.assertNotIn(leaked, output)
+        [line] = read(stream)
+        self.assertEqual(line["url"], "https://api.example.test/[masked]")
+
+    def test_plain_text_and_stable_codes_survive(self):
+        self.assertEqual(log.scrub("job 42 claimed for step voice.fingerprint"), "job 42 claimed for step voice.fingerprint")
+        self.assertEqual(log.scrub("hf_not_found"), "hf_not_found")
+
+
+class _Sink:
+    def __init__(self, fail=False):
+        self.batches = []
+        self.fail = fail
+
+    def __call__(self, lines):
+        self.batches.append(list(lines))
+        if self.fail:
+            raise OSError("synthetic network failure")
+
+
+class LineShipperTests(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(log.configure, "INFO", io.StringIO())
+
+    def shipper(self, sink, job_id=7, interval=30.0):
+        shipper = log.LineShipper(job_id, sink, interval=interval)
+        self.addCleanup(shipper.close)
+        log.get_logger().addHandler(shipper)
+        self.addCleanup(log.get_logger().removeHandler, shipper)
+        return shipper
+
+    def test_sends_batches_of_fifty_lines_as_soon_as_they_are_full(self):
+        log.configure("INFO", stream=io.StringIO())
+        sink = _Sink()
+        self.shipper(sink)
+        for index in range(120):
+            log.emit(logging.INFO, "step", job_id=7, index=index)
+        deadline = time.monotonic() + 3
+        while sum(map(len, sink.batches)) < 100 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertEqual([len(batch) for batch in sink.batches][:2], [50, 50])
+
+    def test_flushes_pending_lines_every_interval(self):
+        log.configure("INFO", stream=io.StringIO())
+        sink = _Sink()
+        self.shipper(sink, interval=0.05)
+        log.emit(logging.INFO, "small", job_id=7)
+        deadline = time.monotonic() + 3
+        while not sink.batches and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertEqual(len(sink.batches), 1)
+        self.assertEqual(json.loads(sink.batches[0][0])["event"], "small")
+
+    def test_ships_only_lines_of_its_own_job_and_masks_them(self):
+        log.configure("DEBUG", stream=io.StringIO())
+        sink = _Sink()
+        shipper = self.shipper(sink)
+        log.emit(logging.INFO, "mine", job_id=7, url="https://u:p@host.example.test/x?sig=abc")
+        log.emit(logging.INFO, "other", job_id=8)
+        log.emit(logging.INFO, "unscoped")
+        shipper.close()
+        lines = [json.loads(line) for batch in sink.batches for line in batch]
+        self.assertEqual([line["event"] for line in lines], ["mine"])
+        self.assertNotIn("sig=abc", json.dumps(lines))
+        self.assertNotIn("u:p@", json.dumps(lines))
+
+    def test_close_sends_what_remains_and_a_failed_send_never_raises(self):
+        log.configure("INFO", stream=io.StringIO())
+        sink = _Sink(fail=True)
+        shipper = self.shipper(sink, interval=30.0)
+        log.emit(logging.INFO, "last", job_id=7)
+        shipper.close()
+        self.assertEqual(len(sink.batches), 1)
 
 
 if __name__ == "__main__":

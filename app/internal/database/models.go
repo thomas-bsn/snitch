@@ -256,6 +256,13 @@ type JobEvent struct {
 	DurationMs pgtype.Int4        `json:"duration_ms"`
 }
 
+type JobLogLine struct {
+	ID        int64              `json:"id"`
+	JobID     int64              `json:"job_id"`
+	Text      string             `json:"text"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type LocalSpeaker struct {
 	ID               int64              `json:"id"`
 	ClipID           int64              `json:"clip_id"`
@@ -738,6 +745,14 @@ type Worker struct {
 	RevocationAcknowledgedAt pgtype.Timestamptz `json:"revocation_acknowledged_at"`
 }
 
+type WorkerHfToken struct {
+	WorkerID     string             `json:"worker_id"`
+	AckedVersion string             `json:"acked_version"`
+	Source       string             `json:"source"`
+	ErrorCode    string             `json:"error_code"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type WorkerInstallEvent struct {
 	ID         int64              `json:"id"`
 	WorkerID   string             `json:"worker_id"`
@@ -772,6 +787,10 @@ type WorkerTranscriptionConfig struct {
 	TestedAt         pgtype.Timestamptz `json:"tested_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	EndpointOverride string             `json:"endpoint_override"`
+	Reachable        bool               `json:"reachable"`
+	ReachCheckedAt   pgtype.Timestamptz `json:"reach_checked_at"`
+	ReachLatencyMs   int32              `json:"reach_latency_ms"`
+	ReachFailure     []byte             `json:"reach_failure"`
 }
 
 type WorkerUpdateStatus struct {

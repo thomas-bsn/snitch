@@ -2,6 +2,7 @@ package workers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -35,25 +36,46 @@ type WorkerTranscriptionConfig struct {
 	EndpointOverride string `json:"endpoint_override"`
 }
 
+// TranscriptionReachability is the Worker's last test of the transcription server (#212). It is an
+// administrator view: the failure detail is never served by the Worker's own routes.
+type TranscriptionReachability struct {
+	Reachable   bool            `json:"reachable"`
+	CheckedAt   time.Time       `json:"checked_at"`
+	LatencyMs   int             `json:"latency_ms"`
+	LastFailure json.RawMessage `json:"last_failure"`
+}
+
+func newTranscriptionReachability(checkedAt *time.Time, reachable bool, latency int, failure []byte) *TranscriptionReachability {
+	if checkedAt == nil {
+		return nil
+	}
+	view := &TranscriptionReachability{Reachable: reachable, CheckedAt: checkedAt.UTC(), LatencyMs: latency}
+	if len(failure) > 0 {
+		view.LastFailure = json.RawMessage(failure)
+	}
+	return view
+}
+
 type Worker struct {
-	SupportedSteps           []string                   `json:"supported_steps"`
-	ID                       string                     `json:"id"`
-	Name                     string                     `json:"name"`
-	MaxConcurrency           int                        `json:"max_concurrency"`
-	ReportedConcurrency      int                        `json:"reported_concurrency"`
-	LastSeenAt               *time.Time                 `json:"last_seen_at"`
-	CreatedAt                time.Time                  `json:"created_at"`
-	RevokedAt                *time.Time                 `json:"revoked_at"`
-	RevokeReason             string                     `json:"revoke_reason"`
-	RevocationAcknowledgedAt *time.Time                 `json:"revocation_acknowledged_at"`
-	Connected                bool                       `json:"connected"`
-	Models                   Models                     `json:"models"`
-	TranscriptionModel       string                     `json:"transcription_model"`
-	TranscriptionConfig      *WorkerTranscriptionConfig `json:"transcription_config,omitempty"`
-	TranscriptionConfigReady bool                       `json:"transcription_config_ready"`
-	Machine                  *Machine                   `json:"machine,omitempty"`
-	RemoteAddress            string                     `json:"remote_address,omitempty"`
-	Install                  *InstallProgress           `json:"install,omitempty"`
+	SupportedSteps            []string                   `json:"supported_steps"`
+	ID                        string                     `json:"id"`
+	Name                      string                     `json:"name"`
+	MaxConcurrency            int                        `json:"max_concurrency"`
+	ReportedConcurrency       int                        `json:"reported_concurrency"`
+	LastSeenAt                *time.Time                 `json:"last_seen_at"`
+	CreatedAt                 time.Time                  `json:"created_at"`
+	RevokedAt                 *time.Time                 `json:"revoked_at"`
+	RevokeReason              string                     `json:"revoke_reason"`
+	RevocationAcknowledgedAt  *time.Time                 `json:"revocation_acknowledged_at"`
+	Connected                 bool                       `json:"connected"`
+	Models                    Models                     `json:"models"`
+	TranscriptionModel        string                     `json:"transcription_model"`
+	TranscriptionConfig       *WorkerTranscriptionConfig `json:"transcription_config,omitempty"`
+	TranscriptionConfigReady  bool                       `json:"transcription_config_ready"`
+	TranscriptionReachability *TranscriptionReachability `json:"transcription_reachability,omitempty"`
+	Machine                   *Machine                   `json:"machine,omitempty"`
+	RemoteAddress             string                     `json:"remote_address,omitempty"`
+	Install                   *InstallProgress           `json:"install,omitempty"`
 }
 
 type Registration struct {
@@ -151,7 +173,11 @@ func (s *Service) Get(ctx context.Context, id string) (Detail, error) {
 	var d Detail
 	var receivedVersion, testedVersion, activeVersion, errorCode, endpointOverride string
 	var supportedSteps []string
-	err := s.pool.QueryRow(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,w.revoke_reason,w.revocation_acknowledged_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,w.machine,w.remote_address,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.RevokeReason, &d.RevocationAcknowledgedAt, &d.Connected, &d.Models, &d.TranscriptionModel, &supportedSteps, &d.Machine, &d.RemoteAddress, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride)
+	var reachCheckedAt *time.Time
+	var reachable bool
+	var reachLatency int
+	var reachFailure []byte
+	err := s.pool.QueryRow(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,w.revoke_reason,w.revocation_acknowledged_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,w.machine,w.remote_address,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,''),wtc.reach_checked_at,COALESCE(wtc.reachable,false),COALESCE(wtc.reach_latency_ms,0),wtc.reach_failure FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1`, id, int64(ConnectedWindow.Seconds())).Scan(&d.ID, &d.Name, &d.MaxConcurrency, &d.ReportedConcurrency, &d.LastSeenAt, &d.CreatedAt, &d.RevokedAt, &d.RevokeReason, &d.RevocationAcknowledgedAt, &d.Connected, &d.Models, &d.TranscriptionModel, &supportedSteps, &d.Machine, &d.RemoteAddress, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride, &reachCheckedAt, &reachable, &reachLatency, &reachFailure)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrNotFound
 	}
@@ -167,6 +193,7 @@ func (s *Service) Get(ctx context.Context, id string) (Detail, error) {
 			EndpointOverride: endpointOverride,
 		}
 	}
+	d.TranscriptionReachability = newTranscriptionReachability(reachCheckedAt, reachable, reachLatency, reachFailure)
 	// Check if worker supports centralized transcription config
 	for _, step := range supportedSteps {
 		if step == "transcription.config.v1" {
@@ -265,7 +292,7 @@ func (s *Service) RenewToken(ctx context.Context, id string) (Registration, erro
 }
 
 func (s *Service) List(ctx context.Context) ([]Worker, error) {
-	rows, err := s.pool.Query(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,w.revoke_reason,w.revocation_acknowledged_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($1 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id ORDER BY w.created_at,w.id`, int64(ConnectedWindow.Seconds()))
+	rows, err := s.pool.Query(ctx, `SELECT w.id,w.name,w.max_concurrency,w.reported_concurrency,w.last_seen_at,w.created_at,w.revoked_at,w.revoke_reason,w.revocation_acknowledged_at,COALESCE(w.revoked_at IS NULL AND w.last_seen_at >= now() - ($1 * interval '1 second'),false),w.models,w.transcription_model,w.supported_steps,COALESCE(wtc.received_version,''),COALESCE(wtc.tested_version,''),COALESCE(wtc.active_version,''),COALESCE(wtc.error_code,''),COALESCE(wtc.endpoint_override,''),wtc.reach_checked_at,COALESCE(wtc.reachable,false),COALESCE(wtc.reach_latency_ms,0),wtc.reach_failure FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id ORDER BY w.created_at,w.id`, int64(ConnectedWindow.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("list workers: %w", err)
 	}
@@ -274,7 +301,11 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 	for rows.Next() {
 		var worker Worker
 		var receivedVersion, testedVersion, activeVersion, errorCode, endpointOverride string
-		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.RevokeReason, &worker.RevocationAcknowledgedAt, &worker.Connected, &worker.Models, &worker.TranscriptionModel, &worker.SupportedSteps, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride); err != nil {
+		var reachCheckedAt *time.Time
+		var reachable bool
+		var reachLatency int
+		var reachFailure []byte
+		if err = rows.Scan(&worker.ID, &worker.Name, &worker.MaxConcurrency, &worker.ReportedConcurrency, &worker.LastSeenAt, &worker.CreatedAt, &worker.RevokedAt, &worker.RevokeReason, &worker.RevocationAcknowledgedAt, &worker.Connected, &worker.Models, &worker.TranscriptionModel, &worker.SupportedSteps, &receivedVersion, &testedVersion, &activeVersion, &errorCode, &endpointOverride, &reachCheckedAt, &reachable, &reachLatency, &reachFailure); err != nil {
 			return nil, fmt.Errorf("scan worker: %w", err)
 		}
 		if receivedVersion != "" || testedVersion != "" || activeVersion != "" || errorCode != "" || endpointOverride != "" {
@@ -286,6 +317,7 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 				EndpointOverride: endpointOverride,
 			}
 		}
+		worker.TranscriptionReachability = newTranscriptionReachability(reachCheckedAt, reachable, reachLatency, reachFailure)
 		// Check if worker supports centralized transcription config
 		for _, step := range worker.SupportedSteps {
 			if step == "transcription.config.v1" {
@@ -475,6 +507,24 @@ func (s *Service) Pulse(ctx context.Context, id string, capacity int, supportedS
 	}
 	if result.RowsAffected() == 0 {
 		return ErrUnauthorized
+	}
+	return nil
+}
+
+// PresenceCheckInterval is how often PublishDisconnections looks for Workers that went silent.
+const PresenceCheckInterval = 5 * time.Second
+
+// PublishDisconnections publishes the live-page event of each Worker that went Offline. Going
+// Offline writes nothing: a silent Worker is only seen once its last pulse is older than the
+// connected window; the look covers the last check interval, so a silence is seen once, or
+// twice at the boundary, which is harmless: a snapshot is always the whole state.
+func (s *Service) PublishDisconnections(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO events(topic,kind)
+SELECT t,'workers' FROM workers w, LATERAL (VALUES ('worker:'||w.id),('admin:workers')) v(t)
+WHERE w.revoked_at IS NULL AND w.last_seen_at < now() - make_interval(secs => $1::float8) AND w.last_seen_at >= now() - make_interval(secs => ($1::float8 + $2::float8))`,
+		ConnectedWindow.Seconds(), PresenceCheckInterval.Seconds())
+	if err != nil {
+		return fmt.Errorf("publish worker disconnections: %w", err)
 	}
 	return nil
 }

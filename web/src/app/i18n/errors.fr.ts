@@ -32,6 +32,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_role: "Ce rôle est invalide.",
 
   invalid_worker_machine: "La déclaration de machine du Worker est invalide.",
+  invalid_log_batch: "Le lot de lignes de log est invalide.",
+  invalid_log_line: "Une ligne de log du job est invalide.",
+  invalid_transcription_reachability:
+    "Le rapport de joignabilité du serveur de transcription est invalide.",
   account_already_linked: "Ce compte est déjà lié à une personne.",
   audio_selection_required: "Choisissez d’abord la piste audio à utiliser.",
   audio_stream_not_found: "Cette piste audio n’existe pas dans le clip.",
@@ -186,6 +190,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   clip_delete_failed:
     "La vidéo ne peut pas être supprimée complètement. Vérifiez les fichiers et les permissions, puis réessayez.",
   super_administrator_required: "Seul le Super-administrateur peut faire cela.",
+  invalid_hf_token:
+    "Le token doit commencer par hf_ et ne contenir que des lettres et des chiffres.",
+  invalid_hf_token_ack: "L’accusé de réception du Worker est invalide.",
+  stale_hf_token_version: "Le token a changé entre-temps. Le Worker le relira.",
+  hf_token_store_failed:
+    "Le Worker n’a pas pu ranger le token dans son volume de modèles. Vérifiez que le volume est accessible en écriture.",
   invalid_transcription_language:
     "Choisissez une des langues prises en charge par Whisper, par son code (par exemple fr).",
   invalid_transcription_model: "Ce nom de modèle n’est pas valide.",

@@ -19,6 +19,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 from snitch_client.api.default.claim_worker_job import sync as claim_job
+from snitch_client.api.default.append_worker_job_logs import sync as append_job_logs
 from snitch_client.api.default.complete_worker_job import sync as complete_job
 from snitch_client.api.default.fail_worker_job import sync as fail_job
 from snitch_client.api.default.get_worker_job_input import sync as get_job_input
@@ -27,16 +28,19 @@ from snitch_client.api.default.worker_pulse import sync as pulse
 from snitch_client.client import AuthenticatedClient
 from snitch_client.models.error import Error
 from snitch_client.models.worker_failure_input import WorkerFailureInput
+from snitch_client.models.worker_job_logs_input import WorkerJobLogsInput
 from snitch_client.models.worker_pulse_input import WorkerPulseInput
+from snitch_client.models.worker_transcription_reachability_input import WorkerTranscriptionReachabilityInput
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
 from snitch_worker import log, revocation
-from snitch_worker import voice_models
+from snitch_worker import hf_token_sync, voice_download, voice_models
 from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
-from snitch_worker.transcription_config import active_configuration, sync_configuration
+from snitch_worker import transcription_config
+from snitch_worker.transcription_config import ReachabilityMonitor, active_configuration, sync_configuration
 from snitch_worker.voice import DIARIZATION_STEP, TRIAL_STEP, VoiceProviderUnavailable, ensure_provider_ready, is_trial_step, is_voice_step, process_trial_step, process_voice_step, requires_audio
 
 
@@ -329,29 +333,120 @@ def _require_response(value: Any, operation: str) -> Any:
     return value
 
 
+# ADR 0029. Presence pulses from a dedicated thread, independently of jobs and leases.
+PRESENCE_INTERVAL = 10.0
+# Reconnection delays grow from 1 s and never exceed this cap.
+PRESENCE_RETRY_CAP = 10.0
+# Lease duration set by the server on claim and on each renewal (2 minutes).
+LEASE_TTL = 120.0
+# Heartbeat answers meaning the server no longer accepts this lease: reassigned, cancelled or revoked.
+LEASE_REFUSALS = frozenset({"lease_not_owned", "worker_token_invalid"})
+
+
+def presence_retry_delay(attempt: int) -> float:
+    """Delay before retry number `attempt` (1-based): 1, 2, 4, 8 seconds, then the cap."""
+    return min(PRESENCE_RETRY_CAP, 2.0 ** (attempt - 1))
+
+
+class LeaseWatch:
+    """Set by the lease renewal thread when the job no longer owns its lease."""
+
+    def __init__(self) -> None:
+        self.lost = threading.Event()
+        self.reason = ""
+
+    def lose(self, reason: str) -> None:
+        if not self.lost.is_set():
+            self.reason = reason
+            self.lost.set()
+
+
+def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
+    """A job whose lease was lost records neither a result nor a failure. Always returns True (the job is done)."""
+    log.emit(logging.WARNING, "job_result_discarded", reason=lease.reason, **context)
+    return True
+
+
+def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: ReachabilityMonitor | None = None) -> None:
+    body = WorkerPulseInput(
+        capacity=capacity,
+        supported_steps=["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"],
+        models=declared_models(os.environ, voice_models.active_repo()),
+        machine=declared_machine(),
+    )
+    # The probe runs on its own thread: the pulse only reads its last result, never waits for it.
+    snapshot = (reachability or transcription_config.reachability).snapshot()
+    if snapshot is not None:
+        body.transcription_reachability = WorkerTranscriptionReachabilityInput.from_dict(snapshot)
+    _require_response(pulse(client=client, body=body), "pulse")
+
+
+def _presence_loop(
+    client: AuthenticatedClient,
+    capacity: int,
+    stop: threading.Event,
+    interval: float,
+    guard: revocation.RevocationGuard | None = None,
+    reachability: ReachabilityMonitor | None = None,
+) -> None:
+    failures = 0
+    delay = interval
+    while not stop.wait(delay):
+        if guard is not None and guard.revoked.is_set():
+            return
+        try:
+            _send_pulse(client, capacity, reachability)
+        except (httpx.HTTPError, RuntimeError):
+            # Exception text is never logged: HTTP client errors can include URLs.
+            failures += 1
+            delay = presence_retry_delay(failures)
+            log.emit(logging.WARNING, "presence_pulse_failed", attempt=failures)
+            continue
+        if failures:
+            log.emit(logging.INFO, "presence_reconnected", attempts=failures)
+            failures = 0
+        delay = interval
+
+
 def _heartbeat_loop(
     client: AuthenticatedClient,
     job_id: int,
     lease_token: str,
     interval: float,
     stop: threading.Event,
-    errors: list[Exception],
+    lease: LeaseWatch,
     context: dict[str, Any] | None = None,
 ) -> None:
-    while not stop.wait(interval):
+    renewed_at = time.monotonic()
+    delay = interval
+    attempt = 0
+    while not stop.wait(delay):
         try:
-            _require_response(
-                heartbeat_job(
-                    client=client,
-                    id=job_id,
-                    x_worker_lease_token=lease_token,
-                ),
-                "heartbeat",
+            value = heartbeat_job(
+                client=client,
+                id=job_id,
+                x_worker_lease_token=lease_token,
             )
-            log.emit(logging.DEBUG, "job_heartbeat", **(context or {}))
-        except (httpx.HTTPError, RuntimeError) as exc:
-            errors.append(exc)
+        except httpx.HTTPError:
+            value = None
+        if isinstance(value, Error) and value.error in LEASE_REFUSALS:
+            log.emit(logging.WARNING, "job_lease_refused", error_code=value.error, **(context or {}))
+            lease.lose("refused")
             return
+        if value is None or isinstance(value, Error):
+            # Transient failure: retry until the lease would have expired.
+            attempt += 1
+            remaining = renewed_at + LEASE_TTL - time.monotonic()
+            if remaining <= 0:
+                log.emit(logging.WARNING, "job_lease_expired", **(context or {}))
+                lease.lose("expired")
+                return
+            delay = min(presence_retry_delay(attempt), remaining)
+            continue
+        attempt = 0
+        renewed_at = time.monotonic()
+        delay = interval
+        log.emit(logging.DEBUG, "job_heartbeat", **(context or {}))
 
 
 def run_once(
@@ -365,22 +460,15 @@ def run_once(
     """Process at most one leased task. Return False when the queue is empty."""
     if heartbeat_interval <= 0:
         raise ValueError("heartbeat interval must be positive")
-    _require_response(
-        pulse(
-            client=client,
-            body=WorkerPulseInput(
-                capacity=capacity,
-                supported_steps=["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"],
-                models=declared_models(os.environ, voice_models.active_repo()),
-                machine=declared_machine(),
-            ),
-        ),
-        "pulse",
-    )
+    _send_pulse(client, capacity)
     if stop is not None and stop.is_set():
         return False
     if isinstance(client, AuthenticatedClient):
         sync_configuration(client)
+        try:
+            hf_token_sync.sync(client, voice_download.default_token_file(os.environ))
+        except Exception:  # noqa: BLE001 - the token sync must never stop claiming, and its error text may carry the value
+            log.emit(logging.WARNING, "hf_token_sync_unavailable")
         try:
             voice_models.sync_voice_models(client, voice_models.default_manager())
         except Exception:  # noqa: BLE001 - the model manager must never stop claiming
@@ -389,6 +477,36 @@ def run_once(
     if claim is None or claim.job is None:
         log.emit(logging.DEBUG, "claim_empty")
         return False
+    # The Worker's log lines of this job are shipped in batches while the job runs (ADR 0028).
+    job_id = claim.job.id
+    shipper = log.LineShipper(job_id, lambda lines: _send_job_logs(client, job_id, claim.lease_token, lines))
+    log.get_logger().addHandler(shipper)
+    try:
+        return _run_claimed(client, claim, heartbeat_interval, transcriber, voice_providers, shipper)
+    finally:
+        log.get_logger().removeHandler(shipper)
+        shipper.close()
+
+
+def _send_job_logs(client: AuthenticatedClient, job_id: int, lease_token: str, lines: list[str]) -> None:
+    _require_response(
+        append_job_logs(client=client, id=job_id, body=WorkerJobLogsInput(lines=lines), x_worker_lease_token=lease_token),
+        "logs",
+    )
+
+
+def _run_claimed(
+    client: AuthenticatedClient,
+    claim: Any,
+    heartbeat_interval: float,
+    transcriber: Transcriber | None,
+    voice_providers: Mapping[str, Any] | None,
+    shipper: log.LineShipper,
+) -> bool:
+    """Run the claimed job to its end and report it. Always True: a job was taken.
+
+    Log lines are flushed before the outcome is reported: once the job is completed or failed the
+    lease is gone and the server no longer accepts lines for it."""
     job = claim.job
     lease_token = claim.lease_token
     # Correlation context taken from the claim; the lease token is never part of it.
@@ -404,7 +522,7 @@ def run_once(
     log.emit(logging.INFO, "job_claimed", **context)
     active_transcriber: Transcriber | None = None
     heartbeat_stop = threading.Event()
-    heartbeat_errors: list[Exception] = []
+    lease = LeaseWatch()
     heartbeater = threading.Thread(
         target=_heartbeat_loop,
         args=(
@@ -413,7 +531,7 @@ def run_once(
             lease_token,
             heartbeat_interval,
             heartbeat_stop,
-            heartbeat_errors,
+            lease,
             context,
         ),
         daemon=True,
@@ -486,8 +604,9 @@ def run_once(
             raise ValueError("unsupported worker step")
         heartbeat_stop.set()
         heartbeater.join()
-        if heartbeat_errors:
-            raise RuntimeError("worker lease lost")
+        if lease.lost.is_set():
+            # ADR 0029: a job whose lease was refused or expired sends no result.
+            return _discard_lost_result(lease, context)
         if _is_diarization_step(job.step):
             config = _voice_config(task_input)
             speakers = result.get("speakers") or []
@@ -502,6 +621,7 @@ def run_once(
                 duration_ms=int((time.monotonic() - started) * 1000),
                 **context,
             )
+        shipper.flush()
         result_model = WorkerResultInputResult()
         result_model.additional_properties.update(result)
         _require_response(
@@ -527,6 +647,9 @@ def run_once(
     ) as exc:
         heartbeat_stop.set()
         heartbeater.join()
+        if lease.lost.is_set():
+            # The job was reassigned or expired: neither a result nor a failure may be recorded.
+            return _discard_lost_result(lease, context)
         diagnostic: dict[str, Any] = {}
         if isinstance(exc, TranscriptionError):
             error_code = exc.code
@@ -559,6 +682,7 @@ def run_once(
             duration_ms=int((time.monotonic() - started) * 1000),
             **context,
         )
+        shipper.flush()
         try:
             _require_response(
                 fail_job(
@@ -609,16 +733,29 @@ def run_until_stopped(
     poll_interval: float = 5.0,
     heartbeat_interval: float = 45.0,
     models_dir: str | None = None,
+    presence_interval: float = PRESENCE_INTERVAL,
+    reachability: ReachabilityMonitor | None = None,
 ) -> bool:
     """Run a bounded pool; stop claiming on shutdown and drain active tasks.
 
+    Presence runs on its own thread, so a long job never makes the Worker look Offline.
     Return True when Snitch confirmed this Worker's deletion (the models volume is then erased)."""
     if capacity < 1 or capacity > 4:
         raise ValueError("worker capacity must be an integer from 1 to 4")
-    if poll_interval <= 0 or heartbeat_interval <= 0:
+    if poll_interval <= 0 or heartbeat_interval <= 0 or presence_interval <= 0:
         raise ValueError("worker intervals must be positive")
 
     guard = revocation.RevocationGuard(models_dir or revocation.models_dir(os.environ))
+    monitor = reachability or transcription_config.reachability
+    presence = threading.Thread(
+        target=_presence_loop,
+        args=(client, capacity, stop, presence_interval, guard, monitor),
+        daemon=True,
+        name="snitch-presence",
+    )
+    probe = threading.Thread(target=monitor.run, args=(stop,), daemon=True, name="snitch-reachability")
+    presence.start()
+    probe.start()
     with ThreadPoolExecutor(max_workers=capacity) as executor:
         workers = [
             executor.submit(
@@ -636,6 +773,8 @@ def run_until_stopped(
             pass
         for worker in workers:
             worker.result()
+    presence.join()
+    probe.join()
     return guard.revoked.is_set()
 
 
