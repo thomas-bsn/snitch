@@ -167,11 +167,13 @@ class PresenceAndLeaseTests(unittest.TestCase):
     def _refused_long_job(self, step, task_input, started_work=lambda: True, voice_providers=None, **patches):
         """Run a job the server refuses to renew once its work has started; return its duration."""
         renewals = []
+        refusals = {}
 
         def heartbeat(**_kwargs):
             renewals.append(1)
             if len(renewals) < 3 or not started_work():
                 return object()
+            refusals.setdefault("at", time.monotonic())
             return Error.from_dict({"error": "lease_not_owned"})
 
         self.task.step = step
@@ -186,10 +188,14 @@ class PresenceAndLeaseTests(unittest.TestCase):
             for name, value in patches.items():
                 stack.enter_context(patch.object(runner, name, value))
             self.assertTrue(runner.run_once(self.client, heartbeat_interval=0.05, voice_providers=voice_providers))
+        self.assertIn("at", refusals, "the server never refused the lease")
+        # The fake work would last a minute: the job must end soon after the refusal, with margin for slow CI.
+        self.stopped_after_refusal = time.monotonic() - refusals["at"]
         return time.monotonic() - started
 
     def _assert_cancelled_without_result(self, duration):
         self.assertLess(duration, 10)
+        self.assertLess(self.stopped_after_refusal, 10)
         self.complete_mock.assert_not_called()
         self.fail_mock.assert_not_called()
 
@@ -281,6 +287,34 @@ class PresenceAndLeaseTests(unittest.TestCase):
             pyannote = voice_pyannote.PyannoteProvider(environ=env, load_embedder=lambda _p, _d: open_audio, device_probe=lambda: "cpu")
             duration = self._voice_job("voice.fingerprint.0", "pyannote", pyannote, {"diarization": diarization})
         self._assert_cancelled_without_result(duration)
+
+    def test_refused_lease_stops_a_simulated_provider_at_its_next_cancellation_point(self):
+        """A provider built on the shared embedding helper stops between two embeddings."""
+        from snitch_worker import voice
+
+        embedded = []
+
+        class SimulatedProvider:
+            def ensure_diarization_ready(self, _config):
+                pass
+
+            def ensure_ready(self, _config):
+                pass
+
+            def fingerprint(self, config, diarization, _audio, stream_index):
+                def embed(start, _end):
+                    embedded.append(start)
+                    inference_started.append(1)
+                    time.sleep(0.2)  # a short unit of work, returning to Python each time
+                    return [1.0, 0.0]
+
+                return voice.fingerprints_from_embedder(config, diarization, embed, stream_index, "m", "v1")
+
+        turns = [{"index": i, "start": float(i * 3), "end": float(i * 3 + 2)} for i in range(400)]
+        diarization = {"speakers": [{"label": "s0", "turns": turns}]}
+        duration = self._voice_job("voice.fingerprint.0", "simulated", SimulatedProvider(), {"diarization": diarization})
+        self._assert_cancelled_without_result(duration)
+        self.assertLess(len(embedded), 40)  # 400 turns would take 80 s; the job stopped within seconds
 
     def test_result_is_discarded_when_the_lease_expired_during_an_outage(self):
         with (

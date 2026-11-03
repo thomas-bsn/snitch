@@ -64,7 +64,7 @@ def sync_detailed(
 
 ) -> Response[Error | HFTokenStatus]:
     """  Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non,
-    empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.
+    valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -91,7 +91,7 @@ def sync(
 
 ) -> Error | HFTokenStatus | None:
     """  Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non,
-    empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.
+    valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -113,7 +113,7 @@ async def asyncio_detailed(
 
 ) -> Response[Error | HFTokenStatus]:
     """  Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non,
-    empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.
+    valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -140,7 +140,7 @@ async def asyncio(
 
 ) -> Error | HFTokenStatus | None:
     """  Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non,
-    empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.
+    valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

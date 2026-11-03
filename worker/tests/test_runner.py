@@ -670,6 +670,30 @@ class WhisperFailureTests(unittest.TestCase):
                 else:
                     self.assertNotIn("http_status", payload)
 
+    def test_a_whisper_http_failure_logs_a_cleaned_bounded_request_line(self):
+        # ADR 0028: method, URL without credentials, HTTP status, latency and a bounded excerpt, no secret.
+        body = (b'{"error":"overloaded Bearer abc.def hf_SyntheticToken123 /tmp/private/audio.wav '
+                + b"x" * 600 + b'"}')
+        stream = io.StringIO()
+        log.configure("DEBUG", stream=stream)
+        self.addCleanup(log.configure, "INFO", io.StringIO())
+        transcriber = runner.OpenAICompatibleTranscriber("http://ann:pw-synth@127.0.0.1:9", "whisper-synthetic")
+        request = httpx.Request("POST", "http://ann:pw-synth@127.0.0.1:9/v1/audio/transcriptions")
+        response = httpx.Response(503, content=body, request=request)
+        failure = httpx.HTTPStatusError("x", request=request, response=response)
+        with patch.object(runner.OpenAICompatibleTranscriber, "_transcribe", side_effect=failure):
+            with self.assertRaises(runner.TranscriptionError) as caught:
+                transcriber.transcribe("unused.wav")
+        runner.log_whisper_failure(caught.exception, 12)
+        [line] = [json.loads(row) for row in stream.getvalue().splitlines() if "whisper_request_failed" in row]
+        self.assertEqual((line["method"], line["http_status"], line["latency_ms"]), ("POST", 503, 12))
+        self.assertEqual(line["code"], "whisper_http_error")
+        self.assertLessEqual(len(line["excerpt"]), 240)
+        self.assertIn("overloaded", line["excerpt"])
+        self.assertTrue(line["url"].startswith("http://127.0.0.1:9"))
+        for leaked in ("abc.def", "hf_SyntheticToken123", "/tmp/private", "ann:pw-synth", "audio.wav"):
+            self.assertNotIn(leaked, stream.getvalue())
+
     def test_other_failures_keep_the_generic_provider_code_without_diagnostic(self):
         payload = self.run_failure(post_error=RuntimeError(self.PRIVATE))
         self.assertEqual(payload["error"], "provider_unavailable")

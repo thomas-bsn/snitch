@@ -1,4 +1,5 @@
 import { VideoStorage } from "../../library/VideoStorage";
+import { AutomaticAnalysisSetting } from "./AutomaticAnalysisSetting";
 import { useState, type FormEvent } from "react";
 import type { components } from "../../../api.gen";
 import { api, errorCode, mutation } from "../../api/client";
@@ -85,6 +86,7 @@ export function FoldersTab() {
   return (
     <div className="flex max-w-4xl flex-col gap-4">
       <VideoStorage settings />
+      <AutomaticAnalysisSetting />
       <h2 className="text-lg font-semibold">{t("folders.title")}</h2>
       {state.status === "loading" && <p role="status">{t("app.loading")}</p>}
       {state.status === "failed" && (

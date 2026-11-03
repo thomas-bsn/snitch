@@ -117,4 +117,26 @@ func testImportSelection(t *testing.T, pool *pgxpool.Pool) {
 	if strings.Contains(string(h.userCall(member, http.MethodGet, "/api/admin/video-root/browse?path=", nil, http.StatusOK)), "plan.mp4") {
 		t.Fatal("the root listing reveals the content of a private folder")
 	}
+	// #223: the private folder keeps its name and shows locked, but nobody else lists or previews it.
+	for _, u := range []*voiceUser{member, admin} {
+		var root struct {
+			Items []struct {
+				Path   string `json:"path"`
+				Locked bool   `json:"locked"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(h.userCall(u, http.MethodGet, "/api/admin/video-root/browse?path=", nil, http.StatusOK), &root); err != nil {
+			t.Fatal(err)
+		}
+		locked := map[string]bool{}
+		for _, item := range root.Items {
+			locked[item.Path] = item.Locked
+		}
+		if l, ok := locked["secret"]; !ok || !l || locked["open"] {
+			t.Fatalf("%s: the private folder must be listed and locked, the open one not: %v", u.name, locked)
+		}
+		h.userCall(u, http.MethodGet, "/api/admin/video-root/browse?path=secret", nil, http.StatusForbidden)
+		scan(u, []string{"secret/plan.mp4"}, false, http.StatusForbidden)
+	}
+	h.userCall(superAdmin, http.MethodGet, "/api/admin/video-root/browse?path=secret", nil, http.StatusOK)
 }

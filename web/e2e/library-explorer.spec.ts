@@ -152,4 +152,105 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(page.getByText("plan.mp4")).toHaveCount(0);
     await context.close();
   });
+
+  test("l'analyse d'un dossier indexe d'abord ses vidéos non indexées", async ({
+    page,
+  }) => {
+    await page.goto("/library?folder=league%2F2026");
+    await expect(row(page, "sub")).toBeVisible();
+    await row(page, "sub")
+      .getByRole("button", { name: "Actions for folder sub" })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Analyse the unanalysed videos" })
+      .click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toContainText(
+      "Videos not indexed yet (1) are indexed first, then analysed.",
+    );
+    await dialog.getByRole("button", { name: "Analyse 1 videos" }).click();
+    await expect(dialog).toBeHidden({ timeout: 30000 });
+    // The video of the folder now has a clip: it is no longer unindexed.
+    await page.goto("/library?folder=league%2F2026%2Fsub");
+    await expect(row(page, "inner.mp4")).not.toContainText("Not indexed");
+  });
+
+  test("une vidéo encore en cours d'indexation après le délai n'est pas un échec", async ({
+    page,
+  }) => {
+    // Synthetic answers: the video is never indexed within the wait, as on a busy scan.
+    const stuck = {
+      name: "stuck.mp4",
+      path: "stuck.mp4",
+      folder: "",
+      directory: false,
+      size_bytes: 1,
+      private: false,
+      locked: false,
+      state: "in_progress",
+      clip_id: null,
+    };
+    let indexRequests = 0;
+    await page.route("**/api/library/explorer/index", async (route) => {
+      indexRequests += 1;
+      await route.fulfill({
+        status: 202,
+        json: { path: "stuck.mp4", state: "in_progress" },
+      });
+    });
+    await page.route("**/api/library/explorer?*", async (route) => {
+      const url = new URL(route.request().url());
+      if (
+        url.searchParams.get("recursive") !== "1" ||
+        !url.searchParams.get("path")
+      ) {
+        return route.fallback();
+      }
+      const state = url.searchParams.get("state");
+      const items =
+        (state === "in_progress" || !state) && indexRequests > 0
+          ? [stuck]
+          : state === "not_indexed" && indexRequests === 0
+            ? [{ ...stuck, state: "not_indexed" }]
+            : [];
+      await route.fulfill({
+        json: {
+          source_id: 1,
+          root_configured: true,
+          items,
+          total: items.length,
+          states: [],
+        },
+      });
+    });
+    await page.clock.install();
+    await page.goto("/library?folder=league%2F2026");
+    await row(page, "sub")
+      .getByRole("button", { name: "Actions for folder sub" })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Analyse the unanalysed videos" })
+      .click();
+    const dialog = page.getByRole("alertdialog");
+    await dialog.getByRole("button", { name: /^Analyse 1 videos/ }).click();
+    // Each wait of the loop is a new timer: move the clock until the 60 polls have elapsed.
+    for (let tick = 0; tick < 80; tick += 1) {
+      await page.clock.fastForward(2000);
+      await page.waitForTimeout(40);
+    }
+    await expect(
+      page.getByText("1 videos are still being indexed: try again"),
+    ).toBeVisible();
+    await expect(page.getByText("refused")).toHaveCount(0);
+    // The next click resumes the video instead of dropping it.
+    await row(page, "sub")
+      .getByRole("button", { name: "Actions for folder sub" })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Analyse the unanalysed videos" })
+      .click();
+    await expect(page.getByRole("alertdialog")).toContainText(
+      "Videos not indexed yet (1)",
+    );
+  });
 });

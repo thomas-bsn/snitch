@@ -13,6 +13,14 @@ that fits each kind of work:
   there and unwinds the inference. It may land while the library holds one of its own locks, which
   then stays held: the provider drops the interrupted model and the next job loads a fresh one.
 
+What is really guaranteed: the job stops at the next Python-level point, within about
+``POLL`` seconds for the waits above and between two work units (chunk, turn, embedding) elsewhere.
+A single long C or CUDA call that never returns to Python (one kernel, one ``torch`` op on a huge
+tensor) cannot be interrupted from Python: the asynchronous exception of ``interruptible`` only
+lands when that call returns, and the job then stops. Until then the GPU keeps working, and the
+result is discarded, never sent (runner: ``_discard_lost_result``). Providers should therefore
+keep each opaque call short, or call ``check`` between their batches.
+
 ``JobCancelled`` derives from ``BaseException`` so that the providers' ``except Exception``
 wrappers never turn a cancellation into a failure code.
 """

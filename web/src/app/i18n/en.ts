@@ -201,6 +201,11 @@ export const en = {
     retry: "Retry",
   },
   folders: {
+    autoAnalysis: {
+      title: "Automatic analysis",
+      label: "Full automatic analysis",
+      help: "When on, every video added to the library (found in the video root, published from an upload or selected from an import) starts its full analysis: transcription, voices and indexing. When off, only the transcription is scheduled and the analysis is started by hand.",
+    },
     correctedSkipped:
       "{count} corrected clip(s) were not retranscribed; explicit confirmation is required.",
     health: {
@@ -500,7 +505,6 @@ export const en = {
         "Not configured. Workers keep the token they already have, if any.",
       unreadable:
         "The stored token cannot be read with the current master key. Enter it again.",
-      fingerprint: "Fingerprint {value}.",
       field: "Hugging Face token",
       hint: "Starts with hf_. Shown once, then hidden for good.",
       save: "Save token",
@@ -1637,8 +1641,12 @@ export const en = {
       analysisConfirm: "Analyse {count} videos",
       analysisNone: "No unanalysed video in this folder.",
       analysisBody: "{count} videos will be queued for analysis.",
+      analysisIndexFirst:
+        "Videos not indexed yet ({count}) are indexed first, then analysed.",
       analysisFailed: "The analysis could not be prepared.",
       analysisQueued: "{count} analyses requested.",
+      analysisPending:
+        "{count} analyses requested, {pending} videos are still being indexed: try again in a moment.",
       analysisPartial: "{count} analyses requested, {failed} refused.",
     },
     deletedOwner: "Deleted user",
@@ -1665,6 +1673,8 @@ export const en = {
       state: "State",
       any: "Any",
       unknownVoices: "Unknown voices",
+      voices: "Voices",
+      voicesPending: "With voices to process",
       clear: "Clear the filters",
     },
     state: {

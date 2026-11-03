@@ -855,7 +855,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée. */
+    /** @description Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée. */
     get: operations["getHFToken"];
     /** @description Réservé au Super-administrateur : enregistre ou remplace le token central, chiffré au repos. Un token mal formé est refusé (invalid_hf_token) sans être renvoyé. Un Administrateur reçoit 403 super_administrator_required. */
     put: operations["putHFToken"];
@@ -1263,6 +1263,58 @@ export interface paths {
     /** Dossiers de premier niveau parcourables ; un dossier privé apparaît verrouillé pour qui ne peut pas l'ouvrir */
     get: operations["listLibraryFolders"];
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/library/explorer": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Explorateur de la Racine vidéo : dossiers et vidéos croisés avec la base, paginés côté serveur (ADR 0032) */
+    get: operations["listLibraryExplorer"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/library/explorer/index": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Demander l'indexation d'une vidéo ouverte dans l'explorateur, sans analyse */
+    post: operations["indexExplorerVideo"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/settings/automatic-analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Réglage « Analyse complète automatique » (administrateur ; actif par défaut) */
+    get: operations["getAutomaticAnalysisSetting"];
+    /** Activer ou désactiver l'analyse complète des clips ajoutés (administrateur) */
+    put: operations["putAutomaticAnalysisSetting"];
     post?: never;
     delete?: never;
     options?: never;
@@ -3160,6 +3212,58 @@ export interface components {
       /** @description Privé et non ouvrable par l'utilisateur courant : seul son nom est exposé */
       locked: boolean;
     };
+    AutomaticAnalysisSetting: {
+      /** @description Vrai : un clip ajouté démarre une Analyse de clip complète (ADR 0035) */
+      enabled: boolean;
+    };
+    ExplorerIndexResult: {
+      path: string;
+      /** @enum {string} */
+      state: "indexed" | "in_progress";
+      /** Format: int64 */
+      clip_id?: number;
+    };
+    ExplorerEntry: {
+      name: string;
+      /** @description Chemin relatif à la Racine vidéo, ou clip:<id> pour un clip sans fichier dans la racine */
+      path: string;
+      folder: string;
+      directory: boolean;
+      /** Format: int64 */
+      size_bytes: number;
+      private: boolean;
+      locked: boolean;
+      /** @enum {string} */
+      state?:
+        | "not_indexed"
+        | "in_progress"
+        | "not_analyzed"
+        | "transcribed"
+        | "analyzed"
+        | "failed";
+      /** Format: int64 */
+      clip_id: number | null;
+      /** Format: int64 */
+      owner_id: number | null;
+      owner: string;
+      visibility?: string;
+      duration_seconds: number | null;
+      /** Format: date-time */
+      added_at: string | null;
+      /** Format: date-time */
+      recorded_at: string | null;
+      game: string;
+      voices_pending: number;
+    };
+    ExplorerListing: {
+      /** Format: int64 */
+      source_id: number;
+      root_configured: boolean;
+      items: components["schemas"]["ExplorerEntry"][];
+      /** @description Taille de la sélection entière, hors pagination */
+      total: number;
+      states: string[];
+    };
     FolderPrivacy: {
       /** Format: int64 */
       source_id: number;
@@ -3740,8 +3844,6 @@ export interface components {
     };
     HFTokenStatus: {
       configured: boolean;
-      /** @description Empreinte non réversible, vide si non configuré */
-      fingerprint: string;
       /** @description Valeur présente mais illisible avec la clé maître courante : à ressaisir */
       unreadable: boolean;
       workers: {
@@ -8778,6 +8880,168 @@ export interface operations {
           "application/json": {
             items: components["schemas"]["LibraryFolder"][];
           };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listLibraryExplorer: {
+    parameters: {
+      query?: {
+        /** @description Dossier relatif à la Racine vidéo (vide : la racine) */
+        path?: string;
+        /** @description Liste à plat tous les descendants */
+        recursive?: "1" | "true";
+        q?: string;
+        state?:
+          | "not_indexed"
+          | "in_progress"
+          | "not_analyzed"
+          | "transcribed"
+          | "analyzed"
+          | "failed";
+        game?: string;
+        visibility?: "shared" | "private";
+        from?: string;
+        to?: string;
+        owner_id?: number;
+        /** @description Vidéos dont une voix est attribuée à cette Personne (attribution validée ou automatique) */
+        person_id?: number;
+        /** @description Vidéos qui ont encore des voix à traiter */
+        voices?: "pending";
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Une page de la sélection */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExplorerListing"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  indexExplorerVideo: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          path: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Déjà indexée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExplorerIndexResult"];
+        };
+      };
+      /** @description Indexation demandée */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExplorerIndexResult"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAutomaticAnalysisSetting: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglage */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AutomaticAnalysisSetting"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putAutomaticAnalysisSetting: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AutomaticAnalysisSetting"];
+      };
+    };
+    responses: {
+      /** @description Réglage appliqué */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AutomaticAnalysisSetting"];
         };
       };
       /** @description Erreur */

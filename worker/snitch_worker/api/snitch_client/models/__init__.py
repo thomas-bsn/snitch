@@ -25,6 +25,7 @@ from .audio_track_rule import AudioTrackRule
 from .audio_track_rule_result import AudioTrackRuleResult
 from .audio_track_selection import AudioTrackSelection
 from .audio_track_selection_status import AudioTrackSelectionStatus
+from .automatic_analysis_setting import AutomaticAnalysisSetting
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
@@ -85,6 +86,11 @@ from .delete_worker_transcription_override_response_200 import DeleteWorkerTrans
 from .embedding_settings import EmbeddingSettings
 from .embedding_validation import EmbeddingValidation
 from .error import Error
+from .explorer_entry import ExplorerEntry
+from .explorer_entry_state import ExplorerEntryState
+from .explorer_index_result import ExplorerIndexResult
+from .explorer_index_result_state import ExplorerIndexResultState
+from .explorer_listing import ExplorerListing
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
 from .folder_privacy import FolderPrivacy
@@ -106,6 +112,7 @@ from .hf_token_status_workers_item import HFTokenStatusWorkersItem
 from .hf_token_status_workers_item_error_code import HFTokenStatusWorkersItemErrorCode
 from .hf_token_status_workers_item_source import HFTokenStatusWorkersItemSource
 from .hf_token_status_workers_item_state import HFTokenStatusWorkersItemState
+from .index_explorer_video_body import IndexExplorerVideoBody
 from .job import Job
 from .job_controls import JobControls
 from .job_controls_input import JobControlsInput
@@ -124,6 +131,10 @@ from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
 from .list_jobs_workflow import ListJobsWorkflow
+from .list_library_explorer_recursive import ListLibraryExplorerRecursive
+from .list_library_explorer_state import ListLibraryExplorerState
+from .list_library_explorer_visibility import ListLibraryExplorerVisibility
+from .list_library_explorer_voices import ListLibraryExplorerVoices
 from .list_library_folders_response_200 import ListLibraryFoldersResponse200
 from .list_members_response_200 import ListMembersResponse200
 from .list_notifications_filter import ListNotificationsFilter
@@ -459,6 +470,7 @@ __all__ = (
     "AudioTrackRuleResult",
     "AudioTrackSelection",
     "AudioTrackSelectionStatus",
+    "AutomaticAnalysisSetting",
     "BackfillEmbeddingIndexResponse202",
     "Bootstrap",
     "BrowseVideoRootResponse200",
@@ -519,6 +531,11 @@ __all__ = (
     "EmbeddingSettings",
     "EmbeddingValidation",
     "Error",
+    "ExplorerEntry",
+    "ExplorerEntryState",
+    "ExplorerIndexResult",
+    "ExplorerIndexResultState",
+    "ExplorerListing",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
     "FolderPrivacy",
@@ -540,6 +557,7 @@ __all__ = (
     "HFTokenStatusWorkersItemErrorCode",
     "HFTokenStatusWorkersItemSource",
     "HFTokenStatusWorkersItemState",
+    "IndexExplorerVideoBody",
     "Job",
     "JobControls",
     "JobControlsInput",
@@ -558,6 +576,10 @@ __all__ = (
     "ListClipsVisibility",
     "ListJobsStatus",
     "ListJobsWorkflow",
+    "ListLibraryExplorerRecursive",
+    "ListLibraryExplorerState",
+    "ListLibraryExplorerVisibility",
+    "ListLibraryExplorerVoices",
     "ListLibraryFoldersResponse200",
     "ListMembersResponse200",
     "ListNotificationsFilter",
