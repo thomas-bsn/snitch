@@ -3182,6 +3182,16 @@ export interface components {
       /** @description Adresse Whisper propre à ce Worker, si définie. */
       endpoint_override?: string;
     };
+    /** @description Dernier test GET /v1/models par le Worker. Détail du dernier échec réservé aux administrateurs. */
+    WorkerTranscriptionReachability: {
+      reachable: boolean;
+      /** Format: date-time */
+      checked_at: string;
+      latency_ms: number;
+      last_failure:
+        | components["schemas"]["WorkerTranscriptionFailureInput"]
+        | null;
+    };
     WorkerTranscriptionStatusInput: {
       version: string;
       active: boolean;
@@ -3195,6 +3205,8 @@ export interface components {
       transcription_model?: string;
       /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachability"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
       install?: components["schemas"]["WorkerInstall"];
@@ -3347,6 +3359,8 @@ export interface components {
       transcription_model?: string;
       /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachability"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
       install?: components["schemas"]["WorkerInstall"];
@@ -3428,6 +3442,30 @@ export interface components {
       supported_steps: string[];
       /** @description Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer. */
       models?: components["schemas"]["WorkerModels"];
+      /** @description Dernier résultat de joignabilité du serveur de transcription, testé par le Worker toutes les 60 s hors du pouls. Omis tant que le Worker ne connaît pas de configuration. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachabilityInput"];
+    };
+    /** @description Résultat de GET /v1/models sur le serveur de transcription. Jamais d'identifiants : l'URL est déjà sans utilisateur ni requête. */
+    WorkerTranscriptionReachabilityInput: {
+      /** Format: date-time */
+      checked_at: string;
+      reachable: boolean;
+      latency_ms: number;
+      /** @description Détail du dernier échec connu pour la cible courante. */
+      last_failure?: components["schemas"]["WorkerTranscriptionFailureInput"];
+    };
+    WorkerTranscriptionFailureInput: {
+      /** Format: date-time */
+      failed_at: string;
+      /** @enum {string} */
+      method: "GET";
+      url: string;
+      status_code?: number | null;
+      latency_ms: number;
+      /** @enum {string} */
+      error_type: "timeout" | "connection" | "http_status" | "invalid_body";
+      /** @description Extrait borné de la réponse, vide hors statut HTTP ou corps invalide. */
+      body_excerpt: string;
     };
     WorkerClaim: {
       job: components["schemas"]["Job"] | null;

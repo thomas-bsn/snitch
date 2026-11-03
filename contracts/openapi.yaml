@@ -6579,6 +6579,18 @@
           "endpoint_override": {"type": "string", "description": "Adresse Whisper propre à ce Worker, si définie."}
         }
       },
+      "WorkerTranscriptionReachability": {
+        "type": "object",
+        "required": ["reachable", "checked_at", "latency_ms", "last_failure"],
+        "additionalProperties": false,
+        "description": "Dernier test GET /v1/models par le Worker. Détail du dernier échec réservé aux administrateurs.",
+        "properties": {
+          "reachable": {"type": "boolean"},
+          "checked_at": {"type": "string", "format": "date-time"},
+          "latency_ms": {"type": "integer"},
+          "last_failure": {"allOf": [{"$ref": "#/components/schemas/WorkerTranscriptionFailureInput"}], "nullable": true}
+        }
+      },
       "WorkerTranscriptionStatusInput": {
         "type": "object",
         "required": ["version", "active", "error_code"],
@@ -6606,6 +6618,7 @@
 "supported_steps":{"type": "array", "items": {"type": "string"}, "nullable": true, "description": "Last reported task capabilities; a worker that never reported has none; revoked workers must not be selected."},
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "transcription_config": {"$ref": "#/components/schemas/WorkerTranscriptionConfig", "nullable": true, "description": "Statut de synchronisation de la configuration de transcription pour ce Worker."},
+          "transcription_reachability": {"$ref": "#/components/schemas/WorkerTranscriptionReachability", "nullable": true, "description": "Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement."},
           "transcription_config_ready": {"type": "boolean", "description": "Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1)."},
           "install": {"$ref": "#/components/schemas/WorkerInstall"},
           "machine": {"$ref": "#/components/schemas/WorkerMachine"},
@@ -6827,6 +6840,7 @@
         "properties": {
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "transcription_config": {"$ref": "#/components/schemas/WorkerTranscriptionConfig", "nullable": true, "description": "Statut de synchronisation de la configuration de transcription pour ce Worker."},
+          "transcription_reachability": {"$ref": "#/components/schemas/WorkerTranscriptionReachability", "nullable": true, "description": "Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement."},
           "transcription_config_ready": {"type": "boolean", "description": "Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1)."},
           "install": {"$ref": "#/components/schemas/WorkerInstall"},
           "machine": {"$ref": "#/components/schemas/WorkerMachine"},
@@ -7053,7 +7067,37 @@
           "models": {
             "$ref": "#/components/schemas/WorkerModels",
             "description": "Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer."
+          },
+          "transcription_reachability": {
+            "$ref": "#/components/schemas/WorkerTranscriptionReachabilityInput",
+            "description": "Dernier résultat de joignabilité du serveur de transcription, testé par le Worker toutes les 60 s hors du pouls. Omis tant que le Worker ne connaît pas de configuration."
           }
+        }
+      },
+      "WorkerTranscriptionReachabilityInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["checked_at", "reachable", "latency_ms"],
+        "description": "Résultat de GET /v1/models sur le serveur de transcription. Jamais d'identifiants : l'URL est déjà sans utilisateur ni requête.",
+        "properties": {
+          "checked_at": {"type": "string", "format": "date-time"},
+          "reachable": {"type": "boolean"},
+          "latency_ms": {"type": "integer", "minimum": 0, "maximum": 600000},
+          "last_failure": {"$ref": "#/components/schemas/WorkerTranscriptionFailureInput", "nullable": true, "description": "Détail du dernier échec connu pour la cible courante."}
+        }
+      },
+      "WorkerTranscriptionFailureInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["failed_at", "method", "url", "latency_ms", "error_type", "body_excerpt"],
+        "properties": {
+          "failed_at": {"type": "string", "format": "date-time"},
+          "method": {"type": "string", "enum": ["GET"]},
+          "url": {"type": "string", "minLength": 1, "maxLength": 2048},
+          "status_code": {"type": "integer", "minimum": 100, "maximum": 599, "nullable": true},
+          "latency_ms": {"type": "integer", "minimum": 0, "maximum": 600000},
+          "error_type": {"type": "string", "enum": ["timeout", "connection", "http_status", "invalid_body"]},
+          "body_excerpt": {"type": "string", "maxLength": 200, "description": "Extrait borné de la réponse, vide hors statut HTTP ou corps invalide."}
         }
       },
       "WorkerClaim": {
