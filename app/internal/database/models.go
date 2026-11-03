@@ -761,7 +761,7 @@ type VoiceSample struct {
 	PersonID       int64              `json:"person_id"`
 	LocalSpeakerID int64              `json:"local_speaker_id"`
 	ClipID         int64              `json:"clip_id"`
-	AttributionID  int64              `json:"attribution_id"`
+	AttributionID  pgtype.Int8        `json:"attribution_id"`
 	CreatedBy      pgtype.Int8        `json:"created_by"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	RetiredAt      pgtype.Timestamptz `json:"retired_at"`

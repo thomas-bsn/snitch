@@ -264,8 +264,14 @@ func testVoiceRefusal(t *testing.T, pool *pgxpool.Pool) {
 	if got := h.matched(validated); got.DecisionLevel != "unknown" || got.Person != nil {
 		t.Fatalf("a refused validation leaves the voice unknown: %+v", got)
 	}
-	if n := h.count(`SELECT count(*) FROM voice_samples WHERE local_speaker_id=$1`, validated.ID); n != 0 {
+	if n := h.count(`SELECT count(*) FROM voice_samples WHERE local_speaker_id=$1 AND retired_at IS NULL`, validated.ID); n != 0 {
 		t.Fatalf("the samples of a refused validation leave the references: %d", n)
+	}
+	// They are retired, like a corrected sample, not deleted: the refusal in the history
+	// still points to an existing sample.
+	if n := h.count(`SELECT count(*) FROM voice_samples vs JOIN attribution_events e ON e.old_sample_id=vs.id
+ WHERE e.local_speaker_id=$1 AND e.action='refuse' AND vs.retired_at IS NOT NULL AND vs.retired_reason='refus_identification' AND vs.retired_by IS NOT NULL`, validated.ID); n != 1 {
+		t.Fatalf("the sample of a refused validation is retired, and the refusal keeps it: %d", n)
 	}
 	h.rematch()
 	if got := h.matched(validated); got.Person != nil {

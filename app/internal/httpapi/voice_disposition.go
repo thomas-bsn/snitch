@@ -293,8 +293,10 @@ func (s *Server) refuseLocalSpeaker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	// Like a correction, the refusal retires the reference sample rather than deleting it:
+	// the history keeps pointing to it (attribution_events.old_sample_id).
 	var sampleID *int64
-	err = tx.QueryRow(ctx, `DELETE FROM voice_samples WHERE local_speaker_id=$1 AND person_id=$2 AND retired_at IS NULL RETURNING id`, sp.ID, personID).Scan(&sampleID)
+	err = tx.QueryRow(ctx, `UPDATE voice_samples SET retired_at=now(),retired_by=$3,retired_reason='refus_identification' WHERE local_speaker_id=$1 AND person_id=$2 AND retired_at IS NULL RETURNING id`, sp.ID, personID, ss.User.ID).Scan(&sampleID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		s.internal(w, err)
 		return
