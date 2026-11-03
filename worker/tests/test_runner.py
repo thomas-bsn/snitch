@@ -481,6 +481,20 @@ class RunnerLogTests(unittest.TestCase):
             id=42, clip_id=19, step="fixture.echo", input_version="v1", cycle=1, attempts=2, lease_owner="wk_synthetic"
         )
         self.claim = SimpleNamespace(job=self.task, lease_token=self.LEASE)
+        self.shipped = []
+        self.upload_fails = False
+        self.shipped_at_failure = None
+
+    def on_fail(self, **_kwargs):
+        self.shipped_at_failure = [json.loads(line)["event"] for batch in self.shipped for line in batch]
+        return object()
+
+    def ship(self, client, id, body, x_worker_lease_token):
+        self.assertEqual((id, x_worker_lease_token), (42, self.LEASE))
+        if self.upload_fails:
+            raise OSError("synthetic network failure")
+        self.shipped.append(list(body.lines))
+        return object()
 
     def lines(self):
         return [json.loads(line) for line in self.stream.getvalue().splitlines() if line.strip()]
@@ -493,7 +507,8 @@ class RunnerLogTests(unittest.TestCase):
             patch.object(runner, "heartbeat_job", return_value=object()),
             patch.object(runner, "get_job_input", side_effect=input_error, return_value=SimpleNamespace(to_dict=lambda: {})),
             patch.object(runner, "complete_job", return_value=complete or object()),
-            patch.object(runner, "fail_job", return_value=object()),
+            patch.object(runner, "fail_job", side_effect=self.on_fail),
+            patch.object(runner, "append_job_logs", side_effect=self.ship),
             patch.object(runner, "fake_provider", side_effect=lambda *_: time.sleep(0.05) or {"provider": "fixture"}),
         ):
             self.assertTrue(runner.run_once(self.client, heartbeat_interval=heartbeat_interval))
@@ -533,6 +548,27 @@ class RunnerLogTests(unittest.TestCase):
                 self.assertIn("job_failed", output)
                 for leaked in (text, "hf_secret", "sig=abc", "users_email_key", "ann@example.test", self.LEASE):
                     self.assertNotIn(leaked, output)
+
+    def test_job_lines_are_shipped_masked_and_never_carry_secrets_or_clip_paths(self):
+        secret = "provider said token=hf_secret at https://ann:pw-synth@api.example.test/v1?sig=abc for /tmp/private/audio.wav"
+        self.run_job("DEBUG", input_error=RuntimeError(secret), heartbeat_interval=0.01)
+        shipped = [json.loads(line) for batch in self.shipped for line in batch]
+        events = [line["event"] for line in shipped]
+        self.assertEqual(events[:2], ["job_claimed", "job_started"])
+        self.assertIn("job_failed", events)
+        self.assertTrue(all(len(batch) <= 50 for batch in self.shipped))
+        text = json.dumps(shipped)
+        for leaked in (secret, "hf_secret", "ann:pw-synth", "sig=abc", "/tmp/private", "audio.wav", self.LEASE, "Bearer"):
+            self.assertNotIn(leaked, text)
+
+    def test_failure_lines_are_sent_before_the_failure_is_reported(self):
+        self.run_job("INFO", input_error=RuntimeError("synthetic"))
+        self.assertIn("job_failed", self.shipped_at_failure)
+
+    def test_a_failing_log_upload_never_fails_the_job(self):
+        self.upload_fails = True
+        self.run_job("INFO")
+        self.assertIn("job_completed", [line["event"] for line in self.lines()])
 
     def test_heartbeats_and_empty_claims_only_appear_at_debug(self):
         self.run_job("INFO", heartbeat_interval=0.01)

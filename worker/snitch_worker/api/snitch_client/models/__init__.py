@@ -11,6 +11,7 @@ from .analysis_queue_summary import AnalysisQueueSummary
 from .analysis_queue_task import AnalysisQueueTask
 from .analysis_run_history import AnalysisRunHistory
 from .analysis_step_event import AnalysisStepEvent
+from .append_worker_job_logs_response_200 import AppendWorkerJobLogsResponse200
 from .attribution import Attribution
 from .attribution_author import AttributionAuthor
 from .attribution_candidate import AttributionCandidate
@@ -96,6 +97,8 @@ from .job_event_actor import JobEventActor
 from .job_event_event import JobEventEvent
 from .job_history import JobHistory
 from .job_input import JobInput
+from .job_log_line import JobLogLine
+from .job_logs import JobLogs
 from .job_page import JobPage
 from .job_result_type_0 import JobResultType0
 from .job_status import JobStatus
@@ -356,6 +359,7 @@ from .worker_install_voice import WorkerInstallVoice
 from .worker_install_voice_state import WorkerInstallVoiceState
 from .worker_job_input import WorkerJobInput
 from .worker_job_input_tracks_item import WorkerJobInputTracksItem
+from .worker_job_logs_input import WorkerJobLogsInput
 from .worker_machine import WorkerMachine
 from .worker_model import WorkerModel
 from .worker_models import WorkerModels
@@ -373,7 +377,12 @@ from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 from .worker_transcription_config import WorkerTranscriptionConfig
 from .worker_transcription_config_error_code import WorkerTranscriptionConfigErrorCode
+from .worker_transcription_failure_input import WorkerTranscriptionFailureInput
+from .worker_transcription_failure_input_error_type import WorkerTranscriptionFailureInputErrorType
+from .worker_transcription_failure_input_method import WorkerTranscriptionFailureInputMethod
 from .worker_transcription_profile import WorkerTranscriptionProfile
+from .worker_transcription_reachability import WorkerTranscriptionReachability
+from .worker_transcription_reachability_input import WorkerTranscriptionReachabilityInput
 from .worker_transcription_status_input import WorkerTranscriptionStatusInput
 from .worker_transcription_status_input_error_code import WorkerTranscriptionStatusInputErrorCode
 from .worker_vocabulary_term import WorkerVocabularyTerm
@@ -402,6 +411,7 @@ __all__ = (
     "AnalysisQueueTask",
     "AnalysisRunHistory",
     "AnalysisStepEvent",
+    "AppendWorkerJobLogsResponse200",
     "Attribution",
     "AttributionAuthor",
     "AttributionCandidate",
@@ -487,6 +497,8 @@ __all__ = (
     "JobEventEvent",
     "JobHistory",
     "JobInput",
+    "JobLogLine",
+    "JobLogs",
     "JobPage",
     "JobResultType0",
     "JobStatus",
@@ -747,6 +759,7 @@ __all__ = (
     "WorkerInstallVoiceState",
     "WorkerJobInput",
     "WorkerJobInputTracksItem",
+    "WorkerJobLogsInput",
     "WorkerMachine",
     "WorkerModel",
     "WorkerModels",
@@ -764,7 +777,12 @@ __all__ = (
     "WorkerResultInputResult",
     "WorkerTranscriptionConfig",
     "WorkerTranscriptionConfigErrorCode",
+    "WorkerTranscriptionFailureInput",
+    "WorkerTranscriptionFailureInputErrorType",
+    "WorkerTranscriptionFailureInputMethod",
     "WorkerTranscriptionProfile",
+    "WorkerTranscriptionReachability",
+    "WorkerTranscriptionReachabilityInput",
     "WorkerTranscriptionStatusInput",
     "WorkerTranscriptionStatusInputErrorCode",
     "WorkerVocabularyTerm",

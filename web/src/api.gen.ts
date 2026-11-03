@@ -930,6 +930,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/worker/jobs/{id}/logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Lignes de log d'un job envoyées par le Worker par lots (2 s ou 50 lignes), déjà masquées côté Worker. Le serveur ne garde que les 50 dernières lignes du job ; elles sont supprimées avec le job. Lease obligatoire. */
+    post: operations["appendWorkerJobLogs"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/jobs/{id}/logs/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Lignes de log d'un job (50 au plus, les plus récentes) : flux text/event-stream, un évènement snapshot {seq, snapshot: JobLogs} à chaque ajout ; le droit est revérifié avant chaque snapshot. */
+    get: operations["streamJobLogs"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/worker/jobs/{id}/complete": {
     parameters: {
       query?: never;
@@ -3200,6 +3234,16 @@ export interface components {
       /** @description Adresse Whisper propre à ce Worker, si définie. */
       endpoint_override?: string;
     };
+    /** @description Dernier test GET /v1/models par le Worker. Détail du dernier échec réservé aux administrateurs. */
+    WorkerTranscriptionReachability: {
+      reachable: boolean;
+      /** Format: date-time */
+      checked_at: string;
+      latency_ms: number;
+      last_failure:
+        | components["schemas"]["WorkerTranscriptionFailureInput"]
+        | null;
+    };
     WorkerTranscriptionStatusInput: {
       version: string;
       active: boolean;
@@ -3213,6 +3257,8 @@ export interface components {
       transcription_model?: string;
       /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachability"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
       install?: components["schemas"]["WorkerInstall"];
@@ -3265,6 +3311,9 @@ export interface components {
       | "gpu_unavailable"
       | "service_start_failed"
       | "hf_access_denied"
+      | "hf_token_invalid"
+      | "hf_gated_denied"
+      | "hf_repo_invalid"
       | "unknown";
     WorkerInstallEventInput: {
       phase: components["schemas"]["WorkerInstallPhase"];
@@ -3365,6 +3414,8 @@ export interface components {
       transcription_model?: string;
       /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
       transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachability"];
       /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
       transcription_config_ready?: boolean;
       install?: components["schemas"]["WorkerInstall"];
@@ -3446,6 +3497,30 @@ export interface components {
       supported_steps: string[];
       /** @description Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer. */
       models?: components["schemas"]["WorkerModels"];
+      /** @description Dernier résultat de joignabilité du serveur de transcription, testé par le Worker toutes les 60 s hors du pouls. Omis tant que le Worker ne connaît pas de configuration. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachabilityInput"];
+    };
+    /** @description Résultat de GET /v1/models sur le serveur de transcription. Jamais d'identifiants : l'URL est déjà sans utilisateur ni requête. */
+    WorkerTranscriptionReachabilityInput: {
+      /** Format: date-time */
+      checked_at: string;
+      reachable: boolean;
+      latency_ms: number;
+      /** @description Détail du dernier échec connu pour la cible courante. */
+      last_failure?: components["schemas"]["WorkerTranscriptionFailureInput"];
+    };
+    WorkerTranscriptionFailureInput: {
+      /** Format: date-time */
+      failed_at: string;
+      /** @enum {string} */
+      method: "GET";
+      url: string;
+      status_code?: number | null;
+      latency_ms: number;
+      /** @enum {string} */
+      error_type: "timeout" | "connection" | "http_status" | "invalid_body";
+      /** @description Extrait borné de la réponse, vide hors statut HTTP ou corps invalide. */
+      body_excerpt: string;
     };
     WorkerClaim: {
       job: components["schemas"]["Job"] | null;
@@ -3573,6 +3648,9 @@ export interface components {
         | ""
         | "hf_token_missing"
         | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
         | "disk_full"
         | "runtime_incompatible"
         | "inference_failed"
@@ -3630,6 +3708,9 @@ export interface components {
         | ""
         | "hf_token_missing"
         | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
         | "disk_full"
         | "runtime_incompatible"
         | "inference_failed"
@@ -4547,6 +4628,20 @@ export interface components {
       | "hf_network"
       | "models_volume_unwritable"
       | "hf_cache_error";
+    WorkerJobLogsInput: {
+      lines: string[];
+    };
+    JobLogLine: {
+      /** Format: int64 */
+      seq: number;
+      /** @description Ligne JSON de log, masquée ; jamais de jeton, Bearer, URL avec identifiants ni chemin de clip. */
+      text: string;
+    };
+    JobLogs: {
+      /** Format: int64 */
+      job_id: number;
+      lines: components["schemas"]["JobLogLine"][];
+    };
     WorkerFailureInput: {
       /** @description Code de Cause d'échec (voir FailureCode). Un code inconnu est enregistré comme worker_failed. */
       error: string;
@@ -7523,6 +7618,76 @@ export interface operations {
         };
       };
       /** @description Jeton invalide, lease perdu ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  appendWorkerJobLogs: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Worker-Lease-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerJobLogsInput"];
+      };
+    };
+    responses: {
+      /** @description Lignes reçues */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            stored: number;
+          };
+        };
+      };
+      /** @description Jeton invalide, lease perdu (409 lease_not_owned) ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamJobLogs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_job_id ; 401 unauthorized ; 403 forbidden ; 404 job_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

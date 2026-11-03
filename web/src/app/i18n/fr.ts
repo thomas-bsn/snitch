@@ -349,6 +349,7 @@ export const fr: Messages = {
       testedVersion: "Testée",
       activeVersion: "Active",
       error: "Erreur",
+      reachability: "Joignabilité",
     },
     undeclared: "Non déclaré",
     online: "Connecté",
@@ -371,6 +372,27 @@ export const fr: Messages = {
     errorConnectionFailed:
       "Connexion échouée — vérifiez l'adresse et le réseau",
     errorModelMissing: "Modèle indisponible sur le serveur",
+    reach: {
+      reachable: "Joignable",
+      unreachable: "Injoignable",
+      unknown: "Non testé",
+      lastFailure: "Dernier échec",
+      method: "Méthode",
+      url: "URL",
+      status: "Statut HTTP",
+      latency: "Latence",
+      errorType: "Type d'erreur",
+      excerpt: "Extrait de réponse",
+      failedAt: "Heure",
+      checkedAt: "Dernier test",
+      none: "aucun",
+      errorTypes: {
+        timeout: "délai dépassé",
+        connection: "connexion impossible",
+        http_status: "réponse HTTP en erreur",
+        invalid_body: "réponse inattendue",
+      },
+    },
     noOverride: "Adresse commune utilisée",
     removeOverride: "Retirer l'adresse propre",
   },
@@ -459,6 +481,12 @@ export const fr: Messages = {
         "Jeton Hugging Face absent sur ce Worker. Enregistrez-le depuis la machine du Worker avec la commande store-token (voir docs/real-voice-worker.md), puis réessayez.",
       hf_access_denied:
         "Accès Hugging Face refusé : acceptez les conditions du modèle avec le compte du jeton.",
+      hf_token_invalid:
+        "Hugging Face n’a pas accepté le jeton : vérifiez-le (accès en lecture), puis relancez la commande.",
+      hf_gated_denied:
+        "Le compte propriétaire du jeton n’a pas accepté les conditions des modèles : acceptez-les sur Hugging Face, puis relancez.",
+      hf_repo_invalid:
+        "Un dépôt ou une révision de modèle est introuvable sur Hugging Face : signalez-le, la version de Snitch ne correspond peut-être pas.",
       disk_full: "Disque plein sur la machine du Worker.",
       hf_auth_required:
         "Hugging Face a refusé le jeton : vérifiez-le et acceptez les conditions du modèle avec son compte.",
@@ -1165,6 +1193,9 @@ export const fr: Messages = {
         gpu_unavailable: "GPU inaccessible à Docker",
         service_start_failed: "Le service ne démarre pas",
         hf_access_denied: "Accès Hugging Face refusé",
+        hf_token_invalid: "Jeton Hugging Face refusé",
+        hf_gated_denied: "Conditions du modèle non acceptées",
+        hf_repo_invalid: "Dépôt de modèle introuvable",
         unknown: "Cause inconnue",
       },
       recovery: {
@@ -1187,6 +1218,12 @@ export const fr: Messages = {
           "Consultez les journaux Docker sur la machine, puis relancez la commande.",
         hf_access_denied:
           "Vérifiez le jeton Hugging Face et les conditions du modèle, puis relancez la commande. La transcription n’est pas touchée.",
+        hf_token_invalid:
+          "Vérifiez le jeton Hugging Face (accès en lecture), puis relancez la commande. La transcription n’est pas touchée.",
+        hf_gated_denied:
+          "Acceptez les conditions des deux modèles avec le compte du jeton, puis relancez la commande. La transcription n’est pas touchée.",
+        hf_repo_invalid:
+          "Signalez-le à votre administrateur : un dépôt ou une révision de modèle est introuvable. La transcription n’est pas touchée.",
         unknown:
           "Consultez la sortie du terminal sur la machine, puis relancez la commande.",
       },

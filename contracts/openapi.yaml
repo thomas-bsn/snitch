@@ -2996,6 +2996,115 @@
         }
       }
     },
+    "/api/worker/jobs/{id}/logs": {
+      "post": {
+        "operationId": "appendWorkerJobLogs",
+        "description": "Lignes de log d'un job envoyées par le Worker par lots (2 s ou 50 lignes), déjà masquées côté Worker. Le serveur ne garde que les 50 dernières lignes du job ; elles sont supprimées avec le job. Lease obligatoire.",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Worker-Lease-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerJobLogsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes reçues",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stored"],
+                  "properties": {
+                    "stored": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Jeton invalide, lease perdu (409 lease_not_owned) ou serveur indisponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/jobs/{id}/logs/events": {
+      "get": {
+        "operationId": "streamJobLogs",
+        "description": "Administrateurs. Lignes de log d'un job (50 au plus, les plus récentes) : flux text/event-stream, un évènement snapshot {seq, snapshot: JobLogs} à chaque ajout ; le droit est revérifié avant chaque snapshot.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Flux text/event-stream. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (400 invalid_job_id ; 401 unauthorized ; 403 forbidden ; 404 job_not_found)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/worker/jobs/{id}/complete": {
       "post": {
         "operationId": "completeWorkerJob",
@@ -6507,6 +6616,18 @@
           "endpoint_override": {"type": "string", "description": "Adresse Whisper propre à ce Worker, si définie."}
         }
       },
+      "WorkerTranscriptionReachability": {
+        "type": "object",
+        "required": ["reachable", "checked_at", "latency_ms", "last_failure"],
+        "additionalProperties": false,
+        "description": "Dernier test GET /v1/models par le Worker. Détail du dernier échec réservé aux administrateurs.",
+        "properties": {
+          "reachable": {"type": "boolean"},
+          "checked_at": {"type": "string", "format": "date-time"},
+          "latency_ms": {"type": "integer"},
+          "last_failure": {"allOf": [{"$ref": "#/components/schemas/WorkerTranscriptionFailureInput"}], "nullable": true}
+        }
+      },
       "WorkerTranscriptionStatusInput": {
         "type": "object",
         "required": ["version", "active", "error_code"],
@@ -6534,6 +6655,7 @@
 "supported_steps":{"type": "array", "items": {"type": "string"}, "nullable": true, "description": "Last reported task capabilities; a worker that never reported has none; revoked workers must not be selected."},
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "transcription_config": {"$ref": "#/components/schemas/WorkerTranscriptionConfig", "nullable": true, "description": "Statut de synchronisation de la configuration de transcription pour ce Worker."},
+          "transcription_reachability": {"$ref": "#/components/schemas/WorkerTranscriptionReachability", "nullable": true, "description": "Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement."},
           "transcription_config_ready": {"type": "boolean", "description": "Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1)."},
           "install": {"$ref": "#/components/schemas/WorkerInstall"},
           "machine": {"$ref": "#/components/schemas/WorkerMachine"},
@@ -6590,7 +6712,7 @@
         }
       },
       "WorkerInstallPhase": {"type": "string", "enum": ["prerequisites","registration","image","permissions","gpu","voice-models","voice-test","service"]},
-      "WorkerInstallCause": {"type": "string", "enum": ["unsupported_platform","docker_unavailable","registration_rejected","network_unreachable","image_pull_failed","volume_not_writable","hf_cache_not_writable","gpu_unavailable","service_start_failed","hf_access_denied","unknown"], "description": "Codes de cause stables du lanceur."},
+      "WorkerInstallCause": {"type": "string", "enum": ["unsupported_platform","docker_unavailable","registration_rejected","network_unreachable","image_pull_failed","volume_not_writable","hf_cache_not_writable","gpu_unavailable","service_start_failed","hf_access_denied","hf_token_invalid","hf_gated_denied","hf_repo_invalid","unknown"], "description": "Codes de cause stables du lanceur."},
       "WorkerInstallEventInput": {"type": "object", "additionalProperties": false, "required": ["phase", "status", "occurred_at"], "properties": {"phase": {"$ref": "#/components/schemas/WorkerInstallPhase"}, "status": {"type": "string", "enum": ["started", "succeeded", "failed"]}, "cause_code": {"type": "string", "description": "Obligatoire (un code de WorkerInstallCause) si le statut est failed, vide sinon."}, "occurred_at": {"type": "string", "format": "date-time", "description": "Horodatage d'origine, conservé même si l'événement a été mis en file hors ligne."}}},
       "WorkerInstallEvent": {"type": "object", "required": ["phase", "status", "cause_code", "occurred_at", "received_at", "received_later"], "properties": {"phase": {"$ref": "#/components/schemas/WorkerInstallPhase"}, "status": {"type": "string", "enum": ["started", "succeeded", "failed"]}, "cause_code": {"type": "string"}, "occurred_at": {"type": "string", "format": "date-time"}, "received_at": {"type": "string", "format": "date-time"}, "received_later": {"type": "boolean", "description": "Vrai si l'événement a été mis en file hors ligne et reçu longtemps après son horodatage d'origine."}}},
       "WorkerInstallVoice": {"type": "object", "required": ["state", "cause_code"], "properties": {"state": {"type": "string", "enum": ["pending", "ready", "unavailable"], "description": "ready seulement après une inférence synthétique réussie."}, "cause_code": {"type": "string"}}},
@@ -6755,6 +6877,7 @@
         "properties": {
           "transcription_model": {"type": "string", "maxLength": 100, "description": "Nom facultatif du modèle propre au Worker."},
           "transcription_config": {"$ref": "#/components/schemas/WorkerTranscriptionConfig", "nullable": true, "description": "Statut de synchronisation de la configuration de transcription pour ce Worker."},
+          "transcription_reachability": {"$ref": "#/components/schemas/WorkerTranscriptionReachability", "nullable": true, "description": "Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement."},
           "transcription_config_ready": {"type": "boolean", "description": "Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1)."},
           "install": {"$ref": "#/components/schemas/WorkerInstall"},
           "machine": {"$ref": "#/components/schemas/WorkerMachine"},
@@ -6981,7 +7104,37 @@
           "models": {
             "$ref": "#/components/schemas/WorkerModels",
             "description": "Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer."
+          },
+          "transcription_reachability": {
+            "$ref": "#/components/schemas/WorkerTranscriptionReachabilityInput",
+            "description": "Dernier résultat de joignabilité du serveur de transcription, testé par le Worker toutes les 60 s hors du pouls. Omis tant que le Worker ne connaît pas de configuration."
           }
+        }
+      },
+      "WorkerTranscriptionReachabilityInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["checked_at", "reachable", "latency_ms"],
+        "description": "Résultat de GET /v1/models sur le serveur de transcription. Jamais d'identifiants : l'URL est déjà sans utilisateur ni requête.",
+        "properties": {
+          "checked_at": {"type": "string", "format": "date-time"},
+          "reachable": {"type": "boolean"},
+          "latency_ms": {"type": "integer", "minimum": 0, "maximum": 600000},
+          "last_failure": {"$ref": "#/components/schemas/WorkerTranscriptionFailureInput", "nullable": true, "description": "Détail du dernier échec connu pour la cible courante."}
+        }
+      },
+      "WorkerTranscriptionFailureInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["failed_at", "method", "url", "latency_ms", "error_type", "body_excerpt"],
+        "properties": {
+          "failed_at": {"type": "string", "format": "date-time"},
+          "method": {"type": "string", "enum": ["GET"]},
+          "url": {"type": "string", "minLength": 1, "maxLength": 2048},
+          "status_code": {"type": "integer", "minimum": 100, "maximum": 599, "nullable": true},
+          "latency_ms": {"type": "integer", "minimum": 0, "maximum": 600000},
+          "error_type": {"type": "string", "enum": ["timeout", "connection", "http_status", "invalid_body"]},
+          "body_excerpt": {"type": "string", "maxLength": 200, "description": "Extrait borné de la réponse, vide hors statut HTTP ou corps invalide."}
         }
       },
       "WorkerClaim": {
@@ -7098,12 +7251,12 @@
       "VoiceTrialSpeaker": {"type": "object", "required": ["label", "speaking_seconds", "turn_count"], "properties": {"label": {"type": "string"}, "speaking_seconds": {"type": "number"}, "turn_count": {"type": "integer"}}},
       "VoiceTrial": {"type": "object", "required": ["id", "clip_id", "audio_stream_index", "model_id", "num_speakers", "min_speakers", "max_speakers", "status", "speakers"], "properties": {"id": {"type": "integer", "format": "int64"}, "clip_id": {"type": "integer", "format": "int64"}, "audio_stream_index": {"type": "integer"}, "model_id": {"type": "string"}, "num_speakers": {"type": "integer", "nullable": true}, "min_speakers": {"type": "integer", "nullable": true}, "max_speakers": {"type": "integer", "nullable": true}, "status": {"type": "string", "enum": ["pending", "running", "done", "failed"]}, "speakers": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceTrialSpeaker"}}, "created_at": {"type": "string"}}},
       "VoiceTrials": {"type": "object", "required": ["trials"], "properties": {"trials": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceTrial"}}}},
-      "VoiceModelWorkerState": {"type": "object", "required": ["worker_id", "name", "connected", "state", "cause_code", "bytes_received", "bytes_total"], "properties": {"worker_id": {"type": "string"}, "name": {"type": "string"}, "connected": {"type": "boolean"}, "state": {"type": "string", "enum": ["not_installed", "downloading", "verifying", "ready", "failed"]}, "cause_code": {"type": "string", "enum": ["", "hf_token_missing", "hf_access_denied", "disk_full", "runtime_incompatible", "inference_failed", "hf_auth_required", "hf_not_found", "hf_network", "models_volume_unwritable", "hf_cache_error"]}, "bytes_received": {"type": "integer", "format": "int64"}, "bytes_total": {"type": "integer", "format": "int64"}}},
+      "VoiceModelWorkerState": {"type": "object", "required": ["worker_id", "name", "connected", "state", "cause_code", "bytes_received", "bytes_total"], "properties": {"worker_id": {"type": "string"}, "name": {"type": "string"}, "connected": {"type": "boolean"}, "state": {"type": "string", "enum": ["not_installed", "downloading", "verifying", "ready", "failed"]}, "cause_code": {"type": "string", "enum": ["", "hf_token_missing", "hf_access_denied","hf_token_invalid","hf_gated_denied","hf_repo_invalid", "disk_full", "runtime_incompatible", "inference_failed", "hf_auth_required", "hf_not_found", "hf_network", "models_volume_unwritable", "hf_cache_error"]}, "bytes_received": {"type": "integer", "format": "int64"}, "bytes_total": {"type": "integer", "format": "int64"}}},
       "VoiceModel": {"type": "object", "required": ["id", "kind", "engine", "repo", "revision", "license", "gated", "max_speakers", "size_bytes", "supports_num_speakers", "active", "candidate", "installed", "workers"], "properties": {"id": {"type": "string"}, "kind": {"type": "string", "enum": ["diarization", "fingerprint"]}, "engine": {"type": "string"}, "repo": {"type": "string"}, "revision": {"type": "string"}, "license": {"type": "string"}, "gated": {"type": "boolean"}, "max_speakers": {"type": "integer", "nullable": true}, "size_bytes": {"type": "integer", "format": "int64"}, "supports_num_speakers": {"type": "boolean"}, "active": {"type": "boolean"}, "candidate": {"type": "boolean"}, "installed": {"type": "boolean", "description": "Au moins un Worker a le modèle prêt."}, "workers": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceModelWorkerState"}}}},
       "VoiceModels": {"type": "object", "required": ["models"], "properties": {"models": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceModel"}}}},
       "WorkerVoiceModel": {"type": "object", "required": ["model_id", "engine", "repo", "revision", "role", "retry"], "properties": {"model_id": {"type": "string"}, "engine": {"type": "string"}, "repo": {"type": "string"}, "revision": {"type": "string"}, "role": {"type": "string", "enum": ["candidate", "active", "removal"]}, "retry": {"type": "boolean"}}},
       "WorkerVoiceModels": {"type": "object", "required": ["models", "remove"], "properties": {"models": {"type": "array", "items": {"$ref": "#/components/schemas/WorkerVoiceModel"}}, "remove": {"type": "array", "items": {"$ref": "#/components/schemas/WorkerVoiceModel"}}}},
-      "WorkerVoiceModelStatus": {"type": "object", "additionalProperties": false, "required": ["model_id", "state"], "properties": {"model_id": {"type": "string", "maxLength": 64}, "state": {"type": "string", "enum": ["downloading", "verifying", "ready", "failed", "removed"]}, "cause_code": {"type": "string", "enum": ["", "hf_token_missing", "hf_access_denied", "disk_full", "runtime_incompatible", "inference_failed", "hf_auth_required", "hf_not_found", "hf_network", "models_volume_unwritable", "hf_cache_error"]}, "bytes_received": {"type": "integer", "format": "int64", "minimum": 0}, "bytes_total": {"type": "integer", "format": "int64", "minimum": 0}}},
+      "WorkerVoiceModelStatus": {"type": "object", "additionalProperties": false, "required": ["model_id", "state"], "properties": {"model_id": {"type": "string", "maxLength": 64}, "state": {"type": "string", "enum": ["downloading", "verifying", "ready", "failed", "removed"]}, "cause_code": {"type": "string", "enum": ["", "hf_token_missing", "hf_access_denied","hf_token_invalid","hf_gated_denied","hf_repo_invalid", "disk_full", "runtime_incompatible", "inference_failed", "hf_auth_required", "hf_not_found", "hf_network", "models_volume_unwritable", "hf_cache_error"]}, "bytes_received": {"type": "integer", "format": "int64", "minimum": 0}, "bytes_total": {"type": "integer", "format": "int64", "minimum": 0}}},
       "VoiceOverviewWorker": {"type": "object", "required": ["id", "name", "connected", "voice_state", "cause_code", "diarization", "fingerprint", "holds_active_diarization", "holds_active_fingerprint"], "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "connected": {"type": "boolean"}, "voice_state": {"type": "string", "enum": ["ready", "untested", "unavailable", "models_missing"], "description": "ready : détient les modèles actifs et l'inférence de test a réussi ; untested : détient les modèles sans preuve d'inférence ; unavailable : un téléchargement ou un test a échoué (voir cause_code) ; models_missing : ne déclare pas les modèles actifs."}, "cause_code": {"type": "string"}, "diarization": {"nullable": true, "allOf": [{"$ref": "#/components/schemas/WorkerModel"}]}, "fingerprint": {"nullable": true, "allOf": [{"$ref": "#/components/schemas/WorkerModel"}]}, "holds_active_diarization": {"type": "boolean"}, "holds_active_fingerprint": {"type": "boolean"}}},
       "VoiceOverview": {"type": "object", "required": ["provider", "active_models", "workers_total", "workers_voice_ready", "pending_voice_jobs", "workers"], "properties": {"provider": {"type": "string", "enum": ["fake", "pyannote", "nemo"]}, "active_models": {"type": "object", "required": ["diarization", "fingerprint"], "properties": {"diarization": {"type": "string"}, "fingerprint": {"type": "string"}}}, "workers_total": {"type": "integer"}, "workers_voice_ready": {"type": "integer"}, "pending_voice_jobs": {"type": "integer", "description": "Travaux vocaux en attente tant qu'aucun Worker n'est prêt ; 0 sinon."}, "workers": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceOverviewWorker"}}}},
       "VoicePipelineState": {"type": "object", "required": ["version", "config"], "properties": {"version": {"type": "string"}, "config": {"$ref": "#/components/schemas/VoicePipeline"}}},
@@ -7618,6 +7771,40 @@
           "models_volume_unwritable",
           "hf_cache_error"
         ]
+      },
+      "WorkerJobLogsInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lines"],
+        "properties": {
+          "lines": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "description": "Une ligne JSON de log, déjà masquée par le Worker."
+            }
+          }
+        }
+      },
+      "JobLogLine": {
+        "type": "object",
+        "required": ["seq", "text"],
+        "properties": {
+          "seq": {"type": "integer", "format": "int64"},
+          "text": {"type": "string", "description": "Ligne JSON de log, masquée ; jamais de jeton, Bearer, URL avec identifiants ni chemin de clip."}
+        }
+      },
+      "JobLogs": {
+        "type": "object",
+        "required": ["job_id", "lines"],
+        "properties": {
+          "job_id": {"type": "integer", "format": "int64"},
+          "lines": {"type": "array", "maxItems": 50, "items": {"$ref": "#/components/schemas/JobLogLine"}}
+        }
       },
       "WorkerFailureInput": {
         "type": "object",
