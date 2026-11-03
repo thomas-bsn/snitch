@@ -2875,7 +2875,7 @@
     "/api/admin/hf-token": {
       "get": {
         "operationId": "getHFToken",
-        "description": "Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.",
+        "description": "Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée.",
         "responses": {
           "200": {"description": "État du token central", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HFTokenStatus"}}}},
           "default": {"description": "Erreur (401 session required, 403 permission, 503 unavailable)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
@@ -7466,10 +7466,9 @@
       "HFTokenStatus": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["configured", "fingerprint", "unreadable", "workers"],
+        "required": ["configured", "unreadable", "workers"],
         "properties": {
           "configured": {"type": "boolean"},
-          "fingerprint": {"type": "string", "description": "Empreinte non réversible, vide si non configuré"},
           "unreadable": {"type": "boolean", "description": "Valeur présente mais illisible avec la clé maître courante : à ressaisir"},
           "workers": {
             "type": "array",

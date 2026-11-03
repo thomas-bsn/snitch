@@ -24,10 +24,9 @@ const hfSyntheticToken = "hf_SyntheticTokenForTestsOnly0123456789abcdef"
 const hfSyntheticReplacement = "hf_SyntheticReplacementTokenOnly0123456789"
 
 type hfAdminView struct {
-	Configured  bool   `json:"configured"`
-	Fingerprint string `json:"fingerprint"`
-	Unreadable  bool   `json:"unreadable"`
-	Workers     []struct {
+	Configured bool `json:"configured"`
+	Unreadable bool `json:"unreadable"`
+	Workers    []struct {
 		ID        string `json:"id"`
 		Source    string `json:"source"`
 		State     string `json:"state"`
@@ -135,10 +134,10 @@ func testHFToken(t *testing.T, pool *pgxpool.Pool) {
 	// Save once: the value is kept sealed, never returned.
 	h.do(h.admin, http.MethodPut, h.ts.URL+"/api/admin/hf-token", []byte(`{"token":"`+hfSyntheticToken+`"}`), h.csrf, "", true, http.StatusNoContent)
 	raw, view := hfAdminGet(t, h)
-	if !view.Configured || view.Fingerprint == "" || view.Unreadable || bytes.Contains(raw, []byte(hfSyntheticToken)) {
+	if !view.Configured || view.Unreadable || bytes.Contains(raw, []byte(hfSyntheticToken)) || bytes.Contains(bytes.ToLower(raw), []byte("fingerprint")) || bytes.Contains(raw, []byte("sha256:")) {
 		t.Fatalf("admin view after save: %s", raw)
 	}
-	if bytes.Contains(logs.Bytes(), []byte(hfSyntheticToken)) || bytes.Contains(logs.Bytes(), []byte(hfFingerprint(hfSyntheticToken))) {
+	if bytes.Contains(logs.Bytes(), []byte(hfSyntheticToken)) || bytes.Contains(logs.Bytes(), []byte("sha256:")) {
 		t.Fatalf("save log carries the value or its fingerprint: %s", logs.String())
 	}
 	var stored int

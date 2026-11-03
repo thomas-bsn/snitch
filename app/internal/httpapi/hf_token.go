@@ -2,8 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"regexp"
@@ -68,14 +66,6 @@ func hfNextVersion(previous string) string {
 	return strconv.FormatInt(next, 10)
 }
 
-func hfFingerprint(token string) string {
-	if token == "" {
-		return ""
-	}
-	sum := sha256.Sum256([]byte(token))
-	return "sha256:" + hex.EncodeToString(sum[:6])
-}
-
 func (s *Server) saveHFState(r *http.Request, next hfTokenState) error {
 	encoded, err := json.Marshal(next)
 	if err != nil {
@@ -84,7 +74,7 @@ func (s *Server) saveHFState(r *http.Request, next hfTokenState) error {
 	return s.Store.Set(r.Context(), hfTokenKey, string(encoded))
 }
 
-// getHFToken tells an administrator whether a central token is configured, its fingerprint, and what each Worker
+// getHFToken tells an administrator whether a central token is configured (never a fingerprint, ADR 0027), and what each Worker
 // acknowledged. It never returns the value.
 func (s *Server) getHFToken(w http.ResponseWriter, r *http.Request) {
 	state, unreadable, err := s.hfRead(r.Context())
@@ -121,10 +111,9 @@ func (s *Server) getHFToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, http.StatusOK, map[string]any{
-		"configured":  state.Token != "",
-		"fingerprint": hfFingerprint(state.Token),
-		"unreadable":  unreadable,
-		"workers":     workers,
+		"configured": state.Token != "",
+		"unreadable": unreadable,
+		"workers":    workers,
 	})
 }
 
