@@ -211,8 +211,16 @@ async function analyse(
   await api.dispose();
 }
 
+/** Ferme le bandeau « Finir la configuration » : il ne fait pas partie de ce qu'on compare. */
+async function dismissSetupBanner() {
+  const { api, post } = await adminApi();
+  await post("/api/admin/setup-progress/dismiss");
+  await api.dispose();
+}
+
 /** Crée toutes les données et renvoie l'id du clip de la réunion. */
 export async function seedUiCompare(): Promise<{ meetingId: number }> {
+  await dismissSetupBanner();
   await createPersons(PEOPLE);
   const meetingId = await uploadClip(`${MEETING}.mp4`, "shared");
   await analyse(meetingId, SEGMENTS, 5, true);

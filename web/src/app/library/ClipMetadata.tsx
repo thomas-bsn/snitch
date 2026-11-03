@@ -1,4 +1,4 @@
-import { ChevronDown, Pencil } from "lucide-react";
+import { ChevronRight, Pencil } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../api/client";
 import { ErrorAlert } from "../components/Alert";
@@ -151,13 +151,13 @@ export function MetadataDisclosure({ clip }: { clip: Clip }) {
         aria-expanded={open}
         aria-controls={panel}
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex min-h-11 items-center gap-1.5 self-start font-medium text-accent-ink md:min-h-8"
+        className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-accent-ink hover:underline md:min-h-8"
       >
-        <ChevronDown
+        <ChevronRight
           aria-hidden="true"
-          className={`size-4 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`size-4 transition-transform ${open ? "rotate-90" : ""}`}
         />
-        {t("metadata.fullMetadata")}
+        {t(open ? "metadata.hideMetadata" : "metadata.fullMetadata")}
       </button>
       <div id={panel} hidden={!open}>
         <ClipMetadata clip={clip} />
