@@ -39,10 +39,15 @@ type analysisDeletionStake struct {
 	ValidatedVoices int                 `json:"validated_voices"`
 	VoiceSamples    int                 `json:"voice_samples"`
 	Persons         int                 `json:"persons"`
+	// Refusals and Dispositions count what the deleted voices carried: the refused Persons and
+	// the ignored or random voices. Deleting the voices drops them (ADR 0031).
+	Refusals     int `json:"refusals"`
+	Dispositions int `json:"dispositions"`
 }
 
 func (st analysisDeletionStake) empty() bool {
-	return st.Segments == 0 && st.Corrections == nil && st.Voices == 0 && st.ValidatedVoices == 0 && st.VoiceSamples == 0 && st.Persons == 0
+	return st.Segments == 0 && st.Corrections == nil && st.Voices == 0 && st.ValidatedVoices == 0 && st.VoiceSamples == 0 && st.Persons == 0 &&
+		st.Refusals == 0 && st.Dispositions == 0
 }
 
 // resolveDeletionSteps turns the request into the steps to delete, in dependency order.
@@ -89,7 +94,9 @@ func (s *Server) analysisDeletionLoss(ctx context.Context, q queryer, clipID int
  (SELECT count(*) FROM voice_samples vs JOIN local_speakers ls ON ls.id=vs.local_speaker_id WHERE vs.clip_id=$1 AND vs.retired_at IS NULL AND (ls.kind='diarized' OR $2)),
  (SELECT count(DISTINCT p.person_id) FROM (
    SELECT a.person_id FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND (ls.kind='diarized' OR $2) AND a.validation_state='validated'
-   UNION SELECT vs.person_id FROM voice_samples vs JOIN local_speakers ls ON ls.id=vs.local_speaker_id WHERE vs.clip_id=$1 AND vs.retired_at IS NULL AND (ls.kind='diarized' OR $2)) p)`, clipID, all).Scan(&stake.Voices, &stake.ValidatedVoices, &stake.VoiceSamples, &stake.Persons); err != nil {
+   UNION SELECT vs.person_id FROM voice_samples vs JOIN local_speakers ls ON ls.id=vs.local_speaker_id WHERE vs.clip_id=$1 AND vs.retired_at IS NULL AND (ls.kind='diarized' OR $2)) p),
+ (SELECT count(*) FROM voice_refusals vr JOIN local_speakers ls ON ls.id=vr.local_speaker_id WHERE ls.clip_id=$1 AND (ls.kind='diarized' OR $2)),
+ (SELECT count(*) FROM local_speaker_dispositions dsp JOIN local_speakers ls ON ls.id=dsp.local_speaker_id WHERE ls.clip_id=$1 AND (ls.kind='diarized' OR $2))`, clipID, all).Scan(&stake.Voices, &stake.ValidatedVoices, &stake.VoiceSamples, &stake.Persons, &stake.Refusals, &stake.Dispositions); err != nil {
 			return stake, err
 		}
 	}
@@ -192,8 +199,8 @@ func (s *Server) deleteAnalysisSteps(ctx context.Context, clipID int64, steps []
 	if stake.Corrections != nil {
 		corrections = stake.Corrections.TextSegments + stake.Corrections.SpeakerSegments
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO clip_analysis_deletions(clip_id,steps,deleted_by,deleted_by_username,lost_segments,lost_corrections,lost_voices,lost_validated_voices,lost_persons) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		clipID, steps, userID, username, stake.Segments, corrections, stake.Voices, stake.ValidatedVoices, stake.Persons); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO clip_analysis_deletions(clip_id,steps,deleted_by,deleted_by_username,lost_segments,lost_corrections,lost_voices,lost_validated_voices,lost_persons,lost_refusals,lost_dispositions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		clipID, steps, userID, username, stake.Segments, corrections, stake.Voices, stake.ValidatedVoices, stake.Persons, stake.Refusals, stake.Dispositions); err != nil {
 		return stake, err
 	}
 	return stake, tx.Commit(ctx)

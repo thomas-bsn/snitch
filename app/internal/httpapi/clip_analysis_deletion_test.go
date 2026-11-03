@@ -257,3 +257,47 @@ func testClipAnalysisDeletionKeepsOtherVoices(t *testing.T, pool *pgxpool.Pool) 
 		t.Fatal("the audit must count only the diarized speaker lost")
 	}
 }
+
+// testClipAnalysisDeletionReportsRefusals proves that the refusals and the dispositions of the
+// diarized voices are part of what a diarization deletion loses: they are refused without
+// confirmation, reported in the stake, and kept in the clip-level audit.
+func testClipAnalysisDeletionReportsRefusals(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, second := h.diarizeClip()
+	h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/validation", first), map[string]any{"new_person_name": "Alice"}, http.StatusCreated)
+	bob := h.createPerson("Bob")
+	h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/refusal", second), map[string]any{"person_id": bob}, http.StatusOK)
+	h.adminCall(http.MethodPut, fmt.Sprintf("/api/local-speakers/%d/disposition", second), map[string]any{"disposition": "random"}, http.StatusOK)
+	deletePath := h.analysisPath()
+
+	var refusal struct {
+		Error string `json:"error"`
+		Stake struct {
+			Refusals     int `json:"refusals"`
+			Dispositions int `json:"dispositions"`
+		} `json:"stake"`
+	}
+	if err := json.Unmarshal(h.adminCall(http.MethodDelete, deletePath, map[string]any{"steps": []string{"diarization"}}, http.StatusConflict), &refusal); err != nil {
+		t.Fatal(err)
+	}
+	if refusal.Error != "analysis_deletion_confirmation_required" || refusal.Stake.Refusals != 1 || refusal.Stake.Dispositions != 1 {
+		t.Fatalf("the loss must count the refusal and the disposition of the voice: %+v", refusal)
+	}
+	var preview struct {
+		Stake struct {
+			Refusals     int `json:"refusals"`
+			Dispositions int `json:"dispositions"`
+		} `json:"stake"`
+	}
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, deletePath+"/deletion-preview?steps=diarization", nil, http.StatusOK), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.Stake.Refusals != 1 || preview.Stake.Dispositions != 1 {
+		t.Fatalf("the preview must show the refusal and the disposition: %+v", preview)
+	}
+
+	h.adminCall(http.MethodDelete, deletePath, map[string]any{"steps": []string{"diarization"}, "confirm_loss": true}, http.StatusOK)
+	if h.count(`SELECT count(*) FROM clip_analysis_deletions WHERE clip_id=$1 AND steps='{diarization}' AND lost_refusals=1 AND lost_dispositions=1`, h.clipID) != 1 {
+		t.Fatal("the clip-level audit must record the refusals and the dispositions lost by the deletion")
+	}
+}

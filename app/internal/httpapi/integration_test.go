@@ -266,6 +266,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipAnalysisDeletionCascades(t, pool)
 	})
+	t.Run("clip analysis deletion reports refusals", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionReportsRefusals(t, pool)
+	})
 	t.Run("clip analysis read-only view", func(t *testing.T) {
 		reset(t)
 		testClipAnalysisReadOnlyView(t, pool)
