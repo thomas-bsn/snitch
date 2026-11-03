@@ -10,7 +10,8 @@ that fits each kind of work:
   waiting at once and the connection is closed, so nothing further is sent;
 * an opaque in-process inference (pyannote, NeMo, torch) is run by ``interruptible``, which raises
   ``JobCancelled`` inside it: torch goes back to Python between layers, so the exception lands
-  there and unwinds the inference, releasing its locks.
+  there and unwinds the inference. It may land while the library holds one of its own locks, which
+  then stays held: the provider drops the interrupted model and the next job loads a fresh one.
 
 ``JobCancelled`` derives from ``BaseException`` so that the providers' ``except Exception``
 wrappers never turn a cancellation into a failure code.
