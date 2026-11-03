@@ -334,6 +334,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonValidation(t, pool)
 	})
+	t.Run("person figures", func(t *testing.T) {
+		reset(t)
+		testPersonFigures(t, pool)
+	})
 	t.Run("voice matching", func(t *testing.T) {
 		reset(t)
 		testVoiceMatching(t, pool)

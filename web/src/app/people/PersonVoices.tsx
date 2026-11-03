@@ -68,3 +68,51 @@ export function PersonVoices({
     </div>
   );
 }
+
+/** The videos where the Person is heard: one line per clip, with the time of their voices. */
+export function PersonVideos({
+  person,
+  voices,
+}: {
+  person: Person;
+  voices: PersonVoice[];
+}) {
+  const { t } = useI18n();
+  const clips = new Map<number, { name: string; seconds: number }>();
+  for (const voice of voices) {
+    const clip = clips.get(voice.clip_id) ?? {
+      name: voice.clip_name,
+      seconds: 0,
+    };
+    clip.seconds += voice.speaking_seconds;
+    clips.set(voice.clip_id, clip);
+  }
+  const title = t("people.persons.videosTitle", { name: person.display_name });
+  return (
+    <div role="group" aria-label={title} className="flex flex-col gap-2">
+      <h3 className="text-base font-semibold">{title}</h3>
+      {clips.size === 0 && (
+        <p className="text-mute">{t("people.persons.videosEmpty")}</p>
+      )}
+      {clips.size > 0 && (
+        <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+          {[...clips].map(([clipId, clip]) => (
+            <li key={clipId}>
+              <Link
+                to={`/clips/${clipId}`}
+                className="flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2 hover:bg-side"
+              >
+                <span className="break-words font-medium">{clip.name}</span>
+                <span className="text-sm text-mute">
+                  {t("people.voicesPanel.speech", {
+                    seconds: clip.seconds.toFixed(1),
+                  })}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

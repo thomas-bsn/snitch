@@ -2041,6 +2041,25 @@ export const fr: Messages = {
       delete: "Supprimer {name}",
       separate: "Séparer des voix de {name}",
       created: "{name} a été créée.",
+      videoCount: "{count} vidéo(s)",
+      videosTitle: "Vidéos où {name} est entendue",
+      videosEmpty: "Aucune vidéo que vous puissiez voir.",
+      figuresLabel: "Chiffres de {name}",
+      referenceWarningTitle: "Référence à renforcer",
+      referenceWarningNone:
+        "{name} n’a aucun échantillon validé : Snitch ne sait pas encore reconnaître cette voix. Confirmez d’autres voix pour constituer une Référence.",
+      referenceWarningWeak:
+        "{name} a peu d’échantillons validés : la reconnaissance peut être peu fiable. Confirmez d’autres voix pour renforcer la Référence.",
+    },
+    figures: {
+      minutes: "{minutes} min de parole",
+      hours: "{hours} h {minutes} min de parole",
+    },
+    reference: {
+      levelLabel: "Référence : {level}",
+      good: "solide",
+      weak: "faible",
+      none: "absente",
     },
     actions: {
       label: "Actions sur {name}",

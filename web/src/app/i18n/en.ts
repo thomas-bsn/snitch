@@ -2006,6 +2006,25 @@ export const en = {
       delete: "Delete {name}",
       separate: "Separate voices of {name}",
       created: "{name} was created.",
+      videoCount: "{count} video(s)",
+      videosTitle: "Videos where {name} is heard",
+      videosEmpty: "No video you can see.",
+      figuresLabel: "Figures of {name}",
+      referenceWarningTitle: "Reference to strengthen",
+      referenceWarningNone:
+        "{name} has no validated sample: Snitch cannot recognize this voice yet. Confirm more voices to build a Reference.",
+      referenceWarningWeak:
+        "{name} has few validated samples: recognition may be unreliable. Confirm more voices to strengthen the Reference.",
+    },
+    figures: {
+      minutes: "{minutes} min of speech",
+      hours: "{hours} h {minutes} min of speech",
+    },
+    reference: {
+      levelLabel: "Reference: {level}",
+      good: "good",
+      weak: "weak",
+      none: "none",
     },
     actions: {
       label: "Actions on {name}",

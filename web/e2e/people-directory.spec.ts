@@ -121,13 +121,14 @@ test.describe.serial("liste des personnes", () => {
     const item = list().getByRole("listitem");
     await expect(item).toHaveCount(1);
     await expect(item).toContainText("Account");
-    await expect(item).toContainText("0 voice(s)");
-    await expect(item).toContainText("No reference");
+    await expect(item).toContainText("0 video(s)");
+    await expect(item).toContainText("0 min of speech");
+    await expect(item).toContainText("Reference: none");
     // The list holds no action.
     await expect(item.getByRole("button")).toHaveCount(0);
 
     await search().fill("Personne 0043");
-    await expect(list().getByRole("listitem")).toContainText("No reference");
+    await expect(list().getByRole("listitem")).toContainText("Reference: none");
     await expect(list().getByRole("listitem")).not.toContainText("Account");
   });
 
@@ -144,9 +145,16 @@ test.describe.serial("liste des personnes", () => {
     ).toBeVisible();
     await expect(record).toContainText("No reference");
     await expect(record).toContainText("Linked to an account");
+    // The sheet is a full page: the grid is gone, and a weak Reference is flagged.
+    await expect(list()).toHaveCount(0);
+    await expect(record.getByRole("note")).toContainText(
+      "Reference to strengthen",
+    );
     await expect(
-      list().getByRole("link", { name: /Personne 0042/ }),
-    ).toHaveAttribute("aria-current", "page");
+      record.getByRole("group", {
+        name: "Videos where Personne 0042 is heard",
+      }),
+    ).toContainText("No video you can see.");
     await expect(
       page
         .getByRole("navigation", { name: "People sections" })
@@ -184,7 +192,7 @@ test.describe.serial("liste des personnes", () => {
 
     await list().getByRole("link").first().click();
     await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
-    await expect(list()).toBeHidden();
+    await expect(list()).toHaveCount(0);
     await expectNoViolations(page);
     await page.getByRole("link", { name: "Back to people" }).click();
     await expect(list()).toBeVisible();
@@ -204,7 +212,11 @@ test.describe.serial("liste des personnes", () => {
     ).toBeVisible();
     await expect(page.getByText("Sans référence").first()).toBeVisible();
     await expect(page.getByText("Lié à un compte").first()).toBeVisible();
+    await expect(page.getByText("Référence à renforcer")).toBeVisible();
+    await page.goto("/people");
     await expect(page.getByText(`Page 1 sur ${PAGES}`)).toBeVisible();
+    await expect(page.getByText("Référence : absente").first()).toBeVisible();
+    await page.goto(`/people/${accountPersonId}`);
     await expectNoViolations(page);
     await page.goto("/people/999999");
     await expect(page.getByText("Personne introuvable")).toBeVisible();
