@@ -382,7 +382,11 @@ func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("relaunched task could not be claimed: %+v", thirdClaim)
 	}
 	call(admin, http.MethodDelete, jobPathAdmin, nil, me.CSRF, http.StatusNoContent)
+	// ADR 0029: the cancelled job's lease is refused, and the Worker that stops on that refusal
+	// can record neither a result nor a failure; the job stays cancelled.
+	callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(job.ID)+"/heartbeat", []byte(`{}`), "", worker.Token, thirdClaim.LeaseToken, http.StatusConflict)
 	callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(job.ID)+"/complete", []byte(`{"input_version":"v1","result":{"fixture":true}}`), "", worker.Token, thirdClaim.LeaseToken, http.StatusConflict)
+	callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(job.ID)+"/fail", []byte(`{"error":"provider_unavailable"}`), "", worker.Token, thirdClaim.LeaseToken, http.StatusConflict)
 	var cancelledPage struct {
 		Items []struct {
 			ID     int64  `json:"id"`

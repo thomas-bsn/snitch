@@ -73,6 +73,14 @@ func (h analysisHooks) HasTranscription(ctx context.Context, clipID int64) (bool
 	return ok, err
 }
 
+// HasVoices tells whether a voice detection was launched on the clip: the clip voices then
+// show a status other than none (getClipVoice), and the analysis client reads it the same way.
+func (h analysisHooks) HasVoices(ctx context.Context, clipID int64) (bool, error) {
+	var has bool
+	err := h.s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs WHERE clip_id=$1 AND step LIKE 'voice.diarization.%')`, clipID).Scan(&has)
+	return has, err
+}
+
 // Index follows the semantic indexing of the visible transcription. A missing or failing
 // semantic index never touches the text search, which is fed by the transcription itself.
 func (h analysisHooks) Index(ctx context.Context, clipID int64) (analysis.StepResult, error) {
@@ -398,11 +406,19 @@ type reanalysisStake struct {
 // returns true when the caller may start the run. An active run is never changed by a start,
 // so nothing is asked in that case.
 func (s *Server) reanalysisConfirmed(w http.ResponseWriter, r *http.Request, clipID int64, scope string, opts analysis.Options) bool {
-	forced, err := analysis.ForcedSteps(scope, opts)
-	if err != nil {
+	plan, err := s.Analysis.Plan(r.Context(), clipID, scope, opts)
+	switch {
+	case errors.Is(err, analysis.ErrInvalidScope):
+		fail(w, http.StatusBadRequest, "invalid_analysis_scope")
+		return false
+	case errors.Is(err, analysis.ErrInvalidReanalysis):
 		fail(w, http.StatusBadRequest, "invalid_reanalysis")
 		return false
+	case err != nil:
+		s.internal(w, err)
+		return false
 	}
+	forced := plan.Forced
 	if len(forced) == 0 {
 		return true
 	}

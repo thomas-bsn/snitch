@@ -194,6 +194,22 @@ func testJobLogs(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("unexpected snapshot: job %d, %d lines", frame.Snapshot.JobID, len(frame.Snapshot.Lines))
 		}
 	})
+	t.Run("credentials and clip paths are masked before storage", func(t *testing.T) {
+		line := `{"event":"probe","detail":"Bearer abc.def hf_SyntheticToken123 https://ann:pw-synth@hub.example/x?sig=abc /private/var/synthetic/audio.wav"}`
+		call(anonymous, http.MethodPost, logsPath, map[string]any{"lines": []string{line}}, token, lease, http.StatusOK)
+		var stored string
+		if err = pool.QueryRow(ctx, `SELECT text FROM job_log_lines WHERE job_id=$1 ORDER BY id DESC LIMIT 1`, jobID).Scan(&stored); err != nil {
+			t.Fatal(err)
+		}
+		for _, secret := range []string{"abc.def", "hf_SyntheticToken123", "ann:pw-synth", "sig=abc", "/private/var"} {
+			if strings.Contains(stored, secret) {
+				t.Fatalf("a stored log line keeps %q: %s", secret, stored)
+			}
+		}
+		if !strings.Contains(stored, "Bearer [masked]") || !strings.Contains(stored, "https://hub.example/[masked]") || !strings.Contains(stored, "[masked_path]") {
+			t.Fatalf("the masked values must be marked: %s", stored)
+		}
+	})
 	t.Run("deleting the job deletes its lines", func(t *testing.T) {
 		if _, err = pool.Exec(ctx, `DELETE FROM jobs WHERE id=$1`, jobID); err != nil {
 			t.Fatal(err)

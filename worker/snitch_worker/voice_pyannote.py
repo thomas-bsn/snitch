@@ -22,7 +22,7 @@ import threading
 import time
 from typing import Any, Callable, MutableMapping
 
-from snitch_worker import log, voice_manifest, voice_models
+from snitch_worker import cancellation, log, voice_manifest, voice_models
 from snitch_worker.voice import (
     MIN_EMBEDDABLE_SECONDS,
     VoiceProviderUnavailable,
@@ -283,6 +283,17 @@ class PyannoteProvider:
                     raise VoiceProviderUnavailable("model_load_failed") from None
             return self._open_audio
 
+    def _forget(self, attribute: str, model: Any) -> None:
+        """Drop a cached model whose inference a refused lease interrupted (ADR 0029).
+
+        ``JobCancelled`` lands at an arbitrary instruction of the library: a lock it took there
+        may stay held, and reusing the model would block every later job. The next job loads a
+        fresh one."""
+        with self._load_lock:
+            if getattr(self, attribute) is model:
+                setattr(self, attribute, None)
+        log.emit(logging.INFO, "voice_model_dropped_after_cancellation", model=attribute.lstrip("_"))
+
     # -- steps ------------------------------------------------------------
 
     def diarize(self, config: dict[str, Any], audio_path: str, stream_index: int) -> dict[str, Any]:
@@ -291,7 +302,12 @@ class PyannoteProvider:
         started = time.monotonic()
         try:
             with self._inference_lock:
-                output = pipeline(audio_path, **options)
+                # A refused lease interrupts the inference (ADR 0029); the model is then reloaded.
+                try:
+                    output = cancellation.interruptible(pipeline, audio_path, **options)
+                except cancellation.JobCancelled:
+                    self._forget("_pipeline", pipeline)
+                    raise
             annotation = getattr(output, "speaker_diarization", output)
             turns = [(segment.start, segment.end, label) for segment, _track, label in annotation.itertracks(yield_label=True)]
         except VoiceProviderUnavailable:
@@ -310,11 +326,16 @@ class PyannoteProvider:
         trace: dict[str, Any] = {"stage": "segment_extraction", "embedded": 0, "skipped_out_of_audio": 0, "cut_at_audio_end": 0}
 
         def embed(start: float, end: float) -> Any:
+            cancellation.check()  # between two turns: a refused lease stops the step here
             if "audio" not in state:  # models load only if a turn is long enough
                 trace["stage"] = "model_load"
-                opener = self._audio_opener()
+                opener = state["opener"] = self._audio_opener()
                 trace["stage"] = "audio_decode"
-                audio = state["audio"] = opener(audio_path)
+                try:
+                    audio = state["audio"] = cancellation.interruptible(opener, audio_path)
+                except cancellation.JobCancelled:
+                    self._forget("_open_audio", opener)
+                    raise
                 trace.update(sample_rate=audio.sample_rate, channels=audio.channels, num_samples=audio.num_samples)
             audio = state["audio"]
             trace["stage"] = "segment_extraction"
@@ -328,7 +349,11 @@ class PyannoteProvider:
             trace["input_shape"] = [audio.channels, round((window[1] - window[0]) * audio.sample_rate)]
             trace["stage"] = "embedding_inference"
             with self._inference_lock:
-                vector = audio(*window)
+                try:
+                    vector = cancellation.interruptible(audio, *window)
+                except cancellation.JobCancelled:
+                    self._forget("_open_audio", state["opener"])
+                    raise
             trace["embedded"] += 1
             trace["stage"] = "post_processing"
             return vector

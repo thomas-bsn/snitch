@@ -274,6 +274,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipReanalysis(t, pool)
 	})
+	t.Run("clip reanalysis closure", func(t *testing.T) {
+		reset(t)
+		testClipReanalysisClosure(t, pool)
+	})
 	t.Run("clip analysis step deletion", func(t *testing.T) {
 		reset(t)
 		testClipAnalysisDeletion(t, pool)
@@ -289,6 +293,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("clip analysis deletion cascades", func(t *testing.T) {
 		reset(t)
 		testClipAnalysisDeletionCascades(t, pool)
+	})
+	t.Run("clip analysis deletion reports refusals", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionReportsRefusals(t, pool)
 	})
 	t.Run("clip analysis read-only view", func(t *testing.T) {
 		reset(t)
@@ -484,6 +492,62 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice group links ignore known neighbors", func(t *testing.T) {
 		reset(t)
 		testVoiceGroupLinksIgnoreKnownNeighbors(t, pool)
+	})
+	t.Run("voice disposition", func(t *testing.T) {
+		reset(t)
+		testVoiceDisposition(t, pool)
+	})
+	t.Run("voice disposition transcript", func(t *testing.T) {
+		reset(t)
+		testVoiceDispositionTranscript(t, pool)
+	})
+	t.Run("rediarization carries dispositions", func(t *testing.T) {
+		reset(t)
+		testRediarizationCarriesDispositions(t, pool)
+	})
+	t.Run("rediarization drops uncovered dispositions", func(t *testing.T) {
+		reset(t)
+		testRediarizationDropsUncoveredDispositions(t, pool)
+	})
+	t.Run("rediarization conflict drops dispositions", func(t *testing.T) {
+		reset(t)
+		testRediarizationConflictDropsDispositions(t, pool)
+	})
+	t.Run("random voice counts in verification", func(t *testing.T) {
+		reset(t)
+		testRandomCountsInVerificationCounters(t, pool)
+	})
+	t.Run("ignored voice never deduced", func(t *testing.T) {
+		reset(t)
+		testIgnoredVoiceNeverDeduced(t, pool)
+	})
+	t.Run("voice refusal", func(t *testing.T) {
+		reset(t)
+		testVoiceRefusal(t, pool)
+	})
+	t.Run("refusal during active analysis", func(t *testing.T) {
+		reset(t)
+		testRefusalDuringActiveAnalysis(t, pool)
+	})
+	t.Run("voice refusal cancel", func(t *testing.T) {
+		reset(t)
+		testVoiceRefusalCancel(t, pool)
+	})
+	t.Run("refusal cancel during active analysis", func(t *testing.T) {
+		reset(t)
+		testRefusalCancelDuringActiveAnalysis(t, pool)
+	})
+	t.Run("disposition during active analysis", func(t *testing.T) {
+		reset(t)
+		testDispositionDuringActiveAnalysis(t, pool)
+	})
+	t.Run("disposition waits for diarization", func(t *testing.T) {
+		reset(t)
+		testDispositionWaitsForDiarization(t, pool)
+	})
+	t.Run("dropped speaker reason names cause", func(t *testing.T) {
+		reset(t)
+		testDroppedSpeakerReasonNamesCause(t, pool)
 	})
 	t.Run("library unknown filter matches search", func(t *testing.T) {
 		reset(t)
@@ -773,6 +837,12 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/person-events?person_id="+strconv64(absorbed.ID), nil, "", 200)
 		call(client, "DELETE", "/api/persons/"+strconv64(kept.ID), nil, me.CSRF, 200)
 		call(client, "DELETE", "/api/persons/"+strconv64(kept.ID), nil, me.CSRF, 404)
+		// Disposition and refusal (behavior in the voice disposition suite).
+		call(client, "PUT", "/api/local-speakers/999999/disposition", map[string]any{"disposition": "ignored"}, me.CSRF, 404)
+		call(client, "DELETE", "/api/local-speakers/999999/disposition", nil, me.CSRF, 404)
+		call(client, "POST", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusal", map[string]any{"person_id": 999999}, me.CSRF, 404)
+		call(client, "DELETE", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusals/999999", nil, me.CSRF, 200)
+		call(client, "PUT", "/api/voice-groups/999999/disposition", map[string]any{"disposition": "random"}, me.CSRF, 404)
 		// Voice matching settings and rematch (behavior in the voice matching suite).
 		call(client, "GET", "/api/voice-matching", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)
@@ -1052,8 +1122,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" || strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" {
-					continue // These contract operations are covered by their upload, search, worker, update, member, account, embedding, transcription and job log suites.
+				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
+					continue // These contract operations are covered by their upload, search, worker, member, account, embedding, transcription, job log, worker update and Hugging Face token suites.
 				}
 				if !seen[method+" "+path] {
 					t.Errorf("untested contract operation %s %s", method, path)
@@ -1143,7 +1213,7 @@ func TestFoundation(t *testing.T) {
 			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
 			"people-groups.spec.ts", "people-directory.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
-			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-trial.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts",
+			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-trial.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
 			"library-explorer.spec.ts",
 		}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
@@ -1185,6 +1255,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_JOBS") == "1" {
 			suites = []string{"admin-queue-folders.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_CLIP_ANALYSIS") == "1" {
+			suites = []string{"clip-analysis.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_WORKERS") == "1" {
 			suites = []string{"admin-workers.spec.ts"}
 		}
@@ -1217,6 +1290,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_CLIP_ANALYSIS") == "1" {
 			suites = []string{"clip-analysis.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_CLIP_VOICES") == "1" {
+			suites = []string{"clip-voices.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_NOTIFICATIONS") == "1" {
 			suites = []string{"notifications.spec.ts"}
@@ -1308,7 +1384,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "clip-analysis.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -1347,7 +1423,7 @@ func TestFoundation(t *testing.T) {
 					}
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "clip-analysis.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}

@@ -163,6 +163,7 @@ export const errorsEn = {
   invalid_vocabulary_id: "This vocabulary identifier is not valid.",
   invalid_vocabulary_term: "This vocabulary term is not valid.",
   invalid_visibility: 'Visibility must be "shared" or "private".',
+  invalid_disposition: "This disposition is not valid.",
   invalid_voice_automation: "These automation settings are not valid.",
   invalid_voice_criteria: "These criteria are not valid.",
   invalid_voice_matching: "These matching settings are not valid.",
@@ -217,6 +218,8 @@ export const errorsEn = {
   not_found: "This does not exist.",
   not_pending: "This sign-up is not waiting for approval.",
   not_unknown: "This voice is no longer unknown.",
+  validated_voice:
+    "This voice is validated: its identification must be withdrawn before it can be set aside.",
   not_validated: "This voice has not been validated.",
   origin_rejected: "This request came from an unexpected address.",
   person_has_hidden_voices: "This person still has hidden voices.",

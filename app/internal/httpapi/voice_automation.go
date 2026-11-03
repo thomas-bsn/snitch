@@ -340,7 +340,8 @@ func (s *Server) libraryFigures(ctx context.Context, settings matchingSettings) 
   count(*) FILTER (WHERE ls.kind='microphone' AND EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.person_id IS NOT NULL))
 FROM local_speakers ls
 LEFT JOIN speaker_attributions v ON v.local_speaker_id=ls.id AND v.validation_state='validated'
-LEFT JOIN speaker_attributions m ON m.local_speaker_id=ls.id AND m.validation_state='unvalidated' AND m.origin=$2`, settings.AutomaticThreshold, matchingOrigin).Scan(&l.SpeakersTotal, &l.Validated, &l.Automatic, &l.Suggestion, &l.Ambiguous, &l.MicrophoneAssigned)
+LEFT JOIN speaker_attributions m ON m.local_speaker_id=ls.id AND m.validation_state='unvalidated' AND m.origin=$2
+WHERE ls.kind='microphone' OR (ls.kind='diarized' AND `+notIgnoredVoice+`)`, settings.AutomaticThreshold, matchingOrigin).Scan(&l.SpeakersTotal, &l.Validated, &l.Automatic, &l.Suggestion, &l.Ambiguous, &l.MicrophoneAssigned)
 	if err != nil {
 		return l, err
 	}

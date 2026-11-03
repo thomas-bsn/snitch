@@ -636,7 +636,7 @@ class WhisperFailureTests(unittest.TestCase):
                 patch.object(runner, "fail_job", side_effect=capture),
             ]
             if post_error is not None:
-                patches.append(patch.object(runner.httpx, "post", side_effect=post_error))
+                patches.append(patch.object(runner.httpx.Client, "post", side_effect=post_error))
             with contextlib.ExitStack() as stack:
                 for active in patches:
                     stack.enter_context(active)

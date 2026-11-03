@@ -4530,7 +4530,7 @@
       "post": {
         "operationId": "startClipAnalysis",
         "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
-        "requestBody": {"required": false, "content": {"application/json": {"schema": {"type": "object", "properties": {"scope": {"type": "string", "enum": ["transcription", "voice", "full"], "default": "transcription", "description": "transcription : préparation et transcription seulement. voice : détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de transcription implicite). full : transcription, indexation et voix. L'indexation et les voix avancent indépendamment après la transcription ; une branche en échec n'arrête pas l'autre et l'exécution se termine failed (échec partiel)."}, "mode": {"type": "string", "enum": ["missing", "full", "steps"], "default": "missing", "description": "Réanalyse d'un clip déjà traité. missing : seules les étapes sans résultat valide sont exécutées (les résultats valides sont réutilisés). full : retranscription (périmètres transcription et full) et nouvelle diarisation (périmètres voice et full), l'indexation, les empreintes et la comparaison suivent. steps : relance les seules étapes de steps, quel que soit le résultat valide existant. Sans effet si une analyse est déjà active."}, "steps": {"type": "array", "items": {"type": "string", "enum": ["transcription", "indexing", "diarization"]}, "description": "Avec mode steps : étapes à relancer, applicables au périmètre (sinon 400 invalid_reanalysis)."}, "confirm_replace_corrections": {"type": "boolean", "description": "Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections)."}, "confirmed_stake_at": {"type": "string", "format": "date-time", "description": "Le stake_at du refus reanalysis_confirmation_required que l'administrateur a confirmé (le plus ancien s'il y en a eu plusieurs) : le travail humain créé après n'est jamais rendu obsolète. Par défaut, l'instant de la requête."}, "confirm_replace_validations": {"type": "boolean", "description": "Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice)."}}}}}},
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"type": "object", "properties": {"scope": {"type": "string", "enum": ["transcription", "voice", "full"], "default": "transcription", "description": "transcription : préparation et transcription seulement. voice : détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de transcription implicite). full : transcription, indexation et voix. L'indexation et les voix avancent indépendamment après la transcription ; une branche en échec n'arrête pas l'autre et l'exécution se termine failed (échec partiel)."}, "mode": {"type": "string", "enum": ["missing", "full", "steps"], "default": "missing", "description": "Réanalyse d'un clip déjà traité. missing : seules les étapes sans résultat valide sont exécutées (les résultats valides sont réutilisés). full : retranscription (périmètres transcription et full) et nouvelle diarisation (périmètres voice et full), l'indexation, les empreintes et la comparaison suivent. steps : relance les seules étapes de steps, quel que soit le résultat valide existant. Sans effet si une analyse est déjà active."}, "steps": {"type": "array", "items": {"type": "string", "enum": ["transcription", "indexing", "diarization"]}, "description": "Avec mode steps : étapes à relancer (au moins une, sans doublon ; sinon 400 invalid_reanalysis). Le serveur ferme le choix sur le graphe des étapes : une transcription absente s'ajoute comme prérequis de l'indexation ou de la détection des voix, l'indexation suit une transcription, les empreintes et le rapprochement suivent la détection des voix ; le périmètre de l'exécution s'élargit pour les contenir. Seules les étapes choisies sont forcées (forced_steps)."}, "confirm_replace_corrections": {"type": "boolean", "description": "Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections)."}, "confirmed_stake_at": {"type": "string", "format": "date-time", "description": "Le stake_at du refus reanalysis_confirmation_required que l'administrateur a confirmé (le plus ancien s'il y en a eu plusieurs) : le travail humain créé après n'est jamais rendu obsolète. Par défaut, l'instant de la requête."}, "confirm_replace_validations": {"type": "boolean", "description": "Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice)."}}}}}},
         "responses": {"201": {"description": "Analyse démarrée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "200": {"description": "Une analyse du même périmètre est déjà active : elle est renvoyée, sans doublon", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisResponse"}}}}, "409": {"description": "analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) ; transcription_required : le périmètre voice exige une transcription valide ; reanalysis_confirmation_required : les étapes relancées rendraient du travail humain obsolète, les conséquences sont dans stake", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClipAnalysisConflict"}}}}, "default": {"description": "Erreur (400 invalid_analysis_scope, invalid_reanalysis, invalid_clip_id ; 404 clip_not_found)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "description": "Administrateurs. Lance une analyse durable du clip (préparation puis transcription) ; une seule analyse active par clip, un second appel renvoie l'analyse existante. Les résultats valides sont réutilisés."
       },
@@ -5494,6 +5494,52 @@
         "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "responses": {"200": {"description": "Exclusion levée (idempotent)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupExclusion"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
         "description": "Utilisateurs connectés, pour un clip visible.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/disposition": {
+      "put": {
+        "operationId": "setLocalSpeakerDisposition",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionInput"}}}},
+        "responses": {"200": {"description": "Disposition enregistrée (idempotent) ; journalisée seulement si elle change", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionView"}}}}, "409": {"description": "validated_voice : la voix a une validation humaine ; analysis_active : une analyse est en cours sur le clip ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. Met la voix de côté (ignored) ou la libellé « Random ». Même droit que la validation. Les rapprochements ne la considèrent plus.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "restoreLocalSpeakerDisposition",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Disposition levée (idempotent) : la voix redevient traitée normalement", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionView"}}}}, "409": {"description": "analysis_active : une analyse est en cours sur le clip ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible (Rétablir).",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/refusal": {
+      "post": {
+        "operationId": "refuseLocalSpeaker",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRefusalInput"}}}},
+        "responses": {"200": {"description": "Refus enregistré : l'attribution de cette Personne est retirée, ses échantillons quittent la Référence", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRefusal"}}}}, "409": {"description": "analysis_active : une analyse est en cours sur le clip ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne propose plus cette Personne pour cette voix. Réversible (Annuler le refus) et journalisé. Une nouvelle diarisation reporte le refus sur la nouvelle voix qui couvre au moins la moitié du temps de parole de l'ancienne, sinon l'abandonne.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/refusals/{person_id}": {
+      "delete": {
+        "operationId": "cancelLocalSpeakerRefusal",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "path", "name": "person_id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Refus annulé (idempotent ; journalisé seulement s'il existait) : le rapprochement peut de nouveau proposer cette Personne pour cette voix", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRefusal"}}}}, "400": {"description": "invalid_person_id", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "analysis_active : une analyse est en cours sur le clip ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible : même droit que le refus (ADR 0031). « Annuler le refus » : la Personne n'est plus exclue du rapprochement pour cette voix. L'attribution retirée par le refus n'est pas rétablie.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/voice-groups/{id}/disposition": {
+      "put": {
+        "operationId": "setVoiceGroupDisposition",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionInput"}}}},
+        "responses": {"200": {"description": "Disposition appliquée à chaque voix non exclue du groupe", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupDisposition"}}}}, "404": {"description": "voice_group_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "validated_voice : une voix du groupe est validée ; analysis_active : une analyse est en cours sur l'un de leurs clips ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Une disposition vaut pour chacune des voix du groupe (ADR 0031).",
         "security": [{"session": []}]
       }
     },
@@ -7785,6 +7831,33 @@
           "skipped": {"type": "array", "items": {"type": "integer", "format": "int64"}, "description": "Voix déjà validées par quelqu'un d'autre pendant l'opération."}
         }
       },
+      "VoiceDispositionInput": {
+        "type": "object",
+        "required": ["disposition"],
+        "additionalProperties": false,
+        "properties": {"disposition": {"type": "string", "enum": ["ignored", "random"]}}
+      },
+      "VoiceDispositionView": {
+        "type": "object",
+        "required": ["local_speaker_id", "disposition"],
+        "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "disposition": {"type": "string", "nullable": true, "enum": ["ignored", "random"]}}
+      },
+      "VoiceGroupDisposition": {
+        "type": "object",
+        "required": ["group_id", "disposition", "voices"],
+        "properties": {"group_id": {"type": "integer", "format": "int64"}, "disposition": {"type": "string", "nullable": true, "enum": ["ignored", "random"]}, "voices": {"type": "integer", "minimum": 0}}
+      },
+      "VoiceRefusalInput": {
+        "type": "object",
+        "required": ["person_id"],
+        "additionalProperties": false,
+        "properties": {"person_id": {"type": "integer", "format": "int64", "minimum": 1}}
+      },
+      "VoiceRefusal": {
+        "type": "object",
+        "required": ["local_speaker_id", "person_id", "refused"],
+        "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "person_id": {"type": "integer", "format": "int64"}, "refused": {"type": "boolean", "description": "Vrai après un refus, faux après son annulation."}}
+      },
       "VoiceGroupExclusion": {
         "type": "object",
         "required": ["local_speaker_id", "excluded"],
@@ -8032,7 +8105,9 @@
           "decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
           "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true, "description": "Personne de l'attribution effective (validation humaine prioritaire)."},
           "attribution": {"allOf": [{"$ref": "#/components/schemas/Attribution"}], "nullable": true},
-          "fingerprints": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceFingerprint"}}
+          "fingerprints": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceFingerprint"}},
+          "disposition": {"type": "string", "nullable": true, "enum": ["ignored", "random"], "description": "ignored : voix mise de côté, sans locuteur sur ses segments ; random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031)."},
+          "refused_persons": {"type": "array", "items": {"$ref": "#/components/schemas/PersonRef"}, "description": "Personnes refusées pour cette voix (« Ce n'est pas X »), que le rapprochement ne propose plus ; chacune peut être rétablie par Annuler le refus (ADR 0031)."}
         }
       },
       "ClipVoice": {

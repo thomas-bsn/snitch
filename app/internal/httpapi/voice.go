@@ -346,6 +346,10 @@ type localSpeakerView struct {
 	Person          *personRef             `json:"person"`
 	Attribution     *attributionView       `json:"attribution"`
 	Fingerprints    []voiceFingerprintView `json:"fingerprints"`
+	// Disposition is "ignored" or "random" when the voice is set aside (ADR 0031), else absent.
+	Disposition *string `json:"disposition"`
+	// RefusedPersons are the Persons refused for the voice (ADR 0031), each one cancellable.
+	RefusedPersons []personRef `json:"refused_persons"`
 }
 
 // applyAttribution fills the identity fields of a local speaker from its effective
@@ -407,6 +411,10 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 			s.internal(w, micErr)
 			return
 		}
+		if err = s.attachRefusedPersons(r.Context(), clip.ID, microphone); err != nil {
+			s.internal(w, err)
+			return
+		}
 		view["speakers"] = microphone
 		reply(w, http.StatusOK, view)
 		return
@@ -432,14 +440,14 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	}
 	speakers := []localSpeakerView{}
 	byID := map[int64]int{}
-	rows, err := s.Pool.Query(r.Context(), `SELECT id,label,ordinal,speaking_seconds,turn_count,kind FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind<>'archived' ORDER BY ordinal`, clip.ID, index)
+	rows, err := s.Pool.Query(r.Context(), `SELECT ls.id,ls.label,ls.ordinal,ls.speaking_seconds,ls.turn_count,ls.kind,d.disposition FROM local_speakers ls LEFT JOIN local_speaker_dispositions d ON d.local_speaker_id=ls.id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind<>'archived' ORDER BY ls.ordinal`, clip.ID, index)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	for rows.Next() {
 		sp := localSpeakerView{Fingerprints: []voiceFingerprintView{}}
-		if err = rows.Scan(&sp.ID, &sp.Label, &sp.Ordinal, &sp.SpeakingSeconds, &sp.TurnCount, &sp.Kind); err != nil {
+		if err = rows.Scan(&sp.ID, &sp.Label, &sp.Ordinal, &sp.SpeakingSeconds, &sp.TurnCount, &sp.Kind, &sp.Disposition); err != nil {
 			rows.Close()
 			s.internal(w, err)
 			return
@@ -490,6 +498,10 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	if err = s.attachRefusedPersons(r.Context(), clip.ID, speakers); err != nil {
+		s.internal(w, err)
+		return
+	}
 	history, err := s.voiceHistory(r.Context(), clip.ID, index)
 	if err != nil {
 		s.internal(w, err)
@@ -497,6 +509,31 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	}
 	view["status"], view["audio_stream_index"], view["steps"], view["speakers"], view["history"] = status, index, steps, speakers, history
 	reply(w, http.StatusOK, view)
+}
+
+// attachRefusedPersons lists on each voice the Persons refused for it (ADR 0031).
+func (s *Server) attachRefusedPersons(ctx context.Context, clipID int64, speakers []localSpeakerView) error {
+	byID := map[int64]int{}
+	for i := range speakers {
+		speakers[i].RefusedPersons = []personRef{}
+		byID[speakers[i].ID] = i
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT vr.local_speaker_id,p.id,p.display_name FROM voice_refusals vr JOIN local_speakers ls ON ls.id=vr.local_speaker_id JOIN persons p ON p.id=vr.person_id WHERE ls.clip_id=$1 ORDER BY p.display_name,p.id`, clipID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var speakerID int64
+		var p personRef
+		if err = rows.Scan(&speakerID, &p.ID, &p.DisplayName); err != nil {
+			return err
+		}
+		if at, found := byID[speakerID]; found {
+			speakers[at].RefusedPersons = append(speakers[at].RefusedPersons, p)
+		}
+	}
+	return rows.Err()
 }
 
 // attachLocalSpeakers labels each transcript segment with its local speaker: the one a
@@ -514,18 +551,28 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 	if !indexOK || !isList || len(segments) == 0 {
 		return nil
 	}
-	roster, err := s.Pool.Query(ctx, `SELECT id,label FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind<>'archived' ORDER BY ordinal,id`, clipID, int(index))
+	roster, err := s.Pool.Query(ctx, `SELECT ls.id,ls.label,COALESCE(d.disposition,'') FROM local_speakers ls LEFT JOIN local_speaker_dispositions d ON d.local_speaker_id=ls.id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind<>'archived' ORDER BY ls.ordinal,ls.id`, clipID, int(index))
 	if err != nil {
 		return err
 	}
+	// An ignored voice is no speaker at all (ADR 0031): it is neither listed nor labelled.
+	// A random voice is labelled "Random" wherever it is shown.
+	dispositions := map[int64]string{}
 	speakerLabels := map[int64]string{}
 	speakerList := []map[string]any{}
 	for roster.Next() {
 		var id int64
-		var label string
-		if err = roster.Scan(&id, &label); err != nil {
+		var label, disposition string
+		if err = roster.Scan(&id, &label, &disposition); err != nil {
 			roster.Close()
 			return err
+		}
+		dispositions[id] = disposition
+		if disposition == dispositionIgnored {
+			continue
+		}
+		if disposition == dispositionRandom {
+			label = randomSpeakerLabel
 		}
 		speakerLabels[id] = label
 		speakerList = append(speakerList, map[string]any{"id": id, "label": label})
@@ -535,7 +582,7 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 		return err
 	}
 	object["local_speakers"] = speakerList
-	rows, err := s.Pool.Query(ctx, `SELECT ls.id,ls.label,st.start_seconds,st.end_seconds FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 ORDER BY ls.ordinal,st.turn_index`, clipID, int(index))
+	rows, err := s.Pool.Query(ctx, `SELECT ls.id,ls.label,st.start_seconds,st.end_seconds FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND `+notIgnoredVoice+` ORDER BY ls.ordinal,st.turn_index`, clipID, int(index))
 	if err != nil {
 		return err
 	}
@@ -595,8 +642,11 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 				segment["local_speaker_corrected"] = true
 			}
 		}
-		if speakerID == 0 {
+		if speakerID == 0 || dispositions[speakerID] == dispositionIgnored {
 			continue
+		}
+		if dispositions[speakerID] == dispositionRandom {
+			speakerLabel = randomSpeakerLabel
 		}
 		segment["local_speaker_id"], segment["local_speaker_label"] = speakerID, speakerLabel
 		segment["local_speaker_decision_level"] = LevelUnknown

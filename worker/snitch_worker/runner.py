@@ -34,7 +34,7 @@ from snitch_client.models.worker_transcription_reachability_input import WorkerT
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
-from snitch_worker import log, revocation
+from snitch_worker import cancellation, log, revocation
 from snitch_worker import hf_token_sync, voice_download, voice_models
 from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
@@ -124,8 +124,10 @@ class OpenAICompatibleTranscriber:
             raise TranscriptionError("whisper_invalid_response") from exc
 
     def _transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None, language: str, headers: dict[str, str]) -> dict[str, Any]:
-        with open(wav_path, "rb") as audio:
-            response = httpx.post(
+        # A refused lease stops waiting for the server and closes the connection (ADR 0029).
+        http = httpx.Client(timeout=3600)
+        with http, open(wav_path, "rb") as audio:
+            response = cancellation.wait_for(lambda: http.post(
                 self.endpoint + "/v1/audio/transcriptions",
                 headers=headers,
                 data={
@@ -139,8 +141,7 @@ class OpenAICompatibleTranscriber:
                     )} if vocabulary else {}),
                 },
                 files={"file": ("audio.wav", audio, "audio/wav")},
-                timeout=3600,
-            )
+            ), on_cancel=http.close)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict) or not isinstance(
@@ -185,7 +186,8 @@ class OpenAICompatibleTranscriber:
 def prepare_audio(media_path: str, wav_path: str, stream_index: int) -> None:
     if stream_index < 0:
         raise ValueError("invalid audio stream index")
-    subprocess.run(
+    # ffmpeg is killed when the job's lease is refused.
+    cancellation.run_process(
         [
             "ffmpeg",
             "-nostdin",
@@ -205,10 +207,9 @@ def prepare_audio(media_path: str, wav_path: str, stream_index: int) -> None:
             "-y",
             wav_path,
         ],
-        check=True,
         timeout=3600,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
     )
 
 
@@ -219,7 +220,9 @@ def download_media(client: AuthenticatedClient, task_input: Any, lease_token: st
     with client.get_httpx_client().stream("GET", media_url, headers={"X-Worker-Lease-Token": lease_token}) as media:
         media.raise_for_status()
         with open(destination, "wb") as output:
-            output.writelines(media.iter_bytes())
+            for chunk in media.iter_bytes():
+                cancellation.check()
+                output.write(chunk)
 
 
 def configured_transcriber(model: str = "", override: str | None = None) -> OpenAICompatibleTranscriber:
@@ -294,6 +297,7 @@ def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: d
     results: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="snitch-vad-") as temporary:
         for index, (start, end) in enumerate(spans):
+            cancellation.check()
             chunk_path = os.path.join(temporary, f"speech-{index}.wav")
             with wave.open(wav_path, "rb") as source:
                 rate, width, channels = source.getframerate(), source.getsampwidth(), source.getnchannels()
@@ -335,6 +339,10 @@ def _require_response(value: Any, operation: str) -> Any:
 
 # ADR 0029. Presence pulses from a dedicated thread, independently of jobs and leases.
 PRESENCE_INTERVAL = 10.0
+# ADR 0029. The lease renewal is what hears a refusal from the server (job reassigned, cancelled,
+# Worker revoked): renewing every 10 s cancels the job within 10 s. The server lease lasts 2
+# minutes, which leaves about a dozen renewals for a network error to be retried.
+HEARTBEAT_INTERVAL = 10.0
 # Reconnection delays grow from 1 s and never exceed this cap.
 PRESENCE_RETRY_CAP = 10.0
 # Lease duration set by the server on claim and on each renewal (2 minutes).
@@ -452,7 +460,7 @@ def _heartbeat_loop(
 def run_once(
     client: AuthenticatedClient,
     capacity: int = 1,
-    heartbeat_interval: float = 45.0,
+    heartbeat_interval: float = HEARTBEAT_INTERVAL,
     stop: threading.Event | None = None,
     transcriber: Transcriber | None = None,
     voice_providers: Mapping[str, Any] | None = None,
@@ -539,69 +547,71 @@ def _run_claimed(
     heartbeater.start()
     log.emit(logging.INFO, "job_started", **context)
     try:
-        task_input = _require_response(
-            get_job_input(
-                client=client,
-                id=job.id,
-                x_worker_lease_token=lease_token,
-            ),
-            "task input",
-        )
-        if job.step.startswith("fixture."):
-            result = fake_provider(job.step)
-        elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
-            with tempfile.TemporaryDirectory(
-                prefix="snitch-transcription-"
-            ) as temporary:
-                original = os.path.join(temporary, "original.media")
-                wav_path = os.path.join(temporary, "prepared.wav")
-                download_media(client, task_input, lease_token, original)
-                stream_index = int(job.step.rsplit(".", 1)[1])
-                prepare_audio(original, wav_path, stream_index)
-                pipeline_value = getattr(task_input, "pipeline", None)
-                pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
-                override = getattr(task_input, "transcription_model", None)
-                if not isinstance(override, str):
-                    override = None
-                active_transcriber = transcriber or configured_transcriber(str(pipeline.get("model", "")), override)
-                vocabulary = [
-                    {"term": term.term, "variants": term.variants, "preferred_spelling": term.preferred_spelling}
-                    for term in (task_input.vocabulary or [])
-                ]
-                result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
-                result["audio_stream_index"] = stream_index
-                attach_peaks(result, wav_path)
-        elif is_voice_step(job.step):
-            voice_value = getattr(task_input, "voice", None)
-            voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
-            duration = getattr(task_input, "duration_seconds", None)
-            duration = duration if isinstance(duration, (int, float)) else None
-            voice_config = voice_input.get("config") or {}
-            if requires_audio(voice_config):
-                # Fail on a missing model path before downloading any media.
-                ensure_provider_ready(voice_input, voice_providers)
+        # A refused lease cancels the work in progress (ADR 0029, cancellation.py).
+        with cancellation.scope(lease.lost):
+            task_input = _require_response(
+                get_job_input(
+                    client=client,
+                    id=job.id,
+                    x_worker_lease_token=lease_token,
+                ),
+                "task input",
+            )
+            if job.step.startswith("fixture."):
+                result = fake_provider(job.step)
+            elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
+                with tempfile.TemporaryDirectory(
+                    prefix="snitch-transcription-"
+                ) as temporary:
+                    original = os.path.join(temporary, "original.media")
+                    wav_path = os.path.join(temporary, "prepared.wav")
+                    download_media(client, task_input, lease_token, original)
+                    stream_index = int(job.step.rsplit(".", 1)[1])
+                    prepare_audio(original, wav_path, stream_index)
+                    pipeline_value = getattr(task_input, "pipeline", None)
+                    pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
+                    override = getattr(task_input, "transcription_model", None)
+                    if not isinstance(override, str):
+                        override = None
+                    active_transcriber = transcriber or configured_transcriber(str(pipeline.get("model", "")), override)
+                    vocabulary = [
+                        {"term": term.term, "variants": term.variants, "preferred_spelling": term.preferred_spelling}
+                        for term in (task_input.vocabulary or [])
+                    ]
+                    result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
+                    result["audio_stream_index"] = stream_index
+                    attach_peaks(result, wav_path)
+            elif is_voice_step(job.step):
+                voice_value = getattr(task_input, "voice", None)
+                voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
+                duration = getattr(task_input, "duration_seconds", None)
+                duration = duration if isinstance(duration, (int, float)) else None
+                voice_config = voice_input.get("config") or {}
+                if requires_audio(voice_config):
+                    # Fail on a missing model path before downloading any media.
+                    ensure_provider_ready(voice_input, voice_providers)
+                    with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
+                        original = os.path.join(temporary, "original.media")
+                        wav_path = os.path.join(temporary, "prepared.wav")
+                        download_media(client, task_input, lease_token, original)
+                        prepare_audio(original, wav_path, int(job.step.rsplit(".", 1)[1]))
+                        result = process_voice_step(job.step, voice_input, duration, wav_path, voice_providers)
+                        if _is_diarization_step(job.step):
+                            attach_peaks(result, wav_path)
+                else:
+                    # No audio is prepared here, so no peaks: a result without them is accepted (ADR 0034).
+                    result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
+            elif is_trial_step(job.step):
+                voice_input = trial_voice_input(task_input)
+                trial = voice_input.get("trial") or {}
                 with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
                     original = os.path.join(temporary, "original.media")
                     wav_path = os.path.join(temporary, "prepared.wav")
                     download_media(client, task_input, lease_token, original)
-                    prepare_audio(original, wav_path, int(job.step.rsplit(".", 1)[1]))
-                    result = process_voice_step(job.step, voice_input, duration, wav_path, voice_providers)
-                    if _is_diarization_step(job.step):
-                        attach_peaks(result, wav_path)
+                    prepare_audio(original, wav_path, int(trial.get("audio_stream_index", 0)))
+                    result = process_trial_step(job.step, voice_input, wav_path, voice_providers)
             else:
-                # No audio is prepared here, so no peaks: a result without them is accepted (ADR 0034).
-                result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
-        elif is_trial_step(job.step):
-            voice_input = trial_voice_input(task_input)
-            trial = voice_input.get("trial") or {}
-            with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
-                original = os.path.join(temporary, "original.media")
-                wav_path = os.path.join(temporary, "prepared.wav")
-                download_media(client, task_input, lease_token, original)
-                prepare_audio(original, wav_path, int(trial.get("audio_stream_index", 0)))
-                result = process_trial_step(job.step, voice_input, wav_path, voice_providers)
-        else:
-            raise ValueError("unsupported worker step")
+                raise ValueError("unsupported worker step")
         heartbeat_stop.set()
         heartbeater.join()
         if lease.lost.is_set():
@@ -636,6 +646,11 @@ def _run_claimed(
             "complete",
         )
         log.emit(logging.INFO, "job_completed", duration_ms=int((time.monotonic() - started) * 1000), **context)
+    except cancellation.JobCancelled:
+        # The lease was refused while the job ran: the work stopped, nothing is recorded.
+        heartbeat_stop.set()
+        heartbeater.join()
+        log.emit(logging.WARNING, "job_cancelled", reason=lease.reason, duration_ms=int((time.monotonic() - started) * 1000), **context)
     except (
         httpx.HTTPError,
         KeyError,
@@ -731,7 +746,7 @@ def run_until_stopped(
     capacity: int,
     stop: threading.Event,
     poll_interval: float = 5.0,
-    heartbeat_interval: float = 45.0,
+    heartbeat_interval: float = HEARTBEAT_INTERVAL,
     models_dir: str | None = None,
     presence_interval: float = PRESENCE_INTERVAL,
     reachability: ReachabilityMonitor | None = None,

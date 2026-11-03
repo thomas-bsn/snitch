@@ -12,6 +12,7 @@ import glob
 import os
 from typing import Any, Callable, Iterable
 
+from snitch_worker import cancellation
 from snitch_worker.voice import VoiceProviderUnavailable, diarization_from_turns
 from snitch_worker.voice_pyannote import PyannoteProvider
 
@@ -60,7 +61,14 @@ class NemoProvider(PyannoteProvider):
         run = self._pipeline_loaded(config)
         try:
             with self._inference_lock:
-                turns = parse_segments(run(audio_path))
+                # Sortformer offers no progress hook: a refused lease interrupts it (ADR 0029),
+                # and the interrupted model is reloaded by the next job.
+                try:
+                    output = cancellation.interruptible(run, audio_path)
+                except cancellation.JobCancelled:
+                    self._forget("_pipeline", run)
+                    raise
+                turns = parse_segments(output)
         except VoiceProviderUnavailable:
             raise
         except Exception:  # noqa: BLE001 - library messages may carry paths

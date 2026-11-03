@@ -15,10 +15,16 @@ import (
 // CompletedRuns is how many finished clips the queue keeps in view; the rest is history.
 const CompletedRuns = 3
 
+// NoDispositionVoice keeps to the local speakers (alias ls) that have no disposition (ignored
+// or random, ADR 0031): the voices treated normally, the only ones verification and matching
+// consider.
+const NoDispositionVoice = `NOT EXISTS (SELECT 1 FROM local_speaker_dispositions d WHERE d.local_speaker_id=ls.id)`
+
 // UnknownSpeakerPredicate selects (alias ls) the diarized voices no one has validated or
-// automatically attributed; PendingVoiceCondition narrows them to those that still await a
-// decision (the Verification list and the speaker-review notification use the same one).
-const UnknownSpeakerPredicate = `ls.kind='diarized' AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND (a.validation_state='validated' OR a.decision_level='automatic'))`
+// automatically attributed, and that are not set aside as ignored or random (ADR 0031).
+// PendingVoiceCondition narrows them to those that still await a decision (the Verification
+// list and the speaker-review notification use the same one).
+const UnknownSpeakerPredicate = `ls.kind='diarized' AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND (a.validation_state='validated' OR a.decision_level='automatic')) AND ` + NoDispositionVoice
 
 const PendingVoiceCondition = UnknownSpeakerPredicate + `
 AND COALESCE((SELECT a.decision_level FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='unvalidated'),'unknown') IN ('unknown','ambiguous')`

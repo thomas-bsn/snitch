@@ -216,8 +216,21 @@ SELECT EXISTS(SELECT 1 FROM cutoff, local_speakers ls WHERE ls.clip_id=$1 AND ls
 	if newer {
 		return errDiarizationLocked
 	}
+	// Dispositions and refusals follow the new voice that covers most of each old one, or are
+	// dropped; either way they are journaled before the old voices go (ADR 0031).
+	carry, err := planVoiceCarry(ctx, tx, job.ClipID, index, result)
+	if err != nil {
+		return fmt.Errorf("plan the carry of dispositions and refusals: %w", err)
+	}
+	newLabels := make([]string, len(*result.Speakers))
+	for ordinal, speaker := range *result.Speakers {
+		newLabels[ordinal] = speaker.Label
+	}
+	if err = carry.release(ctx, tx, newLabels); err != nil {
+		return fmt.Errorf("release dispositions and refusals: %w", err)
+	}
 	// Speaker corrections point to the replaced speakers: they become obsolete (history kept).
-	if err := dropSpeakerOverrides(ctx, tx, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, job.ClipID, index); err != nil {
+	if err := dropSpeakerOverrides(ctx, tx, droppedByDiarization, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, job.ClipID, index); err != nil {
 		return fmt.Errorf("record dropped speaker corrections: %w", err)
 	}
 	// The speakers a human validated are archived, never deleted: the validated
@@ -235,6 +248,7 @@ DELETE FROM speaker_turns st USING archived WHERE st.local_speaker_id=archived.i
 	if _, err := tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='diarized'`, job.ClipID, index); err != nil {
 		return fmt.Errorf("replace local speakers: %w", err)
 	}
+	newIDs := make([]int64, len(*result.Speakers))
 	for ordinal, speaker := range *result.Speakers {
 		seconds := 0.0
 		for _, t := range *speaker.Turns {
@@ -244,11 +258,15 @@ DELETE FROM speaker_turns st USING archived WHERE st.local_speaker_id=archived.i
 		if err := tx.QueryRow(ctx, `INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`, job.ClipID, index, job.ID, speaker.Label, ordinal, seconds, len(*speaker.Turns)).Scan(&speakerID); err != nil {
 			return fmt.Errorf("insert local speaker: %w", err)
 		}
+		newIDs[ordinal] = speakerID
 		for turnIndex, t := range *speaker.Turns {
 			if _, err := tx.Exec(ctx, `INSERT INTO speaker_turns(local_speaker_id,clip_id,turn_index,start_seconds,end_seconds) VALUES($1,$2,$3,$4,$5)`, speakerID, job.ClipID, turnIndex, *t.Start, *t.End); err != nil {
 				return fmt.Errorf("insert speaker turn: %w", err)
 			}
 		}
+	}
+	if err = carry.apply(ctx, tx, newIDs); err != nil {
+		return fmt.Errorf("carry dispositions and refusals: %w", err)
 	}
 	step := fmt.Sprintf("voice.fingerprint.%d", index)
 	version := fmt.Sprintf("f5-a%d-p%s-d%d", index, pipelineVersion, job.ID)

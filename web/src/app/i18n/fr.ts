@@ -1816,13 +1816,14 @@ export const fr: Messages = {
     loading: "Chargement du clip…",
     videoLabel: "Vidéo du clip",
     videoFailed: "La vidéo ne peut pas être lue ici.",
-    waveformLabel: "Forme d’onde de la piste audio",
     meta: {
       owner: "Importé par {owner}",
       sources: "Source : {sources}",
       shared: "Partagé",
       private: "Privé",
+      file: "Fichier : {name}",
     },
+    neverAnalysed: "Ce clip n’a jamais été analysé.",
     progress: {
       label: "Avancement du clip",
       imported: "Importé",
@@ -1867,6 +1868,9 @@ export const fr: Messages = {
       listLabel: "Voix du clip",
       speaking: "{seconds} s de parole, {turns} tours",
       unidentified: "Non identifiée",
+      track: "Piste de {label}",
+      waveformLabel: "Forme d’onde par voix",
+      tracksLabel: "Pistes du clip, une par voix",
     },
     history: {
       empty: "Aucun segment de ce clip n’a été corrigé.",
@@ -1893,10 +1897,47 @@ export const fr: Messages = {
       liveLost:
         "L’accès à cette vue en direct a été perdu. Rechargez la page pour vous reconnecter.",
       steps: "Étapes de l’analyse",
-      full: "Tout analyser",
-      more: "Autres options d’analyse",
-      transcription: "Transcrire seulement",
-      voice: "Détection des voix",
+      panelTitle: "Analyse du clip",
+      launch: "Lancer l’analyse…",
+      launchFull: "Analyse complète",
+      launchMissing: "Seulement ce qui manque",
+      quick: "Choix rapides",
+      pill: {
+        never: "Jamais analysé",
+        busy: "En cours",
+        running: "En cours : {step}",
+        waiting: "En attente : {reason}",
+        failed: "Échec : {step}",
+        failedNoStep: "Échec",
+        cancelled: "Analyse annulée",
+        complete: "Analyse complète",
+      },
+      logs: {
+        title: "50 dernières lignes de log",
+        empty: "Aucune ligne de log pour cette tâche pour l’instant.",
+        liveOff: "Lignes de log en pause : reconnexion.",
+      },
+      delete: {
+        open: "Supprimer…",
+        title: "Supprimer une partie de l’analyse",
+        intro:
+          "Choisissez ce qui disparaît. Rien n’est supprimé avant votre confirmation.",
+        what: "Étapes à supprimer",
+        all: "Toute l’analyse",
+        blocked: "Annulez l’analyse en cours avant de supprimer des étapes.",
+        losses: "Cette suppression fera perdre :",
+        none: "Rien ne serait perdu.",
+        lossSegments: "{count} segments de transcription",
+        lossCorrections:
+          "{text} textes de segments corrigés et {speaker} corrections de locuteur",
+        lossVoices: "{voices} voix locales, dont {validated} validées",
+        lossSamples: "{samples} échantillons de voix retirés de la référence",
+        lossPersons:
+          "{persons} Personnes touchées (conservées, sans ces échantillons)",
+        kept: "Les Personnes ne sont jamais supprimées.",
+        cancel: "Annuler",
+        confirm: "Supprimer la sélection",
+      },
       step: {
         preparation: "Préparation",
         transcription: "Transcription",
@@ -1964,7 +2005,7 @@ export const fr: Messages = {
       track: "Piste audio",
       trackPlaceholder: "Choisir une piste…",
       trackConfirm: "Confirmer la piste",
-      cancel: "Annuler l’analyse",
+      cancel: "Annuler la suite",
       cancelled:
         "Analyse annulée. Les résultats valides sont conservés ; relancez une analyse pour continuer.",
       failure: {
@@ -2033,8 +2074,7 @@ export const fr: Messages = {
       profile: "Profil : {profile}",
     },
     reanalyze: {
-      menu: "Réanalyser…",
-      title: "Réanalyser ce clip",
+      title: "Lancer l’analyse",
       close: "Fermer",
       scopeLabel: "Que faut-il analyser",
       scope: {
@@ -2048,6 +2088,13 @@ export const fr: Messages = {
           "Seulement les étapes manquantes (les résultats valides sont réutilisés)",
         full: "Tout de nouveau, même là où un résultat valide existe",
         steps: "Seulement les étapes que je choisis",
+      },
+      added: "Ajoutées automatiquement",
+      addedBecause: {
+        prerequisite: "{step} — ajoutée : prérequis de {of}",
+        dependent: "{step} — ajoutée : dépend de {of}",
+        missing:
+          "{step} — ajoutée : jamais lancée, incluse par l’analyse complète",
       },
       noteMissing:
         "Les résultats valides sont réutilisés : rien n’est remplacé et aucune confirmation n’est nécessaire.",
@@ -2088,6 +2135,34 @@ export const fr: Messages = {
       retranscribeTitle: "Remplacer les corrections ?",
       retranscribeWarning:
         "Cette opération remplacera {texts} correction(s) de texte et {speakers} de locuteur par {authors}. Elles resteront obsolètes dans l’historique.",
+    },
+  },
+  voiceDecision: {
+    listenLabel: "Écouter un extrait de {label}",
+    yes: "C’est {person}",
+    no: "Ce n’est pas {person}",
+    identify: "Identifier",
+    random: "Random",
+    ignore: "Ignorer",
+    restore: "Rétablir",
+    refusedLabel: "Personnes refusées pour {label}",
+    refused: "Pas {person}",
+    cancelRefusal: "Annuler le refus",
+    cancelRefusalLabel: "Annuler le refus de {person}",
+    decisionLabel: "Décision sur {label}",
+    group: "Dans le groupe de {count} voix inconnues",
+    identifyLabel: "Qui est-ce ?",
+    search: "Rechercher une Personne",
+    searchLabel: "Rechercher une Personne",
+    noMatch: "Aucune Personne trouvée.",
+    asPerson: "Identifier comme {person}",
+    createName: "Nom de la nouvelle Personne",
+    create: "Créer et identifier",
+    validatedHint:
+      "Validée par une personne : seule une nouvelle identification la change.",
+    status: {
+      random: "Random",
+      ignored: "Ignorée",
     },
   },
   people: {
@@ -2376,6 +2451,10 @@ export const fr: Messages = {
     readOnly: "lecture seule",
     fileName: "Nom du fichier",
     codecs: "Codecs",
+    format: "Format",
+    size: "Taille",
+    tracks: "Pistes",
+    fullMetadata: "Métadonnées complètes",
     detected: "Détecté par Snitch",
     uploaded: "Importé par {name}",
     date: "Date d’enregistrement",

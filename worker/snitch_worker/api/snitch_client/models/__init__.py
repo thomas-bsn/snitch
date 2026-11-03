@@ -132,6 +132,7 @@ from .list_person_link_requests_status import ListPersonLinkRequestsStatus
 from .list_voice_groups_sort import ListVoiceGroupsSort
 from .list_voice_verification_level import ListVoiceVerificationLevel
 from .local_speaker import LocalSpeaker
+from .local_speaker_disposition import LocalSpeakerDisposition
 from .local_speaker_kind import LocalSpeakerKind
 from .local_speaker_read import LocalSpeakerRead
 from .local_speaker_state import LocalSpeakerState
@@ -307,10 +308,16 @@ from .voice_automation_event import VoiceAutomationEvent
 from .voice_automation_event_action import VoiceAutomationEventAction
 from .voice_automation_input import VoiceAutomationInput
 from .voice_automation_result import VoiceAutomationResult
+from .voice_disposition_input import VoiceDispositionInput
+from .voice_disposition_input_disposition import VoiceDispositionInputDisposition
+from .voice_disposition_view import VoiceDispositionView
+from .voice_disposition_view_disposition import VoiceDispositionViewDisposition
 from .voice_fingerprint import VoiceFingerprint
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
 from .voice_group import VoiceGroup
+from .voice_group_disposition import VoiceGroupDisposition
+from .voice_group_disposition_disposition import VoiceGroupDispositionDisposition
 from .voice_group_exclusion import VoiceGroupExclusion
 from .voice_group_list import VoiceGroupList
 from .voice_group_member import VoiceGroupMember
@@ -341,6 +348,8 @@ from .voice_pipeline_state import VoicePipelineState
 from .voice_profile_deletion import VoiceProfileDeletion
 from .voice_rediarization_confirmation import VoiceRediarizationConfirmation
 from .voice_rediarization_stake import VoiceRediarizationStake
+from .voice_refusal import VoiceRefusal
+from .voice_refusal_input import VoiceRefusalInput
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
@@ -551,6 +560,7 @@ __all__ = (
     "ListVoiceGroupsSort",
     "ListVoiceVerificationLevel",
     "LocalSpeaker",
+    "LocalSpeakerDisposition",
     "LocalSpeakerKind",
     "LocalSpeakerRead",
     "LocalSpeakerState",
@@ -726,10 +736,16 @@ __all__ = (
     "VoiceAutomationEventAction",
     "VoiceAutomationInput",
     "VoiceAutomationResult",
+    "VoiceDispositionInput",
+    "VoiceDispositionInputDisposition",
+    "VoiceDispositionView",
+    "VoiceDispositionViewDisposition",
     "VoiceFingerprint",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
     "VoiceGroup",
+    "VoiceGroupDisposition",
+    "VoiceGroupDispositionDisposition",
     "VoiceGroupExclusion",
     "VoiceGroupList",
     "VoiceGroupMember",
@@ -760,6 +776,8 @@ __all__ = (
     "VoiceProfileDeletion",
     "VoiceRediarizationConfirmation",
     "VoiceRediarizationStake",
+    "VoiceRefusal",
+    "VoiceRefusalInput",
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",
