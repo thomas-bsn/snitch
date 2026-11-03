@@ -6,6 +6,10 @@ type Translate = (key: MessageKey, params?: Params) => string;
 /** The sentence that tells what a notification is about, shared by the bell and the page. */
 export function notificationText(item: AppNotification, t: Translate): string {
   const clip = item.clip_name;
+  if (item.kind === "folder_request_decided")
+    return item.folder_outcome === "approved"
+      ? t("notifications.folderApproved", { path: `/${item.folder_path}` })
+      : t("notifications.folderRefused", { path: `/${item.folder_path}` });
   if (item.generic)
     return item.state === "resolved"
       ? t("notifications.incidentResolved")
@@ -46,4 +50,5 @@ export function notificationActionLabel(
 
 /** An incident (technical error) rather than a voice to verify. */
 export const isError = (item: AppNotification) =>
-  item.kind !== "needs_speaker_review";
+  item.kind !== "needs_speaker_review" &&
+  item.kind !== "folder_request_decided";

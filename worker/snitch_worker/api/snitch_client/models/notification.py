@@ -8,8 +8,10 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.notification_folder_outcome import NotificationFolderOutcome
 from ..models.notification_kind import NotificationKind
 from ..models.notification_state import NotificationState
+from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
@@ -30,7 +32,8 @@ class Notification:
             kind (NotificationKind): Voix à vérifier : une notification active par clip, résolue automatiquement quand
                 toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause,
                 résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que
-                technical_incident, message générique sans détail.
+                technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) :
+                seul son demandeur la reçoit, sans clip.
             state (NotificationState): Partagé : une action résolue l'est pour tous.
             clip_id (int | None):
             clip_name (str):
@@ -45,6 +48,9 @@ class Notification:
                 worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated), jamais l'erreur
                 brute.
             generic (bool): Vrai pour le message générique sûr vu par un non-administrateur.
+            folder_path (str | Unset): Décision sur une demande de dossier : chemin relatif de la Racine vidéo, vide sinon.
+            folder_outcome (NotificationFolderOutcome | Unset): Décision sur une demande de dossier : approved ou refused,
+                vide sinon.
      """
 
     id: int
@@ -61,6 +67,8 @@ class Notification:
     step: str
     error_code: str
     generic: bool
+    folder_path: str | Unset = UNSET
+    folder_outcome: NotificationFolderOutcome | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -102,6 +110,13 @@ class Notification:
 
         generic = self.generic
 
+        folder_path = self.folder_path
+
+        folder_outcome: str | Unset = UNSET
+        if not isinstance(self.folder_outcome, Unset):
+            folder_outcome = self.folder_outcome.value
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -121,6 +136,10 @@ class Notification:
             "error_code": error_code,
             "generic": generic,
         })
+        if folder_path is not UNSET:
+            field_dict["folder_path"] = folder_path
+        if folder_outcome is not UNSET:
+            field_dict["folder_outcome"] = folder_outcome
 
         return field_dict
 
@@ -197,6 +216,18 @@ class Notification:
 
         generic = d.pop("generic")
 
+        folder_path = d.pop("folder_path", UNSET)
+
+        _folder_outcome = d.pop("folder_outcome", UNSET)
+        folder_outcome: NotificationFolderOutcome | Unset
+        if isinstance(_folder_outcome,  Unset):
+            folder_outcome = UNSET
+        else:
+            folder_outcome = NotificationFolderOutcome(_folder_outcome)
+
+
+
+
         notification = cls(
             id=id,
             kind=kind,
@@ -212,6 +243,8 @@ class Notification:
             step=step,
             error_code=error_code,
             generic=generic,
+            folder_path=folder_path,
+            folder_outcome=folder_outcome,
         )
 
 

@@ -102,7 +102,8 @@ test.describe.serial("recherche par citation", () => {
     await expect(page.getByLabel("Visibility", { exact: true })).toHaveValue(
       "shared",
     );
-    await expect(page.getByLabel("State")).toHaveValue("ready");
+    // The search state "ready" is not an explorer state: the library ignores it.
+    await expect(page.getByLabel("State")).toHaveValue("");
     const sharedAddress = page.url();
     await page.reload();
     await expect(page).toHaveURL(sharedAddress);

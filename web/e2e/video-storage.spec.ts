@@ -68,10 +68,7 @@ test.describe.serial("racine vidéo et photo de profil", () => {
   test("une sélection est prévisualisée puis attend un Worker", async ({
     page,
   }) => {
-    await page.goto("/library");
-    await page
-      .getByRole("button", { name: "Scan videos and manage folders" })
-      .click();
+    await page.goto("/admin/folders");
     await page
       .getByRole("checkbox", { name: "Select browser-fixture.mp4" })
       .check();
@@ -128,9 +125,13 @@ test.describe.serial("racine vidéo et photo de profil", () => {
     page,
   }) => {
     await page.goto("/import");
+    // The destination popover is scoped by its label: the server card above
+    // lists the same folder names, and its buttons are not the destination.
+    const picker = page.locator('[aria-label="Choose the destination folder"]');
     await page.getByRole("button", { name: /Destination folder/ }).click();
-    await page.getByRole("button", { name: "matches", exact: true }).click();
-    await page.getByRole("button", { name: "Use this folder" }).click();
+    await expect(picker).toBeVisible();
+    await picker.getByRole("button", { name: "matches", exact: true }).click();
+    await picker.getByRole("button", { name: "Use this folder" }).click();
     await expect(
       page.getByRole("button", { name: "Destination folder /matches" }),
     ).toBeVisible();
