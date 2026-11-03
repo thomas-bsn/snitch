@@ -156,11 +156,11 @@ func (s *Server) validatedAttribution(ctx context.Context, speakerID int64) (*at
 }
 
 type personView struct {
-	ID                   int64     `json:"id"`
-	DisplayName          string    `json:"display_name"`
-	UserID               *int64    `json:"user_id"`
-	ValidatedSampleCount int       `json:"validated_sample_count"`
-	LocalSpeakerCount    int       `json:"local_speaker_count"`
+	ID                   int64  `json:"id"`
+	DisplayName          string `json:"display_name"`
+	UserID               *int64 `json:"user_id"`
+	ValidatedSampleCount int    `json:"validated_sample_count"`
+	LocalSpeakerCount    int    `json:"local_speaker_count"`
 	// ClipCount and SpeakingSeconds cover the validated voices on the clips the caller
 	// can see; they are filled by loadPersonFigures.
 	ClipCount       int       `json:"clip_count"`
