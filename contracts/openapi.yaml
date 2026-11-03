@@ -2996,6 +2996,115 @@
         }
       }
     },
+    "/api/worker/jobs/{id}/logs": {
+      "post": {
+        "operationId": "appendWorkerJobLogs",
+        "description": "Lignes de log d'un job envoyées par le Worker par lots (2 s ou 50 lignes), déjà masquées côté Worker. Le serveur ne garde que les 50 dernières lignes du job ; elles sont supprimées avec le job. Lease obligatoire.",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Worker-Lease-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerJobLogsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes reçues",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stored"],
+                  "properties": {
+                    "stored": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Jeton invalide, lease perdu (409 lease_not_owned) ou serveur indisponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/jobs/{id}/logs/events": {
+      "get": {
+        "operationId": "streamJobLogs",
+        "description": "Administrateurs. Lignes de log d'un job (50 au plus, les plus récentes) : flux text/event-stream, un évènement snapshot {seq, snapshot: JobLogs} à chaque ajout ; le droit est revérifié avant chaque snapshot.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Flux text/event-stream. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (400 invalid_job_id ; 401 unauthorized ; 403 forbidden ; 404 job_not_found)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/worker/jobs/{id}/complete": {
       "post": {
         "operationId": "completeWorkerJob",
@@ -7553,6 +7662,40 @@
           "models_volume_unwritable",
           "hf_cache_error"
         ]
+      },
+      "WorkerJobLogsInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lines"],
+        "properties": {
+          "lines": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "description": "Une ligne JSON de log, déjà masquée par le Worker."
+            }
+          }
+        }
+      },
+      "JobLogLine": {
+        "type": "object",
+        "required": ["seq", "text"],
+        "properties": {
+          "seq": {"type": "integer", "format": "int64"},
+          "text": {"type": "string", "description": "Ligne JSON de log, masquée ; jamais de jeton, Bearer, URL avec identifiants ni chemin de clip."}
+        }
+      },
+      "JobLogs": {
+        "type": "object",
+        "required": ["job_id", "lines"],
+        "properties": {
+          "job_id": {"type": "integer", "format": "int64"},
+          "lines": {"type": "array", "maxItems": 50, "items": {"$ref": "#/components/schemas/JobLogLine"}}
+        }
       },
       "WorkerFailureInput": {
         "type": "object",

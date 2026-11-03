@@ -19,6 +19,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 from snitch_client.api.default.claim_worker_job import sync as claim_job
+from snitch_client.api.default.append_worker_job_logs import sync as append_job_logs
 from snitch_client.api.default.complete_worker_job import sync as complete_job
 from snitch_client.api.default.fail_worker_job import sync as fail_job
 from snitch_client.api.default.get_worker_job_input import sync as get_job_input
@@ -27,6 +28,7 @@ from snitch_client.api.default.worker_pulse import sync as pulse
 from snitch_client.client import AuthenticatedClient
 from snitch_client.models.error import Error
 from snitch_client.models.worker_failure_input import WorkerFailureInput
+from snitch_client.models.worker_job_logs_input import WorkerJobLogsInput
 from snitch_client.models.worker_pulse_input import WorkerPulseInput
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
@@ -388,6 +390,36 @@ def run_once(
     if claim is None or claim.job is None:
         log.emit(logging.DEBUG, "claim_empty")
         return False
+    # The Worker's log lines of this job are shipped in batches while the job runs (ADR 0028).
+    job_id = claim.job.id
+    shipper = log.LineShipper(job_id, lambda lines: _send_job_logs(client, job_id, claim.lease_token, lines))
+    log.get_logger().addHandler(shipper)
+    try:
+        return _run_claimed(client, claim, heartbeat_interval, transcriber, voice_providers, shipper)
+    finally:
+        log.get_logger().removeHandler(shipper)
+        shipper.close()
+
+
+def _send_job_logs(client: AuthenticatedClient, job_id: int, lease_token: str, lines: list[str]) -> None:
+    _require_response(
+        append_job_logs(client=client, id=job_id, body=WorkerJobLogsInput(lines=lines), x_worker_lease_token=lease_token),
+        "logs",
+    )
+
+
+def _run_claimed(
+    client: AuthenticatedClient,
+    claim: Any,
+    heartbeat_interval: float,
+    transcriber: Transcriber | None,
+    voice_providers: Mapping[str, Any] | None,
+    shipper: log.LineShipper,
+) -> bool:
+    """Run the claimed job to its end and report it. Always True: a job was taken.
+
+    Log lines are flushed before the outcome is reported: once the job is completed or failed the
+    lease is gone and the server no longer accepts lines for it."""
     job = claim.job
     lease_token = claim.lease_token
     # Correlation context taken from the claim; the lease token is never part of it.
@@ -497,6 +529,7 @@ def run_once(
                 duration_ms=int((time.monotonic() - started) * 1000),
                 **context,
             )
+        shipper.flush()
         result_model = WorkerResultInputResult()
         result_model.additional_properties.update(result)
         _require_response(
@@ -554,6 +587,7 @@ def run_once(
             duration_ms=int((time.monotonic() - started) * 1000),
             **context,
         )
+        shipper.flush()
         try:
             _require_response(
                 fail_job(
