@@ -66,7 +66,9 @@ func resolveDeletionSteps(all bool, requested []string) ([]string, bool) {
 }
 
 // analysisDeletionLoss computes the stake of the steps on the clip, reading through q.
-func (s *Server) analysisDeletionLoss(ctx context.Context, q queryer, clipID int64, steps []string) (analysisDeletionStake, error) {
+// Only the speakers produced by the clip's diarization are at stake; microphone and archived
+// speakers survive a diarization deletion, unless the whole analysis goes (all).
+func (s *Server) analysisDeletionLoss(ctx context.Context, q queryer, clipID int64, steps []string, all bool) (analysisDeletionStake, error) {
 	var stake analysisDeletionStake
 	if slices.Contains(steps, "transcription") {
 		if err := q.QueryRow(ctx, `SELECT COALESCE(sum(CASE WHEN jsonb_typeof(result->'segments')='array' THEN jsonb_array_length(result->'segments') ELSE 0 END),0)::int FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%' AND status='done'`, clipID).Scan(&stake.Segments); err != nil {
@@ -82,12 +84,12 @@ func (s *Server) analysisDeletionLoss(ctx context.Context, q queryer, clipID int
 	}
 	if slices.Contains(steps, "diarization") {
 		if err := q.QueryRow(ctx, `SELECT
- (SELECT count(*) FROM local_speakers WHERE clip_id=$1),
- (SELECT count(DISTINCT a.local_speaker_id) FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND a.validation_state='validated'),
- (SELECT count(*) FROM voice_samples WHERE clip_id=$1 AND retired_at IS NULL),
+ (SELECT count(*) FROM local_speakers WHERE clip_id=$1 AND (kind='diarized' OR $2)),
+ (SELECT count(DISTINCT a.local_speaker_id) FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND (ls.kind='diarized' OR $2) AND a.validation_state='validated'),
+ (SELECT count(*) FROM voice_samples vs JOIN local_speakers ls ON ls.id=vs.local_speaker_id WHERE vs.clip_id=$1 AND vs.retired_at IS NULL AND (ls.kind='diarized' OR $2)),
  (SELECT count(DISTINCT p.person_id) FROM (
-   SELECT a.person_id FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND a.validation_state='validated'
-   UNION SELECT person_id FROM voice_samples WHERE clip_id=$1 AND retired_at IS NULL) p)`, clipID).Scan(&stake.Voices, &stake.ValidatedVoices, &stake.VoiceSamples, &stake.Persons); err != nil {
+   SELECT a.person_id FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND (ls.kind='diarized' OR $2) AND a.validation_state='validated'
+   UNION SELECT vs.person_id FROM voice_samples vs JOIN local_speakers ls ON ls.id=vs.local_speaker_id WHERE vs.clip_id=$1 AND vs.retired_at IS NULL AND (ls.kind='diarized' OR $2)) p)`, clipID, all).Scan(&stake.Voices, &stake.ValidatedVoices, &stake.VoiceSamples, &stake.Persons); err != nil {
 			return stake, err
 		}
 	}
@@ -117,7 +119,7 @@ func (s *Server) deleteAnalysisSteps(ctx context.Context, clipID int64, steps []
 	if busy {
 		return analysisDeletionStake{}, errAnalysisActive
 	}
-	stake, err := s.analysisDeletionLoss(ctx, tx, clipID, steps)
+	stake, err := s.analysisDeletionLoss(ctx, tx, clipID, steps, all)
 	if err != nil {
 		return analysisDeletionStake{}, err
 	}
@@ -134,21 +136,30 @@ func (s *Server) deleteAnalysisSteps(ctx context.Context, clipID int64, steps []
 			return stake, err
 		}
 	}
+	// The speakers of this clip's diarization go; microphone and archived speakers stay, and so
+	// do the jobs they still point to (a deleted job would cascade to its speakers).
 	if has("diarization") {
-		if _, err = tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1`, clipID); err != nil {
+		if _, err = tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1 AND (kind='diarized' OR $2)`, clipID, all); err != nil {
 			return stake, err
 		}
-		if _, err = tx.Exec(ctx, `DELETE FROM jobs WHERE clip_id=$1 AND (step LIKE 'voice.diarization.%' OR step LIKE 'voice.fingerprint.%')`, clipID); err != nil {
+		if _, err = tx.Exec(ctx, `DELETE FROM jobs WHERE clip_id=$1 AND step LIKE 'voice.diarization.%' AND id NOT IN (SELECT diarization_job_id FROM local_speakers WHERE diarization_job_id IS NOT NULL)`, clipID); err != nil {
 			return stake, err
 		}
-	} else if has("fingerprints") {
-		if _, err = tx.Exec(ctx, `DELETE FROM jobs WHERE clip_id=$1 AND step LIKE 'voice.fingerprint.%'`, clipID); err != nil {
+	}
+	if has("fingerprints") {
+		// The vectors of the clip's diarized speakers go; those of archived speakers stay.
+		if _, err = tx.Exec(ctx, `DELETE FROM voice_fingerprints WHERE clip_id=$1 AND local_speaker_id IN (SELECT id FROM local_speakers WHERE clip_id=$1 AND (kind='diarized' OR $2))`, clipID, all); err != nil {
+			return stake, err
+		}
+	}
+	if has("diarization") || has("fingerprints") {
+		if _, err = tx.Exec(ctx, `DELETE FROM jobs WHERE clip_id=$1 AND step LIKE 'voice.fingerprint.%' AND id NOT IN (SELECT fingerprint_job_id FROM voice_fingerprints)`, clipID); err != nil {
 			return stake, err
 		}
 	}
 	if has("diarization") || has("fingerprints") || has("matching") {
 		// The automatic matching goes; validated attributions are human work and stay unless their voice goes.
-		if _, err = tx.Exec(ctx, `DELETE FROM speaker_attributions WHERE validation_state='unvalidated' AND local_speaker_id IN (SELECT id FROM local_speakers WHERE clip_id=$1)`, clipID); err != nil {
+		if _, err = tx.Exec(ctx, `DELETE FROM speaker_attributions WHERE validation_state='unvalidated' AND local_speaker_id IN (SELECT id FROM local_speakers WHERE clip_id=$1 AND (kind='diarized' OR $2))`, clipID, all); err != nil {
 			return stake, err
 		}
 	}
@@ -257,7 +268,7 @@ func (s *Server) getClipAnalysisDeletionPreview(w http.ResponseWriter, r *http.R
 		fail(w, http.StatusBadRequest, "invalid_analysis_step")
 		return
 	}
-	stake, err := s.analysisDeletionLoss(r.Context(), s.Pool, clipID, steps)
+	stake, err := s.analysisDeletionLoss(r.Context(), s.Pool, clipID, steps, r.URL.Query().Get("all") == "true")
 	if err != nil {
 		s.internal(w, err)
 		return

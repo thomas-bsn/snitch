@@ -254,6 +254,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipAnalysisDeletion(t, pool)
 	})
+	t.Run("clip analysis deletion keeps other voices", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionKeepsOtherVoices(t, pool)
+	})
 	t.Run("clip analysis deletion cascades", func(t *testing.T) {
 		reset(t)
 		testClipAnalysisDeletionCascades(t, pool)

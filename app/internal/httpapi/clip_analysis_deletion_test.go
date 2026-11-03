@@ -194,3 +194,66 @@ func testClipAnalysisDeletionCascades(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("the analysis history must be gone")
 	}
 }
+
+// testClipAnalysisDeletionKeepsOtherVoices proves that a diarization deletion only takes the
+// speakers of this clip's diarization: a microphone speaker, an archived speaker (with its
+// validated attribution and sample), and a speaker of another clip all survive.
+func testClipAnalysisDeletionKeepsOtherVoices(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, second := h.diarizeClip()
+	h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/validation", first), map[string]any{"new_person_name": "Alice"}, http.StatusCreated)
+	ctx := t.Context()
+	// An archived speaker of this clip: a validated voice replaced by a later diarization.
+	if _, err := pool.Exec(ctx, `UPDATE local_speakers SET kind='archived', archived_at=now() WHERE id=$1`, first); err != nil {
+		t.Fatal(err)
+	}
+	// A microphone speaker of this clip (no diarization job).
+	if _, err := pool.Exec(ctx, `INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count,kind) VALUES($1,2,NULL,'MIC',9,1,1,'microphone')`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	// A speaker of another clip, with a validated attribution to the same Person.
+	var otherClip int64
+	if err := pool.QueryRow(ctx, `INSERT INTO clips(owner_id,original_name,size_bytes,modified_at,recorded_at) SELECT owner_id,'other-clip.mp4',1,now(),now() FROM clips WHERE id=$1 RETURNING id`, h.clipID).Scan(&otherClip); err != nil {
+		t.Fatal(err)
+	}
+	var other int64
+	if err := pool.QueryRow(ctx, `INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count,kind) VALUES($1,2,NULL,'OTHER',0,1,1,'microphone') RETURNING id`, otherClip).Scan(&other); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,origin,author_username,decided_at,created_at) SELECT $1,person_id,'human','validated','test','',now(),now() FROM speaker_attributions WHERE local_speaker_id=$2`, other, first); err != nil {
+		t.Fatal(err)
+	}
+	persons := h.count(`SELECT count(*) FROM persons`)
+	localOf := func(clip int64) int {
+		return h.count(`SELECT count(*) FROM local_speakers WHERE clip_id=$1`, clip)
+	}
+
+	h.adminCall(http.MethodDelete, h.analysisPath(), map[string]any{"steps": []string{"diarization"}, "confirm_loss": true}, http.StatusOK)
+
+	if _, err := pool.Exec(ctx, `SELECT 1 FROM local_speakers WHERE id=$1`, second); err == nil && h.count(`SELECT count(*) FROM local_speakers WHERE id=$1`, second) != 0 {
+		t.Fatal("the diarized speaker of this clip must go")
+	}
+	if h.count(`SELECT count(*) FROM local_speakers WHERE clip_id=$1 AND kind='diarized'`, h.clipID) != 0 {
+		t.Fatal("no diarized speaker may remain on the clip")
+	}
+	if h.count(`SELECT count(*) FROM local_speakers WHERE id=$1 AND kind='archived'`, first) != 1 ||
+		h.count(`SELECT count(*) FROM speaker_attributions WHERE local_speaker_id=$1 AND validation_state='validated'`, first) != 1 ||
+		h.count(`SELECT count(*) FROM voice_samples WHERE local_speaker_id=$1 AND retired_at IS NULL`, first) != 1 {
+		t.Fatal("the archived speaker, its validation and its sample must survive")
+	}
+	if h.count(`SELECT count(*) FROM local_speakers WHERE clip_id=$1 AND kind='microphone'`, h.clipID) != 1 {
+		t.Fatal("the microphone speaker must survive")
+	}
+	if localOf(otherClip) != 1 || h.count(`SELECT count(*) FROM speaker_attributions WHERE local_speaker_id=$1 AND validation_state='validated'`, other) != 1 {
+		t.Fatal("a speaker of another clip must survive, with its attribution")
+	}
+	if h.count(`SELECT count(*) FROM jobs WHERE clip_id=$1 AND step LIKE 'voice.diarization.%'`, h.clipID) != 1 {
+		t.Fatal("the diarization job of the archived speaker must be kept, not cascade it away")
+	}
+	if persons != h.count(`SELECT count(*) FROM persons`) {
+		t.Fatal("the Person must be kept")
+	}
+	if h.count(`SELECT count(*) FROM clip_analysis_deletions WHERE clip_id=$1 AND lost_voices=1 AND lost_validated_voices=0`, h.clipID) != 1 {
+		t.Fatal("the audit must count only the diarized speaker lost")
+	}
+}
