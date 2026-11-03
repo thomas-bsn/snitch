@@ -119,12 +119,6 @@ export function PersonRecord({
           {t("people.persons.notFound")}
         </h2>
         <p className="text-mute">{t("people.persons.notFoundBody")}</p>
-        <Link
-          to="/people"
-          className="inline-flex min-h-11 items-center text-accent underline"
-        >
-          {t("people.persons.back")}
-        </Link>
       </div>
     );
   }

@@ -339,7 +339,8 @@ test.describe.serial("personnes et vérification", () => {
     ).toHaveCount(1);
     const claireUrl = page.url();
 
-    // Creation.
+    // Creation, from the directory.
+    await page.getByRole("link", { name: "Back to people" }).click();
     await page.getByRole("button", { name: "New person" }).click();
     const creation = page.getByRole("dialog", { name: "New person" });
     await creation.getByLabel("Name").fill("Alicia Synthétique");
@@ -354,7 +355,7 @@ test.describe.serial("personnes et vérification", () => {
     // The list is searchable; a Person without a validated sample has no reference.
     await page.getByRole("searchbox", { name: "Search people" }).fill("alicia");
     await expect(list.getByRole("listitem")).toHaveCount(1);
-    await expect(list).toContainText("No reference");
+    await expect(list).toContainText("Reference: none");
     await page.getByRole("searchbox", { name: "Search people" }).fill("");
     await list.getByRole("link", { name: /Alicia Synthétique/ }).click();
     const alicia = page.getByRole("region", { name: "Alicia Synthétique" });
@@ -386,7 +387,9 @@ test.describe.serial("personnes et vérification", () => {
       "Alicia Synthétique was merged into Claire Synthétique",
     );
     await expect(page).toHaveURL(claireUrl);
+    await page.getByRole("link", { name: "Back to people" }).click();
     await expect(list).not.toContainText("Alicia Synthétique");
+    await list.getByRole("link", { name: /Claire Synthétique/ }).click();
 
     // Separation: an action of the header, which counts what it does.
     const voices = page.getByRole("group", {
@@ -433,7 +436,8 @@ test.describe.serial("personnes et vérification", () => {
       "Claire Synthétique has no confirmed voice to separate.",
     );
 
-    // The corrections are kept in the log.
+    // The corrections are kept in the log, on the directory.
+    await page.getByRole("link", { name: "Back to people" }).click();
     await page.getByRole("button", { name: "Corrections log" }).click();
     const log = page.getByRole("list", { name: "Person corrections" });
     await expect(log).toContainText(
