@@ -580,6 +580,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	close(candidateRelease)
 	rebuildDeadline := time.Now().Add(10 * time.Second)
+	promoted := false
 	for time.Now().Before(rebuildDeadline) {
 		var status struct {
 			Model          string `json:"model"`
@@ -589,9 +590,13 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatal(err)
 		}
 		if status.Model == "fixture-embedding-v2" && status.CandidateModel == "" {
+			promoted = true
 			break
 		}
 		time.Sleep(25 * time.Millisecond)
+	}
+	if !promoted {
+		t.Fatal("the candidate index was not promoted within 10s")
 	}
 	var activeModel string
 	if err := pool.QueryRow(context.Background(), `SELECT p.model FROM embedding_index_state s JOIN embedding_profiles p ON p.id=s.active_profile_id WHERE s.id=1`).Scan(&activeModel); err != nil || activeModel != "fixture-embedding-v2" {

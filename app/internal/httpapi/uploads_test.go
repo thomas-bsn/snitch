@@ -372,6 +372,26 @@ func testResumableUploads(t *testing.T, pool *pgxpool.Pool) {
 		}
 	})
 
+	t.Run("publication to a new path requests a scan", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Mkdir(filepath.Join(root, "fresh"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		managed, err := api.Library.ManagedRoot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		uploadTo("fresh.mp4", "fresh", []byte("synthetic-fresh-content"), "", 201)
+		var requested bool
+		if err := pool.QueryRow(context.Background(), `SELECT scan_requested FROM source_files WHERE source_id=$1 AND relative_path='fresh/fresh.mp4'`, managed.ID).Scan(&requested); err != nil {
+			t.Fatal(err)
+		}
+		if !requested {
+			t.Fatal("a publication to a new path must request the scan that indexes it and starts its analysis")
+		}
+	})
+
 	t.Run("destination changed during a transfer is reported and cancellable", func(t *testing.T) {
 		root := t.TempDir()
 		if err := os.Mkdir(filepath.Join(root, "clash"), 0755); err != nil {

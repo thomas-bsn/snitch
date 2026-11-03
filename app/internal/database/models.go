@@ -58,6 +58,20 @@ type Clip struct {
 	DetectedMetadata    []byte             `json:"detected_metadata"`
 }
 
+type ClipAnalysisDeletion struct {
+	ID                  int64              `json:"id"`
+	ClipID              int64              `json:"clip_id"`
+	Steps               []string           `json:"steps"`
+	DeletedBy           pgtype.Int8        `json:"deleted_by"`
+	DeletedByUsername   string             `json:"deleted_by_username"`
+	LostSegments        int32              `json:"lost_segments"`
+	LostCorrections     int32              `json:"lost_corrections"`
+	LostVoices          int32              `json:"lost_voices"`
+	LostValidatedVoices int32              `json:"lost_validated_voices"`
+	LostPersons         int32              `json:"lost_persons"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
 type ClipAnalysisRun struct {
 	ID                          int64              `json:"id"`
 	ClipID                      int64              `json:"clip_id"`
