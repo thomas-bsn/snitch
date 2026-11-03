@@ -48,8 +48,6 @@ func testClipReanalysis(t *testing.T, pool *pgxpool.Pool) {
 		{"scope": "full", "mode": "weird"},
 		{"scope": "full", "mode": "steps"},
 		{"scope": "full", "mode": "steps", "steps": []string{"matching"}},
-		{"scope": "transcription", "mode": "steps", "steps": []string{"diarization"}},
-		{"scope": "voice", "mode": "steps", "steps": []string{"indexing"}},
 		{"scope": "full", "mode": "steps", "steps": []string{"diarization", "diarization"}},
 	} {
 		h.adminCall(http.MethodPost, h.analysisPath(), body, http.StatusBadRequest)

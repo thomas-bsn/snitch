@@ -254,6 +254,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipReanalysis(t, pool)
 	})
+	t.Run("clip reanalysis closure", func(t *testing.T) {
+		reset(t)
+		testClipReanalysisClosure(t, pool)
+	})
 	t.Run("clip analysis step deletion", func(t *testing.T) {
 		reset(t)
 		testClipAnalysisDeletion(t, pool)

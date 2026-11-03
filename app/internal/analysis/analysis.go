@@ -64,11 +64,38 @@ type Options struct {
 // fingerprints and the matching come after a diarization).
 var forceable = []string{StepTranscription, StepIndexing, StepDiarization}
 
-// ForcedSteps resolves the steps a mode forces in a scope, in dependency order.
-func ForcedSteps(scope string, opts Options) ([]string, error) {
+// Why a step joins a choice of steps it was not part of.
+const (
+	AddedPrerequisite = "prerequisite"
+	AddedDependent    = "dependent"
+)
+
+// AddedStep is a step the closure added to the chosen ones: Of is the step that needs it
+// (prerequisite) or that it follows (dependent).
+type AddedStep struct {
+	Step   string `json:"step"`
+	Reason string `json:"reason"`
+	Of     string `json:"of"`
+}
+
+// Plan is what a start really runs: the scope, widened to hold the closed set of steps, the
+// steps forced to run again, and the steps the closure added to the choice.
+type Plan struct {
+	Scope  string
+	Forced []string
+	Added  []AddedStep
+}
+
+// Resolve closes a reanalysis choice over the step graph (preparation → transcription →
+// indexing; transcription → diarization → fingerprints → matching, the voices needing a
+// valid transcription but never depending on its text, ADR 0030). With chosen steps, a
+// missing transcription is added as a prerequisite, the steps after a chosen one are added
+// as dependents, and the scope widens to hold them all. Added steps are not forced: a
+// prerequisite runs because it is missing, a dependent follows the step before it.
+func Resolve(scope string, opts Options, hasTranscription bool) (Plan, error) {
 	switch opts.Mode {
 	case "", ModeMissing:
-		return nil, nil
+		return Plan{Scope: scope, Forced: []string{}, Added: []AddedStep{}}, nil
 	case ModeFull:
 		out := []string{}
 		for _, step := range forceable {
@@ -77,23 +104,52 @@ func ForcedSteps(scope string, opts Options) ([]string, error) {
 				out = append(out, step)
 			}
 		}
-		return out, nil
+		return Plan{Scope: scope, Forced: out, Added: []AddedStep{}}, nil
 	case ModeSteps:
-		out := []string{}
-		for _, step := range forceable {
-			if slices.Contains(opts.Steps, step) {
-				if !applicable(scope, step) {
-					return nil, ErrInvalidReanalysis
-				}
-				out = append(out, step)
+	default:
+		return Plan{}, ErrInvalidReanalysis
+	}
+	forced := []string{}
+	for _, step := range forceable {
+		if slices.Contains(opts.Steps, step) {
+			forced = append(forced, step)
+		}
+	}
+	if len(forced) == 0 || len(forced) != len(opts.Steps) {
+		return Plan{}, ErrInvalidReanalysis
+	}
+	added := []AddedStep{}
+	in := func(step string) bool {
+		return slices.Contains(forced, step) || slices.ContainsFunc(added, func(a AddedStep) bool { return a.Step == step })
+	}
+	if !in(StepTranscription) && !hasTranscription {
+		for _, step := range []string{StepIndexing, StepDiarization} {
+			if in(step) {
+				added = append(added, AddedStep{Step: StepTranscription, Reason: AddedPrerequisite, Of: step})
+				break
 			}
 		}
-		if len(out) == 0 || len(out) != len(opts.Steps) {
-			return nil, ErrInvalidReanalysis
-		}
-		return out, nil
 	}
-	return nil, ErrInvalidReanalysis
+	if in(StepTranscription) && !in(StepIndexing) {
+		added = append(added, AddedStep{Step: StepIndexing, Reason: AddedDependent, Of: StepTranscription})
+	}
+	if in(StepDiarization) {
+		added = append(added,
+			AddedStep{Step: StepFingerprints, Reason: AddedDependent, Of: StepDiarization},
+			AddedStep{Step: StepMatching, Reason: AddedDependent, Of: StepFingerprints})
+	}
+	// A voice scope never transcribes and only the full scope indexes: the scope widens to the
+	// smallest one that runs every step of the closed set.
+	transcribes := scope != ScopeVoice || in(StepTranscription)
+	voices := scope != ScopeTranscription || in(StepDiarization)
+	plan := Plan{Scope: ScopeTranscription, Forced: forced, Added: added}
+	switch {
+	case scope == ScopeFull || in(StepIndexing) || (transcribes && voices):
+		plan.Scope = ScopeFull
+	case voices:
+		plan.Scope = ScopeVoice
+	}
+	return plan, nil
 }
 
 var stepOrder = []string{StepPreparation, StepTranscription, StepIndexing, StepDiarization, StepFingerprints, StepMatching}
@@ -311,18 +367,13 @@ func (s *Service) Start(ctx context.Context, clipID int64, scope string, adminID
 // StartWith is Start with the reanalysis choices: the forced steps run again whatever valid
 // result exists, and the run keeps the confirmations it was given.
 func (s *Service) StartWith(ctx context.Context, clipID int64, scope string, adminID int64, opts Options) (Run, bool, error) {
-	if !validScope(scope) {
-		return Run{}, false, ErrInvalidScope
-	}
-	forced, err := ForcedSteps(scope, opts)
+	plan, err := s.Plan(ctx, clipID, scope, opts)
 	if err != nil {
 		return Run{}, false, err
 	}
+	scope, forced := plan.Scope, plan.Forced
 	if opts.Mode == "" {
 		opts.Mode = ModeMissing
-	}
-	if forced == nil {
-		forced = []string{}
 	}
 	var stakeAt *time.Time // nil: the database clock decides (now), the same one that stamps the human work
 	if !opts.ConfirmedStakeAt.IsZero() {
@@ -394,6 +445,22 @@ func (s *Service) StartWith(ctx context.Context, clipID int64, scope string, adm
 		return *full, false, ErrScopeConflict
 	}
 	return *full, created, nil
+}
+
+// Plan resolves a choice against the clip: chosen steps are closed over the step graph
+// (Resolve), with the clip's own transcription deciding whether it is a missing prerequisite.
+func (s *Service) Plan(ctx context.Context, clipID int64, scope string, opts Options) (Plan, error) {
+	if !validScope(scope) {
+		return Plan{}, ErrInvalidScope
+	}
+	has := true
+	if opts.Mode == ModeSteps {
+		var err error
+		if has, err = s.hooks.HasTranscription(ctx, clipID); err != nil {
+			return Plan{}, err
+		}
+	}
+	return Resolve(scope, opts, has)
 }
 
 // Latest returns the active run of the clip, or else the most recent one; nil when the

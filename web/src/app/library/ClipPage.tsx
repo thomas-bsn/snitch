@@ -119,6 +119,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
           <AnalyzeClip
             clipId={clip.id}
             audioTracks={clip.tracks?.filter((t) => t.type === "audio") ?? []}
+            hasTranscription={!neverAnalysed}
             onChanged={onChanged}
           />
         </div>
@@ -190,6 +191,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
           {admin && (
             <ReanalyzeClip
               clipId={clip.id}
+              hasTranscription={!neverAnalysed}
               open={launching}
               onOpenChange={setLaunching}
               onStarted={() => onChanged()}
