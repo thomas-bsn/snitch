@@ -35,6 +35,7 @@ Sans données identiques, la comparaison ne vaut rien. Un jeu de données **synt
 3. **People et écran de traitement** : aligner sur la variante D. Bloqué par 1.
 4. **Bibliothèque (explorateur)** : aligner sur la variante D, retirer « Tous les clips » et ce qui reste de l'ancienne page. Bloqué par 1.
 5. **Import** : aligner sur la variante A. Bloqué par 1.
+6. **File de tâches dans la barre latérale** : la « Task queue » quitte l'administration et devient une entrée permanente de la barre latérale gauche, visible seulement des administrateurs et du super-administrateur (les membres ne la voient pas et ne peuvent pas y accéder). Pas de prototype : critères de comportement, pas de comparaison pixel. L'ancienne adresse d'administration redirige vers la nouvelle. Sur téléphone, la barre d'onglets du bas passe à plus d'entrées : vérifier qu'elle reste lisible. Indépendant de 1.
 
 ## Critères d'acceptation (par écran)
 
@@ -45,4 +46,4 @@ Sans données identiques, la comparaison ne vaut rien. Un jeu de données **synt
 
 ## Hors périmètre
 
-Les pages sans prototype : pages Workers, joignabilité de la transcription, étape Hugging Face de l'assistant. Aucun changement de comportement métier.
+Les pages sans prototype : pages Workers, joignabilité de la transcription, étape Hugging Face de l'assistant (la file de tâches dans la barre latérale est traitée à part, ticket 6). Aucun changement de comportement métier.
