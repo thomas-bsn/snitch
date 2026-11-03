@@ -1021,6 +1021,11 @@ func TestFoundation(t *testing.T) {
 		// Private folders: shape only here; access rules in the private folders suite.
 		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": true}, me.CSRF, 200)
 		call(client, "GET", "/api/library/folders", nil, "", 200)
+		// The explorer and the automatic analysis setting: contract conformity here, behavior in their own suites.
+		call(client, "GET", "/api/library/explorer?path=&limit=10&offset=0", nil, "", 200)
+		call(client, "POST", "/api/library/explorer/index", map[string]string{"path": "contract.mp4"}, me.CSRF, 409)
+		call(client, "GET", "/api/admin/settings/automatic-analysis", nil, "", 200)
+		call(client, "PUT", "/api/admin/settings/automatic-analysis", map[string]bool{"enabled": true}, me.CSRF, 200)
 		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": false}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
 		call(client, "GET", sourcePath+"/microphone-track", nil, "", 200)
