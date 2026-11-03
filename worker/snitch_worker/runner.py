@@ -360,6 +360,12 @@ class LeaseWatch:
             self.lost.set()
 
 
+def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
+    """A job whose lease was lost records neither a result nor a failure. Always returns True (the job is done)."""
+    log.emit(logging.WARNING, "job_result_discarded", reason=lease.reason, **context)
+    return True
+
+
 def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: ReachabilityMonitor | None = None) -> None:
     body = WorkerPulseInput(
         capacity=capacity,
@@ -595,8 +601,7 @@ def _run_claimed(
         heartbeater.join()
         if lease.lost.is_set():
             # ADR 0029: a job whose lease was refused or expired sends no result.
-            log.emit(logging.WARNING, "job_result_discarded", reason=lease.reason, **context)
-            return True
+            return _discard_lost_result(lease, context)
         if _is_diarization_step(job.step):
             config = _voice_config(task_input)
             speakers = result.get("speakers") or []
@@ -639,8 +644,7 @@ def _run_claimed(
         heartbeater.join()
         if lease.lost.is_set():
             # The job was reassigned or expired: neither a result nor a failure may be recorded.
-            log.emit(logging.WARNING, "job_result_discarded", reason=lease.reason, **context)
-            return True
+            return _discard_lost_result(lease, context)
         diagnostic: dict[str, Any] = {}
         if isinstance(exc, TranscriptionError):
             error_code = exc.code
