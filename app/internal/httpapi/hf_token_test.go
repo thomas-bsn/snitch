@@ -249,4 +249,3 @@ func testHFToken(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("the save and the deletion are not audited")
 	}
 }
-
