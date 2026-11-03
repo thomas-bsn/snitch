@@ -167,6 +167,13 @@ export const errorsEn = {
   clip_delete_failed:
     "The video could not be deleted completely. Check its files and permissions, then retry.",
   super_administrator_required: "Only the Super-administrator can do this.",
+  invalid_hf_token:
+    "The token must start with hf_ and contain only letters and digits.",
+  invalid_hf_token_ack: "The Worker acknowledgement is invalid.",
+  stale_hf_token_version:
+    "The token changed in the meantime. The Worker will read it again.",
+  hf_token_store_failed:
+    "The Worker could not store the token in its models volume. Check that the volume is writable.",
   invalid_transcription_language:
     "Choose one of the languages Whisper supports, by its code (for example fr).",
   invalid_transcription_model: "This model name is not valid.",

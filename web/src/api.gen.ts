@@ -796,6 +796,76 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/hf-token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, empreinte, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée. */
+    get: operations["getHFToken"];
+    /** @description Réservé au Super-administrateur : enregistre ou remplace le token central, chiffré au repos. Un token mal formé est refusé (invalid_hf_token) sans être renvoyé. Un Administrateur reçoit 403 super_administrator_required. */
+    put: operations["putHFToken"];
+    post?: never;
+    /** @description Réservé au Super-administrateur : supprime le token central. Les Workers purgent leur copie centrale à la version suivante ; une copie locale reste. */
+    delete: operations["deleteHFToken"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/hf-token/version": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Version du token central, sans sa valeur. Un Worker compare cette version à la sienne et ne demande le token que si elle diffère. */
+    get: operations["getWorkerHFTokenVersion"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/hf-token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Token central pour un Worker authentifié et non révoqué, seulement lorsque sa version diffère de la sienne. Un token supprimé ou absent est renvoyé avec token null : le Worker purge alors sa copie centrale. Réponse sans cache. */
+    get: operations["getWorkerHFToken"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/hf-token/ack": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Accusé de réception d'une version par le Worker : appliquée, conservée (jeton local prioritaire), retirée ou en échec avec un code stable. Une version qui n'est plus la courante est refusée (stale_hf_token_version) : le Worker relit la version. */
+    post: operations["ackWorkerHFToken"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/worker/revocation": {
     parameters: {
       query?: never;
@@ -2948,13 +3018,25 @@ export interface components {
     };
     SetupStepInput: {
       /** @enum {string} */
-      step: "location" | "discord" | "semantic_search" | "worker" | "import";
+      step:
+        | "location"
+        | "discord"
+        | "semantic_search"
+        | "worker"
+        | "huggingface"
+        | "import";
       /** @enum {string} */
       state: "done" | "skipped";
     };
     SetupStepState: {
       /** @enum {string} */
-      step: "location" | "discord" | "semantic_search" | "worker" | "import";
+      step:
+        | "location"
+        | "discord"
+        | "semantic_search"
+        | "worker"
+        | "huggingface"
+        | "import";
       /** @enum {string} */
       state: "done" | "skipped" | "todo";
     };
@@ -3424,6 +3506,48 @@ export interface components {
         version: string;
       };
       items: components["schemas"]["Worker"][];
+    };
+    HFTokenInput: {
+      /** @description Token Hugging Face : écrit une fois, jamais renvoyé */
+      token: string;
+    };
+    HFTokenStatus: {
+      configured: boolean;
+      /** @description Empreinte non réversible, vide si non configuré */
+      fingerprint: string;
+      /** @description Valeur présente mais illisible avec la clé maître courante : à ressaisir */
+      unreadable: boolean;
+      workers: {
+        id: string;
+        name: string;
+        /** @enum {string} */
+        source: "" | "central" | "local" | "none";
+        /**
+         * @description pending = non synchronisé
+         * @enum {string}
+         */
+        state: "synced" | "pending" | "error";
+        /** @enum {string} */
+        error_code: "" | "hf_token_store_failed";
+      }[];
+    };
+    WorkerHFTokenVersion: {
+      /** @description 0 = aucun token central */
+      version: string;
+    };
+    WorkerHFToken: {
+      version: string;
+      /** @description null : copie centrale à purger */
+      token: string | null;
+    };
+    WorkerHFTokenAck: {
+      version: string;
+      /** @enum {string} */
+      outcome: "applied" | "kept_local" | "removed" | "failed";
+      /** @enum {string} */
+      source: "central" | "local" | "none";
+      /** @enum {string} */
+      error_code?: "" | "hf_token_store_failed";
     };
     WorkerPulseInput: {
       machine?: components["schemas"]["WorkerMachine"];
@@ -7200,6 +7324,190 @@ export interface operations {
         };
       };
       /** @description Jeton invalide ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getHFToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du token central */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HFTokenStatus"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putHFToken: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["HFTokenInput"];
+      };
+    };
+    responses: {
+      /** @description Token enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 invalid_hf_token, 401, 403 CSRF ou rôle) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteHFToken: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Token supprimé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (401, 403 CSRF ou rôle) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerHFTokenVersion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerHFTokenVersion"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerHFToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Version et token */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerHFToken"];
+        };
+      };
+      /** @description Erreur (worker_token_required, worker_token_invalid) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  ackWorkerHFToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerHFTokenAck"];
+      };
+    };
+    responses: {
+      /** @description Accusé enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 invalid_hf_token_ack, 409 stale_hf_token_version, 401) */
       default: {
         headers: {
           [name: string]: unknown;

@@ -34,7 +34,7 @@ from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
 from snitch_worker import log, revocation
-from snitch_worker import voice_models
+from snitch_worker import hf_token_sync, voice_download, voice_models
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
 from snitch_worker.transcription_config import active_configuration, sync_configuration
@@ -456,6 +456,10 @@ def run_once(
         return False
     if isinstance(client, AuthenticatedClient):
         sync_configuration(client)
+        try:
+            hf_token_sync.sync(client, voice_download.default_token_file(os.environ))
+        except Exception:  # noqa: BLE001 - the token sync must never stop claiming, and its error text may carry the value
+            log.emit(logging.WARNING, "hf_token_sync_unavailable")
         try:
             voice_models.sync_voice_models(client, voice_models.default_manager())
         except Exception:  # noqa: BLE001 - the model manager must never stop claiming
