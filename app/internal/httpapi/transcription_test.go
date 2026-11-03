@@ -509,13 +509,37 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if leasedInput.TranscriptionModel != "server-model" || leasedInput.PipelineVersion != newPipeline.Version || leasedInput.Pipeline.Model != "test-profile" || leasedInput.Pipeline.VAD.Mode != "energy" {
 		t.Fatalf("worker did not receive its immutable pipeline snapshot: %+v", leasedInput)
 	}
-	const result = `{"provider":"fixture","model":"deterministic-v1","version":"deterministic-v1","language":"fr","audio_stream_index":2,"segments":[{"start":1.25,"end":2.1,"text":"Bien joué !","words":[{"word":"Bien","start":1.25,"end":1.52},{"word":"joué","start":1.55,"end":1.9}]}]}`
+	const result = `{"provider":"fixture","model":"deterministic-v1","version":"deterministic-v1","language":"fr","audio_stream_index":2,"peaks":[0,128,255],"segments":[{"start":1.25,"end":2.1,"text":"Bien joué !","words":[{"word":"Bien","start":1.25,"end":1.52},{"word":"joué","start":1.55,"end":1.9}]}]}`
 	var parsedResult any
 	if err := json.Unmarshal([]byte(result), &parsedResult); err != nil {
 		t.Fatal(err)
 	}
 	workerCall(http.MethodPost, "/api/worker/jobs/"+strconv64(assignment.Job.ID)+"/complete", map[string]any{"input_version": assignment.Job.InputVersion, "result": map[string]any{}}, assignment.LeaseToken, http.StatusBadRequest)
 	workerCall(http.MethodPost, "/api/worker/jobs/"+strconv64(assignment.Job.ID)+"/complete", map[string]any{"input_version": assignment.Job.InputVersion, "result": parsedResult}, assignment.LeaseToken, http.StatusOK)
+	var resultHasPeaks bool
+	if err := pool.QueryRow(context.Background(), `SELECT result ? 'peaks' FROM jobs WHERE id=$1`, assignment.Job.ID).Scan(&resultHasPeaks); err != nil || resultHasPeaks {
+		t.Fatalf("transcription result kept peaks in jobs.result: %v err=%v", resultHasPeaks, err)
+	}
+	var waveforms []struct {
+		AudioStreamIndex int   `json:"audio_stream_index"`
+		Peaks            []int `json:"peaks"`
+	}
+	var waveformsJSON string
+	if err := pool.QueryRow(context.Background(), `SELECT COALESCE(jsonb_agg(jsonb_build_object('audio_stream_index',audio_stream_index,'peaks',peaks)), '[]'::jsonb)::text FROM clip_waveforms WHERE clip_id=$1`, completed.ClipID).Scan(&waveformsJSON); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(waveformsJSON), &waveforms); err != nil || len(waveforms) != 1 || waveforms[0].AudioStreamIndex != 2 || len(waveforms[0].Peaks) != 3 || waveforms[0].Peaks[2] != 255 {
+		t.Fatalf("worker peaks were not stored per track: %s err=%v", waveformsJSON, err)
+	}
+	var withWaveform struct {
+		Waveforms []struct {
+			AudioStreamIndex int   `json:"audio_stream_index"`
+			Peaks            []int `json:"peaks"`
+		} `json:"waveforms"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(completed.ClipID), nil, "", http.StatusOK), &withWaveform); err != nil || len(withWaveform.Waveforms) != 1 || withWaveform.Waveforms[0].AudioStreamIndex != 2 || len(withWaveform.Waveforms[0].Peaks) != 3 {
+		t.Fatalf("clip page did not receive the stored peaks: %+v err=%v", withWaveform.Waveforms, err)
+	}
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		var count int
@@ -556,6 +580,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	close(candidateRelease)
 	rebuildDeadline := time.Now().Add(10 * time.Second)
+	promoted := false
 	for time.Now().Before(rebuildDeadline) {
 		var status struct {
 			Model          string `json:"model"`
@@ -565,9 +590,13 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatal(err)
 		}
 		if status.Model == "fixture-embedding-v2" && status.CandidateModel == "" {
+			promoted = true
 			break
 		}
 		time.Sleep(25 * time.Millisecond)
+	}
+	if !promoted {
+		t.Fatal("the candidate index was not promoted within 10s")
 	}
 	var activeModel string
 	if err := pool.QueryRow(context.Background(), `SELECT p.model FROM embedding_index_state s JOIN embedding_profiles p ON p.id=s.active_profile_id WHERE s.id=1`).Scan(&activeModel); err != nil || activeModel != "fixture-embedding-v2" {

@@ -1585,6 +1585,7 @@ export const fr: Messages = {
     loading: "Chargement du clip…",
     videoLabel: "Vidéo du clip",
     videoFailed: "La vidéo ne peut pas être lue ici.",
+    waveformLabel: "Forme d’onde de la piste audio",
     meta: {
       owner: "Importé par {owner}",
       sources: "Source : {sources}",

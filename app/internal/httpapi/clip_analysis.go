@@ -54,7 +54,7 @@ func (h analysisHooks) Transcribe(ctx context.Context, clipID int64, since time.
 		return analysis.Transcription{}, err
 	}
 	// A transcription of an older input version stays when corrections would be replaced.
-	if _, found, corrErr := h.s.clipCorrections(ctx, clipID); corrErr != nil {
+	if _, found, corrErr := h.s.clipCorrections(ctx, h.s.Pool, clipID); corrErr != nil {
 		return analysis.Transcription{}, corrErr
 	} else if found && !force {
 		if visible, ok, visErr := h.s.visibleTranscription(ctx, h.s.Pool, clipID); visErr != nil {
@@ -220,6 +220,27 @@ func (s *Server) readJob(ctx context.Context, id int64) (jobs.Job, error) {
 func (s *Server) reconcileAnalysis(ctx context.Context, clipID int64) {
 	if err := s.Analysis.ReconcileClip(ctx, clipID); err != nil {
 		s.Log.Warn("reconcile analysis after job result", "clip", clipID, "error", err)
+	}
+}
+
+// settingAutoFullAnalysis is the administration setting "Analyse complète automatique". It
+// is on unless it holds "false" (ADR 0035): the absence of a value means the default.
+const settingAutoFullAnalysis = "analysis_auto_full"
+
+// startAutomaticAnalysis starts the full analysis of a newly added clip when the setting is
+// on. Without a Worker for the voices the run keeps the reasons on its steps; a refusal here
+// (an active run of another scope, a missing transcription) never fails the addition.
+func (s *Server) startAutomaticAnalysis(ctx context.Context, clipID int64) {
+	enabled, err := s.Store.Get(ctx, settingAutoFullAnalysis)
+	if err != nil {
+		s.Log.Warn("read automatic analysis setting", "clip", clipID, "error", err)
+		return
+	}
+	if enabled == "false" {
+		return
+	}
+	if _, _, err := s.Analysis.Start(ctx, clipID, analysis.ScopeFull, 0); err != nil {
+		s.Log.Warn("start automatic analysis", "clip", clipID, "error", err)
 	}
 }
 
@@ -401,7 +422,7 @@ func (s *Server) reanalysisConfirmed(w http.ResponseWriter, r *http.Request, cli
 	}
 	var stake reanalysisStake
 	if slices.Contains(forced, analysis.StepTranscription) && !opts.ConfirmReplaceCorrections {
-		at, found, corrErr := s.clipCorrections(r.Context(), clipID)
+		at, found, corrErr := s.clipCorrections(r.Context(), s.Pool, clipID)
 		if corrErr != nil {
 			s.internal(w, corrErr)
 			return false

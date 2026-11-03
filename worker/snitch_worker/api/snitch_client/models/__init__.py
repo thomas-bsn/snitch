@@ -30,6 +30,8 @@ from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
 from .clip import Clip
 from .clip_analysis_conflict import ClipAnalysisConflict
+from .clip_analysis_deletion_stake import ClipAnalysisDeletionStake
+from .clip_analysis_deletion_stake_corrections_type_0 import ClipAnalysisDeletionStakeCorrectionsType0
 from .clip_analysis_history import ClipAnalysisHistory
 from .clip_analysis_response import ClipAnalysisResponse
 from .clip_analysis_run import ClipAnalysisRun
@@ -66,12 +68,16 @@ from .clip_step_state import ClipStepState
 from .clip_visibility import ClipVisibility
 from .clip_voice import ClipVoice
 from .clip_voice_status import ClipVoiceStatus
+from .clip_waveforms_item import ClipWaveformsItem
 from .corrections_to_replace import CorrectionsToReplace
 from .corrections_warning import CorrectionsWarning
 from .create_video_folder_body import CreateVideoFolderBody
 from .create_video_folder_response_201 import CreateVideoFolderResponse201
 from .credentials import Credentials
 from .decision_level import DecisionLevel
+from .delete_clip_analysis_body import DeleteClipAnalysisBody
+from .delete_clip_analysis_body_steps_item import DeleteClipAnalysisBodyStepsItem
+from .delete_clip_analysis_response_200 import DeleteClipAnalysisResponse200
 from .delete_clip_response_200 import DeleteClipResponse200
 from .delete_member_body import DeleteMemberBody
 from .delete_worker_transcription_override_response_200 import DeleteWorkerTranscriptionOverrideResponse200
@@ -81,6 +87,7 @@ from .error import Error
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
 from .folder_privacy import FolderPrivacy
+from .get_clip_analysis_deletion_preview_response_200 import GetClipAnalysisDeletionPreviewResponse200
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
 from .get_metadata_location_response_200 import GetMetadataLocationResponse200
 from .get_video_root_response_200 import GetVideoRootResponse200
@@ -412,6 +419,8 @@ __all__ = (
     "BrowseVideoRootResponse200ItemsItem",
     "Clip",
     "ClipAnalysisConflict",
+    "ClipAnalysisDeletionStake",
+    "ClipAnalysisDeletionStakeCorrectionsType0",
     "ClipAnalysisHistory",
     "ClipAnalysisResponse",
     "ClipAnalysisRun",
@@ -448,12 +457,16 @@ __all__ = (
     "ClipVisibility",
     "ClipVoice",
     "ClipVoiceStatus",
+    "ClipWaveformsItem",
     "CorrectionsToReplace",
     "CorrectionsWarning",
     "CreateVideoFolderBody",
     "CreateVideoFolderResponse201",
     "Credentials",
     "DecisionLevel",
+    "DeleteClipAnalysisBody",
+    "DeleteClipAnalysisBodyStepsItem",
+    "DeleteClipAnalysisResponse200",
     "DeleteClipResponse200",
     "DeleteMemberBody",
     "DeleteWorkerTranscriptionOverrideResponse200",
@@ -463,6 +476,7 @@ __all__ = (
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
     "FolderPrivacy",
+    "GetClipAnalysisDeletionPreviewResponse200",
     "GetEmbeddingIndexStatusResponse200",
     "GetMetadataLocationResponse200",
     "GetVideoRootResponse200",

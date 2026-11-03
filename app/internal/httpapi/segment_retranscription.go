@@ -48,8 +48,9 @@ const activeCorrectionRows = `SELECT sc.clip_id,sc.transcription_job_id,sc.segme
  WHERE sc.stale_at IS NULL AND (sc.text IS NOT NULL OR sc.speaker_override_id IS NOT NULL)`
 
 // clipCorrections returns the active corrections of the clip, ok=false when there are none.
-func (s *Server) clipCorrections(ctx context.Context, clipID int64) (correctionsAtStake, bool, error) {
-	rows, err := s.Pool.Query(ctx, `WITH `+visibleTranscriptsCTE("j.clip_id=$1")+` `+activeCorrectionRows, clipID)
+// It reads through q, so a caller in a transaction sees the corrections of that transaction.
+func (s *Server) clipCorrections(ctx context.Context, q queryer, clipID int64) (correctionsAtStake, bool, error) {
+	rows, err := q.Query(ctx, `WITH `+visibleTranscriptsCTE("j.clip_id=$1")+` `+activeCorrectionRows, clipID)
 	if err != nil {
 		return correctionsAtStake{}, false, err
 	}
@@ -117,7 +118,7 @@ func (s *Server) correctionsGuard(w http.ResponseWriter, r *http.Request, clipID
 	if r.URL.Query().Get("confirm_replace_corrections") == "true" {
 		return true
 	}
-	at, found, err := s.clipCorrections(r.Context(), clipID)
+	at, found, err := s.clipCorrections(r.Context(), s.Pool, clipID)
 	if err != nil {
 		s.internal(w, err)
 		return false
