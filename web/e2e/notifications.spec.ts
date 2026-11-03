@@ -130,26 +130,29 @@ test.describe.serial("notifications : voix à vérifier", () => {
     await expect(page).toHaveURL(
       new RegExp(`/people/verification\\?clip=${clipId}$`),
     );
-    await expect(page.getByTestId("verification-clip-filter")).toContainText(
-      "Voices of synthetic-voices.mp4",
-    );
-    // One case at a time: the queue holds that clip's two voices.
-    const current = page.getByRole("region", { name: "Voice to decide" });
+    // The processing screen of that clip: the queue holds its two voices.
+    const screen = page.getByRole("region", { name: "Clip processing" });
+    await expect(screen).toContainText("synthetic-voices.mp4");
+    const current = screen.getByRole("region", {
+      name: "Who is speaking here?",
+    });
     await expect(current.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_00",
     );
-    await expect(current).toContainText("2 voice(s) left to decide");
+    await expect(
+      screen
+        .getByRole("list", { name: "Voices to process" })
+        .getByRole("listitem"),
+    ).toHaveCount(2);
 
-    // Clearing the filter keeps the same queue (one clip only).
-    await page.getByRole("button", { name: "Show all clips" }).click();
-    await expect(page.getByTestId("verification-clip-filter")).toHaveCount(0);
-    await expect(current).toContainText("2 voice(s) left to decide");
-
-    // Handling the voices resolves the shared action.
-    await current.getByRole("radio", { name: "Create a person" }).check();
+    // Handling the voices resolves the shared action: the second one is only a suggestion
+    // once the first is named, so it no longer waits for a decision.
+    await current.getByRole("button", { name: "Identify" }).click();
     await current.getByLabel("Name of the new person").fill("Dana Synthétique");
-    await current.getByRole("button", { name: "Confirm" }).click();
-    await expect(page.getByText("Nothing left to decide here.")).toBeVisible();
+    await current.getByRole("button", { name: "Create and identify" }).click();
+    await expect(current.getByRole("heading", { level: 2 })).toHaveText(
+      "SPEAKER_01",
+    );
 
     await page.goto("/library");
     await page.getByRole("button", { name: "Notifications" }).click();

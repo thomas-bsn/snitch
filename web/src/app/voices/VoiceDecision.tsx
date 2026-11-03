@@ -1,10 +1,11 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { components } from "../../api.gen";
 import { api, errorCode, mutation } from "../api/client";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import { ExcerptPlayer } from "../people/ExcerptPlayer";
+import { useFailureText } from "../people/failureText";
 import {
   fetchPersonPage,
   fetchVoiceGroupOf,
@@ -12,6 +13,7 @@ import {
   type VoiceGroup,
 } from "../people/peopleApi";
 import { useSession } from "../session";
+import { isInteractive, isTextField } from "./shortcuts";
 
 /** The voice as the decision needs it: who it is, how it is settled, and its disposition. */
 export type DecidedVoice = components["schemas"]["LocalSpeaker"];
@@ -33,13 +35,20 @@ export function VoiceDecision({
   speaker,
   clipName,
   onChanged,
+  shortcuts = false,
+  showCandidates = false,
 }: {
+  /** O, N, R, I and Space press the matching button, except inside a text field. */
+  shortcuts?: boolean;
+  /** Lists the closest people the server proposes, each with its proximity. */
+  showCandidates?: boolean;
   speaker: DecidedVoice;
   /** Name of the clip the excerpt comes from. */
   clipName: string;
   onChanged: () => void;
 }) {
-  const { t, error } = useI18n();
+  const { t } = useI18n();
+  const failureText = useFailureText();
   const { session } = useSession();
   const header = mutation(session?.csrf_token);
   const fieldId = useId();
@@ -50,11 +59,38 @@ export function VoiceDecision({
   const [found, setFound] = useState<Person[]>([]);
   const [newName, setNewName] = useState("");
   const [group, setGroup] = useState<VoiceGroup | null>(null);
+  const root = useRef<HTMLDivElement>(null);
 
   const person = speaker.person ?? null;
   const validated = speaker.attribution?.validation_state === "validated";
   const disposition = speaker.disposition ?? null;
   const label = speaker.label;
+
+  // Shortcuts press the buttons of this decision, so each rule stays where it is.
+  useEffect(() => {
+    if (!shortcuts) return;
+    const listener = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        isTextField(event.target)
+      )
+        return;
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      if (!["o", "n", "r", "i", " "].includes(key)) return;
+      if (key === " " && isInteractive(event.target)) return;
+      const button = root.current?.querySelector<HTMLButtonElement>(
+        `[data-shortcut="${key}"]`,
+      );
+      if (!button || button.disabled) return;
+      event.preventDefault();
+      button.click();
+    };
+    document.addEventListener("keydown", listener);
+    return () => document.removeEventListener("keydown", listener);
+  }, [shortcuts]);
 
   // The voice's group of unknown voices, when it has one with other voices in it.
   useEffect(() => {
@@ -87,8 +123,20 @@ export function VoiceDecision({
     setFailure(undefined);
     try {
       const outcome = await request();
-      if (outcome.error) setFailure(errorCode(outcome.error) ?? "unknown");
-      else {
+      if (outcome.error) {
+        // The first validation stands: when the server says who won, the message names them.
+        const code = errorCode(outcome.error) ?? "unknown";
+        const winner = (
+          outcome.error as {
+            attribution?: { person?: { display_name: string } };
+          }
+        ).attribution?.person?.display_name;
+        setFailure(
+          code === "already_validated" && winner
+            ? `already_validated:${winner}`
+            : code,
+        );
+      } else {
         setIdentifying(false);
         setQuery("");
         setNewName("");
@@ -134,8 +182,40 @@ export function VoiceDecision({
   const name = newName.trim();
   const groupId = `${fieldId}-group`;
 
+  const proposed = showCandidates
+    ? (speaker.attribution?.candidates ?? []).filter(
+        (candidate) => candidate.person.id !== person?.id,
+      )
+    : [];
+
   return (
-    <div className="flex flex-col gap-2">
+    <div ref={root} className="flex flex-col gap-2">
+      {proposed.length > 0 && (
+        <ul
+          aria-label={t("voiceDecision.candidates")}
+          className="m-0 flex list-none flex-wrap gap-2 p-0"
+        >
+          {proposed.map((candidate) => (
+            <li key={candidate.person.id} className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => identify({ personId: candidate.person.id })}
+                className={buttonClass()}
+              >
+                {t("voiceDecision.yes", {
+                  person: candidate.person.display_name,
+                })}
+              </button>
+              <span className="text-xs text-mute">
+                {t("voiceDecision.proximity", {
+                  percent: Math.round(candidate.score * 100),
+                })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       <div
         role="group"
         aria-label={t("voiceDecision.decisionLabel", { label })}
@@ -146,6 +226,8 @@ export function VoiceDecision({
             type="button"
             disabled={busy}
             onClick={() => identify({ personId: person.id })}
+            data-shortcut="o"
+            aria-keyshortcuts={shortcuts ? "O" : undefined}
             className={buttonClass("primary")}
           >
             {t("voiceDecision.yes", { person: person.display_name })}
@@ -163,6 +245,8 @@ export function VoiceDecision({
                 }),
               )
             }
+            data-shortcut="n"
+            aria-keyshortcuts={shortcuts ? "N" : undefined}
             className={buttonClass()}
           >
             {t("voiceDecision.no", { person: person.display_name })}
@@ -189,6 +273,8 @@ export function VoiceDecision({
                 }),
               )
             }
+            data-shortcut="r"
+            aria-keyshortcuts={shortcuts ? "R" : undefined}
             className={buttonClass()}
           >
             {t("voiceDecision.random")}
@@ -206,6 +292,8 @@ export function VoiceDecision({
                 }),
               )
             }
+            data-shortcut="i"
+            aria-keyshortcuts={shortcuts ? "I" : undefined}
             className={buttonClass()}
           >
             {t("voiceDecision.ignore")}
@@ -231,6 +319,7 @@ export function VoiceDecision({
           localSpeakerId={speaker.id}
           label={label}
           clip={clipName}
+          shortcut={shortcuts ? " " : undefined}
         />
       </div>
 
@@ -301,7 +390,7 @@ export function VoiceDecision({
           {t("voiceDecision.group", { count: group.member_count })}
         </p>
       )}
-      {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
+      {failure && <ErrorAlert>{failureText(failure)}</ErrorAlert>}
     </div>
   );
 }

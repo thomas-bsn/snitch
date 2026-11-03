@@ -1982,6 +1982,8 @@ export const fr: Messages = {
   },
   voiceDecision: {
     listenLabel: "Écouter un extrait de {label}",
+    candidates: "Personnes les plus proches",
+    proximity: "{percent} % de proximité",
     yes: "C’est {person}",
     no: "Ce n’est pas {person}",
     identify: "Identifier",
@@ -2005,6 +2007,26 @@ export const fr: Messages = {
     },
   },
   people: {
+    process: {
+      label: "Traitement du clip",
+      title: "Traitement de {clip}",
+      backToList: "Retour aux clips à traiter",
+      openClip: "Ouvrir la fiche du clip",
+      queueLabel: "Voix à traiter",
+      waiting: "À traiter",
+      settled: "Tranchée",
+      cardLabel: "Qui parle ici ?",
+      position: "Voix {n} sur {total}",
+      suggestion: "Suggestion : {person}.",
+      excerptsLabel: "Extraits de la voix",
+      playFrom: "Écouter à partir de {time}",
+      shortcuts:
+        "Raccourcis : Espace écoute, O oui, N non, R random, I fausse détection.",
+      skip: "Passer",
+      done: "Toutes les voix de ce clip sont traitées.",
+      nextVideo: "Vidéo suivante",
+      noNext: "Aucun autre clip à traiter.",
+    },
     lead: "Nommez les voix qu’entend Snitch. Une confirmation humaine passe toujours en premier.",
     tabsLabel: "Sections des Personnes",
     tabs: {

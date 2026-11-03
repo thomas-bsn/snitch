@@ -50,15 +50,19 @@ test.describe.serial("personnes : à traiter par clip", () => {
     await expect(list.getByRole("listitem")).toHaveCount(1);
   });
 
-  test("Traiter ouvre les voix de ce clip dans la vérification cas par cas", async () => {
+  test("Traiter ouvre l'écran de traitement de ce clip", async () => {
     await page.goto("/people/verification");
     await page.getByRole("link", { name: /^Process / }).click();
     await expect(page).toHaveURL(
       new RegExp(`/people/verification\\?clip=${clipId}$`),
     );
-    await expect(page.getByTestId("verification-clip-filter")).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: /SPEAKER_/ }).first(),
+      page.getByRole("region", { name: "Clip processing" }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Who is speaking here?" })
+        .getByRole("heading", { name: /SPEAKER_/ }),
     ).toBeVisible();
   });
 });

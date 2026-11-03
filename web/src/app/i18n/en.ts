@@ -1948,6 +1948,8 @@ export const en = {
   },
   voiceDecision: {
     listenLabel: "Listen to an excerpt of {label}",
+    candidates: "Closest people",
+    proximity: "{percent}% proximity",
     yes: "It is {person}",
     no: "It is not {person}",
     identify: "Identify",
@@ -1971,6 +1973,26 @@ export const en = {
     },
   },
   people: {
+    process: {
+      label: "Clip processing",
+      title: "Processing {clip}",
+      backToList: "Back to the clips to process",
+      openClip: "Open the clip sheet",
+      queueLabel: "Voices to process",
+      waiting: "To process",
+      settled: "Settled",
+      cardLabel: "Who is speaking here?",
+      position: "Voice {n} of {total}",
+      suggestion: "Suggestion: {person}.",
+      excerptsLabel: "Excerpts of the voice",
+      playFrom: "Play from {time}",
+      shortcuts:
+        "Shortcuts: Space listens, O yes, N no, R random, I false detection.",
+      skip: "Skip",
+      done: "All the voices of this clip are processed.",
+      nextVideo: "Next video",
+      noNext: "No other clip to process.",
+    },
     lead: "Name the voices Snitch hears. A human confirmation always comes first.",
     tabsLabel: "People sections",
     tabs: {
