@@ -14,7 +14,10 @@ export function ExcerptPlayer({
   localSpeakerId,
   label,
   clip,
+  shortcut,
 }: {
+  /** Key (data-shortcut) a screen with keyboard shortcuts presses this button with. */
+  shortcut?: string;
   localSpeakerId: number;
   label: string;
   clip: string;
@@ -49,6 +52,8 @@ export function ExcerptPlayer({
       <button
         type="button"
         aria-pressed={playing}
+        data-shortcut={shortcut}
+        aria-keyshortcuts={shortcut === " " ? "Space" : shortcut}
         onClick={toggle}
         className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:bg-side"
         aria-label={t("people.excerpt.player", { label, clip })}

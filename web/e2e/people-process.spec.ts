@@ -251,7 +251,11 @@ test.describe.serial("personnes : écran de traitement d'un clip", () => {
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
-    for (const button of await card.getByRole("button").all()) {
+    // The decisions are comfortable to hit (the state badge is a legend, not a decision).
+    const decisions = card
+      .getByRole("button")
+      .filter({ hasNotText: /^(Unknown|Ambiguous|Suggestion)$/ });
+    for (const button of await decisions.all()) {
       expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(40);
     }
   });
