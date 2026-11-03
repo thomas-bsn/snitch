@@ -173,7 +173,7 @@ def _unit(vector: Sequence[float]) -> list[float]:
 def fingerprints_from_embedder(
     config: dict[str, Any],
     diarization: dict[str, Any],
-    embed: Callable[[float, float], Sequence[float]],
+    embed: Callable[[float, float], Sequence[float] | None],
     stream_index: int,
     model: str,
     model_version: str,
@@ -187,7 +187,10 @@ def fingerprints_from_embedder(
             length = turn["end"] - turn["start"]
             if length < MIN_EMBEDDABLE_SECONDS:
                 continue
-            vector = _unit(embed(float(turn["start"]), float(turn["end"])))
+            raw = embed(float(turn["start"]), float(turn["end"]))
+            if raw is None:  # no audio left under this turn: kept in the diarization, not fingerprinted
+                continue
+            vector = _unit(raw)
             if dimensions and len(vector) != dimensions:
                 raise VoiceProviderUnavailable("invalid_embedding")
             dimensions = len(vector)
