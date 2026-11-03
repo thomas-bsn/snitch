@@ -330,29 +330,114 @@ def _require_response(value: Any, operation: str) -> Any:
     return value
 
 
+# ADR 0029. Presence pulses from a dedicated thread, independently of jobs and leases.
+PRESENCE_INTERVAL = 10.0
+# Reconnection delays grow from 1 s and never exceed this cap.
+PRESENCE_RETRY_CAP = 10.0
+# Lease duration set by the server on claim and on each renewal (2 minutes).
+LEASE_TTL = 120.0
+# Heartbeat answers meaning the server no longer accepts this lease: reassigned, cancelled or revoked.
+LEASE_REFUSALS = frozenset({"lease_not_owned", "worker_token_invalid"})
+
+
+def presence_retry_delay(attempt: int) -> float:
+    """Delay before retry number `attempt` (1-based): 1, 2, 4, 8 seconds, then the cap."""
+    return min(PRESENCE_RETRY_CAP, 2.0 ** (attempt - 1))
+
+
+class LeaseWatch:
+    """Set by the lease renewal thread when the job no longer owns its lease."""
+
+    def __init__(self) -> None:
+        self.lost = threading.Event()
+        self.reason = ""
+
+    def lose(self, reason: str) -> None:
+        if not self.lost.is_set():
+            self.reason = reason
+            self.lost.set()
+
+
+def _send_pulse(client: AuthenticatedClient, capacity: int) -> None:
+    _require_response(
+        pulse(
+            client=client,
+            body=WorkerPulseInput(
+                capacity=capacity,
+                supported_steps=["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"],
+                models=declared_models(os.environ, voice_models.active_repo()),
+                machine=declared_machine(),
+            ),
+        ),
+        "pulse",
+    )
+
+
+def _presence_loop(
+    client: AuthenticatedClient,
+    capacity: int,
+    stop: threading.Event,
+    interval: float,
+    guard: revocation.RevocationGuard | None = None,
+) -> None:
+    failures = 0
+    delay = interval
+    while not stop.wait(delay):
+        if guard is not None and guard.revoked.is_set():
+            return
+        try:
+            _send_pulse(client, capacity)
+        except (httpx.HTTPError, RuntimeError):
+            # Exception text is never logged: HTTP client errors can include URLs.
+            failures += 1
+            delay = presence_retry_delay(failures)
+            log.emit(logging.WARNING, "presence_pulse_failed", attempt=failures)
+            continue
+        if failures:
+            log.emit(logging.INFO, "presence_reconnected", attempts=failures)
+            failures = 0
+        delay = interval
+
+
 def _heartbeat_loop(
     client: AuthenticatedClient,
     job_id: int,
     lease_token: str,
     interval: float,
     stop: threading.Event,
-    errors: list[Exception],
+    lease: LeaseWatch,
     context: dict[str, Any] | None = None,
 ) -> None:
-    while not stop.wait(interval):
+    renewed_at = time.monotonic()
+    delay = interval
+    attempt = 0
+    while not stop.wait(delay):
         try:
-            _require_response(
-                heartbeat_job(
-                    client=client,
-                    id=job_id,
-                    x_worker_lease_token=lease_token,
-                ),
-                "heartbeat",
+            value = heartbeat_job(
+                client=client,
+                id=job_id,
+                x_worker_lease_token=lease_token,
             )
-            log.emit(logging.DEBUG, "job_heartbeat", **(context or {}))
-        except (httpx.HTTPError, RuntimeError) as exc:
-            errors.append(exc)
+        except httpx.HTTPError:
+            value = None
+        if isinstance(value, Error) and value.error in LEASE_REFUSALS:
+            log.emit(logging.WARNING, "job_lease_refused", error_code=value.error, **(context or {}))
+            lease.lose("refused")
             return
+        if value is None or isinstance(value, Error):
+            # Transient failure: retry until the lease would have expired.
+            attempt += 1
+            remaining = renewed_at + LEASE_TTL - time.monotonic()
+            if remaining <= 0:
+                log.emit(logging.WARNING, "job_lease_expired", **(context or {}))
+                lease.lose("expired")
+                return
+            delay = min(presence_retry_delay(attempt), remaining)
+            continue
+        attempt = 0
+        renewed_at = time.monotonic()
+        delay = interval
+        log.emit(logging.DEBUG, "job_heartbeat", **(context or {}))
 
 
 def run_once(
@@ -366,18 +451,7 @@ def run_once(
     """Process at most one leased task. Return False when the queue is empty."""
     if heartbeat_interval <= 0:
         raise ValueError("heartbeat interval must be positive")
-    _require_response(
-        pulse(
-            client=client,
-            body=WorkerPulseInput(
-                capacity=capacity,
-                supported_steps=["fixture.*", "transcription.audio.*", "voice.*", "voicetrial.*"],
-                models=declared_models(os.environ, voice_models.active_repo()),
-                machine=declared_machine(),
-            ),
-        ),
-        "pulse",
-    )
+    _send_pulse(client, capacity)
     if stop is not None and stop.is_set():
         return False
     if isinstance(client, AuthenticatedClient):
@@ -435,7 +509,7 @@ def _run_claimed(
     log.emit(logging.INFO, "job_claimed", **context)
     active_transcriber: Transcriber | None = None
     heartbeat_stop = threading.Event()
-    heartbeat_errors: list[Exception] = []
+    lease = LeaseWatch()
     heartbeater = threading.Thread(
         target=_heartbeat_loop,
         args=(
@@ -444,7 +518,7 @@ def _run_claimed(
             lease_token,
             heartbeat_interval,
             heartbeat_stop,
-            heartbeat_errors,
+            lease,
             context,
         ),
         daemon=True,
@@ -513,8 +587,10 @@ def _run_claimed(
             raise ValueError("unsupported worker step")
         heartbeat_stop.set()
         heartbeater.join()
-        if heartbeat_errors:
-            raise RuntimeError("worker lease lost")
+        if lease.lost.is_set():
+            # ADR 0029: a job whose lease was refused or expired sends no result.
+            log.emit(logging.WARNING, "job_result_discarded", reason=lease.reason, **context)
+            return True
         if _is_diarization_step(job.step):
             config = _voice_config(task_input)
             speakers = result.get("speakers") or []
@@ -555,6 +631,10 @@ def _run_claimed(
     ) as exc:
         heartbeat_stop.set()
         heartbeater.join()
+        if lease.lost.is_set():
+            # The job was reassigned or expired: neither a result nor a failure may be recorded.
+            log.emit(logging.WARNING, "job_result_discarded", reason=lease.reason, **context)
+            return True
         diagnostic: dict[str, Any] = {}
         if isinstance(exc, TranscriptionError):
             error_code = exc.code
@@ -638,16 +718,25 @@ def run_until_stopped(
     poll_interval: float = 5.0,
     heartbeat_interval: float = 45.0,
     models_dir: str | None = None,
+    presence_interval: float = PRESENCE_INTERVAL,
 ) -> bool:
     """Run a bounded pool; stop claiming on shutdown and drain active tasks.
 
+    Presence runs on its own thread, so a long job never makes the Worker look Offline.
     Return True when Snitch confirmed this Worker's deletion (the models volume is then erased)."""
     if capacity < 1 or capacity > 4:
         raise ValueError("worker capacity must be an integer from 1 to 4")
-    if poll_interval <= 0 or heartbeat_interval <= 0:
+    if poll_interval <= 0 or heartbeat_interval <= 0 or presence_interval <= 0:
         raise ValueError("worker intervals must be positive")
 
     guard = revocation.RevocationGuard(models_dir or revocation.models_dir(os.environ))
+    presence = threading.Thread(
+        target=_presence_loop,
+        args=(client, capacity, stop, presence_interval, guard),
+        daemon=True,
+        name="snitch-presence",
+    )
+    presence.start()
     with ThreadPoolExecutor(max_workers=capacity) as executor:
         workers = [
             executor.submit(
@@ -665,6 +754,7 @@ def run_until_stopped(
             pass
         for worker in workers:
             worker.result()
+    presence.join()
     return guard.revoked.is_set()
 
 
