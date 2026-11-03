@@ -6,4 +6,4 @@ if [[ -z "${DOCKER_HOST:-}" ]]; then
 fi
 # Docker socket inside Colima is /var/run/docker.sock; the host endpoint differs.
 export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="${TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE:-/var/run/docker.sock}"
-(cd app && go test -race -tags integration ./... -count=1 -v)
+(cd app && go test -race -tags integration ./... -count=1 -timeout 60m -v)

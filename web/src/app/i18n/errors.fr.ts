@@ -180,6 +180,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker: "Ce Worker n’est pas valide.",
   invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
+  invalid_worker_update_status:
+    "Ce compte rendu de mise à jour n’est pas valide.",
+  invalid_worker_version:
+    "Cette version de Worker n’est pas une version publiée (vX.Y.Z).",
   invalid_revoke_reason:
     "Le motif doit faire 200 caractères au plus, sur une seule ligne.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",

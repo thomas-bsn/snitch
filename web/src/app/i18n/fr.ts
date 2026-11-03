@@ -1077,6 +1077,7 @@ export const fr: Messages = {
     subTabsLabel: "Sous-sections",
     tabs: {
       workers: "Workers",
+      workerUpdates: "Mises à jour",
       queue: "File de tâches",
       folders: "Dossiers",
       transcription: "Transcription",
@@ -1091,6 +1092,48 @@ export const fr: Messages = {
       members: "Membres",
       signups: "Inscriptions",
       personLinks: "Demandes de liaison",
+    },
+  },
+  workerUpdates: {
+    title: "Mises à jour des Workers",
+    lead: "Choisissez la version que chaque Worker doit faire tourner. Chaque Worker vérifie environ toutes les 10 minutes et se met à jour lui-même. Ne choisir aucune version désactive les mises à jour automatiques ; revenir à une version plus ancienne est un retour arrière.",
+    targetLabel: "Version cible",
+    none: "Aucune version (mises à jour automatiques désactivées)",
+    save: "Enregistrer la version cible",
+    saved: "Version cible enregistrée.",
+    imageLabel: "Image transmise aux Workers",
+    catalogUnavailable:
+      "La liste des versions publiées est indisponible. Saisissez la version à la main, par exemple v1.2.3.",
+    manualLabel: "Version (vX.Y.Z)",
+    noVersions:
+      "Aucune version n’est encore publiée. Saisissez une version à la main dès qu’une existe.",
+    compatibility:
+      "Vérifiez que cette version fonctionne avec la version de Snitch que vous faites tourner. Snitch ne bloque pas une version.",
+    empty: "Aucun Worker pour l’instant.",
+    columns: {
+      name: "Worker",
+      state: "Dernier rapport",
+      version: "Version",
+      reported: "Rapporté",
+    },
+    states: {
+      none: "Aucun rapport",
+      idle: "À jour",
+      pulling: "Téléchargement",
+      restarting: "Redémarrage",
+      updated: "Mis à jour",
+      rolled_back: "Restauré",
+      failed: "Échec",
+    },
+    causes: {
+      image_pull_failed: "L’image n’a pas pu être téléchargée.",
+      digest_unknown:
+        "L’empreinte de l’image est inconnue ; elle n’a pas été lancée.",
+      target_mismatch: "La cible n’est pas une image du dépôt de ce Worker.",
+      unhealthy:
+        "La nouvelle version a redémarré ou s’est arrêtée ; la précédente a été restaurée.",
+      rollback_failed:
+        "La nouvelle version a échoué et la précédente ne démarre pas. Vérifiez le Worker.",
     },
   },
   workers: {

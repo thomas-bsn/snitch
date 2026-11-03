@@ -1055,6 +1055,7 @@ export const en = {
     subTabsLabel: "Subsections",
     tabs: {
       workers: "Workers",
+      workerUpdates: "Updates",
       queue: "Task queue",
       folders: "Folders",
       transcription: "Transcription",
@@ -1069,6 +1070,48 @@ export const en = {
       members: "Members",
       signups: "Sign-ups",
       personLinks: "Link requests",
+    },
+  },
+  workerUpdates: {
+    title: "Worker updates",
+    lead: "Choose the version every Worker must run. Each Worker checks about every 10 minutes and updates itself. Choosing no version turns automatic updates off; going back to an older version is a rollback.",
+    targetLabel: "Target version",
+    none: "No version (automatic updates off)",
+    save: "Save target version",
+    saved: "Target version saved.",
+    imageLabel: "Image handed to Workers",
+    catalogUnavailable:
+      "The list of published versions is unavailable. Enter the version by hand, for example v1.2.3.",
+    manualLabel: "Version (vX.Y.Z)",
+    noVersions:
+      "No version is published yet. Enter a version by hand once one exists.",
+    compatibility:
+      "Check that this version works with the Snitch version you run. Snitch does not block a version.",
+    empty: "No Worker yet.",
+    columns: {
+      name: "Worker",
+      state: "Last report",
+      version: "Version",
+      reported: "Reported",
+    },
+    states: {
+      none: "No report yet",
+      idle: "Up to date",
+      pulling: "Downloading",
+      restarting: "Restarting",
+      updated: "Updated",
+      rolled_back: "Rolled back",
+      failed: "Failed",
+    },
+    causes: {
+      image_pull_failed: "The image could not be downloaded.",
+      digest_unknown: "The image digest is unknown; it was not run.",
+      target_mismatch:
+        "The target is not an image of this Worker's repository.",
+      unhealthy:
+        "The new version restarted or stopped; the previous one was restored.",
+      rollback_failed:
+        "The new version failed and the previous one did not start. Check the Worker.",
     },
   },
   workers: {
