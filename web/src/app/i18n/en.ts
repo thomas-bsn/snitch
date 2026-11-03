@@ -471,6 +471,12 @@ export const en = {
         "Hugging Face token missing on this Worker. Store it from the Worker machine with the store-token command (see docs/real-voice-worker.md), then retry.",
       hf_access_denied:
         "Hugging Face access refused: accept the model terms with the account that owns the token.",
+      hf_token_invalid:
+        "Hugging Face did not accept the token: check it (read access) and rerun the command.",
+      hf_gated_denied:
+        "The account that owns the token has not accepted the model terms: accept them on Hugging Face, then rerun.",
+      hf_repo_invalid:
+        "A model repository or revision was not found on Hugging Face: report it, the Snitch version may not match.",
       disk_full: "The Worker machine's disk is full.",
       hf_auth_required:
         "Hugging Face refused the token: check it and accept the model terms with its account.",
@@ -1165,6 +1171,9 @@ export const en = {
         gpu_unavailable: "GPU unavailable to Docker",
         service_start_failed: "Service did not start",
         hf_access_denied: "Hugging Face access denied",
+        hf_token_invalid: "Hugging Face token refused",
+        hf_gated_denied: "Model terms not accepted",
+        hf_repo_invalid: "Model repository not found",
         unknown: "Unknown cause",
       },
       recovery: {
@@ -1187,6 +1196,12 @@ export const en = {
           "Inspect the Docker logs on the machine, then rerun the command.",
         hf_access_denied:
           "Check the Hugging Face token and the model terms, then rerun the command. Transcription is not affected.",
+        hf_token_invalid:
+          "Check the Hugging Face token (read access), then rerun the command. Transcription is not affected.",
+        hf_gated_denied:
+          "Accept the terms of both models with the account that owns the token, then rerun the command. Transcription is not affected.",
+        hf_repo_invalid:
+          "Report it to your administrator: a model repository or revision was not found. Transcription is not affected.",
         unknown:
           "Inspect the terminal output on the machine, then rerun the command.",
       },
