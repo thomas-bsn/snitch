@@ -102,6 +102,8 @@ export const errorsEn = {
     "This analysis is over: start a new analysis instead.",
   analysis_step_not_failed: "This step has not failed.",
   invalid_analysis_step: "This analysis step is not valid.",
+  analysis_deletion_confirmation_required:
+    "Deleting these steps loses human work or a transcript: confirm the losses shown.",
   invalid_reanalysis: "This reanalysis choice is not valid.",
   reanalysis_confirmation_required:
     "Confirm the consequences of this reanalysis before it starts.",

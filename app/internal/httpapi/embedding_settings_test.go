@@ -204,11 +204,44 @@ func testEmbeddingValidationGate(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("saved settings: %+v %v", settings, err)
 	}
 	// A refused Save (rebuild in progress) keeps the proof usable.
+	// A completed transcription gives the next candidate a task: without one it is promoted at once.
+	if _, err := pool.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,status,result) VALUES($1,'transcription.audio.2','gate-fixture','done','{"segments":[{"start":0.2,"end":0.9,"text":"premier"}]}')`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
 	next := map[string]string{"url": input["url"], "model": "gate-v2"}
 	proof2 := h.validatedEmbedding(next)
+	// The candidate's task is embedded by the background loop; the provider holds that request,
+	// so the candidate stays in progress until the test releases it (no timing race).
+	held, release := make(chan struct{}), make(chan struct{})
+	provider.mu.Lock()
+	provider.hook = func() { close(held); <-release }
+	provider.mu.Unlock()
 	h.adminCall(http.MethodPut, "/api/admin/embeddings/settings", proof2, http.StatusOK)
+	select {
+	case <-held:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the candidate was not embedded")
+	}
 	third := h.validatedEmbedding(map[string]string{"url": input["url"], "model": "gate-v3"})
 	h.adminCall(http.MethodPut, "/api/admin/embeddings/settings", third, http.StatusConflict) // candidate still building
+	close(release)
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		var status struct {
+			Model          string `json:"model"`
+			CandidateModel string `json:"candidate_model"`
+		}
+		if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/embeddings", nil, http.StatusOK), &status); err != nil {
+			t.Fatal(err)
+		}
+		if status.Model == "gate-v2" && status.CandidateModel == "" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the candidate was not promoted after release: %+v", status)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 	if count(`SELECT count(*) FROM embedding_validations`) < 1 {
 		t.Fatal("a Save refused for another reason must not burn the proof")
 	}

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from snitch_worker import declared_models, voice, voice_models, voice_nemo
+from snitch_worker import declared_models, voice, voice_models, voice_nemo, voice_pyannote
 
 REPO = "nvidia/diar_streaming_sortformer_4spk-v2.1"
 REVISION = "c" * 40
@@ -102,7 +102,7 @@ class NemoAdapterTests(unittest.TestCase):
             env = nemo_env(root)
             active_model(env)
             nemo, _ = self.provider(env, ["0.0 3.0 a"])
-            nemo._load_embedder = lambda path, device: lambda audio: (lambda start, end: [1.0, end - start, 2.0])
+            nemo._load_embedder = lambda path, device: lambda audio_path: voice_pyannote.DecodedAudio(lambda start, end: [1.0, end - start, 2.0], 16000, 1, 16000 * 60)
             diarization = {"job_id": 7, "speakers": [{"label": "SPEAKER_00", "turns": [{"index": 0, "start": 0.0, "end": 3.0}]}]}
             result = nemo.fingerprint(CONFIG, diarization, "/a.wav", 0)
         self.assertEqual(result["embedding_model_version"], "wespeaker-test-1")
