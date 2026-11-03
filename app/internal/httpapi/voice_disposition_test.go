@@ -173,14 +173,24 @@ func testVoiceDisposition(t *testing.T, pool *pgxpool.Pool) {
 	if group == nil || group.MemberCount != 2 {
 		t.Fatalf("the two unknown voices form a group: %+v", group)
 	}
-	h.userCall(alice, http.MethodPut, fmt.Sprintf("/api/voice-groups/%d/disposition", group.ID), map[string]any{"disposition": "random"}, http.StatusOK)
+	// The panel sent what it displayed: a group that is no longer exactly that set is refused
+	// (group_changed) and no voice is touched.
+	groupPath := fmt.Sprintf("/api/voice-groups/%d/disposition", group.ID)
+	h.userCall(alice, http.MethodPut, groupPath, map[string]any{"disposition": "random", "local_speaker_ids": []int64{noise.ID}}, http.StatusConflict)
+	h.userCall(alice, http.MethodPut, groupPath, map[string]any{"disposition": "random", "local_speaker_ids": []int64{noise.ID, neighbour.ID, 999999}}, http.StatusConflict)
+	if h.dispositionOf(noise) != nil || h.dispositionOf(neighbour) != nil {
+		t.Fatal("a stale group disposition touches no voice")
+	}
+	h.userCall(alice, http.MethodPut, groupPath, map[string]any{"disposition": "random"}, http.StatusBadRequest)
+	both := []int64{noise.ID, neighbour.ID}
+	h.userCall(alice, http.MethodPut, groupPath, map[string]any{"disposition": "random", "local_speaker_ids": both}, http.StatusOK)
 	for _, sp := range []fixtureSpeaker{noise, neighbour} {
 		if d := h.dispositionOf(sp); d == nil || *d != "random" {
 			t.Fatalf("each voice of the group is random: %v", d)
 		}
 	}
-	h.userCall(alice, http.MethodPut, "/api/voice-groups/999999/disposition", map[string]any{"disposition": "ignored"}, http.StatusNotFound)
-	h.userCall(alice, http.MethodPut, fmt.Sprintf("/api/voice-groups/%d/disposition", group.ID), map[string]any{"disposition": "bogus"}, http.StatusBadRequest)
+	h.userCall(alice, http.MethodPut, "/api/voice-groups/999999/disposition", map[string]any{"disposition": "ignored", "local_speaker_ids": both}, http.StatusNotFound)
+	h.userCall(alice, http.MethodPut, groupPath, map[string]any{"disposition": "bogus", "local_speaker_ids": both}, http.StatusBadRequest)
 	for _, sp := range []fixtureSpeaker{noise, neighbour} {
 		h.restoreDisposition(sp)
 	}

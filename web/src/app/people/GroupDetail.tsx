@@ -169,7 +169,11 @@ function GroupForm({
   async function setAside(disposition: "ignored" | "random") {
     setBusy(true);
     setFailure(undefined);
-    const result = await actions.setDisposition(group.id, disposition);
+    const result = await actions.setDisposition(
+      group.id,
+      kept.map((m) => m.local_speaker_id),
+      disposition,
+    );
     setBusy(false);
     if (!result.ok) {
       setFailure(result.code);

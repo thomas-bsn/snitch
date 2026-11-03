@@ -321,6 +321,8 @@ from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
 from .voice_group import VoiceGroup
 from .voice_group_disposition import VoiceGroupDisposition
 from .voice_group_disposition_disposition import VoiceGroupDispositionDisposition
+from .voice_group_disposition_input import VoiceGroupDispositionInput
+from .voice_group_disposition_input_disposition import VoiceGroupDispositionInputDisposition
 from .voice_group_exclusion import VoiceGroupExclusion
 from .voice_group_list import VoiceGroupList
 from .voice_group_member import VoiceGroupMember
@@ -752,6 +754,8 @@ __all__ = (
     "VoiceGroup",
     "VoiceGroupDisposition",
     "VoiceGroupDispositionDisposition",
+    "VoiceGroupDispositionInput",
+    "VoiceGroupDispositionInputDisposition",
     "VoiceGroupExclusion",
     "VoiceGroupList",
     "VoiceGroupMember",

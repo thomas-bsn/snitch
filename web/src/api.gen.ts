@@ -4331,6 +4331,12 @@ export interface components {
       /** @enum {string} */
       disposition: "ignored" | "random";
     };
+    VoiceGroupDispositionInput: {
+      /** @enum {string} */
+      disposition: "ignored" | "random";
+      /** @description Les voix du groupe affichées (non exclues) ; group_changed si le groupe n'est plus exactement cet ensemble. */
+      local_speaker_ids: number[];
+    };
     VoiceDispositionView: {
       /** Format: int64 */
       local_speaker_id: number;
@@ -12493,7 +12499,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["VoiceDispositionInput"];
+        "application/json": components["schemas"]["VoiceGroupDispositionInput"];
       };
     };
     responses: {
@@ -12515,7 +12521,7 @@ export interface operations {
           "application/json": components["schemas"]["Error"];
         };
       };
-      /** @description validated_voice : une voix du groupe est validée ; rien n'est écrit */
+      /** @description group_changed : le groupe n'est plus exactement la liste de voix envoyée ; validated_voice : une voix du groupe est validée ; rien n'est écrit */
       409: {
         headers: {
           [name: string]: unknown;

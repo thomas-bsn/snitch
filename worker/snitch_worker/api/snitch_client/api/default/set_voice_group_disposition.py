@@ -9,8 +9,8 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error import Error
-from ...models.voice_disposition_input import VoiceDispositionInput
 from ...models.voice_group_disposition import VoiceGroupDisposition
+from ...models.voice_group_disposition_input import VoiceGroupDispositionInput
 from typing import cast
 
 
@@ -18,7 +18,7 @@ from typing import cast
 def _get_kwargs(
     id: int,
     *,
-    body: VoiceDispositionInput,
+    body: VoiceGroupDispositionInput,
     origin: str,
     x_csrf_token: str,
 
@@ -91,7 +91,7 @@ def sync_detailed(
     id: int,
     *,
     client: AuthenticatedClient,
-    body: VoiceDispositionInput,
+    body: VoiceGroupDispositionInput,
     origin: str,
     x_csrf_token: str,
 
@@ -102,7 +102,7 @@ def sync_detailed(
         id (int):
         origin (str):
         x_csrf_token (str):
-        body (VoiceDispositionInput):
+        body (VoiceGroupDispositionInput):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -131,7 +131,7 @@ def sync(
     id: int,
     *,
     client: AuthenticatedClient,
-    body: VoiceDispositionInput,
+    body: VoiceGroupDispositionInput,
     origin: str,
     x_csrf_token: str,
 
@@ -142,7 +142,7 @@ def sync(
         id (int):
         origin (str):
         x_csrf_token (str):
-        body (VoiceDispositionInput):
+        body (VoiceGroupDispositionInput):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -166,7 +166,7 @@ async def asyncio_detailed(
     id: int,
     *,
     client: AuthenticatedClient,
-    body: VoiceDispositionInput,
+    body: VoiceGroupDispositionInput,
     origin: str,
     x_csrf_token: str,
 
@@ -177,7 +177,7 @@ async def asyncio_detailed(
         id (int):
         origin (str):
         x_csrf_token (str):
-        body (VoiceDispositionInput):
+        body (VoiceGroupDispositionInput):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -206,7 +206,7 @@ async def asyncio(
     id: int,
     *,
     client: AuthenticatedClient,
-    body: VoiceDispositionInput,
+    body: VoiceGroupDispositionInput,
     origin: str,
     x_csrf_token: str,
 
@@ -217,7 +217,7 @@ async def asyncio(
         id (int):
         origin (str):
         x_csrf_token (str):
-        body (VoiceDispositionInput):
+        body (VoiceGroupDispositionInput):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
