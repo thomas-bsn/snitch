@@ -45,6 +45,8 @@ type Server struct {
 	Client                *http.Client
 	Store                 settings.Store
 	Library               *library.Service
+	thumbnailLocks        sync.Map // clip id -> *sync.Mutex
+	thumbnailFails        sync.Map // clip id -> time of the last failed thumbnail
 	Jobs                  *jobs.Service
 	Analysis              *analysis.Service
 	Events                *events.Service
@@ -106,6 +108,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.Uploads.Start(ctx); err != nil {
 		return fmt.Errorf("start uploads: %w", err)
 	}
+	s.Library.OnIndexed = func(id int64) { go s.warmThumbnail(id) }
 	s.Library.OnManagedReady = func(ctx context.Context, id int64) error {
 		_, _, err := s.scheduleResolvedTranscription(ctx, id, nil, true)
 		if err != nil {
@@ -320,6 +323,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/clips/{id}/transcription", s.protected(true, http.HandlerFunc(s.scheduleTranscription)))
 	mux.Handle("GET /api/admin/transcriptions/batch-preview", s.protected(true, http.HandlerFunc(s.batchTranscriptionPreview)))
 	mux.Handle("POST /api/admin/transcriptions/batch-schedule", s.protected(true, http.HandlerFunc(s.batchTranscriptionSchedule)))
+	mux.Handle("GET /api/clips/{id}/thumbnail", s.protected(false, http.HandlerFunc(s.clipThumbnail)))
 	mux.Handle("GET /api/clips/{id}/media", s.protected(false, http.HandlerFunc(s.serveClipMedia)))
 	s.registerVoiceRoutes(mux)
 	s.registerPersonRoutes(mux)

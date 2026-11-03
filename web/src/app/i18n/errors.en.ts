@@ -208,6 +208,7 @@ export const errorsEn = {
     "The session that started the link expired or changed. Start again from your account.",
   local_speaker_not_found: "This voice does not exist.",
   media_not_found: "This media file is not available.",
+  thumbnail_not_found: "This thumbnail is not available.",
   method_not_allowed: "This action is not allowed here.",
   microphone_track_not_diarized: "The microphone track has no voices yet.",
   no_linked_person: "No person is linked to your account.",
