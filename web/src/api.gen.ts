@@ -3247,6 +3247,9 @@ export interface components {
       | "gpu_unavailable"
       | "service_start_failed"
       | "hf_access_denied"
+      | "hf_token_invalid"
+      | "hf_gated_denied"
+      | "hf_repo_invalid"
       | "unknown";
     WorkerInstallEventInput: {
       phase: components["schemas"]["WorkerInstallPhase"];
@@ -3555,6 +3558,9 @@ export interface components {
         | ""
         | "hf_token_missing"
         | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
         | "disk_full"
         | "runtime_incompatible"
         | "inference_failed"
@@ -3612,6 +3618,9 @@ export interface components {
         | ""
         | "hf_token_missing"
         | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
         | "disk_full"
         | "runtime_incompatible"
         | "inference_failed"

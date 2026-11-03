@@ -497,6 +497,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerInstallProgress(t, pool)
 	})
+	t.Run("hugging face fine causes", func(t *testing.T) {
+		reset(t)
+		testHFFineCauseSchema(t, pool)
+	})
 	t.Run("worker install never connected and silence", func(t *testing.T) {
 		reset(t)
 		testWorkerInstallNeverConnectedAndSilence(t, pool)
