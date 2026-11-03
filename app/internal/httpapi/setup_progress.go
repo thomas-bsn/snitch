@@ -40,11 +40,11 @@ func (s *Server) setupConfigured(ctx context.Context) (map[string]bool, error) {
  EXISTS(SELECT 1 FROM clip_metadata_settings WHERE id=true AND country<>'' AND timezone<>'')`).Scan(&semantic, &worker, &imported, &location); err != nil {
 		return nil, err
 	}
-	central, err := s.hfCentralConfigured(ctx)
+	hfState, _, err := s.hfRead(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]bool{"location": location, "discord": id != "" && secret != "", "semantic_search": semantic, "worker": worker, "huggingface": central, "import": imported}, nil
+	return map[string]bool{"location": location, "discord": id != "" && secret != "", "semantic_search": semantic, "worker": worker, "huggingface": hfState.Token != "", "import": imported}, nil
 }
 
 // loadSetupProgress merges the recorded steps with the real state: a configured step is done whatever was

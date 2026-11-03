@@ -31,18 +31,8 @@ type hfTokenState struct {
 	Token   string `json:"token"`
 }
 
-// hfCurrent reads the stored state. An absent, empty or unreadable row counts as no token at all (version "0"),
-// so a lost master key never makes a Worker purge its copy by mistake.
-func (s *Server) hfCurrent(r *http.Request) (hfTokenState, bool, error) {
-	return s.hfRead(r.Context())
-}
-
-// hfCentralConfigured tells whether a readable central token is stored (the wizard's optional step is then done).
-func (s *Server) hfCentralConfigured(ctx context.Context) (bool, error) {
-	state, _, err := s.hfRead(ctx)
-	return state.Token != "", err
-}
-
+// hfRead reads the stored state. An absent, empty or unreadable row counts as no token at all (version "0"), so a
+// lost master key never makes a Worker purge its copy by mistake. The flag reports an unreadable row.
 func (s *Server) hfRead(ctx context.Context) (hfTokenState, bool, error) {
 	raw, err := s.Store.Get(ctx, hfTokenKey)
 	if err != nil {
@@ -97,7 +87,7 @@ func (s *Server) saveHFState(r *http.Request, next hfTokenState) error {
 // getHFToken tells an administrator whether a central token is configured, its fingerprint, and what each Worker
 // acknowledged. It never returns the value.
 func (s *Server) getHFToken(w http.ResponseWriter, r *http.Request) {
-	state, unreadable, err := s.hfCurrent(r)
+	state, unreadable, err := s.hfRead(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -150,7 +140,7 @@ func (s *Server) putHFToken(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_hf_token")
 		return
 	}
-	current, _, err := s.hfCurrent(r)
+	current, _, err := s.hfRead(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -169,7 +159,7 @@ func (s *Server) putHFToken(w http.ResponseWriter, r *http.Request) {
 // deleteHFToken removes the central token; Workers purge their central copy at the next version. Their local token,
 // if they have one, is kept.
 func (s *Server) deleteHFToken(w http.ResponseWriter, r *http.Request) {
-	current, unreadable, err := s.hfCurrent(r)
+	current, unreadable, err := s.hfRead(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -190,7 +180,7 @@ func (s *Server) deleteHFToken(w http.ResponseWriter, r *http.Request) {
 
 // workerHFTokenVersion is the only thing a Worker learns without the value: the version to compare with its own.
 func (s *Server) workerHFTokenVersion(w http.ResponseWriter, r *http.Request) {
-	state, _, err := s.hfCurrent(r)
+	state, _, err := s.hfRead(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -201,7 +191,7 @@ func (s *Server) workerHFTokenVersion(w http.ResponseWriter, r *http.Request) {
 // workerHFToken hands the value to an authenticated, non-revoked Worker. A removed or absent token is answered
 // with a null value, which is the instruction to purge the central copy.
 func (s *Server) workerHFToken(w http.ResponseWriter, r *http.Request) {
-	state, _, err := s.hfCurrent(r)
+	state, _, err := s.hfRead(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -243,7 +233,7 @@ func (s *Server) ackWorkerHFToken(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_hf_token_ack")
 		return
 	}
-	state, _, err := s.hfCurrent(r)
+	state, _, err := s.hfRead(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
