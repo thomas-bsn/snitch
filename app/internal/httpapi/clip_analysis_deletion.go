@@ -70,6 +70,15 @@ func resolveDeletionSteps(all bool, requested []string) ([]string, bool) {
 	return out, true
 }
 
+// analysisActive reports whether an analysis run or one of its jobs (transcription, voice) is
+// still active on the clip. Reading it under the clip lock is what makes the check hold.
+func analysisActive(ctx context.Context, q queryer, clipID int64) (bool, error) {
+	var busy bool
+	err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM clip_analysis_runs WHERE clip_id=$1 AND status='active')
+ OR EXISTS(SELECT 1 FROM jobs WHERE clip_id=$1 AND status IN ('pending','leased','retry_wait') AND (step LIKE 'transcription.audio.%' OR step LIKE 'voice.%'))`, clipID).Scan(&busy)
+	return busy, err
+}
+
 // analysisDeletionLoss computes the stake of the steps on the clip, reading through q.
 // Only the speakers produced by the clip's diarization are at stake; microphone and archived
 // speakers survive a diarization deletion, unless the whole analysis goes (all).
@@ -118,12 +127,9 @@ func (s *Server) deleteAnalysisSteps(ctx context.Context, clipID int64, steps []
 	} else if err != nil {
 		return analysisDeletionStake{}, err
 	}
-	var busy bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM clip_analysis_runs WHERE clip_id=$1 AND status='active')
- OR EXISTS(SELECT 1 FROM jobs WHERE clip_id=$1 AND status IN ('pending','leased','retry_wait') AND (step LIKE 'transcription.audio.%' OR step LIKE 'voice.%'))`, clipID).Scan(&busy); err != nil {
+	if busy, err := analysisActive(ctx, tx, clipID); err != nil {
 		return analysisDeletionStake{}, err
-	}
-	if busy {
+	} else if busy {
 		return analysisDeletionStake{}, errAnalysisActive
 	}
 	stake, err := s.analysisDeletionLoss(ctx, tx, clipID, steps, all)

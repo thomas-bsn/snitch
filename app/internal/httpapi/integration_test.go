@@ -489,6 +489,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceRefusal(t, pool)
 	})
+	t.Run("refusal during active analysis", func(t *testing.T) {
+		reset(t)
+		testRefusalDuringActiveAnalysis(t, pool)
+	})
 	t.Run("library unknown filter matches search", func(t *testing.T) {
 		reset(t)
 		testLibraryUnknownFilterMatchesSearch(t, pool)

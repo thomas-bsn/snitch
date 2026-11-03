@@ -382,3 +382,33 @@ func testIgnoredVoiceNeverDeduced(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("the deduced speaker of segment 0 is ignored, so the segment has none: %+v", back)
 	}
 }
+
+// testRefusalDuringActiveAnalysis proves that a refusal, like the deletion of analysis steps,
+// waits for the analysis: during an active run it is refused with 409 analysis_active and
+// writes nothing; once the run is cancelled it is recorded.
+func testRefusalDuringActiveAnalysis(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	_, second := h.diarizeClip()
+	bob := h.createPerson("Bob")
+	h.startAnalysis(map[string]any{"scope": "voice", "mode": "full"}, http.StatusCreated)
+	if a := h.analysis(); a == nil || a.Status != "active" {
+		t.Fatalf("the fixture needs an active analysis: %+v", a)
+	}
+	var refused struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/refusal", second), map[string]any{"person_id": bob}, http.StatusConflict), &refused); err != nil {
+		t.Fatal(err)
+	}
+	if refused.Error != "analysis_active" {
+		t.Fatalf("a refusal during an active analysis must say so: %+v", refused)
+	}
+	if n := h.count(`SELECT count(*) FROM voice_refusals WHERE local_speaker_id=$1`, second); n != 0 {
+		t.Fatalf("a refused refusal must write nothing: %d", n)
+	}
+	h.adminCall(http.MethodPost, h.analysisPath()+"/cancel", nil, http.StatusOK)
+	h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/refusal", second), map[string]any{"person_id": bob}, http.StatusOK)
+	if n := h.count(`SELECT count(*) FROM voice_refusals WHERE local_speaker_id=$1`, second); n != 1 {
+		t.Fatalf("the refusal is recorded once the analysis is over: %d", n)
+	}
+}

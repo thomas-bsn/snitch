@@ -235,6 +235,15 @@ func (s *Server) refuseLocalSpeaker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	// Like the deletion of analysis steps, a refusal waits for the analysis: nothing changes
+	// while a run or one of its voice jobs is active on the clip.
+	if busy, err := analysisActive(ctx, tx, sp.ClipID); err != nil {
+		s.internal(w, err)
+		return
+	} else if busy {
+		fail(w, http.StatusConflict, "analysis_active")
+		return
+	}
 	if _, err = tx.Exec(ctx, `SELECT id FROM local_speakers WHERE id=$1 FOR UPDATE`, sp.ID); err != nil {
 		s.internal(w, err)
 		return
