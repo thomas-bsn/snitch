@@ -503,6 +503,44 @@ export const fr: Messages = {
   },
   voiceAdmin: {
     title: "Traitement vocal",
+    hf: {
+      title: "Token Hugging Face central",
+      lead: "Saisissez le token une seule fois ici. Snitch le garde chiffré et ne le réaffiche jamais. Les Workers autorisés le reçoivent eux-mêmes et le rangent en privé : un Worker neuf ou recréé peut télécharger les modèles vocaux sans commande sur sa machine.",
+      configured:
+        "Configuré. La valeur est gardée chiffrée et ne peut pas être relue.",
+      absent:
+        "Non configuré. Les Workers gardent le token qu’ils ont déjà, le cas échéant.",
+      unreadable:
+        "Le token enregistré ne peut pas être lu avec la clé maître actuelle. Saisissez-le à nouveau.",
+      fingerprint: "Empreinte {value}.",
+      field: "Token Hugging Face",
+      hint: "Commence par hf_. Affiché une seule fois, puis masqué définitivement.",
+      save: "Enregistrer le token",
+      replace: "Remplacer le token",
+      remove: "Supprimer le token",
+      cancelRemove: "Garder",
+      removeHint:
+        "Les Workers purgent leur copie centrale à leur prochain contact. Un token qu’un Worker garde localement reste.",
+      owner: "Seul le Super-administrateur peut modifier le token.",
+      savedNotice:
+        "Token enregistré. Les Workers le reçoivent à leur prochain contact.",
+      removedNotice:
+        "Token supprimé. Les Workers purgent leur copie centrale à leur prochain contact.",
+      workersTitle: "Workers",
+      workersLead:
+        "Chaque Worker indique le token qu’il garde. Non synchronisé : le Worker est hors ligne ou n’a pas encore accusé réception de cette version.",
+      state: {
+        synced: "Synchronisé",
+        pending: "Non synchronisé",
+        error: "Erreur",
+      },
+      source: {
+        central: "Copie Snitch",
+        local: "Token local conservé",
+        none: "Aucun token",
+        unknown: "Pas encore signalé",
+      },
+    },
     saved: "Réglages enregistrés.",
     pipeline: "Pipeline vocal",
     version:
@@ -831,6 +869,15 @@ export const fr: Messages = {
   },
   setup: {
     title: "Configurer Snitch",
+    huggingface: {
+      title: "Token Hugging Face (facultatif)",
+      lead: "Utile seulement pour télécharger les modèles vocaux. Enregistré une fois, chiffré, puis transmis à vos Workers autorisés. Vous pouvez aussi l’ajouter plus tard dans Traitement vocal.",
+      field: "Token Hugging Face",
+      hint: "Commence par hf_. Affiché une seule fois, puis masqué définitivement.",
+      ownerOnly: "Seul le Super-administrateur peut enregistrer le token.",
+      saved:
+        "Token enregistré. Les Workers le reçoivent à leur prochain contact.",
+    },
     lead: "Créez d’abord le compte Super-administrateur. Le reste est facultatif, et rien ne démarre sans votre accord.",
     stepOf: "Étape {step} sur {total}",
     stepsLabel: "Étapes de la configuration",
@@ -840,6 +887,7 @@ export const fr: Messages = {
       discord: "Discord",
       semantic: "Recherche sémantique",
       worker: "Premier Worker",
+      huggingface: "Token Hugging Face",
       import: "Import de vidéos",
       summary: "Récapitulatif",
     },
@@ -852,6 +900,7 @@ export const fr: Messages = {
     where: {
       discord: "Administration, Utilisateurs et accès",
       semantic: "Administration, Index sémantique",
+      huggingface: "Administration, Traitement vocal",
       worker: "Administration, Workers",
       import: "la page Importer",
     },

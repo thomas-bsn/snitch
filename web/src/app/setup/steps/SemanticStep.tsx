@@ -14,7 +14,7 @@ export function SemanticStep({
     <div className="flex max-w-xl flex-col gap-5">
       <StepHeader
         position={5}
-        total={8}
+        total={9}
         title={t("setup.semantic.title")}
         lead={t("setup.semantic.lead")}
       />

@@ -23,7 +23,7 @@ import sys
 from typing import Any, Callable, Mapping
 
 from snitch_worker import log as worker_log
-from snitch_worker import revocation, voice_download, voice_manifest
+from snitch_worker import hf_token_sync, revocation, voice_download, voice_manifest
 
 DIARIZATION_REPO = "pyannote/speaker-diarization-community-1"
 EMBEDDING_REPO = "pyannote/wespeaker-voxceleb-resnet34-LM"
@@ -221,6 +221,7 @@ def _keep_token(environ: Mapping[str, str], token: str, say: Callable[[str], Non
     if not token:
         return
     if voice_download.persist_token(voice_download.default_token_file(environ), token):
+        hf_token_sync.mark_local(voice_download.default_token_file(environ))
         say("Hugging Face token kept in the models volume for later model installs")
     else:
         say("Hugging Face token not kept: unexpected format or the models volume is not writable")
@@ -239,6 +240,7 @@ def store_token(environ: Mapping[str, str], stdin: Any, stdout: Any) -> int:
     if not voice_download.persist_token(voice_download.default_token_file(environ), token):
         print("cause=volume_not_writable", file=stdout, flush=True)
         return 1
+    hf_token_sync.mark_local(voice_download.default_token_file(environ))
     print("stored", file=stdout, flush=True)
     return 0
 
