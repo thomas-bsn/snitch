@@ -164,6 +164,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_vocabulary_id: "Cet identifiant de vocabulaire n’est pas valide.",
   invalid_vocabulary_term: "Ce terme de vocabulaire n’est pas valide.",
   invalid_visibility: 'La visibilité doit être "shared" ou "private".',
+  invalid_disposition: "Cette mise de côté n’est pas valide.",
   invalid_voice_automation:
     "Ces réglages d’automatisation ne sont pas valides.",
   invalid_voice_criteria: "Ces critères ne sont pas valides.",
@@ -210,6 +211,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   not_found: "Cet élément n’existe pas.",
   not_pending: "Cette inscription n’attend pas d’approbation.",
   not_unknown: "Cette voix n’est plus inconnue.",
+  validated_voice:
+    "Cette voix est validée : son identification doit être retirée avant d’être mise de côté.",
   not_validated: "Cette voix n’a pas été validée.",
   origin_rejected: "Cette requête vient d’une adresse inattendue.",
   person_has_hidden_voices: "Cette personne a encore des voix masquées.",

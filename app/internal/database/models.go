@@ -247,6 +247,14 @@ type LocalSpeaker struct {
 	ArchivedAt       pgtype.Timestamptz `json:"archived_at"`
 }
 
+type LocalSpeakerDisposition struct {
+	LocalSpeakerID int64              `json:"local_speaker_id"`
+	Disposition    string             `json:"disposition"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername string             `json:"author_username"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type MicrophoneTrackEvent struct {
 	ID             int64              `json:"id"`
 	Scope          string             `json:"scope"`
@@ -603,6 +611,17 @@ type VoiceDiarizationTrial struct {
 	ModelEngine      string             `json:"model_engine"`
 }
 
+type VoiceDispositionEvent struct {
+	ID             int64              `json:"id"`
+	LocalSpeakerID int64              `json:"local_speaker_id"`
+	ClipID         int64              `json:"clip_id"`
+	OldDisposition string             `json:"old_disposition"`
+	NewDisposition string             `json:"new_disposition"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername string             `json:"author_username"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type VoiceFingerprint struct {
 	ID               int64              `json:"id"`
 	LocalSpeakerID   int64              `json:"local_speaker_id"`
@@ -682,6 +701,14 @@ type VoiceProfileDeletion struct {
 	FingerprintCount  int32              `json:"fingerprint_count"`
 	AttributionCount  int32              `json:"attribution_count"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoiceRefusal struct {
+	LocalSpeakerID int64              `json:"local_speaker_id"`
+	PersonID       int64              `json:"person_id"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername string             `json:"author_username"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type VoiceSample struct {

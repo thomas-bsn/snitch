@@ -5027,6 +5027,43 @@
         "security": [{"session": []}]
       }
     },
+    "/api/local-speakers/{id}/disposition": {
+      "put": {
+        "operationId": "setLocalSpeakerDisposition",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionInput"}}}},
+        "responses": {"200": {"description": "Disposition enregistrée (idempotent) ; journalisée seulement si elle change", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionView"}}}}, "409": {"description": "validated_voice : la voix a une validation humaine ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. Met la voix de côté (ignored) ou la libellé « Random ». Même droit que la validation. Les rapprochements ne la considèrent plus.",
+        "security": [{"session": []}]
+      },
+      "delete": {
+        "operationId": "restoreLocalSpeakerDisposition",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Disposition levée (idempotent) : la voix redevient traitée normalement", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionView"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible (Rétablir).",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/local-speakers/{id}/refusal": {
+      "post": {
+        "operationId": "refuseLocalSpeaker",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRefusalInput"}}}},
+        "responses": {"200": {"description": "Refus enregistré : l'attribution de cette Personne est retirée, ses échantillons quittent la Référence", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceRefusal"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne propose plus cette Personne pour cette voix.",
+        "security": [{"session": []}]
+      }
+    },
+    "/api/voice-groups/{id}/disposition": {
+      "put": {
+        "operationId": "setVoiceGroupDisposition",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceDispositionInput"}}}},
+        "responses": {"200": {"description": "Disposition appliquée à chaque voix non exclue du groupe", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceGroupDisposition"}}}}, "404": {"description": "voice_group_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "validated_voice : une voix du groupe est validée ; rien n'est écrit", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Utilisateurs connectés. Une disposition vaut pour chacune des voix du groupe (ADR 0031).",
+        "security": [{"session": []}]
+      }
+    },
     "/api/voice-verification": {
       "get": {
         "operationId": "listVoiceVerification",
@@ -7213,6 +7250,33 @@
           "skipped": {"type": "array", "items": {"type": "integer", "format": "int64"}, "description": "Voix déjà validées par quelqu'un d'autre pendant l'opération."}
         }
       },
+      "VoiceDispositionInput": {
+        "type": "object",
+        "required": ["disposition"],
+        "additionalProperties": false,
+        "properties": {"disposition": {"type": "string", "enum": ["ignored", "random"]}}
+      },
+      "VoiceDispositionView": {
+        "type": "object",
+        "required": ["local_speaker_id", "disposition"],
+        "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "disposition": {"type": "string", "nullable": true, "enum": ["ignored", "random"]}}
+      },
+      "VoiceGroupDisposition": {
+        "type": "object",
+        "required": ["group_id", "disposition", "voices"],
+        "properties": {"group_id": {"type": "integer", "format": "int64"}, "disposition": {"type": "string", "nullable": true, "enum": ["ignored", "random"]}, "voices": {"type": "integer", "minimum": 0}}
+      },
+      "VoiceRefusalInput": {
+        "type": "object",
+        "required": ["person_id"],
+        "additionalProperties": false,
+        "properties": {"person_id": {"type": "integer", "format": "int64", "minimum": 1}}
+      },
+      "VoiceRefusal": {
+        "type": "object",
+        "required": ["local_speaker_id", "person_id", "refused"],
+        "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "person_id": {"type": "integer", "format": "int64"}, "refused": {"type": "boolean"}}
+      },
       "VoiceGroupExclusion": {
         "type": "object",
         "required": ["local_speaker_id", "excluded"],
@@ -7460,7 +7524,8 @@
           "decision_level": {"$ref": "#/components/schemas/DecisionLevel"},
           "person": {"allOf": [{"$ref": "#/components/schemas/PersonRef"}], "nullable": true, "description": "Personne de l'attribution effective (validation humaine prioritaire)."},
           "attribution": {"allOf": [{"$ref": "#/components/schemas/Attribution"}], "nullable": true},
-          "fingerprints": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceFingerprint"}}
+          "fingerprints": {"type": "array", "items": {"$ref": "#/components/schemas/VoiceFingerprint"}},
+          "disposition": {"type": "string", "nullable": true, "enum": ["ignored", "random"], "description": "ignored : voix mise de côté, sans locuteur sur ses segments ; random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031)."}
         }
       },
       "ClipVoice": {

@@ -324,8 +324,11 @@ func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, 
   WHERE f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND ($3::bigint IS NULL OR f.clip_id=$3)
     AND NOT EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.id=f.local_speaker_id AND ls.kind='microphone')
     AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=f.local_speaker_id AND (a.validation_state='validated' OR a.origin<>'%[2]s'))
+    AND NOT EXISTS (SELECT 1 FROM local_speaker_dispositions d WHERE d.local_speaker_id=f.local_speaker_id)
 ), scored AS (
-  SELECT t.sid,r.person_id,max(1-(t.e <=> r.e)) AS score FROM targets t CROSS JOIN refs r GROUP BY t.sid,r.person_id HAVING max(1-(t.e <=> r.e)) >= $4
+  SELECT t.sid,r.person_id,max(1-(t.e <=> r.e)) AS score FROM targets t CROSS JOIN refs r
+  WHERE NOT EXISTS (SELECT 1 FROM voice_refusals x WHERE x.local_speaker_id=t.sid AND x.person_id=r.person_id)
+  GROUP BY t.sid,r.person_id HAVING max(1-(t.e <=> r.e)) >= $4
 )
 SELECT t.sid,t.clip_id,s.person_id,s.score,NOT EXISTS (SELECT 1 FROM refs) FROM targets t LEFT JOIN scored s ON s.sid=t.sid
 ORDER BY t.sid,s.score DESC NULLS LAST,s.person_id`, g.dimensions, matchingOrigin)
