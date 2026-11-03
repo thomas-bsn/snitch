@@ -793,6 +793,21 @@ type WorkerTranscriptionConfig struct {
 	ReachFailure     []byte             `json:"reach_failure"`
 }
 
+type WorkerUpdateStatus struct {
+	WorkerID   string             `json:"worker_id"`
+	State      string             `json:"state"`
+	Version    string             `json:"version"`
+	Digest     string             `json:"digest"`
+	CauseCode  string             `json:"cause_code"`
+	ReportedAt pgtype.Timestamptz `json:"reported_at"`
+}
+
+type WorkerUpdateTarget struct {
+	ID        bool               `json:"id"`
+	Version   pgtype.Text        `json:"version"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type WorkerVoiceModel struct {
 	WorkerID         string             `json:"worker_id"`
 	ModelID          string             `json:"model_id"`

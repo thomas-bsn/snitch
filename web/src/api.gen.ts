@@ -779,6 +779,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/worker-updates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Version cible de mise à jour automatique des Workers, catalogue des versions publiées et dernier statut de chaque Worker (ADR 0036). */
+    get: operations["getWorkerUpdates"];
+    /** @description Choisit la version cible. Null ou chaîne vide : aucune mise à jour automatique. Le format est vérifié ; l'image est construite par Snitch à partir du dépôt configuré. */
+    put: operations["putWorkerUpdateTarget"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/workers/{id}/transcription/override": {
     parameters: {
       query?: never;
@@ -945,6 +963,40 @@ export interface paths {
     get: operations["getWorkerTranscriptionConfig"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/update": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Image que l'agent local du Worker doit faire tourner. Ne modifie rien ; sans cible, les champs sont nuls. */
+    get: operations["getWorkerUpdate"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/update-status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Statut de l'agent local après une tentative de mise à jour. Aucun texte libre : code de cause stable, empreinte de l'image tirée. */
+    post: operations["postWorkerUpdateStatus"];
     delete?: never;
     options?: never;
     head?: never;
@@ -7345,6 +7397,99 @@ export interface operations {
       };
     };
   };
+  getWorkerUpdates: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État des mises à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            target_version: string | null;
+            target_image: string | null;
+            image_repository: string;
+            catalog: string[];
+            catalog_available: boolean;
+            workers: {
+              id: string;
+              name: string;
+              /** @enum {string} */
+              state:
+                | ""
+                | "idle"
+                | "pulling"
+                | "restarting"
+                | "updated"
+                | "rolled_back"
+                | "failed";
+              version: string;
+              digest: string;
+              cause_code: string;
+              /** Format: date-time */
+              reported_at?: string | null;
+            }[];
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putWorkerUpdateTarget: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          version: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Cible enregistrée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            target_version: string | null;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   putWorkerTranscriptionOverride: {
     parameters: {
       query?: never;
@@ -7790,6 +7935,81 @@ export interface operations {
             endpoint_override: string;
           };
         };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerUpdate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Cible de mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            target_version: string | null;
+            target_image: string | null;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerUpdateStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          state:
+            | "idle"
+            | "pulling"
+            | "restarting"
+            | "updated"
+            | "rolled_back"
+            | "failed";
+          version: string;
+          digest?: string;
+          cause_code?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Statut enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Erreur */
       default: {
