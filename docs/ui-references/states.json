@@ -45,14 +45,14 @@
       "screen": "bibliotheque",
       "state": "liste",
       "prototype": "/prototype/library?variant=D",
-      "app": "/library"
+      "app": "/library?folder=2026/octobre"
     },
     {
       "screen": "bibliotheque",
       "state": "icones",
       "prototype": "/prototype/library?variant=D",
       "prototypeClick": "Icônes",
-      "app": "/library",
+      "app": "/library?folder=2026/octobre",
       "appClick": "Icônes"
     },
     {

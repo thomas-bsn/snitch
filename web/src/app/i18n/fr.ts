@@ -1634,8 +1634,10 @@ export const fr: Messages = {
       view: "Affichage",
       list: "Liste",
       icons: "Icônes",
-      count: "{count} éléments",
-      countOne: "1 élément",
+      counts: "{folders} dossier(s) · {videos} vidéo(s)",
+      root: "videos",
+      voicesToProcess: "{count} voix à traiter",
+      searchIn: "Rechercher dans {folder}",
       flatHint:
         "Résultats de {folder} et de ses sous-dossiers, avec leur dossier.",
       indexing: "Indexation de {name}…",
@@ -1744,7 +1746,6 @@ export const fr: Messages = {
     },
     folderNavigation: "Navigation par dossiers",
     folders: "Dossiers",
-    allClips: "Tous les clips",
     parentFolder: "Dossier parent",
     privateFolder: {
       label: "(dossier privé)",

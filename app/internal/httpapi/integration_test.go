@@ -1456,10 +1456,13 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 					for dir, files := range map[string][]string{
-						"2026/novembre":        {"reunion-prepa-s12.mp4"},
-						"2026/octobre":         {"interview-claire.mp4", "brief-lumiere.mp4"},
-						"2026/octobre/parking": {"rushes-prise-3.mp4"},
+						"2026/novembre":        {"reunion-prepa-s12.mp4", "essai-micro-hf.mov", "rush-nuit-01.mp4", "rush-nuit-02.mp4"},
+						"2026/octobre":         {"interview-claire.mp4", "brief-lumiere.mp4", "broll-ville.mp4"},
+						"2026/octobre/parking": {"rushes-prise-3.mp4", "prise-1.mp4", "prise-2.mp4", "prise-4.mp4"},
 						"2026/septembre":       {"visio-budget.mp4", "reperages-studio-b.mp4"},
+						"archives-2025":        {"bout-a-bout-v3.mov"},
+						"perso-thomas":         {"vlog-01.mp4"},
+						".":                    {"import-sans-dossier.mp4"},
 					} {
 						if e = os.MkdirAll(filepath.Join(explorerRoot, dir), 0o700); e != nil {
 							t.Fatal(e)
