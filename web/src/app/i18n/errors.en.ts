@@ -3,6 +3,16 @@
 
 export const errorsEn = {
   avatar_too_large: "The photo must be smaller than 5 MB.",
+  invalid_discord_bot_token: "Discord refused this bot token.",
+  discord_bot_not_configured: "The Discord bot is not connected.",
+  discord_sync_running: "A synchronization is already running.",
+  discord_rate_limited: "Discord is limiting requests. Try again in a moment.",
+  avatar_sync_too_soon:
+    "The picture was just refreshed. Try again in a moment.",
+  invalid_avatar_source: "This photo source does not exist.",
+  no_custom_avatar: "Import your own picture first.",
+  discord_bot_rejected: "Discord refused the bot token. Connect the bot again.",
+  discord_account_not_found: "Discord does not know this account any more.",
   invalid_avatar: "Choose a JPEG or PNG image, up to 16 megapixels.",
   video_root_unavailable:
     "This root cannot be used. Check that it is mounted and writable.",

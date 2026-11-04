@@ -5,6 +5,17 @@ import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
   avatar_too_large: "La photo doit faire moins de 5 Mo.",
+  invalid_discord_bot_token: "Discord a refusé ce token de bot.",
+  discord_bot_not_configured: "Le bot Discord n’est pas connecté.",
+  discord_sync_running: "Une synchronisation est déjà en cours.",
+  discord_rate_limited:
+    "Discord limite les requêtes. Réessayez dans un instant.",
+  avatar_sync_too_soon:
+    "La photo vient d’être actualisée. Réessayez dans un instant.",
+  invalid_avatar_source: "Cette source de photo n’existe pas.",
+  no_custom_avatar: "Importez d’abord votre propre photo.",
+  discord_bot_rejected: "Discord a refusé le token du bot. Reconnectez le bot.",
+  discord_account_not_found: "Discord ne connaît plus ce compte.",
   invalid_avatar: "Choisissez une image JPEG ou PNG de 16 mégapixels maximum.",
   video_root_unavailable:
     "Cette racine ne peut pas être utilisée. Vérifiez qu’elle est montée et accessible en écriture.",

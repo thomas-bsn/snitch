@@ -47,15 +47,31 @@ func (s *Server) putAccountPreferences(w http.ResponseWriter, r *http.Request) {
 // The predicate is repeated in the UPDATE so a stale UI state cannot lock out an account.
 func (s *Server) unlinkDiscord(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	tag, err := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=NULL,discord_name=NULL WHERE id=$1 AND discord_id IS NOT NULL AND password_hash IS NOT NULL`, ss.User.ID)
+	tx, err := s.Pool.Begin(r.Context())
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	tag, err := tx.Exec(r.Context(), `UPDATE users SET discord_id=NULL,discord_name=NULL WHERE id=$1 AND discord_id IS NOT NULL AND password_hash IS NOT NULL`, ss.User.ID)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	if tag.RowsAffected() == 1 {
+		// Synchronization stops with the identity; the downloaded photo is dropped, the personal one is kept.
+		if err := dropDiscordAvatar(r.Context(), tx, ss.User.ID); err != nil {
+			s.internal(w, err)
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			s.internal(w, err)
+			return
+		}
 		reply(w, 200, map[string]string{"status": "ok"})
 		return
 	}
+	tx.Rollback(r.Context())
 	var linked, canUnlink bool
 	if err := s.Pool.QueryRow(r.Context(), `SELECT discord_id IS NOT NULL,password_hash IS NOT NULL FROM users WHERE id=$1`, ss.User.ID).Scan(&linked, &canUnlink); err != nil {
 		s.internal(w, err)
