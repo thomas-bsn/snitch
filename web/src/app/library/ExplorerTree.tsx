@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, Folder, FolderLock, HardDrive } from "lucide-react";
 import { useI18n } from "../i18n";
-import { fetchExplorer, type ExplorerEntry } from "./explorerApi";
+import { fetchExplorerAll, type ExplorerEntry } from "./explorerApi";
 
 /** The folders of the Racine vidéo, loaded as they open; the current folder's branch opens with it. */
 export function ExplorerTree({
@@ -17,7 +17,8 @@ export function ExplorerTree({
   const [failed, setFailed] = useState<string | null>(null);
 
   const load = useCallback(async (path: string) => {
-    const result = await fetchExplorer({ path });
+    // Every folder, page after page: a root can hold more folders than one page (100).
+    const result = await fetchExplorerAll({ path });
     if (!result.ok) {
       setFailed(path);
       return;

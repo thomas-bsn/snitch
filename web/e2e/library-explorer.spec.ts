@@ -112,6 +112,16 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     ).toBeVisible();
   });
 
+  test("l'arbre liste tous les sous-dossiers, au-delà d'une page de 100 (#271)", async ({
+    page,
+  }) => {
+    await page.goto("/library?folder=bulk");
+    // The list shows 100 per page, so only the tree can show the 120th folder here.
+    await expect(
+      page.getByRole("button", { name: "dossier-120", exact: true }),
+    ).toBeVisible();
+  });
+
   test("un filtre donne des résultats à plat avec leur dossier", async ({
     page,
   }) => {
