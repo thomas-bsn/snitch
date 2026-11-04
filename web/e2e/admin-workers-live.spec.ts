@@ -45,6 +45,9 @@ test.describe.serial("Workers en direct", () => {
     const detail = await context.newPage();
     await detail.goto(`/admin/workers/${worker.id}`);
     await expect(detail.getByText("Offline", { exact: true })).toBeVisible();
+    await expect(
+      detail.getByRole("button", { name: "Diagnose / Reconnect" }),
+    ).toBeVisible();
     await list.waitForTimeout(1000);
 
     const polls: string[] = [];
@@ -75,6 +78,39 @@ test.describe.serial("Workers en direct", () => {
     // It goes silent: no write announces it, the server does.
     await expect(row).toContainText("Offline", { timeout: 60_000 });
     await expect(detail.getByText("Offline", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Installed once, offline now: both are said, apart, and the recovery leads are offered (#263).
+    await expect(
+      detail.getByRole("region", { name: "Installation" }),
+    ).toContainText("Complete");
+    const toggle = detail.getByRole("button", { name: "Diagnose / Reconnect" });
+    await toggle.focus();
+    await detail.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const diagnosis = detail.getByRole("region", {
+      name: "Connection and recovery",
+    });
+    await expect(
+      diagnosis.getByText(`docker restart snitch-worker-${worker.id}`),
+    ).toBeVisible();
+    // No remote restart is claimed, and no secret is shown.
+    await expect(diagnosis).toContainText(
+      "cannot restart this machine remotely",
+    );
+    await expect(diagnosis).toContainText("Waiting for a new pulse");
+    await expect(diagnosis).not.toContainText("The Worker is back online");
+    expect(await diagnosis.innerText()).not.toContain(worker.token);
+    expect(await diagnosis.innerHTML()).not.toContain(worker.token);
+
+    // Only a new pulse announces the return.
+    const again = await list.request.post("/api/worker/pulse", {
+      headers: { Authorization: `Bearer ${worker.token}` },
+      data: { capacity: 1, supported_steps: ["fixture.*"] },
+    });
+    expect(again.status()).toBe(200);
+    await expect(diagnosis).toContainText("The Worker is back online", {
       timeout: 10_000,
     });
 

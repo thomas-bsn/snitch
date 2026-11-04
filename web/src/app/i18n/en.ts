@@ -1221,9 +1221,56 @@ export const en = {
     open: "Open {name}",
     columns: {
       name: "Name",
-      status: "Status",
+      status: "Connection",
       lastPulse: "Last pulse",
       models: "Models",
+    },
+    connection: {
+      hint: "Connection: whether the Worker sent a pulse in the last 30 seconds. It is independent of the installation, which stays complete once the first pulse was received.",
+    },
+    diagnostics: {
+      title: "Connection and recovery",
+      open: "Diagnose / Reconnect",
+      offlineLead:
+        "This Worker is installed but currently offline. Open the diagnosis for leads and local commands.",
+      lastPulse: "Last pulse",
+      installation: "Installation",
+      noRemote:
+        "Snitch cannot restart this machine remotely: there is no local supervisor connected. Run the commands below on the Worker's machine.",
+      hints: "What to check",
+      hint: {
+        docker_daemon: "The Docker daemon is not running on the machine.",
+        wsl_stopped:
+          "WSL2 (or Docker Desktop) is stopped or the machine is asleep.",
+        container_stopped:
+          "The Worker container stopped: check docker ps -a and its logs.",
+        presence_thread:
+          "The Worker is running but its presence thread crashed: restart the container.",
+        token_rejected:
+          "Snitch refuses the Worker's token (revoked or replaced): regenerate the token on this page.",
+        unreachable:
+          "Snitch or the transcription server cannot be reached from the machine.",
+        installer_missing:
+          "The launcher is missing on the machine: run the installation command again.",
+        no_pulse_after_restart:
+          "After a restart, allow about 30 seconds for the next pulse.",
+      },
+      commands: "Local commands",
+      commandsLead:
+        "To run on the Worker's machine. They contain no token and keep the Worker's identity.",
+      restart: "Restart the container",
+      restartHint: "Light option for a temporary incident.",
+      logs: "Read the latest logs",
+      logsHint: "To see why the Worker stopped answering.",
+      launcher: "Run the launcher again",
+      launcherHint: "More invasive: it may recreate the container.",
+      copy: "Copy the command: {command}",
+      copyShort: "Copy",
+      copied: "Copied",
+      copyFailed: "Copy is not available here: select the command and copy it.",
+      waiting:
+        "Waiting for a new pulse. Nothing has been restarted by Snitch; the Worker is only shown back online once it sends a pulse.",
+      returned: "The Worker is back online: new pulse received {date}.",
     },
     status: {
       online: "Online",
@@ -1237,14 +1284,15 @@ export const en = {
       column: "Installation",
       state: {
         installing: "Installing",
-        connected: "Connected",
+        connected: "Complete",
         voice_ready: "Voice ready",
         failed: "Failed",
         never_connected: "Never connected",
       },
       stateHint: {
         installing: "Waiting for the first pulse of the Worker.",
-        connected: "The Worker sent its first pulse.",
+        connected:
+          "Installation complete: the first pulse was received. This does not say whether the Worker is reachable now.",
         voice_ready: "The Worker passed a synthetic voice test.",
         failed:
           "The installation stopped at a step. See the recovery action below.",

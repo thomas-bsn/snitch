@@ -81,3 +81,54 @@ export function transcriptionState(
   if (config?.error_code) return "error";
   return config?.active_version ? "active" : "waiting";
 }
+
+export const RECOVERY_HINTS = [
+  "docker_daemon",
+  "wsl_stopped",
+  "container_stopped",
+  "presence_thread",
+  "token_rejected",
+  "unreachable",
+  "installer_missing",
+  "no_pulse_after_restart",
+] as const;
+export type RecoveryHint = (typeof RECOVERY_HINTS)[number];
+
+/** What the administrator can try, most likely first for the known installation state. Snitch only
+ * knows the last pulse, not the cause: these are leads to check, never a diagnosis. */
+export function recoveryHints(
+  install: Pick<Install, "state"> | undefined,
+): RecoveryHint[] {
+  const never =
+    install?.state === "never_connected" || install?.state === "installing";
+  return never
+    ? [
+        "installer_missing",
+        "docker_daemon",
+        "wsl_stopped",
+        "unreachable",
+        "token_rejected",
+      ]
+    : [...RECOVERY_HINTS];
+}
+
+/** Local commands for one Worker, run on its own machine. They carry only its identifier: never a
+ * token or an invitation link. */
+export function restartCommands(workerId: string | number) {
+  return {
+    restart: `docker restart snitch-worker-${workerId}`,
+    logs: `docker logs --tail 50 snitch-worker-${workerId}`,
+    launcher: `bash ~/.local/share/snitch-worker/${workerId}/install.sh`,
+  };
+}
+
+/** True only when a pulse newer than the one seen when the panel opened has arrived and the Worker
+ * is connected again: no reconnection is ever announced from an action alone. */
+export function hasReturned(
+  worker: { connected: boolean; last_seen_at: string | null },
+  baseline: string | null,
+): boolean {
+  if (!worker.connected || !worker.last_seen_at) return false;
+  if (baseline === null) return true;
+  return Date.parse(worker.last_seen_at) > Date.parse(baseline);
+}

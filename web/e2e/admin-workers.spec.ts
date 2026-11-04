@@ -361,6 +361,41 @@ test.describe.serial("administration et Workers", () => {
     await context.close();
   });
 
+  test("le diagnostic d'un Worker jamais connecté tient sur mobile et reste accessible (#263)", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      storageState: await sessionFor(ADMIN),
+      viewport: { width: 375, height: 700 },
+    });
+    const page = await context.newPage();
+    const me = await (await page.request.get("/api/auth/me")).json();
+    const created = await page.request.post("/api/admin/workers", {
+      headers: {
+        Origin: process.env.SNITCH_TEST_URL!,
+        "X-CSRF-Token": me.csrf_token,
+      },
+      data: { name: "never-seen", max_concurrency: 1 },
+    });
+    expect(created.status()).toBe(201);
+    const worker = await created.json();
+    await page.goto(`/admin/workers/${worker.id}`);
+    await page.getByRole("button", { name: "Diagnose / Reconnect" }).click();
+    const diagnosis = page.getByRole("region", {
+      name: "Connection and recovery",
+    });
+    await expect(
+      diagnosis.getByText(`docker restart snitch-worker-${worker.id}`),
+    ).toBeVisible();
+    await expect(diagnosis).toContainText("Never");
+    await expectNoViolations(page);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    await context.close();
+  });
+
   test("la fiche du Worker, le nouveau jeton et la révocation", async ({
     browser,
   }) => {
@@ -446,6 +481,10 @@ test.describe.serial("administration et Workers", () => {
     await expect(page.getByText(/This Worker was deleted on/)).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Delete this Worker…" }),
+    ).toHaveCount(0);
+    // A revoked Worker gets no recovery path: its identity is gone.
+    await expect(
+      page.getByRole("button", { name: "Diagnose / Reconnect" }),
     ).toHaveCount(0);
     expect(await pulse(firstToken)).toBe(401);
     await context.close();

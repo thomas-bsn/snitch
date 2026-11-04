@@ -12,6 +12,7 @@ import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
 import { DeploymentFiles } from "./DeploymentFiles";
 import { InstallProgress } from "./InstallProgress";
+import { OfflineDiagnostics } from "./OfflineDiagnostics";
 import {
   fetchWorker,
   useWorkerActions,
@@ -184,7 +185,10 @@ export function WorkerDetailPage({ id }: { id: string }) {
         </Section>
       )}
 
+      <OfflineDiagnostics worker={worker} />
+
       <Section title={t("workers.detail.activity")}>
+        <p className="text-sm text-mute">{t("workers.connection.hint")}</p>
         <Facts>
           <Fact label={t("workers.detail.lastPulse")}>
             {worker.last_seen_at
