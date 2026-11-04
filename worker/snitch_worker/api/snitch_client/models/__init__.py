@@ -113,6 +113,12 @@ from .hf_token_status_workers_item_error_code import HFTokenStatusWorkersItemErr
 from .hf_token_status_workers_item_source import HFTokenStatusWorkersItemSource
 from .hf_token_status_workers_item_state import HFTokenStatusWorkersItemState
 from .index_explorer_video_body import IndexExplorerVideoBody
+from .index_run import IndexRun
+from .index_run_answer import IndexRunAnswer
+from .index_run_failure import IndexRunFailure
+from .index_run_mode import IndexRunMode
+from .index_run_preview import IndexRunPreview
+from .index_run_status import IndexRunStatus
 from .job import Job
 from .job_controls import JobControls
 from .job_controls_input import JobControlsInput
@@ -281,6 +287,8 @@ from .start_clip_analysis_body import StartClipAnalysisBody
 from .start_clip_analysis_body_mode import StartClipAnalysisBodyMode
 from .start_clip_analysis_body_scope import StartClipAnalysisBodyScope
 from .start_clip_analysis_body_steps_item import StartClipAnalysisBodyStepsItem
+from .start_library_index_run_body import StartLibraryIndexRunBody
+from .start_library_index_run_body_mode import StartLibraryIndexRunBodyMode
 from .status import Status
 from .stream_analysis_queue_events_delta import StreamAnalysisQueueEventsDelta
 from .test_embedding_settings_body import TestEmbeddingSettingsBody
@@ -561,6 +569,12 @@ __all__ = (
     "HFTokenStatusWorkersItemSource",
     "HFTokenStatusWorkersItemState",
     "IndexExplorerVideoBody",
+    "IndexRun",
+    "IndexRunAnswer",
+    "IndexRunFailure",
+    "IndexRunMode",
+    "IndexRunPreview",
+    "IndexRunStatus",
     "Job",
     "JobControls",
     "JobControlsInput",
@@ -729,6 +743,8 @@ __all__ = (
     "StartClipAnalysisBodyMode",
     "StartClipAnalysisBodyScope",
     "StartClipAnalysisBodyStepsItem",
+    "StartLibraryIndexRunBody",
+    "StartLibraryIndexRunBodyMode",
     "Status",
     "StreamAnalysisQueueEventsDelta",
     "TestEmbeddingSettingsBody",

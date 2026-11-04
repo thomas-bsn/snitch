@@ -252,6 +252,23 @@ func (s *Server) startAutomaticAnalysis(ctx context.Context, clipID int64) {
 	}
 }
 
+// startAnalysisAfterManagedScan starts the analysis of a clip the managed scan just made ready. A
+// clip of a running "full" Racine indexation (#275) is analysed because the Administrator asked for
+// it, whatever the automatic setting says; any other clip follows the setting (ADR 0035).
+func (s *Server) startAnalysisAfterManagedScan(ctx context.Context, clipID int64) {
+	var full bool
+	if err := s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM source_files sf JOIN library_index_runs r ON r.id=sf.index_run_id WHERE sf.clip_id=$1 AND r.mode='full' AND r.status='running')`, clipID).Scan(&full); err != nil {
+		s.Log.Warn("read index run of the clip", "clip", clipID, "error", err)
+	}
+	if !full {
+		s.startAutomaticAnalysis(ctx, clipID)
+		return
+	}
+	if _, _, err := s.Analysis.Start(ctx, clipID, analysis.ScopeFull, 0); err != nil {
+		s.Log.Warn("start analysis of an indexed root video", "clip", clipID, "error", err)
+	}
+}
+
 func (s *Server) startClipAnalysis(w http.ResponseWriter, r *http.Request) {
 	clipID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || clipID < 1 {

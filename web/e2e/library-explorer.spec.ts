@@ -501,4 +501,65 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await page.getByLabel("Processing").selectOption("complete");
     await expect(page).toHaveURL(/stage=complete/);
   });
+
+  // Last on purpose: it indexes every video left in the tree.
+  test("indexer toute la racine crée les fiches une fois, avec progression, depuis l'administration (#275)", async ({
+    page,
+  }) => {
+    await page.goto("/admin/folders");
+    const panel = page.getByRole("region", {
+      name: "Index the whole video root",
+    });
+    await expect(panel).toBeVisible();
+    await expectNoViolations(page);
+    // Nothing starts by itself: the choice and the estimate come first.
+    await expect(
+      panel.getByRole("radio", { name: /Clip cards and full/ }),
+    ).toBeChecked();
+    await panel.getByRole("radio", { name: /Clip cards only/ }).check();
+    await panel.getByRole("button", { name: "Index the videos…" }).click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toContainText("videos detected");
+    await expect(dialog).toContainText(
+      "already have a clip and stay untouched",
+    );
+    await dialog.getByRole("button", { name: /^Index \d+ videos$/ }).click();
+    await expect(panel.getByText("Completed", { exact: true })).toBeVisible({
+      timeout: 60_000,
+    });
+    const progress = await panel.getByRole("status").first().innerText();
+    const done = /(\d+) \/ (\d+) videos indexed/.exec(progress);
+    expect(done && done[1] === done[2]).toBeTruthy();
+    // Every video has its card now (the exactly-once guarantee is checked by the Go test).
+    await page.goto("/library?folder=league%2F2026%2Fsub");
+    await expect(row(page, "inner.mp4")).not.toContainText("Not indexed");
+    // Asking again finds nothing left to do.
+    await page.goto("/admin/folders");
+    await panel.getByRole("button", { name: "Index the videos…" }).click();
+    await expect(page.getByRole("alertdialog")).toContainText("0 are new");
+    await expect(
+      page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "Index 0 videos" }),
+    ).toBeDisabled();
+  });
+
+  test("le panneau d'indexation tient sur mobile (#275)", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      storageState: await sessionFor(ADMIN),
+      viewport: { width: 375, height: 700 },
+    });
+    const page = await context.newPage();
+    await page.goto("/admin/folders");
+    await expect(
+      page.getByRole("region", { name: "Index the whole video root" }),
+    ).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    await context.close();
+  });
 });

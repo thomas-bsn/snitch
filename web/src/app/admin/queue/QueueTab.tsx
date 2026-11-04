@@ -1,5 +1,6 @@
 import { Monitor } from "lucide-react";
 import { AnalysisBoard, type Queue } from "./AnalysisBoard";
+import { RootIndexingPanel } from "../../library/RootIndexingPanel";
 import { AutomaticAnalysisForm } from "./AutomaticAnalysisForm";
 import { ClipHistory } from "./ClipHistory";
 import { useCallback, useRef, useState, type FormEvent } from "react";
@@ -348,6 +349,7 @@ export function QueueTab() {
       {notice && <StatusNotice>{t("queue.updated")}</StatusNotice>}
       {state.status === "ready" && (
         <>
+          <RootIndexingPanel statusOnly />
           <section
             data-schedule
             className="flex flex-col gap-4 rounded-xl border border-line p-4"

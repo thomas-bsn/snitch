@@ -288,6 +288,14 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_voice_trial_id: "Identifiant d’essai invalide.",
   no_voice_candidate: "Aucun échec à relancer pour le candidat.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
+  index_run_active:
+    "Une indexation de la bibliothèque est déjà en cours ou en pause.",
+  index_run_state: "Cette indexation ne peut plus faire cette action.",
+  index_run_not_found: "Cette indexation n’existe plus.",
+  nothing_to_index:
+    "Toutes les vidéos ont déjà une fiche clip : il n’y a rien à indexer.",
+  invalid_index_mode:
+    "Choisissez les fiches seules, ou les fiches avec l’analyse complète.",
   person_exists:
     "Une personne porte déjà ce nom. Choisissez-la, ou confirmez qu’il s’agit de quelqu’un d’autre.",
   worker_not_found: "Ce Worker n’existe pas.",
