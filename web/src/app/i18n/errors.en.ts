@@ -274,6 +274,8 @@ export const errorsEn = {
   invalid_voice_trial_id: "Invalid trial identifier.",
   no_voice_candidate: "There is no failure to retry for the candidate.",
   voice_profile_deleted: "This voice profile was deleted.",
+  person_exists:
+    "A person with this name already exists. Pick them, or confirm it is someone else.",
   worker_not_found: "This worker does not exist.",
   worker_not_revoked:
     "Only a deleted (revoked) Worker can be removed from the list.",

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -236,6 +237,56 @@ func (s *Server) loadPersonFigures(ctx context.Context, caller session, persons 
 	return names.Err()
 }
 
+// personCandidate is an existing Person offered instead of a new one.
+type personCandidate struct {
+	ID          int64  `json:"id"`
+	DisplayName string `json:"display_name"`
+}
+
+// normalizedName is the SQL expression two names are compared with: case and runs of
+// spaces do not make a different identity.
+const normalizedName = `lower(regexp_replace(btrim(%s),'\s+',' ','g'))`
+
+// insertPerson creates a Person inside tx, unless one already bears the same normalized
+// name and the caller did not explicitly accept a homonym: it then returns the existing
+// Persons and creates nothing. A transaction-scoped advisory lock on the name serialises
+// concurrent creations, so two simultaneous requests cannot both pass the check.
+func insertPerson(ctx context.Context, tx pgx.Tx, name string, userID int64, allowHomonym bool) (int64, []personCandidate, error) {
+	if !allowHomonym {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('person-name:'||`+fmt.Sprintf(normalizedName, "$1")+`,0))`, name); err != nil {
+			return 0, nil, err
+		}
+		rows, err := tx.Query(ctx, `SELECT id,display_name FROM persons WHERE `+fmt.Sprintf(normalizedName, "display_name")+`=`+fmt.Sprintf(normalizedName, "$1")+` ORDER BY id LIMIT 5`, name)
+		if err != nil {
+			return 0, nil, err
+		}
+		var found []personCandidate
+		for rows.Next() {
+			var c personCandidate
+			if err := rows.Scan(&c.ID, &c.DisplayName); err != nil {
+				rows.Close()
+				return 0, nil, err
+			}
+			found = append(found, c)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return 0, nil, err
+		}
+		if len(found) > 0 {
+			return 0, found, nil
+		}
+	}
+	var id int64
+	err := tx.QueryRow(ctx, `INSERT INTO persons(display_name,created_by) VALUES($1,$2) RETURNING id`, name, userID).Scan(&id)
+	return id, nil, err
+}
+
+// personExists answers 409: the Persons that already bear this name; nothing was written.
+func personExists(w http.ResponseWriter, candidates []personCandidate) {
+	reply(w, http.StatusConflict, map[string]any{"error": "person_exists", "candidates": candidates})
+}
+
 func cleanPersonName(name string) (string, bool) {
 	name = strings.TrimSpace(name)
 	return name, name != "" && len([]rune(name)) <= 100
@@ -319,7 +370,8 @@ func (s *Server) listPersons(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createPerson(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		DisplayName string `json:"display_name"`
+		DisplayName  string `json:"display_name"`
+		AllowHomonym bool   `json:"allow_homonym"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -330,8 +382,22 @@ func (s *Server) createPerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	var id int64
-	if err := s.Pool.QueryRow(r.Context(), `INSERT INTO persons(display_name,created_by) VALUES($1,$2) RETURNING id`, name, ss.User.ID).Scan(&id); err != nil {
+	tx, err := s.Pool.Begin(r.Context())
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	id, existing, err := insertPerson(r.Context(), tx, name, ss.User.ID, input.AllowHomonym)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if len(existing) > 0 {
+		personExists(w, existing)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -396,6 +462,7 @@ type attributionInput struct {
 	PersonID         *int64  `json:"person_id"`
 	NewPersonName    *string `json:"new_person_name"`
 	ExpectedPersonID *int64  `json:"expected_person_id"`
+	AllowHomonym     bool    `json:"allow_homonym"`
 }
 
 func (s *Server) validateLocalSpeaker(w http.ResponseWriter, r *http.Request) {
@@ -496,8 +563,13 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 	var personID int64
 	var optedOut bool
 	if input.NewPersonName != nil {
-		if err = tx.QueryRow(ctx, `INSERT INTO persons(display_name,created_by) VALUES($1,$2) RETURNING id`, name, ss.User.ID).Scan(&personID); err != nil {
+		var existing []personCandidate
+		if personID, existing, err = insertPerson(ctx, tx, name, ss.User.ID, input.AllowHomonym); err != nil {
 			s.internal(w, err)
+			return
+		}
+		if len(existing) > 0 {
+			personExists(w, existing)
 			return
 		}
 	} else {

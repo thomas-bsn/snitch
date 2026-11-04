@@ -4161,8 +4161,19 @@ export interface components {
       model_version: string;
       dimensions: number;
     };
+    PersonExists: {
+      /** @enum {string} */
+      error: "person_exists";
+      candidates: {
+        /** Format: int64 */
+        id: number;
+        display_name: string;
+      }[];
+    };
     PersonInput: {
       display_name: string;
+      /** @description Vrai pour créer une Personne de même nom qu'une existante, après que l'utilisateur a refusé de la réutiliser. */
+      allow_homonym?: boolean;
     };
     PersonRef: {
       /** Format: int64 */
@@ -4395,6 +4406,8 @@ export interface components {
       /** Format: int64 */
       person_id?: number;
       new_person_name?: string;
+      /** @description Avec new_person_name : crée la Personne même si une Personne de même nom existe (409 person_exists sinon). */
+      allow_homonym?: boolean;
       /** @description Exactement les voix visibles du groupe que l'utilisateur a écoutées. */
       local_speaker_ids: number[];
     };
@@ -4729,6 +4742,8 @@ export interface components {
       /** Format: int64 */
       person_id?: number;
       new_person_name?: string;
+      /** @description Avec new_person_name : crée la Personne même si une Personne de même nom existe (409 person_exists sinon). */
+      allow_homonym?: boolean;
       /**
        * Format: int64
        * @description Correction uniquement : Personne actuellement validée telle que vue par l'utilisateur.
@@ -11220,6 +11235,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description person_exists : une Personne porte déjà ce nom (casse et espaces ignorés) ; rien n'est créé */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonExists"];
         };
       };
       /** @description Erreur */

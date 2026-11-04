@@ -272,6 +272,7 @@ func (s *Server) restoreGroupMember(w http.ResponseWriter, r *http.Request) {
 type voiceGroupNaming struct {
 	PersonID        *int64  `json:"person_id"`
 	NewPersonName   *string `json:"new_person_name"`
+	AllowHomonym    bool    `json:"allow_homonym"`
 	LocalSpeakerIDs []int64 `json:"local_speaker_ids"`
 }
 
@@ -363,8 +364,13 @@ func (s *Server) nameVoiceGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	var personID int64
 	if input.NewPersonName != nil {
-		if err = tx.QueryRow(ctx, `INSERT INTO persons(display_name,created_by) VALUES($1,$2) RETURNING id`, name, ss.User.ID).Scan(&personID); err != nil {
+		var existing []personCandidate
+		if personID, existing, err = insertPerson(ctx, tx, name, ss.User.ID, input.AllowHomonym); err != nil {
 			s.internal(w, err)
+			return
+		}
+		if len(existing) > 0 {
+			personExists(w, existing)
 			return
 		}
 	} else {

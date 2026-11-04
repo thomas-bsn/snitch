@@ -2143,6 +2143,8 @@ export const en = {
     candidates: "Closest people",
     proximity: "{percent}% proximity",
     yesShort: "Yes",
+    useExisting: "Use {person}",
+    createAnyway: "Create a new person anyway",
     noShort: "No",
     falseDetection: "False detection",
     looksLike: "Looks like",

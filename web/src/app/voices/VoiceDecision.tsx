@@ -92,6 +92,10 @@ export function VoiceDecision({
   const fieldId = useId();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
+  // Persons that already bear the name typed for a new one (409 person_exists).
+  const [duplicates, setDuplicates] = useState<
+    { id: number; display_name: string }[]
+  >([]);
   const [identifying, setIdentifying] = useState(false);
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<Person[]>([]);
@@ -160,6 +164,7 @@ export function VoiceDecision({
   async function act(request: () => Promise<Outcome>) {
     setBusy(true);
     setFailure(undefined);
+    setDuplicates([]);
     try {
       const outcome = await request();
       if (outcome.error) {
@@ -170,6 +175,15 @@ export function VoiceDecision({
             attribution?: { person?: { display_name: string } };
           }
         ).attribution?.person?.display_name;
+        if (code === "person_exists") {
+          setDuplicates(
+            (
+              outcome.error as {
+                candidates?: { id: number; display_name: string }[];
+              }
+            ).candidates ?? [],
+          );
+        }
         setFailure(
           code === "already_validated" && winner
             ? `already_validated:${winner}`
@@ -189,7 +203,10 @@ export function VoiceDecision({
   }
 
   /** Identifying a voice that is already validated corrects it; the expected Person guards the change. */
-  function identify(choice: { personId: number } | { newName: string }) {
+  function identify(
+    choice: { personId: number } | { newName: string },
+    allowHomonym = false,
+  ) {
     const path = { path: { id: speaker.id }, header };
     if (validated && person) {
       void act(() =>
@@ -200,6 +217,7 @@ export function VoiceDecision({
               ? { person_id: choice.personId, expected_person_id: person.id }
               : {
                   new_person_name: choice.newName,
+                  allow_homonym: allowHomonym || undefined,
                   expected_person_id: person.id,
                 },
         }),
@@ -212,7 +230,10 @@ export function VoiceDecision({
         body:
           "personId" in choice
             ? { person_id: choice.personId }
-            : { new_person_name: choice.newName },
+            : {
+                new_person_name: choice.newName,
+                allow_homonym: allowHomonym || undefined,
+              },
       }),
     );
   }
@@ -570,6 +591,31 @@ export function VoiceDecision({
         </p>
       )}
       {failure && <ErrorAlert>{failureText(failure)}</ErrorAlert>}
+      {duplicates.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {duplicates.map((duplicate) => (
+            <button
+              key={duplicate.id}
+              type="button"
+              disabled={busy}
+              onClick={() => identify({ personId: duplicate.id })}
+              className={buttonClass("primary")}
+            >
+              {t("voiceDecision.useExisting", {
+                person: duplicate.display_name,
+              })}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => identify({ newName: name }, true)}
+            className={buttonClass()}
+          >
+            {t("voiceDecision.createAnyway")}
+          </button>
+        </div>
+      )}
       {triage && (
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
           {randomButton}
