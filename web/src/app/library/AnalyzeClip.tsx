@@ -30,18 +30,18 @@ type Run = AdminRun | View;
 type MediaTrack = components["schemas"]["MediaTrack"];
 type Step = AdminRun["steps"][number];
 
+/** What a run is worth showing: its status and each step's state. Timestamps are left out. */
+export function runSignature(run: Run | null): string {
+  if (!run) return "none";
+  return `${run.status}|${run.steps.map((step) => `${step.step}:${step.status}:${step.reason}:${"job_id" in step ? step.job_id : ""}`).join(",")}`;
+}
+
 /**
  * The analysis of a clip: a live pill in the header opens the analysis panel. The state of
  * each step, and why it waits, comes from the server, so it stays the same after the page is
  * closed and opened again. Administrators drive it; every other user who can open the clip
  * follows it read-only (status and reason of each step, live).
  */
-/** What a run is worth showing: its status and each step's state. Timestamps are left out. */
-export function runSignature(run: Run | null): string {
-  if (!run) return "none";
-  return `${run.status}|${run.steps.map((step) => `${step.step}:${step.status}:${"job_id" in step ? step.job_id : ""}`).join(",")}`;
-}
-
 export function AnalyzeClip({
   clipId,
   audioTracks,
