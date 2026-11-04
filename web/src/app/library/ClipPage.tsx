@@ -142,7 +142,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3 text-sm text-mute md:px-7">
         <Link
           to={back}
-          className="inline-flex min-h-8 items-center gap-1 hover:text-ink"
+          className="inline-flex min-h-11 items-center gap-1 hover:text-ink md:min-h-8"
         >
           <span aria-hidden="true">‹</span>
           {t(back.startsWith("/search") ? "clip.backToSearch" : "clip.back")}

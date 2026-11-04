@@ -16,7 +16,7 @@ import { fetchToProcess, type ToProcessFilter } from "./peopleApi";
 const PAGE_SIZE = 100;
 
 const filterClass = (pressed: boolean) =>
-  `inline-flex min-h-11 items-center rounded-full border px-3 py-1 text-sm md:min-h-0 ${
+  `inline-flex min-h-11 min-w-11 items-center rounded-full border px-3 py-1 text-sm md:min-h-0 md:min-w-0 ${
     pressed
       ? "border-accent bg-accent-soft text-accent-ink"
       : "border-line text-mute hover:text-ink"

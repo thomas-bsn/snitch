@@ -72,7 +72,7 @@ export function PersonDirectory() {
                     setPage(1);
                   }}
                   placeholder={t("people.persons.searchPlaceholder")}
-                  className="min-w-0 flex-1 bg-transparent text-ink outline-none"
+                  className="h-full min-h-11 min-w-0 flex-1 bg-transparent text-ink outline-none"
                 />
               </span>
             </label>

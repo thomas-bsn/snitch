@@ -380,7 +380,8 @@ export function LibraryPage() {
   const flat = filtered;
 
   const rootLabel = t("library.explorer.root");
-  const toggle = "rounded-md px-2.5 py-1 text-sm min-h-11 md:min-h-0";
+  const toggle =
+    "rounded-md px-2.5 py-1 text-sm min-h-11 min-w-11 md:min-h-0 md:min-w-0";
   return (
     <section className="flex min-h-[85vh] flex-col">
       <h1 className="sr-only">{t("pages.library.title")}</h1>
@@ -443,7 +444,7 @@ export function LibraryPage() {
             placeholder={t("library.explorer.searchIn", {
               folder: crumbs.at(-1) ?? rootLabel,
             })}
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+            className="h-full min-h-11 min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
         </label>
         <button
