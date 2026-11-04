@@ -12,6 +12,20 @@ export const EXPLORER_STATES = [
 ] as const;
 export type ExplorerState = (typeof EXPLORER_STATES)[number];
 
+/** The processing stages a filter can ask for (#282); each reads the real steps of the analysis. */
+export const EXPLORER_STAGES = [
+  "indexed",
+  "transcribed",
+  "voices",
+  "complete",
+] as const;
+export type ExplorerStage = (typeof EXPLORER_STAGES)[number];
+
+/** A stage from the address bar: anything else is ignored, never sent to the server. */
+export function asExplorerStage(value: string | null): ExplorerStage | "" {
+  return EXPLORER_STAGES.find((stage) => stage === value) ?? "";
+}
+
 /** A state from the address bar: anything else is ignored, never sent to the server. */
 export function asExplorerState(value: string | null): ExplorerState | "" {
   return EXPLORER_STATES.find((state) => state === value) ?? "";
@@ -40,6 +54,8 @@ export type ExplorerEntry = {
   recorded_at: string | null;
   game: string;
   voices_pending: number;
+  /** Folders of a filtered tree: the videos under it that match. */
+  match_count?: number;
 };
 
 export type ExplorerQuery = {
@@ -47,6 +63,7 @@ export type ExplorerQuery = {
   recursive?: boolean;
   q?: string;
   state?: string;
+  stage?: string;
   game?: string;
   from?: string;
   to?: string;
@@ -90,6 +107,7 @@ export async function fetchExplorer(
   for (const key of [
     "q",
     "state",
+    "stage",
     "game",
     "from",
     "to",

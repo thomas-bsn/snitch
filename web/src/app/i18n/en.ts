@@ -1684,6 +1684,7 @@ export const en = {
       counts: "{folders} folder(s) · {videos} video(s)",
       root: "videos",
       voicesToProcess: "{count} voice(s) to process",
+      matchCount: "{count} matching",
       searchIn: "Search in {folder}",
       flatHint: "Results from {folder} and its subfolders, with their folder.",
       indexing: "Indexing {name}…",
@@ -1753,6 +1754,14 @@ export const en = {
       unknownVoices: "Unknown voices",
       voices: "Voices",
       voicesPending: "With voices to process",
+      stage: "Processing",
+      stages: {
+        all: "All videos",
+        indexed: "Indexed",
+        transcribed: "Transcribed",
+        voices: "Voices processed",
+        complete: "Complete analysis",
+      },
       clear: "Clear the filters",
     },
     state: {

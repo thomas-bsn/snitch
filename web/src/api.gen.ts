@@ -3253,6 +3253,8 @@ export interface components {
       recorded_at: string | null;
       game: string;
       voices_pending: number;
+      /** @description Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits de l'appelant */
+      match_count?: number;
     };
     ExplorerListing: {
       /** Format: int64 */
@@ -8959,6 +8961,8 @@ export interface operations {
           | "transcribed"
           | "analyzed"
           | "failed";
+        /** @description Étape de traitement atteinte : indexed (le clip existe), transcribed (transcription exploitable), voices (diarisation, empreintes et rapprochement terminés), complete (toutes les étapes de l'analyse terminées). Sans recursive, la réponse est l'arbre élagué : les vidéos du dossier qui correspondent et les seuls sous-dossiers menant à une correspondance, avec match_count. */
+        stage?: "indexed" | "transcribed" | "voices" | "complete";
         game?: string;
         visibility?: "shared" | "private";
         from?: string;

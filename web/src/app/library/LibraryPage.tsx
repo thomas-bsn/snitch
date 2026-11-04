@@ -29,6 +29,7 @@ import { ExplorerTree } from "./ExplorerTree";
 import {
   EXPLORER_MAX_LIMIT,
   baseName,
+  asExplorerStage,
   fetchExplorer,
   fetchExplorerAll,
   requestIndex,
@@ -46,6 +47,7 @@ type View = "list" | "icons";
 const FILTER_KEYS = [
   "filter",
   "state",
+  "stage",
   "game",
   "from",
   "to",
@@ -70,6 +72,7 @@ function readFilters(params: URLSearchParams): ExplorerFilters {
   return {
     q: params.get("filter") ?? "",
     state: asExplorerState(params.get("state")),
+    stage: asExplorerStage(params.get("stage")),
     game: params.get("game") ?? "",
     from: params.get("from") ?? "",
     to: params.get("to") ?? "",
@@ -126,9 +129,11 @@ export function LibraryPage() {
       () =>
         fetchExplorer({
           path: folder,
-          recursive: filtered,
+          // A processing stage answers with the tree of what matches; other filters list flat.
+          recursive: filtered && !filters.stage,
           q: filters.q,
           state: filters.state,
+          stage: filters.stage,
           game: filters.game,
           from: filters.from,
           to: filters.to,
@@ -404,7 +409,7 @@ export function LibraryPage() {
 
   const crumbs = folder ? folder.split("/") : [];
   const parentPath = crumbs.slice(0, -1).join("/");
-  const flat = filtered;
+  const flat = filtered && !filters.stage;
 
   const rootLabel = t("library.explorer.root");
   const toggle =
@@ -625,6 +630,15 @@ export function LibraryPage() {
                     ? t("library.explorer.emptyFolderBody")
                     : t("library.empty.body")}
               </p>
+              {filtered && (
+                <button
+                  type="button"
+                  className={`${buttonClass("secondary")} mt-2`}
+                  onClick={clearFilters}
+                >
+                  {t("library.filters.clear")}
+                </button>
+              )}
               {!filtered && !rootConfigured && (
                 <Link to="/import" className={`${buttonClass("primary")} mt-2`}>
                   {t("library.empty.action")}
@@ -932,6 +946,11 @@ function ExplorerRow({
             >
               {name}
             </button>
+          )}
+          {entry.match_count !== undefined && (
+            <span className="rounded-full bg-accent-soft px-1.5 text-xs whitespace-nowrap text-accent-ink">
+              {t("library.explorer.matchCount", { count: entry.match_count })}
+            </span>
           )}
           {entry.voices_pending > 0 && (
             <span className="rounded-full bg-warn-bg px-1.5 text-xs whitespace-nowrap text-warn-fg">

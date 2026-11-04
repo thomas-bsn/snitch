@@ -182,6 +182,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testExplorer(t, pool)
 	})
+	t.Run("explorer filtered tree", func(t *testing.T) {
+		reset(t)
+		testExplorerFilteredTree(t, pool)
+	})
 	t.Run("video root private folders", func(t *testing.T) {
 		reset(t)
 		testVideoRootPrivacy(t, pool)

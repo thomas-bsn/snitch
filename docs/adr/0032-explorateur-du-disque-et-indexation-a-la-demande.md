@@ -11,7 +11,7 @@ L'utilisateur veut parcourir la Bibliothèque comme un explorateur de fichiers e
 - **L'explorateur liste le disque** (dossiers et fichiers vidéo de la Racine vidéo) et le croise avec la base. Chaque fichier porte un état : non indexée, non analysée, en cours, transcrite, analysée, échec. Lister ne lit pas le contenu des fichiers.
 - **Indexation à la demande** : ouvrir une Vidéo non indexée la sonde et calcule son empreinte (sans transcription), crée le clip et ouvre sa fiche. Aucune indexation de masse.
 - **Accès** : le parcours exige une session et applique la règle des Dossiers privés de l'[ADR 0026](0026-dossier-prive.md) : seulement le nom et le cadenas pour qui ne peut pas l'ouvrir. Cette correction précède toute autre évolution de la Bibliothèque.
-- **Filtres** : avec un filtre actif, les résultats couvrent le dossier courant et ses sous-dossiers, à plat, avec leur dossier.
+- **Filtres** : avec un filtre actif, les résultats couvrent le dossier courant et ses sous-dossiers, à plat, avec leur dossier. Amendé par l'[ADR 0037](0037-filtre-de-traitement-arbre-elague.md) pour le filtre de traitement (arbre élagué).
 
 ## Alternatives écartées
 

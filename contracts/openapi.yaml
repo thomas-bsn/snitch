@@ -3986,6 +3986,7 @@
           {"in": "query", "name": "recursive", "schema": {"type": "string", "enum": ["1", "true"]}, "description": "Liste à plat tous les descendants"},
           {"in": "query", "name": "q", "schema": {"type": "string"}},
           {"in": "query", "name": "state", "schema": {"type": "string", "enum": ["not_indexed", "in_progress", "not_analyzed", "transcribed", "analyzed", "failed"]}},
+          {"in": "query", "name": "stage", "schema": {"type": "string", "enum": ["indexed", "transcribed", "voices", "complete"]}, "description": "Étape de traitement atteinte : indexed (le clip existe), transcribed (transcription exploitable), voices (diarisation, empreintes et rapprochement terminés), complete (toutes les étapes de l'analyse terminées). Sans recursive, la réponse est l'arbre élagué : les vidéos du dossier qui correspondent et les seuls sous-dossiers menant à une correspondance, avec match_count."},
           {"in": "query", "name": "game", "schema": {"type": "string"}},
           {"in": "query", "name": "visibility", "schema": {"type": "string", "enum": ["shared", "private"]}},
           {"in": "query", "name": "from", "schema": {"type": "string", "format": "date"}},
@@ -6428,7 +6429,8 @@
           "added_at": {"type": "string", "format": "date-time", "nullable": true},
           "recorded_at": {"type": "string", "format": "date-time", "nullable": true},
           "game": {"type": "string"},
-          "voices_pending": {"type": "integer"}
+          "voices_pending": {"type": "integer"},
+          "match_count": {"type": "integer", "minimum": 1, "description": "Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits de l'appelant"}
         }
       },
       "ExplorerListing": {
