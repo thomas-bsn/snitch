@@ -47,7 +47,7 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 				<-release
 			}
 			if mode.Load().(string) == "token-error" {
-				reply(w, 500, map[string]string{"error": "fixture-secret"})
+				reply(w, 400, map[string]string{"error": "invalid_client", "error_description": "fixture-secret"})
 				return
 			}
 			if mode.Load().(string) == "malformed-token" {
@@ -55,6 +55,10 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 				return
 			}
 			reply(w, 200, map[string]string{"access_token": "fixture-token"})
+			return
+		}
+		if mode.Load().(string) == "user-unauthorized" {
+			reply(w, 401, map[string]any{"code": 0, "message": "401: Unauthorized fixture-secret"})
 			return
 		}
 		if mode.Load().(string) == "invalid-user" {
@@ -237,12 +241,29 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	call(visitor, "GET", path, "", "", 400)
-	for _, failure := range []string{"token-error", "malformed-token", "invalid-user"} {
-		mode.Store(failure)
+	for _, failure := range []struct{ mode, step, reason, status, discord string }{
+		{"token-error", "token_exchange", "http_status", `"status":400`, `"discord_error":"invalid_client"`},
+		{"malformed-token", "token_exchange", "invalid_response", `"status":200`, ""},
+		{"user-unauthorized", "profile_fetch", "http_status", `"status":401`, `"discord_error":"0"`},
+		{"invalid-user", "profile_fetch", "invalid_response", `"status":200`, ""},
+	} {
+		mode.Store(failure.mode)
+		logs.Reset()
 		path = start(visitor, false)
 		_, body := call(visitor, "GET", path, "", "", 502)
 		if string(bytes.TrimSpace(body)) != `{"error":"discord_unavailable"}` {
 			t.Fatal(string(body))
+		}
+		line := logs.String()
+		for _, want := range []string{"discord oauth step failed", `"step":"` + failure.step + `"`, `"reason":"` + failure.reason + `"`, failure.status, failure.discord} {
+			if !strings.Contains(line, want) {
+				t.Fatalf("%s: log lacks %q: %s", failure.mode, want, line)
+			}
+		}
+		for _, secret := range []string{"fixture-secret", "fixture-token", "fixture-app", "snitch_oauth", "snitch_session", "code="} {
+			if strings.Contains(line, secret) {
+				t.Fatalf("%s: log leaks %q: %s", failure.mode, secret, line)
+			}
 		}
 		call(visitor, "GET", path, "", "", 400)
 		call(admin, "POST", "/api/auth/login", `{"username":"administrator","password":"synthetic-password"}`, "", 200)

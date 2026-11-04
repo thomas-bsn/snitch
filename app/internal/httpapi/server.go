@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"snitch/internal/analysis"
 	"snitch/internal/events"
 	"strconv"
@@ -936,41 +937,59 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {id}, "client_secret": {secret}, "redirect_uri": {s.publicOrigin(r) + "/api/auth/discord/callback"}}
 	req, err := http.NewRequestWithContext(r.Context(), "POST", s.Config.DiscordTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
+		s.discordStepFailed("token_exchange", "request_build", 0, nil, err)
 		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := s.Client.Do(req)
 	if err != nil {
+		s.discordStepFailed("token_exchange", "request_failed", 0, nil, err)
 		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	defer resp.Body.Close()
+	tokenBody, readErr := io.ReadAll(io.LimitReader(resp.Body, 16384))
 	var token struct {
 		AccessToken string `json:"access_token"`
 	}
-	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 16384)).Decode(&token) != nil || token.AccessToken == "" {
+	if resp.StatusCode != 200 {
+		s.discordStepFailed("token_exchange", "http_status", resp.StatusCode, tokenBody, readErr)
+		s.oauthFailure(w, r, 502, "discord_unavailable")
+		return
+	}
+	if json.Unmarshal(tokenBody, &token) != nil || token.AccessToken == "" {
+		s.discordStepFailed("token_exchange", "invalid_response", resp.StatusCode, nil, readErr)
 		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	req, err = http.NewRequestWithContext(r.Context(), "GET", s.Config.DiscordUserURL, nil)
 	if err != nil {
+		s.discordStepFailed("profile_fetch", "request_build", 0, nil, err)
 		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	resp, err = s.Client.Do(req)
 	if err != nil {
+		s.discordStepFailed("profile_fetch", "request_failed", 0, nil, err)
 		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
 	defer resp.Body.Close()
+	profileBody, readErr := io.ReadAll(io.LimitReader(resp.Body, 16384))
 	var identity struct {
 		ID         string `json:"id"`
 		Username   string `json:"username"`
 		GlobalName string `json:"global_name"`
 	}
-	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 16384)).Decode(&identity) != nil || identity.ID == "" || len(identity.ID) > 64 {
+	if resp.StatusCode != 200 {
+		s.discordStepFailed("profile_fetch", "http_status", resp.StatusCode, profileBody, readErr)
+		s.oauthFailure(w, r, 502, "discord_unavailable")
+		return
+	}
+	if json.Unmarshal(profileBody, &identity) != nil || identity.ID == "" || len(identity.ID) > 64 {
+		s.discordStepFailed("profile_fetch", "invalid_response", resp.StatusCode, nil, readErr)
 		s.oauthFailure(w, r, 502, "discord_unavailable")
 		return
 	}
@@ -1047,6 +1066,55 @@ func (s *Server) oauthFailure(w http.ResponseWriter, r *http.Request, status int
 		return
 	}
 	fail(w, status, code)
+}
+
+var discordCodePattern = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,64}$`)
+
+// discordStepFailed logs which Discord step failed and why, from fixed vocabulary only:
+// the HTTP status and Discord's own error code (e.g. invalid_client, 50035). Request and
+// response bodies, tokens, codes, secrets and cookies are never logged; the transport error
+// text is replaced by a coarse kind because it can embed URLs.
+func (s *Server) discordStepFailed(step, reason string, status int, body []byte, err error) {
+	attrs := []any{"step", step, "reason", reason}
+	if status != 0 {
+		attrs = append(attrs, "status", status)
+	}
+	var payload struct {
+		Error json.RawMessage `json:"error"`
+		Code  json.RawMessage `json:"code"`
+	}
+	if json.Unmarshal(body, &payload) == nil {
+		for _, raw := range []json.RawMessage{payload.Error, payload.Code} {
+			var text string
+			var number json.Number
+			if json.Unmarshal(raw, &text) == nil && discordCodePattern.MatchString(text) {
+				attrs = append(attrs, "discord_error", text)
+				break
+			} else if json.Unmarshal(raw, &number) == nil && discordCodePattern.MatchString(number.String()) {
+				attrs = append(attrs, "discord_error", number.String())
+				break
+			}
+		}
+	}
+	if err != nil {
+		kind := "operation_error"
+		var netErr net.Error
+		var dnsErr *net.DNSError
+		switch {
+		case errors.Is(err, context.Canceled):
+			kind = "canceled"
+		case errors.Is(err, context.DeadlineExceeded):
+			kind = "timeout"
+		case errors.As(err, &dnsErr):
+			kind = "dns"
+		case errors.As(err, &netErr) && netErr.Timeout():
+			kind = "timeout"
+		case strings.Contains(err.Error(), "x509") || strings.Contains(err.Error(), "tls:"):
+			kind = "tls"
+		}
+		attrs = append(attrs, "error_kind", kind)
+	}
+	s.Log.Warn("discord oauth step failed", attrs...)
 }
 
 func (s *Server) oauthInternal(w http.ResponseWriter, r *http.Request, err error) {
