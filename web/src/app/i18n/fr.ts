@@ -1646,6 +1646,7 @@ export const fr: Messages = {
           "Choisissez le dossier vidéo dans Administration › Dossiers pour parcourir la bibliothèque.",
         action: "Ouvrir Administration › Dossiers",
       },
+      refresh: "Actualiser",
       loadingFolders: "Chargement des dossiers…",
       collapse: "Replier {name}",
       expand: "Déplier {name}",

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, request, test, type Page } from "@playwright/test";
 import {
@@ -120,6 +122,30 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(
       page.getByRole("button", { name: "dossier-120", exact: true }),
     ).toBeVisible();
+  });
+
+  test("un dossier créé sur le disque apparaît après Actualiser, sans rescan (#271)", async ({
+    page,
+  }) => {
+    await page.goto("/library");
+    const created = path.join(ROOT!, "cree-apres-ouverture");
+    await expect(
+      page.getByRole("button", { name: "cree-apres-ouverture" }),
+    ).toHaveCount(0);
+    fs.mkdirSync(created);
+    try {
+      await page.getByRole("button", { name: "Refresh", exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: "cree-apres-ouverture" }).first(),
+      ).toBeVisible();
+      fs.rmdirSync(created);
+      await page.getByRole("button", { name: "Refresh", exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: "cree-apres-ouverture" }),
+      ).toHaveCount(0);
+    } finally {
+      fs.rmSync(created, { recursive: true, force: true });
+    }
   });
 
   test("un filtre donne des résultats à plat avec leur dossier", async ({
