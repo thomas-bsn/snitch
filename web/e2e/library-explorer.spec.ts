@@ -115,7 +115,7 @@ test.describe.serial("explorateur de la bibliothèque", () => {
   test("un filtre donne des résultats à plat avec leur dossier", async ({
     page,
   }) => {
-    await page.goto("/library?q=inner");
+    await page.goto("/library?filter=inner");
     await expect(
       page.getByRole("columnheader", { name: "Folder" }),
     ).toBeVisible();

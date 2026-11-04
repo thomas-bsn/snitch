@@ -42,8 +42,9 @@ import { fetchFilterOptions } from "./libraryApi";
 
 type View = "list" | "icons";
 
+// The Library filter lives in `filter`; `q` belongs to the transcript search.
 const FILTER_KEYS = [
-  "q",
+  "filter",
   "state",
   "game",
   "from",
@@ -67,7 +68,7 @@ function readNumber(value: string | null, fallback: number, max: number) {
 
 function readFilters(params: URLSearchParams): ExplorerFilters {
   return {
-    q: params.get("q") ?? "",
+    q: params.get("filter") ?? "",
     state: asExplorerState(params.get("state")),
     game: params.get("game") ?? "",
     from: params.get("from") ?? "",
@@ -175,7 +176,7 @@ export function LibraryPage() {
   }, [filters.q]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (search !== filters.q) change({ q: search });
+      if (search !== filters.q) change({ filter: search });
     }, 300);
     return () => window.clearTimeout(timer);
     // The debounce follows what is typed only; `change` is stable in use.
