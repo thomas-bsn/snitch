@@ -322,6 +322,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceDiarization(t, pool)
 	})
+	t.Run("voice coverage", func(t *testing.T) {
+		reset(t)
+		testVoiceCoverage(t, pool)
+	})
 	t.Run("voice rediarization", func(t *testing.T) {
 		reset(t)
 		testVoiceRediarization(t, pool)
@@ -1136,6 +1140,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/9/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 0}, me.CSRF, 404)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 2, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
+		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trace", nil, "", 200) // behavior in the voice coverage suite
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
 				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {

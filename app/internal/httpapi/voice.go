@@ -7,9 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -606,6 +604,27 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 	if err != nil {
 		return err
 	}
+	coverageTurns := make([]coverageTurn, len(turns))
+	turnLabels := map[int64]string{}
+	for i, t := range turns {
+		coverageTurns[i] = coverageTurn{SpeakerID: t.id, Start: t.start, End: t.end}
+		turnLabels[t.id] = t.label
+	}
+	coverageSegments := []coverageSegment{}
+	for position, raw := range segments {
+		if segment, isMap := raw.(map[string]any); isMap {
+			start, startOK := segment["start"].(float64)
+			end, endOK := segment["end"].(float64)
+			if startOK && endOK {
+				cs := coverageSegment{Start: start, End: end}
+				if st, found := states[position]; found && st.StaleAt == nil && st.SpeakerOverrideID != nil {
+					cs.OverrideSpeakerID = st.SpeakerOverrideID
+				}
+				coverageSegments = append(coverageSegments, cs)
+			}
+		}
+	}
+	object["speaker_coverage"] = speakerCoverage(coverageTurns, coverageSegments)
 	for position, raw := range segments {
 		segment, isMap := raw.(map[string]any)
 		if !isMap {
@@ -616,23 +635,11 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 		if !startOK || !endOK {
 			continue
 		}
-		overlap := map[int64]float64{}
-		labels := map[int64]string{}
-		order := []int64{}
-		for _, t := range turns {
-			if shared := math.Min(end, t.end) - math.Max(start, t.start); shared > 0 {
-				if _, seen := overlap[t.id]; !seen {
-					order = append(order, t.id)
-				}
-				overlap[t.id] += shared
-				labels[t.id] = t.label
-			}
-		}
-		sort.SliceStable(order, func(i, j int) bool { return overlap[order[i]] > overlap[order[j]] })
+		order, overlap := segmentOverlaps(coverageTurns, start, end)
 		var speakerID int64
 		var speakerLabel string
-		if len(order) > 0 {
-			speakerID, speakerLabel = order[0], labels[order[0]]
+		if winner, found := dominantSpeaker(order, overlap); found {
+			speakerID, speakerLabel = winner, turnLabels[winner]
 		}
 		segment["local_speaker_corrected"] = false
 		if st, found := states[position]; found && st.StaleAt == nil && st.SpeakerOverrideID != nil {

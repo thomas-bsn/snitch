@@ -48,6 +48,8 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Voix inconnue** : Une voix sans validation humaine ni attribution automatique ; une suggestion ou une voix ambiguë reste inconnue tant qu'un utilisateur n'a pas tranché. Une voix ignorée ou une voix Random n'est pas une voix inconnue.
 
+**Couverture d'un Locuteur local** : Ce que la transcription retient d'un Locuteur local détecté : des paroles lui sont attribuées, il parle sous des paroles attribuées à d'autres Locuteurs locaux, ou aucune parole ne recouvre ses tours. Un Locuteur local détecté sans parole attribuée reste visible.
+
 **Voix ignorée** : Un Locuteur local déclaré par un utilisateur comme une fausse détection. Il ne compte pas : aucun locuteur n'est affiché pour ses paroles, et il n'est ni vérifié, ni groupé, ni rapproché d'une Personne. La décision est réversible.
 _Avoid_ : Bruit, voix supprimée.
 

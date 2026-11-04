@@ -1910,6 +1910,14 @@ export const fr: Messages = {
       listLabel: "Voix du clip",
       speaking: "{turns} interventions · {duration} de parole",
       todo: "{count} voix à traiter dans cette vidéo",
+      coverage: {
+        words: "Paroles reconnues",
+        speech_without_words:
+          "Parole sans texte : couverte par un autre locuteur",
+        outside_transcript:
+          "Parole sans texte : la transcription s’arrête ou commence ailleurs",
+        no_transcript: "Parole sans texte : rien n’est transcrit à cet endroit",
+      },
       unidentified: "Non identifiée",
       track: "Piste de {label}",
       waveformLabel: "Forme d’onde par voix",

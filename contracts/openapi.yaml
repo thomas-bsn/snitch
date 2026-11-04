@@ -5278,6 +5278,15 @@
         "security": [{"session": []}]
       }
     },
+    "/api/admin/clips/{id}/voice-trace": {
+      "get": {
+        "operationId": "getVoiceTrace",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}],
+        "responses": {"200": {"description": "Trace de l'alignement de la piste visible", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VoiceTrace"}}}}, "404": {"description": "Clip introuvable ou sans transcription", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "description": "Administrateurs uniquement. Étapes brutes autour de l'alignement entre la diarisation et la transcription (modèles et versions, tours, segments avec leurs voix candidates, voix retenue, couverture), sans aucun texte transcrit : joignable à un rapport sans exposer le clip. Diagnostic de #273.",
+        "security": [{"session": []}]
+      }
+    },
     "/api/clips/{id}/voice": {
       "get": {
         "operationId": "getClipVoice",
@@ -9043,12 +9052,39 @@
             "minimum": 0
           },
           "local_speakers": {"type": "array", "description": "Locuteurs locaux de la piste audio, désignables pour un segment ; absent sans diarisation.", "items": {"type": "object", "required": ["id", "label"], "properties": {"id": {"type": "integer", "format": "int64"}, "label": {"type": "string"}}}},
+          "speaker_coverage": {"type": "array", "description": "Couverture des locuteurs détectés par la transcription de la piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation.", "items": {"$ref": "#/components/schemas/SpeakerCoverage"}},
           "segments": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TranscriptSegment"
             }
           }
+        }
+      },
+      "SpeakerCoverage": {
+        "type": "object",
+        "required": ["local_speaker_id", "coverage_status", "speaking_seconds", "overlapped_seconds", "uncovered_seconds", "attributed_segments"],
+        "properties": {
+          "local_speaker_id": {"type": "integer", "format": "int64"},
+          "coverage_status": {"type": "string", "enum": ["words", "speech_without_words", "no_transcript", "outside_transcript"], "description": "words : au moins un segment lui est attribué ; speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste)."},
+          "speaking_seconds": {"type": "number", "description": "Parole détectée, tours qui se chevauchent comptés une fois."},
+          "overlapped_seconds": {"type": "number", "description": "Parole sous des segments attribués à un autre locuteur."},
+          "uncovered_seconds": {"type": "number", "description": "Parole sous aucun segment."},
+          "attributed_segments": {"type": "integer", "minimum": 0}
+        }
+      },
+      "VoiceTrace": {
+        "type": "object",
+        "description": "Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit.",
+        "required": ["clip_id", "audio_stream_index", "transcription", "diarization", "turns", "segments", "coverage"],
+        "properties": {
+          "clip_id": {"type": "integer", "format": "int64"},
+          "audio_stream_index": {"type": "integer", "minimum": 0},
+          "transcription": {"type": "object", "required": ["job_id", "provider", "model", "version", "language", "segment_count"], "properties": {"job_id": {"type": "integer", "format": "int64"}, "provider": {"type": "string"}, "model": {"type": "string"}, "version": {"type": "string"}, "language": {"type": "string"}, "segment_count": {"type": "integer"}}},
+          "diarization": {"type": "object", "nullable": true, "description": "Null sans diarisation réussie pour cette piste.", "required": ["job_id", "provider", "model", "model_version"], "properties": {"job_id": {"type": "integer", "format": "int64"}, "provider": {"type": "string"}, "model": {"type": "string"}, "model_version": {"type": "string"}}},
+          "turns": {"type": "array", "description": "Tours bruts de la diarisation, voix ignorées exclues.", "items": {"type": "object", "required": ["local_speaker_id", "label", "start", "end"], "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "label": {"type": "string"}, "start": {"type": "number"}, "end": {"type": "number"}}}},
+          "segments": {"type": "array", "description": "Segments bruts de la transcription avec les voix qui les recouvrent (avant alignement) et la voix retenue (après).", "items": {"type": "object", "required": ["index", "start", "end", "candidates", "deduced_local_speaker_id", "local_speaker_id", "corrected"], "properties": {"index": {"type": "integer"}, "start": {"type": "number"}, "end": {"type": "number"}, "candidates": {"type": "array", "items": {"type": "object", "required": ["local_speaker_id", "overlap_seconds"], "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "overlap_seconds": {"type": "number"}}}}, "deduced_local_speaker_id": {"type": "integer", "format": "int64", "nullable": true}, "local_speaker_id": {"type": "integer", "format": "int64", "nullable": true}, "corrected": {"type": "boolean"}}}},
+          "coverage": {"type": "array", "items": {"$ref": "#/components/schemas/SpeakerCoverage"}}
         }
       },
       "AudioTrackRule": {

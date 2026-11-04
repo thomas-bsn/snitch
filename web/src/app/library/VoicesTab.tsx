@@ -2,7 +2,11 @@ import { TriangleAlert } from "lucide-react";
 import { useI18n } from "../i18n";
 import { ExcerptPlayer } from "../people/ExcerptPlayer";
 import { DISPOSITION, VoiceDecision } from "../voices/VoiceDecision";
-import type { ClipVoice, TranscriptSegment } from "./libraryApi";
+import type {
+  ClipVoice,
+  SpeakerCoverage,
+  TranscriptSegment,
+} from "./libraryApi";
 import { formatTimecode } from "./clipFormat";
 import { SPEAKER_LOOKS, speakerState, voiceToDecide } from "./speakerState";
 import { VoiceWaveforms, voiceColor } from "./VoiceWaveforms";
@@ -20,6 +24,7 @@ export function VoicesTab({
   onSeek,
   clipName,
   onChanged,
+  coverage = [],
 }: {
   voice: ClipVoice | null;
   segments: TranscriptSegment[];
@@ -29,6 +34,7 @@ export function VoicesTab({
   onSeek: (seconds: number) => void;
   clipName: string;
   onChanged: () => void;
+  coverage?: SpeakerCoverage[];
 }) {
   const { t } = useI18n();
   if (!voice || voice.speakers.length === 0) {
@@ -90,6 +96,9 @@ export function VoicesTab({
                   text: speaker.label,
                   className: "bg-side text-mute lowercase",
                 };
+          const covered = coverage.find(
+            (c) => c.local_speaker_id === speaker.id,
+          );
           const muted = !!speaker.disposition;
           return (
             <li
@@ -124,6 +133,15 @@ export function VoicesTab({
                     duration: formatTimecode(speaker.speaking_seconds),
                   })}
                 </span>
+                {covered && !speaker.disposition && (
+                  <span
+                    data-testid="voice-coverage"
+                    data-status={covered.coverage_status}
+                    className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs ${covered.coverage_status === "words" ? "bg-side text-mute" : "bg-warn-bg text-warn-fg"}`}
+                  >
+                    {t(`clip.voices.coverage.${covered.coverage_status}`)}
+                  </span>
+                )}
                 <span className="ml-auto">
                   <ExcerptPlayer
                     link

@@ -2061,6 +2061,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/voice-trace": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Étapes brutes autour de l'alignement entre la diarisation et la transcription (modèles et versions, tours, segments avec leurs voix candidates, voix retenue, couverture), sans aucun texte transcrit : joignable à un rapport sans exposer le clip. Diagnostic de #273. */
+    get: operations["getVoiceTrace"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}/voice": {
     parameters: {
       query?: never;
@@ -5287,7 +5304,77 @@ export interface components {
         id: number;
         label: string;
       }[];
+      /** @description Couverture des locuteurs détectés par la transcription de la piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation. */
+      speaker_coverage?: components["schemas"]["SpeakerCoverage"][];
       segments: components["schemas"]["TranscriptSegment"][];
+    };
+    SpeakerCoverage: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /**
+       * @description words : au moins un segment lui est attribué ; speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste).
+       * @enum {string}
+       */
+      coverage_status:
+        | "words"
+        | "speech_without_words"
+        | "no_transcript"
+        | "outside_transcript";
+      /** @description Parole détectée, tours qui se chevauchent comptés une fois. */
+      speaking_seconds: number;
+      /** @description Parole sous des segments attribués à un autre locuteur. */
+      overlapped_seconds: number;
+      /** @description Parole sous aucun segment. */
+      uncovered_seconds: number;
+      attributed_segments: number;
+    };
+    /** @description Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit. */
+    VoiceTrace: {
+      /** Format: int64 */
+      clip_id: number;
+      audio_stream_index: number;
+      transcription: {
+        /** Format: int64 */
+        job_id: number;
+        provider: string;
+        model: string;
+        version: string;
+        language: string;
+        segment_count: number;
+      };
+      /** @description Null sans diarisation réussie pour cette piste. */
+      diarization: {
+        /** Format: int64 */
+        job_id: number;
+        provider: string;
+        model: string;
+        model_version: string;
+      } | null;
+      /** @description Tours bruts de la diarisation, voix ignorées exclues. */
+      turns: {
+        /** Format: int64 */
+        local_speaker_id: number;
+        label: string;
+        start: number;
+        end: number;
+      }[];
+      /** @description Segments bruts de la transcription avec les voix qui les recouvrent (avant alignement) et la voix retenue (après). */
+      segments: {
+        index: number;
+        start: number;
+        end: number;
+        candidates: {
+          /** Format: int64 */
+          local_speaker_id: number;
+          overlap_seconds: number;
+        }[];
+        /** Format: int64 */
+        deduced_local_speaker_id: number | null;
+        /** Format: int64 */
+        local_speaker_id: number | null;
+        corrected: boolean;
+      }[];
+      coverage: components["schemas"]["SpeakerCoverage"][];
     };
     AudioTrackRule: {
       title?: string;
@@ -11133,6 +11220,46 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceRediarizationConfirmation"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceTrace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Trace de l'alignement de la piste visible */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceTrace"];
+        };
+      };
+      /** @description Clip introuvable ou sans transcription */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */

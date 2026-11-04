@@ -1879,6 +1879,13 @@ export const en = {
       listLabel: "Voices of the clip",
       speaking: "{turns} turns · {duration} of speech",
       todo: "{count} voices to process in this video",
+      coverage: {
+        words: "Words recognised",
+        speech_without_words: "Speech without text: covered by another speaker",
+        outside_transcript:
+          "Speech without text: the transcript stops or starts elsewhere",
+        no_transcript: "Speech without text: nothing transcribed there",
+      },
       unidentified: "Not identified",
       track: "Track of {label}",
       waveformLabel: "Waveform by voice",
