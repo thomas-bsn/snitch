@@ -48,6 +48,7 @@ jobs:
           .venv/bin/python scripts/check_generated.py
           .venv/bin/python scripts/check_compose.py
           .venv/bin/python scripts/check_error_codes.py
+          (cd scripts && python3 -m unittest test_reserve_worker_version)
           SNITCH_E2E=1 bash scripts/test.sh
   build:
     needs: check
@@ -166,9 +167,41 @@ jobs:
           tags: ${{ env.IMAGE_TAGS }}
           cache-from: type=gha,scope=app
           cache-to: type=gha,scope=app,mode=max
+  version-worker:
+    # Gives the Worker image a SemVer tag (ADR 0036) before the one and only build, so that vX.Y.Z, latest and sha-<commit>
+    # all point to the same image. On main the version is reserved as the Git tag worker/vX.Y.Z (created through the refs
+    # API, which refuses an existing tag: the lock between concurrent runs; a re-run of the same commit reuses its tag).
+    # "worker/*" does not match the "v*" trigger, and tags created with GITHUB_TOKEN start no workflow: no loop.
+    # On a manual release tag it only checks that the version was not already taken by an automatic publication.
+    needs: [changes]
+    if: needs.changes.outputs.worker == 'true'
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: worker-version
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    outputs:
+      tags: ${{ steps.version.outputs.tags }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SHA: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          TAG_NAMES: ${{ needs.changes.outputs.tags }}
+        run: |
+          set -eu
+          version=$(python3 scripts/reserve_worker_version.py)
+          case "$REF_TYPE" in tag) tags="$TAG_NAMES" ;; *) tags="$TAG_NAMES $version" ;; esac
+          echo "Worker tags: $tags"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
   publish-worker:
-    # Same rules as publish-app, only when the worker changed (always for a version tag). The single worker image is large.
-    needs: [build, changes]
+    # Same rules as publish-app, only when the worker changed (always for a version tag), plus the SemVer tag from version-worker.
+    # The single worker image is large: one build, several tags.
+    needs: [build, changes, version-worker]
     if: needs.changes.outputs.worker == 'true'
     runs-on: ubuntu-24.04
     permissions:
@@ -189,7 +222,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Portable repository image namespace and tags
         env:
-          TAG_NAMES: ${{ needs.changes.outputs.tags }}
+          TAG_NAMES: ${{ needs.version-worker.outputs.tags }}
         run: |
           IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
           echo "IMAGE_ROOT=$IMAGE_ROOT" >> "$GITHUB_ENV"
