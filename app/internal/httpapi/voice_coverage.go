@@ -1,6 +1,9 @@
 package httpapi
 
-import "math"
+import (
+	"math"
+	"sort"
+)
 
 // Coverage of the detected voices by the transcript (#273). The diarization and the ASR are
 // independent: a voice can be detected without any word attributed to it. Snitch attributes
@@ -42,8 +45,34 @@ type SpeakerCoverage struct {
 	AttributedSegments int            `json:"attributed_segments"`
 }
 
-// speakerCoverage applies the attribution rule of attachLocalSpeakers: most overlap wins,
-// ties go to the voice that comes first in turns, a correction overrides.
+// segmentOverlaps sums, per voice, the time its turns share with [start,end]. order lists the
+// overlapping voices by first appearance in turns.
+func segmentOverlaps(turns []coverageTurn, start, end float64) (order []int64, overlap map[int64]float64) {
+	overlap = map[int64]float64{}
+	for _, t := range turns {
+		if shared := math.Min(end, t.End) - math.Max(start, t.Start); shared > 0 {
+			if _, seen := overlap[t.SpeakerID]; !seen {
+				order = append(order, t.SpeakerID)
+			}
+			overlap[t.SpeakerID] += shared
+		}
+	}
+	return order, overlap
+}
+
+// dominantSpeaker is the one attribution rule, shared by the segment labels (attachLocalSpeakers)
+// and the coverage: the voice that speaks most over the segment, ties to the first in order.
+func dominantSpeaker(order []int64, overlap map[int64]float64) (int64, bool) {
+	winner, found := int64(0), false
+	for _, id := range order {
+		if !found || overlap[id] > overlap[winner] {
+			winner, found = id, true
+		}
+	}
+	return winner, found
+}
+
+// speakerCoverage applies that rule, plus manual corrections, to every segment.
 func speakerCoverage(turns []coverageTurn, segments []coverageSegment) []SpeakerCoverage {
 	result := []SpeakerCoverage{}
 	index := map[int64]int{}
@@ -54,25 +83,13 @@ func speakerCoverage(turns []coverageTurn, segments []coverageSegment) []Speaker
 			index[t.SpeakerID] = i
 			result = append(result, SpeakerCoverage{SpeakerID: t.SpeakerID})
 		}
-		result[i].SpeakingSeconds += t.End - t.Start
+	}
+	for i := range result {
+		result[i].SpeakingSeconds = unionSeconds(turns, result[i].SpeakerID)
 	}
 	for _, seg := range segments {
-		overlap := map[int64]float64{}
-		order := []int64{}
-		for _, t := range turns {
-			if shared := math.Min(seg.End, t.End) - math.Max(seg.Start, t.Start); shared > 0 {
-				if _, seen := overlap[t.SpeakerID]; !seen {
-					order = append(order, t.SpeakerID)
-				}
-				overlap[t.SpeakerID] += shared
-			}
-		}
-		winner, found := int64(0), false
-		for _, id := range order {
-			if !found || overlap[id] > overlap[winner] {
-				winner, found = id, true
-			}
-		}
+		order, overlap := segmentOverlaps(turns, seg.Start, seg.End)
+		winner, found := dominantSpeaker(order, overlap)
 		if seg.OverrideSpeakerID != nil {
 			if _, known := index[*seg.OverrideSpeakerID]; known {
 				winner, found = *seg.OverrideSpeakerID, true
@@ -99,4 +116,24 @@ func speakerCoverage(turns []coverageTurn, segments []coverageSegment) []Speaker
 		}
 	}
 	return result
+}
+
+// unionSeconds is the speech time of a voice, without counting twice turns that overlap.
+func unionSeconds(turns []coverageTurn, speaker int64) float64 {
+	spans := []coverageTurn{}
+	for _, t := range turns {
+		if t.SpeakerID == speaker && t.End > t.Start {
+			spans = append(spans, t)
+		}
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i].Start < spans[j].Start })
+	total, reach := 0.0, math.Inf(-1)
+	for _, t := range spans {
+		start := math.Max(t.Start, reach)
+		if t.End > start {
+			total += t.End - start
+			reach = t.End
+		}
+	}
+	return total
 }

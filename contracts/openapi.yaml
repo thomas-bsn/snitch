@@ -9043,6 +9043,7 @@
             "minimum": 0
           },
           "local_speakers": {"type": "array", "description": "Locuteurs locaux de la piste audio, désignables pour un segment ; absent sans diarisation.", "items": {"type": "object", "required": ["id", "label"], "properties": {"id": {"type": "integer", "format": "int64"}, "label": {"type": "string"}}}},
+          "speaker_coverage": {"type": "array", "description": "Couverture des locuteurs détectés par la transcription de la piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation.", "items": {"type": "object", "required": ["local_speaker_id", "coverage_status", "speaking_seconds", "overlapped_seconds", "attributed_segments"], "properties": {"local_speaker_id": {"type": "integer", "format": "int64"}, "coverage_status": {"type": "string", "enum": ["words", "speech_without_words", "no_transcript"], "description": "words : au moins un segment lui est attribué ; speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne recouvre ses tours."}, "speaking_seconds": {"type": "number"}, "overlapped_seconds": {"type": "number", "description": "Parole sous des segments attribués à un autre locuteur."}, "attributed_segments": {"type": "integer", "minimum": 0}}}},
           "segments": {
             "type": "array",
             "items": {

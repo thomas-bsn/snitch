@@ -5287,6 +5287,20 @@ export interface components {
         id: number;
         label: string;
       }[];
+      /** @description Couverture des locuteurs détectés par la transcription de la piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation. */
+      speaker_coverage?: {
+        /** Format: int64 */
+        local_speaker_id: number;
+        /**
+         * @description words : au moins un segment lui est attribué ; speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne recouvre ses tours.
+         * @enum {string}
+         */
+        coverage_status: "words" | "speech_without_words" | "no_transcript";
+        speaking_seconds: number;
+        /** @description Parole sous des segments attribués à un autre locuteur. */
+        overlapped_seconds: number;
+        attributed_segments: number;
+      }[];
       segments: components["schemas"]["TranscriptSegment"][];
     };
     AudioTrackRule: {

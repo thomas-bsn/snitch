@@ -63,3 +63,11 @@ func TestSpeakerCoverageTieGoesToFirstVoice(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+// Overlapping turns of one voice are not counted twice.
+func TestSpeakerCoverageSpeakingSecondsIgnoresOverlappingTurns(t *testing.T) {
+	got := speakerCoverage([]coverageTurn{{SpeakerID: 1, Start: 0, End: 6}, {SpeakerID: 1, Start: 4, End: 10}}, nil)
+	if got[0].SpeakingSeconds != 10 {
+		t.Fatalf("got %+v", got)
+	}
+}

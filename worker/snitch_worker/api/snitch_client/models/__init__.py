@@ -297,6 +297,8 @@ from .transcription_settings_input_mode import TranscriptionSettingsInputMode
 from .transcription_settings_state import TranscriptionSettingsState
 from .transcription_settings_state_mode import TranscriptionSettingsStateMode
 from .transcription_settings_state_status import TranscriptionSettingsStateStatus
+from .transcription_speaker_coverage_item import TranscriptionSpeakerCoverageItem
+from .transcription_speaker_coverage_item_coverage_status import TranscriptionSpeakerCoverageItemCoverageStatus
 from .update_clip_body import UpdateClipBody
 from .update_clip_body_visibility import UpdateClipBodyVisibility
 from .update_member_role_body import UpdateMemberRoleBody
@@ -734,6 +736,8 @@ __all__ = (
     "TranscriptionSettingsState",
     "TranscriptionSettingsStateMode",
     "TranscriptionSettingsStateStatus",
+    "TranscriptionSpeakerCoverageItem",
+    "TranscriptionSpeakerCoverageItemCoverageStatus",
     "TranscriptSegment",
     "TranscriptWord",
     "UpdateClipBody",
