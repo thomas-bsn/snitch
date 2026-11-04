@@ -1246,9 +1246,58 @@ export const fr: Messages = {
     open: "Ouvrir {name}",
     columns: {
       name: "Nom",
-      status: "État",
+      status: "Connexion",
       lastPulse: "Dernier pouls",
       models: "Modèles",
+    },
+    connection: {
+      hint: "Connexion : le Worker a-t-il envoyé un pouls dans les 30 dernières secondes. Elle est indépendante de l’installation, qui reste terminée une fois le premier pouls reçu.",
+    },
+    diagnostics: {
+      title: "Connexion et reprise",
+      open: "Diagnostiquer / Reconnecter",
+      offlineLead:
+        "Ce Worker est installé mais actuellement hors ligne. Ouvrez le diagnostic pour des pistes et des commandes locales.",
+      lastPulse: "Dernier pouls",
+      installation: "Installation",
+      noRemote:
+        "Snitch ne peut pas redémarrer cette machine à distance : aucun superviseur local n’est connecté. Lancez les commandes ci-dessous sur la machine du Worker.",
+      hints: "À vérifier",
+      hint: {
+        docker_daemon: "Le démon Docker ne tourne pas sur la machine.",
+        wsl_stopped:
+          "WSL2 (ou Docker Desktop) est arrêté ou la machine est en veille.",
+        container_stopped:
+          "Le conteneur du Worker s’est arrêté : vérifiez docker ps -a et ses journaux.",
+        presence_thread:
+          "Le Worker tourne mais son fil de présence a planté : redémarrez le conteneur.",
+        token_rejected:
+          "Snitch refuse le jeton du Worker (révoqué ou remplacé) : régénérez le jeton sur cette page.",
+        unreachable:
+          "Snitch ou le serveur de transcription est injoignable depuis la machine.",
+        installer_missing:
+          "Le lanceur est absent de la machine : refaites l’installation du Worker (générez une nouvelle commande depuis cette page si l’ancienne était à usage unique).",
+        no_pulse_after_restart:
+          "Après un redémarrage, comptez environ 30 secondes avant le prochain pouls.",
+      },
+      commands: "Commandes locales",
+      commandsLead:
+        "À lancer sur la machine du Worker. Elles ne contiennent aucun jeton et conservent l’identité du Worker.",
+      restart: "Redémarrer le conteneur",
+      restartHint: "Option légère pour un incident temporaire.",
+      logs: "Lire les derniers journaux",
+      logsHint: "Pour voir pourquoi le Worker ne répond plus.",
+      launcher: "Relancer le lanceur",
+      launcherHint: "Plus invasif : il peut recréer le conteneur.",
+      copy: "Copier la commande : {command}",
+      copyShort: "Copier",
+      copied: "Copié",
+      copyFailed:
+        "La copie n’est pas disponible ici : sélectionnez la commande et copiez-la.",
+      waiting:
+        "En attente d’un nouveau pouls. Snitch n’a rien redémarré ; le Worker n’est affiché de retour en ligne qu’à son prochain pouls.",
+      returned:
+        "Le Worker est de nouveau en ligne : nouveau pouls reçu {date}.",
     },
     status: {
       online: "En ligne",
@@ -1261,14 +1310,15 @@ export const fr: Messages = {
       column: "Installation",
       state: {
         installing: "Installation en cours",
-        connected: "Connecté",
+        connected: "Terminée",
         voice_ready: "Voix prête",
         failed: "Échec",
         never_connected: "Jamais connecté",
       },
       stateHint: {
         installing: "En attente du premier pouls du Worker.",
-        connected: "Le Worker a envoyé son premier pouls.",
+        connected:
+          "Installation terminée : le premier pouls a été reçu. Cela ne dit pas si le Worker est joignable maintenant.",
         voice_ready: "Le Worker a réussi un test vocal synthétique.",
         failed:
           "L’installation s’est arrêtée à une étape. Voir l’action de reprise ci-dessous.",
