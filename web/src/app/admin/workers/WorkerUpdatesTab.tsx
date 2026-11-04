@@ -56,6 +56,9 @@ export function WorkerUpdatesTab() {
   const actions = useWorkerUpdateActions();
   useDocumentTitle(t("workerUpdates.title"));
 
+  const catalog = state.status === "ready" ? (state.value.catalog ?? []) : [];
+  const workers = state.status === "ready" ? (state.value.workers ?? []) : [];
+
   const [choice, setChoice] = useState("");
   const [manual, setManual] = useState("");
   const [failure, setFailure] = useState<string>();
@@ -72,8 +75,7 @@ export function WorkerUpdatesTab() {
   async function save(event: FormEvent) {
     event.preventDefault();
     if (state.status !== "ready") return;
-    const useManual =
-      !state.value.catalog_available || state.value.catalog.length === 0;
+    const useManual = !state.value.catalog_available || catalog.length === 0;
     const version = (useManual ? manual : choice).trim();
     setFailure(undefined);
     setSaved(false);
@@ -111,15 +113,14 @@ export function WorkerUpdatesTab() {
               <span className="font-medium">
                 {t("workerUpdates.targetLabel")}
               </span>
-              {state.value.catalog_available &&
-              state.value.catalog.length > 0 ? (
+              {state.value.catalog_available && catalog.length > 0 ? (
                 <select
                   value={choice}
                   onChange={(e) => setChoice(e.target.value)}
                   className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
                 >
                   <option value="">{t("workerUpdates.none")}</option>
-                  {state.value.catalog.map((version) => (
+                  {catalog.map((version) => (
                     <option key={version} value={version}>
                       {version}
                     </option>
@@ -140,12 +141,11 @@ export function WorkerUpdatesTab() {
                 {t("workerUpdates.catalogUnavailable")}
               </p>
             )}
-            {state.value.catalog_available &&
-              state.value.catalog.length === 0 && (
-                <p className="text-xs text-mute">
-                  {t("workerUpdates.noVersions")}
-                </p>
-              )}
+            {state.value.catalog_available && catalog.length === 0 && (
+              <p className="text-xs text-mute">
+                {t("workerUpdates.noVersions")}
+              </p>
+            )}
             <p className="text-xs text-mute">
               {t("workerUpdates.compatibility")}
             </p>
@@ -166,7 +166,7 @@ export function WorkerUpdatesTab() {
             {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
           </form>
 
-          {state.value.workers.length === 0 ? (
+          {workers.length === 0 ? (
             <p className="rounded-lg border border-dashed border-line-strong p-6 text-mute">
               {t("workerUpdates.empty")}
             </p>
@@ -195,7 +195,7 @@ export function WorkerUpdatesTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {state.value.workers.map((worker) => {
+                  {workers.map((worker) => {
                     const cause = causeKey(worker.cause_code);
                     return (
                       <tr key={worker.id} className="border-t border-line">

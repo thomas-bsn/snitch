@@ -1,5 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, request, test, type Page } from "@playwright/test";
+import {
+  expect,
+  request,
+  test,
+  type Browser,
+  type Page,
+} from "@playwright/test";
 import {
   ADMIN,
   MEMBER,
@@ -443,5 +449,116 @@ test.describe.serial("administration et Workers", () => {
     ).toHaveCount(0);
     expect(await pulse(firstToken)).toBe(401);
     await context.close();
+  });
+
+  test.describe("onglet Mises à jour", () => {
+    const listing = {
+      target_version: null,
+      target_image: null,
+      image_repository: "ghcr.io/thomas-bsn/snitch-worker",
+      catalog: ["v1.1.0", "v1.0.0"],
+      catalog_available: true,
+      workers: [],
+    };
+
+    async function open(browser: Browser, body?: () => unknown, status = 200) {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      if (body) {
+        await page.route("**/api/admin/worker-updates", (route) =>
+          route.request().method() === "GET"
+            ? route.fulfill({ status, json: body() })
+            : route.continue(),
+        );
+      }
+      await page.goto("/admin/worker-updates");
+      return { context, page };
+    }
+
+    test("s'ouvre avec le formulaire et les Workers", async ({ browser }) => {
+      const { context, page } = await open(browser, () => ({
+        ...listing,
+        workers: [
+          {
+            id: "wk_1",
+            name: "gaming-pc",
+            state: "updated",
+            version: "v1.1.0",
+            digest: "",
+            cause_code: "",
+            reported_at: null,
+          },
+        ],
+      }));
+      await expect(page.getByLabel("Target version")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Save", exact: true }),
+      ).toBeVisible();
+      await expect(page.getByRole("table")).toBeVisible();
+      await expect(page.getByRole("cell", { name: "gaming-pc" })).toBeVisible();
+      await context.close();
+    });
+
+    test("répond sans simulation sur la vraie API", async ({ browser }) => {
+      const { context, page } = await open(browser);
+      await expect(
+        page.getByRole("button", { name: "Save", exact: true }),
+      ).toBeVisible();
+      await context.close();
+    });
+
+    test("un catalogue ou des Workers à null ne blanchissent pas la page", async ({
+      browser,
+    }) => {
+      const { context, page } = await open(browser, () => ({
+        ...listing,
+        catalog: null,
+        workers: null,
+      }));
+      await expect(page.getByRole("textbox")).toBeVisible();
+      await expect(page.getByRole("navigation")).not.toHaveCount(0);
+      await context.close();
+    });
+
+    test("un échec de l'API affiche une erreur", async ({ browser }) => {
+      const { context, page } = await open(
+        browser,
+        () => ({ error: { code: "internal_error" } }),
+        500,
+      );
+      await expect(page.getByRole("alert")).toBeVisible();
+      await context.close();
+    });
+
+    test("une exception de rendu affiche un message, pas une page blanche", async ({
+      browser,
+    }) => {
+      // A Worker without a name makes the row throw: the shell and a diagnostic must remain.
+      const { context, page } = await open(browser, () => ({
+        ...listing,
+        workers: [null],
+      }));
+      await expect(page.getByRole("alert")).toContainText(
+        "could not be displayed",
+      );
+      await expect(
+        page.getByRole("navigation", { name: "Administration sections" }),
+      ).toBeVisible();
+      await context.close();
+    });
+
+    test("un membre ordinaire est refusé", async ({ browser }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(MEMBER),
+      });
+      const page = await context.newPage();
+      await page.goto("/admin/worker-updates");
+      await expect(
+        page.getByRole("heading", { name: "Administrators only" }),
+      ).toBeVisible();
+      await context.close();
+    });
   });
 });
