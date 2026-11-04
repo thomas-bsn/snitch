@@ -398,6 +398,8 @@ def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: Reacha
     # The probe runs on its own thread: the pulse only reads its last result, never waits for it.
     snapshot = (reachability or transcription_config.reachability).snapshot()
     if snapshot is not None:
+        # The generated client accepts an omitted field but not an explicit None.
+        snapshot = {key: value for key, value in snapshot.items() if value is not None}
         body.transcription_reachability = WorkerTranscriptionReachabilityInput.from_dict(snapshot)
     _require_response(pulse(client=client, body=body), "pulse")
 
@@ -422,6 +424,11 @@ def _presence_loop(
             failures += 1
             delay = presence_retry_delay(failures)
             log.emit(logging.WARNING, "presence_pulse_failed", attempt=failures)
+            continue
+        except Exception as error:  # noqa: BLE001 - a bug in a pulse must never kill presence for good
+            failures += 1
+            delay = presence_retry_delay(failures)
+            log.emit(logging.ERROR, "presence_pulse_error", attempt=failures, error_type=type(error).__name__)
             continue
         if failures:
             log.emit(logging.INFO, "presence_reconnected", attempts=failures)

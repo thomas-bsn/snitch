@@ -192,6 +192,35 @@ class ReachabilityScheduleTests(unittest.TestCase):
             runner._send_pulse(SimpleNamespace(), 1, ReachabilityMonitor(interval=60, timeout=5))
         self.assertNotIn("transcription_reachability", pulse.call_args.kwargs["body"].to_dict())
 
+    def test_pulse_with_healthy_endpoint_serializes_without_last_failure(self):
+        monitor = ReachabilityMonitor(interval=60, timeout=5)
+        with _Server() as endpoint:
+            monitor.set_target(endpoint, "synthetic-model")
+            monitor.probe_once()
+        with patch.object(runner, "pulse", return_value=object()) as pulse:
+            runner._send_pulse(SimpleNamespace(), 1, monitor)
+        reachability = pulse.call_args.kwargs["body"].to_dict()["transcription_reachability"]
+        self.assertTrue(reachability["reachable"])
+        self.assertNotIn("last_failure", reachability)
+
+    def test_presence_loop_survives_an_unexpected_pulse_exception(self):
+        stop = threading.Event()
+        calls = []
+
+        def flaky(*_args, **_kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                raise TypeError("unexpected serialization failure")
+            if len(calls) >= 3:
+                stop.set()
+
+        with patch.object(runner, "_send_pulse", side_effect=flaky), patch.object(runner, "presence_retry_delay", return_value=0.01):
+            thread = threading.Thread(target=runner._presence_loop, args=(SimpleNamespace(), 1, stop, 0.01))
+            thread.start()
+            thread.join(timeout=3)
+        self.assertFalse(thread.is_alive())
+        self.assertGreaterEqual(len(calls), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

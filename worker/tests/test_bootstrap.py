@@ -478,5 +478,19 @@ class TokenFileTests(unittest.TestCase):
         self.assertEqual(voice_download.default_token_file(explicit), "/run/secrets/hf")
 
 
+class GpuDetectionTests(unittest.TestCase):
+    def test_wsl2_dxg_without_nvidiactl_counts_when_torch_is_absent(self):
+        self.assertTrue(bootstrap._gpu_available(exists=lambda p: p == "/dev/dxg", torch_cuda=lambda: None))
+
+    def test_no_device_node_and_no_torch_is_unavailable(self):
+        self.assertFalse(bootstrap._gpu_available(exists=lambda _p: False, torch_cuda=lambda: None))
+
+    def test_torch_saying_cuda_is_usable_wins_without_any_device_node(self):
+        self.assertTrue(bootstrap._gpu_available(exists=lambda _p: False, torch_cuda=lambda: True))
+
+    def test_torch_saying_cuda_is_unusable_rejects_despite_device_nodes(self):
+        self.assertFalse(bootstrap._gpu_available(exists=lambda _p: True, torch_cuda=lambda: False))
+
+
 if __name__ == "__main__":
     unittest.main()

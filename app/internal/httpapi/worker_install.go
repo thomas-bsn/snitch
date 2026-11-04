@@ -162,7 +162,7 @@ if [ "$update_code" = 200 ]; then
 fi
 rm -f "$update_json"
 emit registration succeeded
-printf 'SNITCH_API_URL=%s\nSNITCH_WORKER_TOKEN=%s\nTRANSCRIPTION_API_URL=%s\nTRANSCRIPTION_MODEL=%s\nTRANSCRIPTION_LANGUAGE=%s\nSNITCH_VOICE_DOWNLOAD_ON_START=0\nSNITCH_VOICE_CONFIRM_TERMS=0\nHOME=/tmp\nXDG_CACHE_HOME=/models/.cache\nHF_HOME=/models/.cache/huggingface\nHF_XET_CACHE=/models/.cache/huggingface/xet\n' "$api_url" "$worker_token" "$transcription_endpoint" "$transcription_model" "$transcription_language" > "$env_file.tmp"
+printf 'SNITCH_API_URL=%s\nSNITCH_WORKER_TOKEN=%s\nTRANSCRIPTION_API_URL=%s\nTRANSCRIPTION_MODEL=%s\nTRANSCRIPTION_LANGUAGE=%s\nSNITCH_VOICE_DOWNLOAD_ON_START=0\nSNITCH_VOICE_CONFIRM_TERMS=0\nSNITCH_VOICE_DIARIZATION_MODEL_PATH=/models/diarization\nSNITCH_VOICE_EMBEDDING_MODEL_PATH=/models/embedding\nHOME=/tmp\nXDG_CACHE_HOME=/models/.cache\nHF_HOME=/models/.cache/huggingface\nHF_XET_CACHE=/models/.cache/huggingface/xet\n' "$api_url" "$worker_token" "$transcription_endpoint" "$transcription_model" "$transcription_language" > "$env_file.tmp"
 chmod 600 "$env_file.tmp"; mv "$env_file.tmp" "$env_file"; unset worker_token
 stage=image
 if ! docker pull "$image"; then
@@ -205,8 +205,13 @@ else printf 'No NVIDIA GPU: voice processing unavailable (transcription still wo
 # Voice is ready only after a synthetic inference succeeds, never because models were downloaded.
 voice_selftest() {
  stage=voice-test
- if docker run --rm "${gpu[@]}" --user 10001:10001 --env-file "$env_file" -e HF_HUB_OFFLINE=1 -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.voice_selftest; then emit voice-test succeeded
- else emit voice-test failed unknown; printf 'Warning [unknown]: the synthetic voice test failed; voice stays unavailable, transcription still works.\nAvertissement [unknown] : le test vocal synthétique a échoué ; la voix reste indisponible, la transcription fonctionne.\n' >&2; fi
+ local reason
+ if reason=$(docker run --rm "${gpu[@]}" --user 10001:10001 --env-file "$env_file" -e HF_HUB_OFFLINE=1 -v "$volume:/models" --entrypoint python "$image" -m snitch_worker.voice_selftest 2>&1 >/dev/null); then emit voice-test succeeded
+ else
+  # Only the stable machine code printed by the self-test is shown, never raw container output.
+  reason=$(printf '%s' "$reason" | sed -n 's/^selftest_reason=\([a-z_]*\)$/\1/p' | tail -n1); reason=${reason:-unknown}
+  emit voice-test failed unknown; printf 'Warning [%s]: the synthetic voice test failed; voice stays unavailable, transcription still works.\nAvertissement [%s] : le test vocal synthétique a échoué ; la voix reste indisponible, la transcription fonctionne.\n' "$reason" "$reason" >&2
+ fi
 }
 # Installation events carry the stable fine cause (the closed vocabulary of the installation events).
 install_cause() {

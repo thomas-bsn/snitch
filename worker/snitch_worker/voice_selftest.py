@@ -44,8 +44,8 @@ def diarize_synthetic(provider: Any, provider_name: str = "pyannote") -> None:
         provider.diarize({**CONFIG, "provider": provider_name}, path, 0)
 
 
-def run_selftest(providers: Mapping[str, Any] | None = None) -> bool:
-    """True when diarization ran end to end on synthetic audio."""
+def run_selftest(providers: Mapping[str, Any] | None = None, report: list[str] | None = None) -> bool:
+    """True when diarization ran end to end on synthetic audio; ``report`` receives the stable failure code."""
     available = providers or voice.default_providers()
     try:
         voice.ensure_provider_ready({"config": CONFIG}, available)
@@ -53,13 +53,20 @@ def run_selftest(providers: Mapping[str, Any] | None = None) -> bool:
             path = os.path.join(tmp, "synthetic.wav")
             write_synthetic_audio(path)
             available[CONFIG["provider"]].diarize(CONFIG, path, 0)
-    except VoiceProviderUnavailable:
+    except VoiceProviderUnavailable as error:
+        if report is not None:
+            report.append(str(getattr(error, "reason", "provider_unavailable")))
         return False
     return True
 
 
 def main() -> int:  # pragma: no cover - needs models
-    return 0 if run_selftest() else 1
+    report: list[str] = []
+    if run_selftest(report=report):
+        return 0
+    # Stable machine code only (never a path, token or library message): the launcher shows it.
+    print("selftest_reason=" + (report[0] if report else "provider_unavailable"), file=sys.stderr)
+    return 1
 
 
 if __name__ == "__main__":  # pragma: no cover
