@@ -99,16 +99,14 @@ export function LibraryPage() {
   const location = useLocation();
   const clipOrigin = useClipOrigin();
   const { params, update } = useAddressParams();
-  const { remember } = clipOrigin;
   const openClip = useCallback(
     (id: number) => {
-      remember();
+      clipOrigin.remember();
       navigate(`/clips/${id}`, { state: clipOrigin.state });
     },
-    // `clipOrigin.state` follows the address, as does `remember`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigate, remember],
+    [navigate, clipOrigin],
   );
+
   useDocumentTitle(t("pages.library.title"));
   const { user, session } = useSession();
   const csrf = session?.csrf_token ?? "";

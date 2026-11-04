@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useLocation } from "react-router";
 
 /**
@@ -56,5 +57,8 @@ export function backAddress(state: unknown): string {
 export function useClipOrigin() {
   const location = useLocation();
   const from = `${location.pathname}${location.search}`;
-  return { state: { from }, remember: () => rememberScroll(from) };
+  return useMemo(
+    () => ({ state: { from }, remember: () => rememberScroll(from) }),
+    [from],
+  );
 }
