@@ -163,9 +163,9 @@ function Locations({ locations }: { locations: Location[] }) {
       data-locations
       aria-label={t("queue.board.location.title")}
     >
-      <h5 className="m-0 mb-1 text-xs font-medium uppercase tracking-wide text-mute">
+      <h4 className="m-0 mb-1 text-xs font-medium uppercase tracking-wide text-mute">
         {t("queue.board.location.title")}
-      </h5>
+      </h4>
       {locations.length === 0 ? (
         <p data-location-unavailable className="m-0 text-xs text-ink">
           {t("queue.board.location.unavailable")}
@@ -229,7 +229,7 @@ const RunCard = memo(function RunCard({ run }: { run: QueueRun }) {
       >
         <ClipThumbnail clipId={run.clip_id} />
         <header className="min-w-0">
-          <h4 className="m-0 break-words text-sm font-semibold">{title}</h4>
+          <h3 className="m-0 break-words text-sm font-semibold">{title}</h3>
           <p className="m-0 mt-1 text-xs text-mute">
             #{run.clip_id} · {t(`queue.board.scope.${run.scope}`)} ·{" "}
             <span data-run-status>{t(`queue.board.run.${run.status}`)}</span>
@@ -266,9 +266,9 @@ const RunCard = memo(function RunCard({ run }: { run: QueueRun }) {
             if (steps.length === 0) return null;
             return (
               <section key={group.title}>
-                <h5 className="m-0 mb-1 text-xs font-medium uppercase tracking-wide text-mute">
+                <h4 className="m-0 mb-1 text-xs font-medium uppercase tracking-wide text-mute">
                   {t(group.title)}
-                </h5>
+                </h4>
                 <ul className="m-0 flex list-none flex-col gap-1 p-0">
                   {steps.map((step) => (
                     <StepRow
@@ -338,7 +338,7 @@ function BoardColumn({ id, runs }: { id: Column; runs: QueueRun[] }) {
       aria-labelledby={`queue-column-${id}`}
       className="flex min-w-0 flex-col gap-3 rounded-xl border border-dashed border-line p-2"
     >
-      <h4
+      <h3
         id={`queue-column-${id}`}
         className="m-0 flex items-center justify-between gap-2 px-1 text-sm font-semibold"
       >
@@ -349,7 +349,7 @@ function BoardColumn({ id, runs }: { id: Column; runs: QueueRun[] }) {
         >
           {runs.length}
         </span>
-      </h4>
+      </h3>
       {runs.length === 0 ? (
         <p className="m-0 px-1 text-xs text-mute">{t("queue.board.empty")}</p>
       ) : (
@@ -452,9 +452,9 @@ export function AnalysisBoard({
       <QueueSummaryBar summary={queue.summary} />
       <ThumbnailSetting />
       <section aria-labelledby="queue-active">
-        <h3 id="queue-active" className="mb-3 text-base font-semibold">
+        <h2 id="queue-active" className="mb-3 text-base font-semibold">
           {t("queue.board.activeTitle")} · {queue.active.length}
-        </h3>
+        </h2>
         {queue.active.length === 0 && (
           <p className="m-0 mb-3 text-mute">{t("queue.board.activeEmpty")}</p>
         )}
@@ -469,9 +469,9 @@ export function AnalysisBoard({
       </section>
       {queue.tasks.length > 0 && (
         <section aria-labelledby="queue-tasks">
-          <h3 id="queue-tasks" className="mb-1 text-base font-semibold">
+          <h2 id="queue-tasks" className="mb-1 text-base font-semibold">
             {t("queue.board.tasksTitle")} · {queue.tasks.length}
-          </h3>
+          </h2>
           <p className="m-0 mb-3 text-sm text-mute">
             {t("queue.board.tasksHint")}
           </p>

@@ -39,7 +39,7 @@ export function notificationAddress(item: AppNotification): string {
   if (item.kind === "worker_unavailable" || item.kind === "job_blocked")
     return "/admin/workers";
   if (item.kind === "folder_request_decided") return "/import";
-  if (item.kind !== "needs_speaker_review") return "/admin/queue";
+  if (item.kind !== "needs_speaker_review") return "/queue";
   return item.clip_id === null
     ? "/people/verification"
     : `/people/verification?clip=${item.clip_id}`;

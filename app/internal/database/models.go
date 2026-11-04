@@ -149,6 +149,12 @@ type ClipSource struct {
 	ManagedRoot    bool               `json:"managed_root"`
 }
 
+type ClipThumbnail struct {
+	ClipID    int64              `json:"clip_id"`
+	Jpeg      []byte             `json:"jpeg"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type ClipWaveform struct {
 	ClipID           int64              `json:"clip_id"`
 	AudioStreamIndex int32              `json:"audio_stream_index"`
@@ -650,24 +656,6 @@ type VoiceAutomationEvent struct {
 	PrecisionThreshold float64            `json:"precision_threshold"`
 	MinConfirmations   int32              `json:"min_confirmations"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-}
-
-type VoiceDiarizationTrial struct {
-	ID               int64              `json:"id"`
-	ClipID           int64              `json:"clip_id"`
-	AudioStreamIndex int32              `json:"audio_stream_index"`
-	ModelID          string             `json:"model_id"`
-	ModelRepo        string             `json:"model_repo"`
-	ModelRevision    string             `json:"model_revision"`
-	NumSpeakers      pgtype.Int4        `json:"num_speakers"`
-	MinSpeakers      pgtype.Int4        `json:"min_speakers"`
-	MaxSpeakers      pgtype.Int4        `json:"max_speakers"`
-	Run              int32              `json:"run"`
-	Result           []byte             `json:"result"`
-	CreatedBy        string             `json:"created_by"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
-	ModelEngine      string             `json:"model_engine"`
 }
 
 type VoiceDispositionEvent struct {

@@ -1,7 +1,8 @@
-import { Folder, Lock, Video } from "lucide-react";
-import { useCallback, useEffect, useId, useState } from "react";
+import { ChevronRight, Film, Folder, HardDrive, Lock } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
+import { Modal } from "../components/Modal";
 import { useI18n } from "../i18n";
 import { useSession } from "../session";
 
@@ -16,16 +17,16 @@ type Entry = {
 const last = (path: string) => path.split("/").pop() ?? path;
 
 /**
- * « Déjà sur le serveur » (#224): picks videos already in the Racine vidéo. A folder selects its videos
- * recursively; a Dossier privé shows a lock and cannot be selected (ADR 0026). The server counts the
- * selection before anything is queued, and queues it only once confirmed; indexing and analysis then
- * follow the settings of the library (Lot B).
+ * « Déjà sur le serveur » (#224): picks videos already in the Racine vidéo, in a dialog. A folder selects
+ * its videos recursively; a Dossier privé shows a lock and cannot be selected (ADR 0026). The server
+ * counts the selection as it changes, before anything is queued, and queues it only once the person
+ * confirms « Analyser N vidéo(s) »; indexing and analysis then follow the settings of the library (Lot B).
  */
 export function ServerSelection() {
   const { t, error } = useI18n();
   const { session } = useSession();
   const csrf = session?.csrf_token ?? "";
-  const headingId = useId();
+  const [open, setOpen] = useState(true);
   const [rooted, setRooted] = useState<boolean>();
   const [directory, setDirectory] = useState("");
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -69,32 +70,40 @@ export function ServerSelection() {
       .catch((e: Error) => setFailure(e.message));
   }, [request, rooted, directory]);
 
-  function toggle(path: string) {
+  // The server counts the videos of the selection (folders recursively) whenever it changes.
+  useEffect(() => {
     setCounted(undefined);
+    if (selected.length === 0) return;
+    let current = true;
+    void request("/api/library/import/scan", {
+      method: "POST",
+      body: JSON.stringify({ paths: selected, confirm: false }),
+    })
+      .then((data) => {
+        if (current) setCounted((data.paths as string[]).length);
+      })
+      .catch((e: Error) => {
+        if (current) setFailure(e.message);
+      });
+    return () => {
+      current = false;
+    };
+  }, [request, selected]);
+
+  function toggle(path: string) {
     setNotice(undefined);
     setSelected((list) =>
       list.includes(path) ? list.filter((p) => p !== path) : [...list, path],
     );
   }
 
-  async function count() {
-    setBusy(true);
-    setFailure(undefined);
-    try {
-      const data = await request("/api/library/import/scan", {
-        method: "POST",
-        body: JSON.stringify({ paths: selected, confirm: false }),
-      });
-      setCounted((data.paths as string[]).length);
-    } catch (e) {
-      setFailure((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+  function close() {
+    setSelected([]);
+    setOpen(false);
   }
 
   async function confirm() {
-    if (counted === undefined) return;
+    if (!counted) return;
     setBusy(true);
     setFailure(undefined);
     try {
@@ -105,8 +114,7 @@ export function ServerSelection() {
       setNotice(
         t("import.server.queued", { count: (data.paths as string[]).length }),
       );
-      setSelected([]);
-      setCounted(undefined);
+      close();
     } catch (e) {
       setFailure((e as Error).message);
     } finally {
@@ -117,58 +125,62 @@ export function ServerSelection() {
   const parts = directory ? directory.split("/") : [];
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-4">
-      <h2 id={headingId} className="text-lg font-semibold">
-        {t("import.sections.server")}
-      </h2>
-      <p className="max-w-2xl text-sm text-mute">{t("import.server.intro")}</p>
-      {rooted === false && <p>{t("import.server.unconfigured")}</p>}
-      {rooted && (
-        <>
-          <nav
-            aria-label={t("import.server.path")}
-            className="flex flex-wrap items-center gap-1 text-sm text-mute"
-          >
-            <button
-              type="button"
-              className="min-h-8 text-accent-ink underline underline-offset-2"
-              onClick={() => setDirectory("")}
+    <>
+      <Modal
+        open={open}
+        onOpenChange={(next) => !next && close()}
+        title={t("import.server.title")}
+        closeLabel={t("import.server.close")}
+        variant="wide"
+      >
+        {rooted === false && (
+          <p className="m-0">{t("import.server.unconfigured")}</p>
+        )}
+        {rooted && (
+          <>
+            <nav
+              aria-label={t("import.server.path")}
+              className="flex flex-wrap items-center gap-1 text-sm"
             >
-              {t("import.server.rootName")}
-            </button>
-            {parts.map((part, index) => (
-              <span key={parts.slice(0, index + 1).join("/")}>
-                {" / "}
-                <button
-                  type="button"
-                  className="min-h-8 text-accent-ink underline underline-offset-2"
-                  onClick={() =>
-                    setDirectory(parts.slice(0, index + 1).join("/"))
-                  }
+              <button
+                type="button"
+                className="inline-flex min-h-8 items-center gap-1 rounded px-1.5 py-0.5 hover:bg-side"
+                onClick={() => setDirectory("")}
+              >
+                <HardDrive className="size-4" aria-hidden="true" />
+                {t("import.server.rootName")}
+              </button>
+              {parts.map((part, index) => (
+                <span
+                  key={parts.slice(0, index + 1).join("/")}
+                  className="flex items-center gap-1"
                 >
-                  {part}
-                </button>
-              </span>
-            ))}
-          </nav>
-          {directory && (
-            <button
-              type="button"
-              className={`${buttonClass("secondary")} self-start`}
-              onClick={() => setDirectory(parts.slice(0, -1).join("/"))}
-            >
-              {t("import.server.up")}
-            </button>
-          )}
-          <ul className="flex max-h-96 flex-col divide-y divide-line overflow-y-auto rounded-xl border border-line">
-            {entries.map((entry) => {
-              const checked = selected.includes(entry.path);
-              return (
-                <li key={entry.path} className="flex items-center gap-3 px-3">
+                  <ChevronRight
+                    className="size-3.5 text-mute"
+                    aria-hidden="true"
+                  />
+                  <button
+                    type="button"
+                    className="min-h-8 rounded px-1.5 py-0.5 hover:bg-side"
+                    onClick={() =>
+                      setDirectory(parts.slice(0, index + 1).join("/"))
+                    }
+                  >
+                    {part}
+                  </button>
+                </span>
+              ))}
+            </nav>
+            <ul className="m-0 flex max-h-[45vh] list-none flex-col overflow-y-auto rounded-lg border border-line p-1">
+              {entries.map((entry) => (
+                <li
+                  key={entry.path}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-side"
+                >
                   <input
                     type="checkbox"
-                    className="size-5 shrink-0"
-                    checked={checked}
+                    className="size-5 shrink-0 md:size-4"
+                    checked={selected.includes(entry.path)}
                     disabled={entry.locked || busy}
                     aria-label={t("import.server.select", {
                       name: last(entry.path),
@@ -177,107 +189,86 @@ export function ServerSelection() {
                   />
                   {entry.directory ? (
                     entry.locked ? (
-                      <span className="flex min-h-11 items-center gap-2 text-mute">
-                        <Lock size={18} aria-hidden="true" />
+                      <span className="flex min-h-9 flex-1 items-center gap-2 text-mute">
+                        <Lock className="size-4" aria-hidden="true" />
                         {last(entry.path)}
                         <span className="text-xs">
                           {t("import.server.private")}
                         </span>
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        className="flex min-h-11 flex-1 items-center gap-2 text-left text-accent-ink"
-                        onClick={() => setDirectory(entry.path)}
-                      >
-                        <Folder size={18} aria-hidden="true" />
-                        {last(entry.path)}
-                      </button>
+                      <>
+                        <Folder
+                          className="size-4 shrink-0 text-mute"
+                          aria-hidden="true"
+                        />
+                        <button
+                          type="button"
+                          className="min-h-9 min-w-0 flex-1 truncate text-left"
+                          onClick={() => setDirectory(entry.path)}
+                        >
+                          {last(entry.path)}
+                        </button>
+                        <ChevronRight
+                          className="size-4 text-mute"
+                          aria-hidden="true"
+                        />
+                      </>
                     )
                   ) : (
-                    <span className="flex min-h-11 flex-1 items-center gap-2">
-                      <Video
-                        size={18}
+                    <>
+                      <Film
+                        className="size-4 shrink-0 text-mute"
                         aria-hidden="true"
-                        className="text-mute"
                       />
-                      {last(entry.path)}
-                    </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {last(entry.path)}
+                      </span>
+                    </>
                   )}
                 </li>
-              );
-            })}
-            {rooted && entries.length === 0 && (
-              <li className="px-3 py-3 text-sm text-mute">
-                {t("import.server.empty")}
-              </li>
+              ))}
+              {entries.length === 0 && (
+                <li className="px-2 py-2 text-sm text-mute">
+                  {t("import.server.empty")}
+                </li>
+              )}
+            </ul>
+            {counted === 0 && (
+              <p className="m-0 text-sm">{t("import.server.none")}</p>
             )}
-          </ul>
-          <p aria-live="polite" className="text-sm text-mute">
-            {t("import.server.selected", { count: selected.length })}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={buttonClass("secondary")}
-              disabled={busy || selected.length === 0}
-              onClick={() => void count()}
-            >
-              {busy && counted === undefined
-                ? t("import.server.counting")
-                : t("import.server.check")}
-            </button>
-            {selected.length > 0 && (
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3">
+              <span aria-live="polite" className="mr-auto text-sm text-mute">
+                {selected.length === 0
+                  ? t("import.server.hint")
+                  : counted === undefined
+                    ? t("import.server.counting")
+                    : t("import.server.summary", {
+                        items: selected.length,
+                        videos: counted,
+                      })}
+              </span>
+              <button type="button" className={buttonClass()} onClick={close}>
+                {t("import.server.cancel")}
+              </button>
               <button
                 type="button"
-                className={buttonClass("secondary")}
-                onClick={() => {
-                  setSelected([]);
-                  setCounted(undefined);
-                }}
+                className={buttonClass("primary")}
+                disabled={busy || !counted}
+                onClick={() => void confirm()}
               >
-                {t("import.server.clear")}
+                {t("import.server.analyze", { count: counted ?? 0 })}
               </button>
-            )}
-          </div>
-          {counted !== undefined && (
-            <div className="flex flex-col gap-3 rounded-xl border border-line-strong p-4">
-              {counted === 0 ? (
-                <p>{t("import.server.none")}</p>
-              ) : (
-                <>
-                  <p className="font-medium">
-                    {t("import.server.total", { count: counted })}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className={buttonClass("primary")}
-                      disabled={busy}
-                      onClick={() => void confirm()}
-                    >
-                      {t("import.server.confirm", { count: counted })}
-                    </button>
-                    <button
-                      type="button"
-                      className={buttonClass("secondary")}
-                      onClick={() => setCounted(undefined)}
-                    >
-                      {t("import.server.cancel")}
-                    </button>
-                  </div>
-                </>
-              )}
             </div>
-          )}
-        </>
-      )}
+          </>
+        )}
+        {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
+      </Modal>
       {notice && (
         <p role="status" className="text-sm text-ok-fg">
           {notice}
         </p>
       )}
-      {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
-    </section>
+    </>
   );
 }

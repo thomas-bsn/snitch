@@ -25,7 +25,6 @@ func (s *Server) registerVoiceRoutes(mux *http.ServeMux) {
 	mux.Handle("PUT /api/admin/voice-pipeline", s.protected(true, http.HandlerFunc(s.putVoicePipeline)))
 	mux.Handle("GET /api/admin/voice-overview", s.protected(true, http.HandlerFunc(s.getVoiceOverview)))
 	s.registerVoiceModelRoutes(mux)
-	s.registerVoiceTrialRoutes(mux)
 	mux.Handle("POST /api/admin/clips/{id}/voice", s.protected(true, http.HandlerFunc(s.scheduleVoice)))
 	mux.Handle("GET /api/clips/{id}/voice", s.protected(false, http.HandlerFunc(s.getClipVoice)))
 }

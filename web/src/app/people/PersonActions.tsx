@@ -1,3 +1,4 @@
+import { GitMerge, Split, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
@@ -19,11 +20,18 @@ import {
  */
 function ActionButton({
   label,
+  shortLabel,
+  icon: Icon,
+  variant = "secondary",
   reason,
   reasonId,
   onClick,
 }: {
   label: string;
+  /** The visible text; absent for an icon-only button named by `label`. */
+  shortLabel?: string;
+  icon: typeof Trash2;
+  variant?: "secondary" | "danger";
   reason: string | undefined;
   reasonId: string;
   onClick: () => void;
@@ -32,14 +40,16 @@ function ActionButton({
   return (
     <button
       type="button"
+      aria-label={label}
       aria-disabled={blocked}
       aria-describedby={blocked ? reasonId : undefined}
       onClick={() => {
         if (!blocked) onClick();
       }}
-      className={`${buttonClass("secondary")} aria-disabled:cursor-not-allowed aria-disabled:opacity-60`}
+      className={`${buttonClass(variant)} aria-disabled:cursor-not-allowed aria-disabled:opacity-60`}
     >
-      {label}
+      <Icon className="size-4" aria-hidden="true" />
+      {shortLabel}
     </button>
   );
 }
@@ -168,20 +178,26 @@ export function PersonActions({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    // `contents`: the buttons join the row of the record header; the written reasons and the
+    // failure take a full row under it.
+    <div className="contents">
       <div
         role="group"
         aria-label={t("people.actions.label", { name })}
-        className="flex flex-wrap gap-2"
+        className="flex gap-2"
       >
         <ActionButton
           label={t("people.persons.merge", { name })}
+          shortLabel={t("people.persons.mergeShort")}
+          icon={GitMerge}
           reason={mergeReason}
           reasonId={reasons[0].id}
           onClick={() => setMerging(true)}
         />
         <ActionButton
           label={t("people.persons.separate", { name })}
+          shortLabel={t("people.persons.separateShort")}
+          icon={Split}
           reason={separateReason}
           reasonId={reasons[1].id}
           onClick={() => {
@@ -191,13 +207,15 @@ export function PersonActions({
         />
         <ActionButton
           label={t("people.persons.delete", { name })}
+          icon={Trash2}
+          variant="danger"
           reason={deleteReason}
           reasonId={reasons[2].id}
           onClick={() => setDeleting(true)}
         />
       </div>
       {reasons.some((reason) => reason.text !== undefined) && (
-        <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm text-mute">
+        <ul className="m-0 flex basis-full list-none flex-col gap-1 p-0 text-sm text-mute">
           {reasons.map(
             (reason) =>
               reason.text !== undefined && (
@@ -209,9 +227,11 @@ export function PersonActions({
         </ul>
       )}
       {failure && (
-        <ErrorAlert>
-          {t("people.actions.notDone", { reason: failureText(failure) })}
-        </ErrorAlert>
+        <div className="basis-full">
+          <ErrorAlert>
+            {t("people.actions.notDone", { reason: failureText(failure) })}
+          </ErrorAlert>
+        </div>
       )}
 
       <MergeDialog

@@ -138,6 +138,62 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(page.getByRole("table")).toBeVisible();
   });
 
+  test("en vue icônes, une vidéo indexée affiche sa miniature, une non indexée garde la tuile en pointillés", async ({
+    page,
+  }) => {
+    const api = await request.newContext({
+      baseURL: process.env.SNITCH_TEST_URL!,
+      extraHTTPHeaders: { Origin: process.env.SNITCH_TEST_URL! },
+      storageState: await sessionFor(ADMIN),
+    });
+    const me = await (await api.get("/api/auth/me")).json();
+    const indexed = await api.post("/api/library/explorer/index", {
+      headers: { "X-CSRF-Token": me.csrf_token },
+      data: { path: "media/clip.mp4" },
+    });
+    expect(indexed.ok()).toBe(true);
+    await api.dispose();
+    // The indexing is asynchronous: the clip exists once the file is stable.
+    await expect(async () => {
+      await page.goto("/library?folder=media&view=icons");
+      await expect(page.getByRole("link", { name: /clip\.mp4/ })).toBeVisible({
+        timeout: 1000,
+      });
+    }).toPass({ timeout: 15000 });
+    const withClip = page.getByRole("link", { name: /clip\.mp4/ });
+    await expect(withClip).toBeVisible();
+    await expect(withClip.locator("[data-thumbnail]")).toHaveAttribute(
+      "data-thumbnail",
+      "ready",
+    );
+    const image = withClip.locator("img");
+    await expect(image).toHaveCount(1);
+    expect(
+      await image.evaluate(
+        (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
+      ),
+    ).toBe(true);
+    // Computed styles: the picture fills the 80x56 tile like the dark tile it replaces.
+    const box = await image.evaluate((img: HTMLImageElement) => {
+      const tile = getComputedStyle(img.parentElement!);
+      const style = getComputedStyle(img);
+      return {
+        tile: [tile.width, tile.height],
+        fit: style.objectFit,
+        radius: style.borderTopLeftRadius,
+        natural: [img.naturalWidth, img.naturalHeight],
+      };
+    });
+    expect(box.tile).toEqual(["80px", "56px"]);
+    expect(box.fit).toBe("cover");
+    expect(box.radius).not.toBe("0px");
+    const plain = page.getByRole("button", { name: /plain\.mp4/ });
+    await expect(plain).toBeVisible();
+    await expect(plain.locator("img")).toHaveCount(0);
+    await expect(plain.locator("[data-thumbnail]")).toHaveCount(0);
+    await expect(plain.locator("span.border-dashed").first()).toBeVisible();
+  });
+
   test("un membre ne voit ni le contenu ni le chemin d'un dossier privé", async ({
     browser,
   }) => {

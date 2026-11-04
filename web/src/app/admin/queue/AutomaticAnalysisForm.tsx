@@ -132,9 +132,9 @@ export function AutomaticAnalysisForm({
         )}
       </ConfirmDialog>
       <div>
-        <h3 className="m-0 text-base font-semibold">
+        <h2 className="m-0 text-base font-semibold">
           {t("queue.automatic.title")}
-        </h3>
+        </h2>
         <p className="m-0 mt-1 text-sm text-mute">
           {t("queue.automatic.hint")}
         </p>

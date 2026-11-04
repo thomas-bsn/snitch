@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router";
 import type { components } from "../../api.gen";
 import { api, errorCode, mutation } from "../api/client";
@@ -11,7 +17,7 @@ import type { MessageKey } from "../i18n/messages";
 import { IdentificationBadge } from "../admin/queue/AnalysisBoard";
 import { isAdministrator, isSuperAdministrator } from "../roles";
 import { useSession } from "../session";
-import { AnalysisPill } from "./AnalysisPill";
+import { AnalysisPill, type PillState } from "./AnalysisPill";
 import { DeleteAnalysis } from "./DeleteAnalysis";
 import { JobLogsPanel } from "./JobLogs";
 import { ReanalyzeClip } from "./ReanalyzeClip";
@@ -36,7 +42,13 @@ export function AnalyzeClip({
   hasTranscription,
   hasVoices,
   onChanged,
+  legacy,
+  summary,
 }: {
+  /** What the clip's steps say when the server has no run for it. */
+  legacy?: PillState | null;
+  /** The clip's progress, shown at the top of the panel. */
+  summary?: ReactNode;
   clipId: number;
   audioTracks: MediaTrack[];
   /** Whether the clip has a valid transcription, a prerequisite of the voices and the indexing. */
@@ -168,7 +180,7 @@ export function AnalyzeClip({
     run?.steps.some((s) => s.reason === "audio_track_selection_required");
   return (
     <>
-      <AnalysisPill run={run} onOpen={() => setOpen(true)} />
+      <AnalysisPill run={run} legacy={legacy} onOpen={() => setOpen(true)} />
       <Modal
         variant="side"
         open={open}
@@ -180,7 +192,8 @@ export function AnalyzeClip({
           aria-label={t("clip.analysis.label")}
           className="flex flex-col gap-3"
         >
-          {!run && (
+          {summary}
+          {!run && !legacy && (
             <p className="m-0 rounded-xl border border-accent bg-accent-soft p-3 font-medium text-ink">
               {t("clip.neverAnalysed")}
             </p>
@@ -288,7 +301,7 @@ export function AnalyzeClip({
                       <span className="mt-1 flex flex-wrap gap-2">
                         {step.job_id !== null && (
                           <Link
-                            to="/admin/queue"
+                            to="/queue"
                             className="text-xs text-accent underline"
                           >
                             {t("clip.analysis.viewTask", { id: step.job_id })}

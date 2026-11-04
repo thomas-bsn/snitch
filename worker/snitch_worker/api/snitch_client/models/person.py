@@ -26,6 +26,8 @@ class Person:
         Attributes:
             id (int):
             display_name (str):
+            account_username (None | str): Nom d'utilisateur du compte lié, rempli en lecture (liste et fiche) ; null sans
+                compte lié ou dans le résultat d'une correction.
             user_id (int | None): Compte lié, le cas échéant : une Personne n'est jamais un compte.
             validated_sample_count (int): Échantillons vocaux validés actifs, donc références de la Personne. Ce nombre
                 n'est pas une garantie de qualité d'identification.
@@ -41,6 +43,7 @@ class Person:
 
     id: int
     display_name: str
+    account_username: None | str
     user_id: int | None
     validated_sample_count: int
     local_speaker_count: int
@@ -58,6 +61,9 @@ class Person:
         id = self.id
 
         display_name = self.display_name
+
+        account_username: None | str
+        account_username = self.account_username
 
         user_id: int | None
         user_id = self.user_id
@@ -84,6 +90,7 @@ class Person:
         field_dict.update({
             "id": id,
             "display_name": display_name,
+            "account_username": account_username,
             "user_id": user_id,
             "validated_sample_count": validated_sample_count,
             "local_speaker_count": local_speaker_count,
@@ -103,6 +110,14 @@ class Person:
         id = d.pop("id")
 
         display_name = d.pop("display_name")
+
+        def _parse_account_username(data: object) -> None | str:
+            if data is None:
+                return data
+            return cast(None | str, data)
+
+        account_username = _parse_account_username(d.pop("account_username"))
+
 
         def _parse_user_id(data: object) -> int | None:
             if data is None:
@@ -146,6 +161,7 @@ class Person:
         person = cls(
             id=id,
             display_name=display_name,
+            account_username=account_username,
             user_id=user_id,
             validated_sample_count=validated_sample_count,
             local_speaker_count=local_speaker_count,

@@ -370,13 +370,6 @@ from .voice_refusal_input import VoiceRefusalInput
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
-from .voice_trial import VoiceTrial
-from .voice_trial_config import VoiceTrialConfig
-from .voice_trial_config_provider import VoiceTrialConfigProvider
-from .voice_trial_request import VoiceTrialRequest
-from .voice_trial_speaker import VoiceTrialSpeaker
-from .voice_trial_status import VoiceTrialStatus
-from .voice_trials import VoiceTrials
 from .voice_verification import VoiceVerification
 from .voice_verification_case import VoiceVerificationCase
 from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
@@ -441,8 +434,6 @@ from .worker_voice_model_status import WorkerVoiceModelStatus
 from .worker_voice_model_status_cause_code import WorkerVoiceModelStatusCauseCode
 from .worker_voice_model_status_state import WorkerVoiceModelStatusState
 from .worker_voice_models import WorkerVoiceModels
-from .worker_voice_trial_input import WorkerVoiceTrialInput
-from .worker_voice_trial_input_trial import WorkerVoiceTrialInputTrial
 
 __all__ = (
     "AccountPreferences",
@@ -815,13 +806,6 @@ __all__ = (
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",
-    "VoiceTrial",
-    "VoiceTrialConfig",
-    "VoiceTrialConfigProvider",
-    "VoiceTrialRequest",
-    "VoiceTrials",
-    "VoiceTrialSpeaker",
-    "VoiceTrialStatus",
     "VoiceVerification",
     "VoiceVerificationCase",
     "VoiceVerificationCaseDecisionLevel",
@@ -886,6 +870,4 @@ __all__ = (
     "WorkerVoiceModelStatus",
     "WorkerVoiceModelStatusCauseCode",
     "WorkerVoiceModelStatusState",
-    "WorkerVoiceTrialInput",
-    "WorkerVoiceTrialInputTrial",
 )

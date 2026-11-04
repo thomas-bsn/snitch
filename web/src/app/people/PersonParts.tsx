@@ -1,9 +1,3 @@
-import {
-  CircleCheck,
-  CircleOff,
-  TriangleAlert,
-  type LucideIcon,
-} from "lucide-react";
 import { useI18n } from "../i18n";
 
 /**
@@ -31,13 +25,17 @@ export function Avatar({
   size = "md",
 }: {
   name: string;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "record";
 }) {
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold text-accent-ink ${
-        size === "lg" ? "size-14 text-lg" : "size-10 text-sm"
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-avatar-bg font-semibold text-accent-ink ${
+        size === "lg"
+          ? "size-14 text-xs"
+          : size === "record"
+            ? "size-12 text-xs"
+            : "size-10 text-xs"
       }`}
     >
       {initials(name)}
@@ -57,26 +55,49 @@ export function speechText(seconds: number, t: Translate): string {
   });
 }
 
-const levels: Record<ReferenceLevel, { icon: LucideIcon; className: string }> =
-  {
-    good: { icon: CircleCheck, className: "bg-ok-bg text-ok-fg" },
-    weak: { icon: TriangleAlert, className: "bg-warn-bg text-warn-fg" },
-    none: { icon: CircleOff, className: "bg-bad-bg text-bad-fg" },
-  };
+const levels: Record<ReferenceLevel, { className: string }> = {
+  good: { className: "bg-ok-bg text-ok-fg" },
+  weak: { className: "bg-warn-bg text-warn-fg" },
+  none: { className: "bg-warn-bg text-warn-fg" },
+};
 
 /** The Reference quality as a pill: always the word and a symbol, never the color alone. */
 export function ReferenceBadge({ samples }: { samples: number }) {
   const { t } = useI18n();
   const level = referenceLevel(samples);
-  const { icon: Icon, className } = levels[level];
+  const { className } = levels[level];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}`}
     >
-      <Icon className="size-3.5" aria-hidden="true" />
       {t("people.reference.levelLabel", {
         level: t(`people.reference.${level}`),
       })}
     </span>
   );
+}
+
+/** A short date such as "28 oct." (the year is left out: these lists are about recent clips). */
+export function shortDate(iso: string, language: string): string {
+  return new Intl.DateTimeFormat(language, {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(iso));
+}
+
+/** A duration as m:ss, or h:mm:ss from an hour. */
+export function clock(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
+/** Speaking time as "6 h 52 min" or "41 min", without the trailing words. */
+export function speechShort(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  return minutes < 60
+    ? `${minutes} min`
+    : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }

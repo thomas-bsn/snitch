@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // "To process" (lot C): the clips that still have a voice to settle, one row per clip.
@@ -19,6 +20,12 @@ type toProcessClip struct {
 	Ambiguous int    `json:"ambiguous"`
 	Unknown   int    `json:"unknown"`
 	Groups    int    `json:"groups"`
+	// Folder is the clip's relative folder in its source ("" when it has none), shown under the title.
+	Folder          string    `json:"folder"`
+	RecordedAt      time.Time `json:"recorded_at"`
+	DurationSeconds *float64  `json:"duration_seconds"`
+	// AnalysedRecently: an analysis run of the clip finished in the last 24 hours.
+	AnalysedRecently bool `json:"analysed_recently"`
 }
 
 type toProcessTotals struct {
@@ -79,10 +86,14 @@ func (s *Server) listToProcess(w http.ResponseWriter, r *http.Request) {
   FROM per GROUP BY clip_id
 )`
 	rows, err := s.Pool.Query(ctx, voiceGroupsCTE+perVoice+`
-SELECT clip_id,clip_name,to_confirm,ambiguous,unknown,groups,count(*) OVER ()::int
-FROM by_clip
-WHERE $3='all' OR ($3='to_confirm' AND to_confirm>0) OR ($3='unknown_ambiguous' AND ambiguous+unknown>0) OR ($3='group' AND groups>0)
-ORDER BY to_confirm+ambiguous+unknown DESC,clip_id LIMIT $4 OFFSET $5`, ss.User.ID, admin, filter, size, (page-1)*size)
+SELECT b.clip_id,b.clip_name,b.to_confirm,b.ambiguous,b.unknown,b.groups,
+  COALESCE((SELECT COALESCE(substring(sf.relative_path from '^(.*)/[^/]*$'),'') FROM source_files sf WHERE sf.clip_id=b.clip_id ORDER BY sf.status='missing',sf.source_id,sf.relative_path LIMIT 1),''),
+  c.recorded_at,c.duration_seconds,
+  EXISTS (SELECT 1 FROM clip_analysis_runs r WHERE r.clip_id=b.clip_id AND r.status IN ('completed','incomplete') AND r.finished_at>now()-interval '24 hours'),
+  count(*) OVER ()::int
+FROM by_clip b JOIN clips c ON c.id=b.clip_id
+WHERE $3='all' OR ($3='to_confirm' AND b.to_confirm>0) OR ($3='unknown_ambiguous' AND b.ambiguous+b.unknown>0) OR ($3='group' AND b.groups>0)
+ORDER BY b.to_confirm+b.ambiguous+b.unknown DESC,b.clip_id LIMIT $4 OFFSET $5`, ss.User.ID, admin, filter, size, (page-1)*size)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -91,7 +102,7 @@ ORDER BY to_confirm+ambiguous+unknown DESC,clip_id LIMIT $4 OFFSET $5`, ss.User.
 	total := 0
 	for rows.Next() {
 		var c toProcessClip
-		if err = rows.Scan(&c.ClipID, &c.ClipName, &c.ToConfirm, &c.Ambiguous, &c.Unknown, &c.Groups, &total); err != nil {
+		if err = rows.Scan(&c.ClipID, &c.ClipName, &c.ToConfirm, &c.Ambiguous, &c.Unknown, &c.Groups, &c.Folder, &c.RecordedAt, &c.DurationSeconds, &c.AnalysedRecently, &total); err != nil {
 			rows.Close()
 			s.internal(w, err)
 			return

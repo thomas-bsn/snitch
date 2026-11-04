@@ -65,7 +65,7 @@ test.describe.serial("groupes de voix", () => {
     await page.goto("/people/groups");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("People");
     await expect(
-      page.getByRole("link", { name: "Unknown voices" }),
+      page.getByRole("link", { name: /^Unknown voices/ }),
     ).toHaveAttribute("aria-current", "page");
     await expect(page.getByText("no group is ever confirmed")).toBeVisible();
 
@@ -79,7 +79,7 @@ test.describe.serial("groupes de voix", () => {
     await expect(card).not.toContainText("dentified");
     await expectNoViolations(page);
 
-    await card.getByRole("button", { name: /^Listen and name/ }).click();
+    await card.getByRole("button", { name: /^Proposed grouping of/ }).click();
     await expect(page).toHaveURL(/\/people\/groups\?voice=\d+$/);
     // The notice stays on screen in the detail, and nothing is called validated.
     await expect(page.getByText("no group is ever confirmed")).toBeVisible();
@@ -133,7 +133,7 @@ test.describe.serial("groupes de voix", () => {
     await page.goto("/people/groups");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expectNoViolations(page);
-    await page.getByRole("button", { name: /^Listen and name/ }).click();
+    await page.getByRole("button", { name: /^Proposed grouping of/ }).click();
     await expect(
       page.getByRole("heading", { name: "Proposed grouping of 2 voices" }),
     ).toBeVisible();
@@ -161,7 +161,7 @@ test.describe.serial("groupes de voix", () => {
     const card = page
       .getByRole("list", { name: "Groups of unknown voices" })
       .locator("xpath=./li");
-    await card.getByRole("button", { name: /^Listen and name/ }).click();
+    await card.getByRole("button", { name: /^Proposed grouping of/ }).click();
     const voice = new URL(page.url()).searchParams.get("voice")!;
 
     // Every excerpt is there to play, served to the session, with its level.

@@ -11,7 +11,7 @@ test("la file montre une carte par analyse, en direct", async ({ browser }) => {
     storageState: await sessionFor(ADMIN),
   });
   const page = await context.newPage();
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   await expect(page.getByRole("status").first()).toHaveText("Live updates on");
   await expect(page.getByText("No analysis in progress.")).toBeVisible();
 
@@ -87,7 +87,7 @@ test("la planification avancée est en haut et l'historique garde les analyses",
     storageState: await sessionFor(ADMIN),
   });
   const page = await context.newPage();
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   const form = page.locator("[data-advanced-schedule]");
   await expect(form).toBeVisible();
   const formBox = await form.boundingBox();
@@ -196,7 +196,7 @@ test("les miniatures des cartes se chargent à l'apparition et se règlent en tr
     await new Promise((done) => setTimeout(done, 1500));
     await route.continue();
   });
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   await expect(page.getByRole("status").first()).toHaveText("Live updates on");
   const cards = page.locator("[data-run-card]");
   await expect.poll(() => cards.count()).toBeGreaterThanOrEqual(12);

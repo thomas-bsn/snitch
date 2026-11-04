@@ -72,28 +72,31 @@ function Segment({
   return (
     <li
       aria-current={active ? "true" : undefined}
-      className={`flex gap-3 rounded-lg p-2.5 ${active ? "bg-accent-soft" : ""}`}
+      className={`group relative flex gap-3 border-b border-line px-4 py-3 pr-[4.5rem] ${active ? "bg-hit" : ""}`}
     >
       <button
         type="button"
         onClick={() => onSeek(segment.start)}
         aria-label={t("clip.transcript.play", { time })}
-        className="h-8 min-w-12 shrink-0 self-start rounded-md px-1.5 text-xs font-medium text-accent-ink tabular-nums underline-offset-2 hover:underline md:h-6"
+        className="h-8 min-w-12 shrink-0 self-start rounded px-1.5 text-xs text-accent-ink tabular-nums hover:bg-accent-soft md:h-6"
       >
         {time}
       </button>
       <div className="min-w-0 flex-1">
         {look && (
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-side px-2 py-px text-xs font-medium text-ink">
-              {name}
-            </span>
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-px text-[11px] font-medium ${look.className}`}
+              className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
+                state === "suggestion"
+                  ? "border border-dashed border-accent text-accent-ink"
+                  : segment.local_speaker_person_name
+                    ? "bg-accent-soft text-accent-ink"
+                    : "bg-side text-mute"
+              }`}
             >
-              <look.icon className="size-3" />
-              {t(look.label)}
+              {state === "suggestion" ? `${name} ?` : name}
             </span>
+            <span className="sr-only">{t(look.label)}</span>
           </div>
         )}
         <p className="m-0 leading-relaxed">{segment.text}</p>
@@ -166,7 +169,7 @@ export function TranscriptTab({
   return (
     <ol
       aria-label={t("clip.transcript.listLabel")}
-      className="m-0 flex list-none flex-col gap-0.5 p-2"
+      className="m-0 flex list-none flex-col p-0"
     >
       {segments.map((segment, index) => (
         <Segment

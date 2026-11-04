@@ -11,3 +11,5 @@ playwright-report/
 test-results/
 .coverage
 bin/
+
+ui-compare-out/

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, Folder, Lock } from "lucide-react";
+import { ChevronRight, Folder, FolderLock, HardDrive } from "lucide-react";
 import { useI18n } from "../i18n";
 import { fetchExplorer, type ExplorerEntry } from "./explorerApi";
 
@@ -74,15 +74,37 @@ export function ExplorerTree({
       return (
         <li key={entry.path}>
           <div
-            className="flex items-center gap-1"
-            style={{ paddingLeft: depth * 14 }}
+            className={`group flex items-center rounded-md ${
+              isCurrent ? "bg-accent-soft text-accent-ink" : "hover:bg-side"
+            }`}
           >
-            {entry.locked ? (
-              <span className="size-6 shrink-0" aria-hidden="true" />
-            ) : (
+            <button
+              type="button"
+              className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pr-1 text-left text-sm md:min-h-0"
+              style={{ paddingLeft: 8 + depth * 14 }}
+              aria-current={isCurrent ? "true" : undefined}
+              disabled={entry.locked}
+              title={
+                entry.locked ? t("library.privateFolder.lockedHint") : undefined
+              }
+              onClick={() => onOpen(entry.path)}
+            >
+              {entry.private ? (
+                <FolderLock size={16} aria-hidden="true" />
+              ) : (
+                <Folder size={16} aria-hidden="true" className="text-accent" />
+              )}
+              <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+              {entry.locked && (
+                <span className="sr-only">
+                  {t("library.privateFolder.label")}
+                </span>
+              )}
+            </button>
+            {!entry.locked && (
               <button
                 type="button"
-                className="grid size-6 shrink-0 place-items-center rounded text-mute hover:bg-hover"
+                className="grid size-6 shrink-0 place-items-center rounded text-mute opacity-0 hover:bg-line focus-visible:opacity-100 group-hover:opacity-100"
                 aria-expanded={isOpen}
                 aria-label={t(
                   isOpen
@@ -103,30 +125,6 @@ export function ExplorerTree({
                 />
               </button>
             )}
-            <button
-              type="button"
-              className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-hover md:min-h-0 ${
-                isCurrent ? "bg-accent-soft font-semibold text-ink" : "text-ink"
-              }`}
-              aria-current={isCurrent ? "true" : undefined}
-              disabled={entry.locked}
-              title={
-                entry.locked ? t("library.privateFolder.lockedHint") : undefined
-              }
-              onClick={() => onOpen(entry.path)}
-            >
-              {entry.locked ? (
-                <Lock size={14} aria-hidden="true" />
-              ) : (
-                <Folder size={14} aria-hidden="true" />
-              )}
-              <span className="truncate">{entry.name}</span>
-              {entry.locked && (
-                <span className="sr-only">
-                  {t("library.privateFolder.label")}
-                </span>
-              )}
-            </button>
           </div>
           {isOpen && !entry.locked && (
             <ul className="m-0 list-none p-0">
@@ -141,19 +139,20 @@ export function ExplorerTree({
   return (
     <nav
       aria-label={t("library.explorer.tree")}
-      className="min-w-0 rounded-xl border border-line p-2"
+      className="hidden min-w-0 border-r border-line p-2 md:block"
     >
       <button
         type="button"
-        className={`mb-1 flex min-h-11 w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm font-semibold hover:bg-hover md:min-h-0 ${
-          current === "" ? "bg-accent-soft text-ink" : "text-ink"
+        className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
+          current === "" ? "bg-accent-soft text-accent-ink" : "hover:bg-side"
         }`}
         aria-current={current === "" ? "true" : undefined}
         onClick={() => onOpen("")}
       >
-        {t("library.allClips")}
+        <HardDrive size={16} aria-hidden="true" />
+        {t("library.explorer.root")}
       </button>
-      <ul className="m-0 list-none p-0">{renderLevel("", 0)}</ul>
+      <ul className="m-0 list-none p-0">{renderLevel("", 1)}</ul>
       {failed === "" && (
         <p role="alert" className="text-sm text-bad-fg">
           {t("library.explorer.treeFailed")}

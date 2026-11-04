@@ -78,13 +78,18 @@ export async function approveSignUp(user: Credentials) {
 
 /** Registers the member through the API and approves the sign-up. */
 export async function createApprovedMember() {
+  await createApprovedUser(MEMBER);
+}
+
+/** Registers any account through the API and approves the sign-up. */
+export async function createApprovedUser(user: Credentials) {
   const guest = await newApi();
-  const registered = await guest.post("/api/auth/register", { data: MEMBER });
+  const registered = await guest.post("/api/auth/register", { data: user });
   if (registered.status() !== 201) {
     throw new Error(`registration failed: ${registered.status()}`);
   }
   await guest.dispose();
-  await approveSignUp(MEMBER);
+  await approveSignUp(user);
 }
 
 /** The language stored in the account of the given person, read through the API. */

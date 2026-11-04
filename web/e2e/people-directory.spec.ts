@@ -143,8 +143,10 @@ test.describe.serial("liste des personnes", () => {
     await expect(
       record.getByRole("heading", { level: 2, name: "Personne 0042" }),
     ).toBeVisible();
-    await expect(record).toContainText("No reference");
-    await expect(record).toContainText("Linked to an account");
+    // The four figures of the record: no sample, hence no Reference; the linked account by name.
+    await expect(record).toContainText("Reference samples0");
+    await expect(record).toContainText("Reference qualitynone");
+    await expect(record).toContainText(`Linked account: @${MEMBER.username}`);
     // The sheet is a full page: the grid is gone, and a weak Reference is flagged.
     await expect(list()).toHaveCount(0);
     await expect(record.getByRole("note")).toContainText(
@@ -158,7 +160,7 @@ test.describe.serial("liste des personnes", () => {
     await expect(
       page
         .getByRole("navigation", { name: "People sections" })
-        .getByRole("link", { name: "Directory", exact: true }),
+        .getByRole("link", { name: /^Directory\s*\d*$/ }),
     ).toHaveAttribute("aria-current", "page");
 
     // The address works on its own, in a fresh page.
@@ -210,8 +212,10 @@ test.describe.serial("liste des personnes", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: "Personne 0042" }),
     ).toBeVisible();
-    await expect(page.getByText("Sans référence").first()).toBeVisible();
-    await expect(page.getByText("Lié à un compte").first()).toBeVisible();
+    await expect(page.getByText("Échantillons de Référence0")).toBeVisible();
+    await expect(
+      page.getByText(`Compte lié : @${MEMBER.username}`),
+    ).toBeVisible();
     await expect(page.getByText("Référence à renforcer")).toBeVisible();
     await page.goto("/people");
     await expect(page.getByText(`Page 1 sur ${PAGES}`)).toBeVisible();

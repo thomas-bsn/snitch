@@ -68,6 +68,8 @@ type Service struct {
 	closed         bool
 	locks          sync.Map
 	OnManagedReady func(context.Context, int64) error
+	// OnIndexed is told about each clip once its indexing is committed. It must not block.
+	OnIndexed func(clipID int64)
 }
 
 type Source struct {
@@ -718,6 +720,9 @@ func (s *Service) observe(ctx context.Context, source Source, relativePath, abso
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return false, false, err
+	}
+	if s.OnIndexed != nil {
+		s.OnIndexed(newClipID)
 	}
 	return false, false, nil
 }

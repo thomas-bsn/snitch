@@ -1,4 +1,5 @@
 import {
+  ChevronRight,
   CircleAlert,
   CircleCheck,
   CircleDashed,
@@ -56,10 +57,7 @@ const looks: Record<
   PillState["kind"],
   { icon: LucideIcon; className: string }
 > = {
-  never: {
-    icon: CircleDashed,
-    className: "border border-accent bg-accent-soft text-ink",
-  },
+  never: { icon: CircleDashed, className: "bg-side text-mute" },
   busy: { icon: LoaderCircle, className: "bg-accent-soft text-accent-ink" },
   running: {
     icon: LoaderCircle,
@@ -77,13 +75,16 @@ const looks: Record<
  */
 export function AnalysisPill({
   run,
+  legacy,
   onOpen,
 }: {
   run: Run | null;
+  /** What the steps say when the server has no run for the clip. */
+  legacy?: PillState | null;
   onOpen: () => void;
 }) {
   const { t } = useI18n();
-  const state = analysisPillState(run);
+  const state: PillState = !run && legacy ? legacy : analysisPillState(run);
   const { icon: Icon, className } = looks[state.kind];
   const label = (() => {
     switch (state.kind) {
@@ -116,16 +117,24 @@ export function AnalysisPill({
       type="button"
       aria-haspopup="dialog"
       onClick={onOpen}
-      className={`inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3 text-xs font-medium md:min-h-8 md:py-0.5 ${className}`}
+      className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-line-strong px-3 py-1.5 hover:bg-side md:min-h-0"
     >
-      <Icon
-        className={`size-3.5 shrink-0 ${state.kind === "running" || state.kind === "busy" ? "motion-safe:animate-spin" : ""}`}
-        aria-hidden="true"
-      />
       <span className="sr-only">{t("clip.analysis.label")}: </span>
-      <span aria-live="polite" className="min-w-0 truncate text-left">
-        {label}
+      <span aria-hidden="true" className="text-sm font-medium">
+        {t("clip.analysis.short")}
       </span>
+      <span
+        className={`inline-flex min-w-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
+      >
+        <Icon
+          className={`size-3.5 shrink-0 ${state.kind === "running" || state.kind === "busy" ? "motion-safe:animate-spin" : ""}`}
+          aria-hidden="true"
+        />
+        <span aria-live="polite" className="min-w-0 truncate text-left">
+          {label}
+        </span>
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-mute" aria-hidden="true" />
     </button>
   );
 }

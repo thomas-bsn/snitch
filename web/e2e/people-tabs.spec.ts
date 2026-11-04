@@ -19,11 +19,11 @@ test.describe.serial("personnes : onglets et adresses", () => {
     await page.goto("/people");
     const nav = page.getByRole("navigation", { name: "People sections" });
     await expect(nav.getByRole("link")).toHaveText([
-      "Directory",
+      /^Directory\s*\d*$/,
       /^To process\s*\d*$/,
-      "Unknown voices",
+      /^Unknown voices\s*\d*$/,
     ]);
-    await expect(nav.getByRole("link", { name: "Directory" })).toHaveAttribute(
+    await expect(nav.getByRole("link", { name: /^Directory/ })).toHaveAttribute(
       "aria-current",
       "page",
     );

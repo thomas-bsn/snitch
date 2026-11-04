@@ -320,7 +320,7 @@ export function QueueTab() {
       </ConfirmDialog>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">{t("queue.title")}</h2>
+          <h1 className="text-[22px] font-semibold">{t("queue.title")}</h1>
           <p className="mt-1 max-w-xl text-mute">
             {language === "fr"
               ? "Suivez chaque clip et les traitements effectués par vos workers."

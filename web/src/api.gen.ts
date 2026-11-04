@@ -1492,6 +1492,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/thumbnail": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Mêmes règles d’accès que le média. Seul un clip indexé a une miniature : aucune n’est produite pour un fichier non indexé. */
+    get: operations["getClipThumbnail"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}/transcription": {
     parameters: {
       query?: never;
@@ -2022,41 +2039,6 @@ export interface paths {
     /** @description Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus / total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou supprimé. Une cause n'accompagne qu'un échec. */
     post: operations["postWorkerVoiceModelStatus"];
     delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/admin/clips/{id}/voice-trials": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** @description Administrateurs uniquement. Essais de diarisation d'un clip, du plus récent au plus ancien, avec leur état et, une fois terminés, un résumé par locuteur. Un essai n'est jamais le résultat voix du clip. */
-    get: operations["listVoiceTrials"];
-    put?: never;
-    /** @description Administrateurs uniquement. Lance un essai de diarisation avec le modèle candidat ou actif et, si le moteur le permet, un nombre de locuteurs (num_speakers, ou min_speakers et max_speakers). Un essai est conservé par (clip, piste, modèle, options) : le relancer remplace son résultat. Il ne change ni les locuteurs locaux, ni les attributions, ni les corrections, et n'alimente ni le matching, ni les empreintes, ni la recherche. Refusé (voice_trial_option_unsupported) si le moteur ne gère pas l'option, (voice_model_not_ready) si aucun Worker n'a le modèle prêt. */
-    post: operations["createVoiceTrial"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/admin/clips/{id}/voice-trials/{trial}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    /** @description Administrateurs uniquement. Supprime un essai de diarisation ; le résultat voix du clip n'est pas touché. */
-    delete: operations["deleteVoiceTrial"];
     options?: never;
     head?: never;
     patch?: never;
@@ -3929,7 +3911,6 @@ export interface components {
       pipeline?: components["schemas"]["TranscriptionPipeline"];
       pipeline_version?: string;
       voice?: components["schemas"]["WorkerVoiceInput"];
-      voice_trial?: components["schemas"]["WorkerVoiceTrialInput"];
     };
     TranscriptionSettingsInput: {
       /** @enum {string} */
@@ -3993,36 +3974,6 @@ export interface components {
     };
     VoiceModelRetry: {
       retry_requested: boolean;
-    };
-    VoiceTrialRequest: {
-      model_id: string;
-      audio_stream_index?: number;
-      num_speakers?: number;
-      min_speakers?: number;
-      max_speakers?: number;
-    };
-    VoiceTrialSpeaker: {
-      label: string;
-      speaking_seconds: number;
-      turn_count: number;
-    };
-    VoiceTrial: {
-      /** Format: int64 */
-      id: number;
-      /** Format: int64 */
-      clip_id: number;
-      audio_stream_index: number;
-      model_id: string;
-      num_speakers: number | null;
-      min_speakers: number | null;
-      max_speakers: number | null;
-      /** @enum {string} */
-      status: "pending" | "running" | "done" | "failed";
-      speakers: components["schemas"]["VoiceTrialSpeaker"][];
-      created_at?: string;
-    };
-    VoiceTrials: {
-      trials: components["schemas"]["VoiceTrial"][];
     };
     VoiceModelWorkerState: {
       worker_id: string;
@@ -4253,6 +4204,8 @@ export interface components {
       /** Format: int64 */
       id: number;
       display_name: string;
+      /** @description Nom d'utilisateur du compte lié, rempli en lecture (liste et fiche) ; null sans compte lié ou dans le résultat d'une correction. */
+      account_username: string | null;
       /**
        * Format: int64
        * @description Compte lié, le cas échéant : une Personne n'est jamais un compte.
@@ -4328,6 +4281,11 @@ export interface components {
       clip_name: string;
       label: string;
       speaking_seconds: number;
+      /**
+       * Format: date-time
+       * @description Date d'enregistrement du clip.
+       */
+      recorded_at: string;
       /** @description Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait. */
       sample_count: number;
     };
@@ -4540,6 +4498,13 @@ export interface components {
       ambiguous: number;
       unknown: number;
       groups: number;
+      /** @description Dossier du clip dans sa source (chemin relatif sans le nom du fichier), vide s'il n'en a pas. */
+      folder: string;
+      /** Format: date-time */
+      recorded_at: string;
+      duration_seconds: number | null;
+      /** @description Une analyse du clip s'est terminée dans les 24 dernières heures. */
+      analysed_recently: boolean;
     };
     PeopleToProcessTotals: {
       clips: number;
@@ -4988,22 +4953,6 @@ export interface components {
       speakers: components["schemas"]["LocalSpeaker"][];
       /** @description Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie. */
       history: components["schemas"]["VoiceHistoryEntry"][];
-    };
-    /** @description Entrée d'un essai de diarisation (étapes voicetrial.*) : le modèle du catalogue et les options choisis pour l'essai, jamais la configuration active ni une version de pipeline. */
-    WorkerVoiceTrialInput: {
-      config: components["schemas"]["VoiceTrialConfig"];
-      trial: {
-        audio_stream_index: number;
-      };
-    };
-    VoiceTrialConfig: {
-      /** @enum {string} */
-      provider: "pyannote" | "nemo";
-      model: string;
-      model_version: string;
-      num_speakers?: number;
-      min_speakers?: number;
-      max_speakers?: number;
     };
     WorkerVoiceInput: {
       pipeline_version: string;
@@ -9530,6 +9479,46 @@ export interface operations {
       };
     };
   };
+  getClipThumbnail: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Miniature JPEG (environ 320 px de large), générée une fois puis conservée */
+      200: {
+        headers: {
+          ETag?: string;
+          "Cache-Control"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "image/jpeg": string;
+        };
+      };
+      /** @description Clip introuvable ou non visible, ou extraction impossible */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   scheduleClipTranscription: {
     parameters: {
       query?: {
@@ -11069,108 +11058,6 @@ export interface operations {
     };
     responses: {
       /** @description État enregistré */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Erreur */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Error"];
-        };
-      };
-    };
-  };
-  listVoiceTrials: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Essais */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["VoiceTrials"];
-        };
-      };
-      /** @description Erreur */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Error"];
-        };
-      };
-    };
-  };
-  createVoiceTrial: {
-    parameters: {
-      query?: never;
-      header: {
-        Origin: string;
-        "X-CSRF-Token": string;
-      };
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["VoiceTrialRequest"];
-      };
-    };
-    responses: {
-      /** @description Essai lancé */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["VoiceTrial"];
-        };
-      };
-      /** @description Erreur */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Error"];
-        };
-      };
-    };
-  };
-  deleteVoiceTrial: {
-    parameters: {
-      query?: never;
-      header: {
-        Origin: string;
-        "X-CSRF-Token": string;
-      };
-      path: {
-        id: number;
-        trial: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Essai supprimé */
       204: {
         headers: {
           [name: string]: unknown;

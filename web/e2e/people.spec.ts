@@ -118,9 +118,6 @@ test.describe.serial("personnes et vérification", () => {
     await expect(current.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_01",
     );
-    await expect(
-      page.getByRole("link", { name: /^To process\s*1$/ }),
-    ).toBeVisible();
     // The sidebar follows the decision without a change of address; the voice left is
     // only a suggestion, and it still counts: the list shows it.
     await expect(
@@ -273,9 +270,14 @@ test.describe.serial("personnes et vérification", () => {
     // The record of a Person shows its real counts.
     await list.getByRole("link", { name: /Claire Synthétique/ }).click();
     const claire = page.getByRole("region", { name: "Claire Synthétique" });
-    await expect(claire).toContainText("1 voice(s)");
-    await expect(claire).toContainText("1 validated sample(s)");
-    await expect(claire).toContainText("1 video(s)");
+    // The four figures of the record (the voice itself is listed under Identifications).
+    await expect(claire).toContainText("Videos1");
+    await expect(claire).toContainText("Reference samples1");
+    await expect(
+      claire
+        .getByRole("group", { name: /^Confirmed voices of/ })
+        .getByRole("listitem"),
+    ).toHaveCount(1);
     await expect(claire.getByRole("note")).toContainText(
       "Reference to strengthen",
     );
@@ -308,7 +310,7 @@ test.describe.serial("personnes et vérification", () => {
     await page.getByRole("searchbox", { name: "Search people" }).fill("");
     await list.getByRole("link", { name: /Alicia Synthétique/ }).click();
     const alicia = page.getByRole("region", { name: "Alicia Synthétique" });
-    await expect(alicia).toContainText("No reference");
+    await expect(alicia).toContainText("Reference samples0");
 
     // Merge: nothing happens until the confirmation, then the merged person disappears.
     await alicia
@@ -378,7 +380,7 @@ test.describe.serial("personnes et vérification", () => {
       "1 voice was separated from Claire Synthétique: it is unknown again.",
     );
     await expect(voices).toContainText("No confirmed voice you can see.");
-    await expect(claire).toContainText("0 voice(s)");
+    await expect(claire).toContainText("Reference samples0");
     // With no voice left, the action stays visible and says why.
     await expect(separate).toHaveAttribute("aria-disabled", "true");
     await expect(separate).toHaveAccessibleDescription(
@@ -559,7 +561,9 @@ test.describe.serial("personnes et vérification", () => {
     );
     await dialog.getByRole("button", { name: "Merge", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/people/${target}$`));
-    await expect(record("Cible Synthétique")).toContainText("1 voice(s)");
+    await expect(record("Cible Synthétique")).toContainText(
+      "Reference samples1",
+    );
 
     // Back to the instance the next journeys expect: no reference and no extra clip.
     const headers = {
@@ -670,10 +674,12 @@ test.describe.serial("personnes et vérification", () => {
 
     const current = page.getByRole("region", { name: "Who is speaking here?" });
     const heading = current.getByRole("heading", { level: 2 });
-    const tab = page.getByRole("link", { name: /^To process\s*\d+$/ });
+    const tab = page
+      .getByRole("navigation", { name: "Main navigation" })
+      .first()
+      .getByRole("link", { name: "People" });
     await expect(heading).toBeVisible();
-    const count = async () =>
-      Number((await tab.innerText()).replace(/\D/g, ""));
+    const count = async () => Number((await tab.innerText()).match(/\d+/)![0]);
     await expect.poll(count).toBeGreaterThanOrEqual(2);
     const before = await count();
     const speakerOf = async () =>

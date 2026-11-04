@@ -159,7 +159,7 @@ async function open(
     if (theme) localStorage.setItem("snitch-ui-theme", theme);
   }, options.theme);
   const page = await context.newPage();
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   return { context, page };
 }
 
@@ -192,7 +192,7 @@ test("les colonnes placent chaque analyse selon son étape courante, avec leur c
     "Completed",
   ];
   const headings = await page
-    .locator("[data-board] [data-column] h4")
+    .locator("[data-board] [data-column] h3")
     .allTextContents();
   expect(headings.map((h) => h.replace(/\d+$/, "").trim())).toEqual(names);
 
@@ -306,7 +306,7 @@ test("une colonne très chargée n'affiche d'abord qu'une fenêtre de cartes et 
   await page.route("**/api/admin/analysis/queue", (route) =>
     route.fulfill({ json: queue }),
   );
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   const transcription = column(page, "transcription");
   await expect(transcription.locator("[data-column-count]")).toHaveText("130", {
     timeout: 20000,
@@ -410,7 +410,7 @@ test("la reconnexion garde la dernière vue et le repli est suspendu onglet cach
     return pollCut ? route.abort("connectionrefused") : route.continue();
   });
   const page = await context.newPage();
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   await boardIntoView(page);
   await expect(card(page, clip)).toBeVisible();
   await expect(page.getByRole("status").first()).toHaveText("Reconnecting…");
@@ -642,7 +642,7 @@ test("toutes les colonnes, une étape inconnue et une tâche non suivie restent 
     route.fulfill({ json: snapshot }),
   );
   const page = await context.newPage();
-  await page.goto("/admin/queue");
+  await page.goto("/queue");
   await boardIntoView(page);
   const where = async (id: number) =>
     page

@@ -17,7 +17,7 @@ import { MetadataSettings } from "./admin/metadata/MetadataSettings";
 import { AdminLayout, AdminPlaceholder } from "./admin/AdminLayout";
 import { ADMIN_TABS } from "./admin/tabs";
 import { FoldersTab } from "./admin/folders/FoldersTab";
-import { QueueTab } from "./admin/queue/QueueTab";
+import { QueuePage } from "./admin/queue/QueuePage";
 import { SemanticTab } from "./admin/semantic/SemanticTab";
 import { WorkersTab } from "./admin/workers/WorkersTab";
 import { WorkerUpdatesTab } from "./admin/workers/WorkerUpdatesTab";
@@ -106,6 +106,7 @@ function Routing() {
           <Route path="import" element={<ImportPage />} />
           <Route path="account/*" element={<AccountPage />} />
           <Route element={<RequireAdministrator />}>
+            <Route path="queue" element={<QueuePage />} />
             <Route path="admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="workers" replace />} />
               <Route path="users" element={<MembersTab />} />
@@ -114,7 +115,7 @@ function Routing() {
               <Route path="exports" element={<ExportsTab />} />
               <Route path="workers" element={<WorkersTab />} />
               <Route path="worker-updates" element={<WorkerUpdatesTab />} />
-              <Route path="queue" element={<QueueTab />} />
+              <Route path="queue" element={<Navigate to="/queue" replace />} />
               <Route path="folders" element={<FoldersTab />} />
               <Route path="metadata" element={<MetadataSettings reprocess />} />
               <Route path="semantic" element={<SemanticTab />} />

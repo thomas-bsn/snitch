@@ -342,7 +342,6 @@ func TestFoundation(t *testing.T) {
 		"voice pipeline activation rule": testVoicePipelineActivationRule,
 		"voice claim pinned version":     testVoiceClaimPinnedVersion,
 		"voice model concurrency":        testVoiceModelConcurrency,
-		"voice trial engine":             testVoiceTrialEngine,
 		"voice archived speakers filter": testVoiceArchivedSpeakersFilter,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -350,10 +349,6 @@ func TestFoundation(t *testing.T) {
 			run(t, pool)
 		})
 	}
-	t.Run("voice trials", func(t *testing.T) {
-		reset(t)
-		testVoiceTrials(t, pool)
-	})
 	t.Run("voice overview", func(t *testing.T) {
 		reset(t)
 		testVoiceOverview(t, pool)
@@ -643,6 +638,7 @@ func TestFoundation(t *testing.T) {
 		testWorkerModels(t, pool)
 	})
 	t.Run("account close", func(t *testing.T) { reset(t); testAccountClose(t, pool) })
+	t.Run("clip thumbnail", func(t *testing.T) { reset(t); testClipThumbnail(t, pool) })
 	t.Run("members", func(t *testing.T) { reset(t); testMembers(t, pool) })
 	t.Run("worker administration", func(t *testing.T) {
 		reset(t)
@@ -810,10 +806,6 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", "/api/admin/voice-models/candidate", nil, me.CSRF, 204)
 		call(client, "POST", "/api/admin/voice-models/pyannote-community-1/activate", nil, me.CSRF, 409)
 		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation", nil, me.CSRF, 409)
-		// Diarization trials: behavior in the voice trials suite.
-		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trials", nil, "", 200)
-		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trials", map[string]any{"model_id": "pyannote-community-1"}, me.CSRF, 409)
-		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trials/999999", nil, me.CSRF, 404)
 		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/voice", nil, "", 200)
@@ -1142,7 +1134,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
+				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
 					continue // These contract operations are covered by their upload, search, worker, member, account, embedding, transcription, job log, worker update and Hugging Face token suites.
 				}
 				if !seen[method+" "+path] {
@@ -1226,22 +1218,25 @@ func TestFoundation(t *testing.T) {
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
 		suites := []string{
-			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts",
+			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
 			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
 			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts",
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
 			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
 			"people-groups.spec.ts", "people-groups-disposition.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
-			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-trial.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
+			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
 			"library-explorer.spec.ts",
 			"import-server.spec.ts",
+		}
+		if os.Getenv("SNITCH_E2E_UI_COMPARE") == "1" {
+			suites = []string{"ui-compare.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = []string{"setup-wizard.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SHELL") == "1" {
-			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts"}
+			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_ACCOUNT") == "1" {
 			suites = []string{"account-settings.spec.ts", "account-close.spec.ts"}
@@ -1321,9 +1316,6 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_NOTIFICATIONS") == "1" {
 			suites = []string{"notifications.spec.ts"}
 		}
-		if os.Getenv("SNITCH_E2E_VOICE_TRIAL") == "1" {
-			suites = []string{"voice-trial.spec.ts"}
-		}
 		if os.Getenv("SNITCH_E2E_MATCHING") == "1" {
 			suites = []string{"admin-voice.spec.ts"}
 		}
@@ -1396,11 +1388,12 @@ func TestFoundation(t *testing.T) {
 				videoRoot := ""
 				videoRoot2 := ""
 				explorerRoot := ""
+				seedDir := ""
 				providerURL := ""
 				if suite == "admin-semantic.spec.ts" || suite == "segment-reindex.spec.ts" {
 					providerURL = newReindexProvider(t).srv.URL
 				}
-				if suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "voice-trial.spec.ts" || suite == "voice-profile.spec.ts" {
+				if suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "voice-profile.spec.ts" {
 					sourceRoot = t.TempDir()
 					if e = os.WriteFile(filepath.Join(sourceRoot, "browser-fixture.mp4"), []byte("synthetic-browser-video"), 0o400); e != nil {
 						t.Fatal(e)
@@ -1411,7 +1404,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -1431,12 +1424,41 @@ func TestFoundation(t *testing.T) {
 						"league/2026":     {"match.mp4", "other.mp4"},
 						"league/2026/sub": {"inner.mp4"},
 						"secret":          {"plan.mp4"},
+						"media":           {"clip.mp4", "plain.mp4"},
 					} {
 						if e = os.MkdirAll(filepath.Join(explorerRoot, dir), 0o700); e != nil {
 							t.Fatal(e)
 						}
 						for _, name := range files {
 							if e = os.WriteFile(filepath.Join(explorerRoot, dir, name), []byte("synthetic-explorer "+name), 0o600); e != nil {
+								t.Fatal(e)
+							}
+						}
+					}
+				}
+				if suite == "ui-compare.spec.ts" {
+					// Arborescence synthétique de la comparaison visuelle (#251), comme celle du prototype.
+					explorerRoot = t.TempDir()
+					seedDir = t.TempDir()
+					stopSeed := make(chan struct{})
+					defer close(stopSeed)
+					watchUICompareSeed(ctx, pool, seedDir, stopSeed)
+					config.StabilityWindow = 10 * time.Millisecond
+					config.ReconcileInterval = 100 * time.Millisecond
+					for dir, files := range map[string][]string{
+						"2026/novembre":        {"reunion-prepa-s12.mp4", "essai-micro-hf.mov", "rush-nuit-01.mp4", "rush-nuit-02.mp4"},
+						"2026/octobre":         {"interview-claire.mp4", "brief-lumiere.mp4", "broll-ville.mp4"},
+						"2026/octobre/parking": {"rushes-prise-3.mp4", "prise-1.mp4", "prise-2.mp4", "prise-4.mp4"},
+						"2026/septembre":       {"visio-budget.mp4", "reperages-studio-b.mp4"},
+						"archives-2025":        {"bout-a-bout-v3.mov"},
+						"perso-thomas":         {"vlog-01.mp4"},
+						".":                    {"import-sans-dossier.mp4"},
+					} {
+						if e = os.MkdirAll(filepath.Join(explorerRoot, dir), 0o700); e != nil {
+							t.Fatal(e)
+						}
+						for _, name := range files {
+							if e = os.WriteFile(filepath.Join(explorerRoot, dir, name), []byte("synthetic-ui-compare "+name), 0o600); e != nil {
 								t.Fatal(e)
 							}
 						}
@@ -1450,7 +1472,7 @@ func TestFoundation(t *testing.T) {
 					}
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-trial.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
@@ -1466,7 +1488,7 @@ func TestFoundation(t *testing.T) {
 				args := []string{"run", "test:e2e", "--", suite}
 				cmd := exec.Command("npm", args...)
 				cmd.Dir = "../../../web"
-				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384", "SNITCH_TEST_VIDEO_ROOT="+videoRoot, "SNITCH_TEST_VIDEO_ROOT_2="+videoRoot2, "SNITCH_TEST_EXPLORER_ROOT="+explorerRoot)
+				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384", "SNITCH_TEST_VIDEO_ROOT="+videoRoot, "SNITCH_TEST_VIDEO_ROOT_2="+videoRoot2, "SNITCH_TEST_EXPLORER_ROOT="+explorerRoot, "SNITCH_UI_SEED_DIR="+seedDir)
 				out, e := cmd.CombinedOutput()
 				t.Log(string(out))
 				if e != nil {

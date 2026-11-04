@@ -1,18 +1,15 @@
+import { ChevronRight, CircleHelp } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useLoaded } from "../api/loaded";
 import { useAddressParams } from "../api/useAddressParams";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
-import { tintOf } from "./ExcerptThumb";
 import { GroupDetail } from "./GroupDetail";
 import { useFailureText } from "./failureText";
 import { fetchVoiceGroups, type VoiceGroup } from "./peopleApi";
 
 const PAGE_SIZE = 10;
-const PREVIEW = 4;
-// Stacked thumbnails overlap from the first to the last, with classes rather than a style.
-const STACK = ["z-40", "z-30", "z-20", "z-10"];
 
 /** The distinct clip names of a group, in order, for its summary line. */
 function clipNames(group: VoiceGroup) {
@@ -58,9 +55,7 @@ export function GroupsTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="max-w-2xl rounded-xl border border-line bg-side p-3 text-mute">
-        {t("people.groups.lead")}
-      </p>
+      <p className="m-0 text-mute">{t("people.groups.lead")}</p>
       {opened !== undefined ? (
         <GroupDetail
           key={opened}
@@ -85,50 +80,38 @@ export function GroupsTab() {
           {data && data.items.length > 0 && (
             <ul
               aria-label={t("people.groups.listLabel")}
-              className="m-0 grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-2"
+              className="m-0 flex list-none flex-col gap-2 p-0"
             >
               {data.items.map((group) => (
-                <li
-                  key={group.id}
-                  className="flex flex-col items-start gap-2 rounded-xl border border-line bg-surface p-4"
-                >
-                  <div
-                    role="img"
-                    aria-label={t("people.groups.preview")}
-                    className="flex items-center"
-                  >
-                    {group.members.slice(0, PREVIEW).map((member, index) => (
-                      <span
-                        key={member.local_speaker_id}
-                        className={`relative -ml-2 size-9 rounded-full border-2 border-surface first:ml-0 ${STACK[index]} ${tintOf(member.local_speaker_id)}`}
-                      />
-                    ))}
-                    {group.member_count > PREVIEW && (
-                      <span className="-ml-2 flex size-9 items-center justify-center rounded-full border-2 border-surface bg-side text-xs font-medium text-mute">
-                        +{group.member_count - PREVIEW}
-                      </span>
-                    )}
-                  </div>
-                  <b>
-                    {t("people.groups.title", { count: group.member_count })}
-                  </b>
-                  <span className="text-mute">
-                    {t("people.groups.heardIn", {
-                      clips: group.clip_count,
-                      names: clipNames(group),
-                    })}
-                  </span>
-                  <span className="text-mute">{t("people.groups.never")}</span>
+                <li key={group.id}>
                   <button
                     type="button"
                     onClick={() => open(group)}
-                    aria-label={t("people.groups.openFor", {
-                      count: group.member_count,
-                      clip: group.members[0]?.clip_name ?? "",
-                    })}
-                    className={buttonClass("primary")}
+                    className="flex w-full items-center gap-3 rounded-lg border border-line px-3 py-2 text-left hover:bg-side"
                   >
-                    {t("people.groups.open")}
+                    <span
+                      aria-hidden="true"
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-side"
+                    >
+                      <CircleHelp className="size-4 text-mute" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">
+                        {t("people.groups.title", {
+                          count: group.member_count,
+                        })}
+                      </span>
+                      <span className="block truncate text-xs text-mute">
+                        {t("people.groups.heardIn", {
+                          clips: group.clip_count,
+                          names: clipNames(group),
+                        })}
+                      </span>
+                    </span>
+                    <ChevronRight
+                      className="size-4 shrink-0 text-mute"
+                      aria-hidden="true"
+                    />
                   </button>
                 </li>
               ))}

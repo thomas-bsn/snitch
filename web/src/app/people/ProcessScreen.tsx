@@ -1,4 +1,13 @@
-import { Pause, Play } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  ExternalLink,
+  Pause,
+  Play,
+  SkipForward,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useLoaded } from "../api/loaded";
@@ -7,11 +16,16 @@ import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import { clipTitle, fetchClip, fetchClipVoice } from "../library/libraryApi";
 import type { LocalSpeaker, TranscriptSegment } from "../library/libraryApi";
-import { VoiceWaveforms, voiceColor } from "../library/VoiceWaveforms";
 import { VoiceDecision } from "../voices/VoiceDecision";
 import { useFailureText } from "./failureText";
 import { claimPlayback } from "./ExcerptPlayer";
 import { HandledNotice } from "./HandledNotice";
+import {
+  PeakBars,
+  ProcessWaveform,
+  clock,
+  processColor,
+} from "./ProcessWaveform";
 import { LevelBadge } from "./LevelBadge";
 import {
   publishToProcessCount,
@@ -79,6 +93,14 @@ export function ProcessScreen({
     const target = speakers.find((speaker) => speaker.id === focusId);
     if (target && !isPending(target)) setArrival(target);
   }, [voice, speakers, focusId]);
+  // The voices that waited when the screen opened, for the progress "0 / 4 voices".
+  const [initial, setInitial] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (voice)
+      setInitial((known) =>
+        known.size > 0 ? known : new Set(pending.map((p) => p.id)),
+      );
+  }, [voice, pending]);
   // The voice just decided, until the voices have been read again.
   const decided = useRef<number | undefined>(undefined);
 
@@ -175,14 +197,35 @@ export function ProcessScreen({
   }
 
   const rank = current ? speakers.indexOf(current) : -1;
-  const suggested =
-    current?.person && current.attribution?.validation_state !== "validated";
-  const confidence = current?.attribution?.confidence;
+  // The end of the last turn bounds the drawing when the recorded duration is shorter.
+  const total = Math.max(
+    clipData.duration_seconds ?? 0,
+    ...segments.map((segment) => segment.end),
+  );
+  const colors = new Map(
+    speakers
+      .filter((speaker) => speaker.disposition !== "ignored")
+      .map(
+        (speaker) =>
+          [speaker.id, processColor(speakers.indexOf(speaker))] as const,
+      ),
+  );
+  const spoken = (speaker: LocalSpeaker) =>
+    segments
+      .filter((segment) => segment.local_speaker_id === speaker.id)
+      .reduce((sum, segment) => sum + (segment.end - segment.start), 0);
+  const turns = current
+    ? segments.filter((segment) => segment.local_speaker_id === current.id)
+    : [];
+  const resolved = [...initial].filter(
+    (id) => !pending.some((speaker) => speaker.id === id),
+  ).length;
+  const steps = Math.max(initial.size, resolved + pending.length);
 
   return (
     <section
       aria-label={t("people.process.label")}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
     >
       <audio
         ref={media}
@@ -197,84 +240,133 @@ export function ProcessScreen({
         }}
       />
       {arrival && <HandledNotice voice={arrival} />}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-col">
-          <h2 className="m-0 truncate text-lg font-semibold">
+      <div className="flex flex-wrap items-center gap-3">
+        <Link
+          to="/people/verification"
+          className="inline-flex min-h-11 items-center gap-1 text-mute hover:text-ink md:min-h-8"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          {t("people.process.backToList")}
+        </Link>
+        <span aria-hidden="true" className="hidden h-4 w-px bg-line md:block" />
+        <div className="min-w-0 flex-1">
+          <h1 className="m-0 truncate text-lg font-semibold">
             {t("people.process.title", { clip: name })}
-          </h2>
-          <Link
-            to="/people/verification"
-            className="inline-flex min-h-11 items-center text-accent-ink underline md:min-h-8"
-          >
-            {t("people.process.backToList")}
-          </Link>
+          </h1>
+          {total > 0 && <p className="m-0 text-xs text-mute">{clock(total)}</p>}
         </div>
-        <Link to={`/clips/${clipId}`} className={buttonClass("secondary")}>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-mute">
+            {t("people.process.progress", { done: resolved, total: steps })}
+          </span>
+          <div aria-hidden="true" className="flex gap-1">
+            {Array.from({ length: steps }, (_, index) => (
+              <span
+                key={index}
+                className={`h-1.5 w-6 rounded-full ${index < resolved ? "bg-ok-fg" : "bg-line"}`}
+              />
+            ))}
+          </div>
+        </div>
+        <Link
+          to={`/clips/${clipId}`}
+          className="inline-flex min-h-11 items-center gap-1 text-sm text-accent-ink hover:underline md:min-h-8"
+        >
           {t("people.process.openClip")}
+          <ExternalLink className="size-3.5" aria-hidden="true" />
         </Link>
       </div>
 
-      <VoiceWaveforms
+      <ProcessWaveform
         speakers={speakers}
         segments={segments}
         peaks={waveform?.peaks}
-        duration={clipData.duration_seconds}
+        duration={total}
         playhead={playhead}
+        playing={playing === "wave"}
+        onToggle={() => playFrom("wave", playhead, Infinity)}
         onSeek={(seconds) => playFrom("wave", seconds, Infinity)}
         activeId={current?.id}
       />
 
-      <div className="grid gap-4 md:grid-cols-[14rem_minmax(0,1fr)]">
+      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         <ul
           aria-label={t("people.process.queueLabel")}
-          className="m-0 flex list-none flex-col gap-2 p-0"
+          className="m-0 flex list-none flex-col gap-1 p-0"
         >
           {speakers.map((speaker, index) => {
             const waiting = isPending(speaker);
+            const status = speaker.disposition
+              ? t(
+                  speaker.disposition === "random"
+                    ? "voiceDecision.status.random"
+                    : "voiceDecision.status.ignored",
+                )
+              : waiting
+                ? t("people.process.waiting")
+                : t("people.process.settled");
             return (
               <li key={speaker.id}>
                 <button
                   type="button"
                   aria-current={speaker.id === current?.id ? "true" : undefined}
                   onClick={() => setSelected(speaker.id)}
-                  className={`flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left ${
+                  className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ${
                     speaker.id === current?.id
-                      ? "border-accent bg-accent-soft text-accent-ink"
-                      : "border-line bg-surface hover:bg-side"
+                      ? "bg-accent-soft"
+                      : "hover:bg-side"
                   }`}
                 >
                   <span
                     aria-hidden="true"
                     className="size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: voiceColor(index) }}
+                    style={{
+                      backgroundColor:
+                        speaker.disposition === "ignored"
+                          ? "var(--line-strong)"
+                          : processColor(index),
+                    }}
                   />
-                  <span className="min-w-0 flex-1 truncate">
-                    {speaker.person?.display_name ?? speaker.label}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">
+                      {speaker.person?.display_name ?? (
+                        <span className="lowercase">{speaker.label}</span>
+                      )}
+                    </span>
+                    <span className="block text-xs text-mute">
+                      {t("people.process.speaking", {
+                        time: clock(spoken(speaker)),
+                      })}
+                    </span>
                   </span>
-                  <span className="text-xs text-mute">
-                    {speaker.disposition
-                      ? t(
-                          speaker.disposition === "random"
-                            ? "voiceDecision.status.random"
-                            : "voiceDecision.status.ignored",
-                        )
-                      : waiting
-                        ? t("people.process.waiting")
-                        : t("people.process.settled")}
-                  </span>
+                  <span className="sr-only">{status}</span>
+                  {waiting ? (
+                    <span
+                      aria-hidden="true"
+                      className="size-2 shrink-0 rounded-full bg-warn-fg"
+                    />
+                  ) : (
+                    <Check
+                      className="size-4 shrink-0 text-ok-fg"
+                      aria-hidden="true"
+                    />
+                  )}
                 </button>
               </li>
             );
           })}
         </ul>
 
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-5">
           {done && (
             <div
               role="status"
-              className="flex flex-col items-start gap-2 rounded-xl border border-line bg-surface p-4"
+              className="flex flex-col items-center gap-3 rounded-2xl border border-line p-10 text-center"
             >
-              <p className="m-0 font-medium">{t("people.process.done")}</p>
+              <CheckCircle2 className="size-10 text-ok-fg" aria-hidden="true" />
+              <p className="m-0 text-lg font-semibold">
+                {t("people.process.done")}
+              </p>
               <button
                 type="button"
                 disabled={!next}
@@ -284,6 +376,7 @@ export function ProcessScreen({
                 className={buttonClass("primary")}
               >
                 {t("people.process.nextVideo")}
+                <ArrowRight className="size-4" aria-hidden="true" />
               </button>
               {next === null && (
                 <p className="m-0 text-mute">{t("people.process.noNext")}</p>
@@ -293,67 +386,84 @@ export function ProcessScreen({
           {current && (
             <section
               aria-label={t("people.process.cardLabel")}
-              className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4"
+              className="flex flex-col gap-5 rounded-2xl border border-line p-5"
+              style={{ borderTop: `4px solid ${processColor(rank)}` }}
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="size-3 rounded-full"
-                  style={{ backgroundColor: voiceColor(rank) }}
-                />
-                <h2 className="m-0 text-lg font-semibold">{current.label}</h2>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p className="m-0 text-xl font-semibold">
+                  {t("people.process.cardLabel")}
+                </p>
+                <h2 className="m-0 font-mono text-sm font-normal text-mute lowercase">
+                  {current.label}
+                </h2>
+                <span className="text-sm text-mute">
+                  ·{" "}
+                  {t("people.process.turns", {
+                    count: turns.length,
+                    time: clock(spoken(current)),
+                  })}
+                </span>
                 <LevelBadge level={current.decision_level} />
-                <span className="text-mute">
+                <span className="text-sm text-mute">
                   {t("people.process.position", {
                     n: Math.max(1, pending.indexOf(current) + 1),
                     total: pending.length,
                   })}
                 </span>
               </div>
-              <p className="m-0 font-medium">{t("people.process.cardLabel")}</p>
-              {suggested && current.person && (
-                <p className="m-0">
-                  {t("people.process.suggestion", {
-                    person: current.person.display_name,
-                  })}
-                  {typeof confidence === "number" &&
-                    ` ${t("voiceDecision.proximity", {
-                      percent: Math.round(confidence * 100),
-                    })}`}
-                </p>
-              )}
               <ul
                 aria-label={t("people.process.excerptsLabel")}
-                className="m-0 flex list-none flex-col gap-1 p-0"
+                className="m-0 flex list-none flex-col gap-2 p-0"
               >
                 {excerpts.map((segment) => {
                   const key = `s${segment.start}`;
+                  const on = playing === key;
                   return (
                     <li
                       key={key}
-                      className="flex items-center gap-2 rounded-lg border border-line px-2 py-1"
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
+                        on ? "border-accent bg-accent-soft" : "border-line"
+                      }`}
                     >
                       <button
                         type="button"
-                        aria-pressed={playing === key}
+                        aria-pressed={on}
                         aria-label={t("people.process.playFrom", {
                           time: moment(segment.start),
                         })}
                         onClick={() =>
                           playFrom(key, segment.start, segment.end)
                         }
-                        className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface hover:bg-side md:size-9"
+                        className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line-strong hover:bg-side md:size-9"
                       >
-                        {playing === key ? (
+                        {on ? (
                           <Pause className="size-4" aria-hidden="true" />
                         ) : (
-                          <Play className="size-4" aria-hidden="true" />
+                          <Play
+                            className="size-4 translate-x-px"
+                            aria-hidden="true"
+                          />
                         )}
                       </button>
-                      <span className="text-xs text-mute">
+                      <div className="hidden w-28 shrink-0 sm:block">
+                        <PeakBars
+                          peaks={waveform?.peaks}
+                          segments={segments}
+                          colors={colors}
+                          total={total}
+                          from={segment.start}
+                          to={segment.end}
+                          focusId={current.id}
+                          bars={40}
+                          height={28}
+                        />
+                      </div>
+                      <p className="m-0 min-w-0 flex-1 text-sm">
+                        « {segment.text} »
+                      </p>
+                      <span className="text-xs text-mute tabular-nums">
                         {moment(segment.start)}
                       </span>
-                      <span className="min-w-0 flex-1">{segment.text}</span>
                     </li>
                   );
                 })}
@@ -365,22 +475,24 @@ export function ProcessScreen({
                 onChanged={changed}
                 shortcuts
                 showCandidates
+                triage
+                trailing={
+                  <button
+                    type="button"
+                    disabled={
+                      pending.filter((p) => p.id !== current.id).length === 0
+                    }
+                    onClick={skip}
+                    className="inline-flex min-h-11 items-center gap-1 text-sm text-mute hover:text-ink disabled:opacity-60 md:min-h-8"
+                  >
+                    {t("people.process.skip")}
+                    <SkipForward className="size-4" aria-hidden="true" />
+                  </button>
+                }
               />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-mute">
-                  {t("people.process.shortcuts")}
-                </span>
-                <button
-                  type="button"
-                  disabled={
-                    pending.filter((p) => p.id !== current.id).length === 0
-                  }
-                  onClick={skip}
-                  className={buttonClass("secondary")}
-                >
-                  {t("people.process.skip")}
-                </button>
-              </div>
+              <p className="m-0 text-xs text-mute">
+                {t("people.process.shortcuts")}
+              </p>
             </section>
           )}
         </div>

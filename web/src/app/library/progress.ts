@@ -67,3 +67,21 @@ export function clipSteps(clip: Clip, voice: ClipVoice | null): Step[] {
     },
   ];
 }
+
+/**
+ * Where the analysis stands when the server has no run for the clip (steps launched one by
+ * one): read from the steps themselves, so that the header never says "never analysed" over
+ * a failed step. Null when nothing was ever started.
+ */
+export function legacyAnalysisState(
+  steps: Step[],
+): "failed" | "busy" | "complete" | null {
+  const analysis = steps.filter(
+    (s) => s.key !== "imported" && s.key !== "voicesIdentified",
+  );
+  if (analysis.some((s) => s.state === "failed")) return "failed";
+  if (analysis.some((s) => s.state === "running" || s.state === "queued"))
+    return "busy";
+  if (analysis.every((s) => s.state === "done")) return "complete";
+  return null;
+}

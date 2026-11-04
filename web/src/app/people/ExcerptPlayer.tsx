@@ -21,7 +21,13 @@ export function ExcerptPlayer({
   label,
   clip,
   shortcut,
+  link = false,
+  compact = false,
 }: {
+  /** A small square icon button, for a line of a list. */
+  compact?: boolean;
+  /** A text link ("Listen to an excerpt") instead of the round icon button. */
+  link?: boolean;
   /** Key (data-shortcut) a screen with keyboard shortcuts presses this button with. */
   shortcut?: string;
   localSpeakerId: number;
@@ -54,17 +60,34 @@ export function ExcerptPlayer({
   const Icon = playing ? Pause : Play;
   return (
     <>
-      <button
-        type="button"
-        aria-pressed={playing}
-        data-shortcut={shortcut}
-        aria-keyshortcuts={shortcut === " " ? "Space" : shortcut}
-        onClick={toggle}
-        className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:bg-side"
-        aria-label={t("people.excerpt.player", { label, clip })}
-      >
-        <Icon className="size-4" aria-hidden="true" />
-      </button>
+      {link ? (
+        <button
+          type="button"
+          aria-pressed={playing}
+          onClick={toggle}
+          aria-label={`${t("clip.voices.excerpt")} (${label}, ${clip})`}
+          className="inline-flex min-h-11 items-center gap-1 text-xs text-accent-ink hover:underline md:min-h-0"
+        >
+          <Icon className="size-3.5" aria-hidden="true" />
+          <span aria-hidden="true">{t("clip.voices.excerpt")}</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-pressed={playing}
+          data-shortcut={shortcut}
+          aria-keyshortcuts={shortcut === " " ? "Space" : shortcut}
+          onClick={toggle}
+          className={
+            compact
+              ? "flex size-11 shrink-0 items-center justify-center rounded-md text-mute hover:bg-side md:size-8"
+              : "flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:bg-side"
+          }
+          aria-label={t("people.excerpt.player", { label, clip })}
+        >
+          <Icon className="size-4" aria-hidden="true" />
+        </button>
+      )}
       <audio
         ref={audio}
         preload="none"

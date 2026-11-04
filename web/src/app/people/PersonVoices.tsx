@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { useI18n } from "../i18n";
 import { ExcerptPlayer } from "./ExcerptPlayer";
 import { LevelBadge } from "./LevelBadge";
+import { clock, shortDate } from "./PersonParts";
 import type { Person, PersonVoice } from "./peopleApi";
 
 /**
@@ -69,7 +70,7 @@ export function PersonVoices({
   );
 }
 
-/** The videos where the Person is heard: one line per clip, with the time of their voices. */
+/** The videos where the Person is heard: one line per clip, with listen button, date, time and state. */
 export function PersonVideos({
   person,
   voices,
@@ -77,42 +78,59 @@ export function PersonVideos({
   person: Person;
   voices: PersonVoice[];
 }) {
-  const { t } = useI18n();
-  const clips = new Map<number, { name: string; seconds: number }>();
+  const { t, language } = useI18n();
+  const clips = new Map<
+    number,
+    { name: string; seconds: number; recordedAt: string; voice: PersonVoice }
+  >();
   for (const voice of voices) {
     const clip = clips.get(voice.clip_id) ?? {
       name: voice.clip_name,
       seconds: 0,
+      recordedAt: voice.recorded_at,
+      voice,
     };
     clip.seconds += voice.speaking_seconds;
     clips.set(voice.clip_id, clip);
   }
   const title = t("people.persons.videosTitle", { name: person.display_name });
   return (
-    <div role="group" aria-label={title} className="flex flex-col gap-2">
-      <h3 className="text-base font-semibold">{title}</h3>
+    <section role="group" aria-label={title} className="flex flex-col">
+      <h3 className="m-0 mb-2 text-sm font-semibold">
+        {t("people.persons.heardIn")}
+      </h3>
       {clips.size === 0 && (
         <p className="text-mute">{t("people.persons.videosEmpty")}</p>
       )}
       {clips.size > 0 && (
-        <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+        <ul className="m-0 flex list-none flex-col p-0">
           {[...clips].map(([clipId, clip]) => (
-            <li key={clipId}>
+            <li
+              key={clipId}
+              className="flex flex-wrap items-center gap-3 border-b border-line py-2 last:border-b-0"
+            >
+              <ExcerptPlayer
+                compact
+                localSpeakerId={clip.voice.local_speaker_id}
+                label={clip.voice.label}
+                clip={clip.name}
+              />
               <Link
                 to={`/clips/${clipId}`}
-                className="flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2 hover:bg-side"
+                className="min-w-0 flex-1 truncate hover:underline"
               >
-                <span className="break-words font-medium">{clip.name}</span>
-                <span className="text-sm text-mute">
-                  {t("people.voicesPanel.speech", {
-                    seconds: clip.seconds.toFixed(1),
-                  })}
-                </span>
+                {clip.name}
               </Link>
+              <span className="text-xs text-mute">
+                {shortDate(clip.recordedAt, language)} · {clock(clip.seconds)}
+              </span>
+              <span className="inline-flex items-center rounded-full bg-ok-bg px-2 py-0.5 text-xs font-medium text-ok-fg">
+                {t("people.persons.heardState")}
+              </span>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
