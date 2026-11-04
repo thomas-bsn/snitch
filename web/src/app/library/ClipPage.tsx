@@ -25,6 +25,7 @@ import { clipTitle, fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
 import { AnalyzeClip, type Run } from "./AnalyzeClip";
 import { ReanalyzeClip } from "./ReanalyzeClip";
 import { buttonClass } from "../components/buttons";
+import { backAddress } from "./clipOrigin";
 
 const tabClass =
   "-mb-px inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 border-b-2 border-transparent px-3 font-medium whitespace-nowrap text-mute outline-none hover:text-ink data-[active]:border-accent data-[active]:text-ink md:h-10";
@@ -67,7 +68,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
       : null;
   useDocumentTitle(clipTitle(clip));
 
-  const back = (location.state as { from?: string } | null)?.from ?? "/library";
+  const back = backAddress(location.state);
   // The drawing follows the track the transcript and the voices come from; without peaks
   // (an analysis made before they existed) nothing is drawn.
   const waveform = useMemo(

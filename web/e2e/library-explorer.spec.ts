@@ -92,6 +92,48 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(row(page, "other.mp4")).toContainText("Not analysed");
   });
 
+  test("depuis une fiche, « Library » et le retour du navigateur ramènent au même dossier et aux mêmes filtres", async ({
+    page,
+  }) => {
+    const address = "/library?folder=league%2F2026&visibility=shared";
+    await page.goto(address);
+    await row(page, "other.mp4")
+      .getByRole("button", { name: "other.mp4", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/clips\/\d+$/);
+    await page
+      .getByRole("link", { name: "Library", exact: true })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/folder=league%2F2026/);
+    await expect(page).toHaveURL(/visibility=shared/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/clips\/\d+$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/folder=league%2F2026/);
+    await expect(page.getByLabel("Visibility", { exact: true })).toHaveValue(
+      "shared",
+    );
+  });
+
+  test("une fiche ouverte par adresse directe revient à la bibliothèque, jamais à un dossier reconstruit", async ({
+    page,
+  }) => {
+    await page.goto("/library?folder=league%2F2026");
+    await row(page, "other.mp4")
+      .getByRole("button", { name: "other.mp4", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/clips\/\d+$/);
+    const clip = page.url();
+    await page.goto("about:blank");
+    await page.goto(clip);
+    await page
+      .getByRole("link", { name: "Library", exact: true })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/library$/);
+  });
+
   test("une fois un seul clip importé, le dossier et ce clip restent accessibles et s'ouvrent", async ({
     page,
   }) => {
