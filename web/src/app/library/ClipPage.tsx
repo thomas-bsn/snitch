@@ -1,6 +1,12 @@
 import { Tabs } from "@base-ui/react/tabs";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useParams, useSearchParams } from "react-router";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import { useFormatDate } from "../admin/format";
 import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
@@ -25,6 +31,7 @@ import { clipTitle, fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
 import { AnalyzeClip, type Run } from "./AnalyzeClip";
 import { ReanalyzeClip } from "./ReanalyzeClip";
 import { buttonClass } from "../components/buttons";
+import { backAddress, hasOrigin } from "./clipOrigin";
 
 const tabClass =
   "-mb-px inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 border-b-2 border-transparent px-3 font-medium whitespace-nowrap text-mute outline-none hover:text-ink data-[active]:border-accent data-[active]:text-ink md:h-10";
@@ -37,6 +44,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
   const admin = !!user && isAdministrator(user);
   const formatDate = useFormatDate();
   const location = useLocation();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [startAt] = useState(() => parseMoment(params.get("t")));
@@ -67,7 +75,8 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
       : null;
   useDocumentTitle(clipTitle(clip));
 
-  const back = (location.state as { from?: string } | null)?.from ?? "/library";
+  const back = backAddress(location.state);
+  const openedFromHere = hasOrigin(location.state);
   // The drawing follows the track the transcript and the voices come from; without peaks
   // (an analysis made before they existed) nothing is drawn.
   const waveform = useMemo(
@@ -162,6 +171,13 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3 text-sm text-mute md:px-7">
         <Link
           to={back}
+          // Coming from the list or the search, "back" is the history's back: the
+          // entries stay [list, clip] and the native button behaves the same.
+          onClick={(event) => {
+            if (!openedFromHere || event.metaKey || event.ctrlKey) return;
+            event.preventDefault();
+            navigate(-1);
+          }}
           className="inline-flex min-h-11 items-center gap-1 hover:text-ink md:min-h-8"
         >
           <span aria-hidden="true">‹</span>

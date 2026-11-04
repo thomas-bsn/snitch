@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
+import { takeScroll, useClipOrigin } from "./clipOrigin";
 import {
   ChevronLeft,
   ChevronRight,
@@ -98,7 +99,17 @@ function formatSize(bytes: number, language: string) {
 export function LibraryPage() {
   const { t, error, language } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
+  const clipOrigin = useClipOrigin();
   const { params, update } = useAddressParams();
+  const openClip = useCallback(
+    (id: number) => {
+      clipOrigin.remember();
+      navigate(`/clips/${id}`, { state: clipOrigin.state });
+    },
+    [navigate, clipOrigin],
+  );
+
   useDocumentTitle(t("pages.library.title"));
   const { user, session } = useSession();
   const csrf = session?.csrf_token ?? "";
@@ -162,6 +173,14 @@ export function LibraryPage() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refreshExplorer]);
   const choices = useLoaded(fetchFilterOptions);
+  // Coming back from a clip, the list is put back where it was left once it is read.
+  const listingReady = listing.state.status === "ready";
+  useEffect(() => {
+    if (!listingReady) return;
+    const top = takeScroll(`${location.pathname}${location.search}`);
+    if (top !== null) window.scrollTo(0, top);
+  }, [listingReady, location.pathname, location.search]);
+
   const items: ExplorerEntry[] =
     listing.state.status === "ready" ? listing.state.value.items : [];
   const total =
@@ -198,9 +217,9 @@ export function LibraryPage() {
     const entry = items.find((item) => item.path === opening);
     if (entry?.clip_id) {
       setOpening(null);
-      navigate(`/clips/${entry.clip_id}`);
+      openClip(entry.clip_id);
     }
-  }, [items, opening, navigate]);
+  }, [items, opening, openClip]);
 
   useEffect(() => {
     setSearch(filters.q);
@@ -246,7 +265,7 @@ export function LibraryPage() {
   async function openVideo(entry: ExplorerEntry) {
     setOpenError(null);
     if (entry.clip_id) {
-      navigate(`/clips/${entry.clip_id}`);
+      openClip(entry.clip_id);
       return;
     }
     const result = await requestIndex(entry.path, csrf);
@@ -255,7 +274,7 @@ export function LibraryPage() {
       return;
     }
     if (result.value.clip_id) {
-      navigate(`/clips/${result.value.clip_id}`);
+      openClip(result.value.clip_id);
       return;
     }
     setOpening(entry.path);
@@ -892,6 +911,7 @@ function ExplorerRow({
   busyPath,
 }: RowProps) {
   const { t } = useI18n();
+  const clipOrigin = useClipOrigin();
   const folderFlat = flat ? entry.folder : "";
   const name = (
     <span className="flex min-w-0 items-center gap-2">
@@ -932,6 +952,8 @@ function ExplorerRow({
           ) : entry.clip_id ? (
             <Link
               to={`/clips/${entry.clip_id}`}
+              state={clipOrigin.state}
+              onClick={clipOrigin.remember}
               aria-label={t("library.card.open", { name: entry.name })}
               className="inline-flex min-h-11 max-w-full items-center font-medium text-ink hover:underline md:min-h-0"
             >
@@ -1057,6 +1079,7 @@ function ExplorerIcon({
   onOpenFolder: (path: string) => void;
   onOpenVideo: (entry: ExplorerEntry) => void;
 }) {
+  const clipOrigin = useClipOrigin();
   const { t } = useI18n();
   const unindexed = entry.state === "not_indexed";
   const body = (
@@ -1135,7 +1158,12 @@ function ExplorerIcon({
   }
   if (entry.clip_id) {
     return (
-      <Link to={`/clips/${entry.clip_id}`} className={tile}>
+      <Link
+        to={`/clips/${entry.clip_id}`}
+        state={clipOrigin.state}
+        onClick={clipOrigin.remember}
+        className={tile}
+      >
         {body}
       </Link>
     );
