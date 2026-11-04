@@ -36,6 +36,12 @@ type Step = AdminRun["steps"][number];
  * closed and opened again. Administrators drive it; every other user who can open the clip
  * follows it read-only (status and reason of each step, live).
  */
+/** What a run is worth showing: its status and each step's state. Timestamps are left out. */
+export function runSignature(run: Run | null): string {
+  if (!run) return "none";
+  return `${run.status}|${run.steps.map((step) => `${step.step}:${step.status}:${"job_id" in step ? step.job_id : ""}`).join(",")}`;
+}
+
 export function AnalyzeClip({
   clipId,
   audioTracks,
@@ -70,12 +76,20 @@ export function AnalyzeClip({
   const [reanalyzing, setReanalyzing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const wasActive = useRef(false);
+  const seen = useRef<string | null>(null);
 
   const apply = useCallback(
     (next: Run | null) => {
       setRun(next);
       const active = next?.status === "active";
-      if (wasActive.current && !active) onChanged();
+      // The progress shown beside the steps comes from the clip and its voices, read once by
+      // the page: whenever the run moves (a step changes state, the run starts or ends), the
+      // page reads them again so that text and stepper show the same instant. The first
+      // snapshot only sets the reference: the page has just loaded.
+      const signature = runSignature(next);
+      const moved = seen.current !== null && seen.current !== signature;
+      seen.current = signature;
+      if (moved || (wasActive.current && !active)) onChanged();
       wasActive.current = active;
     },
     [onChanged],

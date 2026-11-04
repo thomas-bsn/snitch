@@ -49,9 +49,14 @@ export function ProgressBanner({
           ? t("clip.progress.partial", step.detail)
           : t(`clip.progress.state.${step.state}`);
         return (
-          <li key={step.key} className="flex items-start gap-2">
+          <li
+            key={step.key}
+            data-state={step.state}
+            className="flex items-start gap-2"
+          >
             <Icon
-              className={`mt-0.5 size-4 shrink-0 ${className}`}
+              // Running is shown by a spin that stops under reduced motion; no percentage is invented.
+              className={`mt-0.5 size-4 shrink-0 ${className}${step.state === "running" ? " motion-safe:animate-spin" : ""}`}
               aria-hidden="true"
             />
             <div className="min-w-0">

@@ -171,7 +171,7 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
                 }
                 hasTranscription={!neverAnalysed}
                 hasVoices={hasVoices}
-                onChanged={onChanged}
+                onChanged={refreshVoices}
                 legacy={legacy}
                 summary={<ProgressBanner clip={clip} voice={voiceData} />}
               />
