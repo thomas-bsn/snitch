@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRight, Folder, FolderLock, HardDrive } from "lucide-react";
 import { useI18n } from "../i18n";
-import { fetchExplorer, type ExplorerEntry } from "./explorerApi";
+import { fetchExplorerAll, type ExplorerEntry } from "./explorerApi";
 
 /** The folders of the Racine vidéo, loaded as they open; the current folder's branch opens with it. */
 export function ExplorerTree({
   current,
   onOpen,
+  refresh = 0,
 }: {
   current: string;
   onOpen: (path: string) => void;
+  /** Changes whenever the tree must be read again: folders added or removed on disk. */
+  refresh?: number;
 }) {
   const { t } = useI18n();
   const [children, setChildren] = useState<Record<string, ExplorerEntry[]>>({});
@@ -17,7 +20,8 @@ export function ExplorerTree({
   const [failed, setFailed] = useState<string | null>(null);
 
   const load = useCallback(async (path: string) => {
-    const result = await fetchExplorer({ path });
+    // Every folder, page after page: a root can hold more folders than one page (100).
+    const result = await fetchExplorerAll({ path });
     if (!result.ok) {
       setFailed(path);
       return;
@@ -31,6 +35,14 @@ export function ExplorerTree({
   useEffect(() => {
     void load("");
   }, [load]);
+
+  // Read again every folder already loaded, so a folder added or removed on disk shows.
+  const loadedPaths = useRef<string[]>([]);
+  loadedPaths.current = Object.keys(children);
+  useEffect(() => {
+    if (refresh === 0) return;
+    for (const path of loadedPaths.current) void load(path);
+  }, [refresh, load]);
 
   // Open every ancestor of the current folder so that it is visible in the tree.
   useEffect(() => {

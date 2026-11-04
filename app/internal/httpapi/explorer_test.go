@@ -238,6 +238,50 @@ func testExplorer(t *testing.T, pool *pgxpool.Pool) {
 		h.userCall(member, http.MethodGet, "/api/library/explorer?path=league&limit=0", nil, http.StatusBadRequest)
 		h.userCall(member, http.MethodGet, "/api/library/explorer?path=league&offset=-1", nil, http.StatusBadRequest)
 	})
+	t.Run("empty folders are listed, every folder is reachable across pages, and the disk is read live (#271)", func(t *testing.T) {
+		type page struct {
+			Items []entry `json:"items"`
+			Total int     `json:"total"`
+		}
+		fetch := func(query string) page {
+			var p page
+			if err := json.Unmarshal(h.userCall(member, http.MethodGet, "/api/library/explorer?"+query, nil, http.StatusOK), &p); err != nil {
+				t.Fatal(err)
+			}
+			return p
+		}
+		dyn := filepath.Join(root, "dyn")
+		for i := 1; i <= 120; i++ {
+			if err := os.MkdirAll(filepath.Join(dyn, fmt.Sprintf("d-%03d", i)), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		defer os.RemoveAll(dyn)
+		// The default page holds 100: the last folder is only on the second page, never lost.
+		first := fetch("path=dyn")
+		if first.Total != 120 || len(first.Items) != 100 {
+			t.Fatalf("default page: total=%d items=%d", first.Total, len(first.Items))
+		}
+		second := fetch("path=dyn&offset=100")
+		if len(second.Items) != 20 || second.Items[19].Path != "dyn/d-120" || !second.Items[19].Directory {
+			t.Fatalf("second page: %+v", second.Items)
+		}
+		// A folder created after the first listing shows at once, a removed one disappears: no scan needed.
+		if err := os.MkdirAll(filepath.Join(dyn, "test"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(filepath.Join(dyn, "d-001")); err != nil {
+			t.Fatal(err)
+		}
+		all := fetch("path=dyn&limit=500")
+		seen := map[string]bool{}
+		for _, item := range all.Items {
+			seen[item.Path] = true
+		}
+		if !seen["dyn/test"] || seen["dyn/d-001"] || all.Total != 120 {
+			t.Fatalf("live listing: total=%d, test=%v, removed=%v", all.Total, seen["dyn/test"], seen["dyn/d-001"])
+		}
+	})
 	t.Run("a large synthetic folder pages cheaply and a folder beyond the ceiling is refused", func(t *testing.T) {
 		big := t.TempDir()
 		for _, dir := range []string{"big", "huge"} {

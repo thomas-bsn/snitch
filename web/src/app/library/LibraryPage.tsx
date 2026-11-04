@@ -140,6 +140,20 @@ export function LibraryPage() {
       [folder, filtered, filters, pageSize, pageNumber],
     ),
   );
+  // Folders are read from the disk on every call: this only asks the page and the tree to read again.
+  const [treeVersion, setTreeVersion] = useState(0);
+  const reloadListing = listing.reload;
+  const refreshExplorer = useCallback(() => {
+    reloadListing();
+    setTreeVersion((n) => n + 1);
+  }, [reloadListing]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshExplorer();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refreshExplorer]);
   const choices = useLoaded(fetchFilterOptions);
   const items: ExplorerEntry[] =
     listing.state.status === "ready" ? listing.state.value.items : [];
@@ -515,7 +529,11 @@ export function LibraryPage() {
       )}
 
       <div className="grid min-w-0 flex-1 grid-cols-1 md:grid-cols-[230px_minmax(0,1fr)]">
-        <ExplorerTree current={folder} onOpen={openFolder} />
+        <ExplorerTree
+          current={folder}
+          onOpen={openFolder}
+          refresh={treeVersion}
+        />
 
         <div className="flex min-w-0 flex-col gap-3 p-4 md:px-6">
           {listing.state.status === "ready" && (
@@ -530,6 +548,15 @@ export function LibraryPage() {
                       total - items.filter((item) => item.directory).length,
                   })}
             </p>
+          )}
+          {listing.state.status === "ready" && rootConfigured && (
+            <button
+              type="button"
+              className={`${buttonClass("secondary")} w-fit`}
+              onClick={refreshExplorer}
+            >
+              {t("library.explorer.refresh")}
+            </button>
           )}
           {listing.state.status === "ready" && !rootConfigured && (
             <div className="flex flex-col gap-2 rounded-xl border border-line p-4">

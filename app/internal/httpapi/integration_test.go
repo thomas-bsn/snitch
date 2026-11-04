@@ -1444,6 +1444,12 @@ func TestFoundation(t *testing.T) {
 							}
 						}
 					}
+					// More folders than one page of the explorer (100): the tree must list them all (#271).
+					for i := 1; i <= 120; i++ {
+						if e = os.MkdirAll(filepath.Join(explorerRoot, "bulk", fmt.Sprintf("dossier-%03d", i)), 0o700); e != nil {
+							t.Fatal(e)
+						}
+					}
 				}
 				if suite == "ui-compare.spec.ts" {
 					// Arborescence synthétique de la comparaison visuelle (#251), comme celle du prototype.

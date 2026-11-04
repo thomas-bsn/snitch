@@ -1620,6 +1620,7 @@ export const en = {
           "Choose the video folder in Administration › Folders to browse the library.",
         action: "Open Administration › Folders",
       },
+      refresh: "Refresh",
       loadingFolders: "Loading folders…",
       collapse: "Collapse {name}",
       expand: "Expand {name}",
