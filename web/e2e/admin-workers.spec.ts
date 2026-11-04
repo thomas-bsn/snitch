@@ -494,7 +494,7 @@ test.describe.serial("administration et Workers", () => {
       }));
       await expect(page.getByLabel("Target version")).toBeVisible();
       await expect(
-        page.getByRole("button", { name: "Save", exact: true }),
+        page.getByRole("button", { name: "Save target version" }),
       ).toBeVisible();
       await expect(page.getByRole("table")).toBeVisible();
       await expect(page.getByRole("cell", { name: "gaming-pc" })).toBeVisible();
@@ -504,7 +504,7 @@ test.describe.serial("administration et Workers", () => {
     test("répond sans simulation sur la vraie API", async ({ browser }) => {
       const { context, page } = await open(browser);
       await expect(
-        page.getByRole("button", { name: "Save", exact: true }),
+        page.getByRole("button", { name: "Save target version" }),
       ).toBeVisible();
       await context.close();
     });

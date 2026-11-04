@@ -109,7 +109,7 @@ func testWorkerUpdates(t *testing.T, pool *pgxpool.Pool) {
 		"unreachable": func(w http.ResponseWriter, r *http.Request) { http.Error(w, "down", http.StatusBadGateway) },
 	} {
 		empty := httptest.NewTLSServer(handler)
-		h.server.workerCatalogOverride = &workerupdate.Catalog{Client: empty.Client(), Registry: empty.URL, Repo: "thomas-bsn/snitch-worker"}
+		h.server.workerCatalogBuilt = &workerupdate.Catalog{Client: empty.Client(), Registry: empty.URL, Repo: "thomas-bsn/snitch-worker"}
 		var raw map[string]json.RawMessage
 		if err := json.Unmarshal(h.do(h.admin, http.MethodGet, h.ts.URL+"/api/admin/worker-updates", nil, "", "", false, http.StatusOK), &raw); err != nil {
 			t.Fatal(err)
