@@ -6,6 +6,7 @@ export type Clip = components["schemas"]["Clip"];
 export type ClipPage = components["schemas"]["ClipPage"];
 export type ClipFilterOptions = components["schemas"]["ClipFilterOptions"];
 export type ClipVoice = components["schemas"]["ClipVoice"];
+export type SpeakerCoverage = components["schemas"]["SpeakerCoverage"];
 export type LocalSpeaker = components["schemas"]["LocalSpeaker"];
 export type TranscriptSegment = components["schemas"]["TranscriptSegment"];
 export type SegmentHistory = components["schemas"]["SegmentHistory"];

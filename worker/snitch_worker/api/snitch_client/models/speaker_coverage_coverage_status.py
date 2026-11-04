@@ -1,7 +1,8 @@
 from enum import StrEnum
 
-class TranscriptionSpeakerCoverageItemCoverageStatus(StrEnum):
+class SpeakerCoverageCoverageStatus(StrEnum):
     NO_TRANSCRIPT = "no_transcript"
+    OUTSIDE_TRANSCRIPT = "outside_transcript"
     SPEECH_WITHOUT_WORDS = "speech_without_words"
     WORDS = "words"
 

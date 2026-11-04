@@ -8,34 +8,37 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-from ..models.transcription_speaker_coverage_item_coverage_status import TranscriptionSpeakerCoverageItemCoverageStatus
+from ..models.speaker_coverage_coverage_status import SpeakerCoverageCoverageStatus
 
 
 
 
 
 
-T = TypeVar("T", bound="TranscriptionSpeakerCoverageItem")
+T = TypeVar("T", bound="SpeakerCoverage")
 
 
 
 @_attrs_define
-class TranscriptionSpeakerCoverageItem:
+class SpeakerCoverage:
     """
         Attributes:
             local_speaker_id (int):
-            coverage_status (TranscriptionSpeakerCoverageItemCoverageStatus): words : au moins un segment lui est attribué ;
+            coverage_status (SpeakerCoverageCoverageStatus): words : au moins un segment lui est attribué ;
                 speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne
-                recouvre ses tours.
-            speaking_seconds (float):
+                recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours,
+                avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste).
+            speaking_seconds (float): Parole détectée, tours qui se chevauchent comptés une fois.
             overlapped_seconds (float): Parole sous des segments attribués à un autre locuteur.
+            uncovered_seconds (float): Parole sous aucun segment.
             attributed_segments (int):
      """
 
     local_speaker_id: int
-    coverage_status: TranscriptionSpeakerCoverageItemCoverageStatus
+    coverage_status: SpeakerCoverageCoverageStatus
     speaking_seconds: float
     overlapped_seconds: float
+    uncovered_seconds: float
     attributed_segments: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -52,6 +55,8 @@ class TranscriptionSpeakerCoverageItem:
 
         overlapped_seconds = self.overlapped_seconds
 
+        uncovered_seconds = self.uncovered_seconds
+
         attributed_segments = self.attributed_segments
 
 
@@ -62,6 +67,7 @@ class TranscriptionSpeakerCoverageItem:
             "coverage_status": coverage_status,
             "speaking_seconds": speaking_seconds,
             "overlapped_seconds": overlapped_seconds,
+            "uncovered_seconds": uncovered_seconds,
             "attributed_segments": attributed_segments,
         })
 
@@ -74,7 +80,7 @@ class TranscriptionSpeakerCoverageItem:
         d = dict(src_dict)
         local_speaker_id = d.pop("local_speaker_id")
 
-        coverage_status = TranscriptionSpeakerCoverageItemCoverageStatus(d.pop("coverage_status"))
+        coverage_status = SpeakerCoverageCoverageStatus(d.pop("coverage_status"))
 
 
 
@@ -83,19 +89,22 @@ class TranscriptionSpeakerCoverageItem:
 
         overlapped_seconds = d.pop("overlapped_seconds")
 
+        uncovered_seconds = d.pop("uncovered_seconds")
+
         attributed_segments = d.pop("attributed_segments")
 
-        transcription_speaker_coverage_item = cls(
+        speaker_coverage = cls(
             local_speaker_id=local_speaker_id,
             coverage_status=coverage_status,
             speaking_seconds=speaking_seconds,
             overlapped_seconds=overlapped_seconds,
+            uncovered_seconds=uncovered_seconds,
             attributed_segments=attributed_segments,
         )
 
 
-        transcription_speaker_coverage_item.additional_properties = d
-        return transcription_speaker_coverage_item
+        speaker_coverage.additional_properties = d
+        return speaker_coverage
 
     @property
     def additional_keys(self) -> list[str]:

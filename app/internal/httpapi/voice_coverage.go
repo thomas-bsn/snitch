@@ -23,6 +23,9 @@ const (
 	// CoverageNoTranscript: no segment overlaps any turn of the voice (ASR gap, silence
 	// seen by the ASR, offset or wrong track).
 	CoverageNoTranscript CoverageStatus = "no_transcript"
+	// CoverageOutsideTranscript: like no_transcript, but all the speech lies before or after the
+	// transcribed span (truncated transcript, offset, wrong track), not in a gap inside it.
+	CoverageOutsideTranscript CoverageStatus = "outside_transcript"
 )
 
 type coverageTurn struct {
@@ -42,6 +45,7 @@ type SpeakerCoverage struct {
 	Status             CoverageStatus `json:"coverage_status"`
 	SpeakingSeconds    float64        `json:"speaking_seconds"`
 	OverlappedSeconds  float64        `json:"overlapped_seconds"` // speech over segments attributed to another voice
+	UncoveredSeconds   float64        `json:"uncovered_seconds"`  // speech under no segment at all
 	AttributedSegments int            `json:"attributed_segments"`
 }
 
@@ -104,13 +108,28 @@ func speakerCoverage(turns []coverageTurn, segments []coverageSegment) []Speaker
 			result[index[winner]].AttributedSegments++
 		}
 	}
+	first, last := math.Inf(1), math.Inf(-1)
+	covered := make([]coverageTurn, 0, len(segments))
+	for _, seg := range segments {
+		first, last = math.Min(first, seg.Start), math.Max(last, seg.End)
+		covered = append(covered, coverageTurn{Start: seg.Start, End: seg.End})
+	}
+	covered = mergeSpans(covered)
 	for i := range result {
 		c := &result[i]
+		c.UncoveredSeconds = c.SpeakingSeconds
+		for _, span := range mergeSpans(spansOf(turns, c.SpeakerID)) {
+			for _, seg := range covered {
+				c.UncoveredSeconds -= math.Max(0, math.Min(span.End, seg.End)-math.Max(span.Start, seg.Start))
+			}
+		}
 		switch {
 		case c.AttributedSegments > 0:
 			c.Status = CoverageWords
 		case c.OverlappedSeconds > 0:
 			c.Status = CoverageSpeechWithoutWords
+		case len(segments) > 0 && !touchesSpan(turns, c.SpeakerID, first, last):
+			c.Status = CoverageOutsideTranscript
 		default:
 			c.Status = CoverageNoTranscript
 		}
@@ -118,22 +137,47 @@ func speakerCoverage(turns []coverageTurn, segments []coverageSegment) []Speaker
 	return result
 }
 
-// unionSeconds is the speech time of a voice, without counting twice turns that overlap.
-func unionSeconds(turns []coverageTurn, speaker int64) float64 {
+// spansOf are the non-empty turns of a voice.
+func spansOf(turns []coverageTurn, speaker int64) []coverageTurn {
 	spans := []coverageTurn{}
 	for _, t := range turns {
 		if t.SpeakerID == speaker && t.End > t.Start {
 			spans = append(spans, t)
 		}
 	}
-	sort.Slice(spans, func(i, j int) bool { return spans[i].Start < spans[j].Start })
-	total, reach := 0.0, math.Inf(-1)
-	for _, t := range spans {
-		start := math.Max(t.Start, reach)
-		if t.End > start {
-			total += t.End - start
-			reach = t.End
+	return spans
+}
+
+// mergeSpans sorts spans and joins those that overlap.
+func mergeSpans(spans []coverageTurn) []coverageTurn {
+	sorted := append([]coverageTurn(nil), spans...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Start < sorted[j].Start })
+	merged := []coverageTurn{}
+	for _, t := range sorted {
+		if n := len(merged); n > 0 && t.Start <= merged[n-1].End {
+			merged[n-1].End = math.Max(merged[n-1].End, t.End)
+			continue
 		}
+		merged = append(merged, t)
+	}
+	return merged
+}
+
+// unionSeconds is the speech time of a voice, without counting twice turns that overlap.
+func unionSeconds(turns []coverageTurn, speaker int64) float64 {
+	total := 0.0
+	for _, t := range mergeSpans(spansOf(turns, speaker)) {
+		total += t.End - t.Start
 	}
 	return total
+}
+
+// touchesSpan tells whether any turn of the voice reaches into [first,last].
+func touchesSpan(turns []coverageTurn, speaker int64, first, last float64) bool {
+	for _, t := range spansOf(turns, speaker) {
+		if t.End > first && t.Start < last {
+			return true
+		}
+	}
+	return false
 }

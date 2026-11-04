@@ -19,7 +19,7 @@ func TestSpeakerCoverageThreeDetectedTwoTranscribed(t *testing.T) {
 	want := map[int64]SpeakerCoverage{
 		1: {SpeakerID: 1, Status: CoverageWords, SpeakingSeconds: 10, AttributedSegments: 1},
 		2: {SpeakerID: 2, Status: CoverageWords, SpeakingSeconds: 10, AttributedSegments: 1},
-		3: {SpeakerID: 3, Status: CoverageSpeechWithoutWords, SpeakingSeconds: 7, OverlappedSeconds: 2},
+		3: {SpeakerID: 3, Status: CoverageSpeechWithoutWords, SpeakingSeconds: 7, OverlappedSeconds: 2, UncoveredSeconds: 5},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d coverages, want %d: %+v", len(got), len(want), got)
@@ -69,5 +69,33 @@ func TestSpeakerCoverageSpeakingSecondsIgnoresOverlappingTurns(t *testing.T) {
 	got := speakerCoverage([]coverageTurn{{SpeakerID: 1, Start: 0, End: 6}, {SpeakerID: 1, Start: 4, End: 10}}, nil)
 	if got[0].SpeakingSeconds != 10 {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+// Speech that no segment covers is measured, and told apart: inside the transcribed span it is
+// a gap of the ASR; beyond it, the transcript stops before the voice (truncation, offset).
+func TestSpeakerCoverageTellsAGapFromSpeechBeyondTheTranscript(t *testing.T) {
+	segments := []coverageSegment{{Start: 0, End: 10}, {Start: 20, End: 30}}
+	got := speakerCoverage([]coverageTurn{
+		{SpeakerID: 1, Start: 0, End: 10},
+		{SpeakerID: 2, Start: 12, End: 18}, // between two segments
+		{SpeakerID: 3, Start: 50, End: 55}, // after the last segment
+		{SpeakerID: 4, Start: 8, End: 14},  // half under a segment, half in the gap
+	}, segments)
+	byID := map[int64]SpeakerCoverage{}
+	for _, c := range got {
+		byID[c.SpeakerID] = c
+	}
+	if c := byID[2]; c.Status != CoverageNoTranscript || c.UncoveredSeconds != 6 {
+		t.Errorf("gap: %+v", c)
+	}
+	if c := byID[3]; c.Status != CoverageOutsideTranscript || c.UncoveredSeconds != 5 {
+		t.Errorf("beyond: %+v", c)
+	}
+	if c := byID[4]; c.Status != CoverageSpeechWithoutWords || c.UncoveredSeconds != 4 || c.OverlappedSeconds != 2 {
+		t.Errorf("partial: %+v", c)
+	}
+	if c := byID[1]; c.UncoveredSeconds != 0 {
+		t.Errorf("fully covered: %+v", c)
 	}
 }

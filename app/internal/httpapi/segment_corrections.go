@@ -47,6 +47,7 @@ func (s *Server) registerSegmentCorrectionRoutes(mux *http.ServeMux) {
 	mux.Handle("PUT /api/clips/{id}/segments/{index}/text", s.protected(false, http.HandlerFunc(s.putSegmentText)))
 	s.registerSegmentHistoryRoutes(mux)
 	s.registerSegmentSpeakerRoutes(mux)
+	s.registerVoiceTraceRoutes(mux)
 	s.registerSegmentRetranscriptionRoutes(mux)
 	s.registerSegmentExportRoutes(mux)
 }

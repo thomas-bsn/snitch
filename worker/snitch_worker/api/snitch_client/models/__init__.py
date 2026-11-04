@@ -274,6 +274,8 @@ from .source_health import SourceHealth
 from .source_input import SourceInput
 from .source_list import SourceList
 from .source_visibility import SourceVisibility
+from .speaker_coverage import SpeakerCoverage
+from .speaker_coverage_coverage_status import SpeakerCoverageCoverageStatus
 from .start_clip_analysis_body import StartClipAnalysisBody
 from .start_clip_analysis_body_mode import StartClipAnalysisBodyMode
 from .start_clip_analysis_body_scope import StartClipAnalysisBodyScope
@@ -297,8 +299,6 @@ from .transcription_settings_input_mode import TranscriptionSettingsInputMode
 from .transcription_settings_state import TranscriptionSettingsState
 from .transcription_settings_state_mode import TranscriptionSettingsStateMode
 from .transcription_settings_state_status import TranscriptionSettingsStateStatus
-from .transcription_speaker_coverage_item import TranscriptionSpeakerCoverageItem
-from .transcription_speaker_coverage_item_coverage_status import TranscriptionSpeakerCoverageItemCoverageStatus
 from .update_clip_body import UpdateClipBody
 from .update_clip_body_visibility import UpdateClipBodyVisibility
 from .update_member_role_body import UpdateMemberRoleBody
@@ -375,6 +375,12 @@ from .voice_refusal_input import VoiceRefusalInput
 from .voice_schedule_input import VoiceScheduleInput
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
+from .voice_trace import VoiceTrace
+from .voice_trace_diarization_type_0 import VoiceTraceDiarizationType0
+from .voice_trace_segments_item import VoiceTraceSegmentsItem
+from .voice_trace_segments_item_candidates_item import VoiceTraceSegmentsItemCandidatesItem
+from .voice_trace_transcription import VoiceTraceTranscription
+from .voice_trace_turns_item import VoiceTraceTurnsItem
 from .voice_verification import VoiceVerification
 from .voice_verification_case import VoiceVerificationCase
 from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
@@ -715,6 +721,8 @@ __all__ = (
     "SourceInput",
     "SourceList",
     "SourceVisibility",
+    "SpeakerCoverage",
+    "SpeakerCoverageCoverageStatus",
     "StartClipAnalysisBody",
     "StartClipAnalysisBodyMode",
     "StartClipAnalysisBodyScope",
@@ -736,8 +744,6 @@ __all__ = (
     "TranscriptionSettingsState",
     "TranscriptionSettingsStateMode",
     "TranscriptionSettingsStateStatus",
-    "TranscriptionSpeakerCoverageItem",
-    "TranscriptionSpeakerCoverageItemCoverageStatus",
     "TranscriptSegment",
     "TranscriptWord",
     "UpdateClipBody",
@@ -816,6 +822,12 @@ __all__ = (
     "VoiceScheduleInput",
     "VoiceStep",
     "VoiceStepStatus",
+    "VoiceTrace",
+    "VoiceTraceDiarizationType0",
+    "VoiceTraceSegmentsItem",
+    "VoiceTraceSegmentsItemCandidatesItem",
+    "VoiceTraceTranscription",
+    "VoiceTraceTurnsItem",
     "VoiceVerification",
     "VoiceVerificationCase",
     "VoiceVerificationCaseDecisionLevel",
