@@ -8,6 +8,7 @@ import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
 import { whisperLanguageLabel } from "../transcription/whisperLanguages";
 import { DeploymentFiles } from "./DeploymentFiles";
+import { InstallGuide } from "./InstallGuide";
 import {
   fetchWorkers,
   useWorkerActions,
@@ -64,7 +65,9 @@ export function WorkerCreateForm({
         {!created.install_command && (
           <ErrorAlert>{t("workers.create.insecureUnavailable")}</ErrorAlert>
         )}
+        <h3 className="text-base font-semibold">{t("workers.guide.title")}</h3>
         <p>{t("workers.create.installLead")}</p>
+        <InstallGuide />
         <textarea
           readOnly
           aria-label={t("workers.create.installCommand")}

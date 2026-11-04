@@ -11,6 +11,7 @@ from ... import errors
 from ...models.error import Error
 from ...models.explorer_listing import ExplorerListing
 from ...models.list_library_explorer_recursive import ListLibraryExplorerRecursive
+from ...models.list_library_explorer_stage import ListLibraryExplorerStage
 from ...models.list_library_explorer_state import ListLibraryExplorerState
 from ...models.list_library_explorer_visibility import ListLibraryExplorerVisibility
 from ...models.list_library_explorer_voices import ListLibraryExplorerVoices
@@ -26,6 +27,7 @@ def _get_kwargs(
     recursive: ListLibraryExplorerRecursive | Unset = UNSET,
     q: str | Unset = UNSET,
     state: ListLibraryExplorerState | Unset = UNSET,
+    stage: ListLibraryExplorerStage | Unset = UNSET,
     game: str | Unset = UNSET,
     visibility: ListLibraryExplorerVisibility | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
@@ -58,6 +60,12 @@ def _get_kwargs(
         json_state = state.value
 
     params["state"] = json_state
+
+    json_stage: str | Unset = UNSET
+    if not isinstance(stage, Unset):
+        json_stage = stage.value
+
+    params["stage"] = json_stage
 
     params["game"] = game
 
@@ -138,6 +146,7 @@ def sync_detailed(
     recursive: ListLibraryExplorerRecursive | Unset = UNSET,
     q: str | Unset = UNSET,
     state: ListLibraryExplorerState | Unset = UNSET,
+    stage: ListLibraryExplorerStage | Unset = UNSET,
     game: str | Unset = UNSET,
     visibility: ListLibraryExplorerVisibility | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
@@ -157,6 +166,7 @@ def sync_detailed(
         recursive (ListLibraryExplorerRecursive | Unset):
         q (str | Unset):
         state (ListLibraryExplorerState | Unset):
+        stage (ListLibraryExplorerStage | Unset):
         game (str | Unset):
         visibility (ListLibraryExplorerVisibility | Unset):
         from_ (datetime.date | Unset):
@@ -181,6 +191,7 @@ def sync_detailed(
 recursive=recursive,
 q=q,
 state=state,
+stage=stage,
 game=game,
 visibility=visibility,
 from_=from_,
@@ -206,6 +217,7 @@ def sync(
     recursive: ListLibraryExplorerRecursive | Unset = UNSET,
     q: str | Unset = UNSET,
     state: ListLibraryExplorerState | Unset = UNSET,
+    stage: ListLibraryExplorerStage | Unset = UNSET,
     game: str | Unset = UNSET,
     visibility: ListLibraryExplorerVisibility | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
@@ -225,6 +237,7 @@ def sync(
         recursive (ListLibraryExplorerRecursive | Unset):
         q (str | Unset):
         state (ListLibraryExplorerState | Unset):
+        stage (ListLibraryExplorerStage | Unset):
         game (str | Unset):
         visibility (ListLibraryExplorerVisibility | Unset):
         from_ (datetime.date | Unset):
@@ -250,6 +263,7 @@ path=path,
 recursive=recursive,
 q=q,
 state=state,
+stage=stage,
 game=game,
 visibility=visibility,
 from_=from_,
@@ -269,6 +283,7 @@ async def asyncio_detailed(
     recursive: ListLibraryExplorerRecursive | Unset = UNSET,
     q: str | Unset = UNSET,
     state: ListLibraryExplorerState | Unset = UNSET,
+    stage: ListLibraryExplorerStage | Unset = UNSET,
     game: str | Unset = UNSET,
     visibility: ListLibraryExplorerVisibility | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
@@ -288,6 +303,7 @@ async def asyncio_detailed(
         recursive (ListLibraryExplorerRecursive | Unset):
         q (str | Unset):
         state (ListLibraryExplorerState | Unset):
+        stage (ListLibraryExplorerStage | Unset):
         game (str | Unset):
         visibility (ListLibraryExplorerVisibility | Unset):
         from_ (datetime.date | Unset):
@@ -312,6 +328,7 @@ async def asyncio_detailed(
 recursive=recursive,
 q=q,
 state=state,
+stage=stage,
 game=game,
 visibility=visibility,
 from_=from_,
@@ -337,6 +354,7 @@ async def asyncio(
     recursive: ListLibraryExplorerRecursive | Unset = UNSET,
     q: str | Unset = UNSET,
     state: ListLibraryExplorerState | Unset = UNSET,
+    stage: ListLibraryExplorerStage | Unset = UNSET,
     game: str | Unset = UNSET,
     visibility: ListLibraryExplorerVisibility | Unset = UNSET,
     from_: datetime.date | Unset = UNSET,
@@ -356,6 +374,7 @@ async def asyncio(
         recursive (ListLibraryExplorerRecursive | Unset):
         q (str | Unset):
         state (ListLibraryExplorerState | Unset):
+        stage (ListLibraryExplorerStage | Unset):
         game (str | Unset):
         visibility (ListLibraryExplorerVisibility | Unset):
         from_ (datetime.date | Unset):
@@ -381,6 +400,7 @@ path=path,
 recursive=recursive,
 q=q,
 state=state,
+stage=stage,
 game=game,
 visibility=visibility,
 from_=from_,

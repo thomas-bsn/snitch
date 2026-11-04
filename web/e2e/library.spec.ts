@@ -106,7 +106,11 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
           name: "No clip matches these filters",
         }),
       ).toBeVisible();
-      await page.getByRole("button", { name: "Clear the filters" }).click();
+      // The empty state offers the same action next to the filter bar's own button.
+      await page
+        .getByRole("button", { name: "Clear the filters" })
+        .first()
+        .click();
 
       await page.getByLabel("From").fill("2099-01-01");
       await expect(

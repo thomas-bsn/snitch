@@ -466,4 +466,39 @@ test.describe.serial("explorateur de la bibliothèque", () => {
       "Videos not indexed yet (1)",
     );
   });
+
+  test("une étape de traitement ne garde que les dossiers qui mènent à une vidéo correspondante (#282)", async ({
+    page,
+  }) => {
+    // Nothing is transcribed in this tree: every folder disappears and the empty state offers a way out.
+    await page.goto("/library?stage=transcribed");
+    await expect(
+      page.getByRole("heading", { name: "No clip matches these filters" }),
+    ).toBeVisible();
+    await expect(row(page, "league")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Clear the filters" })
+      .last()
+      .click();
+    await expect(page).not.toHaveURL(/stage=/);
+    await expect(row(page, "league")).toBeVisible();
+
+    // Indexed videos keep their ancestors, counted; folders holding only unindexed videos vanish.
+    await page.goto("/library?stage=indexed");
+    await expect(row(page, "league")).toContainText("matching");
+    await expect(row(page, "secret")).toHaveCount(0);
+    await row(page, "league")
+      .getByRole("button", { name: "league", exact: true })
+      .click();
+    await expect(page).toHaveURL(/stage=indexed/);
+    await expect(row(page, "2026")).toContainText("matching");
+    await expect(row(page, "empty")).toHaveCount(0);
+    await expectNoViolations(page);
+
+    // The stage is chosen from the filters and kept in the address.
+    await page.goto("/library");
+    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByLabel("Processing").selectOption("complete");
+    await expect(page).toHaveURL(/stage=complete/);
+  });
 });

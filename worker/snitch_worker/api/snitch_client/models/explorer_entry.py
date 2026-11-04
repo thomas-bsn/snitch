@@ -43,6 +43,8 @@ class ExplorerEntry:
             voices_pending (int):
             state (ExplorerEntryState | Unset):
             visibility (str | Unset):
+            match_count (int | Unset): Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits
+                de l'appelant
      """
 
     name: str
@@ -62,6 +64,7 @@ class ExplorerEntry:
     voices_pending: int
     state: ExplorerEntryState | Unset = UNSET
     visibility: str | Unset = UNSET
+    match_count: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -117,6 +120,8 @@ class ExplorerEntry:
 
         visibility = self.visibility
 
+        match_count = self.match_count
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -141,6 +146,8 @@ class ExplorerEntry:
             field_dict["state"] = state
         if visibility is not UNSET:
             field_dict["visibility"] = visibility
+        if match_count is not UNSET:
+            field_dict["match_count"] = match_count
 
         return field_dict
 
@@ -241,6 +248,8 @@ class ExplorerEntry:
 
         visibility = d.pop("visibility", UNSET)
 
+        match_count = d.pop("match_count", UNSET)
+
         explorer_entry = cls(
             name=name,
             path=path,
@@ -259,6 +268,7 @@ class ExplorerEntry:
             voices_pending=voices_pending,
             state=state,
             visibility=visibility,
+            match_count=match_count,
         )
 
 

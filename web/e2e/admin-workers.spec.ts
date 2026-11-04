@@ -217,6 +217,17 @@ test.describe.serial("administration et Workers", () => {
     expect(command).not.toContain(HF_TOKEN);
     expect(command).toContain("/api/worker/install/");
     await expectNoViolations(page);
+    // The guide says where to run it, what to prepare and what to do when the invitation is gone.
+    await expect(
+      page.getByRole("heading", { name: "One-command install" }),
+    ).toBeVisible();
+    await expect(page.getByText("open a WSL2 terminal")).toBeVisible();
+    await expect(
+      page.getByText("Docker is installed and running"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("single-use and expires after 15 minutes"),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Copy command" }).click();
     await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
@@ -432,6 +443,18 @@ test.describe.serial("administration et Workers", () => {
     await expect(machine).toContainText("Synthetic GPU");
     await expect(machine).toContainText("555.1");
     await expect(machine).toContainText("1.2.3");
+    // An installed Worker: the one-command panel explains the local launcher against a new
+    // invitation, shows no installation command (it was single-use) and keeps the files advanced (#277).
+    const install = page.getByRole("region", { name: "One-command install" });
+    await expect(install).toContainText("already installed");
+    await expect(
+      install.getByText(`snitch-worker/${firstId}/install.sh`),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Worker installation command" }),
+    ).toHaveCount(0);
+    expect(await install.innerText()).not.toContain(firstToken);
+    await install.getByText("Advanced: deployment files").click();
     // The token is never shown again: the file holds a placeholder.
     const env = page.getByRole("textbox", { name: "Content of .env" });
     expect(await env.inputValue()).not.toContain(firstToken);
