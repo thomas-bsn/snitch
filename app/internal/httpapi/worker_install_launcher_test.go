@@ -118,7 +118,7 @@ func TestInstallerFirstRunAndResumeWithFakeDocker(t *testing.T) {
 		t.Fatalf("worker.env must be mode 600: %v %v", info, err)
 	}
 	content, _ := os.ReadFile(envFile)
-	for _, want := range []string{"SNITCH_WORKER_TOKEN=" + token, "TRANSCRIPTION_MODEL=fixture-model", "TRANSCRIPTION_API_URL=http://gpu.local:9000?a=1&b=2"} {
+	for _, want := range []string{"SNITCH_WORKER_TOKEN=" + token, "TRANSCRIPTION_MODEL=fixture-model", "TRANSCRIPTION_API_URL=http://gpu.local:9000?a=1&b=2", "SNITCH_VOICE_DIARIZATION_MODEL_PATH=/models/diarization", "SNITCH_VOICE_EMBEDDING_MODEL_PATH=/models/embedding"} {
 		if !strings.Contains(string(content), want) {
 			t.Errorf("worker.env lacks %q", want)
 		}

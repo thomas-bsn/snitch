@@ -29,6 +29,12 @@ class VoiceSelftestTests(unittest.TestCase):
     def test_missing_models_are_not_ready(self):
         self.assertFalse(voice_selftest.run_selftest(providers={"pyannote": Provider(ready=False)}))
 
+    def test_failure_reports_the_stable_reason_code(self):
+        report = []
+        self.assertFalse(voice_selftest.run_selftest(providers={"pyannote": Provider(ready=False)}, report=report))
+        self.assertEqual(len(report), 1)
+        self.assertRegex(report[0], r"^[a-z_]+$")
+
     def test_failed_inference_is_not_ready(self):
         self.assertFalse(voice_selftest.run_selftest(providers={"pyannote": Provider(fails=True)}))
 

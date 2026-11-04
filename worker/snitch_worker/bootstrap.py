@@ -128,8 +128,27 @@ def models_present(environ: Mapping[str, str]) -> bool:
     return True
 
 
-def _gpu_available() -> bool:  # pragma: no cover - host dependent
-    return os.path.exists("/dev/nvidiactl")
+GPU_DEVICE_NODES = ("/dev/nvidiactl", "/dev/dxg")  # native Linux, WSL2
+
+
+def _torch_cuda() -> bool | None:  # pragma: no cover - needs torch
+    """True/False when PyTorch can tell whether CUDA is usable, None when it cannot be asked."""
+    try:
+        import torch  # noqa: PLC0415 - lazy: the bootstrap must run without the ML stack
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        return bool(torch.cuda.is_available())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _gpu_available(exists: Callable[[str], bool] = os.path.exists, torch_cuda: Callable[[], bool | None] = _torch_cuda) -> bool:
+    """CUDA actually usable: PyTorch is the authority; device nodes (/dev/dxg on WSL2) only when it is absent."""
+    verdict = torch_cuda()
+    if verdict is not None:
+        return verdict
+    return any(exists(node) for node in GPU_DEVICE_NODES)
 
 
 def _default_downloader(**kwargs: Any) -> Any:  # pragma: no cover - needs network
