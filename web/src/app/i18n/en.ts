@@ -1069,7 +1069,6 @@ export const en = {
         hint: "The image will be cropped to a centred square.",
         remove: "Remove photo",
         updated: "Profile photo updated.",
-        removed: "Personal photo removed.",
         refreshed: "Discord picture refreshed.",
         working: "Working…",
         current: "Showing: {source}.",

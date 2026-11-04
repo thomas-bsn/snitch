@@ -1091,7 +1091,6 @@ export const fr: Messages = {
         hint: "L’image sera recadrée au centre en carré.",
         remove: "Retirer la photo",
         updated: "Photo de profil mise à jour.",
-        removed: "Photo personnelle retirée.",
         refreshed: "Photo Discord actualisée.",
         working: "En cours…",
         current: "Affichée : {source}.",

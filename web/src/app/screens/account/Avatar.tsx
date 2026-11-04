@@ -118,9 +118,13 @@ export function AvatarEditor() {
       });
       setChoosing(false);
       return response.ok ? undefined : "unavailable";
-    }, t("account.profile.avatar.removed"));
+    }, t("account.profile.avatar.updated"));
 
-  const active: Source = choosing ? "custom" : (settings?.source ?? "none");
+  // Without a Discord identity there is nothing to choose between: only the personal photo is offered.
+  const active: Source =
+    choosing || settings?.discord_linked === false
+      ? "custom"
+      : (settings?.source ?? "none");
   const sourceLabel = {
     discord: t("account.profile.avatar.sourceDiscord"),
     custom: t("account.profile.avatar.sourceCustom"),
@@ -143,38 +147,41 @@ export function AvatarEditor() {
           </p>
         )}
       </div>
-      {settings && (
-        <fieldset className="flex flex-col gap-2" disabled={busy}>
-          <legend className="mb-1 text-sm text-mute">
-            {t("account.profile.avatar.sourceLegend")}
-          </legend>
-          {settings.discord_linked && (
-            <label className="flex min-h-11 items-center gap-2">
-              <input
-                type="radio"
-                name="avatar-source"
-                checked={active === "discord"}
-                onChange={() => {
-                  setChoosing(false);
-                  void choose("discord");
-                }}
-              />
-              {t("account.profile.avatar.optionDiscord")}
-            </label>
-          )}
-          <label className="flex min-h-11 items-center gap-2">
-            <input
-              type="radio"
-              name="avatar-source"
-              checked={active === "custom"}
-              onChange={() => {
-                if (settings.has_custom) void choose("custom");
-                else setChoosing(true);
-              }}
-            />
+      {settings?.discord_linked && (
+        <div
+          role="group"
+          aria-label={t("account.profile.avatar.sourceLegend")}
+          className="flex flex-wrap gap-2"
+        >
+          <button
+            type="button"
+            aria-pressed={active === "discord"}
+            disabled={busy}
+            className={buttonClass(
+              active === "discord" ? "primary" : "secondary",
+            )}
+            onClick={() => {
+              setChoosing(false);
+              void choose("discord");
+            }}
+          >
+            {t("account.profile.avatar.optionDiscord")}
+          </button>
+          <button
+            type="button"
+            aria-pressed={active === "custom"}
+            disabled={busy}
+            className={buttonClass(
+              active === "custom" ? "primary" : "secondary",
+            )}
+            onClick={() => {
+              if (settings.has_custom) void choose("custom");
+              else setChoosing(true);
+            }}
+          >
             {t("account.profile.avatar.optionCustom")}
-          </label>
-        </fieldset>
+          </button>
+        </div>
       )}
       {active === "discord" && settings?.discord_linked && (
         <div className="flex flex-col gap-2">
