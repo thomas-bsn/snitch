@@ -12,7 +12,7 @@ La connexion Discord échouait au callback avec `token_exchange`, HTTP 400, `inv
 - `PUBLIC_URL` est supprimée (configuration, Compose, documentation, tests). Une valeur résiduelle dans l'environnement est ignorée.
 - Sans adresse déductible, le démarrage répond `400 public_address_unknown` au lieu de produire une URL invalide.
 - La déduction (`publicOrigin`, `trustedPeer`, ADR 0016) est inchangée : en-têtes de mandataire acceptés seulement d'un pair TCP de confiance.
-- Migration 00092 : les états en vol (10 minutes de vie) sont supprimés, car ils n'ont pas d'adresse enregistrée ; la colonne est `NOT NULL`.
+- Migration 00093 : les états en vol (10 minutes de vie) sont supprimés, car ils n'ont pas d'adresse enregistrée ; la colonne est `NOT NULL`.
 
 ## Conséquences
 

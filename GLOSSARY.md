@@ -22,6 +22,9 @@ _Avoid_ : Source (qui désigne aussi les origines historiques en lecture seule).
 
 **Vidéo non indexée** : Un fichier vidéo présent dans la Racine vidéo que Snitch n'a encore ni lu ni reconnu par son contenu. Ce n'est pas encore un clip ; l'ouvrir l'indexe, sans le transcrire.
 
+**Indexation de la Racine** : L'action explicite d'un administrateur qui donne leur fiche clip, en une fois, à toutes les vidéos de la Racine vidéo qui n'en ont pas, avec ou sans leur analyse complète. Elle ne retraite jamais un clip existant, peut être mise en pause, reprise ou annulée, et continue sans que l'on reste sur la page.
+_Avoid_ : Scan (qui désigne la lecture du disque), import (qui désigne l'envoi de fichiers).
+
 **Demande de création de dossier** : La demande d'un utilisateur de créer un dossier dans la Racine vidéo. Elle attend l'approbation d'un Administrateur ; le dossier d'un Administrateur est créé sans demande.
 
 **Dossier privé** : Un dossier de premier niveau d'une Source que seul le Super-administrateur peut parcourir. Les autres utilisateurs voient son nom avec un cadenas, pas ses clips, sauf ceux qu'ils possèdent ou qui proviennent aussi d'un emplacement visible. Il est distinct de la visibilité d'un clip.

@@ -442,6 +442,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonDuplicates(t, pool)
 	})
+	t.Run("library index", func(t *testing.T) {
+		reset(t)
+		testLibraryIndex(t, pool)
+	})
 	t.Run("person filter", func(t *testing.T) {
 		reset(t)
 		testPersonFilter(t, pool)
@@ -1030,6 +1034,13 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/library/explorer/index", map[string]string{"path": "contract.mp4"}, me.CSRF, 409)
 		call(client, "GET", "/api/admin/settings/automatic-analysis", nil, "", 200)
 		call(client, "PUT", "/api/admin/settings/automatic-analysis", map[string]bool{"enabled": true}, me.CSRF, 200)
+		// Indexation of the whole video root (#275): conformity here, behavior in the library index suite.
+		call(client, "GET", "/api/admin/library/index-runs/preview", nil, "", 409)
+		call(client, "GET", "/api/admin/library/index-runs/current", nil, "", 200)
+		call(client, "POST", "/api/admin/library/index-runs", map[string]string{"mode": "cards"}, me.CSRF, 409)
+		call(client, "POST", "/api/admin/library/index-runs/999999/pause", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/library/index-runs/999999/resume", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/library/index-runs/999999/cancel", nil, me.CSRF, 404)
 		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": false}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
 		call(client, "GET", sourcePath+"/microphone-track", nil, "", 200)

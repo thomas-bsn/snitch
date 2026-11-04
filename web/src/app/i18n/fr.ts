@@ -994,7 +994,7 @@ export const fr: Messages = {
     },
     import: {
       title: "Importez vos premières vidéos",
-      lead: "Envoyez des clips depuis le navigateur ; un transfert interrompu peut être repris.",
+      lead: "Envoyez des clips depuis le navigateur, ou indexez toutes les vidéos déjà présentes dans votre racine vidéo. Un transfert interrompu peut être repris.",
       nothing:
         "Rien n’est scanné ni traité sans votre demande. Vous pourrez importer des vidéos plus tard depuis la page Importer.",
     },
@@ -1221,6 +1221,56 @@ export const fr: Messages = {
       rollback_failed:
         "La nouvelle version a échoué et la précédente ne démarre pas. Vérifiez le Worker.",
     },
+  },
+  libraryIndex: {
+    title: "Indexer toute la racine vidéo",
+    lead: "Donnez à chaque vidéo de la racine sa fiche clip en une seule action, sans ouvrir les dossiers un par un. Les vidéos qui ont déjà un clip ne sont jamais retraitées. Rien ne démarre sans votre confirmation, et le travail continue si vous quittez cette page.",
+    modeLegend: "Ce qu’il faut créer",
+    mode: {
+      cards: "Fiches clip seulement",
+      full: "Fiches clip et analyse complète",
+    },
+    modeHelp: {
+      cards:
+        "Chaque vidéo reçoit sa fiche et peut être ouverte et recherchée par son nom. Aucune transcription ni analyse des voix n’est lancée.",
+      full: "Chaque nouveau clip est aussi transcrit, indexé pour la recherche et analysé pour ses voix via la file de tâches. Les étapes qui demandent un Worker attendent avec leur raison qu’un Worker soit prêt.",
+    },
+    start: "Indexer les vidéos…",
+    confirmTitle: "Indexer la racine vidéo ?",
+    estimate:
+      "{detected} vidéos détectées : {known} ont déjà un clip et restent intactes, {fresh} sont nouvelles.",
+    safety:
+      "Les dossiers privés et cachés ne sont pas touchés sans le droit de les voir. Vous pouvez mettre en pause ou annuler à tout moment ; les clips déjà créés sont conservés.",
+    confirm: "Indexer {count} vidéos",
+    status: {
+      running: "En cours",
+      paused: "En pause",
+      completed: "Terminée",
+      cancelled: "Annulée",
+    },
+    progress: "{done} / {total} vidéos indexées",
+    progressLabel: "Progression de l’indexation",
+    analysisStarted: "{count} analyses mises en file pour l’instant.",
+    waitingForWorker:
+      "Aucun Worker n’est en ligne : les vidéos attendent et reprennent seules dès qu’un Worker se connecte.",
+    failures: "{count} vidéos n’ont pas pu être indexées",
+    failuresTitle: "Vidéos en erreur",
+    failureCode: {
+      missing: "le fichier a disparu",
+      unreadable: "le fichier est illisible",
+      video_missing: "le fichier a disparu",
+      video_unreadable: "le fichier est illisible",
+      transcription_scheduling_failed:
+        "la transcription n’a pas encore pu être planifiée",
+      other: "l’indexation a échoué",
+    },
+    pause: "Mettre en pause",
+    resume: "Reprendre",
+    cancel: "Annuler l’indexation",
+    keep: "Continuer",
+    cancelTitle: "Annuler l’indexation ?",
+    cancelBody:
+      "Les vidéos pas encore indexées ne sont plus demandées. Les clips déjà créés sont conservés.",
   },
   workers: {
     machine: {
