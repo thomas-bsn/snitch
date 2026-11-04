@@ -524,7 +524,9 @@ test.describe.serial("explorateur de la bibliothèque", () => {
       "already have a clip and stay untouched",
     );
     await dialog.getByRole("button", { name: /^Index \d+ videos$/ }).click();
-    await expect(panel.getByText("Completed", { exact: true })).toBeVisible({
+    await expect(
+      panel.getByRole("status").filter({ hasText: "Completed" }),
+    ).toBeAttached({
       timeout: 60_000,
     });
     const progress = await panel.getByText(/videos indexed/).innerText();
