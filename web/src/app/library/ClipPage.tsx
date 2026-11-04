@@ -22,7 +22,7 @@ import { RelaunchVoice } from "./RelaunchVoice";
 import { VoicesTab } from "./VoicesTab";
 import { formatTimecode, parseMoment } from "./clipFormat";
 import { clipTitle, fetchClip, fetchClipVoice, type Clip } from "./libraryApi";
-import { AnalyzeClip } from "./AnalyzeClip";
+import { AnalyzeClip, type Run } from "./AnalyzeClip";
 import { ReanalyzeClip } from "./ReanalyzeClip";
 import { buttonClass } from "../components/buttons";
 
@@ -45,6 +45,26 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
   const voice = useLoaded(
     useCallback(() => fetchClipVoice(clip.id), [clip.id]),
   );
+  // The analysis in progress, as the panel's stream last said it: the stepper reads its steps
+  // from it, so that it moves with the text. It holds until the clip read after the change
+  // lands (a finished analysis then speaks through the clip again), and only for a run seen
+  // in progress on this page: an old finished run says nothing of the clip as it is now.
+  const [live, setLive] = useState<{ run: Run; clip: Clip } | null>(null);
+  const latestClip = useRef(clip);
+  latestClip.current = clip;
+  const followRun = useCallback((next: Run | null) => {
+    setLive((current) =>
+      next && (next.status === "active" || current)
+        ? { run: next, clip: latestClip.current }
+        : null,
+    );
+  }, []);
+  const liveRun =
+    live &&
+    live.run.status !== "cancelled" &&
+    (live.run.status === "active" || live.clip === clip)
+      ? live.run
+      : null;
   useDocumentTitle(clipTitle(clip));
 
   const back = (location.state as { from?: string } | null)?.from ?? "/library";
@@ -172,8 +192,11 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
                 hasTranscription={!neverAnalysed}
                 hasVoices={hasVoices}
                 onChanged={refreshVoices}
+                onRun={followRun}
                 legacy={legacy}
-                summary={<ProgressBanner clip={clip} voice={voiceData} />}
+                summary={
+                  <ProgressBanner clip={clip} voice={voiceData} run={liveRun} />
+                }
               />
             </div>
           </div>
@@ -195,7 +218,12 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
               onPlayhead={setPlayhead}
             />
             <MetadataDisclosure clip={clip} />
-            <ProgressBanner clip={clip} voice={voiceData} assistiveOnly />
+            <ProgressBanner
+              clip={clip}
+              voice={voiceData}
+              run={liveRun}
+              assistiveOnly
+            />
             {neverAnalysed && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent bg-accent-soft p-3">
                 <p className="m-0 font-medium text-ink">
