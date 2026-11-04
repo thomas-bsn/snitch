@@ -2182,6 +2182,8 @@ export const fr: Messages = {
     candidates: "Personnes les plus proches",
     proximity: "{percent} % de proximité",
     yesShort: "Oui",
+    useExisting: "Utiliser {person}",
+    createAnyway: "Créer quand même une nouvelle personne",
     noShort: "Non",
     falseDetection: "Fausse détection",
     looksLike: "Ça ressemble à",

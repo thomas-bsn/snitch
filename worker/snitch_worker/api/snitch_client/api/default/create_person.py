@@ -10,6 +10,7 @@ from ... import errors
 
 from ...models.error import Error
 from ...models.person import Person
+from ...models.person_exists import PersonExists
 from ...models.person_input import PersonInput
 from typing import cast
 
@@ -47,13 +48,20 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Error | Person:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Error | Person | PersonExists:
     if response.status_code == 201:
         response_201 = Person.from_dict(response.json())
 
 
 
         return response_201
+
+    if response.status_code == 409:
+        response_409 = PersonExists.from_dict(response.json())
+
+
+
+        return response_409
 
     response_default = Error.from_dict(response.json())
 
@@ -63,7 +71,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Error | Person]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Error | Person | PersonExists]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -79,7 +87,7 @@ def sync_detailed(
     origin: str,
     x_csrf_token: str,
 
-) -> Response[Error | Person]:
+) -> Response[Error | Person | PersonExists]:
     """  Utilisateurs connectés. Une Personne est une identité, jamais un compte.
 
     Args:
@@ -92,7 +100,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | Person]
+        Response[Error | Person | PersonExists]
      """
 
 
@@ -116,7 +124,7 @@ def sync(
     origin: str,
     x_csrf_token: str,
 
-) -> Error | Person | None:
+) -> Error | Person | PersonExists | None:
     """  Utilisateurs connectés. Une Personne est une identité, jamais un compte.
 
     Args:
@@ -129,7 +137,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | Person
+        Error | Person | PersonExists
      """
 
 
@@ -148,7 +156,7 @@ async def asyncio_detailed(
     origin: str,
     x_csrf_token: str,
 
-) -> Response[Error | Person]:
+) -> Response[Error | Person | PersonExists]:
     """  Utilisateurs connectés. Une Personne est une identité, jamais un compte.
 
     Args:
@@ -161,7 +169,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | Person]
+        Response[Error | Person | PersonExists]
      """
 
 
@@ -185,7 +193,7 @@ async def asyncio(
     origin: str,
     x_csrf_token: str,
 
-) -> Error | Person | None:
+) -> Error | Person | PersonExists | None:
     """  Utilisateurs connectés. Une Personne est une identité, jamais un compte.
 
     Args:
@@ -198,7 +206,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | Person
+        Error | Person | PersonExists
      """
 
 

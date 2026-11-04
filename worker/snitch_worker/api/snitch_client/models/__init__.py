@@ -184,6 +184,9 @@ from .person_correction_result import PersonCorrectionResult
 from .person_event import PersonEvent
 from .person_event_action import PersonEventAction
 from .person_event_list import PersonEventList
+from .person_exists import PersonExists
+from .person_exists_candidates_item import PersonExistsCandidatesItem
+from .person_exists_error import PersonExistsError
 from .person_impact import PersonImpact
 from .person_input import PersonInput
 from .person_link_account import PersonLinkAccount
@@ -620,6 +623,9 @@ __all__ = (
     "PersonEvent",
     "PersonEventAction",
     "PersonEventList",
+    "PersonExists",
+    "PersonExistsCandidatesItem",
+    "PersonExistsError",
     "PersonImpact",
     "PersonInput",
     "PersonLinkAccount",

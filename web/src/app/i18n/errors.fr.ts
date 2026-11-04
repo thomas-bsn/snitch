@@ -288,6 +288,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_voice_trial_id: "Identifiant d’essai invalide.",
   no_voice_candidate: "Aucun échec à relancer pour le candidat.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
+  person_exists:
+    "Une personne porte déjà ce nom. Choisissez-la, ou confirmez qu’il s’agit de quelqu’un d’autre.",
   worker_not_found: "Ce Worker n’existe pas.",
   worker_not_revoked:
     "Seul un Worker supprimé (révoqué) peut être retiré de la liste.",
