@@ -121,7 +121,7 @@ export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
   );
 }
 
-function CommandLine({
+export function CommandLine({
   label,
   hint,
   command,
