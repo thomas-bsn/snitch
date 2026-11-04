@@ -102,12 +102,13 @@ test.describe.serial("explorateur de la bibliothèque", () => {
       .click();
     await expect(page).toHaveURL(/\/clips\/\d+$/);
     await page
+      .getByRole("main")
       .getByRole("link", { name: "Library", exact: true })
-      .first()
       .click();
     await expect(page).toHaveURL(/folder=league%2F2026/);
     await expect(page).toHaveURL(/visibility=shared/);
-    await page.goBack();
+    // The history is [list, clip]: forward reopens the clip, back returns to the list.
+    await page.goForward();
     await expect(page).toHaveURL(/\/clips\/\d+$/);
     await page.goBack();
     await expect(page).toHaveURL(/folder=league%2F2026/);
@@ -128,8 +129,8 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await page.goto("about:blank");
     await page.goto(clip);
     await page
+      .getByRole("main")
       .getByRole("link", { name: "Library", exact: true })
-      .first()
       .click();
     await expect(page).toHaveURL(/\/library$/);
   });

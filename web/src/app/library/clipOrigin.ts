@@ -47,10 +47,19 @@ export function takeScroll(address: string): number | null {
 
 /** Only an address of the Library or of the search can be gone back to. */
 export function backAddress(state: unknown): string {
+  return originAddress(state) ?? "/library";
+}
+
+function originAddress(state: unknown): string | null {
   const from = (state as { from?: unknown } | null)?.from;
   return typeof from === "string" && /^\/(library|search)(\?|$)/.test(from)
     ? from
-    : "/library";
+    : null;
+}
+
+/** Whether the clip was opened from the Library or the search in this tab. */
+export function hasOrigin(state: unknown): boolean {
+  return originAddress(state) !== null;
 }
 
 /** The state to give a link to a clip, and what to do when it is followed. */
