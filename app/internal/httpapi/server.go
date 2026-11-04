@@ -115,8 +115,7 @@ func (s *Server) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		s.startAutomaticAnalysis(ctx, id)
-		return nil
+		return s.startAnalysisAfterManagedScan(ctx, id)
 	}
 	if err := s.Library.Start(ctx); err != nil {
 		s.Uploads.Close()
@@ -184,6 +183,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/library/explorer/index", s.protected(false, http.HandlerFunc(s.explorerIndex)))
 	mux.Handle("POST /api/admin/video-root/folders", s.protected(true, http.HandlerFunc(s.videoFolder)))
 	mux.Handle("POST /api/admin/video-root/scan", s.protected(true, http.HandlerFunc(s.videoScan)))
+	mux.Handle("GET /api/admin/library/index-runs/preview", s.protected(true, http.HandlerFunc(s.previewIndexRun)))
+	mux.Handle("GET /api/admin/library/index-runs/current", s.protected(true, http.HandlerFunc(s.currentIndexRun)))
+	mux.Handle("POST /api/admin/library/index-runs", s.protected(true, http.HandlerFunc(s.startIndexRun)))
+	mux.Handle("POST /api/admin/library/index-runs/{id}/pause", s.protected(true, http.HandlerFunc(s.pauseIndexRun)))
+	mux.Handle("POST /api/admin/library/index-runs/{id}/resume", s.protected(true, http.HandlerFunc(s.resumeIndexRun)))
+	mux.Handle("POST /api/admin/library/index-runs/{id}/cancel", s.protected(true, http.HandlerFunc(s.cancelIndexRun)))
 	// The import picker (#224): any signed-in user, with the same Dossier privé rule as the scan above.
 	mux.Handle("POST /api/library/import/scan", s.protected(false, http.HandlerFunc(s.videoScan)))
 	mux.Handle("POST /api/folder-requests", s.protected(false, http.HandlerFunc(s.createFolderRequest)))

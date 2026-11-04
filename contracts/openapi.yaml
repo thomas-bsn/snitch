@@ -4015,6 +4015,61 @@
         }
       }
     },
+    "/api/admin/library/index-runs/preview": {
+      "get": {
+        "operationId": "previewLibraryIndexRun",
+        "summary": "Estimer l'indexation de toute la Racine vidéo, sans la démarrer (administrateur)",
+        "description": "Parcourt les dossiers de la Racine (jamais le contenu des vidéos). Ne compte ni les dossiers cachés, ni les liens symboliques, ni les fichiers non vidéo ; les Dossiers privés ne sont comptés que pour un Super-administrateur.",
+        "responses": {"200": {"description": "Volume estimé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IndexRunPreview"}}}}, "409": {"description": "video_root_unconfigured", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "422": {"description": "video_selection_too_large : plus de 50 000 vidéos", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/library/index-runs/current": {
+      "get": {
+        "operationId": "getCurrentLibraryIndexRun",
+        "summary": "Dernière indexation de la Racine vidéo et sa progression (administrateur)",
+        "responses": {"200": {"description": "L'indexation la plus récente, ou run null si aucune n'a jamais été demandée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IndexRunAnswer"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/library/index-runs": {
+      "post": {
+        "operationId": "startLibraryIndexRun",
+        "summary": "Indexer toutes les vidéos de la Racine qui n'ont pas encore de fiche clip (administrateur, action explicite)",
+        "description": "mode cards : fiches seulement. mode full : fiches puis analyse complète de chaque nouveau clip, même si l'analyse automatique est désactivée. Une vidéo qui a déjà un clip n'est jamais retraitée. Une seule indexation en cours à la fois. Le travail est fait par le scan géré existant : il survit à un redémarrage.",
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["mode"], "properties": {"mode": {"type": "string", "enum": ["cards", "full"]}}}}}},
+        "responses": {"201": {"description": "Indexation démarrée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IndexRunAnswer"}}}}, "400": {"description": "invalid_index_mode", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "index_run_active : une indexation est déjà en cours ou en pause ; video_root_unconfigured", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "422": {"description": "nothing_to_index : toutes les vidéos ont déjà une fiche ; video_selection_too_large", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/library/index-runs/{id}/pause": {
+      "post": {
+        "operationId": "pauseLibraryIndexRun",
+        "summary": "Mettre l'indexation en pause : les vidéos restantes ne sont plus demandées (administrateur)",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Indexation mise à jour", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IndexRunAnswer"}}}}, "404": {"description": "index_run_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "index_run_state : l'indexation n'est pas en cours", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/library/index-runs/{id}/resume": {
+      "post": {
+        "operationId": "resumeLibraryIndexRun",
+        "summary": "Reprendre une indexation en pause (administrateur)",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Indexation mise à jour", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IndexRunAnswer"}}}}, "404": {"description": "index_run_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "index_run_state : l'indexation n'est pas en pause", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "security": [{"session": []}]
+      }
+    },
+    "/api/admin/library/index-runs/{id}/cancel": {
+      "post": {
+        "operationId": "cancelLibraryIndexRun",
+        "summary": "Annuler l'indexation : les fiches déjà créées sont conservées (administrateur)",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64", "minimum": 1}}, {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "Indexation mise à jour", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IndexRunAnswer"}}}}, "404": {"description": "index_run_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "409": {"description": "index_run_state : l'indexation est terminée ou annulée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/settings/automatic-analysis": {
       "get": {
         "operationId": "getAutomaticAnalysisSetting",
@@ -7893,6 +7948,10 @@
         }
       },
       "PersonExists": {"type": "object", "required": ["error", "candidates"], "properties": {"error": {"type": "string", "enum": ["person_exists"]}, "candidates": {"type": "array", "items": {"type": "object", "required": ["id", "display_name"], "properties": {"id": {"type": "integer", "format": "int64"}, "display_name": {"type": "string"}}}}}},
+      "IndexRunPreview": {"type": "object", "required": ["detected", "already_indexed", "new"], "properties": {"detected": {"type": "integer", "minimum": 0, "description": "Vidéos que l'utilisateur peut voir dans la Racine."}, "already_indexed": {"type": "integer", "minimum": 0, "description": "Déjà dotées d'une fiche clip : jamais retraitées."}, "new": {"type": "integer", "minimum": 0, "description": "Sans fiche clip : celles qu'une indexation traiterait."}}},
+      "IndexRun": {"type": "object", "required": ["id", "mode", "status", "created_at", "finished_at", "total", "indexed", "failed", "pending", "analysis_started", "waiting_for_worker", "failures"], "properties": {"id": {"type": "integer", "format": "int64"}, "mode": {"type": "string", "enum": ["cards", "full"]}, "status": {"type": "string", "enum": ["running", "paused", "cancelled", "completed"]}, "created_at": {"type": "string", "format": "date-time"}, "finished_at": {"type": "string", "format": "date-time", "nullable": true}, "total": {"type": "integer", "minimum": 0}, "indexed": {"type": "integer", "minimum": 0, "description": "Vidéos dont la fiche clip existe."}, "failed": {"type": "integer", "minimum": 0, "description": "Vidéos illisibles ou disparues."}, "pending": {"type": "integer", "minimum": 0}, "analysis_started": {"type": "integer", "minimum": 0, "description": "Clips de l'indexation dont une analyse a été mise en file (mode full)."}, "waiting_for_worker": {"type": "boolean", "description": "Mode full : des vidéos attendent et aucun Worker n'est en ligne."}, "failures": {"type": "array", "items": {"$ref": "#/components/schemas/IndexRunFailure"}, "description": "Les premières vidéos en échec, avec leur code."}}},
+      "IndexRunFailure": {"type": "object", "required": ["path", "code"], "properties": {"path": {"type": "string"}, "code": {"type": "string"}}},
+      "IndexRunAnswer": {"type": "object", "required": ["run"], "properties": {"run": {"allOf": [{"$ref": "#/components/schemas/IndexRun"}], "nullable": true}}},
       "PersonInput": {"type": "object", "additionalProperties": false, "required": ["display_name"], "properties": {"display_name": {"type": "string", "minLength": 1, "maxLength": 100}, "allow_homonym": {"type": "boolean", "description": "Vrai pour créer une Personne de même nom qu'une existante, après que l'utilisateur a refusé de la réutiliser."}}},
       "PersonRef": {"type": "object", "required": ["id", "display_name"], "properties": {"id": {"type": "integer", "format": "int64"}, "display_name": {"type": "string"}}},
       "PersonLinkAccount": {"type": "object", "required": ["id", "username"], "properties": {"id": {"type": "integer", "format": "int64"}, "username": {"type": "string", "description": "Nom du compte au moment de la décision."}}},

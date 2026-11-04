@@ -972,7 +972,7 @@ export const en = {
     },
     import: {
       title: "Import your first videos",
-      lead: "Send clips from the browser; an interrupted transfer can be resumed.",
+      lead: "Send clips from the browser, or index every video already in your video root. An interrupted transfer can be resumed.",
       nothing:
         "Nothing is scanned or processed unless you ask. You can import videos later from the Import page.",
     },
@@ -1197,6 +1197,56 @@ export const en = {
       rollback_failed:
         "The new version failed and the previous one did not start. Check the Worker.",
     },
+  },
+  libraryIndex: {
+    title: "Index the whole video root",
+    lead: "Give every video of the video root its clip card in one action, without opening the folders one by one. Videos that already have a clip are never processed again. Nothing starts until you confirm, and the work continues if you leave this page.",
+    modeLegend: "What to create",
+    mode: {
+      cards: "Clip cards only",
+      full: "Clip cards and full analysis",
+    },
+    modeHelp: {
+      cards:
+        "Each video gets its card and can be opened and searched by name. No transcription or voice analysis is started.",
+      full: "Each new clip is also transcribed, indexed for search and analysed for its voices through the task queue. Steps that need a Worker wait with their reason until one is ready.",
+    },
+    start: "Index the videos…",
+    confirmTitle: "Index the video root?",
+    estimate:
+      "{detected} videos detected: {known} already have a clip and stay untouched, {fresh} are new.",
+    safety:
+      "Private folders and hidden folders are not touched without the right to see them. You can pause or cancel at any time; clips already created are kept.",
+    confirm: "Index {count} videos",
+    status: {
+      running: "In progress",
+      paused: "Paused",
+      completed: "Completed",
+      cancelled: "Cancelled",
+    },
+    progress: "{done} / {total} videos indexed",
+    progressLabel: "Indexation progress",
+    analysisStarted: "{count} analyses queued so far.",
+    waitingForWorker:
+      "No Worker is online: the videos wait and continue by themselves as soon as a Worker connects.",
+    failures: "{count} videos could not be indexed",
+    failuresTitle: "Videos in error",
+    failureCode: {
+      missing: "the file disappeared",
+      unreadable: "the file cannot be read",
+      video_missing: "the file disappeared",
+      video_unreadable: "the file cannot be read",
+      transcription_scheduling_failed:
+        "the transcription could not be scheduled yet",
+      other: "indexing failed",
+    },
+    pause: "Pause",
+    resume: "Resume",
+    cancel: "Cancel the indexation",
+    keep: "Keep going",
+    cancelTitle: "Cancel the indexation?",
+    cancelBody:
+      "The videos not indexed yet are no longer requested. Clips already created are kept.",
   },
   workers: {
     machine: {

@@ -219,6 +219,10 @@ test.describe.serial("assistant d'installation", () => {
     await expect(
       page.getByText("Nothing is scanned or processed"),
     ).toBeVisible();
+    // The same indexation as in the administration, optional, never started by itself.
+    await expect(
+      page.getByRole("region", { name: "Index the whole video root" }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: /open.*import/i })).toHaveCount(
       0,
     );
