@@ -1876,6 +1876,7 @@ export const fr: Messages = {
         none: "Pas commencé",
         queued: "En attente",
         running: "En cours",
+        blocked: "Bloqué",
         done: "Terminé",
         failed: "Échec",
         unavailable: "Non configuré",

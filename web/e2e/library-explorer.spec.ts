@@ -231,6 +231,54 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(row(page, "inner.mp4")).not.toContainText("Not indexed");
   });
 
+  test("la pastille d'une vidéo en cours d'indexation s'anime puis se met à jour seule", async ({
+    page,
+  }) => {
+    // Synthetic answers: the third reading of the folder finds the video indexed.
+    let readings = 0;
+    await page.route("**/api/library/explorer?*", async (route) => {
+      const url = new URL(route.request().url());
+      if (
+        url.searchParams.get("recursive") === "1" ||
+        url.searchParams.get("path") !== "league/2026"
+      ) {
+        return route.fallback();
+      }
+      readings += 1;
+      const items = [
+        {
+          name: "live.mp4",
+          path: "league/2026/live.mp4",
+          folder: "league/2026",
+          directory: false,
+          size_bytes: 1,
+          private: false,
+          locked: false,
+          state: readings >= 3 ? "analyzed" : "in_progress",
+          clip_id: readings >= 3 ? 1 : null,
+        },
+      ];
+      await route.fulfill({
+        json: {
+          source_id: 1,
+          root_configured: true,
+          items,
+          total: items.length,
+          states: [],
+        },
+      });
+    });
+    await page.goto("/library?folder=league%2F2026");
+    const pill = row(page, "live.mp4").locator("[data-indexing]");
+    await expect(pill).toBeVisible();
+    await expect(row(page, "live.mp4")).toContainText("In progress");
+    // No reload of the page, no click: the listing is read again and the pill turns.
+    await expect(row(page, "live.mp4")).toContainText("Analysed", {
+      timeout: 15000,
+    });
+    await expect(pill).toHaveCount(0);
+  });
+
   test("une vidéo encore en cours d'indexation après le délai n'est pas un échec", async ({
     page,
   }) => {

@@ -161,6 +161,17 @@ export function LibraryPage() {
     const timer = window.setInterval(() => listing.reload(), 2000);
     return () => window.clearInterval(timer);
   }, [opening, listing]);
+  // Videos being indexed: the listing is read again while any is, so that its pill turns by
+  // itself when the indexing ends. A hidden tab does not ask; no new stream is opened.
+  const reload = listing.reload; // stable: the timer is not restarted by every render
+  const indexing = items.some((item) => item.state === "in_progress");
+  useEffect(() => {
+    if (!indexing) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") reload();
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [indexing, reload]);
   useEffect(() => {
     if (!opening) return;
     const entry = items.find((item) => item.path === opening);
@@ -1108,6 +1119,13 @@ function ExplorerStatePill({
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${tone[state]}`}
     >
+      {state === "in_progress" && (
+        <span
+          aria-hidden="true"
+          data-indexing
+          className="mr-1.5 size-1.5 rounded-full bg-current motion-safe:animate-pulse"
+        />
+      )}
       {t(`library.explorer.state.${state}`)}
     </span>
   );

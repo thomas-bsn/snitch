@@ -1845,6 +1845,7 @@ export const en = {
         none: "Not started",
         queued: "Waiting",
         running: "In progress",
+        blocked: "Blocked",
         done: "Done",
         failed: "Failed",
         unavailable: "Not set up",

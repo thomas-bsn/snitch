@@ -26,9 +26,15 @@ import { StepFailure } from "./StepFailure";
 type AdminRun = components["schemas"]["ClipAnalysisRun"];
 type View = components["schemas"]["ClipAnalysisView"];
 // Administrators get the full run; every other reader gets the redacted view.
-type Run = AdminRun | View;
+export type Run = AdminRun | View;
 type MediaTrack = components["schemas"]["MediaTrack"];
 type Step = AdminRun["steps"][number];
+
+/** What a run is worth showing: its status and each step's state. Timestamps are left out. */
+export function runSignature(run: Run | null): string {
+  if (!run) return "none";
+  return `${run.status}|${run.steps.map((step) => `${step.step}:${step.status}:${step.reason}:${"job_id" in step ? step.job_id : ""}`).join(",")}`;
+}
 
 /**
  * The analysis of a clip: a live pill in the header opens the analysis panel. The state of
@@ -42,6 +48,7 @@ export function AnalyzeClip({
   hasTranscription,
   hasVoices,
   onChanged,
+  onRun,
   legacy,
   summary,
 }: {
@@ -56,6 +63,8 @@ export function AnalyzeClip({
   /** Whether a voice detection was ever launched on the clip. */
   hasVoices: boolean;
   onChanged: () => void;
+  /** Every run snapshot, so that what the page shows beside the panel follows the same one. */
+  onRun?: (run: Run | null) => void;
 }) {
   const { t, error } = useI18n();
   const { user, session } = useSession();
@@ -70,15 +79,24 @@ export function AnalyzeClip({
   const [reanalyzing, setReanalyzing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const wasActive = useRef(false);
+  const seen = useRef<string | null>(null);
 
   const apply = useCallback(
     (next: Run | null) => {
       setRun(next);
+      onRun?.(next);
       const active = next?.status === "active";
-      if (wasActive.current && !active) onChanged();
+      // The progress shown beside the steps comes from the clip and its voices, read once by
+      // the page: whenever the run moves (a step changes state, the run starts or ends), the
+      // page reads them again so that text and stepper show the same instant. The first
+      // snapshot only sets the reference: the page has just loaded.
+      const signature = runSignature(next);
+      const moved = seen.current !== null && seen.current !== signature;
+      seen.current = signature;
+      if (moved || (wasActive.current && !active)) onChanged();
       wasActive.current = active;
     },
-    [onChanged],
+    [onChanged, onRun],
   );
 
   const refresh = useCallback(async () => {

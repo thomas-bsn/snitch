@@ -5,6 +5,7 @@ export type StepState =
   | "none"
   | "queued"
   | "running"
+  | "blocked"
   | "done"
   | "failed"
   | "unavailable"
@@ -40,20 +41,57 @@ function voiceIdentification(
   return { state: done === 0 ? "none" : "partial", detail };
 }
 
-/** The five steps of a clip, from what the server says of it and of its voices. */
-export function clipSteps(clip: Clip, voice: ClipVoice | null): Step[] {
-  const processed = voiceProcessing(voice);
+/** A run, reduced to what the steps need: the state the server gives each of its steps. */
+export type LiveRun = {
+  status: string;
+  steps: readonly { step: string; status: string }[];
+};
+
+/** The state of a clip step as the run in progress says it; null when the run does not decide. */
+function runStepState(run: LiveRun | null, name: string): StepState | null {
+  const status = run?.steps.find((s) => s.step === name)?.status;
+  switch (status) {
+    case "running":
+      return "running";
+    case "waiting":
+    case "retry":
+      return "queued";
+    case "blocked":
+      return "blocked";
+    case "failed":
+      return "failed";
+    case "done":
+      return "done";
+    default:
+      return null; // not applicable, or not in the run: the clip's own state stands.
+  }
+}
+
+/**
+ * The five steps of a clip, from what the server says of it and of its voices. While an analysis
+ * runs, its steps are read from the run itself, the same snapshot as the text beside them,
+ * rather than from a clip read a moment ago.
+ */
+export function clipSteps(
+  clip: Clip,
+  voice: ClipVoice | null,
+  run: LiveRun | null = null,
+): Step[] {
+  const processed = runStepState(run, "diarization") ?? voiceProcessing(voice);
   return [
     { key: "imported", label: "clip.progress.imported", state: "done" },
     {
       key: "transcribed",
       label: "clip.progress.transcribed",
-      state: clip.progress?.transcription ?? "none",
+      state:
+        runStepState(run, "transcription") ??
+        clip.progress?.transcription ??
+        "none",
     },
     {
       key: "indexed",
       label: "clip.progress.indexed",
-      state: clip.progress?.indexing ?? "none",
+      state: runStepState(run, "indexing") ?? clip.progress?.indexing ?? "none",
     },
     {
       key: "voicesProcessed",
