@@ -90,13 +90,21 @@ async function simulate(page: Page, clipId: number, server: Server) {
     route.fulfill({ json: { run: runBody(server) } }),
   );
   await page.route(new RegExp(`/api/clips/${clipId}$`), async (route) => {
-    const real = await route.fetch();
-    if (server.clipDelayMs)
-      await new Promise((done) => setTimeout(done, server.clipDelayMs));
-    await route.fulfill({
-      response: real,
-      json: { ...(await real.json()), progress: server.progress },
-    });
+    // Read the body at once: a response held across the delay is disposed when the page navigates
+    // or closes meanwhile, and the handler must not fail the test for a request nobody awaits anymore.
+    try {
+      const real = await route.fetch();
+      const body = await real.json();
+      if (server.clipDelayMs)
+        await new Promise((done) => setTimeout(done, server.clipDelayMs));
+      await route.fulfill({
+        status: real.status(),
+        headers: real.headers(),
+        json: { ...body, progress: server.progress },
+      });
+    } catch {
+      // The page is gone: nothing left to answer.
+    }
   });
 }
 
