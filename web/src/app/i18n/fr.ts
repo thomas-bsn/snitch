@@ -1716,6 +1716,7 @@ export const fr: Messages = {
       counts: "{folders} dossier(s) · {videos} vidéo(s)",
       root: "videos",
       voicesToProcess: "{count} voix à traiter",
+      matchCount: "{count} correspondante(s)",
       searchIn: "Rechercher dans {folder}",
       flatHint:
         "Résultats de {folder} et de ses sous-dossiers, avec leur dossier.",
@@ -1786,6 +1787,14 @@ export const fr: Messages = {
       unknownVoices: "Voix inconnues",
       voices: "Voix",
       voicesPending: "Avec des voix à traiter",
+      stage: "Traitement",
+      stages: {
+        all: "Toutes les vidéos",
+        indexed: "Indexées",
+        transcribed: "Transcrites",
+        voices: "Voix traitées",
+        complete: "Analyse complète",
+      },
       clear: "Effacer les filtres",
     },
     state: {

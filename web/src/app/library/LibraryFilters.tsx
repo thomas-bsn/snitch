@@ -2,13 +2,15 @@ import { useId } from "react";
 import { buttonClass } from "../components/buttons";
 import { DateField, Select } from "../components/FilterFields";
 import { useI18n } from "../i18n";
-import { EXPLORER_STATES } from "./explorerApi";
+import { EXPLORER_STAGES, EXPLORER_STATES } from "./explorerApi";
 import type { ClipFilterOptions, Person } from "./libraryApi";
 
 /** The explorer's filters, kept in the address. */
 export type ExplorerFilters = {
   q: string;
   state: string;
+  /** Processing stage: keeps the videos that reached it, and the folders that lead to them. */
+  stage: string;
   game: string;
   from: string;
   to: string;
@@ -118,6 +120,18 @@ export function LibraryFilters({
         {EXPLORER_STATES.map((state) => (
           <option key={state} value={state}>
             {t(`library.explorer.state.${state}`)}
+          </option>
+        ))}
+      </Select>
+      <Select
+        label={t("library.filters.stage")}
+        value={filters.stage}
+        onChange={(stage) => onChange({ stage })}
+      >
+        <option value="">{t("library.filters.stages.all")}</option>
+        {EXPLORER_STAGES.map((stage) => (
+          <option key={stage} value={stage}>
+            {t(`library.filters.stages.${stage}`)}
           </option>
         ))}
       </Select>

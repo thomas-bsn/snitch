@@ -59,9 +59,25 @@ type explorerEntry struct {
 	RecordedAt      *time.Time `json:"recorded_at"`
 	Game            string     `json:"game"`
 	VoicesPending   int        `json:"voices_pending"`
+	// MatchCount is set on the folders of a filtered tree: the videos under it that match, the viewer's
+	// own permissions applied (#282).
+	MatchCount *int `json:"match_count,omitempty"`
 }
 
 // explorerRecord is what the database knows about one video path of the root.
+// explorerStages are the processing stages a filter can ask for (#282). They read the workflow the Task Queue
+// and the clip page read: "indexed" is a clip that exists (the glossary's Vidéo non indexée has none), the
+// others need the steps of the analysis to be done.
+var explorerStages = []string{"indexed", "transcribed", "voices", "complete"}
+
+// stagesOf tells which stages a clip has reached from its analysis state.
+func (st analysisState) stagesOf() (transcribed, voices, complete bool) {
+	transcribed = st.done || st.steps["transcription"]
+	voices = st.steps["diarization"] && st.steps["fingerprints"] && st.steps["matching"]
+	complete = transcribed && voices && st.steps["indexing"]
+	return
+}
+
 type explorerRecord struct {
 	status, errorCode string
 	clipID            *int64
@@ -77,11 +93,13 @@ type explorerRecord struct {
 	game              string
 	// person is set when the clip has a voice attributed to the filtered Person.
 	person bool
+	// Stages reached by the clip (see explorerStages).
+	transcribed, voicesDone, complete bool
 }
 
 type explorerFilters struct {
-	query, state, game, visibility, from, to string
-	owner, person                            int64
+	query, state, stage, game, visibility, from, to string
+	owner, person                                   int64
 	// voices keeps the videos that still have voices to process.
 	voices bool
 }
@@ -90,7 +108,7 @@ type explorerFilters struct {
 type explorerPage struct{ limit, offset int }
 
 func (f explorerFilters) active() bool {
-	return f.query != "" || f.state != "" || f.game != "" || f.visibility != "" || f.from != "" || f.to != "" || f.owner != 0 || f.person != 0 || f.voices
+	return f.query != "" || f.state != "" || f.stage != "" || f.game != "" || f.visibility != "" || f.from != "" || f.to != "" || f.owner != 0 || f.person != 0 || f.voices
 }
 
 func explorerFiltersFrom(r *http.Request) (explorerFilters, bool) {
@@ -98,12 +116,16 @@ func explorerFiltersFrom(r *http.Request) (explorerFilters, bool) {
 	f := explorerFilters{
 		query:      strings.ToLower(strings.TrimSpace(q.Get("q"))),
 		state:      q.Get("state"),
+		stage:      q.Get("stage"),
 		game:       strings.TrimSpace(q.Get("game")),
 		visibility: q.Get("visibility"),
 		from:       q.Get("from"),
 		to:         q.Get("to"),
 	}
 	if f.state != "" && !contains(explorerStates, f.state) {
+		return f, false
+	}
+	if f.stage != "" && !contains(explorerStages, f.stage) {
 		return f, false
 	}
 	if f.visibility != "" && f.visibility != "shared" && f.visibility != "private" {
@@ -266,6 +288,7 @@ func (s *Server) explorerRecordsBatch(r *http.Request, sourceID int64, paths []s
 		rec.person = people[*rec.clipID]
 		st := states[*rec.clipID]
 		rec.state, rec.voices = analysisLabel(st.done, st.latest), st.voicesPending
+		rec.transcribed, rec.voicesDone, rec.complete = st.stagesOf()
 		if rec.state == "transcribed" && rec.voices == 0 {
 			rec.state = "analyzed"
 		}
@@ -302,6 +325,8 @@ type analysisState struct {
 	done          bool
 	latest        string
 	voicesPending int
+	// steps holds the steps of the analysis found done in the newest run where they apply.
+	steps map[string]bool
 }
 
 // explorerAnalysis reads the analysis state of clips: the newest transcription job, and the voices still
@@ -326,9 +351,31 @@ func (s *Server) explorerAnalysis(r *http.Request, clipIDs []int64) (map[int64]a
 		if err := analysisRows.Scan(&id, &st.done, &st.latest, &st.voicesPending); err != nil {
 			return nil, err
 		}
+		st.steps = map[string]bool{}
 		states[id] = st
 	}
-	return states, analysisRows.Err()
+	if err := analysisRows.Err(); err != nil {
+		return nil, err
+	}
+	stepRows, err := s.Pool.Query(r.Context(), `SELECT DISTINCT ON (r.clip_id, st.step) r.clip_id, st.step, st.status
+	  FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id
+	  WHERE r.clip_id=ANY($1) AND r.status<>'cancelled' AND st.status<>'not_applicable'
+	  ORDER BY r.clip_id, st.step, r.id DESC`, clipIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer stepRows.Close()
+	for stepRows.Next() {
+		var id int64
+		var step, status string
+		if err := stepRows.Scan(&id, &step, &status); err != nil {
+			return nil, err
+		}
+		if st, ok := states[id]; ok && status == "done" {
+			st.steps[step] = true
+		}
+	}
+	return states, stepRows.Err()
 }
 
 // analysisLabel maps the transcription state of a clip to an explorer state.
@@ -375,7 +422,21 @@ func (f explorerFilters) matches(name, folder string, rec explorerRecord, found 
 		return false
 	}
 	if !found || rec.clipID == nil {
-		return f.game == "" && f.visibility == "" && f.from == "" && f.to == "" && f.owner == 0 && f.person == 0 && !f.voices
+		return f.stage == "" && f.game == "" && f.visibility == "" && f.from == "" && f.to == "" && f.owner == 0 && f.person == 0 && !f.voices
+	}
+	switch f.stage {
+	case "transcribed":
+		if !rec.transcribed {
+			return false
+		}
+	case "voices":
+		if !rec.voicesDone {
+			return false
+		}
+	case "complete":
+		if !rec.complete {
+			return false
+		}
 	}
 	if f.person != 0 && !rec.person || f.voices && rec.voices == 0 {
 		return false
@@ -458,7 +519,9 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 		private           bool
 	}
 	var candidates []candidate
-	if recursive {
+	// A filtered view needs every descendant: folders are kept only when one of them matches (#282).
+	tree := !recursive && filters.active()
+	if recursive || tree {
 		err = filepath.WalkDir(base, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -604,10 +667,11 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := []explorerEntry{}
+	matches := map[string]int{}
 	for _, c := range candidates {
 		e := explorerEntry{Name: c.name, Path: c.rel, Folder: c.folder, Directory: c.directory, SizeBytes: c.size, Private: c.private, Locked: c.private && !superAdmin}
 		if c.directory {
-			// A filtered view is flat: its results are the videos, not the folders.
+			// A filtered view lists videos; its folders are rebuilt below from the matches.
 			if filters.active() {
 				continue
 			}
@@ -625,7 +689,18 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 		if found {
 			fillExplorerEntry(&e, rec)
 		}
+		if tree && c.folder != relative {
+			// Counted under the child folder of the current one that leads to this video.
+			child := strings.SplitN(strings.TrimPrefix(strings.TrimPrefix(c.rel, relative), "/"), "/", 2)[0]
+			path := filepath.ToSlash(filepath.Join(relative, child))
+			matches[path]++
+			continue
+		}
 		out = append(out, e)
+	}
+	for path, n := range matches {
+		n := n
+		out = append(out, explorerEntry{Name: filepath.Base(path), Path: path, Folder: relative, Directory: true, Private: relative == "" && private[path], Locked: relative == "" && private[path] && !superAdmin, MatchCount: &n})
 	}
 	if relative == "" {
 		loose, looseRecords, err := s.explorerLoose(r, root.ID, ss.User.ID, admin, filters.person)
@@ -782,6 +857,7 @@ func (s *Server) explorerLoose(r *http.Request, rootID, userID int64, admin bool
 		st := states[*l.rec.clipID]
 		l.rec.person = people[*l.rec.clipID]
 		l.rec.state, l.rec.voices = analysisLabel(st.done, st.latest), st.voicesPending
+		l.rec.transcribed, l.rec.voicesDone, l.rec.complete = st.stagesOf()
 		if l.rec.state == "transcribed" && l.rec.voices == 0 {
 			l.rec.state = "analyzed"
 		}
