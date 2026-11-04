@@ -1,5 +1,5 @@
 import { Check, Copy } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
@@ -15,6 +15,7 @@ export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
   const { t } = useI18n();
   const formatDate = useFormatDate();
   const panelId = useId();
+  const titleId = useId();
   const [open, setOpen] = useState(false);
   // The pulse seen when the panel opened: a return needs a newer one.
   const [baseline, setBaseline] = useState<string | null>(null);
@@ -32,11 +33,11 @@ export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
 
   return (
     <section
-      aria-label={t("workers.diagnostics.title")}
+      aria-labelledby={titleId}
       className="flex flex-col gap-3 rounded-xl border border-line p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base font-semibold">
+        <h3 id={titleId} className="text-base font-semibold">
           {t("workers.diagnostics.title")}
         </h3>
         <button
@@ -97,23 +98,25 @@ export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
               hint={t("workers.diagnostics.launcherHint")}
               command={commands.launcher}
             />
-            <p
-              role="status"
-              className={
-                returned
-                  ? "rounded-lg bg-ok-bg px-3 py-2.5 text-ok-fg"
-                  : "rounded-lg bg-side px-3 py-2.5 text-mute"
-              }
-            >
-              {returned && worker.last_seen_at
-                ? t("workers.diagnostics.returned", {
-                    date: formatDate(worker.last_seen_at),
-                  })
-                : t("workers.diagnostics.waiting")}
-            </p>
           </>
         )}
       </div>
+      {/* Mounted for good, so a screen reader announces its change when the text arrives. */}
+      <p
+        role="status"
+        hidden={!open}
+        className={
+          returned
+            ? "rounded-lg bg-ok-bg px-3 py-2.5 text-ok-fg"
+            : "rounded-lg bg-side px-3 py-2.5 text-mute"
+        }
+      >
+        {returned && worker.last_seen_at
+          ? t("workers.diagnostics.returned", {
+              date: formatDate(worker.last_seen_at),
+            })
+          : t("workers.diagnostics.waiting")}
+      </p>
     </section>
   );
 }
@@ -130,12 +133,17 @@ function CommandLine({
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The confirmation fades after 2 s; leaving the page cancels it.
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
   async function copy() {
     try {
       await navigator.clipboard.writeText(command);
       setFailed(false);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     } catch {
       setFailed(true);
     }

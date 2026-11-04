@@ -101,15 +101,16 @@ export function recoveryHints(
 ): RecoveryHint[] {
   const never =
     install?.state === "never_connected" || install?.state === "installing";
-  return never
-    ? [
-        "installer_missing",
-        "docker_daemon",
-        "wsl_stopped",
-        "unreachable",
-        "token_rejected",
-      ]
-    : [...RECOVERY_HINTS];
+  if (never)
+    return [
+      "installer_missing",
+      "docker_daemon",
+      "wsl_stopped",
+      "unreachable",
+      "token_rejected",
+    ];
+  // A Worker that already pulsed was installed: a missing launcher is not a lead for it.
+  return RECOVERY_HINTS.filter((hint) => hint !== "installer_missing");
 }
 
 /** Local commands for one Worker, run on its own machine. They carry only its identifier: never a

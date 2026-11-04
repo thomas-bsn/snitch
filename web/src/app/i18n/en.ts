@@ -1251,7 +1251,7 @@ export const en = {
         unreachable:
           "Snitch or the transcription server cannot be reached from the machine.",
         installer_missing:
-          "The launcher is missing on the machine: run the installation command again.",
+          "The launcher is missing on the machine: run the Worker's installation again (generate a new command from this page if the old one was single-use).",
         no_pulse_after_restart:
           "After a restart, allow about 30 seconds for the next pulse.",
       },

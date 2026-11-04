@@ -1276,7 +1276,7 @@ export const fr: Messages = {
         unreachable:
           "Snitch ou le serveur de transcription est injoignable depuis la machine.",
         installer_missing:
-          "Le lanceur est absent de la machine : relancez la commande d’installation.",
+          "Le lanceur est absent de la machine : refaites l’installation du Worker (générez une nouvelle commande depuis cette page si l’ancienne était à usage unique).",
         no_pulse_after_restart:
           "Après un redémarrage, comptez environ 30 secondes avant le prochain pouls.",
       },
