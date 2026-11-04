@@ -151,12 +151,42 @@ test.describe.serial("explorateur de la bibliothèque", () => {
   test("un filtre donne des résultats à plat avec leur dossier", async ({
     page,
   }) => {
-    await page.goto("/library?q=inner");
+    await page.goto("/library?filter=inner");
     await expect(
       page.getByRole("columnheader", { name: "Folder" }),
     ).toBeVisible();
     await expect(row(page, "inner.mp4")).toContainText("league/2026/sub");
     await expect(row(page, "top.mp4")).toHaveCount(0);
+  });
+
+  test("le filtre survit au rafraîchissement, au retour/avant et se combine avec un autre filtre", async ({
+    page,
+  }) => {
+    const box = page.getByRole("searchbox", { name: "Search in this folder" });
+    await page.goto("/library?filter=inner&visibility=shared");
+    await expect(box).toHaveValue("inner");
+    await page.reload();
+    await expect(box).toHaveValue("inner");
+    await expect(page.getByLabel("Visibility", { exact: true })).toHaveValue(
+      "shared",
+    );
+    await box.fill("top");
+    await expect(page).toHaveURL(/filter=top/);
+    await expect(page).toHaveURL(/visibility=shared/);
+    await page.goBack();
+    await expect(box).toHaveValue("inner");
+    await page.goForward();
+    await expect(box).toHaveValue("top");
+  });
+
+  test("un ancien lien ?q= n'applique aucun filtre à la bibliothèque", async ({
+    page,
+  }) => {
+    await page.goto("/library?q=inner");
+    await expect(
+      page.getByRole("searchbox", { name: "Search in this folder" }),
+    ).toHaveValue("");
+    await expect(row(page, "top.mp4")).toBeVisible();
   });
 
   test("la vue icônes et la vue liste se basculent et restent accessibles", async ({

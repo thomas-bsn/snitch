@@ -116,10 +116,33 @@ test.describe.serial("recherche par citation", () => {
       .getByRole("navigation", { name: "Main navigation" })
       .getByRole("link", { name: "Library" })
       .click();
+    // The words searched in the transcripts never become a Library filter,
+    // yet stay in the address so coming back to Search finds them again.
     await expect(page).toHaveURL(/\/library\?.*q=jou/);
+    await expect(page).not.toHaveURL(/filter=/);
+    await expect(
+      page.getByRole("searchbox", { name: "Search in this folder" }),
+    ).toHaveValue("");
     await expect(page.getByLabel("Visibility", { exact: true })).toHaveValue(
       "shared",
     );
+    // A Library filter typed on purpose is independent of the words and
+    // survives a round trip through Search.
+    await page
+      .getByRole("searchbox", { name: "Search in this folder" })
+      .fill("clip");
+    await expect(page).toHaveURL(/filter=clip/);
+    await page.getByRole("link", { name: "Search" }).last().click();
+    await expect(
+      page.getByRole("searchbox", { name: "What was said" }),
+    ).toHaveValue("joué");
+    await page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("link", { name: "Library" })
+      .click();
+    await expect(
+      page.getByRole("searchbox", { name: "Search in this folder" }),
+    ).toHaveValue("clip");
     await context.close();
   });
 
