@@ -1152,6 +1152,10 @@ export const en = {
       personLinks: "Link requests",
     },
   },
+  renderFailure: {
+    message:
+      "This screen could not be displayed. Reload the page; if it persists, report the message below.",
+  },
   workerUpdates: {
     title: "Worker updates",
     lead: "Choose the version every Worker must run. Each Worker checks about every 10 minutes and updates itself. Choosing no version turns automatic updates off; going back to an older version is a rollback.",

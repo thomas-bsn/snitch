@@ -1176,6 +1176,10 @@ export const fr: Messages = {
       personLinks: "Demandes de liaison",
     },
   },
+  renderFailure: {
+    message:
+      "Cet écran n’a pas pu s’afficher. Rechargez la page ; si cela persiste, signalez le message ci-dessous.",
+  },
   workerUpdates: {
     title: "Mises à jour des Workers",
     lead: "Choisissez la version que chaque Worker doit faire tourner. Chaque Worker vérifie environ toutes les 10 minutes et se met à jour lui-même. Ne choisir aucune version désactive les mises à jour automatiques ; revenir à une version plus ancienne est un retour arrière.",

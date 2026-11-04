@@ -97,6 +97,29 @@ func testWorkerUpdates(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("reported status: %+v", after.Workers)
 	}
 
+	// A registry without any release, or unreachable, still sends arrays: null would blank the screen.
+	for name, handler := range map[string]http.HandlerFunc{
+		"no tags": func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/token" {
+				_ = json.NewEncoder(w).Encode(map[string]string{"token": "anon"})
+				return
+			}
+			_, _ = w.Write([]byte(`{"tags":[]}`))
+		},
+		"unreachable": func(w http.ResponseWriter, r *http.Request) { http.Error(w, "down", http.StatusBadGateway) },
+	} {
+		empty := httptest.NewTLSServer(handler)
+		h.server.workerCatalogBuilt = &workerupdate.Catalog{Client: empty.Client(), Registry: empty.URL, Repo: "thomas-bsn/snitch-worker"}
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(h.do(h.admin, http.MethodGet, h.ts.URL+"/api/admin/worker-updates", nil, "", "", false, http.StatusOK), &raw); err != nil {
+			t.Fatal(err)
+		}
+		if string(raw["catalog"]) != "[]" {
+			t.Fatalf("%s: catalog %s", name, raw["catalog"])
+		}
+		empty.Close()
+	}
+
 	// Choosing nothing turns automatic updates off for every Worker.
 	h.adminCall(http.MethodPut, "/api/admin/worker-updates", []byte(`{"version":null}`), http.StatusOK)
 	if err := json.Unmarshal(h.get(h.ts.URL+"/api/worker/update", token, http.StatusOK), &target); err != nil || target.TargetImage != nil {

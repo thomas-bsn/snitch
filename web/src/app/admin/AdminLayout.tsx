@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router";
+import { RenderBoundary } from "../components/RenderBoundary";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import { ADMIN_TABS } from "./tabs";
@@ -71,7 +72,9 @@ export function AdminLayout() {
           </ul>
         </nav>
       )}
-      <Outlet />
+      <RenderBoundary resetKey={pathname}>
+        <Outlet />
+      </RenderBoundary>
     </section>
   );
 }

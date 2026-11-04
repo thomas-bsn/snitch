@@ -82,6 +82,10 @@ func (s *Server) getWorkerUpdates(w http.ResponseWriter, r *http.Request) {
 	if c := s.workerCatalogFor(); c != nil {
 		catalog, catalogErr = c.Versions(r.Context())
 	}
+	if catalog == nil {
+		// The contract promises an array: an empty catalogue must not reach the screen as null.
+		catalog = []string{}
+	}
 	rows, err := s.Pool.Query(r.Context(), `SELECT w.id,w.name,COALESCE(s.state,''),COALESCE(s.version,''),COALESCE(s.digest,''),COALESCE(s.cause_code,''),s.reported_at
 		FROM workers w LEFT JOIN worker_update_status s ON s.worker_id=w.id WHERE w.revoked_at IS NULL ORDER BY w.name,w.id`)
 	if err != nil {
