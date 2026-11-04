@@ -606,6 +606,25 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 	if err != nil {
 		return err
 	}
+	coverageTurns := make([]coverageTurn, len(turns))
+	for i, t := range turns {
+		coverageTurns[i] = coverageTurn{SpeakerID: t.id, Start: t.start, End: t.end}
+	}
+	coverageSegments := []coverageSegment{}
+	for position, raw := range segments {
+		if segment, isMap := raw.(map[string]any); isMap {
+			start, startOK := segment["start"].(float64)
+			end, endOK := segment["end"].(float64)
+			if startOK && endOK {
+				cs := coverageSegment{Start: start, End: end}
+				if st, found := states[position]; found && st.StaleAt == nil && st.SpeakerOverrideID != nil {
+					cs.OverrideSpeakerID = st.SpeakerOverrideID
+				}
+				coverageSegments = append(coverageSegments, cs)
+			}
+		}
+	}
+	object["speaker_coverage"] = speakerCoverage(coverageTurns, coverageSegments)
 	for position, raw := range segments {
 		segment, isMap := raw.(map[string]any)
 		if !isMap {
