@@ -253,20 +253,25 @@ func (s *Server) startAutomaticAnalysis(ctx context.Context, clipID int64) {
 }
 
 // startAnalysisAfterManagedScan starts the analysis of a clip the managed scan just made ready. A
-// clip of a running "full" Racine indexation (#275) is analysed because the Administrator asked for
-// it, whatever the automatic setting says; any other clip follows the setting (ADR 0035).
-func (s *Server) startAnalysisAfterManagedScan(ctx context.Context, clipID int64) {
+// clip of a running or paused "full" Racine indexation (#275) is analysed because the Administrator
+// asked for it, whatever the automatic setting says (a video the scan finishes just after a pause keeps
+// its analysis; a cancelled run no longer asks for anything); any other clip follows the setting (ADR 0035).
+func (s *Server) startAnalysisAfterManagedScan(ctx context.Context, clipID int64) error {
 	var full bool
-	if err := s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM source_files sf JOIN library_index_runs r ON r.id=sf.index_run_id WHERE sf.clip_id=$1 AND r.mode='full' AND r.status='running')`, clipID).Scan(&full); err != nil {
+	if err := s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM source_files sf JOIN library_index_runs r ON r.id=sf.index_run_id WHERE sf.clip_id=$1 AND r.mode='full' AND r.status IN ('running','paused'))`, clipID).Scan(&full); err != nil {
 		s.Log.Warn("read index run of the clip", "clip", clipID, "error", err)
 	}
 	if !full {
 		s.startAutomaticAnalysis(ctx, clipID)
-		return
+		return nil
 	}
-	if _, _, err := s.Analysis.Start(ctx, clipID, analysis.ScopeFull, 0); err != nil {
+	// The Administrator asked for this analysis: a start that fails keeps the video requested, so the
+	// scan retries slowly instead of counting it done with no analysis. An analysis already active is fine.
+	if _, _, err := s.Analysis.Start(ctx, clipID, analysis.ScopeFull, 0); err != nil && !errors.Is(err, analysis.ErrScopeConflict) {
 		s.Log.Warn("start analysis of an indexed root video", "clip", clipID, "error", err)
+		return err
 	}
+	return nil
 }
 
 func (s *Server) startClipAnalysis(w http.ResponseWriter, r *http.Request) {

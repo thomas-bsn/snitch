@@ -114,8 +114,7 @@ func (s *Server) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		s.startAnalysisAfterManagedScan(ctx, id)
-		return nil
+		return s.startAnalysisAfterManagedScan(ctx, id)
 	}
 	if err := s.Library.Start(ctx); err != nil {
 		s.Uploads.Close()

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ErrorAlert, StatusNotice } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -58,10 +58,25 @@ export function RootIndexingPanel({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
 
+  // One read at a time, and none after the panel is gone: a slow answer never overwrites a newer one.
+  const reading = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const refresh = useCallback(async () => {
+    if (reading.current) return;
+    reading.current = true;
     const result = await fetchCurrentIndexRun();
-    if (result.ok) setRun(result.value);
-    else setFailure(result.code);
+    reading.current = false;
+    if (!mounted.current) return;
+    if (result.ok) {
+      setRun(result.value);
+      setFailure(undefined);
+    } else setFailure(result.code);
   }, []);
 
   useEffect(() => {
@@ -150,7 +165,11 @@ export function RootIndexingPanel({
               {t(`libraryIndex.mode.${run.mode}`)}
             </span>
           </div>
-          <p role="status" className="font-medium">
+          {/* Announced only when the state changes, not at every refresh of the counters. */}
+          <p role="status" className="sr-only">
+            {t(`libraryIndex.status.${run.status}`)}
+          </p>
+          <p className="font-medium">
             {t("libraryIndex.progress", {
               done: run.indexed,
               total: run.total,

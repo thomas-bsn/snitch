@@ -527,7 +527,7 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(panel.getByText("Completed", { exact: true })).toBeVisible({
       timeout: 60_000,
     });
-    const progress = await panel.getByRole("status").first().innerText();
+    const progress = await panel.getByText(/videos indexed/).innerText();
     const done = /(\d+) \/ (\d+) videos indexed/.exec(progress);
     expect(done && done[1] === done[2]).toBeTruthy();
     // Every video has its card now (the exactly-once guarantee is checked by the Go test).

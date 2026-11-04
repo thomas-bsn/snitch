@@ -244,7 +244,12 @@ func (s *Server) startIndexRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Library.ScheduleScan(sourceID, 0)
-	view, err := s.indexRunView(ctx, runID)
+	hidden, err := s.hiddenPaths(r, sourceID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	view, err := s.indexRunView(ctx, runID, hidden)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -254,9 +259,22 @@ func (s *Server) startIndexRun(w http.ResponseWriter, r *http.Request) {
 
 const indexRunColumns = `id,source_id,mode,status,created_at,finished_at`
 
+// hiddenPaths returns the filter that keeps the paths of Dossiers privés from a viewer who may not open them.
+func (s *Server) hiddenPaths(r *http.Request, sourceID int64) (func(string) bool, error) {
+	ss := r.Context().Value(sessionKey{}).(session)
+	if isSuperAdministrator(ss.User.Role) {
+		return nil, nil
+	}
+	private, err := s.privateTopFolders(r, sourceID)
+	if err != nil {
+		return nil, err
+	}
+	return func(path string) bool { return private[firstSegment(path)] }, nil
+}
+
 // indexRunView builds the status of one run. A running run with no video left to process is
 // completed here, once: there is no driver to do it, the scan is the only worker.
-func (s *Server) indexRunView(ctx context.Context, id int64) (indexRunView, error) {
+func (s *Server) indexRunView(ctx context.Context, id int64, hidden func(path string) bool) (indexRunView, error) {
 	var v indexRunView
 	var sourceID int64
 	if err := s.Pool.QueryRow(ctx, `SELECT `+indexRunColumns+` FROM library_index_runs WHERE id=$1`, id).Scan(&v.ID, &sourceID, &v.Mode, &v.Status, &v.CreatedAt, &v.FinishedAt); err != nil {
@@ -295,6 +313,10 @@ func (s *Server) indexRunView(ctx context.Context, id int64) (indexRunView, erro
 		if err := rows.Scan(&f.Path, &f.Code); err != nil {
 			return v, err
 		}
+		// A run started by a Super-administrator may hold a Dossier privé: its paths stay theirs (ADR 0026).
+		if hidden != nil && hidden(f.Path) {
+			continue
+		}
 		v.Failures = append(v.Failures, f)
 	}
 	return v, rows.Err()
@@ -312,7 +334,17 @@ func (s *Server) currentIndexRun(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	view, err := s.indexRunView(r.Context(), id)
+	var sourceID int64
+	if err = s.Pool.QueryRow(r.Context(), `SELECT source_id FROM library_index_runs WHERE id=$1`, id).Scan(&sourceID); err != nil {
+		s.internal(w, err)
+		return
+	}
+	hidden, err := s.hiddenPaths(r, sourceID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	view, err := s.indexRunView(r.Context(), id, hidden)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -388,7 +420,12 @@ func (s *Server) changeIndexRun(w http.ResponseWriter, r *http.Request, action s
 	if action == "resume" {
 		s.Library.ScheduleScan(sourceID, 0)
 	}
-	view, err := s.indexRunView(ctx, id)
+	hidden, err := s.hiddenPaths(r, sourceID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	view, err := s.indexRunView(ctx, id, hidden)
 	if err != nil {
 		s.internal(w, err)
 		return

@@ -138,6 +138,39 @@ func testLibraryIndex(t *testing.T, pool *pgxpool.Pool) {
 		h.adminCall(http.MethodPost, "/api/admin/library/index-runs", map[string]string{"mode": "full"}, http.StatusConflict)
 	})
 
+	t.Run("a private video in error is shown to the Super-administrator only (ADR 0026)", func(t *testing.T) {
+		if _, err := pool.Exec(ctx, `UPDATE source_files SET status='missing',error_code='video_missing',scan_requested=false WHERE relative_path='secret/plan.mp4'`); err != nil {
+			t.Fatal(err)
+		}
+		admin := h.newUser("index-admin")
+		if _, err := pool.Exec(ctx, `UPDATE users SET role=$1 WHERE username='index-admin'`, roleAdministrator); err != nil {
+			t.Fatal(err)
+		}
+		paths := func(body []byte) []string {
+			var out struct {
+				Run struct {
+					Failures []struct {
+						Path string `json:"path"`
+					} `json:"failures"`
+				} `json:"run"`
+			}
+			if err := json.Unmarshal(body, &out); err != nil {
+				t.Fatal(err)
+			}
+			var list []string
+			for _, f := range out.Run.Failures {
+				list = append(list, f.Path)
+			}
+			return list
+		}
+		if got := paths(h.adminCall(http.MethodGet, "/api/admin/library/index-runs/current", nil, http.StatusOK)); len(got) != 1 || got[0] != "secret/plan.mp4" {
+			t.Fatalf("the Super-administrator sees the private failure: %v", got)
+		}
+		if got := paths(h.userCall(admin, http.MethodGet, "/api/admin/library/index-runs/current", nil, http.StatusOK)); len(got) != 0 {
+			t.Fatalf("an administrator must not read a private path: %v", got)
+		}
+	})
+
 	t.Run("pause stops asking for the videos, resume asks again, nothing is lost", func(t *testing.T) {
 		paused := decodeRun(h.adminCall(http.MethodPost, "/api/admin/library/index-runs/"+itoa(started.ID)+"/pause", nil, http.StatusOK))
 		if paused.Status != "paused" {
