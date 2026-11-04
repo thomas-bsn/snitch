@@ -78,7 +78,6 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	defer api.Close()
 	ts := httptest.NewUnstartedServer(api.Handler())
-	api.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 	jar, _ := cookiejar.New(nil)

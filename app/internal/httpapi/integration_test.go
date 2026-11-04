@@ -141,6 +141,7 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPublicAddress(t, pool)
 	})
+	t.Run("Discord redirect address is stable", func(t *testing.T) { reset(t); testDiscordRedirectStability(t, pool) })
 	t.Run("registration and approval", func(t *testing.T) {
 		reset(t)
 		testRegistration(t, pool)
@@ -667,7 +668,6 @@ func TestFoundation(t *testing.T) {
 		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ClipRoots: []string{clipRoot}, ProbePath: "ffprobe", StabilityWindow: time.Hour}, logger)
 		// High test allowance isolates security tests from test-suite request volume.
 		ts := httptest.NewUnstartedServer(s.Handler())
-		s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 		ts.Start()
 		defer ts.Close()
 		jar, _ := cookiejar.New(nil)
@@ -1501,7 +1501,6 @@ func TestFoundation(t *testing.T) {
 					browserDiscord(t, s)
 				}
 				ts := httptest.NewUnstartedServer(s.Handler())
-				s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 				ts.Start()
 				defer ts.Close()
 				args := []string{"run", "test:e2e", "--", suite}

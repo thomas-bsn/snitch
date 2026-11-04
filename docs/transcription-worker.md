@@ -37,7 +37,7 @@ Quand un administrateur crée un worker (page Workers), la réponse de `POST /ap
 
 Le `.env` généré contient :
 
-- `SNITCH_API_URL` : l’adresse publique de l’instance, déduite de la requête de création (ou `PUBLIC_URL` si renseigné). S’il n’est pas en HTTPS, l’interface (champ `insecure_api_url`) et un commentaire du `.env` avertissent que le worker refuse le HTTP.
+- `SNITCH_API_URL` : l’adresse publique de l’instance, déduite de la requête de création. S’il n’est pas en HTTPS, l’interface (champ `insecure_api_url`) et un commentaire du `.env` avertissent que le worker refuse le HTTP.
 - `SNITCH_WORKER_TOKEN` : le jeton qui vient d’être créé, seul secret généré.
 - `SNITCH_WORKER_IMAGE` : la variable `WORKER_IMAGE` de l’application. Par défaut `ghcr.io/thomas-bsn/snitch-worker:latest` : l’application ne connaît pas de version de publication. Épingler `WORKER_IMAGE` sur un tag ou un digest publié pour maîtriser les mises à jour.
 

@@ -3368,7 +3368,7 @@ export interface components {
       /** @description Whether a nonempty secret is stored. The secret itself is never returned. */
       secret_configured: boolean;
       registration_approval: boolean;
-      /** @description Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL). */
+      /** @description Discord return address to register, built from the public address of the request. */
       callback_url: string;
       /**
        * @description provided : la clé vient de la variable MASTER_KEY ; generated : l'application l'a générée et la conserve dans son volume de secrets.
@@ -5850,7 +5850,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -5886,7 +5886,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -5951,7 +5951,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -5988,7 +5988,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6021,7 +6021,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -6057,7 +6057,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -6122,7 +6122,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6220,7 +6220,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6299,7 +6299,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6341,7 +6341,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6420,7 +6420,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6456,7 +6456,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6516,7 +6516,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6553,7 +6553,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6586,7 +6586,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -6618,7 +6618,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6770,7 +6770,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6948,7 +6948,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -8010,7 +8010,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -8045,7 +8045,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };

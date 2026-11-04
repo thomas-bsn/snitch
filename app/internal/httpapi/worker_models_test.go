@@ -48,7 +48,6 @@ func testWorkerModels(t *testing.T, pool *pgxpool.Pool) {
 	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	ts := httptest.NewTLSServer(server.Handler())
 	defer ts.Close()
-	server.Config.PublicURL = ts.URL
 	jar, _ := cookiejar.New(nil)
 	admin := ts.Client()
 	admin.Jar = jar

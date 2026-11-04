@@ -4889,7 +4889,7 @@ type Session struct {
 
 // Settings defines model for Settings.
 type Settings struct {
-	// CallbackUrl Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL).
+	// CallbackUrl Discord return address to register, built from the public address of the request.
 	CallbackUrl string `json:"callback_url"`
 	ClientId    string `json:"client_id"`
 
@@ -6367,28 +6367,28 @@ type CloseAccountParams struct {
 
 // DeleteAccountAvatarParams defines parameters for DeleteAccountAvatar.
 type DeleteAccountAvatarParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // PutAccountAvatarParams defines parameters for PutAccountAvatar.
 type PutAccountAvatarParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // UnlinkDiscordParams defines parameters for UnlinkDiscord.
 type UnlinkDiscordParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // UpdateAccountPreferencesParams defines parameters for UpdateAccountPreferences.
 type UpdateAccountPreferencesParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -6607,14 +6607,14 @@ type TestEmbeddingSettingsParams struct {
 
 // DeleteHFTokenParams defines parameters for DeleteHFToken.
 type DeleteHFTokenParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // PutHFTokenParams defines parameters for PutHFToken.
 type PutHFTokenParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -6752,7 +6752,7 @@ type ExportSegmentCorrectionsParamsFormat string
 
 // UpdateSettingsParams defines parameters for UpdateSettings.
 type UpdateSettingsParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -6765,14 +6765,14 @@ type PutAutomaticAnalysisSettingParams struct {
 
 // RecordSetupStepParams defines parameters for RecordSetupStep.
 type RecordSetupStepParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // DismissSetupBannerParams defines parameters for DismissSetupBanner.
 type DismissSetupBannerParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -6860,7 +6860,7 @@ type ScheduleTranscriptionBatchParams struct {
 
 // ApproveUserParams defines parameters for ApproveUser.
 type ApproveUserParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -6872,7 +6872,7 @@ type SetVideoRootJSONBody struct {
 
 // SetVideoRootParams defines parameters for SetVideoRoot.
 type SetVideoRootParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -6890,7 +6890,7 @@ type CreateVideoFolderJSONBody struct {
 
 // CreateVideoFolderParams defines parameters for CreateVideoFolder.
 type CreateVideoFolderParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -6903,7 +6903,7 @@ type ScanVideoSelectionJSONBody struct {
 
 // ScanVideoSelectionParams defines parameters for ScanVideoSelection.
 type ScanVideoSelectionParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -7081,33 +7081,33 @@ type DiscordCallbackParams struct {
 
 // LinkDiscordParams defines parameters for LinkDiscord.
 type LinkDiscordParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // StartDiscordParams defines parameters for StartDiscord.
 type StartDiscordParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 
 // LoginParams defines parameters for Login.
 type LoginParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 
 // LogoutParams defines parameters for Logout.
 type LogoutParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // RegisterParams defines parameters for Register.
 type RegisterParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 
@@ -7422,13 +7422,13 @@ type SearchTranscriptsParamsStatus string
 
 // CompleteSetupParams defines parameters for CompleteSetup.
 type CompleteSetupParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 
 // CheckSetupCodeParams defines parameters for CheckSetupCode.
 type CheckSetupCodeParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 

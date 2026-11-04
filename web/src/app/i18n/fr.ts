@@ -1504,7 +1504,7 @@ export const fr: Messages = {
         "1 à 64 caractères. Lettres, chiffres, espaces, points, tirets et soulignés.",
       snitch: "Adresse de Snitch",
       snitchHint:
-        "Renseignée par Snitch depuis son adresse publique. Modifiez PUBLIC_URL dans le déploiement du serveur si nécessaire.",
+        "Renseignée par Snitch depuis l’adresse avec laquelle vous l’avez ouvert.",
       insecure:
         "Cette adresse n’est pas en HTTPS. Sans votre choix explicite ci-dessous, Snitch ne génère pas de commande d’installation. Configurez l’adresse publique dans le déploiement du serveur Snitch.",
       allowInsecure:

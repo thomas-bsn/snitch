@@ -59,7 +59,6 @@ func testFolderSources(t *testing.T, pool *pgxpool.Pool) {
 	}
 	defer s.Close()
 	ts := httptest.NewUnstartedServer(s.Handler())
-	s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 	jar, _ := cookiejar.New(nil)
@@ -328,7 +327,6 @@ func testSourceReconciliation(t *testing.T, pool *pgxpool.Pool) {
 	}
 	defer s.Close()
 	ts := httptest.NewUnstartedServer(s.Handler())
-	s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 	jar, _ := cookiejar.New(nil)

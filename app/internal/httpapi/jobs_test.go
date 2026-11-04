@@ -35,7 +35,6 @@ func testJobQueue(t *testing.T, pool *pgxpool.Pool) {
 	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: mediaRoot}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	newTestServer := func() *httptest.Server {
 		ts := httptest.NewUnstartedServer(server.Handler())
-		server.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 		ts.Start()
 		return ts
 	}
@@ -209,7 +208,6 @@ func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
 	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}, logging.New(logs, "snitch", "INFO"))
 	ts := httptest.NewTLSServer(server.Handler())
 	defer ts.Close()
-	server.Config.PublicURL = ts.URL
 	jar, _ := cookiejar.New(nil)
 	admin := ts.Client()
 	admin.Jar = jar

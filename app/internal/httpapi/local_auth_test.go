@@ -29,7 +29,6 @@ func testLocalAuthentication(t *testing.T, pool *pgxpool.Pool) {
 	var logs bytes.Buffer
 	s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(&logs, nil)))
 	ts := httptest.NewUnstartedServer(s.Handler())
-	s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 	t.Run("login rejects setup-only code field", func(t *testing.T) {
@@ -200,7 +199,6 @@ func testLocalAuthentication(t *testing.T, pool *pgxpool.Pool) {
 		ts.Close()
 		restarted := New(pool, s.Config, s.Log)
 		ts = httptest.NewUnstartedServer(restarted.Handler())
-		restarted.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 		ts.Start()
 		defer ts.Close()
 		if next, err := setup.Issue(ctx, pool); err != nil || next != "" {
@@ -261,7 +259,6 @@ func testLocalAuthentication(t *testing.T, pool *pgxpool.Pool) {
 		// Secure cookies are observed over a real TLS HTTP connection.
 		secure := New(pool, config.Config{MasterKey: s.Config.MasterKey, Secure: true}, s.Log)
 		tls := httptest.NewUnstartedServer(secure.Handler())
-		secure.Config.PublicURL = "https://" + tls.Listener.Addr().String()
 		tls.StartTLS()
 		defer tls.Close()
 		req, _ := http.NewRequest("POST", tls.URL+"/api/auth/login", strings.NewReader(credentials(session.User.Username, "synthetic-password")))
