@@ -1,6 +1,6 @@
 # 0032 — Explorateur sur la Racine vidéo réelle, indexation à la demande
 
-Statut : accepté. Élargit #195, qui se limitait aux chemins déjà indexés. Reste dans la règle de l'[ADR 0017](0017-racine-video-unique-et-publication-nommee.md) : aucune découverte automatique, aucune analyse sans action.
+Statut : accepté. Élargit #195, qui se limitait aux chemins déjà indexés. Reste dans la règle de l'[ADR 0017](0017-racine-video-unique-et-publication-nommee.md) : aucune découverte automatique, aucune analyse sans action. Amendé par l'[ADR 0038](0038-indexation-de-toute-la-racine.md) : l'indexation de masse reste exclue en arrière-plan, mais un administrateur peut la demander explicitement.
 
 ## Contexte
 

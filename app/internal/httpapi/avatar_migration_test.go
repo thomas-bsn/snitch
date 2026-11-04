@@ -35,7 +35,7 @@ func TestAvatarMigrationKeepsExistingPhotos(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = provider.UpTo(ctx, 91); err != nil {
+	if _, err = provider.UpTo(ctx, 92); err != nil {
 		t.Fatal(err)
 	}
 	pool, err := pgxpool.New(ctx, dsn)
@@ -78,7 +78,7 @@ func TestAvatarMigrationKeepsExistingPhotos(t *testing.T) {
 		t.Fatal("an account linked before the migration does not adopt its Discord photo:", source, err)
 	}
 	// The migration can be reverted: the personal photo is still there afterwards.
-	if _, err = provider.DownTo(ctx, 91); err != nil {
+	if _, err = provider.DownTo(ctx, 92); err != nil {
 		t.Fatal(err)
 	}
 	if err = pool.QueryRow(ctx, `SELECT png FROM account_avatars WHERE user_id=$1`, withPhoto).Scan(&stored); err != nil || !bytes.Equal(stored, photo) {

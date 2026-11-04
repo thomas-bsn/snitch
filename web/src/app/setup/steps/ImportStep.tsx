@@ -1,3 +1,4 @@
+import { RootIndexingPanel } from "../../library/RootIndexingPanel";
 import { VideoStorage } from "../../library/VideoStorage";
 import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
@@ -24,6 +25,7 @@ export function ImportStep({
         lead={t("setup.import.lead")}
       />
       <VideoStorage settings />
+      <RootIndexingPanel />
       <p className="rounded-lg border border-line bg-side p-4 text-mute">
         {t("setup.import.nothing")}
       </p>
