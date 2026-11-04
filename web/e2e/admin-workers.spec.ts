@@ -225,7 +225,9 @@ test.describe.serial("administration et Workers", () => {
     await expect(
       page.getByText("Docker is installed and running"),
     ).toBeVisible();
-    await expect(page.getByText("single-use and short-lived")).toBeVisible();
+    await expect(
+      page.getByText("single-use and expires after 15 minutes"),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Copy command" }).click();
     await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();

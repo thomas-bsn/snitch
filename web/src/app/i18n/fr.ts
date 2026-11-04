@@ -1456,7 +1456,7 @@ export const fr: Messages = {
         "La commande en une ligne s’affiche une seule fois, à la création ou au remplacement d’un Worker. Elle n’est plus affichée ensuite : elle contient une invitation à usage unique, jamais le jeton du Worker.",
       alreadyInstalledTitle: "Cette machine est déjà installée",
       alreadyInstalledBody:
-        "Relancez le lanceur local sur la machine du Worker. Il réutilise l’identité du Worker et ne demande aucune nouvelle commande.",
+        "Relancez le lanceur local sur la machine du Worker. Il réutilise l’identité du Worker et ne demande aucune nouvelle commande. Si le lanceur est absent, générez une nouvelle commande ci-dessous.",
       newMachineTitle: "Nouvelle machine, ou lanceur perdu",
       newMachineBody:
         "Générez une nouvelle commande d’installation. Cela remplace le Worker par une nouvelle identité ; l’actuelle est révoquée.",
@@ -1561,17 +1561,17 @@ export const fr: Messages = {
     guide: {
       title: "Installation en une commande",
       whereTitle: "Où la lancer",
-      wsl: "Windows : ouvrez un terminal WSL2 (Ubuntu) où Docker est disponible, et collez la commande dedans.",
+      wsl: "Windows : ouvrez un terminal WSL2 (pas WSL1) où Docker est disponible, depuis votre dossier personnel Linux (pas un disque Windows comme /mnt/c), et collez la commande dedans.",
       linux:
         "Linux : collez-la dans un shell d’un utilisateur autorisé à lancer docker.",
       prerequisitesTitle: "Avant de commencer",
       docker: "Docker est installé et démarré sur cette machine.",
-      gpu: "Un GPU NVIDIA est facultatif ; sans lui, le Worker tourne sur le processeur.",
-      network: "La machine joint Snitch à l’adresse indiquée ci-dessus.",
+      gpu: "Un GPU NVIDIA est facultatif ; sans lui, le traitement des voix est indisponible et la transcription fonctionne.",
+      network: "La machine joint Snitch à son adresse publique.",
       models:
         "Les modèles vocaux sont facultatifs : l’installateur peut demander, dans votre terminal seulement, s’il faut les télécharger et un jeton Hugging Face. Snitch ne reçoit jamais ce jeton, et la transcription fonctionne sans ces modèles.",
       expired:
-        "L’invitation est à usage unique et de courte durée. Si la commande indique qu’elle a expiré ou a déjà servi, générez-en une nouvelle depuis la page du Worker. L’installateur signale une plateforme non prise en charge avant de rien modifier.",
+        "L’invitation est à usage unique et expire au bout de 15 minutes. Si la commande indique qu’elle a expiré ou a déjà servi, générez-en une nouvelle depuis la page du Worker.",
     },
     files: {
       tabsLabel: "Fichiers de déploiement",

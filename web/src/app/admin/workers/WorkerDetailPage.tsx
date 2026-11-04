@@ -111,6 +111,10 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const worker = state.value;
   const { tone, label } = workerStatus(worker);
   const revoked = worker.revoked_at !== null;
+  // The local launcher exists only once the installation reached its first pulse.
+  const installed =
+    worker.install?.state === "connected" ||
+    worker.install?.state === "voice_ready";
 
   async function renew() {
     setBusy(true);
@@ -342,17 +346,21 @@ export function WorkerDetailPage({ id }: { id: string }) {
       {!revoked && (
         <Section title={t("workers.detail.oneCommand")}>
           <p className="text-mute">{t("workers.detail.oneCommandLead")}</p>
-          <h4 className="font-medium">
-            {t("workers.detail.alreadyInstalledTitle")}
-          </h4>
-          <p className="text-mute">
-            {t("workers.detail.alreadyInstalledBody")}
-          </p>
-          <CommandLine
-            label={t("workers.diagnostics.launcher")}
-            hint={t("workers.diagnostics.launcherHint")}
-            command={restartCommands(worker.id).launcher}
-          />
+          {installed && (
+            <>
+              <h4 className="font-medium">
+                {t("workers.detail.alreadyInstalledTitle")}
+              </h4>
+              <p className="text-mute">
+                {t("workers.detail.alreadyInstalledBody")}
+              </p>
+              <CommandLine
+                label={t("workers.diagnostics.launcher")}
+                hint={t("workers.diagnostics.launcherHint")}
+                command={restartCommands(worker.id).launcher}
+              />
+            </>
+          )}
           <h4 className="font-medium">{t("workers.detail.newMachineTitle")}</h4>
           <p className="text-mute">{t("workers.detail.newMachineBody")}</p>
           <div>
