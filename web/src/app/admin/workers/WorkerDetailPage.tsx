@@ -12,14 +12,20 @@ import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
 import { DeploymentFiles } from "./DeploymentFiles";
 import { InstallProgress } from "./InstallProgress";
-import { OfflineDiagnostics } from "./OfflineDiagnostics";
+import { InstallGuide } from "./InstallGuide";
+import { CommandLine, OfflineDiagnostics } from "./OfflineDiagnostics";
 import {
   fetchWorker,
   useWorkerActions,
   type WorkerDetail,
   type WorkerRegistration,
 } from "./workersApi";
-import { ROLES, declaredModelText, workerStatus } from "./workerView";
+import {
+  ROLES,
+  declaredModelText,
+  restartCommands,
+  workerStatus,
+} from "./workerView";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const id = useId();
@@ -316,6 +322,7 @@ export function WorkerDetailPage({ id }: { id: string }) {
           {!fresh.install_command && (
             <ErrorAlert>{t("workers.create.insecureUnavailable")}</ErrorAlert>
           )}
+          <InstallGuide />
           <textarea
             readOnly
             aria-label={t("workers.create.installCommand")}
@@ -333,13 +340,21 @@ export function WorkerDetailPage({ id }: { id: string }) {
       )}
 
       {!revoked && (
-        <Section title={t("workers.detail.deployment")}>
-          <p className="text-mute">{t("workers.detail.deploymentLead")}</p>
-          <p className="text-mute">{t("workers.detail.tokenHidden")}</p>
-          <DeploymentFiles
-            env={worker.bundle.env}
-            compose={worker.bundle.compose}
+        <Section title={t("workers.detail.oneCommand")}>
+          <p className="text-mute">{t("workers.detail.oneCommandLead")}</p>
+          <h4 className="font-medium">
+            {t("workers.detail.alreadyInstalledTitle")}
+          </h4>
+          <p className="text-mute">
+            {t("workers.detail.alreadyInstalledBody")}
+          </p>
+          <CommandLine
+            label={t("workers.diagnostics.launcher")}
+            hint={t("workers.diagnostics.launcherHint")}
+            command={restartCommands(worker.id).launcher}
           />
+          <h4 className="font-medium">{t("workers.detail.newMachineTitle")}</h4>
+          <p className="text-mute">{t("workers.detail.newMachineBody")}</p>
           <div>
             <button
               type="button"
@@ -349,6 +364,19 @@ export function WorkerDetailPage({ id }: { id: string }) {
               {t("workers.detail.regenerate")}
             </button>
           </div>
+          <details>
+            <summary className="cursor-pointer text-accent-ink">
+              {t("workers.create.advancedFiles")}
+            </summary>
+            <div className="mt-3 flex flex-col gap-3">
+              <p className="text-mute">{t("workers.detail.deploymentLead")}</p>
+              <p className="text-mute">{t("workers.detail.tokenHidden")}</p>
+              <DeploymentFiles
+                env={worker.bundle.env}
+                compose={worker.bundle.compose}
+              />
+            </div>
+          </details>
         </Section>
       )}
 

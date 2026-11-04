@@ -1423,6 +1423,15 @@ export const en = {
       },
       models: "Models in use",
       modelsNone: "Not declared. Start the Worker to see its models.",
+      oneCommand: "One-command install",
+      oneCommandLead:
+        "The one-line command is shown once, when a Worker is created or replaced. It is not displayed again: it holds a single-use invitation, never the Worker's token.",
+      alreadyInstalledTitle: "This machine is already installed",
+      alreadyInstalledBody:
+        "Run the local launcher again on the Worker's machine. It reuses the Worker's identity and needs no new command.",
+      newMachineTitle: "New machine, or the launcher is lost",
+      newMachineBody:
+        "Generate a new installation command. This replaces the Worker with a new identity; the current one is revoked.",
       deployment: "Deployment files",
       deploymentLead:
         "Put both files in one folder on the machine, then run docker compose up -d.",
@@ -1520,6 +1529,20 @@ export const en = {
       copyCommand: "Copy command",
       advancedFiles: "Advanced: deployment files",
       done: "Done",
+    },
+    guide: {
+      title: "One-command install",
+      whereTitle: "Where to run it",
+      wsl: "Windows: open a WSL2 terminal (Ubuntu) with Docker available inside it, and paste the command there.",
+      linux: "Linux: paste it in a shell of a user who can run docker.",
+      prerequisitesTitle: "Before you start",
+      docker: "Docker is installed and running on that machine.",
+      gpu: "A NVIDIA GPU is optional; without it the Worker runs on the processor.",
+      network: "The machine can reach Snitch at the address shown above.",
+      models:
+        "Voice models are optional: the installer may ask, in your terminal only, whether to download them and for a Hugging Face token. Snitch never receives that token, and transcription works without the models.",
+      expired:
+        "The invitation is single-use and short-lived. If the command says it expired or was already used, generate a new one from the Worker page. An unsupported platform is reported by the installer before anything is changed.",
     },
     files: {
       tabsLabel: "Deployment files",

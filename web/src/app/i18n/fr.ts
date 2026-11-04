@@ -1451,6 +1451,15 @@ export const fr: Messages = {
       },
       models: "Modèles utilisés",
       modelsNone: "Non déclarés. Démarrez le Worker pour voir ses modèles.",
+      oneCommand: "Installation en une commande",
+      oneCommandLead:
+        "La commande en une ligne s’affiche une seule fois, à la création ou au remplacement d’un Worker. Elle n’est plus affichée ensuite : elle contient une invitation à usage unique, jamais le jeton du Worker.",
+      alreadyInstalledTitle: "Cette machine est déjà installée",
+      alreadyInstalledBody:
+        "Relancez le lanceur local sur la machine du Worker. Il réutilise l’identité du Worker et ne demande aucune nouvelle commande.",
+      newMachineTitle: "Nouvelle machine, ou lanceur perdu",
+      newMachineBody:
+        "Générez une nouvelle commande d’installation. Cela remplace le Worker par une nouvelle identité ; l’actuelle est révoquée.",
       deployment: "Fichiers de déploiement",
       deploymentLead:
         "Placez les deux fichiers dans un même dossier de la machine, puis lancez docker compose up -d.",
@@ -1548,6 +1557,21 @@ export const fr: Messages = {
       copyCommand: "Copier la commande",
       advancedFiles: "Avancé : fichiers de déploiement",
       done: "Terminé",
+    },
+    guide: {
+      title: "Installation en une commande",
+      whereTitle: "Où la lancer",
+      wsl: "Windows : ouvrez un terminal WSL2 (Ubuntu) où Docker est disponible, et collez la commande dedans.",
+      linux:
+        "Linux : collez-la dans un shell d’un utilisateur autorisé à lancer docker.",
+      prerequisitesTitle: "Avant de commencer",
+      docker: "Docker est installé et démarré sur cette machine.",
+      gpu: "Un GPU NVIDIA est facultatif ; sans lui, le Worker tourne sur le processeur.",
+      network: "La machine joint Snitch à l’adresse indiquée ci-dessus.",
+      models:
+        "Les modèles vocaux sont facultatifs : l’installateur peut demander, dans votre terminal seulement, s’il faut les télécharger et un jeton Hugging Face. Snitch ne reçoit jamais ce jeton, et la transcription fonctionne sans ces modèles.",
+      expired:
+        "L’invitation est à usage unique et de courte durée. Si la commande indique qu’elle a expiré ou a déjà servi, générez-en une nouvelle depuis la page du Worker. L’installateur signale une plateforme non prise en charge avant de rien modifier.",
     },
     files: {
       tabsLabel: "Fichiers de déploiement",
