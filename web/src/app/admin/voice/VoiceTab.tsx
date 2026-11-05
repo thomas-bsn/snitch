@@ -9,7 +9,6 @@ import { VoiceHuggingFace } from "./VoiceHuggingFace";
 import { VoiceInventory } from "./VoiceInventory";
 import { isSuperAdministrator } from "../../roles";
 import { useSession } from "../../session";
-import { VoiceModelAdd } from "./VoiceModelAdd";
 import { ModelsByWorker } from "./ModelsByWorker";
 import { VoiceModelCards } from "./VoiceModelCards";
 
@@ -78,7 +77,7 @@ export function VoiceTab() {
     return <ErrorAlert>{error(state.code)}</ErrorAlert>;
   const { overview, models, pipeline, matching, accuracy } = state.value;
   return (
-    <div className="flex max-w-4xl flex-col gap-6">
+    <div className="flex max-w-6xl flex-col gap-6">
       <h2 className="text-lg font-semibold">{t("voiceAdmin.title")}</h2>
       <VoiceHeader
         overview={overview}
@@ -86,11 +85,12 @@ export function VoiceTab() {
         catalogue={models}
         onChanged={reload}
       />
-      {user !== null && isSuperAdministrator(user) && (
-        <VoiceModelAdd onChanged={reload} />
-      )}
+      <ModelsByWorker
+        catalogue={models}
+        canAdd={user !== null && isSuperAdministrator(user)}
+        onCatalogueChanged={reload}
+      />
       <VoiceModelCards catalogue={models} onChanged={reload} />
-      <ModelsByWorker catalogue={models} />
       <VoiceHuggingFace />
       <VoiceInventory overview={overview} />
       <VoiceAdvanced

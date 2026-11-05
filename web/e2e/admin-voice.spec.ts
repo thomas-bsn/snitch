@@ -345,11 +345,11 @@ test("un administrateur ordonne l'installation d'un modèle à un Worker et suit
   const section = page.getByRole("region", { name: "Models per Worker" });
   const row = section.getByRole("row", { name: /worker-ordres/ });
   const fingerprint = row.locator("td").nth(1);
-  await expect(row.locator("td").nth(2)).toContainText("Not available yet");
+  await expect(section).toContainText("#268 is not delivered");
   await expect(fingerprint).toContainText("Not installed");
 
   // Ordering needs an explicit confirmation.
-  await fingerprint.getByRole("button", { name: "Install" }).click();
+  await fingerprint.getByRole("button", { name: /Choose a model/ }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toContainText("test inference");
   await dialog.getByRole("button", { name: "Order the installation" }).click();
@@ -393,7 +393,80 @@ test("un administrateur ordonne l'installation d'un modèle à un Worker et suit
   await expect(fingerprint).toContainText("Ready");
   await expect(fingerprint).toContainText("26 MB on disk");
 
+  // Uninstalling is explicit: the confirmation says that no active model will remain, and the order is kept in
+  // the history of the Worker.
+  await fingerprint.getByRole("button", { name: "Uninstall" }).click();
+  await expect(dialog).toContainText("No active model will remain");
+  await dialog.getByRole("button", { name: "Order the removal" }).click();
+  await expect(fingerprint).toContainText("Removing");
+  await row.getByRole("button", { name: /History of worker-ordres/ }).click();
+  const history = page.getByRole("dialog", { name: "Order history" });
+  await expect(history).toContainText("Removal");
+  await expect(history).toContainText("Installation");
+  await expect(history).toContainText("Waiting for the Worker");
+  await history.getByRole("button", { name: "Close" }).click();
+
   await admin.delete(`/api/admin/workers/${id}`, { headers: csrf });
+  await context.close();
+  await admin.dispose();
+});
+
+test("« Appliquer à plusieurs Workers » crée un ordre par Worker coché et l'affiche avant l'envoi", async ({
+  browser,
+}) => {
+  const session = await sessionFor(ADMIN);
+  const origin = process.env.SNITCH_TEST_URL!;
+  const admin = await request.newContext({
+    baseURL: origin,
+    extraHTTPHeaders: { Origin: origin },
+    storageState: session,
+  });
+  const me = await (await admin.get("/api/auth/me")).json();
+  const csrf = { "X-CSRF-Token": me.csrf_token };
+  const made: { id: string; token: string }[] = [];
+  for (const name of ["lot-a", "lot-b", "lot-c"])
+    made.push(
+      await (
+        await admin.post("/api/admin/workers", {
+          headers: csrf,
+          data: { name, max_concurrency: 1 },
+        })
+      ).json(),
+    );
+  const pulled = async (token: string) =>
+    (
+      await (
+        await admin.get("/api/worker/voice-models", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ).json()
+    ).orders as unknown[];
+
+  const context = await browser.newContext({ storageState: session });
+  const page = await context.newPage();
+  await page.goto("/admin/voice");
+  await page.getByRole("button", { name: "Apply to several Workers" }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Apply a model to several Workers",
+  });
+  await dialog.getByLabel("Type").selectOption("fingerprint");
+  await dialog.getByLabel("lot-a").check();
+  await dialog.getByLabel("lot-c").check();
+  await dialog.getByRole("button", { name: "Prepare the orders" }).click();
+  await expect(dialog).toContainText("Orders to send (2)");
+  await expect(dialog).toContainText("on lot-a");
+  await expect(dialog).toContainText("on lot-c");
+  await expect(dialog).not.toContainText("on lot-b");
+  // Listed, not sent yet.
+  expect(await pulled(made[0].token)).toHaveLength(0);
+  await dialog.getByRole("button", { name: "Send 2 orders" }).click();
+  await expect(dialog.getByText("Order sent")).toHaveCount(2);
+  expect(await pulled(made[0].token)).toHaveLength(1);
+  expect(await pulled(made[1].token)).toHaveLength(0);
+  expect(await pulled(made[2].token)).toHaveLength(1);
+
+  for (const w of made)
+    await admin.delete(`/api/admin/workers/${w.id}`, { headers: csrf });
   await context.close();
   await admin.dispose();
 });
