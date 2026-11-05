@@ -131,7 +131,10 @@ export function WorkerDetailPage({ id }: { id: string }) {
   async function forget() {
     setBusy(true);
     setFailure(undefined);
-    const result = await actions.forget(id);
+    const result = await actions.forget(
+      id,
+      !worker?.revocation_acknowledged_at,
+    );
     setBusy(false);
     setConfirm(null);
     if (result.ok) navigate("/admin/workers");
@@ -388,9 +391,13 @@ export function WorkerDetailPage({ id }: { id: string }) {
         </Section>
       )}
 
-      {revoked && worker.revocation_acknowledged_at && (
+      {revoked && (
         <Section title={t("workers.detail.forget")}>
-          <p className="text-mute">{t("workers.detail.forgetBody")}</p>
+          <p className="text-mute">
+            {worker.revocation_acknowledged_at
+              ? t("workers.detail.forgetBody")
+              : t("workers.detail.forgetUnconfirmedBody")}
+          </p>
           <div>
             <button
               type="button"
@@ -460,7 +467,11 @@ export function WorkerDetailPage({ id }: { id: string }) {
         danger
         busy={busy}
       >
-        <p>{t("workers.detail.forgetBody")}</p>
+        <p>
+          {worker.revocation_acknowledged_at
+            ? t("workers.detail.forgetBody")
+            : t("workers.detail.forgetUnconfirmedBody")}
+        </p>
       </ConfirmDialog>
       <ConfirmDialog
         open={confirm === "revoke"}

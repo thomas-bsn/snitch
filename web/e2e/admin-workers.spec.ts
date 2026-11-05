@@ -510,6 +510,19 @@ test.describe.serial("administration et Workers", () => {
       page.getByRole("button", { name: "Diagnose / Reconnect" }),
     ).toHaveCount(0);
     expect(await pulse(firstToken)).toBe(401);
+
+    // #261: the machine never confirmed, yet the Administrator can drop the entry after an
+    // explicit warning that local cleanup is unconfirmed.
+    await page.getByRole("button", { name: "Remove from the list" }).click();
+    await expect(page.getByRole("alertdialog")).toContainText(
+      "Local cleanup was not confirmed",
+    );
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await page.getByRole("button", { name: "Remove from the list" }).click();
+    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/workers$/);
+    await expect(page.getByRole("link", { name: /gaming-pc/ })).toHaveCount(0);
     await context.close();
   });
 

@@ -144,4 +144,23 @@ func testWorkerRevocation(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/workers/"+offline, nil, http.StatusOK), &off); err != nil || off.RevokedAt == nil || off.Ack != nil || off.Reason != "" {
 		t.Fatalf("offline: %+v %v", off, err)
 	}
+
+	// #261: without confirmation the entry stays by default; only an explicit force removes it,
+	// and an active Worker cannot be removed even then. History (jobs, events) is untouched.
+	record := "/api/admin/workers/" + offline + "/record"
+	h.adminCall(http.MethodDelete, record, nil, http.StatusConflict)
+	h.adminCall(http.MethodDelete, record+"?force=false", nil, http.StatusConflict)
+	h.adminCall(http.MethodDelete, record+"?force=maybe", nil, http.StatusBadRequest)
+	active, _, _, _ := h.register("")
+	h.adminCall(http.MethodDelete, "/api/admin/workers/"+active+"/record?force=true", nil, http.StatusConflict)
+	var jobsBefore, eventsBefore int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM jobs),(SELECT count(*) FROM job_events)`).Scan(&jobsBefore, &eventsBefore); err != nil {
+		t.Fatal(err)
+	}
+	h.adminCall(http.MethodDelete, record+"?force=true", nil, http.StatusNoContent)
+	h.adminCall(http.MethodGet, "/api/admin/workers/"+offline, nil, http.StatusNotFound)
+	var jobsAfter, eventsAfter int
+	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM jobs),(SELECT count(*) FROM job_events)`).Scan(&jobsAfter, &eventsAfter); err != nil || jobsAfter != jobsBefore || eventsAfter != eventsBefore {
+		t.Fatalf("history changed: jobs %d->%d events %d->%d %v", jobsBefore, jobsAfter, eventsBefore, eventsAfter, err)
+	}
 }

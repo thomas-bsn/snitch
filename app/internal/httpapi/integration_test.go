@@ -1000,6 +1000,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
 		// A revoked Worker leaves the list only once its machine confirmed the revocation.
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record", nil, me.CSRF, 409)
+		// An explicit force=false keeps the protection; only force=true skips the confirmation.
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record?force=false", nil, me.CSRF, 409)
 		if _, e = pool.Exec(ctx, `UPDATE workers SET revocation_acknowledged_at=now() WHERE id=$1`, contractWorker.ID); e != nil {
 			t.Fatal(e)
 		}

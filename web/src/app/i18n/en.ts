@@ -1559,6 +1559,8 @@ export const en = {
       forget: "Remove from the list",
       forgetBody:
         "The machine confirmed the revocation. Removing this entry deletes it from the list for good; the history of the tasks it ran is kept, without the Worker's name.",
+      forgetUnconfirmedBody:
+        "Local cleanup was not confirmed: the machine never confirmed the revocation. The model volume, the container and the launcher folder may remain on that machine. Removing this entry deletes it from the list for good; the history of the tasks it ran is kept, without the Worker's name.",
       forgetTitle: "Remove {name} from the list?",
       forgetConfirm: "Remove",
       cleanupPending:

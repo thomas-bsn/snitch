@@ -1588,6 +1588,8 @@ export const fr: Messages = {
       forget: "Retirer de la liste",
       forgetBody:
         "La machine a confirmé la révocation. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
+      forgetUnconfirmedBody:
+        "Le nettoyage local n’a pas été confirmé : la machine n’a jamais confirmé la révocation. Le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur cette machine. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
       forgetTitle: "Retirer {name} de la liste ?",
       forgetConfirm: "Retirer",
       cleanupPending:
