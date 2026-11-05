@@ -177,7 +177,9 @@ func testWorkerLatestUpdates(t *testing.T, pool *pgxpool.Pool) {
 	}
 	h.server.workerCatalogOverride = newCatalog()
 	h.server.workerCatalogFor() // consume the Once: the catalogue is replaced directly from here on
-	set := func(body string, status int) { h.adminCall(http.MethodPut, "/api/admin/worker-updates", []byte(body), status) }
+	set := func(body string, status int) {
+		h.adminCall(http.MethodPut, "/api/admin/worker-updates", []byte(body), status)
+	}
 	_, token, _, _ := h.register("")
 	poll := func() (version string, idle bool) {
 		var got struct {

@@ -145,7 +145,9 @@ func TestNewestIgnoresRegistryOrderAndNonReleases(t *testing.T) {
 func TestCatalogFollowsPaginationOnTheSameHostOnly(t *testing.T) {
 	var host string
 	mux := http.NewServeMux()
-	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(map[string]string{"token": "anon"}) })
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"token": "anon"})
+	})
 	mux.HandleFunc("/v2/thomas-bsn/snitch-worker/tags/list", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("last") == "" {
 			w.Header().Set("Link", `</v2/thomas-bsn/snitch-worker/tags/list?n=1000&last=sha-1>; rel="next"`)
