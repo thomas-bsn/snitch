@@ -86,7 +86,7 @@ test("un administrateur remplace le modèle de diarisation d'un Worker, de l'éc
   await expect(cell).toContainText("Ready");
 
   // Replace: an explicit confirmation that says the old model stays until the switch.
-  await cell.getByRole("button", { name: "Replace" }).click();
+  await cell.getByRole("button", { name: "Change" }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toContainText("stays active");
   await dialog.getByRole("button", { name: "Order the installation" }).click();
@@ -103,10 +103,10 @@ test("un administrateur remplace le modèle de diarisation d'un Worker, de l'éc
   await expect(cell).toContainText("Failed");
   await cell.getByRole("button", { name: "Cancel the replacement" }).click();
   await expect(cell).toContainText("Ready");
-  await expect(cell.getByRole("button", { name: "Replace" })).toBeVisible();
+  await expect(cell.getByRole("button", { name: "Change" })).toBeVisible();
 
   // Second attempt: ready, then the removal of the old model is an order of its own.
-  await cell.getByRole("button", { name: "Replace" }).click();
+  await cell.getByRole("button", { name: "Change" }).click();
   await dialog.getByRole("button", { name: "Order the installation" }).click();
   await expect(cell).toContainText("Requested");
   const [again] = await pulled();

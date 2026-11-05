@@ -335,6 +335,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "La demande de changement du modèle d’empreinte est incomplète.",
   voice_replacement_not_found: "Aucun remplacement en cours pour ce type.",
   voice_model_not_failed: "La dernière tentative de ce modèle n’a pas échoué.",
+  voice_model_not_removable:
+    "Ce Worker ne détient pas ce modèle dans un état où il peut être retiré.",
   voice_order_not_found: "Cet ordre n’existe pas pour ce Worker.",
   invalid_voice_order_ack: "Cet accusé de réception d’ordre n’est pas valide.",
   stale_voice_order: "Cet ordre est déjà terminé.",

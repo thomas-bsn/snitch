@@ -2314,7 +2314,8 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** @description Administrateurs uniquement. Historique des ordres de modèle d'un Worker (installation, retrait), du plus récent au plus ancien, avec leur issue, leur cause et leur auteur. */
+    get: operations["listVoiceModelOrders"];
     put?: never;
     /** @description Administrateurs uniquement. Ordonne à un Worker d'installer un modèle du catalogue. Rejouer la même clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est occupé par un autre modèle (voice_model_type_occupied), sauf avec replaces_model_id : c'est alors un remplacement (le nouveau est installé et testé pendant que l'ancien reste actif ; Snitch décide la bascule, puis ordonne le retrait de l'ancien, différé tant qu'un travail en cours l'utilise). */
     post: operations["createVoiceModelOrder"];
@@ -2389,6 +2390,23 @@ export interface paths {
     post?: never;
     /** @description Administrateurs uniquement. Annule le remplacement d'un modèle de ce type sur ce Worker tant que le nouveau n'est pas en service : l'essai en échec ou pas encore reçu est oublié, l'ancien reste actif et installé. Refusé pendant un téléchargement ou un test (voice_replacement_in_progress) et une fois la bascule décidée (voice_replacement_switched). */
     delete: operations["cancelVoiceModelReplacement"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-removals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Retrait explicite d'un modèle prêt ou en échec sur ce Worker : un ordre remove, jamais un effacement silencieux. Refusé tant qu'un travail utilise le modèle (voice_model_in_use) ou tant qu'un remplacement en cours en dépend (voice_replacement_in_progress) ; seul fait exception le retrait de l'ancien modèle d'un remplacement dont le nouveau a échoué : le remplacement est alors abandonné pour libérer la place. Rejouer la même clé d'idempotence renvoie l'ordre déjà enregistré (200). */
+    post: operations["createVoiceModelRemoval"];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -4637,6 +4655,38 @@ export interface components {
       hf_token?: string;
       /** Format: date-time */
       created_at: string;
+    };
+    VoiceModelRemovalInput: {
+      model_id: string;
+      idempotency_key: string;
+    };
+    VoiceModelOrderHistoryItem: {
+      order_id: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      /** @enum {string} */
+      action: "install" | "remove";
+      model_id: string;
+      label: string;
+      repo: string;
+      revision: string;
+      /** @enum {string} */
+      status:
+        | "pending"
+        | "acknowledged"
+        | "done"
+        | "failed"
+        | "refused"
+        | "cancelled";
+      cause_code: string;
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+    };
+    VoiceModelOrderHistory: {
+      orders: components["schemas"]["VoiceModelOrderHistoryItem"][];
     };
     WorkerModelOrderAck: {
       accepted: boolean;
@@ -12666,6 +12716,37 @@ export interface operations {
       };
     };
   };
+  listVoiceModelOrders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historique des ordres */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelOrderHistory"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   createVoiceModelOrder: {
     parameters: {
       query?: never;
@@ -12892,6 +12973,53 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVoiceModelRemoval: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelRemovalInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
       };
       /** @description Erreur */
       default: {

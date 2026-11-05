@@ -415,6 +415,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelReplacementRemovalFailure(t, pool)
 	})
+	t.Run("voice model explicit removal", func(t *testing.T) {
+		reset(t)
+		testVoiceModelExplicitRemoval(t, pool)
+	})
+	t.Run("voice model removal for space", func(t *testing.T) {
+		reset(t)
+		testVoiceModelRemovalForSpace(t, pool)
+	})
 	t.Run("voice model sortformer", func(t *testing.T) {
 		reset(t)
 		testVoiceModelSortformer(t, pool)
@@ -1048,6 +1056,8 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "POST", "/api/worker/voice-model-orders/"+contractOrder.OrderID+"/ack", map[string]any{"accepted": true}, "", 204)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/voice-model-replacements/diarization", nil, me.CSRF, 404)
+		call(client, "GET", "/api/admin/workers/"+contractWorker.ID+"/voice-model-orders", nil, "", 200)
+		call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/voice-model-removals", map[string]any{"model_id": "unknown-model", "idempotency_key": "contract-remove-0001"}, me.CSRF, 400)
 		call(client, "POST", "/api/worker/install-events", map[string]any{"events": []map[string]any{{"phase": "service", "status": "succeeded", "occurred_at": time.Now().UTC().Format(time.RFC3339)}}}, "", 204)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {

@@ -4,6 +4,8 @@ const tones = {
   ok: { icon: CircleCheck, className: "bg-ok-bg text-ok-fg" },
   idle: { icon: CircleOff, className: "bg-side text-mute" },
   bad: { icon: Ban, className: "bg-bad-bg text-bad-fg" },
+  /** Work under way: the accent, with a symbol of its own per state. */
+  busy: { icon: CircleOff, className: "bg-accent-soft text-accent-ink" },
 } satisfies Record<string, { icon: LucideIcon; className: string }>;
 
 export type PillTone = keyof typeof tones;
@@ -11,17 +13,21 @@ export type PillTone = keyof typeof tones;
 /** A state: always a label and a symbol, never the color alone. */
 export function StatusPill({
   tone,
+  icon,
   children,
 }: {
   tone: PillTone;
+  /** A symbol that tells this state from the others of the same tone. */
+  icon?: LucideIcon;
   children: string;
 }) {
-  const { icon: Icon, className } = tones[tone];
+  const { icon: Default, className } = tones[tone];
+  const Icon = icon ?? Default;
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
     >
-      <Icon className="size-3.5" />
+      <Icon className="size-3.5" aria-hidden="true" />
       {children}
     </span>
   );

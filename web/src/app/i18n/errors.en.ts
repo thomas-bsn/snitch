@@ -321,6 +321,8 @@ export const errorsEn = {
     "The request to change the fingerprint model is incomplete.",
   voice_replacement_not_found: "No replacement is under way for this type.",
   voice_model_not_failed: "The last attempt of this model did not fail.",
+  voice_model_not_removable:
+    "This Worker does not hold this model in a state that can be removed.",
   voice_order_not_found: "This order does not exist for this Worker.",
   invalid_voice_order_ack: "This acknowledgement of an order is not valid.",
   stale_voice_order: "This order is already finished.",
