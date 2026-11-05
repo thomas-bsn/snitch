@@ -106,6 +106,8 @@ _Avoid_ : Modèle choisi par le Worker.
 
 **Ordre de modèle** : Une instruction enregistrée dans Snitch pour un Worker et un type (installer, retirer), avec son auteur, son résultat et une clé qui évite l'exécution en double. Le Worker n'agit sur aucun modèle sans ordre.
 
+**Changement du modèle d'empreinte** : Le passage explicite à un autre modèle d'empreinte. Les empreintes de deux modèles ne se comparent jamais ; Snitch montre d'abord le nombre de références à recalculer, recalcule celles des Personnes avec le nouveau modèle sans toucher à la production, puis bascule d'un bloc. L'ancien modèle reste en place jusqu'à la fin de cette migration essentielle (ADR 0044).
+
 **Transcription désactivée** : Choix explicite de ne pas produire de transcription pour la bibliothèque. Il se distingue d'un réglage encore incomplet ou non testé.
 
 **Correction** : Le texte, ou le locuteur, qu'un utilisateur donne à un segment à la place de ce que Snitch avait compris. Elle recouvre la transcription d'origine sans la remplacer ; chaque changement garde ancienne valeur, nouvelle valeur, auteur et date, et peut être restauré. Une correction n'est ni une validation vocale ni une attribution.

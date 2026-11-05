@@ -159,6 +159,19 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 				fail(w, http.StatusBadRequest, "invalid_voice_result")
 				return
 			}
+			if requiredModel == "" {
+				// A production result of a catalogue model that is not the active one (a Worker still on the previous
+				// model after a switch) would be filed next to the references of another model (ADR 0044).
+				var foreign bool
+				if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM voice_model_catalog c WHERE c.kind='fingerprint' AND c.repo=$1 AND NOT EXISTS (SELECT 1 FROM voice_active_model a WHERE a.kind='fingerprint' AND a.model_id=c.id))`, parsed.EmbeddingModel).Scan(&foreign); err != nil {
+					s.internal(w, err)
+					return
+				}
+				if foreign {
+					fail(w, http.StatusConflict, "stale_voice_result")
+					return
+				}
+			}
 			summarize = func(json.RawMessage) json.RawMessage { return fingerprintSummary(parsed) }
 			project = func(ctx context.Context, tx pgx.Tx, job jobs.Job) error {
 				return projectFingerprints(ctx, tx, job, parsed, config, index, diarizationID)

@@ -64,8 +64,7 @@ func checkReplacement(ctx context.Context, tx pgx.Tx, workerID string, entry voi
 		}
 		return "", nil
 	}
-	if entry.Kind != "diarization" {
-		// The fingerprint model is not switched here: changing it makes the stored fingerprints incomparable.
+	if entry.Kind != "diarization" && entry.Kind != "fingerprint" {
 		return "", orderFailure{http.StatusConflict, "voice_replacement_kind_unsupported"}
 	}
 	old, ok, err := voiceCatalogByID(ctx, tx, replaces)
@@ -84,6 +83,17 @@ func checkReplacement(ctx context.Context, tx pgx.Tx, workerID string, entry voi
 	case state != "ready":
 		return "", orderFailure{http.StatusConflict, "voice_replaced_model_not_ready"}
 	}
+	if entry.Kind == "fingerprint" {
+		// Changing the fingerprint model makes the stored fingerprints incomparable: its replacement on a Worker
+		// only prepares the target of a confirmed transition (ADR 0044), which alone decides the switch.
+		t, open, err := openTransition(ctx, tx)
+		if err != nil {
+			return "", err
+		}
+		if !open || t.From != old.ID || t.To != entry.ID {
+			return "", orderFailure{http.StatusConflict, "voice_transition_required"}
+		}
+	}
 	if len(existing) == 1 && (existing[0].New != entry.ID || existing[0].Old != old.ID || existing[0].Phase != "preparing") {
 		return "", orderFailure{http.StatusConflict, "voice_replacement_in_progress"}
 	}
@@ -95,6 +105,12 @@ func checkReplacement(ctx context.Context, tx pgx.Tx, workerID string, entry voi
 // left waiting for a model nobody holds any more.
 func voiceModelInUseIn(ctx context.Context, db pgQuerier, entry voiceCatalogEntry) (bool, error) {
 	var busy bool
+	if entry.Kind == "fingerprint" {
+		// Fingerprint jobs are not pinned: the active model serves the production ones, a requested model its own.
+		err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs j WHERE j.step LIKE 'voice.fingerprint.%' AND j.status IN ('pending','leased','retry_wait')
+			AND (j.requested_model_id=$1 OR (j.requested_model_id IS NULL AND EXISTS (SELECT 1 FROM voice_active_model a WHERE a.kind='fingerprint' AND a.model_id=$1))))`, entry.ID).Scan(&busy)
+		return busy, err
+	}
 	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs j LEFT JOIN voice_pipeline_versions pin ON pin.version=substring(j.input_version FROM '-p(voice-[0-9a-f]+)')
 		WHERE j.step LIKE 'voice.diarization.%' AND j.status IN ('pending','leased','retry_wait') AND (j.requested_model_id=$1 OR pin.config->>'model'=$2))`, entry.ID, entry.Repo).Scan(&busy)
 	return busy, err
@@ -145,7 +161,18 @@ func (s *Server) settleReplacement(ctx context.Context, tx pgx.Tx, rep replaceme
 	if err != nil {
 		return err
 	}
-	if active == old.ID {
+	if rep.Kind == "fingerprint" {
+		// The switch of the fingerprint model is the transition's: the old model stays on the Worker until the
+		// essential migration is complete, then its removal follows the usual rules.
+		var phase string
+		err = tx.QueryRow(ctx, `SELECT phase FROM voice_fingerprint_transitions WHERE from_model_id=$1 AND to_model_id=$2 ORDER BY id DESC LIMIT 1`, old.ID, next.ID).Scan(&phase)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && phase != "switched") {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	} else if active == old.ID {
 		// The switch is Snitch's decision, taken once a connected Worker holds the new model ready.
 		_, _, err = switchVoicePipelineIn(ctx, tx, &next, func(current voicePipeline) voicePipeline {
 			current.Provider, current.Model, current.ModelVersion, current.Fake = next.Engine, next.Repo, next.Revision, nil

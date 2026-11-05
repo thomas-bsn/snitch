@@ -363,6 +363,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceFingerprintTransitionCancel(t, pool)
 	})
+	t.Run("voice fingerprint transition workers", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionWorkers(t, pool)
+	})
+	t.Run("voice fingerprint stale model", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintStaleModel(t, pool)
+	})
 	t.Run("voice requested model dispatch", func(t *testing.T) {
 		reset(t)
 		testVoiceRequestedModelDispatch(t, pool)
