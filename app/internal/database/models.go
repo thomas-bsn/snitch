@@ -668,16 +668,18 @@ type UploadedMedium struct {
 }
 
 type User struct {
-	ID           int64              `json:"id"`
-	Username     string             `json:"username"`
-	PasswordHash pgtype.Text        `json:"password_hash"`
-	Role         string             `json:"role"`
-	Approved     bool               `json:"approved"`
-	DiscordID    pgtype.Text        `json:"discord_id"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	Language     pgtype.Text        `json:"language"`
-	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
-	DiscordName  pgtype.Text        `json:"discord_name"`
+	ID              int64              `json:"id"`
+	Username        string             `json:"username"`
+	PasswordHash    pgtype.Text        `json:"password_hash"`
+	Role            string             `json:"role"`
+	Approved        bool               `json:"approved"`
+	DiscordID       pgtype.Text        `json:"discord_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Language        pgtype.Text        `json:"language"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DiscordName     pgtype.Text        `json:"discord_name"`
+	DisplayName     pgtype.Text        `json:"display_name"`
+	DiscordUsername pgtype.Text        `json:"discord_username"`
 }
 
 type VoiceAutomationEvent struct {

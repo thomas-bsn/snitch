@@ -1,5 +1,5 @@
 -- name: GetUser :one
-SELECT id, username, role, approved, language FROM users WHERE id = $1;
+SELECT id, username, role, approved, language, COALESCE(display_name, CASE WHEN starts_with(username,'discord_') THEN discord_name END, username)::text AS display_name FROM users WHERE id = $1;
 
 -- name: ListPending :many
 SELECT id, username, role, approved FROM users WHERE NOT approved AND deleted_at IS NULL ORDER BY id;

@@ -134,8 +134,14 @@ export function AvatarEditor() {
     <div className="flex flex-col gap-3">
       <h3 className="font-medium">{t("account.profile.avatar.title")}</h3>
       <div className="flex items-center gap-3">
-        <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-avatar-bg text-accent-ink">
-          <Avatar initials={user?.username.slice(0, 2).toUpperCase() ?? ""} />
+        <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-avatar-bg text-accent-ink">
+          <Avatar
+            initials={
+              (user?.display_name ?? user?.username)
+                ?.slice(0, 2)
+                .toUpperCase() ?? ""
+            }
+          />
         </div>
         {settings && (
           <p className="text-sm text-mute">

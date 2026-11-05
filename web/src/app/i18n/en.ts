@@ -1029,6 +1029,28 @@ export const en = {
     tabsLabel: "Account settings",
     tabs: { profile: "Profile", voice: "My voice" },
     profile: {
+      displayName: "Display name",
+      displayNameHint: "The name shown in your profile and account menu.",
+      loginHint:
+        "Use this username to sign in with a password. 3–64 characters.",
+      identitySaved: "Profile saved.",
+      saveIdentity: "Save profile",
+      saving: "Saving…",
+      securityTitle: "Password & sign-in",
+      passwordHint:
+        "Enter your current password to choose a new one. Other sessions will be signed out.",
+      firstPasswordHint:
+        "Add a password to sign in without Discord. You can then unlink Discord if you wish.",
+      currentPassword: "Current password",
+      newPassword: "New password",
+      confirmPassword: "Confirm new password",
+      passwordLength:
+        "12–256 characters. Password managers and paste are welcome.",
+      passwordMismatch: "The passwords do not match.",
+      passwordSaved: "Password saved. Other sessions have been signed out.",
+      changePassword: "Change password",
+      setPassword: "Set a password",
+
       identityTitle: "Account",
       username: "Username",
       role: "Role",

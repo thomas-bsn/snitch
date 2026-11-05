@@ -2,6 +2,11 @@
 // HTTP handlers). An unknown code falls back to a generic message that shows the code.
 
 export const errorsEn = {
+  invalid_profile:
+    "Choose a display name (1–100 characters) and a username (3–64 characters, without leading or trailing spaces).",
+  invalid_password_format: "Choose a password between 12 and 256 characters.",
+  current_password_incorrect: "The current password is incorrect.",
+
   avatar_too_large: "The photo must be smaller than 5 MB.",
   invalid_discord_bot_token: "Discord refused this bot token.",
   discord_bot_not_configured: "The Discord bot is not connected.",

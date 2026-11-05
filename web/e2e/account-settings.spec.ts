@@ -273,6 +273,109 @@ test.describe.serial("paramètres du compte", () => {
     await context.close();
   });
 
+  test("modifier son pseudo et son mot de passe depuis le profil", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      storageState: await sessionFor(MEMBER),
+    });
+    const page = await context.newPage();
+    await page.goto("/account");
+    await page
+      .getByLabel("Display name", { exact: true })
+      .fill("Camille Fixture");
+    await page
+      .getByRole("button", { name: "Save profile", exact: true })
+      .click();
+    await expect(page.getByRole("status")).toContainText("Profile saved.");
+    await page.getByRole("button", { name: /Account menu/ }).click();
+    await expect(page.getByRole("menu")).toContainText("Camille Fixture");
+    await page.keyboard.press("Escape");
+    await page
+      .getByLabel("Current password", { exact: true })
+      .fill(MEMBER.password);
+    await page
+      .getByLabel("New password", { exact: true })
+      .fill("synthetic-replacement-password");
+    await page
+      .getByLabel("Confirm new password", { exact: true })
+      .fill("different-password");
+    await page
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(page.getByText("The passwords do not match.")).toBeVisible();
+    await page
+      .getByLabel("Confirm new password", { exact: true })
+      .fill("synthetic-replacement-password");
+    await page
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Password saved" }),
+    ).toBeVisible();
+    // Restore the shared fixture through the same form; the current session remains valid.
+    await page
+      .getByLabel("Current password", { exact: true })
+      .fill("synthetic-replacement-password");
+    await page
+      .getByLabel("New password", { exact: true })
+      .fill(MEMBER.password);
+    await page
+      .getByLabel("Confirm new password", { exact: true })
+      .fill(MEMBER.password);
+    await page
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Password saved" }),
+    ).toBeVisible();
+    await context.close();
+  });
+
+  test("un compte créé par Discord affiche le bon pseudo et peut créer un mot de passe", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto("/login");
+    await page.getByRole("button", { name: "Continue with Discord" }).click();
+    await page
+      .getByRole("link", { name: "Autoriser 123456", exact: true })
+      .click();
+    await page.goto("/account");
+    await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(
+      "administrator",
+    );
+    await expect(
+      page.getByText("@administrator", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Current password", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Unlink Discord", exact: true }),
+    ).toBeDisabled();
+    await page.getByLabel("Display name", { exact: true }).fill("Alex Fixture");
+    await page.getByLabel("Username", { exact: true }).fill("alex-fixture");
+    await page
+      .getByRole("button", { name: "Save profile", exact: true })
+      .click();
+    await expect(page.getByRole("status")).toContainText("Profile saved.");
+    await page
+      .getByLabel("New password", { exact: true })
+      .fill("synthetic-discord-password");
+    await page
+      .getByLabel("Confirm new password", { exact: true })
+      .fill("synthetic-discord-password");
+    await page
+      .getByRole("button", { name: "Set a password", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Unlink Discord", exact: true }),
+    ).toBeEnabled();
+    await context.close();
+  });
+
   for (const theme of ["light", "dark"] as const) {
     test(`accessibilité des deux onglets, thème ${theme}`, async ({
       browser,
@@ -290,6 +393,11 @@ test.describe.serial("paramètres du compte", () => {
           page.getByRole("heading", { level: 1, name: "Account settings" }),
         ).toBeVisible();
         await expectNoViolations(page);
+        if (path === "/account")
+          await page.screenshot({
+            path: `test-results/account-profile-${theme}.png`,
+            fullPage: true,
+          });
       }
       await context.close();
     });

@@ -185,11 +185,24 @@ func (s *Server) fetchAndStoreAvatar(ctx context.Context, id int64, discordID, t
 		return "", errAccountGone
 	}
 	var profile struct {
-		Avatar *string `json:"avatar"`
+		Avatar     *string `json:"avatar"`
+		Username   string  `json:"username"`
+		GlobalName string  `json:"global_name"`
 	}
 	if status != 200 || json.Unmarshal(body, &profile) != nil {
 		s.discordStepFailed("avatar_profile", "invalid_response", status, body, nil)
 		return "", errDiscordDown
+	}
+	// Profile names refresh even when the avatar hash is unchanged. Never change a chosen Snitch name.
+	if profile.Username != "" {
+		name := profile.GlobalName
+		if name == "" {
+			name = profile.Username
+		}
+		_, err = s.Pool.Exec(ctx, `UPDATE users SET discord_username=$3,discord_name=$4 WHERE id=$1 AND discord_id=$2 AND deleted_at IS NULL`, id, discordID, truncateDisplayName(profile.Username, 128), truncateDisplayName(name, 128))
+		if err != nil {
+			return "", err
+		}
 	}
 	if profile.Avatar == nil || *profile.Avatar == "" {
 		return syncNoAvatar, s.storeDiscordAvatar(ctx, id, discordID, "", nil)
