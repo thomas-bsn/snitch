@@ -149,6 +149,8 @@ export const errorsEn = {
   invalid_microphone_override: "This microphone choice is not valid.",
   invalid_microphone_rule: "This microphone rule is not valid.",
   invalid_mode: "This search mode is not valid.",
+  public_address_unknown:
+    "Snitch cannot determine its public address. Open it through its usual address or check the reverse proxy.",
   invalid_oauth_state:
     "The Discord return is invalid or expired. Start the sign-in again.",
   invalid_page: "This page number is not valid.",

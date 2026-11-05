@@ -886,14 +886,22 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 		c, _ := sessionCookie(r)
 		sessionHash = auth.Hash(c.Value)
 	}
+	// The return address is computed once, here, and stored with the state: the callback reuses it
+	// verbatim and never rebuilds it from its own (possibly different) proxy headers.
+	origin := s.publicOrigin(r)
+	if origin == "" {
+		fail(w, 400, "public_address_unknown")
+		return
+	}
+	redirectURI := origin + "/api/auth/discord/callback"
 	state, browser := auth.Token(), auth.Token()
-	_, err = s.Pool.Exec(r.Context(), `INSERT INTO oauth_states(state_hash,browser_hash,user_id,session_hash,expires_at) VALUES($1,$2,$3,$4,now()+interval '10 minutes')`, auth.Hash(state), auth.Hash(browser), userID, sessionHash)
+	_, err = s.Pool.Exec(r.Context(), `INSERT INTO oauth_states(state_hash,browser_hash,user_id,session_hash,redirect_uri,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval '10 minutes')`, auth.Hash(state), auth.Hash(browser), userID, sessionHash, redirectURI)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	s.cookie(w, r, "snitch_oauth", browser, 600)
-	q := url.Values{"client_id": {id}, "response_type": {"code"}, "scope": {"identify"}, "state": {state}, "redirect_uri": {s.publicOrigin(r) + "/api/auth/discord/callback"}}
+	q := url.Values{"client_id": {id}, "response_type": {"code"}, "scope": {"identify"}, "state": {state}, "redirect_uri": {redirectURI}}
 	reply(w, 200, map[string]string{"url": s.Config.DiscordAuthorizeURL + "?" + q.Encode()})
 }
 
@@ -916,7 +924,8 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	var userID *int64
 	var sessionHash []byte
-	err = s.Pool.QueryRow(r.Context(), `DELETE FROM oauth_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING user_id,session_hash`, auth.Hash(state), auth.Hash(browser.Value)).Scan(&userID, &sessionHash)
+	var redirectURI string
+	err = s.Pool.QueryRow(r.Context(), `DELETE FROM oauth_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING user_id,session_hash,redirect_uri`, auth.Hash(state), auth.Hash(browser.Value)).Scan(&userID, &sessionHash, &redirectURI)
 	if err != nil {
 		s.oauthFailure(w, r, 400, "invalid_oauth_state")
 		return
@@ -953,7 +962,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		s.oauthFailure(w, r, 503, "unavailable")
 		return
 	}
-	form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {id}, "client_secret": {secret}, "redirect_uri": {s.publicOrigin(r) + "/api/auth/discord/callback"}}
+	form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {id}, "client_secret": {secret}, "redirect_uri": {redirectURI}}
 	req, err := http.NewRequestWithContext(r.Context(), "POST", s.Config.DiscordTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		s.discordStepFailed("token_exchange", "request_build", 0, nil, err)

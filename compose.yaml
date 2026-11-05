@@ -56,7 +56,6 @@ services:
       # Facultative : sans valeur, l'application génère sa clé maître au premier démarrage et la conserve dans le
       # volume secrets (écriture réservée à l'application). Une valeur fournie reste prioritaire.
       MASTER_KEY: ${MASTER_KEY:-}
-      PUBLIC_URL: ${PUBLIC_URL:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       WORKER_IMAGE: ${WORKER_IMAGE:-}

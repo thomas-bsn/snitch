@@ -1,4 +1,4 @@
-# 0039 — Synchronisation des photos de profil Discord
+# 0040 — Synchronisation des photos de profil Discord
 
 Statut : accepté. S'appuie sur le stockage `account_avatars` et sur les secrets chiffrés des réglages (ADR de la clé maître) ; ne change pas la connexion OAuth Discord.
 
@@ -27,6 +27,6 @@ Un compte pouvait importer une photo personnelle, mais la photo de l'identité D
 
 ## Conséquences
 
-- Migration `00093` : les comptes ayant déjà une photo reçoivent une préférence `custom` ; aucune photo n'est perdue ; la migration est réversible (les images Discord sont alors supprimées).
+- Migration `00094` : les comptes ayant déjà une photo reçoivent une préférence `custom` ; aucune photo n'est perdue ; la migration est réversible (les images Discord sont alors supprimées).
 - Chaque compte lié coûte un appel Discord par jour au plus ; à très grande échelle, le débit sera limité par les quotas Discord (la passe s'arrête sur un 429 long et reprend à la passe suivante).
 - Limite connue : un avatar supprimé côté Discord retire l'image Discord, mais un compte Discord supprimé (`404`) garde la dernière photo connue.

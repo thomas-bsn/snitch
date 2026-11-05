@@ -47,7 +47,7 @@ func TestExecutableLifecycle(t *testing.T) {
 	}
 	address := listener.Addr().String()
 	listener.Close()
-	env := []string{"DATABASE_URL=" + dsn, "MASTER_KEY=" + base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)), "PUBLIC_URL=http://" + address, "COOKIE_SECURE=false", "LISTEN_ADDR=" + address, "UPLOAD_ROOT=" + t.TempDir()}
+	env := []string{"DATABASE_URL=" + dsn, "MASTER_KEY=" + base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)), "COOKIE_SECURE=false", "LISTEN_ADDR=" + address, "UPLOAD_ROOT=" + t.TempDir()}
 	command := func(arg string) *exec.Cmd {
 		cmd := exec.Command(binary, arg)
 		cmd.Env = append(os.Environ(), env...)
@@ -203,7 +203,7 @@ func TestExecutableGeneratesItsMasterKey(t *testing.T) {
 	run := func(secretsDir string) (string, error) {
 		cmd := exec.Command(binary, "serve")
 		// The database is deliberately unreachable: the key is resolved before the first connection.
-		cmd.Env = append(os.Environ(), "DATABASE_URL=postgres://receipts@127.0.0.1:1/receipts?sslmode=disable&connect_timeout=1", "MASTER_KEY=", "SECRETS_DIR="+secretsDir, "PUBLIC_URL=http://localhost:8080", "COOKIE_SECURE=false", "UPLOAD_ROOT="+t.TempDir())
+		cmd.Env = append(os.Environ(), "DATABASE_URL=postgres://receipts@127.0.0.1:1/receipts?sslmode=disable&connect_timeout=1", "MASTER_KEY=", "SECRETS_DIR="+secretsDir, "COOKIE_SECURE=false", "UPLOAD_ROOT="+t.TempDir())
 		out, err := cmd.CombinedOutput()
 		return string(out), err
 	}

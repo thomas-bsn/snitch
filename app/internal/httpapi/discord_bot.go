@@ -314,11 +314,15 @@ func (s *Server) refreshDiscordAvatar(w http.ResponseWriter, r *http.Request) {
 	if cooldown == 0 {
 		cooldown = 30 * time.Second
 	}
-	if a.LastSyncedAt != nil {
-		if at, e := time.Parse(time.RFC3339, *a.LastSyncedAt); e == nil && time.Since(at) < cooldown {
-			fail(w, 429, "avatar_sync_too_soon")
-			return
-		}
+	// Compared by the database against its own clock: the application and PostgreSQL may not agree on the time.
+	var tooSoon bool
+	if err := s.Pool.QueryRow(r.Context(), `SELECT COALESCE(discord_checked_at > now() - $2 * interval '1 microsecond',false) FROM avatar_preferences WHERE user_id=$1`, id, cooldown.Microseconds()).Scan(&tooSoon); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		s.internal(w, err)
+		return
+	}
+	if tooSoon {
+		fail(w, 429, "avatar_sync_too_soon")
+		return
 	}
 	if _, err := s.syncDiscordAvatar(r.Context(), id, token); err != nil {
 		if errors.Is(err, errBotRejected) {

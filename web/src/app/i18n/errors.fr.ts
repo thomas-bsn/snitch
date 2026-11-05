@@ -159,6 +159,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_microphone_override: "Ce choix de micro n’est pas valide.",
   invalid_microphone_rule: "Cette règle de micro n’est pas valide.",
   invalid_mode: "Ce mode de recherche n’est pas valide.",
+  public_address_unknown:
+    "Snitch ne peut pas déterminer son adresse publique. Ouvrez-le par son adresse habituelle ou vérifiez le mandataire.",
   invalid_oauth_state:
     "Le retour Discord est invalide ou expiré. Recommencez la connexion.",
   invalid_page: "Ce numéro de page n’est pas valide.",

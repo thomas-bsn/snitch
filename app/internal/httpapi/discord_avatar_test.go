@@ -156,7 +156,6 @@ func testDiscordAvatars(t *testing.T, pool *pgxpool.Pool) {
 		s := New(pool, config.Config{MasterKey: key}, logger)
 		s.avatarRetryBase, s.avatarCooldown = time.Millisecond, time.Nanosecond
 		ts := httptest.NewUnstartedServer(s.Handler())
-		s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 		ts.Start()
 		s.Config.DiscordTokenURL, s.Config.DiscordUserURL, s.Config.DiscordAuthorizeURL = provider.URL+"/token", provider.URL+"/me", provider.URL+"/authorize"
 		s.Config.DiscordAPIURL, s.Config.DiscordCDNURL = provider.URL+"/api", provider.URL+"/cdn"
