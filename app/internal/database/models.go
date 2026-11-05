@@ -899,6 +899,23 @@ type WorkerInstallInvite struct {
 	UsedAt                pgtype.Timestamptz `json:"used_at"`
 }
 
+type WorkerModelOrder struct {
+	ID             string             `json:"id"`
+	WorkerID       string             `json:"worker_id"`
+	Kind           string             `json:"kind"`
+	Action         string             `json:"action"`
+	ModelID        string             `json:"model_id"`
+	Revision       string             `json:"revision"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorName     string             `json:"author_name"`
+	Status         string             `json:"status"`
+	CauseCode      string             `json:"cause_code"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	AckedAt        pgtype.Timestamptz `json:"acked_at"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+}
+
 type WorkerTranscriptionConfig struct {
 	WorkerID         string             `json:"worker_id"`
 	ReceivedVersion  string             `json:"received_version"`
@@ -941,4 +958,7 @@ type WorkerVoiceModel struct {
 	RetryRequested   bool               `json:"retry_requested"`
 	RemovalRequested bool               `json:"removal_requested"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	Revision         string             `json:"revision"`
+	OccupiedBytes    int64              `json:"occupied_bytes"`
+	OrderID          pgtype.Text        `json:"order_id"`
 }

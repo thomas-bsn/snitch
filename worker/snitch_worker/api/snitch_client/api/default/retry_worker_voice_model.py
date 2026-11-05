@@ -9,7 +9,10 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error import Error
+from ...models.voice_model_order_input import VoiceModelOrderInput
 from ...models.voice_model_retry import VoiceModelRetry
+from ...models.worker_model_order import WorkerModelOrder
+from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -17,6 +20,7 @@ from typing import cast
 def _get_kwargs(
     id: str,
     *,
+    body: VoiceModelOrderInput | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
@@ -38,18 +42,30 @@ def _get_kwargs(
     }
 
 
+    if not isinstance(body, Unset):
+        _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
     _kwargs["headers"] = headers
     return _kwargs
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Error | VoiceModelRetry:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Error | VoiceModelRetry | WorkerModelOrder:
     if response.status_code == 200:
         response_200 = VoiceModelRetry.from_dict(response.json())
 
 
 
         return response_200
+
+    if response.status_code == 201:
+        response_201 = WorkerModelOrder.from_dict(response.json())
+
+
+
+        return response_201
 
     response_default = Error.from_dict(response.json())
 
@@ -59,7 +75,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Error | VoiceModelRetry]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Error | VoiceModelRetry | WorkerModelOrder]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -72,29 +88,34 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
+    body: VoiceModelOrderInput | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
-) -> Response[Error | VoiceModelRetry]:
-    """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec. Refusé
-    (no_voice_candidate) sans candidat ou sans échec à relancer.
+) -> Response[Error | VoiceModelRetry | WorkerModelOrder]:
+    """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps).
+    Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id,
+    idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a
+    échoué sur ce Worker (201, voice_model_not_failed sinon).
 
     Args:
         id (str):
         origin (str):
         x_csrf_token (str):
+        body (VoiceModelOrderInput | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | VoiceModelRetry]
+        Response[Error | VoiceModelRetry | WorkerModelOrder]
      """
 
 
     kwargs = _get_kwargs(
         id=id,
+body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -110,30 +131,35 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
+    body: VoiceModelOrderInput | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
-) -> Error | VoiceModelRetry | None:
-    """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec. Refusé
-    (no_voice_candidate) sans candidat ou sans échec à relancer.
+) -> Error | VoiceModelRetry | WorkerModelOrder | None:
+    """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps).
+    Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id,
+    idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a
+    échoué sur ce Worker (201, voice_model_not_failed sinon).
 
     Args:
         id (str):
         origin (str):
         x_csrf_token (str):
+        body (VoiceModelOrderInput | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | VoiceModelRetry
+        Error | VoiceModelRetry | WorkerModelOrder
      """
 
 
     return sync_detailed(
         id=id,
 client=client,
+body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -143,29 +169,34 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
+    body: VoiceModelOrderInput | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
-) -> Response[Error | VoiceModelRetry]:
-    """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec. Refusé
-    (no_voice_candidate) sans candidat ou sans échec à relancer.
+) -> Response[Error | VoiceModelRetry | WorkerModelOrder]:
+    """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps).
+    Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id,
+    idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a
+    échoué sur ce Worker (201, voice_model_not_failed sinon).
 
     Args:
         id (str):
         origin (str):
         x_csrf_token (str):
+        body (VoiceModelOrderInput | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Error | VoiceModelRetry]
+        Response[Error | VoiceModelRetry | WorkerModelOrder]
      """
 
 
     kwargs = _get_kwargs(
         id=id,
+body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -181,30 +212,35 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
+    body: VoiceModelOrderInput | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
-) -> Error | VoiceModelRetry | None:
-    """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec. Refusé
-    (no_voice_candidate) sans candidat ou sans échec à relancer.
+) -> Error | VoiceModelRetry | WorkerModelOrder | None:
+    """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps).
+    Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id,
+    idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a
+    échoué sur ce Worker (201, voice_model_not_failed sinon).
 
     Args:
         id (str):
         origin (str):
         x_csrf_token (str):
+        body (VoiceModelOrderInput | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Error | VoiceModelRetry
+        Error | VoiceModelRetry | WorkerModelOrder
      """
 
 
     return (await asyncio_detailed(
         id=id,
 client=client,
+body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 

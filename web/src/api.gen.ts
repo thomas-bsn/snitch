@@ -2264,8 +2264,59 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec. Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. */
+    /** @description Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps). Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id, idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a échoué sur ce Worker (201, voice_model_not_failed sinon). */
     post: operations["retryWorkerVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/workers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Vue « Modèles par Worker » : pour chaque Worker non révoqué, le modèle de chacun des trois types (diarisation, empreinte, séparation) avec son état réel, sa progression, le volume occupé, la cause d'échec et la révision. */
+    get: operations["listVoiceModelsByWorker"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Ordonne à un Worker d'installer un modèle du catalogue. Rejouer la même clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est occupé par un autre modèle. */
+    post: operations["createVoiceModelOrder"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-model-orders/{id}/ack": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker accuse réception d'un de ses ordres après ses contrôles (destinataire, identité, type, modèle, révision, idempotence), ou le refuse avec la cause invalid_order. Rejouer l'accusé est sans effet. Un ordre d'un autre Worker est introuvable. */
+    post: operations["ackWorkerModelOrder"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2279,7 +2330,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, et les modèles à supprimer. Jamais de jeton ni de chemin. */
+    /** @description État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, les modèles à supprimer et les ordres d'installation en cours. Le jeton Hugging Face central n'accompagne que la première livraison d'un ordre qui télécharge un modèle sous accès restreint (ADR 0027) ; jamais de chemin. */
     get: operations["getWorkerVoiceModels"];
     put?: never;
     post?: never;
@@ -2298,7 +2349,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus / total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou supprimé. Une cause n'accompagne qu'un échec. */
+    /** @description Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus / total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou supprimé. Une cause n'accompagne qu'un échec. Avec order_id, le rapport répond à un ordre du Worker (modèle et révision contrôlés) ; ready clôt l'ordre, failed l'échoue ; un ordre terminé n'est pas rouvert (stale_voice_order). */
     post: operations["postWorkerVoiceModelStatus"];
     delete?: never;
     options?: never;
@@ -4314,7 +4365,13 @@ export interface components {
       name: string;
       connected: boolean;
       /** @enum {string} */
-      state: "not_installed" | "downloading" | "verifying" | "ready" | "failed";
+      state:
+        | "not_installed"
+        | "requested"
+        | "downloading"
+        | "verifying"
+        | "ready"
+        | "failed";
       /** @enum {string} */
       cause_code:
         | ""
@@ -4330,7 +4387,8 @@ export interface components {
         | "hf_not_found"
         | "hf_network"
         | "models_volume_unwritable"
-        | "hf_cache_error";
+        | "hf_cache_error"
+        | "invalid_order";
       /** Format: int64 */
       bytes_received: number;
       /** Format: int64 */
@@ -4379,11 +4437,93 @@ export interface components {
       retry: boolean;
     };
     WorkerVoiceModels: {
+      worker_id: string;
       models: components["schemas"]["WorkerVoiceModel"][];
       remove: components["schemas"]["WorkerVoiceModel"][];
+      orders: components["schemas"]["WorkerModelOrder"][];
+    };
+    VoiceModelOrderInput: {
+      model_id: string;
+      idempotency_key: string;
+    };
+    WorkerModelOrder: {
+      order_id: string;
+      worker_id: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      /** @enum {string} */
+      action: "install";
+      model_id: string;
+      engine: string;
+      repo: string;
+      revision: string;
+      idempotency_key: string;
+      /** @enum {string} */
+      status: "pending" | "acknowledged" | "done" | "failed" | "refused";
+      /** @description Jeton Hugging Face central, seulement à la première livraison d'un ordre qui télécharge un modèle sous accès restreint. */
+      hf_token?: string;
+      /** Format: date-time */
+      created_at: string;
+    };
+    WorkerModelOrderAck: {
+      accepted: boolean;
+      /** @enum {string} */
+      cause_code?: "" | "invalid_order";
+    };
+    WorkerModelCell: {
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      supported: boolean;
+      model_id: string;
+      label: string;
+      repo: string;
+      revision: string;
+      /** @enum {string} */
+      state:
+        | "not_installed"
+        | "requested"
+        | "downloading"
+        | "verifying"
+        | "ready"
+        | "failed";
+      /** @enum {string} */
+      cause_code:
+        | ""
+        | "hf_token_missing"
+        | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
+        | "disk_full"
+        | "runtime_incompatible"
+        | "inference_failed"
+        | "hf_auth_required"
+        | "hf_not_found"
+        | "hf_network"
+        | "models_volume_unwritable"
+        | "hf_cache_error"
+        | "invalid_order";
+      /** Format: int64 */
+      bytes_received: number;
+      /** Format: int64 */
+      bytes_total: number;
+      /** Format: int64 */
+      occupied_bytes: number;
+      order_id: string;
+    };
+    WorkerModelsRow: {
+      worker_id: string;
+      name: string;
+      connected: boolean;
+      models: components["schemas"]["WorkerModelCell"][];
+    };
+    WorkerModelsView: {
+      workers: components["schemas"]["WorkerModelsRow"][];
     };
     WorkerVoiceModelStatus: {
       model_id: string;
+      order_id?: string;
+      revision?: string;
       /** @enum {string} */
       state: "downloading" | "verifying" | "ready" | "failed" | "removed";
       /** @enum {string} */
@@ -4401,11 +4541,14 @@ export interface components {
         | "hf_not_found"
         | "hf_network"
         | "models_volume_unwritable"
-        | "hf_cache_error";
+        | "hf_cache_error"
+        | "invalid_order";
       /** Format: int64 */
       bytes_received?: number;
       /** Format: int64 */
       bytes_total?: number;
+      /** Format: int64 */
+      occupied_bytes?: number;
     };
     VoiceOverviewWorker: {
       id: string;
@@ -12205,7 +12348,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelOrderInput"];
+      };
+    };
     responses: {
       /** @description Relance demandée */
       200: {
@@ -12215,6 +12362,124 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["VoiceModelRetry"];
         };
+      };
+      /** @description Nouvel ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceModelsByWorker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Modèles par Worker */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelsView"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVoiceModelOrder: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelOrderInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  ackWorkerModelOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerModelOrderAck"];
+      };
+    };
+    responses: {
+      /** @description Accusé enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Erreur */
       default: {

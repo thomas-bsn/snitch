@@ -7,6 +7,7 @@ import { VoiceAdvanced } from "./VoiceAdvanced";
 import { VoiceHeader } from "./VoiceHeader";
 import { VoiceHuggingFace } from "./VoiceHuggingFace";
 import { VoiceInventory } from "./VoiceInventory";
+import { ModelsByWorker } from "./ModelsByWorker";
 import { VoiceModelCards } from "./VoiceModelCards";
 
 async function load() {
@@ -82,6 +83,7 @@ export function VoiceTab() {
         onChanged={reload}
       />
       <VoiceModelCards catalogue={models} onChanged={reload} />
+      <ModelsByWorker catalogue={models} />
       <VoiceHuggingFace />
       <VoiceInventory overview={overview} />
       <VoiceAdvanced
