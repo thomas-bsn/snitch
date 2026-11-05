@@ -11,6 +11,28 @@ import { useFormatDate } from "../format";
 import { MemberEditor } from "./MemberEditor";
 
 type Member = components["schemas"]["Member"];
+
+function MemberAvatar({ member }: { member: Member }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-9 shrink-0 place-items-center rounded-full bg-avatar-bg font-semibold uppercase"
+    >
+      {failed ? (
+        member.display_name.slice(0, 1)
+      ) : (
+        <img
+          src={`/api/admin/members/${member.id}/avatar`}
+          alt=""
+          className="size-full rounded-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      )}
+    </span>
+  );
+}
+
 async function load() {
   try {
     const r = await api.GET("/api/admin/members");
@@ -60,12 +82,7 @@ export function MembersTab() {
                 <tr key={m.id} className="border-t border-line">
                   <th scope="row" className="p-2 font-normal">
                     <div className="flex items-center gap-3">
-                      <span
-                        aria-hidden="true"
-                        className="grid size-9 shrink-0 place-items-center rounded-full bg-avatar-bg font-semibold uppercase"
-                      >
-                        {m.display_name.slice(0, 1)}
-                      </span>
+                      <MemberAvatar member={m} />
                       <span className="min-w-0">
                         <span className="block truncate font-medium">
                           {m.display_name}

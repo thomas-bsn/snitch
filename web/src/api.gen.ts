@@ -577,6 +577,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/members/{id}/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs : photo actuellement choisie par un membre actif (personnelle ou Discord). Cache privé revalidé ; aucune photo pour un compte supprimé. */
+    get: operations["getMemberAvatar"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/members/{id}/password": {
     parameters: {
       query?: never;
@@ -7626,6 +7643,51 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getMemberAvatar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Photo PNG */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+        };
+      };
+      /** @description Photo inchangée */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Compte absent ou sans photo */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 identifiant invalide, 401 session requise, 403 administrateur requis) */
       default: {
         headers: {
           [name: string]: unknown;

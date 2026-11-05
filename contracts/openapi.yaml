@@ -1489,6 +1489,20 @@
     "/api/admin/members": {
       "get": {"operationId":"listMembers","description":"Administrateurs : membres actifs, rôle, arrivée et nombre de clips.","responses":{"200":{"description":"Membres","content":{"application/json":{"schema":{"type":"object","required":["items"],"properties":{"items":{"type":"array","items":{"$ref":"#/components/schemas/Member"}}}}}}},"default":{"description":"Erreur","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}},"security":[{"session":[]}]}
     },
+    "/api/admin/members/{id}/avatar": {
+      "get": {
+        "operationId": "getMemberAvatar",
+        "description": "Administrateurs : photo actuellement choisie par un membre actif (personnelle ou Discord). Cache privé revalidé ; aucune photo pour un compte supprimé.",
+        "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64"}}],
+        "responses": {
+          "200": {"description": "Photo PNG", "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}}},
+          "304": {"description": "Photo inchangée"},
+          "404": {"description": "Compte absent ou sans photo"},
+          "default": {"description": "Erreur (400 identifiant invalide, 401 session requise, 403 administrateur requis)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        },
+        "security": [{"session": []}]
+      }
+    },
     "/api/admin/members/{id}/password": {
       "post": {"operationId":"resetMemberPassword","description":"Génère un mot de passe temporaire, affiché une seule fois, et ferme les sessions du compte. Interdit sur son propre compte.","parameters":[{"in":"path","name":"id","required":true,"schema":{"type":"integer","format":"int64"}},{"in":"header","name":"Origin","required":true,"schema":{"type":"string"}},{"in":"header","name":"X-CSRF-Token","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"Mot de passe temporaire","content":{"application/json":{"schema":{"type":"object","required":["temporary_password"],"properties":{"temporary_password":{"type":"string"}}}}}},"default":{"description":"Erreur","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Error"}}}}},"security":[{"session":[]}]}
     },

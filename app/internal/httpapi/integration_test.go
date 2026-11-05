@@ -1104,6 +1104,9 @@ func TestFoundation(t *testing.T) {
 			call(client, action.method, "/api/admin/members/999999"+action.suffix, nil, me.CSRF, 404)
 		}
 		call(client, "GET", memberPath, nil, "", 200)
+		call(anon, "GET", memberPath+"/avatar", nil, "", 401)
+		call(user, "GET", memberPath+"/avatar", nil, "", 403)
+		call(client, "GET", memberPath+"/avatar", nil, "", 404)
 		call(client, "PATCH", memberPath, map[string]any{"display_name": "Contract member", "language": "fr"}, me.CSRF, 200)
 		call(client, "DELETE", memberPath+"/discord", nil, me.CSRF, 409)
 		if _, e = pool.Exec(ctx, `UPDATE users SET discord_id='contract-member' WHERE id=$1`, users[0].ID); e != nil {

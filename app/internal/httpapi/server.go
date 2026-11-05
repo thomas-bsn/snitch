@@ -255,6 +255,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/admin/settings", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.putSettings)))
 	mux.Handle("GET /api/admin/members", s.protected(true, http.HandlerFunc(s.listMembers)))
 	mux.Handle("GET /api/admin/members/{id}", s.protected(true, http.HandlerFunc(s.getMember)))
+	mux.Handle("GET /api/admin/members/{id}/avatar", s.protected(true, http.HandlerFunc(s.memberAvatar)))
 	mux.Handle("PATCH /api/admin/members/{id}", s.protected(true, http.HandlerFunc(s.patchMember)))
 	mux.Handle("POST /api/admin/members/{id}/password", s.protected(true, s.limited(http.HandlerFunc(s.resetMemberPassword))))
 	mux.Handle("DELETE /api/admin/members/{id}/sessions", s.protected(true, http.HandlerFunc(s.revokeMemberSessions)))

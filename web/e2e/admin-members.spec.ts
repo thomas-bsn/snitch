@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, request, test } from "@playwright/test";
 import {
   ADMIN,
   MEMBER,
@@ -14,6 +14,24 @@ test("un administrateur gère les membres, les inscriptions et les exports", asy
   await installAdministrator();
   await createApprovedMember();
   const memberStorage = await sessionFor(MEMBER);
+  const avatarClient = await request.newContext({
+    baseURL: process.env.SNITCH_TEST_URL,
+    storageState: memberStorage,
+  });
+  const me = await (await avatarClient.get("/api/auth/me")).json();
+  const uploaded = await avatarClient.put("/api/account/avatar", {
+    headers: {
+      Origin: process.env.SNITCH_TEST_URL!,
+      "X-CSRF-Token": me.csrf_token,
+      "Content-Type": "image/png",
+    },
+    data: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  expect(uploaded.status()).toBe(204);
+  await avatarClient.dispose();
   const context = await browser.newContext({
     storageState: await sessionFor(ADMIN),
     viewport: { width: 390, height: 780 },
@@ -30,6 +48,18 @@ test("un administrateur gère les membres, les inscriptions et les exports", asy
   // The list stays behind the open panel, which hides it from the accessibility tree: select by markup.
   const member = page.locator("tr", { hasText: "member-user" });
   await expect(member).toContainText("User");
+  const photo = member.locator("img");
+  await expect(photo).toBeVisible();
+  await expect
+    .poll(() =>
+      photo.evaluate((image) =>
+        image instanceof HTMLImageElement ? image.naturalWidth : 0,
+      ),
+    )
+    .toBe(256);
+  const owner = page.locator("tr", { hasText: "administrator" });
+  await expect(owner.locator("img")).toHaveCount(0);
+  await expect(owner.locator('[aria-hidden="true"]').first()).toHaveText("a");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     390,
   );
