@@ -1,4 +1,4 @@
-# 0039 — CI : construire une fois, valider en parallèle, promouvoir le digest validé
+# 0040 — CI : construire une fois, valider en parallèle, promouvoir le digest validé
 
 Statut : accepté. Amende le workflow de publication décrit dans `docs/deployment.md` ; conserve l'[ADR 0036](0036-mise-a-jour-automatique-du-worker.md) (tags `latest`, `sha-*`, SemVer du Worker).
 

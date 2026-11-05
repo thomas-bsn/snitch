@@ -1,5 +1,5 @@
 name: Verify and distribute
-# Build once, test once, publish once (ADR 0039). Verification jobs run in parallel with the image builds; on main and on a
+# Build once, test once, publish once (ADR 0040). Verification jobs run in parallel with the image builds; on main and on a
 # version tag the images are pushed by digest (no tag), and only the final "promote" jobs give them their tags, once the
 # `check` gate is green. A promotion is a copy of the manifest: the published image is the tested one, same digest.
 on:
@@ -114,6 +114,7 @@ jobs:
           python -m venv .venv
           .venv/bin/pip install -r contracts/generators/requirements.lock
           npm --prefix web ci --ignore-scripts --no-audit --no-fund
+          npm --prefix web run build
       - run: |
           test -z "$(gofmt -l app)"
           (cd app && go vet ./...)
@@ -183,10 +184,14 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python: 'true'
+      - run: |
+          python -m venv .venv-worker
+          python scripts/worker_test_deps.py > "$RUNNER_TEMP/worker-test.txt"
+          .venv-worker/bin/pip install --require-hashes --no-deps -r "$RUNNER_TEMP/worker-test.txt"
       - working-directory: worker
         env:
           PYTHONPATH: .:snitch_worker/api
-        run: python -m unittest discover -s tests
+        run: ../.venv-worker/bin/python -m unittest discover -s tests
 
   image-app:
     # Builds the app image. Pull request: built and smoke-tested locally, nothing pushed, nothing logged in to write.
