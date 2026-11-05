@@ -84,3 +84,9 @@ L’exemple [.env.example](../.env.example) prépare les variables du déploieme
 
 Les logs de l'application sont du JSON avec erreurs génériques, sans URL PostgreSQL, clé maître ni corps de requête. Le pool est limité à six connexions. SIGTERM laisse jusqu'à dix secondes aux requêtes en cours avant la fermeture du pool.
 
+
+## Photos de profil Discord
+
+Une photo de profil vient de l'une de ces sources, choisie dans Compte › Profil : **Discord** (synchronisée), **Ma photo** (importée) ou les initiales. Un compte créé par Discord affiche sa photo Discord ; un compte local qui lie Discord l'adopte s'il n'a pas de photo personnelle. Une photo importée est toujours prioritaire : la synchronisation ne la remplace jamais, et « Discord » permet d'y revenir sans perdre l'autre photo. Délier Discord arrête la synchronisation et supprime la photo Discord téléchargée ; la photo personnelle reste.
+
+La synchronisation demande un **bot Discord** (Administration › Inscriptions › « Discord Bot — Profile Pictures »). Créez un bot dans le portail développeur de Discord (aucune permission ni intention privilégiée n'est nécessaire : il ne lit que les profils publics), copiez son jeton, puis « Connect Bot ». Le jeton est vérifié auprès de Discord avant d'être enregistré chiffré ; il n'est jamais réaffiché. Seul le Super-administrateur le configure, le teste (« Test Connection ») ou le supprime (« Disconnect », qui garde les photos). Les profils sont actualisés toutes les 24 heures, même hors connexion, juste après une création ou une liaison, à la demande de l'utilisateur (« Refresh Discord Picture », au plus une fois toutes les 30 secondes) et par « Sync Now » pour tous les comptes. Voir l'[ADR 0041](adr/0041-synchronisation-des-avatars-discord.md).

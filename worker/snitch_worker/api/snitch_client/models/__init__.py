@@ -26,6 +26,10 @@ from .audio_track_rule_result import AudioTrackRuleResult
 from .audio_track_selection import AudioTrackSelection
 from .audio_track_selection_status import AudioTrackSelectionStatus
 from .automatic_analysis_setting import AutomaticAnalysisSetting
+from .avatar_settings import AvatarSettings
+from .avatar_settings_input import AvatarSettingsInput
+from .avatar_settings_input_source import AvatarSettingsInputSource
+from .avatar_settings_source import AvatarSettingsSource
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
@@ -83,6 +87,9 @@ from .delete_clip_analysis_response_200 import DeleteClipAnalysisResponse200
 from .delete_clip_response_200 import DeleteClipResponse200
 from .delete_member_body import DeleteMemberBody
 from .delete_worker_transcription_override_response_200 import DeleteWorkerTranscriptionOverrideResponse200
+from .discord_bot_input import DiscordBotInput
+from .discord_bot_status import DiscordBotStatus
+from .discord_bot_status_status import DiscordBotStatusStatus
 from .embedding_settings import EmbeddingSettings
 from .embedding_validation import EmbeddingValidation
 from .error import Error
@@ -482,6 +489,10 @@ __all__ = (
     "AudioTrackSelection",
     "AudioTrackSelectionStatus",
     "AutomaticAnalysisSetting",
+    "AvatarSettings",
+    "AvatarSettingsInput",
+    "AvatarSettingsInputSource",
+    "AvatarSettingsSource",
     "BackfillEmbeddingIndexResponse202",
     "Bootstrap",
     "BrowseVideoRootResponse200",
@@ -539,6 +550,9 @@ __all__ = (
     "DeleteClipResponse200",
     "DeleteMemberBody",
     "DeleteWorkerTranscriptionOverrideResponse200",
+    "DiscordBotInput",
+    "DiscordBotStatus",
+    "DiscordBotStatusStatus",
     "EmbeddingSettings",
     "EmbeddingValidation",
     "Error",

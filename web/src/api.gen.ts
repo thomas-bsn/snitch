@@ -321,6 +321,94 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/avatar-settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Source de la photo du compte connecté (discord, custom ou none), présence de chaque image, état de la synchronisation Discord. */
+    get: operations["getAvatarSettings"];
+    /** @description Choix explicite de la source affichée. custom exige une photo personnelle, discord une identité Discord liée (la photo est alors récupérée si le bot est configuré). Les deux images sont conservées. */
+    put: operations["putAvatarSettings"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/avatar/discord-refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Actualise la photo Discord du compte connecté. Ne touche jamais la photo personnelle. Une fois toutes les 30 secondes au plus par compte. */
+    post: operations["refreshDiscordAvatar"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/discord-bot": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs : état du bot Discord (photos de profil), sans jamais renvoyer le token. */
+    get: operations["getDiscordBot"];
+    /** @description Réservé au Super-administrateur : vérifie le token auprès de Discord puis l'enregistre chiffré. Un token refusé n'est pas enregistré (invalid_discord_bot_token) et n'est jamais renvoyé. */
+    put: operations["putDiscordBot"];
+    post?: never;
+    /** @description Réservé au Super-administrateur : déconnecte le bot. La synchronisation s'arrête, les photos existantes restent. */
+    delete: operations["deleteDiscordBot"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/discord-bot/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Réservé au Super-administrateur : teste le token enregistré auprès de Discord. */
+    post: operations["testDiscordBot"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/discord-bot/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs : lance une synchronisation globale en arrière-plan. 409 discord_sync_running si une passe est déjà en cours, quelle que soit l'instance. */
+    post: operations["syncDiscordBot"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/preferences": {
     parameters: {
       query?: never;
@@ -3947,6 +4035,37 @@ export interface components {
       };
       items: components["schemas"]["Worker"][];
     };
+    AvatarSettingsInput: {
+      /** @enum {string} */
+      source: "discord" | "custom" | "none";
+    };
+    AvatarSettings: {
+      /** @enum {string} */
+      source: "discord" | "custom" | "none";
+      discord_linked: boolean;
+      has_custom: boolean;
+      has_discord: boolean;
+      bot_configured: boolean;
+      /** @description Vrai quand la photo affichée suit Discord et que le bot est configuré. */
+      auto_sync: boolean;
+      /** Format: date-time */
+      last_synced_at: string | null;
+      last_error: string | null;
+    };
+    DiscordBotInput: {
+      token: string;
+    };
+    DiscordBotStatus: {
+      /** @enum {string} */
+      status: "connected" | "not_configured" | "error";
+      bot_name: string | null;
+      last_error: string | null;
+      /** Format: date-time */
+      last_sync_at: string | null;
+      last_refreshed: number;
+      last_failed: number;
+      running: boolean;
+    };
     HFTokenInput: {
       /** @description Token Hugging Face : écrit une fois, jamais renvoyé */
       token: string;
@@ -6620,6 +6739,266 @@ export interface operations {
         content?: never;
       };
       /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAvatarSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglages de photo */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvatarSettings"];
+        };
+      };
+      /** @description Erreur (401) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putAvatarSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AvatarSettingsInput"];
+      };
+    };
+    responses: {
+      /** @description Réglages mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvatarSettings"];
+        };
+      };
+      /** @description Erreur (400 invalid_avatar_source, 409 no_custom_avatar ou discord_not_linked, 401, 403 CSRF) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  refreshDiscordAvatar: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglages mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvatarSettings"];
+        };
+      };
+      /** @description Erreur (409 discord_not_linked ou discord_bot_not_configured, 429 avatar_sync_too_soon ou discord_rate_limited, 502 discord_unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getDiscordBot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du bot */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscordBotStatus"];
+        };
+      };
+      /** @description Erreur (401, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DiscordBotInput"];
+      };
+    };
+    responses: {
+      /** @description Bot connecté */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscordBotStatus"];
+        };
+      };
+      /** @description Erreur (400 invalid_discord_bot_token, 429, 502 discord_unavailable, 403 super_administrator_required) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bot déconnecté */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (401, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  testDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du bot après test */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscordBotStatus"];
+        };
+      };
+      /** @description Erreur (400 invalid_discord_bot_token, 409 discord_bot_not_configured, 502, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  syncDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Synchronisation lancée */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (409 discord_bot_not_configured ou discord_sync_running, 403) */
       default: {
         headers: {
           [name: string]: unknown;
