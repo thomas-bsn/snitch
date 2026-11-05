@@ -1021,6 +1021,8 @@ export const fr: Messages = {
       "{count} jobs ne peuvent pas démarrer : aucun worker n’a validé la configuration de transcription actuelle",
     incidentBlockedNotValidated:
       "{count} jobs ne peuvent pas démarrer : la configuration de transcription a échoué à son test sur les workers",
+    incidentBlockedNotClaiming:
+      "{count} jobs ne peuvent pas démarrer : un worker est en ligne mais ne réclame plus de tâches",
     incidentGeneric:
       "Un incident technique ralentit le traitement. Les administrateurs ont été prévenus.",
     incidentResolved: "Incident technique résolu",
@@ -1619,6 +1621,7 @@ export const fr: Messages = {
     },
     status: {
       online: "En ligne",
+      notClaiming: "En ligne, ne réclame plus de tâches",
       offline: "Hors ligne",
       revoked: "Révoqué",
     },
@@ -2426,6 +2429,8 @@ export const fr: Messages = {
           "Aucun Worker n’a validé la configuration de transcription actuelle. Ouvrez la page Workers et validez-la sur un Worker.",
         transcription_not_validated:
           "La configuration de transcription a échoué à son test sur les Workers connectés. Corrigez-la sur la page Workers ; la tâche démarre ensuite d’elle-même.",
+        worker_not_claiming:
+          "Un Worker compatible est en ligne et libre, mais ne demande plus de tâches depuis plus de 2 minutes. Consultez ses journaux (claim_poll_failed) sur la page Workers ; la tâche démarre dès qu’il réclame de nouveau.",
         run_cancelled: "Annulée : cette étape ne sera pas exécutée.",
         running: "Un Worker transcrit le clip.",
         retry_scheduled: "La tentative a échoué ; une nouvelle est prévue.",

@@ -21,7 +21,9 @@ export function notificationText(item: AppNotification, t: Translate): string {
     if (item.kind === "job_blocked")
       return item.error_code === "transcription_not_validated"
         ? t("notifications.incidentBlockedNotValidated", { count })
-        : t("notifications.incidentBlockedMismatch", { count });
+        : item.error_code === "worker_not_claiming"
+          ? t("notifications.incidentBlockedNotClaiming", { count })
+          : t("notifications.incidentBlockedMismatch", { count });
     return item.kind === "worker_unavailable"
       ? t("notifications.incidentWorker", { count })
       : item.kind === "provider_unavailable"

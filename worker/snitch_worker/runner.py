@@ -13,7 +13,7 @@ import threading
 import time
 import wave
 import struct
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from typing import Any, Mapping, Protocol
 from urllib.parse import urljoin, urlparse
 
@@ -346,7 +346,8 @@ def _require_response(value: Any, operation: str) -> Any:
     if isinstance(value, Error) and value.error == "worker_token_invalid":
         raise WorkerUnauthorized(f"worker API {operation} refused the token")
     if value is None or isinstance(value, Error):
-        raise RuntimeError(f"worker API {operation} failed")
+        code = value.error if isinstance(value, Error) and isinstance(value.error, str) else ""
+        raise ApiError(operation, code)
     return value
 
 
@@ -367,6 +368,103 @@ LEASE_REFUSALS = frozenset({"lease_not_owned", "worker_token_invalid"})
 def presence_retry_delay(attempt: int) -> float:
     """Delay before retry number `attempt` (1-based): 1, 2, 4, 8 seconds, then the cap."""
     return min(PRESENCE_RETRY_CAP, 2.0 ** min(max(attempt - 1, 0), 4))
+
+
+# Issue #321. While claiming keeps failing, one line at most per interval, plus the first failure and the recovery.
+CLAIM_LOG_INTERVAL = 60.0
+
+
+def _error_category(error: BaseException) -> str:
+    """Stable category of a claiming failure; the exception text is never logged (it can carry URLs)."""
+    if isinstance(error, WorkerUnauthorized):
+        return "unauthorized"
+    if isinstance(error, httpx.TimeoutException):
+        return "timeout"
+    if isinstance(error, httpx.HTTPStatusError):
+        return "http_status"
+    if isinstance(error, httpx.TransportError):
+        return "network"
+    if isinstance(error, (ValueError, KeyError, TypeError, AttributeError)):
+        # A proxy page, or JSON the generated client cannot read (JSONDecodeError is a ValueError).
+        return "invalid_response"
+    if isinstance(error, ApiError):
+        return "api_error"
+    return "internal"
+
+
+class ApiError(RuntimeError):
+    """Snitch answered with an error, or an answer the generated client could not type. Carries its stable code."""
+
+    def __init__(self, operation: str, code: str = "") -> None:
+        super().__init__(f"worker API {operation} failed")
+        self.code = code
+
+
+class ClaimCycle:
+    """The step of the current claiming cycle, so a failure names the logical endpoint that failed."""
+
+    def __init__(self, health: "ClaimHealth | None" = None) -> None:
+        self.operation = "pulse"
+        self._health = health
+
+    def answered(self) -> None:
+        """Snitch answered the claim: claiming is operational again."""
+        if self._health is not None:
+            self._health.succeeded()
+
+
+class ClaimHealth:
+    """Health of the claiming loops, shared by them, distinct from presence (a healthy pulse says nothing of it).
+
+    Failures are logged without secrets and without noise: the first one, then at most one line per
+    CLAIM_LOG_INTERVAL while they continue, and the recovery with how long claiming was down."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._failures = 0
+        self._failing_since = 0.0
+        self._last_success = time.monotonic()
+        self._last_logged = 0.0
+        self._suppressed = 0
+
+    def failed(self, operation: str, error: BaseException) -> int:
+        """Record a failed cycle and return the number of consecutive failures."""
+        now = time.monotonic()
+        with self._lock:
+            self._failures += 1
+            failures = self._failures
+            if failures == 1:
+                self._failing_since = now
+            due = failures == 1 or now - self._last_logged >= CLAIM_LOG_INTERVAL
+            if not due:
+                self._suppressed += 1
+                return failures
+            suppressed, self._suppressed, self._last_logged = self._suppressed, 0, now
+            since_success = now - self._last_success
+        fields: dict[str, Any] = {
+            "operation": operation,
+            "error_category": _error_category(error),
+            "error_type": type(error).__name__,
+            "attempt": failures,
+            "since_last_success_s": round(since_success, 1),
+        }
+        if isinstance(error, httpx.HTTPStatusError):
+            fields["http_status"] = error.response.status_code
+        if isinstance(error, ApiError) and error.code:
+            fields["error_code"] = error.code
+        if suppressed:
+            fields["suppressed"] = suppressed
+        log.emit(logging.WARNING, "claim_poll_failed", **fields)
+        return failures
+
+    def succeeded(self) -> None:
+        now = time.monotonic()
+        with self._lock:
+            failures, self._failures, self._suppressed = self._failures, 0, 0
+            down_since = self._failing_since
+            self._last_success = now
+        if failures:
+            log.emit(logging.INFO, "claim_poll_recovered", failures=failures, downtime_s=round(now - down_since, 1))
 
 
 class LeaseWatch:
@@ -486,14 +584,28 @@ def run_once(
     stop: threading.Event | None = None,
     transcriber: Transcriber | None = None,
     voice_providers: Mapping[str, Any] | None = None,
+    cycle: ClaimCycle | None = None,
 ) -> bool:
-    """Process at most one leased task. Return False when the queue is empty."""
+    """Process at most one leased task. Return False when the queue is empty.
+
+    ``cycle`` follows the step in progress, so the claiming loop can name the one that failed."""
     if heartbeat_interval <= 0:
         raise ValueError("heartbeat interval must be positive")
-    _send_pulse(client, capacity)
+    cycle = cycle or ClaimCycle()
+    cycle.operation = "pulse"
+    try:
+        _send_pulse(client, capacity)
+    except WorkerUnauthorized:
+        raise
+    except Exception as error:  # noqa: BLE001 - the presence thread keeps the canonical pulse (#321)
+        # Claiming never depends on this pulse: a pulse Snitch keeps refusing must not stop the claims
+        # while the other calls keep the Worker Online. Presence logs its own failures.
+        log.emit(logging.DEBUG, "claim_cycle_pulse_failed", error_category=_error_category(error), error_type=type(error).__name__)
     if stop is not None and stop.is_set():
         return False
     if isinstance(client, AuthenticatedClient):
+        # Kept blocking: a transcription job is only taken with the server's configuration validated here.
+        cycle.operation = "transcription_config"
         sync_configuration(client)
         try:
             hf_token_sync.sync(client, voice_download.default_token_file(os.environ))
@@ -507,8 +619,15 @@ def run_once(
             model_orders.sync_orders(client, model_orders.default_executor())
         except Exception:  # noqa: BLE001 - the orders must never stop claiming
             log.emit(logging.WARNING, "voice_order_sync_failed")
+    cycle.operation = "claim"
     claim = _require_response(claim_job(client=client), "claim")
-    if claim is None or claim.job is None:
+    if claim.job is not None and not hasattr(claim.job, "id"):
+        # The generated client keeps a job it could not type as a plain value: never run an unreadable job.
+        raise ApiError("claim", "unreadable_job")
+    # Claiming works again from here, whatever the job then does.
+    cycle.answered()
+    cycle.operation = "job"
+    if claim.job is None:
         log.emit(logging.DEBUG, "claim_empty")
         return False
     # The Worker's log lines of this job are shipped in batches while the job runs (ADR 0028).
@@ -671,15 +790,7 @@ def _run_claimed(
         heartbeat_stop.set()
         heartbeater.join()
         log.emit(logging.WARNING, "job_cancelled", reason=lease.reason, duration_ms=int((time.monotonic() - started) * 1000), **context)
-    except (
-        httpx.HTTPError,
-        KeyError,
-        OSError,
-        RuntimeError,
-        subprocess.SubprocessError,
-        TypeError,
-        ValueError,
-    ) as exc:
+    except Exception as exc:  # noqa: BLE001 - any error of the job is a recorded failure, never a lost claiming thread (#321)
         heartbeat_stop.set()
         heartbeater.join()
         if lease.lost.is_set():
@@ -729,10 +840,14 @@ def _run_claimed(
                 ),
                 "fail",
             )
-        except (httpx.HTTPError, RuntimeError, KeyError, TypeError, ValueError, AttributeError):
+        except Exception:  # noqa: BLE001 - an unrecorded failure only lets the lease expire
             # The lease may have expired or moved while the provider was busy.
             # In that case the old attempt must not mutate the recovered task.
             log.emit(logging.WARNING, "job_failure_not_recorded", **context)
+    finally:
+        # Whatever ends the job, its lease is no longer renewed: a renewal left running would keep
+        # the job leased forever by a Worker that no longer works on it.
+        heartbeat_stop.set()
     return True
 
 
@@ -743,24 +858,38 @@ def _worker_loop(
     poll_interval: float,
     heartbeat_interval: float,
     guard: revocation.RevocationGuard | None = None,
+    health: ClaimHealth | None = None,
 ) -> None:
+    """Claim until stopped. No recoverable error ends this loop (#321): a redeploy, a proxy page, a stale
+    socket or an answer the generated client cannot read is logged and retried with a bounded backoff."""
+    health = health or ClaimHealth()
+    failures = 0
     while not stop.is_set():
         if guard is not None and guard.revoked.is_set():
             return
+        cycle = ClaimCycle(health)
         try:
-            completed = run_once(client, capacity, heartbeat_interval, stop)
-        except WorkerUnauthorized:
+            completed = run_once(client, capacity, heartbeat_interval, stop, cycle=cycle)
+            failures = 0
+        except WorkerUnauthorized as error:
             if guard is not None and guard.on_unauthorized(client):
                 stop.set()
                 return
+            failures = health.failed(cycle.operation, error)
             completed = False
-        except (httpx.HTTPError, RuntimeError, KeyError, TypeError, ValueError, AttributeError):
-            # Malformed proxy responses must not silently kill this claiming thread.
-            # Network outages are retried on the next poll. Do not log exception
-            # details because HTTP client errors can include sensitive URLs.
+        except (Exception, cancellation.JobCancelled) as error:  # noqa: BLE001 - see the docstring
+            # Exception text is never logged: HTTP client errors can include URLs.
+            failures = health.failed(cycle.operation, error)
             completed = False
         if not completed:
-            stop.wait(poll_interval)
+            stop.wait(claim_retry_delay(failures, poll_interval))
+
+
+def claim_retry_delay(failures: int, poll_interval: float) -> float:
+    """The poll interval while claiming works; after consecutive failures, doubled up to a bounded wait."""
+    if failures <= 0:
+        return poll_interval
+    return min(max(poll_interval, PRESENCE_RETRY_CAP), poll_interval * 2.0 ** min(failures - 1, 10))
 
 
 def run_until_stopped(
@@ -793,23 +922,36 @@ def run_until_stopped(
     probe = threading.Thread(target=monitor.run, args=(stop,), daemon=True, name="snitch-reachability")
     presence.start()
     probe.start()
+    health = ClaimHealth()
     with ThreadPoolExecutor(max_workers=capacity) as executor:
-        workers = [
-            executor.submit(
-                _worker_loop,
-                client,
-                capacity,
-                stop,
-                poll_interval,
-                heartbeat_interval,
-                guard,
-            )
-            for _ in range(capacity)
-        ]
+
+        def launch() -> Future[None]:
+            return executor.submit(_worker_loop, client, capacity, stop, poll_interval, heartbeat_interval, guard, health)
+
+        workers = [launch() for _ in range(capacity)]
+        restarts = [0] * capacity
+        restart_at: dict[int, float] = {}
         while not stop.wait(0.1):
-            pass
-        for worker in workers:
-            worker.result()
+            # Supervision (#321): a claiming loop that ended while the Worker runs is reported and restarted
+            # in-process, with the same client and identity, without relying on an external watchdog.
+            for index, worker in enumerate(workers):
+                if index in restart_at:
+                    if time.monotonic() >= restart_at[index] and not stop.is_set() and not guard.revoked.is_set():
+                        del restart_at[index]
+                        workers[index] = launch()
+                    continue
+                if not worker.done() or guard.revoked.is_set():
+                    continue
+                error = worker.exception()
+                restarts[index] += 1
+                log.emit(
+                    logging.ERROR,
+                    "claim_loop_stopped",
+                    error_type=type(error).__name__ if error is not None else "none",
+                    restarts=restarts[index],
+                )
+                restart_at[index] = time.monotonic() + presence_retry_delay(restarts[index])
+        wait(workers)
     presence.join()
     probe.join()
     return guard.revoked.is_set()
