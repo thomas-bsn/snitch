@@ -1525,8 +1525,7 @@ export const en = {
       nameHint:
         "1 to 64 characters. Letters, digits, spaces, dots, dashes and underscores.",
       snitch: "Snitch address",
-      snitchHint:
-        "Filled in by Snitch from its public address. Change PUBLIC_URL in the server deployment if needed.",
+      snitchHint: "Filled in by Snitch from the address you opened it with.",
       insecure:
         "This address is not HTTPS. Without your explicit choice below, Snitch will not generate an installation command. Configure the public address in the Snitch server deployment.",
       allowInsecure:

@@ -193,7 +193,6 @@ func newVoiceHarnessLogged(t *testing.T, pool *pgxpool.Pool, clips int, logger *
 	}
 	t.Cleanup(api.Close)
 	ts := httptest.NewUnstartedServer(api.Handler())
-	api.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	t.Cleanup(ts.Close)
 	jar, _ := cookiejar.New(nil)

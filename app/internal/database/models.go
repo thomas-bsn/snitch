@@ -370,6 +370,7 @@ type OauthState struct {
 	UserID      pgtype.Int8        `json:"user_id"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 	SessionHash []byte             `json:"session_hash"`
+	RedirectUri string             `json:"redirect_uri"`
 }
 
 type Person struct {

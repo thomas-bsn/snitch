@@ -353,7 +353,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           }
         ],
         "security": [],
@@ -375,7 +375,7 @@
         "operationId": "checkSetupCode",
         "description": "Vérifie, sans l'utiliser, le code d'installation saisi : 200 s'il est correct et valide, 409 setup_closed_or_invalid_code s'il est faux, expiré ou si l'installation est terminée. Le code reste utilisable une fois, par la création du premier compte. Limité par adresse distante comme les autres entrées publiques.",
         "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Status"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
-        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}],
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host)"}],
         "security": [],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupCodeInput"}}}}
       }
@@ -391,7 +391,7 @@
         "operationId": "recordSetupStep",
         "description": "Administrateurs et Super-administrateur : note qu'une étape facultative a été traversée (done) ou passée (skipped). Renvoie la progression.",
         "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupProgress"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
-        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host)"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupStepInput"}}}}
       }
     },
@@ -400,7 +400,7 @@
         "operationId": "dismissSetupBanner",
         "description": "Administrateurs et Super-administrateur : ferme définitivement le bandeau « Finir la configuration ». Renvoie la progression.",
         "responses": {"200": {"description": "Success", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SetupProgress"}}}}, "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}},
-        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}]
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host)"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}]
       }
     },
     "/api/auth/login": {
@@ -436,7 +436,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           }
         ],
         "security": [],
@@ -486,7 +486,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           }
         ],
         "security": [],
@@ -565,7 +565,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -660,7 +660,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -808,7 +808,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -892,7 +892,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -990,7 +990,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -1045,7 +1045,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -1119,7 +1119,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -1165,7 +1165,7 @@
           }
         },
         "parameters": [
-          { "in": "header", "name": "Origin", "required": true, "schema": { "type": "string" }, "description": "Must equal PUBLIC_URL" },
+          { "in": "header", "name": "Origin", "required": true, "schema": { "type": "string" }, "description": "Must equal the address of the request itself (scheme and host)" },
           { "in": "header", "name": "X-CSRF-Token", "required": true, "schema": { "type": "string" } }
         ],
         "description": "Removes the linked Discord identity only if a local password is configured."
@@ -1204,7 +1204,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           }
         ],
         "security": []
@@ -1243,7 +1243,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -1442,7 +1442,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -1549,7 +1549,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"
+            "description": "Must equal the address of the request itself (scheme and host)"
           },
           {
             "in": "header",
@@ -2884,7 +2884,7 @@
       "put": {
         "operationId": "putHFToken",
         "description": "Réservé au Super-administrateur : enregistre ou remplace le token central, chiffré au repos. Un token mal formé est refusé (invalid_hf_token) sans être renvoyé. Un Administrateur reçoit 403 super_administrator_required.",
-"parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+"parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host)"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
                 "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HFTokenInput"}}}},
         "responses": {
           "204": {"description": "Token enregistré"},
@@ -2894,7 +2894,7 @@
       "delete": {
         "operationId": "deleteHFToken",
         "description": "Réservé au Super-administrateur : supprime le token central. Les Workers purgent leur copie centrale à la version suivante ; une copie locale reste.",
-        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
+        "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host)"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}],
         "responses": {
           "204": {"description": "Token supprimé"},
           "default": {"description": "Erreur (401, 403 CSRF ou rôle)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
@@ -6758,7 +6758,7 @@
           },
           "callback_url": {
             "type": "string",
-            "description": "Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL)."
+            "description": "Discord return address to register, built from the public address of the request."
           },
           "master_key_origin": {
             "type": "string",

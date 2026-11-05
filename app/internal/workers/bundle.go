@@ -77,7 +77,7 @@ var envFile = template.Must(template.New("env").Funcs(template.FuncMap{"v": envV
 # docker compose --env-file <fichier> up -d).
 # Il contient le jeton du worker : ne jamais le versionner ni le partager.
 {{if .Insecure}}# ATTENTION : l'URL publique de Snitch n'est pas en HTTPS et le worker refuse le HTTP.
-# Passer l'instance en HTTPS (PUBLIC_URL) ou corriger SNITCH_API_URL ci-dessous.
+# Ouvrir Snitch en HTTPS (la création du worker reprend l'adresse du navigateur) ou corriger SNITCH_API_URL ci-dessous.
 {{end}}
 # --- Connexion à Snitch (déjà renseignée) ---
 SNITCH_API_URL={{v .APIURL}}

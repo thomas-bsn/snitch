@@ -40,7 +40,6 @@ func testWorkerLiveEvents(t *testing.T, pool *pgxpool.Pool) {
 			_ = s.Close()
 		}
 	}()
-	server.Config.PublicURL = ts.URL
 	jar, _ := cookiejar.New(nil)
 	admin := ts.Client()
 	admin.Jar = jar
