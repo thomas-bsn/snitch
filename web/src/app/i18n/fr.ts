@@ -474,14 +474,42 @@ export const fr: Messages = {
     removeTitle: "Supprimer {model} ?",
     removeText:
       "Chaque Worker supprime ce modèle de son volume. Il faudra le choisir de nouveau pour le retélécharger.",
+    byWorker: {
+      title: "Modèles par Worker",
+      hint: "Le modèle que chaque Worker porte pour chaque type. Snitch ordonne l’installation ; le Worker rapporte seulement ce qu’il a réellement.",
+      worker: "Worker",
+      type: {
+        diarization: "Diarisation",
+        fingerprint: "Empreinte",
+        separation: "Séparation",
+      },
+      absent: "Absent",
+      separationUnsupported:
+        "Pas encore disponible : aucun moteur ne sait exécuter la séparation, elle ne peut donc pas être prête.",
+      choose: "Modèle à installer sur {worker} pour {type}",
+      install: "Installer",
+      retry: "Réessayer",
+      volume: "{size} Mo sur disque",
+      revision: "Révision {revision}",
+      confirmTitle: "Installer {model} sur {worker} ?",
+      confirmText:
+        "{worker} va télécharger {model}, le charger et lancer une inférence de test. Il n’est prêt qu’une fois ce test réussi.",
+      confirmGated:
+        "Ce modèle est à accès restreint : le jeton Hugging Face central est envoyé à ce Worker avec cet ordre seulement.",
+      confirmAction: "Ordonner l’installation",
+      cancelDialog: "Annuler",
+    },
     state: {
       not_installed: "Non installé",
+      requested: "Demandé",
       downloading: "Téléchargement",
       verifying: "Vérification",
       ready: "Prêt",
       failed: "Échec",
     },
     cause: {
+      invalid_order:
+        "Le Worker a refusé l’ordre après ses contrôles : réessayez, et signalez-le si cela se répète.",
       hf_token_missing:
         "Jeton Hugging Face absent sur ce Worker. Enregistrez-le depuis la machine du Worker avec la commande store-token (voir docs/real-voice-worker.md), puis réessayez.",
       hf_access_denied:

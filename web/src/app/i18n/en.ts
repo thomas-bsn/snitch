@@ -464,14 +464,42 @@ export const en = {
     removeTitle: "Delete {model}?",
     removeText:
       "Each Worker deletes this model from its volume. You will have to choose it again to download it again.",
+    byWorker: {
+      title: "Models per Worker",
+      hint: "The model each Worker holds for each type. Snitch orders the installation; the Worker only reports what it really has.",
+      worker: "Worker",
+      type: {
+        diarization: "Diarization",
+        fingerprint: "Fingerprint",
+        separation: "Separation",
+      },
+      absent: "Absent",
+      separationUnsupported:
+        "Not available yet: no engine can run separation, so it cannot be ready.",
+      choose: "Model to install on {worker} for {type}",
+      install: "Install",
+      retry: "Retry",
+      volume: "{size} MB on disk",
+      revision: "Revision {revision}",
+      confirmTitle: "Install {model} on {worker}?",
+      confirmText:
+        "{worker} will download {model}, load it and run a test inference. It is only ready once that test succeeds.",
+      confirmGated:
+        "This model has restricted access: the central Hugging Face token is sent to this Worker with this order only.",
+      confirmAction: "Order the installation",
+      cancelDialog: "Cancel",
+    },
     state: {
       not_installed: "Not installed",
+      requested: "Requested",
       downloading: "Downloading",
       verifying: "Verifying",
       ready: "Ready",
       failed: "Failed",
     },
     cause: {
+      invalid_order:
+        "The Worker refused the order after its checks: retry, and report it if it happens again.",
       hf_token_missing:
         "Hugging Face token missing on this Worker. Store it from the Worker machine with the store-token command (see docs/real-voice-worker.md), then retry.",
       hf_access_denied:

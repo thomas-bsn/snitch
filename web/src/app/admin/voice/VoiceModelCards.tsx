@@ -14,6 +14,7 @@ type WorkerState = VoiceModel["workers"][number];
 
 const workerTones: Record<WorkerState["state"], PillTone> = {
   not_installed: "idle",
+  requested: "idle",
   downloading: "idle",
   verifying: "idle",
   ready: "ok",
