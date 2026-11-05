@@ -67,6 +67,7 @@ type Server struct {
 	avatarWG                                                 sync.WaitGroup
 	avatarRetryBase, avatarPause, avatarTick, avatarCooldown time.Duration
 	dummyPassword                                            string
+	hf                                                       *hfInspector // nil in production (the Hugging Face host); a test injects a fake server
 }
 type session struct {
 	User             database.GetUserRow

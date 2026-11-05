@@ -279,6 +279,18 @@ export const errorsEn = {
   voice_model_in_use:
     "This model is active or a candidate, so it cannot be deleted.",
   voice_model_not_found: "This model is not in the catalogue.",
+  invalid_hf_source:
+    "Paste a Hugging Face repository as owner/name or as a huggingface.co address.",
+  voice_model_hf_not_found:
+    "Hugging Face does not know this repository. Check its name.",
+  voice_model_hf_denied:
+    "Hugging Face refuses access to this repository: it is private or its access conditions are not met.",
+  voice_model_hf_unavailable:
+    "Hugging Face did not answer correctly. Try again in a moment.",
+  voice_model_kind_mismatch:
+    "The repository declares another type than the one chosen.",
+  voice_model_exists:
+    "This repository is already in the catalogue for this type.",
   idempotency_key_reused:
     "This order key was already used for another Worker or model.",
   invalid_idempotency_key: "The order key is not valid.",

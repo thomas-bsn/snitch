@@ -360,6 +360,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceCatalogEdition(t, pool)
 	})
+	t.Run("voice model addition from Hugging Face", func(t *testing.T) {
+		reset(t)
+		testVoiceModelAddFromHF(t, pool)
+	})
 	t.Run("voice model candidate", func(t *testing.T) {
 		reset(t)
 		testVoiceModelCandidate(t, pool)
@@ -858,7 +862,9 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/voice-models", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-models/candidate", map[string]any{"model_id": "pyannote-community-1"}, me.CSRF, 409)
 		call(client, "DELETE", "/api/admin/voice-models/candidate", nil, me.CSRF, 204)
-		call(client, "PATCH", "/api/admin/voice-models/pyannote-wespeaker-resnet34", map[string]any{"label": ""}, me.CSRF, 200) // edition rules in the voice catalog edition suite
+		call(client, "PATCH", "/api/admin/voice-models/pyannote-wespeaker-resnet34", map[string]any{"label": ""}, me.CSRF, 200)        // edition rules in the voice catalog edition suite
+		call(client, "POST", "/api/admin/voice-models/inspection", map[string]any{"source": "https://evil.example/a/b"}, me.CSRF, 400) // behavior in the voice model addition suite
+		call(client, "POST", "/api/admin/voice-models", map[string]any{"source": "https://evil.example/a/b", "revision": "0123456789abcdef0123456789abcdef01234567", "kind": "diarization"}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-models/pyannote-community-1/activate", nil, me.CSRF, 409)
 		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation", nil, me.CSRF, 409)
 		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
@@ -1294,7 +1300,7 @@ func TestFoundation(t *testing.T) {
 		suites := []string{
 			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
 			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
-			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts",
+			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts", "admin-voice-add.spec.ts",
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
 			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
@@ -1374,6 +1380,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_VOICE") == "1" {
 			suites = []string{"people.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_ADD") == "1" {
+			suites = []string{"admin-voice-add.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PERSONS") == "1" {
 			suites = []string{"people.spec.ts"}
@@ -1559,6 +1568,9 @@ func TestFoundation(t *testing.T) {
 					}
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+				if suite == "admin-voice-add.spec.ts" {
+					s.hf = syntheticHuggingFace(t)
+				}
 				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
