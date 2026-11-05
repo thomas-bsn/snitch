@@ -16,6 +16,7 @@ test("un administrateur gère les membres, les inscriptions et les exports", asy
   const memberStorage = await sessionFor(MEMBER);
   const context = await browser.newContext({
     storageState: await sessionFor(ADMIN),
+    viewport: { width: 390, height: 780 },
   });
   const page = await context.newPage();
   await page.goto("/admin/users");
@@ -29,8 +30,22 @@ test("un administrateur gère les membres, les inscriptions et les exports", asy
   // The list stays behind the open panel, which hides it from the accessibility tree: select by markup.
   const member = page.locator("tr", { hasText: "member-user" });
   await expect(member).toContainText("User");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  const members = page.getByRole("region", { name: "Members", exact: true });
+  await members.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+  });
+  expect(
+    await members.evaluate((element) => element.scrollLeft),
+  ).toBeGreaterThan(0);
   await member.getByRole("button", { name: /^Edit member-user/ }).click();
   const panel = page.getByRole("dialog");
+  await expect(panel.getByLabel("Display name")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
   expect(
     (
       await new AxeBuilder({ page })
@@ -38,6 +53,7 @@ test("un administrateur gère les membres, les inscriptions et les exports", asy
         .analyze()
     ).violations,
   ).toEqual([]);
+  await page.setViewportSize({ width: 1280, height: 800 });
   await panel.getByLabel("Display name").fill("Member Fixture");
   await panel.getByLabel("Language").selectOption("fr");
   await panel.getByLabel("Role", { exact: true }).selectOption("admin");

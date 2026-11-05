@@ -38,7 +38,7 @@ export function MembersTab() {
           role="region"
           tabIndex={0}
           aria-label={t("members.title")}
-          className="overflow-x-auto"
+          className="relative overflow-x-auto"
         >
           <table className="w-full min-w-[38rem] text-left">
             <thead>
