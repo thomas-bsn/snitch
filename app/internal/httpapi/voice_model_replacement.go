@@ -100,19 +100,24 @@ func checkReplacement(ctx context.Context, tx pgx.Tx, workerID string, entry voi
 	return old.ID, nil
 }
 
-// voiceModelInUseIn tells whether a job that is not finished still uses the model: a job pinned (by its pipeline
-// version) to its repository, or one that asks for it explicitly. Pending jobs count: they would otherwise be
-// left waiting for a model nobody holds any more.
-func voiceModelInUseIn(ctx context.Context, db pgQuerier, entry voiceCatalogEntry) (bool, error) {
+// voiceModelInUseIn tells whether a job that is not finished still uses the model on one Worker: a job pinned (by
+// its pipeline version) to its repository, or one that asks for it explicitly. Only the jobs that Worker holds
+// (lease_owner) count, plus the waiting ones that no other Worker could take because it is the only holder of the
+// model: a job running elsewhere never blocks this Worker. Pending jobs count: they would otherwise be left waiting
+// for a model nobody holds any more.
+func voiceModelInUseIn(ctx context.Context, db pgQuerier, entry voiceCatalogEntry, workerID string) (bool, error) {
+	// $1 is the model, $2 the Worker. A waiting job counts only when no other live Worker holds the model ready.
+	const scope = `AND ((j.status='leased' AND j.lease_owner=$2) OR (j.status IN ('pending','retry_wait') AND NOT EXISTS (
+		SELECT 1 FROM worker_voice_models o JOIN workers w ON w.id=o.worker_id WHERE o.model_id=$1 AND o.state='ready' AND o.worker_id<>$2 AND w.revoked_at IS NULL)))`
 	var busy bool
 	if entry.Kind == "fingerprint" {
 		// Fingerprint jobs are not pinned: the active model serves the production ones, a requested model its own.
-		err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs j WHERE j.step LIKE 'voice.fingerprint.%' AND j.status IN ('pending','leased','retry_wait')
-			AND (j.requested_model_id=$1 OR (j.requested_model_id IS NULL AND EXISTS (SELECT 1 FROM voice_active_model a WHERE a.kind='fingerprint' AND a.model_id=$1))))`, entry.ID).Scan(&busy)
+		err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs j WHERE j.step LIKE 'voice.fingerprint.%' AND j.status IN ('pending','leased','retry_wait') `+scope+`
+			AND (j.requested_model_id=$1 OR (j.requested_model_id IS NULL AND EXISTS (SELECT 1 FROM voice_active_model a WHERE a.kind='fingerprint' AND a.model_id=$1))))`, entry.ID, workerID).Scan(&busy)
 		return busy, err
 	}
 	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs j LEFT JOIN voice_pipeline_versions pin ON pin.version=substring(j.input_version FROM '-p(voice-[0-9a-f]+)')
-		WHERE j.step LIKE 'voice.diarization.%' AND j.status IN ('pending','leased','retry_wait') AND (j.requested_model_id=$1 OR pin.config->>'model'=$2))`, entry.ID, entry.Repo).Scan(&busy)
+		WHERE j.step LIKE 'voice.diarization.%' AND j.status IN ('pending','leased','retry_wait') `+scope+` AND (j.requested_model_id=$1 OR pin.config->>'model'=$3))`, entry.ID, workerID, entry.Repo).Scan(&busy)
 	return busy, err
 }
 
@@ -186,7 +191,7 @@ func (s *Server) settleReplacement(ctx context.Context, tx pgx.Tx, rep replaceme
 		}
 		s.Log.Info("voice model switched", "worker_id", rep.WorkerID, "from", old.ID, "to", next.ID)
 	}
-	busy, err := voiceModelInUseIn(ctx, tx, old)
+	busy, err := voiceModelInUseIn(ctx, tx, old, rep.WorkerID)
 	if err != nil || busy {
 		return err
 	}
@@ -349,7 +354,7 @@ func (s *Server) heldModelCells(ctx context.Context) (map[[2]string]workerModelC
 				return nil, err
 			}
 			if found {
-				if c.WaitingForJobs, err = voiceModelInUseIn(ctx, s.Pool, old); err != nil {
+				if c.WaitingForJobs, err = voiceModelInUseIn(ctx, s.Pool, old, rep.WorkerID); err != nil {
 					return nil, err
 				}
 			}
@@ -359,37 +364,24 @@ func (s *Server) heldModelCells(ctx context.Context) (map[[2]string]workerModelC
 	return held, nil
 }
 
-// orderRemovalOnHolders is the administrator's explicit uninstall: one remove order for each Worker that holds
-// the model (ready or failed), which the Worker runs and reports. Nothing is deleted on Snitch's side before.
-func orderRemovalOnHolders(ctx context.Context, tx pgx.Tx, entry voiceCatalogEntry, author session) error {
-	rows, err := tx.Query(ctx, `SELECT m.worker_id,COALESCE(NULLIF(m.revision,''),$2) FROM worker_voice_models m JOIN workers w ON w.id=m.worker_id
-		WHERE m.model_id=$1 AND m.state IN ('ready','failed') AND w.revoked_at IS NULL`, entry.ID, entry.Revision)
+// orderRemovalOn is the administrator's explicit uninstall on one Worker: one remove order for that Worker, if it
+// holds the model (ready or failed), which the Worker runs and reports. Nothing is deleted on Snitch's side before.
+// It reports whether the Worker held the model.
+func orderRemovalOn(ctx context.Context, tx pgx.Tx, entry voiceCatalogEntry, workerID string, author session) (bool, error) {
+	var revision string
+	err := tx.QueryRow(ctx, `SELECT COALESCE(NULLIF(m.revision,''),$3) FROM worker_voice_models m JOIN workers w ON w.id=m.worker_id
+		WHERE m.model_id=$1 AND m.worker_id=$2 AND m.state IN ('ready','failed') AND w.revoked_at IS NULL`, entry.ID, workerID, entry.Revision).Scan(&revision)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
 	if err != nil {
-		return err
+		return false, err
 	}
-	type holder struct{ worker, revision string }
-	holders := []holder{}
-	for rows.Next() {
-		var h holder
-		if err = rows.Scan(&h.worker, &h.revision); err != nil {
-			rows.Close()
-			return err
-		}
-		holders = append(holders, h)
+	id := "ord_" + auth.Token()[:32]
+	if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name) VALUES($1,$2,$3,'remove',$4,$5,$6,$7,$8)`,
+		id, workerID, entry.Kind, entry.ID, revision, "remove-"+id, author.User.ID, author.User.Username); err != nil {
+		return false, err
 	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		return err
-	}
-	for _, h := range holders {
-		id := "ord_" + auth.Token()[:32]
-		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name) VALUES($1,$2,$3,'remove',$4,$5,$6,$7,$8)`,
-			id, h.worker, entry.Kind, entry.ID, h.revision, "remove-"+id, author.User.ID, author.User.Username); err != nil {
-			return err
-		}
-		if _, err = tx.Exec(ctx, `UPDATE worker_voice_models SET state='removing',order_id=$3,updated_at=now() WHERE worker_id=$1 AND model_id=$2`, h.worker, entry.ID, id); err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err = tx.Exec(ctx, `UPDATE worker_voice_models SET state='removing',order_id=$3,updated_at=now() WHERE worker_id=$1 AND model_id=$2`, workerID, entry.ID, id)
+	return err == nil, err
 }

@@ -63,8 +63,8 @@ func testVoiceFingerprintTransitionFlow(t *testing.T, pool *pgxpool.Pool) {
 	}
 
 	// The source and the target stay installed during the whole transition.
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+fingerprintID+"/installation", nil, http.StatusConflict)
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+benchModelID+"/installation", nil, http.StatusConflict)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+fingerprintID+"/installation"+"?worker_id="+h.fixtureWorkerID(), nil, http.StatusConflict)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+benchModelID+"/installation"+"?worker_id="+h.fixtureWorkerID(), nil, http.StatusConflict)
 
 	// The target is ready on a Worker: the references are recomputed with it, in the staging space.
 	h.reportModel(benchModelID, "ready", "", 1, 1, http.StatusNoContent)

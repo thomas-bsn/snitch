@@ -516,7 +516,7 @@ export const fr: Messages = {
       "Ces Workers n'ont pas le modèle prêt et ne prendront plus de travaux vocaux : {names}.",
     removeTitle: "Supprimer {model} ?",
     removeText:
-      "Chaque Worker supprime ce modèle de son volume. Il faudra le choisir de nouveau pour le retélécharger.",
+      "{worker} supprime ce modèle de son volume. Il faudra le choisir de nouveau pour le retélécharger.",
     byWorker: {
       title: "Modèles par Worker",
       hint: "Le modèle que chaque Worker porte pour chaque type. Snitch ordonne l’installation ; le Worker rapporte seulement ce qu’il a réellement.",

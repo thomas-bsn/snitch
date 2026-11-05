@@ -2336,7 +2336,7 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** @description Administrateurs uniquement. Demande aux Workers de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat. */
+    /** @description Administrateurs uniquement. Ordonne à UN Worker, désigné par worker_id (400 worker_required sinon), de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat, ou utilisé par un job de ce Worker ; 409 voice_model_not_removable si ce Worker ne le détient pas. */
     delete: operations["removeVoiceModel"];
     options?: never;
     head?: never;
@@ -12936,7 +12936,9 @@ export interface operations {
   };
   removeVoiceModel: {
     parameters: {
-      query?: never;
+      query: {
+        worker_id: string;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
