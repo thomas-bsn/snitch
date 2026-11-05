@@ -2039,7 +2039,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs uniquement. Catalogue des modèles vocaux (données figées dans le code : moteur, dépôt, révision épinglée, licence, accès gated, limites) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé si au moins un Worker l'a prêt. */
+    /** @description Administrateurs uniquement. Catalogue des modèles vocaux (références en base : type, adaptateur autorisé, dépôt, révision épinglée, licence, accès gated, besoins matériels, activée ou non, prise en charge ou non) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé si au moins un Worker l'a prêt. */
     get: operations["listVoiceModels"];
     put?: never;
     post?: never;
@@ -2065,6 +2065,23 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** @description Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille, mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. */
+    patch: operations["patchVoiceModel"];
     trace?: never;
   };
   "/api/admin/voice-models/{id}/activate": {
@@ -4096,6 +4113,15 @@ export interface components {
     VoiceModelChoice: {
       model_id: string;
     };
+    VoiceModelPatch: {
+      label?: string;
+      license?: string;
+      /** Format: int64 */
+      size_bytes?: number;
+      /** Format: int64 */
+      vram_bytes?: number;
+      enabled?: boolean;
+    };
     VoiceModelCandidate: {
       candidate: string;
     };
@@ -4132,7 +4158,18 @@ export interface components {
     VoiceModel: {
       id: string;
       /** @enum {string} */
-      kind: "diarization" | "fingerprint";
+      kind: "diarization" | "fingerprint" | "separation";
+      label: string;
+      /**
+       * Format: int64
+       * @description Mémoire GPU nécessaire, 0 si inconnue.
+       */
+      vram_bytes: number;
+      /** @description Une référence désactivée ne peut plus être choisie ; son historique reste lisible. */
+      enabled: boolean;
+      /** @description Faux quand aucun adaptateur approuvé ne sait l'exécuter (toujours le cas de la séparation). */
+      supported: boolean;
+      unsupported_reason: string;
       engine: string;
       repo: string;
       revision: string;
@@ -11454,6 +11491,44 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  patchVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelPatch"];
+      };
+    };
+    responses: {
+      /** @description Référence mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModel"];
+        };
       };
       /** @description Erreur */
       default: {

@@ -17,6 +17,7 @@ import (
 
 func (s *Server) registerVoiceModelRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/admin/voice-models", s.protected(true, http.HandlerFunc(s.listVoiceModels)))
+	mux.Handle("PATCH /api/admin/voice-models/{id}", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.patchVoiceModel)))
 	mux.Handle("PUT /api/admin/voice-models/candidate", s.protected(true, http.HandlerFunc(s.chooseVoiceModelCandidate)))
 	mux.Handle("DELETE /api/admin/voice-models/candidate", s.protected(true, http.HandlerFunc(s.cancelVoiceModelCandidate)))
 	mux.Handle("POST /api/admin/voice-models/{id}/activate", s.protected(true, http.HandlerFunc(s.activateVoiceModel)))
@@ -57,6 +58,20 @@ type voiceModelWorkerState struct {
 	CauseCode     string `json:"cause_code"`
 	BytesReceived int64  `json:"bytes_received"`
 	BytesTotal    int64  `json:"bytes_total"`
+}
+
+// voiceModelViewOf is the reference itself, without the state of the Workers.
+func voiceModelViewOf(entry voiceCatalogEntry) voiceModelView {
+	view := voiceModelView{
+		ID: entry.ID, Kind: entry.Kind, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, License: entry.License,
+		Gated: entry.Gated, SizeBytes: entry.SizeBytes, SupportsNumSpeakers: entry.SupportsNumSpeakers, Label: entry.Label, VRAMBytes: entry.VRAMBytes,
+		Enabled: entry.Enabled, Supported: entry.Supported, UnsupportedReason: entry.UnsupportedReason, Workers: []voiceModelWorkerState{},
+	}
+	if entry.MaxSpeakers > 0 {
+		limit := entry.MaxSpeakers
+		view.MaxSpeakers = &limit
+	}
+	return view
 }
 
 type voiceModelView struct {
@@ -130,16 +145,8 @@ func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, entry := range catalog {
-		view := voiceModelView{
-			ID: entry.ID, Kind: entry.Kind, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, License: entry.License,
-			Gated: entry.Gated, SizeBytes: entry.SizeBytes, SupportsNumSpeakers: entry.SupportsNumSpeakers,
-			Active: entry.ID == active, Candidate: entry.ID == candidate, Label: entry.Label, VRAMBytes: entry.VRAMBytes,
-			Enabled: entry.Enabled, Supported: entry.Supported, UnsupportedReason: entry.UnsupportedReason, Workers: []voiceModelWorkerState{},
-		}
-		if entry.MaxSpeakers > 0 {
-			limit := entry.MaxSpeakers
-			view.MaxSpeakers = &limit
-		}
+		view := voiceModelViewOf(entry)
+		view.Active, view.Candidate = entry.ID == active, entry.ID == candidate
 		for _, item := range items {
 			if item.RevokedAt != nil {
 				continue
@@ -521,4 +528,74 @@ func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// patchVoiceModel edits the metadata of a reference and enables or disables it. The identity of a reference
+// (type, repository, revision, adapter) is never edited: a different model is a new reference. A reference
+// that is active or the candidate cannot be disabled; the Super-administrator replaces it first.
+func (s *Server) patchVoiceModel(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Label     *string `json:"label"`
+		License   *string `json:"license"`
+		SizeBytes *int64  `json:"size_bytes"`
+		VRAMBytes *int64  `json:"vram_bytes"`
+		Enabled   *bool   `json:"enabled"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	if (input.Label != nil && len(*input.Label) > 100) || (input.License != nil && len(*input.License) > 100) ||
+		(input.SizeBytes != nil && *input.SizeBytes < 0) || (input.VRAMBytes != nil && *input.VRAMBytes < 0) {
+		fail(w, http.StatusBadRequest, "invalid_voice_model")
+		return
+	}
+	id := r.PathValue("id")
+	errNotFound, errInUse := errors.New("not found"), errors.New("in use")
+	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+		entry, ok, err := voiceCatalogByID(r.Context(), tx, id)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errNotFound
+		}
+		if input.Enabled != nil && !*input.Enabled && entry.Enabled {
+			active, err := voiceActiveModelIDIn(r.Context(), tx)
+			if err != nil {
+				return err
+			}
+			candidate, err := voiceCandidateIDIn(r.Context(), tx)
+			if err != nil {
+				return err
+			}
+			var activeOfType bool
+			if err = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM voice_active_model WHERE model_id=$1)`, id).Scan(&activeOfType); err != nil {
+				return err
+			}
+			if id == active || id == candidate || activeOfType {
+				return errInUse
+			}
+		}
+		_, err = tx.Exec(r.Context(), `UPDATE voice_model_catalog SET label=COALESCE($2,label),license=COALESCE($3,license),size_bytes=COALESCE($4,size_bytes),vram_bytes=COALESCE($5,vram_bytes),enabled=COALESCE($6,enabled),updated_at=now() WHERE id=$1`,
+			id, input.Label, input.License, input.SizeBytes, input.VRAMBytes, input.Enabled)
+		return err
+	})
+	if errors.Is(err, errNotFound) {
+		fail(w, http.StatusNotFound, "voice_model_not_found")
+		return
+	}
+	if errors.Is(err, errInUse) {
+		fail(w, http.StatusConflict, "voice_model_in_use")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	entry, _, err := voiceCatalogByID(r.Context(), s.Pool, id)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, voiceModelViewOf(entry))
 }

@@ -362,6 +362,7 @@ from .voice_model import VoiceModel
 from .voice_model_candidate import VoiceModelCandidate
 from .voice_model_choice import VoiceModelChoice
 from .voice_model_kind import VoiceModelKind
+from .voice_model_patch import VoiceModelPatch
 from .voice_model_retry import VoiceModelRetry
 from .voice_model_worker_state import VoiceModelWorkerState
 from .voice_model_worker_state_cause_code import VoiceModelWorkerStateCauseCode
@@ -818,6 +819,7 @@ __all__ = (
     "VoiceModelCandidate",
     "VoiceModelChoice",
     "VoiceModelKind",
+    "VoiceModelPatch",
     "VoiceModelRetry",
     "VoiceModels",
     "VoiceModelWorkerState",

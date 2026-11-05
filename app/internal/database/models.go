@@ -656,6 +656,11 @@ type User struct {
 	DiscordName  pgtype.Text        `json:"discord_name"`
 }
 
+type VoiceActiveModel struct {
+	Kind    string `json:"kind"`
+	ModelID string `json:"model_id"`
+}
+
 type VoiceAutomationEvent struct {
 	ID                 int64              `json:"id"`
 	Action             string             `json:"action"`
@@ -737,6 +742,26 @@ type VoiceModelCandidate struct {
 	ID       bool               `json:"id"`
 	ModelID  string             `json:"model_id"`
 	ChosenAt pgtype.Timestamptz `json:"chosen_at"`
+}
+
+type VoiceModelCatalog struct {
+	ID                  string             `json:"id"`
+	Kind                string             `json:"kind"`
+	Engine              string             `json:"engine"`
+	Repo                string             `json:"repo"`
+	Revision            string             `json:"revision"`
+	Label               string             `json:"label"`
+	License             string             `json:"license"`
+	Gated               bool               `json:"gated"`
+	MaxSpeakers         int32              `json:"max_speakers"`
+	SizeBytes           int64              `json:"size_bytes"`
+	VramBytes           int64              `json:"vram_bytes"`
+	SupportsNumSpeakers bool               `json:"supports_num_speakers"`
+	Enabled             bool               `json:"enabled"`
+	Supported           bool               `json:"supported"`
+	UnsupportedReason   string             `json:"unsupported_reason"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type VoicePipelineActive struct {

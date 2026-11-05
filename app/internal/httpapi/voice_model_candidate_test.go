@@ -54,6 +54,8 @@ type catalogModel struct {
 	Active              bool            `json:"active"`
 	Candidate           bool            `json:"candidate"`
 	Installed           bool            `json:"installed"`
+	Label               string          `json:"label"`
+	VRAMBytes           int64           `json:"vram_bytes"`
 	Enabled             bool            `json:"enabled"`
 	Supported           bool            `json:"supported"`
 	UnsupportedReason   string          `json:"unsupported_reason"`

@@ -28,6 +28,11 @@ class VoiceModel:
         Attributes:
             id (str):
             kind (VoiceModelKind):
+            label (str):
+            vram_bytes (int): Mémoire GPU nécessaire, 0 si inconnue.
+            enabled (bool): Une référence désactivée ne peut plus être choisie ; son historique reste lisible.
+            supported (bool): Faux quand aucun adaptateur approuvé ne sait l'exécuter (toujours le cas de la séparation).
+            unsupported_reason (str):
             engine (str):
             repo (str):
             revision (str):
@@ -44,6 +49,11 @@ class VoiceModel:
 
     id: str
     kind: VoiceModelKind
+    label: str
+    vram_bytes: int
+    enabled: bool
+    supported: bool
+    unsupported_reason: str
     engine: str
     repo: str
     revision: str
@@ -67,6 +77,16 @@ class VoiceModel:
         id = self.id
 
         kind = self.kind.value
+
+        label = self.label
+
+        vram_bytes = self.vram_bytes
+
+        enabled = self.enabled
+
+        supported = self.supported
+
+        unsupported_reason = self.unsupported_reason
 
         engine = self.engine
 
@@ -104,6 +124,11 @@ class VoiceModel:
         field_dict.update({
             "id": id,
             "kind": kind,
+            "label": label,
+            "vram_bytes": vram_bytes,
+            "enabled": enabled,
+            "supported": supported,
+            "unsupported_reason": unsupported_reason,
             "engine": engine,
             "repo": repo,
             "revision": revision,
@@ -132,6 +157,16 @@ class VoiceModel:
 
 
 
+
+        label = d.pop("label")
+
+        vram_bytes = d.pop("vram_bytes")
+
+        enabled = d.pop("enabled")
+
+        supported = d.pop("supported")
+
+        unsupported_reason = d.pop("unsupported_reason")
 
         engine = d.pop("engine")
 
@@ -174,6 +209,11 @@ class VoiceModel:
         voice_model = cls(
             id=id,
             kind=kind,
+            label=label,
+            vram_bytes=vram_bytes,
+            enabled=enabled,
+            supported=supported,
+            unsupported_reason=unsupported_reason,
             engine=engine,
             repo=repo,
             revision=revision,
