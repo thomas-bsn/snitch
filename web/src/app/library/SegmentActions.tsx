@@ -14,7 +14,7 @@ type Speaker = NonNullable<
 >[number];
 type Conflict = components["schemas"]["SegmentCorrection"];
 const iconButton =
-  "flex size-8 items-center justify-center rounded-md text-mute hover:bg-side hover:text-ink";
+  "flex size-11 items-center justify-center rounded-md text-mute hover:bg-side hover:text-ink md:size-8";
 
 export function SegmentActions({
   clipId,

@@ -72,7 +72,7 @@ function Segment({
   return (
     <li
       aria-current={active ? "true" : undefined}
-      className={`group relative flex gap-3 border-b border-line px-4 py-3 pr-[4.5rem] ${active ? "bg-hit" : ""}`}
+      className={`group relative flex gap-3 border-b border-line px-4 py-3 pr-28 md:pr-[4.5rem] ${active ? "bg-hit" : ""}`}
     >
       <button
         type="button"
