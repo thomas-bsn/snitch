@@ -325,12 +325,14 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Le nombre de références a changé depuis l’aperçu : vérifiez de nouveau l’impact avant de confirmer.",
   voice_transition_in_progress:
     "Un changement du modèle d’empreinte est déjà en cours : terminez-le ou annulez-le d’abord.",
-  voice_transition_not_found: "Aucun changement du modèle d’empreinte n’existe.",
+  voice_transition_not_found:
+    "Aucun changement du modèle d’empreinte n’existe.",
   voice_transition_switched:
     "Le modèle d’empreinte est déjà basculé : le changement ne peut plus être annulé.",
   voice_transition_required:
     "Le remplacement du modèle d’empreinte commence par un changement confirmé qui montre son impact.",
-  invalid_voice_transition: "La demande de changement du modèle d’empreinte est incomplète.",
+  invalid_voice_transition:
+    "La demande de changement du modèle d’empreinte est incomplète.",
   voice_replacement_not_found: "Aucun remplacement en cours pour ce type.",
   voice_model_not_failed: "La dernière tentative de ce modèle n’a pas échoué.",
   voice_order_not_found: "Cet ordre n’existe pas pour ce Worker.",

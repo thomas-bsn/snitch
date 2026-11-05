@@ -317,7 +317,8 @@ export const errorsEn = {
     "The fingerprint model is already switched: the change can no longer be cancelled.",
   voice_transition_required:
     "Replacing the fingerprint model starts with a confirmed change that shows its impact.",
-  invalid_voice_transition: "The request to change the fingerprint model is incomplete.",
+  invalid_voice_transition:
+    "The request to change the fingerprint model is incomplete.",
   voice_replacement_not_found: "No replacement is under way for this type.",
   voice_model_not_failed: "The last attempt of this model did not fail.",
   voice_order_not_found: "This order does not exist for this Worker.",
