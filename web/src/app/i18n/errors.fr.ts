@@ -295,6 +295,52 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   voice_model_in_use:
     "Ce modèle est actif ou candidat : il ne peut pas être supprimé.",
   voice_model_not_found: "Ce modèle n’existe pas dans le catalogue.",
+  invalid_hf_source:
+    "Collez un dépôt Hugging Face sous la forme propriétaire/nom ou une adresse huggingface.co.",
+  voice_model_hf_not_found:
+    "Hugging Face ne connaît pas ce dépôt. Vérifiez son nom.",
+  voice_model_hf_denied:
+    "Hugging Face refuse l’accès à ce dépôt : il est privé ou ses conditions d’accès ne sont pas remplies.",
+  voice_model_hf_unavailable:
+    "Hugging Face n’a pas répondu correctement. Réessayez dans un instant.",
+  voice_model_kind_mismatch: "Le dépôt déclare un autre type que celui choisi.",
+  voice_model_exists: "Ce dépôt est déjà dans le catalogue pour ce type.",
+  idempotency_key_reused:
+    "Cette clé d’ordre a déjà servi pour un autre Worker ou un autre modèle.",
+  invalid_idempotency_key: "La clé d’ordre n’est pas valide.",
+  voice_model_already_installed: "Ce modèle est déjà installé sur ce Worker.",
+  voice_model_order_in_progress:
+    "Une installation de ce modèle est déjà en cours sur ce Worker.",
+  voice_model_type_occupied:
+    "Ce Worker porte déjà un autre modèle de ce type : le remplacer est une opération distincte.",
+  voice_replacement_kind_unsupported:
+    "Seul le modèle de diarisation peut être remplacé ici : changer le modèle d’empreinte demande une transition versionnée des empreintes enregistrées.",
+  voice_replaced_model_not_ready:
+    "Le modèle à remplacer doit être installé et prêt sur ce Worker.",
+  voice_replacement_in_progress:
+    "Un remplacement est déjà en cours pour ce type sur ce Worker, ou un téléchargement ou un test tourne encore.",
+  voice_replacement_switched:
+    "La bascule est déjà décidée : le remplacement ne peut plus être annulé.",
+  voice_transition_preview_stale:
+    "Le nombre de références a changé depuis l’aperçu : vérifiez de nouveau l’impact avant de confirmer.",
+  voice_transition_in_progress:
+    "Un changement du modèle d’empreinte est déjà en cours : terminez-le ou annulez-le d’abord.",
+  voice_transition_not_found:
+    "Aucun changement du modèle d’empreinte n’existe.",
+  voice_transition_switched:
+    "Le modèle d’empreinte est déjà basculé : le changement ne peut plus être annulé.",
+  voice_transition_required:
+    "Le remplacement du modèle d’empreinte commence par un changement confirmé qui montre son impact.",
+  invalid_voice_transition:
+    "La demande de changement du modèle d’empreinte est incomplète.",
+  voice_replacement_not_found: "Aucun remplacement en cours pour ce type.",
+  voice_model_not_failed: "La dernière tentative de ce modèle n’a pas échoué.",
+  voice_model_not_removable:
+    "Ce Worker ne détient pas ce modèle dans un état où il peut être retiré.",
+  worker_required: "Choisissez le Worker sur lequel retirer ce modèle.",
+  voice_order_not_found: "Cet ordre n’existe pas pour ce Worker.",
+  invalid_voice_order_ack: "Cet accusé de réception d’ordre n’est pas valide.",
+  stale_voice_order: "Cet ordre est déjà terminé.",
   voice_model_not_ready:
     "Aucun Worker n’a ce modèle prêt : attendez la fin de sa préparation.",
   invalid_voice_model: "Ce modèle ne peut pas être choisi.",

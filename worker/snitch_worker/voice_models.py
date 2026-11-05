@@ -1,9 +1,11 @@
-"""Voice model manager: prepares the models Snitch asks for and reports what the Worker really holds.
+"""Voice model manager: prepares the one model an order hands it and reports what the Worker really holds.
 
-The server owns the desired state (a candidate and the active model, both from its catalogue, plus
-models to remove); the Worker pulls it like the transcription configuration (ADR 0020). For each
-model it downloads, loads and runs a synthetic inference, and reports downloading, verifying,
-ready or failed with a stable cause. A downloaded model that was not verified is never ready.
+Nothing here starts by itself: the manager downloads only when ``prepare`` is called for an order
+(``snitch_worker.model_orders``, ADR 0038), never at start-up, on reconnection or from the list of
+models Snitch shows. What it keeps is on the volume (the verified copy and its marker) and in the
+persisted orders, so a restart repeats nothing. For a model it downloads, loads and runs a synthetic
+inference, and reports downloading, verifying, ready or failed with a stable cause. A downloaded model
+that was not verified is never ready.
 
 Several models live side by side under ``<models volume>/catalog/<repo>/<revision>``. The legacy
 layout written by the bootstrap (``/models/diarization`` plus its schema 1 marker) stays readable.
@@ -22,7 +24,6 @@ import re
 import shutil
 import subprocess
 import sys
-import threading
 import time
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -171,64 +172,47 @@ class ModelManager:
         self._verify = verify
         self._report = report
         self._interval = min_progress_interval
-        self._memory: dict[str, str] = {}  # model id -> ready or failed, for this process only
-        self._thread: threading.Thread | None = None
-        self._lock = threading.Lock()
 
-    def apply(self, desired: Mapping[str, Any], report: Report | None = None) -> None:
-        """Start preparing in the background (a download can take minutes: the Worker keeps pulsing)."""
+    def note_active(self, desired: Mapping[str, Any]) -> None:
+        """Remember which repository Snitch holds as active: it only labels the declaration, nothing is fetched."""
         global _active_repo
         models = [m for m in desired.get("models") or [] if isinstance(m, dict)]
-        remove = [m for m in desired.get("remove") or [] if isinstance(m, dict)]
         _active_repo = next((m["repo"] for m in models if m.get("role") == "active" and isinstance(m.get("repo"), str)), "")
-        with self._lock:
-            if self._thread is not None and self._thread.is_alive():
-                return  # the next pull resends the desired state
-            self._thread = threading.Thread(target=self._work, args=(models, remove, report or self._report), daemon=True)
-            self._thread.start()
 
-    def wait(self) -> None:
-        thread = self._thread
-        if thread is not None:
-            thread.join()
+    def prepare(self, item: dict[str, Any], report: Report) -> None:
+        """Prepare one model now, in the calling thread (an order runs on its own thread)."""
+        self._prepare(item, report)
 
-    def _work(self, models: list[dict[str, Any]], remove: list[dict[str, Any]], report: Report | None) -> None:
-        post = report or (lambda _payload: None)
-        try:
-            for item in remove:
+    def remove(self, items: list[dict[str, Any]], report: Report | None = None) -> None:
+        post = report or self._report or (lambda _payload: None)
+        for item in items:
+            if isinstance(item, dict):
                 self._remove(item, post)
-            for item in models:
-                self._prepare(item, post)
-        except Exception:  # noqa: BLE001 - one bad pull must not stop the Worker
-            logger.warning("voice model preparation stopped on an unexpected error")
 
     def _remove(self, item: dict[str, Any], post: Report) -> None:
         repo, revision, model_id = item.get("repo"), item.get("revision"), item.get("model_id")
         if not (isinstance(repo, str) and isinstance(revision, str) and isinstance(model_id, str) and valid_model(repo, revision)):
             return
-        shutil.rmtree(model_path(self._env, repo, revision), ignore_errors=True)
-        self._memory.pop(model_id, None)
+        path = model_path(self._env, repo, revision)
+        shutil.rmtree(path, ignore_errors=True)
+        if os.path.exists(path):
+            # Never claim a removal that did not happen: Snitch keeps the model and offers Retry.
+            log.emit(logging.INFO, "voice_model_removal_failed", model_id=model_id, revision=revision)
+            post({"model_id": model_id, "state": "failed", "cause_code": "models_volume_unwritable", "bytes_received": 0, "bytes_total": 0})
+            return
         post({"model_id": model_id, "state": "removed", "cause_code": "", "bytes_received": 0, "bytes_total": 0})
 
     def _prepare(self, item: dict[str, Any], post: Report) -> None:
         repo, revision, model_id = item.get("repo"), item.get("revision"), item.get("model_id")
         if not (isinstance(repo, str) and isinstance(revision, str) and isinstance(model_id, str) and valid_model(repo, revision)):
             return
-        retry = bool(item.get("retry"))
-        remembered = self._memory.get(model_id)
-        if remembered == "failed" and not retry:
-            return
-        if remembered == "ready" and not retry and is_ready(self._env, repo, revision):
-            return
-
         milestone = {"model_id": model_id, "revision": revision}
 
         def say(state: str, cause: str = "", received: int = 0, total: int = 0) -> None:
             post({"model_id": model_id, "state": state, "cause_code": cause, "bytes_received": received, "bytes_total": total})
 
         target = model_path(self._env, repo, revision)
-        if is_ready(self._env, repo, revision) and not retry:
-            self._memory[model_id] = "ready"
+        if is_ready(self._env, repo, revision):
             say("ready")
             return
         legacy = _legacy_path(self._env, repo, revision)
@@ -259,7 +243,6 @@ class ModelManager:
             except BaseException as error:  # noqa: BLE001 - never let a library message through
                 if isinstance(error, (KeyboardInterrupt, SystemExit)):
                     raise
-                self._memory[model_id] = "failed"
                 cause = _cause_of_download(error, self._env)
                 log.emit(logging.INFO, "voice_model_failed", phase="download", cause_code=cause, **milestone)
                 say("failed", cause)
@@ -272,7 +255,6 @@ class ModelManager:
         except BaseException as error:  # noqa: BLE001
             if isinstance(error, (KeyboardInterrupt, SystemExit)):
                 raise
-            self._memory[model_id] = "failed"
             cause = _cause_of_verification(error)
             log.emit(logging.INFO, "voice_model_failed", phase="verification", cause_code=cause, **milestone)
             say("failed", cause)
@@ -280,12 +262,13 @@ class ModelManager:
         log.emit(logging.INFO, "voice_model_validated", **milestone)
         if item.get("role") == "active":
             log.emit(logging.INFO, "voice_model_activated", **milestone)
-        self._memory[model_id] = "ready"
         say("ready")
 
 
 def sync_voice_models(client: Any, manager: ModelManager) -> None:
-    """Pull the desired voice models and let the manager prepare them in the background."""
+    """Pull what Snitch holds for this Worker: only the active model is noted (it labels the declaration).
+
+    Nothing is downloaded and nothing is removed here: models are removed only on a remove order (``model_orders``)."""
     http = client.get_httpx_client()
     response = http.get("/api/worker/voice-models")
     if response.status_code == 404:
@@ -295,10 +278,7 @@ def sync_voice_models(client: Any, manager: ModelManager) -> None:
     if not isinstance(desired, dict):
         raise ValueError("invalid voice models from server")
 
-    def post(payload: dict[str, Any]) -> None:
-        http.post("/api/worker/voice-models/status", json=payload).raise_for_status()
-
-    manager.apply(desired, post)
+    manager.note_active(desired)
 
 
 def download_environment(token_file: str) -> dict[str, str]:

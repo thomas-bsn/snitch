@@ -20,7 +20,7 @@ func realPipeline(model, revision string) map[string]any {
 // The typed pipeline and "activate" share one rule: a real model needs a Worker that is connected and ready.
 func testVoicePipelineActivationRule(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
-	withSecondCatalogModel(t)
+	withSecondCatalogModel(t, pool)
 	real := realPipeline(secondRepo, secondRevision)
 
 	h.adminCall(http.MethodPut, "/api/admin/voice-pipeline", real, http.StatusConflict)
@@ -47,7 +47,7 @@ func testVoicePipelineActivationRule(t *testing.T, pool *pgxpool.Pool) {
 // version, not the pipeline that is active now.
 func testVoiceClaimPinnedVersion(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
-	withSecondCatalogModel(t)
+	withSecondCatalogModel(t, pool)
 	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent)
 	h.putPipeline(realPipeline(activeDiarization, communityRevision))
 	h.transcribe()
@@ -56,10 +56,13 @@ func testVoiceClaimPinnedVersion(t *testing.T, pool *pgxpool.Pool) {
 	// Another model becomes active while the job (pinned to the previous one) is still waiting.
 	h.reportModel(secondID, "ready", "", 1, 1, http.StatusNoContent)
 	h.adminCall(http.MethodPost, "/api/admin/voice-models/"+secondID+"/activate", nil, http.StatusOK)
+	// The Worker no longer holds the pinned model (only the new active one is ready): the job waits.
+	h.reportModel(communityID, "removed", "", 0, 0, http.StatusNoContent)
 	if _, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(secondRepo, "b00000000000")}); ok {
 		t.Fatal("a Worker holding only the new active model claimed a job pinned to the previous one")
 	}
-	if _, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36")}); !ok {
+	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent)
+	if _, ok := h.claimDeclaring(nil); !ok {
 		t.Fatal("the Worker holding the pinned model must claim the job")
 	}
 }
@@ -68,7 +71,7 @@ func testVoiceClaimPinnedVersion(t *testing.T, pool *pgxpool.Pool) {
 // installation is marked for removal.
 func testVoiceModelConcurrency(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
-	withSecondCatalogModel(t)
+	withSecondCatalogModel(t, pool)
 	h.reportModel(secondID, "ready", "", 1, 1, http.StatusNoContent)
 	for i := 0; i < 15; i++ {
 		var wg sync.WaitGroup
@@ -79,7 +82,7 @@ func testVoiceModelConcurrency(t *testing.T, pool *pgxpool.Pool) {
 		}()
 		go func() {
 			defer wg.Done()
-			h.adminCallStatus(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil)
+			h.adminCallStatus(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation?worker_id="+h.fixtureWorkerID(), nil)
 		}()
 		wg.Wait()
 		if n := h.count(`SELECT count(*) FROM voice_model_candidate c JOIN worker_voice_models m ON m.model_id=c.model_id WHERE m.removal_requested`); n != 0 {

@@ -43,42 +43,57 @@ const (
 	activeEmbedding   = "pyannote/wespeaker-voxceleb-resnet34-LM"
 )
 
+// A local voice job (diarization, fingerprint) goes only to a Worker whose model of the type, the active one, is
+// really ready in the state Snitch holds (ADR 0038, ADR 0022): neither a declaration in the pulse nor a model on
+// disk is enough. Transcription is independent of every voice model.
 func testVoiceModelDispatch(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
 	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent)
 	pyannote := map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": communityRevision, "min_fingerprint_seconds": 1.0, "min_quality": 0.5}
 	h.putPipeline(pyannote)
+	// The active model is not ready on this Worker (yet): what the pulse declares must change nothing.
+	h.reportModel(communityID, "failed", "hf_access_denied", 0, 0, http.StatusNoContent)
 	// Two jobs run at once below: the global queue limit would otherwise hide the dispatch rule.
 	h.adminCall(http.MethodPut, "/api/admin/job-controls", map[string]any{"paused": false, "max_concurrency": 3}, http.StatusOK)
+	// A Worker without any voice model transcribes: the transcription step is independent of them.
 	h.transcribe()
 	h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusCreated)
 
-	// With the real provider active, a Worker that declares no voice model takes no voice job.
+	declaring := map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36"), "fingerprint": voiceModel(activeEmbedding, "837717ddb9ff")}
 	if job, ok := h.claimDeclaring(nil); ok {
 		t.Fatalf("a Worker without voice models claimed %s", job.Step)
 	}
-	// Neither does one holding a different diarization model, or only the embedder.
-	if job, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel("pyannote/speaker-diarization-3.1", "3533c8cf8e36")}); ok {
-		t.Fatalf("a Worker holding another diarization model claimed %s", job.Step)
+	if job, ok := h.claimDeclaring(declaring); ok {
+		t.Fatalf("a Worker whose active model is not ready claimed %s because its pulse declared it", job.Step)
 	}
-	if job, ok := h.claimDeclaring(map[string]any{"fingerprint": voiceModel(activeEmbedding, "837717ddb9ff")}); ok {
+	// Another ready model of the same type is not the active one.
+	h.reportModel(sortformerID, "ready", "", 1, 1, http.StatusNoContent)
+	if job, ok := h.claimDeclaring(declaring); ok {
+		t.Fatalf("a Worker holding only another diarization model claimed %s", job.Step)
+	}
+	// The embedder alone does not open the diarization job.
+	h.reportModel(fingerprintID, "ready", "", 1, 1, http.StatusNoContent)
+	if job, ok := h.claimDeclaring(declaring); ok {
 		t.Fatalf("a Worker holding only the embedder claimed %s", job.Step)
 	}
 
-	// The Worker that holds the active model takes it.
-	diarization, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36")})
+	// Ready in the state, whatever the pulse says.
+	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent)
+	diarization, ok := h.claimDeclaring(nil)
 	if !ok || diarization.Step != "voice.diarization.2" {
-		t.Fatalf("the Worker holding the active diarization model must claim it, got %+v", diarization)
+		t.Fatalf("the Worker whose active diarization model is ready must claim it, got %+v", diarization)
 	}
 
-	// A fingerprint job needs the active embedder, not the diarization model.
+	// A fingerprint job needs the active embedder to be ready, not the diarization model.
 	h.adminCall(http.MethodPost, "/api/admin/jobs", map[string]any{"clip_id": h.clipID, "step": "voice.fingerprint.1", "input_version": "dispatch-1"}, http.StatusCreated)
-	if job, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36")}); ok {
-		t.Fatalf("a Worker without the embedder claimed %s", job.Step)
+	h.reportModel(fingerprintID, "failed", "disk_full", 0, 0, http.StatusNoContent)
+	if job, ok := h.claimDeclaring(declaring); ok {
+		t.Fatalf("a Worker whose embedder is not ready claimed %s", job.Step)
 	}
-	fingerprint, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36"), "fingerprint": voiceModel(activeEmbedding, "837717ddb9ff")})
+	h.reportModel(fingerprintID, "ready", "", 1, 1, http.StatusNoContent)
+	fingerprint, ok := h.claimDeclaring(nil)
 	if !ok || fingerprint.Step != "voice.fingerprint.1" {
-		t.Fatalf("the Worker holding the embedder must claim the fingerprint job, got %+v", fingerprint)
+		t.Fatalf("the Worker whose embedder is ready must claim the fingerprint job, got %+v", fingerprint)
 	}
 }
 

@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -20,14 +21,14 @@ const (
 )
 
 // withSecondCatalogModel adds a synthetic diarization model to the catalogue for one test.
-func withSecondCatalogModel(t *testing.T) {
+func withSecondCatalogModel(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	saved := voiceCatalog
-	voiceCatalog = append(append([]voiceCatalogEntry{}, saved...), voiceCatalogEntry{
-		ID: secondID, Kind: "diarization", Engine: "pyannote", Repo: secondRepo, Revision: secondRevision,
-		License: "test", SizeBytes: 30_000_000, SupportsNumSpeakers: true,
+	if _, err := pool.Exec(context.Background(), `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision,license,size_bytes,supports_num_speakers) VALUES($1,'diarization','pyannote',$2,$3,'test',30000000,true)`, secondID, secondRepo, secondRevision); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM voice_model_catalog WHERE id=$1`, secondID)
 	})
-	t.Cleanup(func() { voiceCatalog = saved })
 }
 
 type catalogWorker struct {
@@ -53,6 +54,11 @@ type catalogModel struct {
 	Active              bool            `json:"active"`
 	Candidate           bool            `json:"candidate"`
 	Installed           bool            `json:"installed"`
+	Label               string          `json:"label"`
+	VRAMBytes           int64           `json:"vram_bytes"`
+	Enabled             bool            `json:"enabled"`
+	Supported           bool            `json:"supported"`
+	UnsupportedReason   string          `json:"unsupported_reason"`
 	Workers             []catalogWorker `json:"workers"`
 }
 
@@ -119,7 +125,7 @@ func (h *voiceHarness) pipelineVersion() string {
 
 func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
-	withSecondCatalogModel(t)
+	withSecondCatalogModel(t, pool)
 	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent) // a real model is only activated once a connected Worker holds it
 	h.putPipeline(map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": communityRevision, "min_fingerprint_seconds": 1.0, "min_quality": 0.5})
 	h.transcribe()
@@ -213,10 +219,12 @@ func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("an activated candidate stops being a candidate: %+v", m)
 	}
 	h.adminCall(http.MethodPost, "/api/admin/clips/"+strconv64(h.clipID)+"/voice", map[string]any{"audio_stream_index": 2}, http.StatusCreated)
-	if job, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36")}); ok {
-		t.Fatalf("a Worker holding only the previous model claimed %s", job.Step)
+	h.reportModel(secondID, "failed", "disk_full", 0, 0, http.StatusNoContent)
+	if job, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(secondRepo, "b00000000000")}); ok {
+		t.Fatalf("a Worker whose active model is not ready claimed %s", job.Step)
 	}
-	if _, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(secondRepo, "b00000000000")}); !ok {
+	h.reportModel(secondID, "ready", "", 1, 1, http.StatusNoContent)
+	if _, ok := h.claimDeclaring(nil); !ok {
 		t.Fatal("the Worker holding the new active model must claim the job")
 	}
 
@@ -229,17 +237,32 @@ func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 
 	// Cancelling a candidate leaves the active model alone; delete only targets a model that is neither active nor candidate.
 	h.adminCall(http.MethodPut, "/api/admin/voice-models/candidate", map[string]any{"model_id": secondID}, http.StatusOK)
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusConflict)
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+communityID+"/installation", nil, http.StatusConflict)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation"+"?worker_id="+h.fixtureWorkerID(), nil, http.StatusConflict)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+communityID+"/installation"+"?worker_id="+h.fixtureWorkerID(), nil, http.StatusConflict)
 	h.adminCall(http.MethodDelete, "/api/admin/voice-models/candidate", nil, http.StatusNoContent)
 	if m := h.voiceModels().model(t, secondID); m.Candidate || !m.Installed {
 		t.Fatalf("cancel must keep the installed model: %+v", m)
 	}
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusNoContent)
-	if _, remove := h.workerWants(); len(remove) != 1 || remove[0].ModelID != secondID {
-		t.Fatalf("the Worker must be told to remove the model: %+v", remove)
+	// A job that still uses the model keeps it installed.
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation"+"?worker_id="+h.fixtureWorkerID(), nil, http.StatusConflict)
+	if _, err := pool.Exec(t.Context(), `UPDATE jobs SET status='done',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL WHERE status IN ('pending','leased')`); err != nil {
+		t.Fatal(err)
 	}
-	h.reportModel(secondID, "removed", "", 0, 0, http.StatusNoContent)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusBadRequest) // a Worker is required
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation?worker_id="+h.fixtureWorkerID(), nil, http.StatusNoContent)
+	// Uninstalling is an explicit remove order, never a list the Worker acts on by itself (ADR 0038).
+	if _, remove := h.workerWants(); len(remove) != 0 {
+		t.Fatalf("no legacy removal list any more: %+v", remove)
+	}
+	orders := h.workerOrders()
+	if len(orders) != 1 || orders[0].Action != "remove" || orders[0].ModelID != secondID {
+		t.Fatalf("the Worker must be ordered to remove the model: %+v", orders)
+	}
+	if m := h.voiceModels().model(t, secondID); m.Workers[0].State != "removing" {
+		t.Fatalf("a model being removed is removing: %+v", m.Workers[0])
+	}
+	h.ack(orders[0].OrderID, true, "", http.StatusNoContent)
+	h.workerCall(http.MethodPost, "/api/worker/voice-models/status", map[string]any{"order_id": orders[0].OrderID, "model_id": secondID, "revision": secondRevision, "state": "removed"}, "", http.StatusNoContent)
 	if m := h.voiceModels().model(t, secondID); m.Installed || m.Workers[0].State != "not_installed" {
 		t.Fatalf("a removed model is not installed: %+v", m)
 	}

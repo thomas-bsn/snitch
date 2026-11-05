@@ -36,6 +36,7 @@ from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexRespons
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
+from .cancel_voice_model_replacement_kind import CancelVoiceModelReplacementKind
 from .clip import Clip
 from .clip_analysis_conflict import ClipAnalysisConflict
 from .clip_analysis_deletion_stake import ClipAnalysisDeletionStake
@@ -102,6 +103,11 @@ from .explorer_index_result_state import ExplorerIndexResultState
 from .explorer_listing import ExplorerListing
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
+from .fingerprint_transition import FingerprintTransition
+from .fingerprint_transition_input import FingerprintTransitionInput
+from .fingerprint_transition_phase import FingerprintTransitionPhase
+from .fingerprint_transition_preview import FingerprintTransitionPreview
+from .fingerprint_transition_state import FingerprintTransitionState
 from .folder_privacy import FolderPrivacy
 from .get_clip_analysis_deletion_preview_response_200 import GetClipAnalysisDeletionPreviewResponse200
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
@@ -381,9 +387,22 @@ from .voice_matching_input import VoiceMatchingInput
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_summary import VoiceMatchingSummary
 from .voice_model import VoiceModel
+from .voice_model_add import VoiceModelAdd
+from .voice_model_add_kind import VoiceModelAddKind
 from .voice_model_candidate import VoiceModelCandidate
 from .voice_model_choice import VoiceModelChoice
+from .voice_model_inspection import VoiceModelInspection
+from .voice_model_inspection_compatible_kinds_item import VoiceModelInspectionCompatibleKindsItem
+from .voice_model_inspection_request import VoiceModelInspectionRequest
 from .voice_model_kind import VoiceModelKind
+from .voice_model_order_history import VoiceModelOrderHistory
+from .voice_model_order_history_item import VoiceModelOrderHistoryItem
+from .voice_model_order_history_item_action import VoiceModelOrderHistoryItemAction
+from .voice_model_order_history_item_kind import VoiceModelOrderHistoryItemKind
+from .voice_model_order_history_item_status import VoiceModelOrderHistoryItemStatus
+from .voice_model_order_input import VoiceModelOrderInput
+from .voice_model_patch import VoiceModelPatch
+from .voice_model_removal_input import VoiceModelRemovalInput
 from .voice_model_retry import VoiceModelRetry
 from .voice_model_worker_state import VoiceModelWorkerState
 from .voice_model_worker_state_cause_code import VoiceModelWorkerStateCauseCode
@@ -442,7 +461,19 @@ from .worker_job_input_tracks_item import WorkerJobInputTracksItem
 from .worker_job_logs_input import WorkerJobLogsInput
 from .worker_machine import WorkerMachine
 from .worker_model import WorkerModel
+from .worker_model_cell import WorkerModelCell
+from .worker_model_cell_cause_code import WorkerModelCellCauseCode
+from .worker_model_cell_kind import WorkerModelCellKind
+from .worker_model_cell_state import WorkerModelCellState
+from .worker_model_order import WorkerModelOrder
+from .worker_model_order_ack import WorkerModelOrderAck
+from .worker_model_order_ack_cause_code import WorkerModelOrderAckCauseCode
+from .worker_model_order_action import WorkerModelOrderAction
+from .worker_model_order_kind import WorkerModelOrderKind
+from .worker_model_order_status import WorkerModelOrderStatus
 from .worker_models import WorkerModels
+from .worker_models_row import WorkerModelsRow
+from .worker_models_view import WorkerModelsView
 from .worker_page import WorkerPage
 from .worker_page_transcription import WorkerPageTranscription
 from .worker_page_transcription_mode import WorkerPageTranscriptionMode
@@ -514,6 +545,7 @@ __all__ = (
     "Bootstrap",
     "BrowseVideoRootResponse200",
     "BrowseVideoRootResponse200ItemsItem",
+    "CancelVoiceModelReplacementKind",
     "Clip",
     "ClipAnalysisConflict",
     "ClipAnalysisDeletionStake",
@@ -580,6 +612,11 @@ __all__ = (
     "ExplorerListing",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
+    "FingerprintTransition",
+    "FingerprintTransitionInput",
+    "FingerprintTransitionPhase",
+    "FingerprintTransitionPreview",
+    "FingerprintTransitionState",
     "FolderPrivacy",
     "GetClipAnalysisDeletionPreviewResponse200",
     "GetEmbeddingIndexStatusResponse200",
@@ -859,9 +896,22 @@ __all__ = (
     "VoiceMatchingSettings",
     "VoiceMatchingSummary",
     "VoiceModel",
+    "VoiceModelAdd",
+    "VoiceModelAddKind",
     "VoiceModelCandidate",
     "VoiceModelChoice",
+    "VoiceModelInspection",
+    "VoiceModelInspectionCompatibleKindsItem",
+    "VoiceModelInspectionRequest",
     "VoiceModelKind",
+    "VoiceModelOrderHistory",
+    "VoiceModelOrderHistoryItem",
+    "VoiceModelOrderHistoryItemAction",
+    "VoiceModelOrderHistoryItemKind",
+    "VoiceModelOrderHistoryItemStatus",
+    "VoiceModelOrderInput",
+    "VoiceModelPatch",
+    "VoiceModelRemovalInput",
     "VoiceModelRetry",
     "VoiceModels",
     "VoiceModelWorkerState",
@@ -920,7 +970,19 @@ __all__ = (
     "WorkerJobLogsInput",
     "WorkerMachine",
     "WorkerModel",
+    "WorkerModelCell",
+    "WorkerModelCellCauseCode",
+    "WorkerModelCellKind",
+    "WorkerModelCellState",
+    "WorkerModelOrder",
+    "WorkerModelOrderAck",
+    "WorkerModelOrderAckCauseCode",
+    "WorkerModelOrderAction",
+    "WorkerModelOrderKind",
+    "WorkerModelOrderStatus",
     "WorkerModels",
+    "WorkerModelsRow",
+    "WorkerModelsView",
     "WorkerPage",
     "WorkerPageTranscription",
     "WorkerPageTranscriptionMode",

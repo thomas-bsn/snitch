@@ -2246,10 +2246,28 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs uniquement. Catalogue des modèles vocaux (données figées dans le code : moteur, dépôt, révision épinglée, licence, accès gated, limites) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé si au moins un Worker l'a prêt. */
+    /** @description Administrateurs uniquement. Catalogue des modèles vocaux (références en base : type, adaptateur autorisé, dépôt, révision épinglée, licence, accès gated, besoins matériels, activée ou non, prise en charge ou non) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé si au moins un Worker l'a prêt. */
     get: operations["listVoiceModels"];
     put?: never;
-    post?: never;
+    /** @description Super-administrateur uniquement. Ajoute au catalogue le dépôt Hugging Face inspecté, à la révision (commit) montrée par l'inspection : Snitch relit ce commit exact, vérifie le type confirmé contre les métadonnées et déduit lui-même le moteur. Le moteur n'est pas une entrée. Un dépôt sans adaptateur approuvé, ou dont le moteur ne sait pas exécuter le type choisi, est enregistré non pris en charge avec sa raison et ne peut pas être installé. Refusé : voice_model_kind_mismatch (le dépôt déclare un autre type), voice_model_exists, voice_model_hf_not_found, voice_model_hf_denied, voice_model_hf_unavailable. */
+    post: operations["addVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/inspection": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Super-administrateur uniquement. Lit les métadonnées publiques d'un dépôt Hugging Face collé (owner/nom ou adresse huggingface.co ; aucun autre hôte) sans rien télécharger ni exécuter, avec délai et taille de réponse bornés. Propose un type seulement si les métadonnées le déclarent sans ambiguïté, déduit le moteur depuis la matrice d'adaptateurs approuvés et épingle le commit lu. */
+    post: operations["inspectVoiceModel"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2272,6 +2290,23 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** @description Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille, mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. */
+    patch: operations["patchVoiceModel"];
     trace?: never;
   };
   "/api/admin/voice-models/{id}/activate": {
@@ -2301,7 +2336,7 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** @description Administrateurs uniquement. Demande aux Workers de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat. */
+    /** @description Administrateurs uniquement. Ordonne à UN Worker, désigné par worker_id (400 worker_required sinon), de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat, ou utilisé par un job de ce Worker ; 409 voice_model_not_removable si ce Worker ne le détient pas. */
     delete: operations["removeVoiceModel"];
     options?: never;
     head?: never;
@@ -2317,8 +2352,147 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec. Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. */
+    /** @description Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps). Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id, idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a échoué sur ce Worker (201, voice_model_not_failed sinon) ; pour un remplacement dont le retrait de l'ancien a échoué, relance ce retrait (200). */
     post: operations["retryWorkerVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/workers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Vue « Modèles par Worker » : pour chaque Worker non révoqué, le modèle de chacun des trois types (diarisation, empreinte, séparation) avec son état réel, sa progression, le volume occupé, la cause d'échec et la révision. */
+    get: operations["listVoiceModelsByWorker"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Historique des ordres de modèle d'un Worker (installation, retrait), du plus récent au plus ancien, avec leur issue, leur cause et leur auteur. */
+    get: operations["listVoiceModelOrders"];
+    put?: never;
+    /** @description Administrateurs uniquement. Ordonne à un Worker d'installer un modèle du catalogue. Rejouer la même clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est occupé par un autre modèle (voice_model_type_occupied), sauf avec replaces_model_id : c'est alors un remplacement (le nouveau est installé et testé pendant que l'ancien reste actif ; Snitch décide la bascule, puis ordonne le retrait de l'ancien, différé tant qu'un travail en cours l'utilise). */
+    post: operations["createVoiceModelOrder"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/fingerprint-transition/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Aperçu d'impact du changement du modèle d'empreinte vers le modèle cible, sans rien modifier : références à recalculer, clips et Personnes concernés, autres empreintes à recalculer ensuite, attributions validées conservées, Workers qui ont déjà la cible prête (ADR 0044). */
+    get: operations["previewFingerprintTransition"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/fingerprint-transition": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. État de la transition d'empreinte ouverte ou, à défaut, de la dernière : phase, progression des références recalculées, tâches actives ou en échec, rattrapage restant. Lire l'état fait aussi avancer une transition interrompue. */
+    get: operations["getFingerprintTransition"];
+    put?: never;
+    /** @description Administrateurs uniquement. Confirme le changement du modèle d'empreinte vers la cible. confirm_references doit être le nombre de références vu dans l'aperçu (voice_transition_preview_stale sinon). Une seule transition à la fois (voice_transition_in_progress). */
+    post: operations["startFingerprintTransition"];
+    /** @description Administrateurs uniquement. Abandonne la transition ouverte avant la bascule ; la production n'a pas changé. Refusé une fois la bascule faite (voice_transition_switched). */
+    delete: operations["cancelFingerprintTransition"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/fingerprint-transition/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Reprend la transition : replanifie aussi les références dont la tâche s'est terminée sans empreinte, et le rattrapage après la bascule. */
+    post: operations["resumeFingerprintTransition"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-replacements/{kind}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Annule le remplacement d'un modèle de ce type sur ce Worker tant que le nouveau n'est pas en service : l'essai en échec ou pas encore reçu est oublié, l'ancien reste actif et installé. Refusé pendant un téléchargement ou un test (voice_replacement_in_progress) et une fois la bascule décidée (voice_replacement_switched). */
+    delete: operations["cancelVoiceModelReplacement"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-removals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Retrait explicite d'un modèle prêt ou en échec sur ce Worker : un ordre remove, jamais un effacement silencieux. Refusé tant qu'un travail utilise le modèle (voice_model_in_use) ou tant qu'un remplacement en cours en dépend (voice_replacement_in_progress) ; seul fait exception le retrait de l'ancien modèle d'un remplacement dont le nouveau a échoué : le remplacement est alors abandonné pour libérer la place. Rejouer la même clé d'idempotence renvoie l'ordre déjà enregistré (200). */
+    post: operations["createVoiceModelRemoval"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-model-orders/{id}/ack": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker accuse réception d'un de ses ordres après ses contrôles (destinataire, identité, type, modèle, révision, idempotence), ou le refuse avec la cause invalid_order. Rejouer l'accusé est sans effet. Un ordre d'un autre Worker est introuvable. */
+    post: operations["ackWorkerModelOrder"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2332,7 +2506,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, et les modèles à supprimer. Jamais de jeton ni de chemin. */
+    /** @description État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, les modèles à supprimer et les ordres d'installation en cours. Le jeton Hugging Face central n'accompagne que la première livraison d'un ordre qui télécharge un modèle sous accès restreint (ADR 0027) ; jamais de chemin. */
     get: operations["getWorkerVoiceModels"];
     put?: never;
     post?: never;
@@ -2351,7 +2525,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus / total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou supprimé. Une cause n'accompagne qu'un échec. */
+    /** @description Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus / total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou supprimé. Une cause n'accompagne qu'un échec. Avec order_id, le rapport répond à un ordre du Worker (modèle et révision contrôlés) ; ready clôt l'ordre, failed l'échoue ; un ordre terminé n'est pas rouvert (stale_voice_order). */
     post: operations["postWorkerVoiceModelStatus"];
     delete?: never;
     options?: never;
@@ -3817,6 +3991,8 @@ export interface components {
         [key: string]: unknown;
       } | null;
       cycle: number;
+      /** @description Renvoyé à la planification d'un travail à modèle demandé (benchmark). */
+      requested_model_id?: string;
     };
     JobInput: {
       /** Format: int64 */
@@ -3827,6 +4003,8 @@ export interface components {
       priority: number;
       /** @default 3 */
       max_attempts: number;
+      /** @description Modèle d'empreinte du catalogue demandé explicitement (benchmark), uniquement pour une étape voice.fingerprint.*. Sans lui, le modèle actif s'applique. Le travail n'est attribué qu'à un Worker qui a CE modèle prêt ; ses empreintes restent dans un groupe de benchmark, jamais comparé à la production. */
+      requested_model_id?: string;
     };
     JobPage: {
       items: components["schemas"]["Job"][];
@@ -4385,6 +4563,15 @@ export interface components {
     VoiceModelChoice: {
       model_id: string;
     };
+    VoiceModelPatch: {
+      label?: string;
+      license?: string;
+      /** Format: int64 */
+      size_bytes?: number;
+      /** Format: int64 */
+      vram_bytes?: number;
+      enabled?: boolean;
+    };
     VoiceModelCandidate: {
       candidate: string;
     };
@@ -4396,7 +4583,15 @@ export interface components {
       name: string;
       connected: boolean;
       /** @enum {string} */
-      state: "not_installed" | "downloading" | "verifying" | "ready" | "failed";
+      state:
+        | "not_installed"
+        | "requested"
+        | "downloading"
+        | "verifying"
+        | "ready"
+        | "switching"
+        | "removing"
+        | "failed";
       /** @enum {string} */
       cause_code:
         | ""
@@ -4412,7 +4607,8 @@ export interface components {
         | "hf_not_found"
         | "hf_network"
         | "models_volume_unwritable"
-        | "hf_cache_error";
+        | "hf_cache_error"
+        | "invalid_order";
       /** Format: int64 */
       bytes_received: number;
       /** Format: int64 */
@@ -4421,7 +4617,18 @@ export interface components {
     VoiceModel: {
       id: string;
       /** @enum {string} */
-      kind: "diarization" | "fingerprint";
+      kind: "diarization" | "fingerprint" | "separation";
+      label: string;
+      /**
+       * Format: int64
+       * @description Mémoire GPU nécessaire, 0 si inconnue.
+       */
+      vram_bytes: number;
+      /** @description Une référence désactivée ne peut plus être choisie ; son historique reste lisible. */
+      enabled: boolean;
+      /** @description Faux quand aucun adaptateur approuvé ne sait l'exécuter (toujours le cas de la séparation). */
+      supported: boolean;
+      unsupported_reason: string;
       engine: string;
       repo: string;
       revision: string;
@@ -4437,6 +4644,33 @@ export interface components {
       installed: boolean;
       workers: components["schemas"]["VoiceModelWorkerState"][];
     };
+    VoiceModelInspectionRequest: {
+      /** @description Dépôt Hugging Face : owner/nom ou adresse huggingface.co. */
+      source: string;
+    };
+    VoiceModelAdd: {
+      source: string;
+      /** @description Commit montré par l'inspection. */
+      revision: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+    };
+    VoiceModelInspection: {
+      repo: string;
+      /** @description Commit lu, épinglé à l'ajout. */
+      revision: string;
+      license: string;
+      gated: boolean;
+      /** @description Moteur déduit de la matrice ; vide si aucun adaptateur approuvé. */
+      engine: string;
+      /** @description Null quand les métadonnées ne tranchent pas : la personne choisit parmi les trois types. */
+      proposed_kind: string | null;
+      compatible_kinds: ("diarization" | "fingerprint" | "separation")[];
+      supported: boolean;
+      unsupported_reason: string;
+      /** @description Références du catalogue déjà créées pour ce dépôt. */
+      existing_ids: string[];
+    };
     VoiceModels: {
       models: components["schemas"]["VoiceModel"][];
     };
@@ -4450,11 +4684,186 @@ export interface components {
       retry: boolean;
     };
     WorkerVoiceModels: {
+      worker_id: string;
       models: components["schemas"]["WorkerVoiceModel"][];
       remove: components["schemas"]["WorkerVoiceModel"][];
+      orders: components["schemas"]["WorkerModelOrder"][];
+    };
+    FingerprintTransitionInput: {
+      to_model_id: string;
+      confirm_references: number;
+    };
+    FingerprintTransitionPreview: {
+      from_model_id: string;
+      to_model_id: string;
+      references: number;
+      clips: number;
+      persons: number;
+      other_fingerprints: number;
+      validated_attributions: number;
+      workers_ready: number;
+    };
+    FingerprintTransition: {
+      /** Format: int64 */
+      id: number;
+      from_model_id: string;
+      to_model_id: string;
+      /** @enum {string} */
+      phase: "preparing" | "recomputing" | "switched" | "cancelled";
+      announced_references: number;
+      references_total: number;
+      references_done: number;
+      references_remaining: number;
+      jobs_active: number;
+      jobs_failed: number;
+      catch_up_remaining: number;
+      workers_ready: number;
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      switched_at?: string;
+    };
+    FingerprintTransitionState: {
+      open: boolean;
+      transition?: components["schemas"]["FingerprintTransition"];
+    };
+    VoiceModelOrderInput: {
+      model_id: string;
+      idempotency_key: string;
+      /** @description Modèle prêt du même type que ce Worker remplace : le nouveau est installé à côté sans bascule, puis Snitch décide la bascule et ordonne le retrait de l'ancien. Diarisation seulement (voice_replacement_kind_unsupported pour l'empreinte). */
+      replaces_model_id?: string;
+    };
+    WorkerModelOrder: {
+      order_id: string;
+      worker_id: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      /** @enum {string} */
+      action: "install" | "remove";
+      model_id: string;
+      engine: string;
+      repo: string;
+      revision: string;
+      idempotency_key: string;
+      /** @enum {string} */
+      status:
+        | "pending"
+        | "acknowledged"
+        | "done"
+        | "failed"
+        | "refused"
+        | "cancelled";
+      /**
+       * Format: int64
+       * @description Taille annoncée par le catalogue : le Worker vérifie son espace libre avant de télécharger (disk_full sinon).
+       */
+      size_bytes: number;
+      /** @description Jeton Hugging Face central, seulement à la première livraison d'un ordre qui télécharge un modèle sous accès restreint. */
+      hf_token?: string;
+      /** Format: date-time */
+      created_at: string;
+    };
+    VoiceModelRemovalInput: {
+      model_id: string;
+      idempotency_key: string;
+    };
+    VoiceModelOrderHistoryItem: {
+      order_id: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      /** @enum {string} */
+      action: "install" | "remove";
+      model_id: string;
+      label: string;
+      repo: string;
+      revision: string;
+      /** @enum {string} */
+      status:
+        | "pending"
+        | "acknowledged"
+        | "done"
+        | "failed"
+        | "refused"
+        | "cancelled";
+      cause_code: string;
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+    };
+    VoiceModelOrderHistory: {
+      orders: components["schemas"]["VoiceModelOrderHistoryItem"][];
+    };
+    WorkerModelOrderAck: {
+      accepted: boolean;
+      /** @enum {string} */
+      cause_code?: "" | "invalid_order";
+    };
+    WorkerModelCell: {
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      supported: boolean;
+      model_id: string;
+      label: string;
+      repo: string;
+      revision: string;
+      /**
+       * @description Pendant un remplacement la cellule montre le nouveau modèle : switching (prêt, bascule décidée, retrait de l'ancien en attente), removing (ordre remove de l'ancien envoyé).
+       * @enum {string}
+       */
+      state:
+        | "not_installed"
+        | "requested"
+        | "downloading"
+        | "verifying"
+        | "ready"
+        | "switching"
+        | "removing"
+        | "failed";
+      /** @enum {string} */
+      cause_code:
+        | ""
+        | "hf_token_missing"
+        | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
+        | "disk_full"
+        | "runtime_incompatible"
+        | "inference_failed"
+        | "hf_auth_required"
+        | "hf_not_found"
+        | "hf_network"
+        | "models_volume_unwritable"
+        | "hf_cache_error"
+        | "invalid_order";
+      /** Format: int64 */
+      bytes_received: number;
+      /** Format: int64 */
+      bytes_total: number;
+      /** Format: int64 */
+      occupied_bytes: number;
+      order_id: string;
+      /** @description Modèle que celui-ci remplace sur ce Worker ; vide hors remplacement. L'ancien reste actif et installé jusqu'à son retrait. */
+      replaces_model_id: string;
+      /** @description Le retrait de l'ancien modèle est différé parce qu'un travail en cours l'utilise. */
+      waiting_for_jobs: boolean;
+    };
+    WorkerModelsRow: {
+      worker_id: string;
+      name: string;
+      connected: boolean;
+      models: components["schemas"]["WorkerModelCell"][];
+    };
+    WorkerModelsView: {
+      workers: components["schemas"]["WorkerModelsRow"][];
     };
     WorkerVoiceModelStatus: {
       model_id: string;
+      order_id?: string;
+      revision?: string;
       /** @enum {string} */
       state: "downloading" | "verifying" | "ready" | "failed" | "removed";
       /** @enum {string} */
@@ -4472,11 +4881,14 @@ export interface components {
         | "hf_not_found"
         | "hf_network"
         | "models_volume_unwritable"
-        | "hf_cache_error";
+        | "hf_cache_error"
+        | "invalid_order";
       /** Format: int64 */
       bytes_received?: number;
       /** Format: int64 */
       bytes_total?: number;
+      /** Format: int64 */
+      occupied_bytes?: number;
     };
     VoiceOverviewWorker: {
       id: string;
@@ -12312,6 +12724,78 @@ export interface operations {
       };
     };
   };
+  addVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelAdd"];
+      };
+    };
+    responses: {
+      /** @description Référence ajoutée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModel"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  inspectVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelInspectionRequest"];
+      };
+    };
+    responses: {
+      /** @description Inspection */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelInspection"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   chooseVoiceModelCandidate: {
     parameters: {
       query?: never;
@@ -12378,6 +12862,44 @@ export interface operations {
       };
     };
   };
+  patchVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelPatch"];
+      };
+    };
+    responses: {
+      /** @description Référence mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModel"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   activateVoiceModel: {
     parameters: {
       query?: never;
@@ -12414,7 +12936,9 @@ export interface operations {
   };
   removeVoiceModel: {
     parameters: {
-      query?: never;
+      query: {
+        worker_id: string;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -12456,7 +12980,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelOrderInput"];
+      };
+    };
     responses: {
       /** @description Relance demandée */
       200: {
@@ -12466,6 +12994,393 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["VoiceModelRetry"];
         };
+      };
+      /** @description Nouvel ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceModelsByWorker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Modèles par Worker */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelsView"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceModelOrders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historique des ordres */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelOrderHistory"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVoiceModelOrder: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelOrderInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewFingerprintTransition: {
+    parameters: {
+      query: {
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionPreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de la transition */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FingerprintTransitionInput"];
+      };
+    };
+    responses: {
+      /** @description Transition démarrée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Transition abandonnée */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resumeFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de la transition */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelVoiceModelReplacement: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+        kind: "diarization" | "fingerprint" | "separation";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Remplacement annulé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVoiceModelRemoval: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelRemovalInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  ackWorkerModelOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerModelOrderAck"];
+      };
+    };
+    responses: {
+      /** @description Accusé enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Erreur */
       default: {

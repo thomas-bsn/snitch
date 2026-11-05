@@ -440,6 +440,49 @@ export const fr: Messages = {
     },
   },
   voiceModels: {
+    add: {
+      open: "Ajouter un modèle",
+      title: "Ajouter un modèle au catalogue",
+      source: "Dépôt Hugging Face",
+      sourceHint:
+        "Collez propriétaire/nom ou une adresse huggingface.co. Snitch lit uniquement les métadonnées publiques : rien n’est téléchargé ni exécuté.",
+      inspect: "Inspecter",
+      inspecting: "Inspection…",
+      proposed: "Type proposé : {kind}. Confirmez-le ci-dessous.",
+      uncertain:
+        "Le dépôt n’indique pas son type de façon fiable. Choisissez l’un des trois types.",
+      unsupported:
+        "Non pris en charge : {reason}. Il ne peut pas être installé.",
+      kindUnsupported:
+        "Le moteur de ce dépôt ne sait pas exécuter un modèle de type {kind}. Il ne peut pas être installé.",
+      existing: "Déjà dans le catalogue : {ids}.",
+      typeLabel: "Type",
+      recap: "Récapitulatif",
+      model: "Modèle",
+      type: "Type",
+      typeToChoose: "À choisir",
+      engine: "Moteur compatible",
+      engineNone: "Aucun",
+      revision: "Révision",
+      license: "Licence",
+      licenseNone: "Non indiquée",
+      gated: "Gated",
+      gatedYes: "Oui, jeton requis",
+      gatedNo: "Non",
+      submit: "Ajouter au catalogue",
+      cancel: "Annuler",
+      close: "Fermer",
+      added: "{model} a été ajouté au catalogue.",
+      kind: {
+        diarization: "Diarisation",
+        fingerprint: "Fingerprint",
+        separation: "Séparation",
+      },
+      engines: {
+        nemo: "NVIDIA NeMo",
+        pyannote: "pyannote",
+      },
+    },
     fingerprintTitle: "Modèle d’empreinte",
     fingerprintHint:
       "Fixé par le catalogue : les empreintes vocales utilisent ce modèle, rien à choisir.",
@@ -473,15 +516,109 @@ export const fr: Messages = {
       "Ces Workers n'ont pas le modèle prêt et ne prendront plus de travaux vocaux : {names}.",
     removeTitle: "Supprimer {model} ?",
     removeText:
-      "Chaque Worker supprime ce modèle de son volume. Il faudra le choisir de nouveau pour le retélécharger.",
+      "{worker} supprime ce modèle de son volume. Il faudra le choisir de nouveau pour le retélécharger.",
+    byWorker: {
+      title: "Modèles par Worker",
+      hint: "Le modèle que chaque Worker porte pour chaque type. Snitch ordonne l’installation ; le Worker rapporte seulement ce qu’il a réellement.",
+      worker: "Worker",
+      type: {
+        diarization: "Diarisation",
+        fingerprint: "Empreinte",
+        separation: "Séparation",
+      },
+      absent: "Absent",
+      separationUnsupported:
+        "Pas encore disponible : aucun moteur ne sait exécuter la séparation, elle ne peut donc pas être prête.",
+      choose: "Modèle à installer sur {worker} pour {type}",
+      install: "Installer",
+      retry: "Réessayer",
+      volume: "{size} Mo sur disque",
+      revision: "Révision {revision}",
+      confirmTitle: "Installer {model} sur {worker} ?",
+      confirmText:
+        "{worker} va télécharger {model}, le charger et lancer une inférence de test. Il n’est prêt qu’une fois ce test réussi.",
+      confirmGated:
+        "Ce modèle est à accès restreint : le jeton Hugging Face central est envoyé à ce Worker avec cet ordre seulement.",
+      confirmAction: "Ordonner l’installation",
+      cancelDialog: "Annuler",
+      replace: "Changer",
+      choosePrompt: "Choisir un modèle",
+      chooseFor: "Choisir un modèle pour {type} sur {worker}",
+      chooseTitle: "Choisir un modèle pour {type} sur {worker}",
+      statuses: "Statuts",
+      tableLabel: "Workers par type de modèle",
+      separationBanner:
+        "Séparation des voix : type présent dans le catalogue, mais non exécutable tant que #268 n’est pas livré (aucun adaptateur). Il apparaîtra ici dès qu’un modèle sera installable.",
+      removingOld: "Retrait de {model} sur ordre de Snitch.",
+      removingStandalone: "Retrait ordonné par Snitch.",
+      viewOrder: "Voir l’ordre",
+      uninstall: "Désinstaller",
+      uninstallTitle: "Désinstaller {model} de {worker} ?",
+      uninstallText:
+        "{worker} va supprimer {model} de son volume, sur ordre de Snitch. Snitch refuse tant qu’un travail en cours l’utilise.",
+      uninstallNoActive:
+        "Aucun modèle actif ne restera pour ce type sur {worker} tant que vous n’en installez pas un autre.",
+      uninstallAction: "Ordonner le retrait",
+      removeOld: "Retirer l’ancien modèle",
+      removeOldTitle: "Retirer {old} pour libérer de la place sur {worker} ?",
+      removeOldText:
+        "Le disque de {worker} ne peut pas garder {old} et {model} ensemble. Si vous continuez, {old} est supprimé de {worker}.",
+      removeOldNoActive:
+        "Aucun modèle actif ne restera sur {worker} : il ne pourra pas prendre ce type de travail tant que {model} n’est pas installé. {old} ne se récupère qu’en le téléchargeant de nouveau.",
+      removeOldAction: "Retirer {old}",
+      history: "Historique des ordres",
+      historyOf: "Historique des ordres de {worker}",
+      historyTitle: "Historique des ordres",
+      historyWorker: "Worker",
+      historyEmpty: "Aucun ordre pour ce Worker pour l’instant.",
+      historyBy: "par {author}",
+      historyAction: { install: "Installation", remove: "Retrait" },
+      historyStatus: {
+        pending: "En attente du Worker",
+        acknowledged: "En cours",
+        done: "Terminé",
+        failed: "Échec",
+        refused: "Refusé par le Worker",
+        cancelled: "Annulé",
+      },
+      close: "Fermer",
+      applyMany: "Appliquer à plusieurs Workers",
+      applyTitle: "Appliquer un modèle à plusieurs Workers",
+      applyType: "Type",
+      applyModel: "Modèle",
+      applyWorkers: "Workers sans modèle de ce type",
+      applyNone: "Chaque Worker porte déjà un modèle de ce type.",
+      applyPrepare: "Préparer les ordres",
+      applyPreview: "Ordres à envoyer ({count})",
+      applyLine: "Installer {model} sur {worker}",
+      applyBack: "Retour",
+      applySend: "Envoyer {count} ordres",
+      applySent: "Ordre envoyé",
+      applyFailed: "Refusé : {reason}",
+      applyHint:
+        "Un ordre est créé par Worker coché. Rien n’est envoyé avant que vous confirmiez la liste.",
+      applyWorkerEntry: "{worker}",
+      replaceWith: "Modèle qui remplace l’actuel sur {worker}",
+      replacing: "Remplace {model} : il reste actif jusqu’à la bascule.",
+      waitingJobs:
+        "Bascule faite. L’ancien modèle sera retiré à la fin de ses travaux en cours.",
+      cancelReplacement: "Annuler le remplacement",
+      confirmReplaceText:
+        "{worker} va télécharger {model} et le tester pendant que {old} reste actif. Snitch bascule ensuite le modèle actif et ordonne le retrait de {old}, quand plus aucun travail en cours ne l’utilise. En cas d’échec, {old} est conservé.",
+    },
     state: {
       not_installed: "Non installé",
+      requested: "Demandé",
       downloading: "Téléchargement",
       verifying: "Vérification",
       ready: "Prêt",
+      switching: "Bascule",
+      removing: "Retrait",
       failed: "Échec",
     },
     cause: {
+      invalid_order:
+        "Le Worker a refusé l’ordre après ses contrôles : réessayez, et signalez-le si cela se répète.",
       hf_token_missing:
         "Jeton Hugging Face absent sur ce Worker. Enregistrez-le depuis la machine du Worker avec la commande store-token (voir docs/real-voice-worker.md), puis réessayez.",
       hf_access_denied:
@@ -1707,12 +1844,10 @@ export const fr: Messages = {
       libraryModel: "Modèle de la bibliothèque",
       libraryModelHint:
         "Partagé par tous les Workers. À changer dans Administration, Transcription.",
-      hf: "Jeton Hugging Face",
-      hfHint:
-        "Acceptez d’abord les conditions de pyannote sur Hugging Face, puis collez un jeton en lecture seule. Il ne sert qu’à télécharger les modèles de voix au premier démarrage. Snitch ne le reçoit jamais et ne le conserve pas : il est écrit dans le fichier .env ci-dessous, dans votre navigateur.",
       submit: "Créer le Worker",
       submitting: "Création…",
       cancel: "Annuler",
+      close: "Fermer",
       confirmTitle: "Utiliser ce modèle pour toute la bibliothèque ?",
       confirmBody:
         "Ce modèle et cette langue serviront à tous les futurs Workers, même avec un serveur Whisper différent. Vous pourrez les changer plus tard dans Administration, Transcription.",
@@ -1721,9 +1856,7 @@ export const fr: Messages = {
       shownOnce:
         "Copiez maintenant la commande d’installation. Son invitation expire ; le jeton du Worker n’apparaît jamais dans l’historique du terminal.",
       secret:
-        "Le fichier .env contient le jeton du Worker et votre jeton Hugging Face : ne le partagez ni ne le versionnez jamais.",
-      hfMissing:
-        "Aucun jeton Hugging Face n’a été donné : renseignez HF_TOKEN à la main dans le fichier .env.",
+        "Le fichier .env contient le jeton du Worker : ne le partagez ni ne le versionnez jamais.",
       whisperMissing:
         "Aucune adresse Whisper n’a été donnée : renseignez TRANSCRIPTION_API_URL à la main dans le fichier .env.",
       publicAddressLink: "Où modifier l’adresse publique de Snitch",
@@ -1769,6 +1902,7 @@ export const fr: Messages = {
     },
     dialog: {
       cancel: "Annuler",
+      close: "Fermer",
     },
   },
   import: {
@@ -1822,6 +1956,7 @@ export const fr: Messages = {
         "Demande envoyée. Un administrateur décidera ; vous ne pouvez pas téléverser dans ce dossier d’ici là.",
       pending: "Demande en attente",
       cancel: "Annuler",
+      close: "Fermer",
     },
     visibility: {
       label: "Qui peut voir ces vidéos",
@@ -2623,6 +2758,7 @@ export const fr: Messages = {
       choose: "Choisissez au moins une voix.",
       submit: "Séparer",
       cancel: "Annuler",
+      close: "Fermer",
       done: "{count} voix ont été séparées de {name} : elles sont de nouveau inconnues.",
       doneOne: "1 voix a été séparée de {name} : elle est de nouveau inconnue.",
     },
@@ -2632,6 +2768,7 @@ export const fr: Messages = {
       nameHint: "De 1 à 100 caractères.",
       submit: "Créer",
       cancel: "Annuler",
+      close: "Fermer",
     },
     merge: {
       title: "Fusionner {name}",
@@ -2640,6 +2777,7 @@ export const fr: Messages = {
       choose: "Choisir une Personne…",
       submit: "Fusionner",
       cancel: "Annuler",
+      close: "Fermer",
       done: "{name} a été fusionnée dans {target} : {summary}",
       voices:
         "{count} voix confirmée(s) de {name} sont désormais confirmées comme {target}.",
@@ -2659,6 +2797,7 @@ export const fr: Messages = {
         "Les clips, les empreintes vocales et les autres Personnes sont intacts. Les voix sont rapprochées de nouveau. Cette action ne peut pas être annulée.",
       submit: "Supprimer",
       cancel: "Annuler",
+      close: "Fermer",
       done: "{name} a été supprimée : {summary}",
     },
     summary:

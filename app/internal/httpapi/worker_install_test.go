@@ -46,12 +46,12 @@ func TestWorkerInstallerScriptIsExecutableWithoutRepositoryFiles(t *testing.T) {
 		t.Fatalf("installer is not valid bash: %v: %s", err, out)
 	}
 	// The template contains base64-encoded values; check for the encoded forms.
-	for _, fragment := range []string{"docker pull", "docker volume create", "--user 10001:10001", "HF_TOKEN", "--restart unless-stopped", "SNITCH_WORKER_TOKEN", endpointB64, modelB64, languageB64, "base64 -d"} {
+	for _, fragment := range []string{"docker pull", "docker volume create", "--user 10001:10001", "--restart unless-stopped", "SNITCH_WORKER_TOKEN", endpointB64, modelB64, languageB64, "base64 -d"} {
 		if !strings.Contains(script.String(), fragment) {
 			t.Errorf("installer lacks %q", fragment)
 		}
 	}
-	for _, fragment := range []string{"git clone", "compose.yaml", "chmod 777"} {
+	for _, fragment := range []string{"git clone", "compose.yaml", "chmod 777", "HF_TOKEN", "Download the voice models", "bootstrap", "DOWNLOAD_ON_START"} {
 		if strings.Contains(script.String(), fragment) {
 			t.Errorf("installer unexpectedly requires %q", fragment)
 		}

@@ -98,6 +98,9 @@ func TestFoundation(t *testing.T) {
 		if _, e = pool.Exec(ctx, `UPDATE voice_pipeline_active SET version='voice-v1' WHERE id=true`); e != nil {
 			t.Fatal(e)
 		}
+		if _, e = pool.Exec(ctx, `DELETE FROM voice_fingerprint_transitions; UPDATE voice_active_model SET model_id='pyannote-wespeaker-resnet34' WHERE kind='fingerprint'`); e != nil {
+			t.Fatal(e)
+		}
 		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events`); e != nil {
 			t.Fatal(e)
 		}
@@ -344,9 +347,89 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelDispatch(t, pool)
 	})
+	t.Run("voice fingerprint transition preview", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionPreview(t, pool)
+	})
+	t.Run("voice fingerprint transition flow", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionFlow(t, pool)
+	})
+	t.Run("voice fingerprint transition resume", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionResume(t, pool)
+	})
+	t.Run("voice fingerprint transition cancel", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionCancel(t, pool)
+	})
+	t.Run("voice fingerprint transition workers", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionWorkers(t, pool)
+	})
+	t.Run("voice fingerprint stale model", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintStaleModel(t, pool)
+	})
+	t.Run("voice requested model dispatch", func(t *testing.T) {
+		reset(t)
+		testVoiceRequestedModelDispatch(t, pool)
+	})
+	t.Run("voice benchmark isolation", func(t *testing.T) {
+		reset(t)
+		testVoiceBenchmarkIsolation(t, pool)
+	})
+	t.Run("voice catalog in database", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogInDatabase(t, pool)
+	})
+	t.Run("voice catalog edition", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogEdition(t, pool)
+	})
+	t.Run("voice model addition from Hugging Face", func(t *testing.T) {
+		reset(t)
+		testVoiceModelAddFromHF(t, pool)
+	})
 	t.Run("voice model candidate", func(t *testing.T) {
 		reset(t)
 		testVoiceModelCandidate(t, pool)
+	})
+	t.Run("voice model order creation", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOrderCreation(t, pool)
+	})
+	t.Run("voice model order execution", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOrderExecution(t, pool)
+	})
+	t.Run("voice model replacement", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacement(t, pool)
+	})
+	t.Run("voice model replacement failure", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacementFailure(t, pool)
+	})
+	t.Run("voice model replacement removal failure", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacementRemovalFailure(t, pool)
+	})
+	t.Run("voice model explicit removal", func(t *testing.T) {
+		reset(t)
+		testVoiceModelExplicitRemoval(t, pool)
+	})
+	t.Run("voice model in use per worker", func(t *testing.T) {
+		reset(t)
+		testVoiceModelInUsePerWorker(t, pool)
+	})
+	t.Run("voice model uninstall one worker", func(t *testing.T) {
+		reset(t)
+		testVoiceModelUninstallOneWorker(t, pool)
+	})
+	t.Run("voice model removal for space", func(t *testing.T) {
+		reset(t)
+		testVoiceModelRemovalForSpace(t, pool)
 	})
 	t.Run("voice model sortformer", func(t *testing.T) {
 		reset(t)
@@ -835,8 +918,11 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/voice-models", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-models/candidate", map[string]any{"model_id": "pyannote-community-1"}, me.CSRF, 409)
 		call(client, "DELETE", "/api/admin/voice-models/candidate", nil, me.CSRF, 204)
+		call(client, "PATCH", "/api/admin/voice-models/pyannote-wespeaker-resnet34", map[string]any{"label": ""}, me.CSRF, 200)        // edition rules in the voice catalog edition suite
+		call(client, "POST", "/api/admin/voice-models/inspection", map[string]any{"source": "https://evil.example/a/b"}, me.CSRF, 400) // behavior in the voice model addition suite
+		call(client, "POST", "/api/admin/voice-models", map[string]any{"source": "https://evil.example/a/b", "revision": "0123456789abcdef0123456789abcdef01234567", "kind": "diarization"}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-models/pyannote-community-1/activate", nil, me.CSRF, 409)
-		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation", nil, me.CSRF, 409)
+		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation?worker_id=wk_any", nil, me.CSRF, 409)
 		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/voice", nil, "", 200)
@@ -969,6 +1055,18 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.synthetic"}}, "", 200)
 		call(client, "GET", "/api/worker/voice-models", nil, "", 200)
 		call(client, "POST", "/api/worker/voice-models/status", map[string]any{"model_id": "pyannote-community-1", "state": "removed"}, "", 204)
+		call(client, "GET", "/api/admin/voice-models/workers", nil, "", 200)
+		orderBody := call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/voice-model-orders", map[string]any{"model_id": "pyannote-wespeaker-resnet34", "idempotency_key": "contract-order-0001"}, me.CSRF, 201)
+		var contractOrder struct {
+			OrderID string `json:"order_id"`
+		}
+		if e = json.Unmarshal(orderBody, &contractOrder); e != nil || contractOrder.OrderID == "" {
+			t.Fatalf("contract order: %s %v", orderBody, e)
+		}
+		call(client, "POST", "/api/worker/voice-model-orders/"+contractOrder.OrderID+"/ack", map[string]any{"accepted": true}, "", 204)
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/voice-model-replacements/diarization", nil, me.CSRF, 404)
+		call(client, "GET", "/api/admin/workers/"+contractWorker.ID+"/voice-model-orders", nil, "", 200)
+		call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/voice-model-removals", map[string]any{"model_id": "unknown-model", "idempotency_key": "contract-remove-0001"}, me.CSRF, 400)
 		call(client, "POST", "/api/worker/install-events", map[string]any{"events": []map[string]any{{"phase": "service", "status": "succeeded", "occurred_at": time.Now().UTC().Format(time.RFC3339)}}}, "", 204)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {
@@ -1200,7 +1298,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trace", nil, "", 200) // behavior in the voice coverage suite
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
+				if strings.HasPrefix(path, "/api/admin/video-root") || strings.HasPrefix(path, "/api/admin/voice-models/fingerprint-transition") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
 					continue // These contract operations are covered by their upload, search, worker, member, account, embedding, transcription, job log, worker update and Hugging Face token suites.
 				}
 				if !seen[method+" "+path] {
@@ -1286,7 +1384,7 @@ func TestFoundation(t *testing.T) {
 		suites := []string{
 			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
 			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
-			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts",
+			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts", "admin-voice-add.spec.ts", "admin-voice-replacement.spec.ts",
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
 			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
@@ -1366,6 +1464,12 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_VOICE") == "1" {
 			suites = []string{"people.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_REPLACEMENT") == "1" {
+			suites = []string{"admin-voice-replacement.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_ADD") == "1" {
+			suites = []string{"admin-voice-add.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PERSONS") == "1" {
 			suites = []string{"people.spec.ts"}
@@ -1551,6 +1655,9 @@ func TestFoundation(t *testing.T) {
 					}
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+				if suite == "admin-voice-add.spec.ts" {
+					s.hf = syntheticHuggingFace(t)
+				}
 				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)

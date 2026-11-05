@@ -56,6 +56,8 @@ func (s *Server) scheduleJob(w http.ResponseWriter, r *http.Request) {
 		InputVersion string `json:"input_version"`
 		Priority     int    `json:"priority"`
 		MaxAttempts  int    `json:"max_attempts"`
+		// RequestedModelID asks for one catalogue fingerprint model (benchmark); the active model otherwise.
+		RequestedModelID string `json:"requested_model_id"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -66,7 +68,7 @@ func (s *Server) scheduleJob(w http.ResponseWriter, r *http.Request) {
 	if isTranscriptionStep(input.Step) && input.ClipID > 0 && !s.correctionsGuard(w, r, input.ClipID) {
 		return
 	}
-	job, created, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: input.ClipID, Step: input.Step, InputVersion: input.InputVersion, Priority: input.Priority, MaxAttempts: input.MaxAttempts})
+	job, created, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: input.ClipID, Step: input.Step, InputVersion: input.InputVersion, Priority: input.Priority, MaxAttempts: input.MaxAttempts, RequestedModelID: input.RequestedModelID})
 	switch {
 	case errors.Is(err, jobs.ErrInvalidInput):
 		fail(w, http.StatusBadRequest, "invalid_job")

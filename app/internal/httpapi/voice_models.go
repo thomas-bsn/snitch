@@ -16,12 +16,21 @@ import (
 // what it really holds. Snitch never trusts a typed string to claim a model is available.
 
 func (s *Server) registerVoiceModelRoutes(mux *http.ServeMux) {
+	s.registerVoiceModelAddRoutes(mux)
+	s.registerFingerprintTransitionRoutes(mux)
 	mux.Handle("GET /api/admin/voice-models", s.protected(true, http.HandlerFunc(s.listVoiceModels)))
+	mux.Handle("PATCH /api/admin/voice-models/{id}", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.patchVoiceModel)))
 	mux.Handle("PUT /api/admin/voice-models/candidate", s.protected(true, http.HandlerFunc(s.chooseVoiceModelCandidate)))
 	mux.Handle("DELETE /api/admin/voice-models/candidate", s.protected(true, http.HandlerFunc(s.cancelVoiceModelCandidate)))
 	mux.Handle("POST /api/admin/voice-models/{id}/activate", s.protected(true, http.HandlerFunc(s.activateVoiceModel)))
 	mux.Handle("DELETE /api/admin/voice-models/{id}/installation", s.protected(true, http.HandlerFunc(s.removeVoiceModel)))
 	mux.Handle("POST /api/admin/workers/{id}/voice-models/retry", s.protected(true, http.HandlerFunc(s.retryWorkerVoiceModel)))
+	mux.Handle("GET /api/admin/voice-models/workers", s.protected(true, http.HandlerFunc(s.listModelsByWorker)))
+	mux.Handle("POST /api/admin/workers/{id}/voice-model-orders", s.protected(true, http.HandlerFunc(s.createVoiceModelOrder)))
+	mux.Handle("POST /api/admin/workers/{id}/voice-model-removals", s.protected(true, http.HandlerFunc(s.createVoiceModelRemoval)))
+	mux.Handle("GET /api/admin/workers/{id}/voice-model-orders", s.protected(true, http.HandlerFunc(s.listVoiceModelOrders)))
+	mux.Handle("DELETE /api/admin/workers/{id}/voice-model-replacements/{kind}", s.protected(true, http.HandlerFunc(s.cancelVoiceModelReplacement)))
+	mux.Handle("POST /api/worker/voice-model-orders/{id}/ack", s.workerOnly(http.HandlerFunc(s.ackWorkerModelOrder)))
 	mux.Handle("GET /api/worker/voice-models", s.workerOnly(http.HandlerFunc(s.getWorkerVoiceModels)))
 	mux.Handle("POST /api/worker/voice-models/status", s.workerOnly(http.HandlerFunc(s.postWorkerVoiceModelStatus)))
 }
@@ -36,8 +45,8 @@ func (s *Server) activeVoiceModelID(r *http.Request) (string, error) {
 	if !voiceRealProvider(pipeline.Provider) {
 		return "", nil
 	}
-	entry, _ := voiceCatalogByRepo("diarization", pipeline.Model)
-	return entry.ID, nil
+	entry, _, err := voiceCatalogByRepo(r.Context(), s.Pool, "diarization", pipeline.Model)
+	return entry.ID, err
 }
 
 func (s *Server) candidateVoiceModelID(r *http.Request) (string, error) {
@@ -59,6 +68,20 @@ type voiceModelWorkerState struct {
 	BytesTotal    int64  `json:"bytes_total"`
 }
 
+// voiceModelViewOf is the reference itself, without the state of the Workers.
+func voiceModelViewOf(entry voiceCatalogEntry) voiceModelView {
+	view := voiceModelView{
+		ID: entry.ID, Kind: entry.Kind, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, License: entry.License,
+		Gated: entry.Gated, SizeBytes: entry.SizeBytes, SupportsNumSpeakers: entry.SupportsNumSpeakers, Label: entry.Label, VRAMBytes: entry.VRAMBytes,
+		Enabled: entry.Enabled, Supported: entry.Supported, UnsupportedReason: entry.UnsupportedReason, Workers: []voiceModelWorkerState{},
+	}
+	if entry.MaxSpeakers > 0 {
+		limit := entry.MaxSpeakers
+		view.MaxSpeakers = &limit
+	}
+	return view
+}
+
 type voiceModelView struct {
 	ID                  string                  `json:"id"`
 	Kind                string                  `json:"kind"`
@@ -73,6 +96,11 @@ type voiceModelView struct {
 	Active              bool                    `json:"active"`
 	Candidate           bool                    `json:"candidate"`
 	Installed           bool                    `json:"installed"`
+	Label               string                  `json:"label"`
+	VRAMBytes           int64                   `json:"vram_bytes"`
+	Enabled             bool                    `json:"enabled"`
+	Supported           bool                    `json:"supported"`
+	UnsupportedReason   string                  `json:"unsupported_reason"`
 	Workers             []voiceModelWorkerState `json:"workers"`
 }
 
@@ -119,16 +147,14 @@ func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {
 	out := struct {
 		Models []voiceModelView `json:"models"`
 	}{Models: []voiceModelView{}}
-	for _, entry := range voiceCatalog {
-		view := voiceModelView{
-			ID: entry.ID, Kind: entry.Kind, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, License: entry.License,
-			Gated: entry.Gated, SizeBytes: entry.SizeBytes, SupportsNumSpeakers: entry.SupportsNumSpeakers,
-			Active: entry.ID == active, Candidate: entry.ID == candidate, Workers: []voiceModelWorkerState{},
-		}
-		if entry.MaxSpeakers > 0 {
-			limit := entry.MaxSpeakers
-			view.MaxSpeakers = &limit
-		}
+	catalog, err := voiceCatalogList(r.Context(), s.Pool)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	for _, entry := range catalog {
+		view := voiceModelViewOf(entry)
+		view.Active, view.Candidate = entry.ID == active, entry.ID == candidate
 		for _, item := range items {
 			if item.RevokedAt != nil {
 				continue
@@ -147,6 +173,7 @@ func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {
 
 // pgQuerier is what a query helper needs: the pool or a transaction.
 type pgQuerier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
@@ -184,8 +211,8 @@ func voiceActiveModelIDIn(ctx context.Context, db pgQuerier) (string, error) {
 	if !voiceRealProvider(pipeline.Provider) {
 		return "", nil
 	}
-	entry, _ := voiceCatalogByRepo("diarization", pipeline.Model)
-	return entry.ID, nil
+	entry, _, err := voiceCatalogByRepo(ctx, db, "diarization", pipeline.Model)
+	return entry.ID, err
 }
 
 func voiceCandidateIDIn(ctx context.Context, db pgQuerier) (string, error) {
@@ -212,13 +239,17 @@ func (s *Server) chooseVoiceModelCandidate(w http.ResponseWriter, r *http.Reques
 	if !decode(w, r, &input) {
 		return
 	}
-	entry, ok := voiceCatalogByID(input.ModelID)
-	if !ok || entry.Kind != "diarization" {
+	entry, ok, err := voiceCatalogByID(r.Context(), s.Pool, input.ModelID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !ok || !entry.choosable() {
 		fail(w, http.StatusBadRequest, "invalid_voice_model")
 		return
 	}
 	errActive := errors.New("already active")
-	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+	err = s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
 		active, err := voiceActiveModelIDIn(r.Context(), tx)
 		if err != nil {
 			return err
@@ -264,43 +295,54 @@ func (s *Server) switchVoicePipeline(ctx context.Context, entry *voiceCatalogEnt
 	var version string
 	var config voicePipeline
 	err := s.withVoiceModelLock(ctx, func(tx pgx.Tx) error {
-		if entry != nil {
-			ready, err := voiceModelReadyIn(ctx, tx, entry.ID)
-			if err != nil {
-				return err
-			}
-			if !ready {
-				return errVoiceModelNotReady
-			}
-		}
-		var raw []byte
-		if err := tx.QueryRow(ctx, `SELECT v.config FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&raw); err != nil {
-			return err
-		}
-		var current voicePipeline
-		if err := json.Unmarshal(raw, &current); err != nil {
-			return err
-		}
-		config = build(current)
 		var err error
-		if version, err = saveVoicePipelineIn(ctx, tx, config); err != nil {
-			return err
-		}
-		if entry != nil {
-			_, err = tx.Exec(ctx, `DELETE FROM voice_model_candidate WHERE model_id=$1`, entry.ID)
-		}
+		version, config, err = switchVoicePipelineIn(ctx, tx, entry, build)
 		return err
 	})
 	return version, config, err
 }
 
+// switchVoicePipelineIn is the same switch inside a transaction that already holds the voice model lock.
+func switchVoicePipelineIn(ctx context.Context, tx pgx.Tx, entry *voiceCatalogEntry, build func(current voicePipeline) voicePipeline) (string, voicePipeline, error) {
+	if entry != nil {
+		ready, err := voiceModelReadyIn(ctx, tx, entry.ID)
+		if err != nil {
+			return "", voicePipeline{}, err
+		}
+		if !ready {
+			return "", voicePipeline{}, errVoiceModelNotReady
+		}
+	}
+	var raw []byte
+	if err := tx.QueryRow(ctx, `SELECT v.config FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&raw); err != nil {
+		return "", voicePipeline{}, err
+	}
+	var current voicePipeline
+	if err := json.Unmarshal(raw, &current); err != nil {
+		return "", voicePipeline{}, err
+	}
+	config := build(current)
+	version, err := saveVoicePipelineIn(ctx, tx, config)
+	if err != nil {
+		return "", voicePipeline{}, err
+	}
+	if entry != nil {
+		_, err = tx.Exec(ctx, `DELETE FROM voice_model_candidate WHERE model_id=$1`, entry.ID)
+	}
+	return version, config, err
+}
+
 func (s *Server) activateVoiceModel(w http.ResponseWriter, r *http.Request) {
-	entry, ok := voiceCatalogByID(r.PathValue("id"))
+	entry, ok, err := voiceCatalogByID(r.Context(), s.Pool, r.PathValue("id"))
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	if !ok {
 		fail(w, http.StatusNotFound, "voice_model_not_found")
 		return
 	}
-	if entry.Kind != "diarization" {
+	if !entry.choosable() {
 		fail(w, http.StatusBadRequest, "invalid_voice_model")
 		return
 	}
@@ -320,14 +362,25 @@ func (s *Server) activateVoiceModel(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, map[string]any{"version": version, "config": config})
 }
 
+// removeVoiceModel orders the removal of a model on ONE Worker, named by the worker_id query parameter: the
+// Administrator decides Worker by Worker (ADR 0038).
 func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
-	entry, ok := voiceCatalogByID(r.PathValue("id"))
+	workerID := r.URL.Query().Get("worker_id")
+	if workerID == "" {
+		fail(w, http.StatusBadRequest, "worker_required")
+		return
+	}
+	entry, ok, err := voiceCatalogByID(r.Context(), s.Pool, r.PathValue("id"))
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	if !ok {
 		fail(w, http.StatusNotFound, "voice_model_not_found")
 		return
 	}
-	errInUse := errors.New("in use")
-	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+	errInUse, errNotHeld := errors.New("in use"), errors.New("not held")
+	err = s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
 		active, err := voiceActiveModelIDIn(r.Context(), tx)
 		if err != nil {
 			return err
@@ -339,11 +392,33 @@ func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
 		if entry.ID == active || entry.ID == candidate {
 			return errInUse
 		}
-		_, err = tx.Exec(r.Context(), `UPDATE worker_voice_models SET removal_requested=true WHERE model_id=$1`, entry.ID)
+		// The source and the target of a fingerprint model change stay until the essential migration is done.
+		if blocked, err := transitionBlocks(r.Context(), tx, entry.ID); err != nil || blocked {
+			if err != nil {
+				return err
+			}
+			return errInUse
+		}
+		// A job that still uses the model keeps it; the administrator removes it once the job has ended.
+		if busy, err := voiceModelInUseIn(r.Context(), tx, entry, workerID); err != nil || busy {
+			if err != nil {
+				return err
+			}
+			return errInUse
+		}
+		ss := r.Context().Value(sessionKey{}).(session)
+		held, err := orderRemovalOn(r.Context(), tx, entry, workerID, ss)
+		if err == nil && !held {
+			return errNotHeld
+		}
 		return err
 	})
 	if errors.Is(err, errInUse) {
 		fail(w, http.StatusConflict, "voice_model_in_use")
+		return
+	}
+	if errors.Is(err, errNotHeld) {
+		fail(w, http.StatusConflict, "voice_model_not_removable")
 		return
 	}
 	if err != nil {
@@ -355,6 +430,10 @@ func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) retryWorkerVoiceModel(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if r.ContentLength != 0 {
+		s.retryVoiceModelOrder(w, r, id)
+		return
+	}
 	var exists bool
 	if err := s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM workers WHERE id=$1 AND revoked_at IS NULL)`, id).Scan(&exists); err != nil {
 		s.internal(w, err)
@@ -401,6 +480,12 @@ type workerVoiceModel struct {
 
 func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 	worker := currentWorker(r)
+	// A job that has ended may let a replacement go on: the removal order is decided here, on the pull.
+	if err := s.advanceWorkerReplacements(r.Context(), worker.ID); err != nil {
+		s.internal(w, err)
+		return
+	}
+	s.stepFingerprintTransition(r.Context())
 	active, err := s.activeVoiceModelID(r)
 	if err != nil {
 		s.internal(w, err)
@@ -411,7 +496,7 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT model_id,retry_requested,removal_requested FROM worker_voice_models WHERE worker_id=$1`, worker.ID)
+	rows, err := s.Pool.Query(r.Context(), `SELECT model_id,retry_requested,false FROM worker_voice_models WHERE worker_id=$1`, worker.ID)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -434,12 +519,22 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	orders, err := s.pendingOrders(r.Context(), worker.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	out := struct {
-		Models []workerVoiceModel `json:"models"`
-		Remove []workerVoiceModel `json:"remove"`
-	}{Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}}
+		Models []workerVoiceModel    `json:"models"`
+		Remove []workerVoiceModel    `json:"remove"`
+		Orders []voiceModelOrderView `json:"orders"`
+		// WorkerID is the identity Snitch gives this Worker: it pins it on its volume and checks every order against it.
+		WorkerID string `json:"worker_id"`
+	}{WorkerID: worker.ID, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders}
 	add := func(list *[]workerVoiceModel, id, role string) {
-		if entry, ok := voiceCatalogByID(id); ok {
+		if entry, ok, lookupErr := voiceCatalogByID(r.Context(), s.Pool, id); lookupErr != nil {
+			err = lookupErr
+		} else if ok {
 			*list = append(*list, workerVoiceModel{ModelID: id, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, Role: role, Retry: retry[id]})
 		}
 	}
@@ -452,40 +547,83 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 	for _, id := range removal {
 		add(&out.Remove, id, "removal")
 	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	reply(w, http.StatusOK, out)
 }
 
-func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Request) {
+// patchVoiceModel edits the metadata of a reference and enables or disables it. The identity of a reference
+// (type, repository, revision, adapter) is never edited: a different model is a new reference. A reference
+// that is active or the candidate cannot be disabled; the Super-administrator replaces it first.
+func (s *Server) patchVoiceModel(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		ModelID       string `json:"model_id"`
-		State         string `json:"state"`
-		CauseCode     string `json:"cause_code"`
-		BytesReceived int64  `json:"bytes_received"`
-		BytesTotal    int64  `json:"bytes_total"`
+		Label     *string `json:"label"`
+		License   *string `json:"license"`
+		SizeBytes *int64  `json:"size_bytes"`
+		VRAMBytes *int64  `json:"vram_bytes"`
+		Enabled   *bool   `json:"enabled"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	_, known := voiceCatalogByID(input.ModelID)
-	failed := input.State == "failed"
-	validState := input.State == "downloading" || input.State == "verifying" || input.State == "ready" || input.State == "removed" || failed
-	validCause := (failed && voiceFailureCauses[input.CauseCode]) || (!failed && input.CauseCode == "")
-	if !known || !validState || !validCause || input.BytesReceived < 0 || input.BytesTotal < 0 {
-		fail(w, http.StatusBadRequest, "invalid_voice_model_status")
+	if (input.Label != nil && len(*input.Label) > 100) || (input.License != nil && len(*input.License) > 100) ||
+		(input.SizeBytes != nil && *input.SizeBytes < 0) || (input.VRAMBytes != nil && *input.VRAMBytes < 0) {
+		fail(w, http.StatusBadRequest, "invalid_voice_model")
 		return
 	}
-	worker := currentWorker(r)
-	var err error
-	if input.State == "removed" {
-		_, err = s.Pool.Exec(r.Context(), `DELETE FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2`, worker.ID, input.ModelID)
-	} else {
-		_, err = s.Pool.Exec(r.Context(), `INSERT INTO worker_voice_models(worker_id,model_id,state,cause_code,bytes_received,bytes_total) VALUES($1,$2,$3,$4,$5,$6)
-			ON CONFLICT(worker_id,model_id) DO UPDATE SET state=EXCLUDED.state,cause_code=EXCLUDED.cause_code,bytes_received=EXCLUDED.bytes_received,bytes_total=EXCLUDED.bytes_total,retry_requested=false,updated_at=now()`,
-			worker.ID, input.ModelID, input.State, input.CauseCode, input.BytesReceived, input.BytesTotal)
+	id := r.PathValue("id")
+	errNotFound, errInUse := errors.New("not found"), errors.New("in use")
+	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+		entry, ok, err := voiceCatalogByID(r.Context(), tx, id)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errNotFound
+		}
+		if input.Enabled != nil && !*input.Enabled && entry.Enabled {
+			active, err := voiceActiveModelIDIn(r.Context(), tx)
+			if err != nil {
+				return err
+			}
+			candidate, err := voiceCandidateIDIn(r.Context(), tx)
+			if err != nil {
+				return err
+			}
+			var activeOfType bool
+			if err = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM voice_active_model WHERE model_id=$1)`, id).Scan(&activeOfType); err != nil {
+				return err
+			}
+			blocked, err := transitionBlocks(r.Context(), tx, id)
+			if err != nil {
+				return err
+			}
+			if id == active || id == candidate || activeOfType || blocked {
+				return errInUse
+			}
+		}
+		_, err = tx.Exec(r.Context(), `UPDATE voice_model_catalog SET label=COALESCE($2,label),license=COALESCE($3,license),size_bytes=COALESCE($4,size_bytes),vram_bytes=COALESCE($5,vram_bytes),enabled=COALESCE($6,enabled),updated_at=now() WHERE id=$1`,
+			id, input.Label, input.License, input.SizeBytes, input.VRAMBytes, input.Enabled)
+		return err
+	})
+	if errors.Is(err, errNotFound) {
+		fail(w, http.StatusNotFound, "voice_model_not_found")
+		return
+	}
+	if errors.Is(err, errInUse) {
+		fail(w, http.StatusConflict, "voice_model_in_use")
+		return
 	}
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	entry, _, err := voiceCatalogByID(r.Context(), s.Pool, id)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, voiceModelViewOf(entry))
 }

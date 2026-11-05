@@ -286,6 +286,7 @@ type Job struct {
 	CompletedLeaseTokenHash []byte             `json:"completed_lease_token_hash"`
 	Cycle                   int32              `json:"cycle"`
 	ResultDigest            pgtype.Text        `json:"result_digest"`
+	RequestedModelID        pgtype.Text        `json:"requested_model_id"`
 }
 
 type JobControl struct {
@@ -682,6 +683,11 @@ type User struct {
 	DiscordUsername pgtype.Text        `json:"discord_username"`
 }
 
+type VoiceActiveModel struct {
+	Kind    string `json:"kind"`
+	ModelID string `json:"model_id"`
+}
+
 type VoiceAutomationEvent struct {
 	ID                 int64              `json:"id"`
 	Action             string             `json:"action"`
@@ -726,6 +732,20 @@ type VoiceFingerprint struct {
 	Dimensions       int32              `json:"dimensions"`
 	Embedding        pgvector.Vector    `json:"embedding"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	Benchmark        bool               `json:"benchmark"`
+}
+
+type VoiceFingerprintTransition struct {
+	ID                  int64              `json:"id"`
+	FromModelID         string             `json:"from_model_id"`
+	ToModelID           string             `json:"to_model_id"`
+	Phase               string             `json:"phase"`
+	AnnouncedReferences int32              `json:"announced_references"`
+	AuthorID            pgtype.Int8        `json:"author_id"`
+	AuthorName          string             `json:"author_name"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	SwitchedAt          pgtype.Timestamptz `json:"switched_at"`
 }
 
 type VoiceGroupExclusion struct {
@@ -763,6 +783,26 @@ type VoiceModelCandidate struct {
 	ID       bool               `json:"id"`
 	ModelID  string             `json:"model_id"`
 	ChosenAt pgtype.Timestamptz `json:"chosen_at"`
+}
+
+type VoiceModelCatalog struct {
+	ID                  string             `json:"id"`
+	Kind                string             `json:"kind"`
+	Engine              string             `json:"engine"`
+	Repo                string             `json:"repo"`
+	Revision            string             `json:"revision"`
+	Label               string             `json:"label"`
+	License             string             `json:"license"`
+	Gated               bool               `json:"gated"`
+	MaxSpeakers         int32              `json:"max_speakers"`
+	SizeBytes           int64              `json:"size_bytes"`
+	VramBytes           int64              `json:"vram_bytes"`
+	SupportsNumSpeakers bool               `json:"supports_num_speakers"`
+	Enabled             bool               `json:"enabled"`
+	Supported           bool               `json:"supported"`
+	UnsupportedReason   string             `json:"unsupported_reason"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type VoicePipelineActive struct {
@@ -874,6 +914,37 @@ type WorkerInstallInvite struct {
 	UsedAt                pgtype.Timestamptz `json:"used_at"`
 }
 
+type WorkerModelOrder struct {
+	ID             string             `json:"id"`
+	WorkerID       string             `json:"worker_id"`
+	Kind           string             `json:"kind"`
+	Action         string             `json:"action"`
+	ModelID        string             `json:"model_id"`
+	Revision       string             `json:"revision"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorName     string             `json:"author_name"`
+	Status         string             `json:"status"`
+	CauseCode      string             `json:"cause_code"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	AckedAt        pgtype.Timestamptz `json:"acked_at"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+}
+
+type WorkerModelReplacement struct {
+	WorkerID      string             `json:"worker_id"`
+	Kind          string             `json:"kind"`
+	OldModelID    string             `json:"old_model_id"`
+	NewModelID    string             `json:"new_model_id"`
+	Phase         string             `json:"phase"`
+	CauseCode     string             `json:"cause_code"`
+	RemoveOrderID pgtype.Text        `json:"remove_order_id"`
+	AuthorID      pgtype.Int8        `json:"author_id"`
+	AuthorName    string             `json:"author_name"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type WorkerTranscriptionConfig struct {
 	WorkerID         string             `json:"worker_id"`
 	ReceivedVersion  string             `json:"received_version"`
@@ -916,4 +987,7 @@ type WorkerVoiceModel struct {
 	RetryRequested   bool               `json:"retry_requested"`
 	RemovalRequested bool               `json:"removal_requested"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	Revision         string             `json:"revision"`
+	OccupiedBytes    int64              `json:"occupied_bytes"`
+	OrderID          pgtype.Text        `json:"order_id"`
 }

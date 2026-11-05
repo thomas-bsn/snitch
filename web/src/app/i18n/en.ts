@@ -431,6 +431,48 @@ export const en = {
     },
   },
   voiceModels: {
+    add: {
+      open: "Add a model",
+      title: "Add a model to the catalogue",
+      source: "Hugging Face repository",
+      sourceHint:
+        "Paste owner/name or a huggingface.co address. Snitch reads the public metadata only: nothing is downloaded or run.",
+      inspect: "Inspect",
+      inspecting: "Inspecting...",
+      proposed: "Proposed type: {kind}. Confirm it below.",
+      uncertain:
+        "The repository does not state its type reliably. Choose one of the three types.",
+      unsupported: "Not supported: {reason}. It cannot be installed.",
+      kindUnsupported:
+        "The engine for this repository cannot run a {kind} model. It cannot be installed.",
+      existing: "Already in the catalogue: {ids}.",
+      typeLabel: "Type",
+      recap: "Summary",
+      model: "Model",
+      type: "Type",
+      typeToChoose: "To choose",
+      engine: "Compatible engine",
+      engineNone: "None",
+      revision: "Revision",
+      license: "Licence",
+      licenseNone: "Not stated",
+      gated: "Gated",
+      gatedYes: "Yes, token required",
+      gatedNo: "No",
+      submit: "Add to the catalogue",
+      cancel: "Cancel",
+      close: "Close",
+      added: "{model} was added to the catalogue.",
+      kind: {
+        diarization: "Diarization",
+        fingerprint: "Fingerprint",
+        separation: "Separation",
+      },
+      engines: {
+        nemo: "NVIDIA NeMo",
+        pyannote: "pyannote",
+      },
+    },
     fingerprintTitle: "Fingerprint model",
     fingerprintHint:
       "Fixed by the catalogue: voice fingerprints use this model, nothing to choose.",
@@ -463,15 +505,109 @@ export const en = {
       "These Workers do not have the model ready and will stop taking voice jobs: {names}.",
     removeTitle: "Delete {model}?",
     removeText:
-      "Each Worker deletes this model from its volume. You will have to choose it again to download it again.",
+      "{worker} deletes this model from its volume. You will have to choose it again to download it again.",
+    byWorker: {
+      title: "Models per Worker",
+      hint: "The model each Worker holds for each type. Snitch orders the installation; the Worker only reports what it really has.",
+      worker: "Worker",
+      type: {
+        diarization: "Diarization",
+        fingerprint: "Fingerprint",
+        separation: "Separation",
+      },
+      absent: "Absent",
+      separationUnsupported:
+        "Not available yet: no engine can run separation, so it cannot be ready.",
+      choose: "Model to install on {worker} for {type}",
+      install: "Install",
+      retry: "Retry",
+      volume: "{size} MB on disk",
+      revision: "Revision {revision}",
+      confirmTitle: "Install {model} on {worker}?",
+      confirmText:
+        "{worker} will download {model}, load it and run a test inference. It is only ready once that test succeeds.",
+      confirmGated:
+        "This model has restricted access: the central Hugging Face token is sent to this Worker with this order only.",
+      confirmAction: "Order the installation",
+      cancelDialog: "Cancel",
+      replace: "Change",
+      choosePrompt: "Choose a model",
+      chooseFor: "Choose a model for {type} on {worker}",
+      chooseTitle: "Choose a model for {type} on {worker}",
+      statuses: "Statuses",
+      tableLabel: "Workers by model type",
+      separationBanner:
+        "Voice separation: this type is in the catalogue but cannot run while #268 is not delivered (no adapter exists). It will appear here once a model can be installed.",
+      removingOld: "Removing {model} on Snitch's order.",
+      removingStandalone: "Removal ordered by Snitch.",
+      viewOrder: "View order",
+      uninstall: "Uninstall",
+      uninstallTitle: "Uninstall {model} from {worker}?",
+      uninstallText:
+        "{worker} will delete {model} from its volume, on Snitch's order. Snitch refuses while a running job uses it.",
+      uninstallNoActive:
+        "No active model will remain for this type on {worker} until you install another one.",
+      uninstallAction: "Order the removal",
+      removeOld: "Remove the old model",
+      removeOldTitle: "Remove {old} to free space on {worker}?",
+      removeOldText:
+        "The disk of {worker} cannot hold {old} and {model} together. If you continue, {old} is deleted from {worker}.",
+      removeOldNoActive:
+        "No active model will remain on {worker}: it cannot take this type of job until {model} is installed. {old} cannot be recovered without downloading it again.",
+      removeOldAction: "Remove {old}",
+      history: "Order history",
+      historyOf: "Order history of {worker}",
+      historyTitle: "Order history",
+      historyWorker: "Worker",
+      historyEmpty: "No order for this Worker yet.",
+      historyBy: "by {author}",
+      historyAction: { install: "Installation", remove: "Removal" },
+      historyStatus: {
+        pending: "Waiting for the Worker",
+        acknowledged: "In progress",
+        done: "Done",
+        failed: "Failed",
+        refused: "Refused by the Worker",
+        cancelled: "Cancelled",
+      },
+      close: "Close",
+      applyMany: "Apply to several Workers",
+      applyTitle: "Apply a model to several Workers",
+      applyType: "Type",
+      applyModel: "Model",
+      applyWorkers: "Workers without a model of this type",
+      applyNone: "Every Worker already holds a model of this type.",
+      applyPrepare: "Prepare the orders",
+      applyPreview: "Orders to send ({count})",
+      applyLine: "Install {model} on {worker}",
+      applyBack: "Back",
+      applySend: "Send {count} orders",
+      applySent: "Order sent",
+      applyFailed: "Refused: {reason}",
+      applyHint:
+        "One order is created per ticked Worker. Nothing is sent until you confirm the list.",
+      applyWorkerEntry: "{worker}",
+      replaceWith: "Model that replaces the current one on {worker}",
+      replacing: "Replacing {model}: it stays active until the switch.",
+      waitingJobs:
+        "Switched. The old model is removed once its running jobs end.",
+      cancelReplacement: "Cancel the replacement",
+      confirmReplaceText:
+        "{worker} will download {model} and test it while {old} stays active. Snitch then switches the active model and orders {old} to be removed, once no running job uses it. If anything fails, {old} is kept.",
+    },
     state: {
       not_installed: "Not installed",
+      requested: "Requested",
       downloading: "Downloading",
       verifying: "Verifying",
       ready: "Ready",
+      switching: "Switching",
+      removing: "Removing",
       failed: "Failed",
     },
     cause: {
+      invalid_order:
+        "The Worker refused the order after its checks: retry, and report it if it happens again.",
       hf_token_missing:
         "Hugging Face token missing on this Worker. Store it from the Worker machine with the store-token command (see docs/real-voice-worker.md), then retry.",
       hf_access_denied:
@@ -1675,12 +1811,10 @@ export const en = {
       libraryModel: "Library model",
       libraryModelHint:
         "Shared by every Worker. Change it in Administration, Transcription.",
-      hf: "Hugging Face token",
-      hfHint:
-        "Accept the pyannote conditions on Hugging Face first, then paste a read-only token. It only serves to download the voice models on the first start. Snitch never receives it and does not keep it: it is written into the .env file below, in your browser.",
       submit: "Create the Worker",
       submitting: "Creating…",
       cancel: "Cancel",
+      close: "Close",
       confirmTitle: "Use this model for the whole library?",
       confirmBody:
         "This model and this language will be used by every future Worker, even with a different Whisper server. You can change them later in Administration, Transcription.",
@@ -1689,9 +1823,7 @@ export const en = {
       shownOnce:
         "Copy the installation command now. Its invitation expires; the Worker token is never put in your shell history.",
       secret:
-        "The .env file holds the Worker token and your Hugging Face token: never share it, never commit it.",
-      hfMissing:
-        "No Hugging Face token was given: fill in HF_TOKEN by hand in the .env file.",
+        "The .env file holds the Worker token: never share it, never commit it.",
       whisperMissing:
         "No Whisper address was given: fill in TRANSCRIPTION_API_URL by hand in the .env file.",
       publicAddressLink: "Where to change Snitch’s public address",
@@ -1735,6 +1867,7 @@ export const en = {
     },
     dialog: {
       cancel: "Cancel",
+      close: "Close",
     },
   },
   import: {
@@ -1787,6 +1920,7 @@ export const en = {
         "Request sent. An administrator will decide; you cannot upload into this folder until then.",
       pending: "Request pending",
       cancel: "Cancel",
+      close: "Close",
     },
     visibility: {
       label: "Who can see these videos",
@@ -2575,6 +2709,7 @@ export const en = {
       choose: "Choose at least one voice.",
       submit: "Separate",
       cancel: "Cancel",
+      close: "Close",
       done: "{count} voices were separated from {name}: they are unknown again.",
       doneOne: "1 voice was separated from {name}: it is unknown again.",
     },
@@ -2584,6 +2719,7 @@ export const en = {
       nameHint: "1 to 100 characters.",
       submit: "Create",
       cancel: "Cancel",
+      close: "Close",
     },
     merge: {
       title: "Merge {name}",
@@ -2592,6 +2728,7 @@ export const en = {
       choose: "Choose a person…",
       submit: "Merge",
       cancel: "Cancel",
+      close: "Close",
       done: "{name} was merged into {target}: {summary}",
       voices:
         "{count} confirmed voice(s) of {name} are now confirmed as {target}.",
@@ -2611,6 +2748,7 @@ export const en = {
         "The clips, the voice fingerprints and the other people are untouched. Voices are matched again. This cannot be undone.",
       submit: "Delete",
       cancel: "Cancel",
+      close: "Close",
       done: "{name} was deleted: {summary}",
     },
     summary:

@@ -279,6 +279,54 @@ export const errorsEn = {
   voice_model_in_use:
     "This model is active or a candidate, so it cannot be deleted.",
   voice_model_not_found: "This model is not in the catalogue.",
+  invalid_hf_source:
+    "Paste a Hugging Face repository as owner/name or as a huggingface.co address.",
+  voice_model_hf_not_found:
+    "Hugging Face does not know this repository. Check its name.",
+  voice_model_hf_denied:
+    "Hugging Face refuses access to this repository: it is private or its access conditions are not met.",
+  voice_model_hf_unavailable:
+    "Hugging Face did not answer correctly. Try again in a moment.",
+  voice_model_kind_mismatch:
+    "The repository declares another type than the one chosen.",
+  voice_model_exists:
+    "This repository is already in the catalogue for this type.",
+  idempotency_key_reused:
+    "This order key was already used for another Worker or model.",
+  invalid_idempotency_key: "The order key is not valid.",
+  voice_model_already_installed:
+    "This model is already installed on this Worker.",
+  voice_model_order_in_progress:
+    "An installation of this model is already under way on this Worker.",
+  voice_model_type_occupied:
+    "This Worker already holds another model of this type: replacing it is a separate operation.",
+  voice_replacement_kind_unsupported:
+    "Only the diarization model can be replaced here: changing the fingerprint model needs a versioned transition of the stored fingerprints.",
+  voice_replaced_model_not_ready:
+    "The model to replace must be installed and ready on this Worker.",
+  voice_replacement_in_progress:
+    "A replacement is already under way for this type on this Worker, or a download or test is still running.",
+  voice_replacement_switched:
+    "The switch is already decided: the replacement can no longer be cancelled.",
+  voice_transition_preview_stale:
+    "The number of references changed since the preview: check the impact again before confirming.",
+  voice_transition_in_progress:
+    "A fingerprint model change is already under way: finish or cancel it first.",
+  voice_transition_not_found: "No fingerprint model change exists.",
+  voice_transition_switched:
+    "The fingerprint model is already switched: the change can no longer be cancelled.",
+  voice_transition_required:
+    "Replacing the fingerprint model starts with a confirmed change that shows its impact.",
+  invalid_voice_transition:
+    "The request to change the fingerprint model is incomplete.",
+  voice_replacement_not_found: "No replacement is under way for this type.",
+  voice_model_not_failed: "The last attempt of this model did not fail.",
+  voice_model_not_removable:
+    "This Worker does not hold this model in a state that can be removed.",
+  worker_required: "Choose the Worker on which to remove this model.",
+  voice_order_not_found: "This order does not exist for this Worker.",
+  invalid_voice_order_ack: "This acknowledgement of an order is not valid.",
+  stale_voice_order: "This order is already finished.",
   voice_model_not_ready:
     "No Worker has this model ready: wait for its preparation to finish.",
   invalid_voice_model: "This model cannot be chosen.",
