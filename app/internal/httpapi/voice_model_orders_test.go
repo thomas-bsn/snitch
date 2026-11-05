@@ -77,7 +77,7 @@ func (h *voiceHarness) cells(workerID string) map[string]viewCell {
 	h.t.Helper()
 	var out struct {
 		Workers []struct {
-			WorkerID string            `json:"worker_id"`
+			WorkerID string     `json:"worker_id"`
 			Models   []viewCell `json:"models"`
 		} `json:"workers"`
 	}
@@ -197,4 +197,98 @@ func testVoiceModelOrderCreation(t *testing.T, pool *pgxpool.Pool) {
 	anonymous.order(other, "pyannote-wespeaker-resnet34", "install-m-0002", http.StatusUnauthorized)
 }
 
-func testVoiceModelOrderExecution(t *testing.T, pool *pgxpool.Pool) {}
+func (h *voiceHarness) retry(workerID, modelID, key string, want int) modelOrder {
+	h.t.Helper()
+	var o modelOrder
+	body := h.adminCall(http.MethodPost, "/api/admin/workers/"+workerID+"/voice-models/retry", map[string]any{"model_id": modelID, "idempotency_key": key}, want)
+	if want < 300 {
+		if err := json.Unmarshal(body, &o); err != nil {
+			h.t.Fatal(err)
+		}
+	}
+	return o
+}
+
+const fingerprintID = "pyannote-wespeaker-resnet34"
+
+// The Worker acknowledges, downloads, verifies and reports; it is ready only on its own report, a failure
+// carries an actionable cause and Retry orders again. The central token travels once, with a gated download.
+func testVoiceModelOrderExecution(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	withSecondCatalogModel(t, pool)
+	workerID := h.fixtureWorkerID()
+	const token = "hf_synthetic0123456789abcdef"
+	h.adminCall(http.MethodPut, "/api/admin/hf-token", map[string]any{"token": token}, http.StatusNoContent)
+
+	// A gated model downloads with the token, delivered once, with that order only.
+	gated := h.order(workerID, communityID, "install-gated-01", http.StatusCreated)
+	first := h.workerOrders()
+	if len(first) != 1 || first[0].HFToken != token {
+		t.Fatalf("a gated download needs the token: %+v", first)
+	}
+	h.ack(gated.OrderID, true, "", http.StatusNoContent)
+	h.ack(gated.OrderID, true, "", http.StatusNoContent) // a replayed acknowledgement has no second effect
+	if again := h.workerOrders(); len(again) != 1 || again[0].HFToken != "" {
+		t.Fatalf("the token must not be sent again: %+v", again)
+	}
+	// A report for an order that is not this Worker's, or for another model, is refused.
+	h.workerCall(http.MethodPost, "/api/worker/voice-models/status", map[string]any{"order_id": "ord_unknown_unknown_unknown", "model_id": communityID, "state": "downloading"}, "", http.StatusNotFound)
+	h.reportOrder(gated.OrderID, secondID, "downloading", "", 1, 2, 0, http.StatusBadRequest)
+	h.workerCall(http.MethodPost, "/api/worker/voice-models/status", map[string]any{"order_id": gated.OrderID, "model_id": communityID, "revision": communityRevision, "state": "failed", "cause_code": "hf_token_missing"}, "", http.StatusNoContent)
+	if c := h.cells(workerID)["diarization"]; c.State != "failed" || c.CauseCode != "hf_token_missing" || c.OrderID != gated.OrderID {
+		t.Fatalf("a failure keeps its cause: %+v", c)
+	}
+	if orders := h.workerOrders(); len(orders) != 0 {
+		t.Fatalf("a finished order is not distributed again: %+v", orders)
+	}
+	// A report for a finished order cannot reopen it.
+	h.workerCall(http.MethodPost, "/api/worker/voice-models/status", map[string]any{"order_id": gated.OrderID, "model_id": communityID, "revision": communityRevision, "state": "downloading"}, "", http.StatusConflict)
+
+	// A model that needs no token never receives it, and the full life of an order.
+	o := h.order(workerID, secondID, "install-b-0001", http.StatusCreated)
+	if orders := h.workerOrders(); len(orders) != 1 || orders[0].HFToken != "" {
+		t.Fatalf("the token only goes with a gated download: %+v", orders)
+	}
+	h.ack(o.OrderID, true, "", http.StatusNoContent)
+	h.reportOrder(o.OrderID, secondID, "downloading", "", 10_000_000, 30_000_000, 10_000_000, http.StatusNoContent)
+	if c := h.cells(workerID)["diarization"]; c.State != "downloading" || c.BytesReceived != 10_000_000 || c.BytesTotal != 30_000_000 || c.OccupiedBytes != 10_000_000 || c.Revision != secondRevision || c.Repo != secondRepo {
+		t.Fatalf("progress, volume and revision are reported: %+v", c)
+	}
+	h.reportOrder(o.OrderID, secondID, "verifying", "", 30_000_000, 30_000_000, 30_000_000, http.StatusNoContent)
+	if c := h.cells(workerID)["diarization"]; c.State != "verifying" {
+		t.Fatalf("verifying expected: %+v", c)
+	}
+	h.reportOrder(o.OrderID, secondID, "ready", "", 30_000_000, 30_000_000, 30_000_000, http.StatusNoContent)
+	if c := h.cells(workerID)["diarization"]; c.State != "ready" || c.OccupiedBytes != 30_000_000 {
+		t.Fatalf("ready expected: %+v", c)
+	}
+	h.reportOrder(o.OrderID, secondID, "ready", "", 30_000_000, 30_000_000, 30_000_000, http.StatusNoContent) // replay
+	h.reportOrder(o.OrderID, secondID, "downloading", "", 0, 30_000_000, 0, http.StatusConflict)
+	var status string
+	_ = pool.QueryRow(t.Context(), `SELECT status FROM worker_model_orders WHERE id=$1`, o.OrderID).Scan(&status)
+	if status != "done" {
+		t.Fatalf("the order is done once the model is ready: %s", status)
+	}
+	h.order(workerID, secondID, "install-b-0002", http.StatusConflict) // already installed
+
+	// A Worker that refuses an order after its own checks makes it failed; Retry orders again.
+	fp := h.order(workerID, fingerprintID, "install-fp-0001", http.StatusCreated)
+	h.ack(fp.OrderID, false, "hf_network", http.StatusBadRequest) // only the cause of a refusal
+	h.ack(fp.OrderID, false, "invalid_order", http.StatusNoContent)
+	if c := h.cells(workerID)["fingerprint"]; c.State != "failed" || c.CauseCode != "invalid_order" {
+		t.Fatalf("a refused order is a failure with its cause: %+v", c)
+	}
+	h.retry(workerID, secondID, "retry-key-0001", http.StatusConflict) // only a failed model can be retried
+	retried := h.retry(workerID, fingerprintID, "retry-key-0002", http.StatusCreated)
+	if retried.OrderID == fp.OrderID || retried.ModelID != fingerprintID {
+		t.Fatalf("Retry is a new order: %+v", retried)
+	}
+	if c := h.cells(workerID)["fingerprint"]; c.State != "requested" || c.CauseCode != "" {
+		t.Fatalf("Retry makes the model requested again: %+v", c)
+	}
+	if orders := h.workerOrders(); len(orders) != 1 || orders[0].OrderID != retried.OrderID {
+		t.Fatalf("the Worker receives the new order: %+v", orders)
+	}
+	// Without a body, Retry keeps its former meaning (a failed candidate).
+	h.adminCall(http.MethodPost, "/api/admin/workers/"+workerID+"/voice-models/retry", nil, http.StatusConflict)
+}

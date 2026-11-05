@@ -389,6 +389,10 @@ func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) retryWorkerVoiceModel(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if r.ContentLength != 0 {
+		s.retryVoiceModelOrder(w, r, id)
+		return
+	}
 	var exists bool
 	if err := s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM workers WHERE id=$1 AND revoked_at IS NULL)`, id).Scan(&exists); err != nil {
 		s.internal(w, err)
@@ -499,44 +503,6 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, http.StatusOK, out)
-}
-
-func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		ModelID       string `json:"model_id"`
-		State         string `json:"state"`
-		CauseCode     string `json:"cause_code"`
-		BytesReceived int64  `json:"bytes_received"`
-		BytesTotal    int64  `json:"bytes_total"`
-	}
-	if !decode(w, r, &input) {
-		return
-	}
-	_, known, err := voiceCatalogByID(r.Context(), s.Pool, input.ModelID)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	failed := input.State == "failed"
-	validState := input.State == "downloading" || input.State == "verifying" || input.State == "ready" || input.State == "removed" || failed
-	validCause := (failed && voiceFailureCauses[input.CauseCode]) || (!failed && input.CauseCode == "")
-	if !known || !validState || !validCause || input.BytesReceived < 0 || input.BytesTotal < 0 {
-		fail(w, http.StatusBadRequest, "invalid_voice_model_status")
-		return
-	}
-	worker := currentWorker(r)
-	if input.State == "removed" {
-		_, err = s.Pool.Exec(r.Context(), `DELETE FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2`, worker.ID, input.ModelID)
-	} else {
-		_, err = s.Pool.Exec(r.Context(), `INSERT INTO worker_voice_models(worker_id,model_id,state,cause_code,bytes_received,bytes_total) VALUES($1,$2,$3,$4,$5,$6)
-			ON CONFLICT(worker_id,model_id) DO UPDATE SET state=EXCLUDED.state,cause_code=EXCLUDED.cause_code,bytes_received=EXCLUDED.bytes_received,bytes_total=EXCLUDED.bytes_total,retry_requested=false,updated_at=now()`,
-			worker.ID, input.ModelID, input.State, input.CauseCode, input.BytesReceived, input.BytesTotal)
-	}
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
 }
 
 // patchVoiceModel edits the metadata of a reference and enables or disables it. The identity of a reference
