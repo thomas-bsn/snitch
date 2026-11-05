@@ -221,7 +221,7 @@ class ReceptionChecksTests(unittest.TestCase):
 
     def test_identity_type_model_and_revision_are_checked(self):
         for bad in (
-            order(action="remove"),
+            order(action="purge"),
             order(kind="separation", engine="pyannote"),
             order(kind="fingerprint", engine="nemo"),
             order(kind="unknown"),

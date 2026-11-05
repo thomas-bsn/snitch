@@ -64,17 +64,19 @@ func (h *voiceHarness) reportOrder(orderID, modelID, state, cause string, receiv
 }
 
 type viewCell struct {
-	Kind          string `json:"kind"`
-	ModelID       string `json:"model_id"`
-	Repo          string `json:"repo"`
-	Revision      string `json:"revision"`
-	State         string `json:"state"`
-	CauseCode     string `json:"cause_code"`
-	BytesReceived int64  `json:"bytes_received"`
-	BytesTotal    int64  `json:"bytes_total"`
-	OccupiedBytes int64  `json:"occupied_bytes"`
-	OrderID       string `json:"order_id"`
-	Supported     bool   `json:"supported"`
+	Kind            string `json:"kind"`
+	ModelID         string `json:"model_id"`
+	Repo            string `json:"repo"`
+	Revision        string `json:"revision"`
+	State           string `json:"state"`
+	CauseCode       string `json:"cause_code"`
+	BytesReceived   int64  `json:"bytes_received"`
+	BytesTotal      int64  `json:"bytes_total"`
+	OccupiedBytes   int64  `json:"occupied_bytes"`
+	OrderID         string `json:"order_id"`
+	Supported       bool   `json:"supported"`
+	ReplacesModelID string `json:"replaces_model_id"`
+	WaitingForJobs  bool   `json:"waiting_for_jobs"`
 }
 
 func (h *voiceHarness) cells(workerID string) map[string]viewCell {

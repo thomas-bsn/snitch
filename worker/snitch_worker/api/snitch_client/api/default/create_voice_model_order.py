@@ -93,7 +93,9 @@ def sync_detailed(
     clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans
     effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le
     modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est
-    occupé par un autre modèle.
+    occupé par un autre modèle (voice_model_type_occupied), sauf avec replaces_model_id : c'est alors un
+    remplacement (le nouveau est installé et testé pendant que l'ancien reste actif ; Snitch décide la
+    bascule, puis ordonne le retrait de l'ancien, différé tant qu'un travail en cours l'utilise).
 
     Args:
         id (str):
@@ -137,7 +139,9 @@ def sync(
     clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans
     effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le
     modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est
-    occupé par un autre modèle.
+    occupé par un autre modèle (voice_model_type_occupied), sauf avec replaces_model_id : c'est alors un
+    remplacement (le nouveau est installé et testé pendant que l'ancien reste actif ; Snitch décide la
+    bascule, puis ordonne le retrait de l'ancien, différé tant qu'un travail en cours l'utilise).
 
     Args:
         id (str):
@@ -176,7 +180,9 @@ async def asyncio_detailed(
     clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans
     effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le
     modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est
-    occupé par un autre modèle.
+    occupé par un autre modèle (voice_model_type_occupied), sauf avec replaces_model_id : c'est alors un
+    remplacement (le nouveau est installé et testé pendant que l'ancien reste actif ; Snitch décide la
+    bascule, puis ordonne le retrait de l'ancien, différé tant qu'un travail en cours l'utilise).
 
     Args:
         id (str):
@@ -220,7 +226,9 @@ async def asyncio(
     clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans
     effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le
     modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est
-    occupé par un autre modèle.
+    occupé par un autre modèle (voice_model_type_occupied), sauf avec replaces_model_id : c'est alors un
+    remplacement (le nouveau est installé et testé pendant que l'ancien reste actif ; Snitch décide la
+    bascule, puis ordonne le retrait de l'ancien, différé tant qu'un travail en cours l'utilise).
 
     Args:
         id (str):

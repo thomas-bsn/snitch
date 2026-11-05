@@ -393,15 +393,14 @@ class SyncTests(unittest.TestCase):
             voice_models.sync_voice_models(client, h.manager)
             self.assertEqual(h.downloads, [])
 
-    def test_sync_still_removes_what_snitch_asks_to_remove(self):
+    def test_sync_never_removes_a_model_by_itself(self):
         h = Harness(self)
         h.sync([MODEL])
         path = voice_models.model_path(h.env, REPO, REVISION)
         client, http = self.client(200, {"models": [], "remove": [MODEL]})
-        http.post.return_value = Mock(status_code=204)
         voice_models.sync_voice_models(client, h.manager)
-        self.assertFalse(os.path.exists(path))
-        self.assertEqual(http.post.call_args.kwargs["json"]["state"], "removed")
+        self.assertTrue(os.path.isdir(path))  # only a remove order removes (test_model_removal_orders)
+        http.post.assert_not_called()
 
     def test_a_server_without_the_contract_is_tolerated(self):
         h = Harness(self)

@@ -313,6 +313,15 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Une installation de ce modèle est déjà en cours sur ce Worker.",
   voice_model_type_occupied:
     "Ce Worker porte déjà un autre modèle de ce type : le remplacer est une opération distincte.",
+  voice_replacement_kind_unsupported:
+    "Seul le modèle de diarisation peut être remplacé ici : changer le modèle d’empreinte demande une transition versionnée des empreintes enregistrées.",
+  voice_replaced_model_not_ready:
+    "Le modèle à remplacer doit être installé et prêt sur ce Worker.",
+  voice_replacement_in_progress:
+    "Un remplacement est déjà en cours pour ce type sur ce Worker, ou un téléchargement ou un test tourne encore.",
+  voice_replacement_switched:
+    "La bascule est déjà décidée : le remplacement ne peut plus être annulé.",
+  voice_replacement_not_found: "Aucun remplacement en cours pour ce type.",
   voice_model_not_failed: "La dernière tentative de ce modèle n’a pas échoué.",
   voice_order_not_found: "Cet ordre n’existe pas pour ce Worker.",
   invalid_voice_order_ack: "Cet accusé de réception d’ordre n’est pas valide.",

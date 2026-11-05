@@ -243,11 +243,25 @@ func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 	if m := h.voiceModels().model(t, secondID); m.Candidate || !m.Installed {
 		t.Fatalf("cancel must keep the installed model: %+v", m)
 	}
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusNoContent)
-	if _, remove := h.workerWants(); len(remove) != 1 || remove[0].ModelID != secondID {
-		t.Fatalf("the Worker must be told to remove the model: %+v", remove)
+	// A job that still uses the model keeps it installed.
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusConflict)
+	if _, err := pool.Exec(t.Context(), `UPDATE jobs SET status='done',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL WHERE status IN ('pending','leased')`); err != nil {
+		t.Fatal(err)
 	}
-	h.reportModel(secondID, "removed", "", 0, 0, http.StatusNoContent)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusNoContent)
+	// Uninstalling is an explicit remove order, never a list the Worker acts on by itself (ADR 0038).
+	if _, remove := h.workerWants(); len(remove) != 0 {
+		t.Fatalf("no legacy removal list any more: %+v", remove)
+	}
+	orders := h.workerOrders()
+	if len(orders) != 1 || orders[0].Action != "remove" || orders[0].ModelID != secondID {
+		t.Fatalf("the Worker must be ordered to remove the model: %+v", orders)
+	}
+	if m := h.voiceModels().model(t, secondID); m.Workers[0].State != "removing" {
+		t.Fatalf("a model being removed is removing: %+v", m.Workers[0])
+	}
+	h.ack(orders[0].OrderID, true, "", http.StatusNoContent)
+	h.workerCall(http.MethodPost, "/api/worker/voice-models/status", map[string]any{"order_id": orders[0].OrderID, "model_id": secondID, "revision": secondRevision, "state": "removed"}, "", http.StatusNoContent)
 	if m := h.voiceModels().model(t, secondID); m.Installed || m.Workers[0].State != "not_installed" {
 		t.Fatalf("a removed model is not installed: %+v", m)
 	}

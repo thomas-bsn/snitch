@@ -918,6 +918,20 @@ type WorkerModelOrder struct {
 	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
 }
 
+type WorkerModelReplacement struct {
+	WorkerID      string             `json:"worker_id"`
+	Kind          string             `json:"kind"`
+	OldModelID    string             `json:"old_model_id"`
+	NewModelID    string             `json:"new_model_id"`
+	Phase         string             `json:"phase"`
+	CauseCode     string             `json:"cause_code"`
+	RemoveOrderID pgtype.Text        `json:"remove_order_id"`
+	AuthorID      pgtype.Int8        `json:"author_id"`
+	AuthorName    string             `json:"author_name"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type WorkerTranscriptionConfig struct {
 	WorkerID         string             `json:"worker_id"`
 	ReceivedVersion  string             `json:"received_version"`

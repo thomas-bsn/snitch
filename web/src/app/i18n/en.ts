@@ -530,6 +530,14 @@ export const en = {
         "This model has restricted access: the central Hugging Face token is sent to this Worker with this order only.",
       confirmAction: "Order the installation",
       cancelDialog: "Cancel",
+      replace: "Replace",
+      replaceWith: "Model that replaces the current one on {worker}",
+      replacing: "Replacing {model}: it stays active until the switch.",
+      waitingJobs:
+        "Switched. The old model is removed once its running jobs end.",
+      cancelReplacement: "Cancel the replacement",
+      confirmReplaceText:
+        "{worker} will download {model} and test it while {old} stays active. Snitch then switches the active model and orders {old} to be removed, once no running job uses it. If anything fails, {old} is kept.",
     },
     state: {
       not_installed: "Not installed",
@@ -537,6 +545,8 @@ export const en = {
       downloading: "Downloading",
       verifying: "Verifying",
       ready: "Ready",
+      switching: "Switching",
+      removing: "Removing",
       failed: "Failed",
     },
     cause: {

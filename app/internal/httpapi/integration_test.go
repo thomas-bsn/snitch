@@ -376,6 +376,18 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelOrderExecution(t, pool)
 	})
+	t.Run("voice model replacement", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacement(t, pool)
+	})
+	t.Run("voice model replacement failure", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacementFailure(t, pool)
+	})
+	t.Run("voice model replacement removal failure", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacementRemovalFailure(t, pool)
+	})
 	t.Run("voice model sortformer", func(t *testing.T) {
 		reset(t)
 		testVoiceModelSortformer(t, pool)
@@ -1008,6 +1020,7 @@ func TestFoundation(t *testing.T) {
 			t.Fatalf("contract order: %s %v", orderBody, e)
 		}
 		call(client, "POST", "/api/worker/voice-model-orders/"+contractOrder.OrderID+"/ack", map[string]any{"accepted": true}, "", 204)
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/voice-model-replacements/diarization", nil, me.CSRF, 404)
 		call(client, "POST", "/api/worker/install-events", map[string]any{"events": []map[string]any{{"phase": "service", "status": "succeeded", "occurred_at": time.Now().UTC().Format(time.RFC3339)}}}, "", 204)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {
@@ -1300,7 +1313,7 @@ func TestFoundation(t *testing.T) {
 		suites := []string{
 			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
 			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
-			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts", "admin-voice-add.spec.ts",
+			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts", "admin-voice-add.spec.ts", "admin-voice-replacement.spec.ts",
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
 			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
@@ -1380,6 +1393,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_VOICE") == "1" {
 			suites = []string{"people.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_REPLACEMENT") == "1" {
+			suites = []string{"admin-voice-replacement.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_VOICE_ADD") == "1" {
 			suites = []string{"admin-voice-add.spec.ts"}
