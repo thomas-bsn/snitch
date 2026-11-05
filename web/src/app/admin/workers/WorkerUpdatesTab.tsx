@@ -59,6 +59,9 @@ export function WorkerUpdatesTab() {
   const catalog = state.status === "ready" ? (state.value.catalog ?? []) : [];
   const workers = state.status === "ready" ? (state.value.workers ?? []) : [];
 
+  const [mode, setMode] = useState<"disabled" | "pinned" | "latest">(
+    "disabled",
+  );
   const [choice, setChoice] = useState("");
   const [manual, setManual] = useState("");
   const [failure, setFailure] = useState<string>();
@@ -67,6 +70,7 @@ export function WorkerUpdatesTab() {
 
   useEffect(() => {
     if (state.status === "ready") {
+      setMode(state.value.mode);
       setChoice(state.value.target_version ?? "");
       setManual(state.value.target_version ?? "");
     }
@@ -76,15 +80,19 @@ export function WorkerUpdatesTab() {
     event.preventDefault();
     if (state.status !== "ready") return;
     const useManual = !state.value.catalog_available || catalog.length === 0;
-    const version = (useManual ? manual : choice).trim();
+    const version =
+      mode === "pinned" ? (useManual ? manual : choice).trim() : "";
     setFailure(undefined);
     setSaved(false);
-    if (version !== "" && !VERSION.test(version)) {
+    if (mode === "pinned" && !VERSION.test(version)) {
       setFailure("invalid_worker_version");
       return;
     }
     setBusy(true);
-    const result = await actions.setTarget(version === "" ? null : version);
+    const result = await actions.setTarget(
+      mode,
+      version === "" ? null : version,
+    );
     setBusy(false);
     if (!result.ok) {
       setFailure(result.code);
@@ -111,41 +119,106 @@ export function WorkerUpdatesTab() {
           >
             <label className="flex flex-col gap-1.5">
               <span className="font-medium">
-                {t("workerUpdates.targetLabel")}
+                {t("workerUpdates.strategyLegend")}
               </span>
-              {state.value.catalog_available && catalog.length > 0 ? (
-                <select
-                  value={choice}
-                  onChange={(e) => setChoice(e.target.value)}
-                  className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
-                >
-                  <option value="">{t("workerUpdates.none")}</option>
-                  {catalog.map((version) => (
-                    <option key={version} value={version}>
-                      {version}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  value={manual}
-                  onChange={(e) => setManual(e.target.value)}
-                  placeholder="v1.2.3"
-                  aria-label={t("workerUpdates.manualLabel")}
-                  className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
-                />
-              )}
+              <select
+                value={mode}
+                onChange={(e) =>
+                  setMode(e.target.value as "disabled" | "pinned" | "latest")
+                }
+                className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
+              >
+                <option value="pinned">
+                  {t("workerUpdates.strategy.pinned")}
+                </option>
+                <option value="latest">
+                  {t("workerUpdates.strategy.latest")}
+                </option>
+                <option value="disabled">{t("workerUpdates.none")}</option>
+              </select>
             </label>
-            {!state.value.catalog_available && (
+            {mode === "disabled" && (
+              <p className="text-xs text-mute">
+                {t("workerUpdates.disabledHelp")}
+              </p>
+            )}
+            {mode === "latest" && (
+              <div
+                className="flex flex-col gap-1 text-xs text-mute"
+                role="status"
+              >
+                <p>{t("workerUpdates.latestHelp")}</p>
+                <p>
+                  {t("workerUpdates.latestDetected")} :{" "}
+                  <code>{state.value.latest_version ?? "—"}</code>
+                </p>
+                <p>
+                  {t("workerUpdates.lastCheck")} :{" "}
+                  {state.value.checked_at
+                    ? formatDate(state.value.checked_at)
+                    : t("workerUpdates.neverChecked")}
+                </p>
+                {state.value.check_failed && (
+                  <p role="alert" className="text-bad-fg">
+                    {t("workerUpdates.checkFailed")}
+                  </p>
+                )}
+              </div>
+            )}
+            {mode !== "disabled" && (
+              <label className="flex flex-col gap-1.5">
+                <span className="font-medium">
+                  {mode === "latest"
+                    ? t("workerUpdates.effectiveVersion")
+                    : t("workerUpdates.targetLabel")}
+                </span>
+                {mode === "latest" ? (
+                  <input
+                    value={state.value.target_version ?? ""}
+                    placeholder="—"
+                    disabled
+                    readOnly
+                    aria-label={t("workerUpdates.effectiveVersion")}
+                    className="h-11 cursor-not-allowed rounded-lg border border-line bg-side px-3 text-mute opacity-60 md:h-10"
+                  />
+                ) : state.value.catalog_available && catalog.length > 0 ? (
+                  <select
+                    value={choice}
+                    onChange={(e) => setChoice(e.target.value)}
+                    className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
+                  >
+                    <option value="" disabled>
+                      —
+                    </option>
+                    {catalog.map((version) => (
+                      <option key={version} value={version}>
+                        {version}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={manual}
+                    onChange={(e) => setManual(e.target.value)}
+                    placeholder="v1.2.3"
+                    aria-label={t("workerUpdates.manualLabel")}
+                    className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
+                  />
+                )}
+              </label>
+            )}
+            {mode === "pinned" && !state.value.catalog_available && (
               <p className="text-xs text-mute">
                 {t("workerUpdates.catalogUnavailable")}
               </p>
             )}
-            {state.value.catalog_available && catalog.length === 0 && (
-              <p className="text-xs text-mute">
-                {t("workerUpdates.noVersions")}
-              </p>
-            )}
+            {mode === "pinned" &&
+              state.value.catalog_available &&
+              catalog.length === 0 && (
+                <p className="text-xs text-mute">
+                  {t("workerUpdates.noVersions")}
+                </p>
+              )}
             <p className="text-xs text-mute">
               {t("workerUpdates.compatibility")}
             </p>

@@ -48,28 +48,64 @@ func (s *Server) workerImage() string {
 	return s.Config.WorkerImage
 }
 
-// targetVersion reads the administrator's choice; an empty string means no automatic update.
-func (s *Server) targetVersion(ctx context.Context) (string, error) {
+// updateTarget is the stored strategy: the mode and the effective version (empty when none).
+type updateTarget struct {
+	Mode    string
+	Version string
+}
+
+func (s *Server) readUpdateTarget(ctx context.Context) (updateTarget, error) {
 	var version *string
-	err := s.Pool.QueryRow(ctx, `SELECT version FROM worker_update_target WHERE id=true`).Scan(&version)
+	t := updateTarget{Mode: "disabled"}
+	err := s.Pool.QueryRow(ctx, `SELECT mode,version FROM worker_update_target WHERE id=true`).Scan(&t.Mode, &version)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", nil
+		return updateTarget{Mode: "disabled"}, nil
 	}
 	if err != nil {
-		return "", err
+		return t, err
 	}
-	if version == nil {
-		return "", nil
+	if version != nil {
+		t.Version = *version
 	}
-	return *version, nil
+	return t, nil
+}
+
+// effectiveTarget returns the strategy with its version brought up to date. In latest mode the newest published
+// release is read from the cached catalogue (no extra registry call) and stored only when it is strictly higher than
+// the stored one: the database is untouched by polls that find nothing new, a registry outage keeps the last valid
+// target, and the version can never go down. The conditional UPDATE makes concurrent resolutions idempotent.
+func (s *Server) effectiveTarget(ctx context.Context) (updateTarget, error) {
+	t, err := s.readUpdateTarget(ctx)
+	if err != nil || t.Mode != "latest" {
+		return t, err
+	}
+	c := s.workerCatalogFor()
+	if c == nil {
+		return t, nil
+	}
+	versions, _ := c.Versions(ctx)
+	newest := workerupdate.Newest(versions)
+	if newest == "" || (t.Version != "" && !workerupdate.Less(t.Version, newest)) {
+		return t, nil
+	}
+	var old *string
+	if t.Version != "" {
+		old = &t.Version
+	}
+	if _, err = s.Pool.Exec(ctx, `UPDATE worker_update_target SET version=$1,updated_at=now() WHERE id=true AND mode='latest' AND version IS NOT DISTINCT FROM $2`, newest, old); err != nil {
+		return t, err
+	}
+	// A concurrent change (another resolution, or the administrator) may have won: report what is stored now.
+	return s.readUpdateTarget(ctx)
 }
 
 func (s *Server) getWorkerUpdates(w http.ResponseWriter, r *http.Request) {
-	target, err := s.targetVersion(r.Context())
+	current, err := s.effectiveTarget(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
+	target := current.Version
 	image := ""
 	if target != "" {
 		if image, err = workerupdate.ImageFor(s.workerImage(), target); err != nil {
@@ -78,9 +114,14 @@ func (s *Server) getWorkerUpdates(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	catalog := []string{}
+	var checkedAt *time.Time
+	checkFailed := false
 	var catalogErr error = workerupdate.ErrCatalog
 	if c := s.workerCatalogFor(); c != nil {
 		catalog, catalogErr = c.Versions(r.Context())
+		if at, failed := c.Status(); !at.IsZero() {
+			checkedAt, checkFailed = &at, failed
+		}
 	}
 	if catalog == nil {
 		// The contract promises an array: an empty catalogue must not reach the screen as null.
@@ -116,8 +157,12 @@ func (s *Server) getWorkerUpdates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, http.StatusOK, map[string]any{
+		"mode":              current.Mode,
 		"target_version":    nilIfEmpty(target),
 		"target_image":      nilIfEmpty(image),
+		"latest_version":    nilIfEmpty(workerupdate.Newest(catalog)),
+		"checked_at":        checkedAt,
+		"check_failed":      checkFailed,
 		"image_repository":  repositoryOf(s.workerImage()),
 		"catalog":           catalog,
 		"catalog_available": catalogErr == nil,
@@ -127,6 +172,7 @@ func (s *Server) getWorkerUpdates(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) putWorkerUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	var input struct {
+		Mode    *string `json:"mode"`
 		Version *string `json:"version"`
 	}
 	if !decode(w, r, &input) {
@@ -136,7 +182,35 @@ func (s *Server) putWorkerUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	if input.Version != nil {
 		version = strings.TrimSpace(*input.Version)
 	}
+	mode := "disabled"
+	if version != "" {
+		mode = "pinned"
+	}
+	if input.Mode != nil {
+		mode = *input.Mode
+	}
 	var stored *string
+	switch mode {
+	case "disabled":
+		version = ""
+	case "pinned":
+		if version == "" {
+			fail(w, http.StatusBadRequest, "invalid_worker_version")
+			return
+		}
+	case "latest":
+		// The version field is ignored: the target follows the registry. Keep the current one as a floor so that
+		// switching to latest never lowers what the fleet is told to run.
+		current, err := s.readUpdateTarget(r.Context())
+		if err != nil {
+			s.internal(w, err)
+			return
+		}
+		version = current.Version
+	default:
+		fail(w, http.StatusBadRequest, "invalid_worker_update_mode")
+		return
+	}
 	if version != "" {
 		// Format is enforced here, and the image is always built from the configured repository.
 		if _, err := workerupdate.ImageFor(s.workerImage(), version); err != nil {
@@ -145,20 +219,22 @@ func (s *Server) putWorkerUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		}
 		stored = &version
 	}
-	if _, err := s.Pool.Exec(r.Context(), `UPDATE worker_update_target SET version=$1,updated_at=now() WHERE id=true`, stored); err != nil {
+	if _, err := s.Pool.Exec(r.Context(), `UPDATE worker_update_target SET mode=$1,version=$2,updated_at=now() WHERE id=true`, mode, stored); err != nil {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{"target_version": nilIfEmpty(version)})
+	reply(w, http.StatusOK, map[string]any{"mode": mode, "target_version": nilIfEmpty(version)})
 }
 
-// getWorkerUpdate tells a Worker's local updater which image it should run. It changes nothing.
+// getWorkerUpdate tells a Worker's local updater which image it should run, and whether it is idle (no job leased),
+// so that the updater can wait for a quiet moment. In latest mode it resolves the target from the cached catalogue.
 func (s *Server) getWorkerUpdate(w http.ResponseWriter, r *http.Request) {
-	target, err := s.targetVersion(r.Context())
+	current, err := s.effectiveTarget(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
+	target := current.Version
 	image := ""
 	if target != "" {
 		if image, err = workerupdate.ImageFor(s.workerImage(), target); err != nil {
@@ -166,7 +242,12 @@ func (s *Server) getWorkerUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	reply(w, http.StatusOK, map[string]any{"target_version": nilIfEmpty(target), "target_image": nilIfEmpty(image)})
+	var busy bool
+	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM jobs WHERE lease_owner=$1 AND status='leased' AND lease_expires_at>now())`, currentWorker(r).ID).Scan(&busy); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"target_version": nilIfEmpty(target), "target_image": nilIfEmpty(image), "idle": !busy})
 }
 
 func (s *Server) postWorkerUpdateStatus(w http.ResponseWriter, r *http.Request) {

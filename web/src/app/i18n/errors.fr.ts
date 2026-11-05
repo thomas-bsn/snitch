@@ -200,6 +200,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
   invalid_worker_update_status:
     "Ce compte rendu de mise à jour n’est pas valide.",
+  invalid_worker_update_mode:
+    "Cette stratégie de mise à jour n’est pas valide.",
   invalid_worker_version:
     "Cette version de Worker n’est pas une version publiée (vX.Y.Z).",
   invalid_revoke_reason:
