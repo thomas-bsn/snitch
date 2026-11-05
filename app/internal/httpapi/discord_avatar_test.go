@@ -536,7 +536,7 @@ func testDiscordAvatars(t *testing.T, pool *pgxpool.Pool) {
 		call(w, "GET", "/api/auth/me", "", 200)
 		wantInitials(w)
 		var failures int
-		_ = pool.QueryRow(ctx, `SELECT discord_failures FROM avatar_preferences WHERE user_id=$1`, userID("discord_501")).Scan(&failures)
+		_ = pool.QueryRow(ctx, `SELECT discord_failures FROM avatar_preferences WHERE user_id=$1`, userID("user501")).Scan(&failures)
 		if failures != 1 {
 			t.Fatal("the failure was not recorded", failures)
 		}
@@ -547,7 +547,7 @@ func testDiscordAvatars(t *testing.T, pool *pgxpool.Pool) {
 		fake.mode(0, "")
 		call(w, "POST", "/api/account/avatar/discord-refresh", "", 200)
 		wantShown(w, red)
-		if err := pool.QueryRow(ctx, `SELECT discord_failures FROM avatar_preferences WHERE user_id=$1`, userID("discord_501")).Scan(&failures); err != nil || failures != 0 {
+		if err := pool.QueryRow(ctx, `SELECT discord_failures FROM avatar_preferences WHERE user_id=$1`, userID("user501")).Scan(&failures); err != nil || failures != 0 {
 			t.Fatal(err, failures)
 		}
 	})

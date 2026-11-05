@@ -191,15 +191,24 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     }
   });
 
-  test("un filtre donne des résultats à plat avec leur dossier", async ({
+  test("un filtre montre d'abord les dossiers concernés, puis leurs vidéos", async ({
     page,
   }) => {
     await page.goto("/library?filter=inner");
-    await expect(
-      page.getByRole("columnheader", { name: "Folder" }),
-    ).toBeVisible();
-    await expect(row(page, "inner.mp4")).toContainText("league/2026/sub");
+    // From the root, only the folders leading to a match are listed, not the videos themselves.
+    await expect(row(page, "league")).toContainText("matching");
+    await expect(row(page, "inner.mp4")).toHaveCount(0);
     await expect(row(page, "top.mp4")).toHaveCount(0);
+    await row(page, "league")
+      .getByRole("button", { name: "league", exact: true })
+      .click();
+    await row(page, "2026")
+      .getByRole("button", { name: "2026", exact: true })
+      .click();
+    await row(page, "sub")
+      .getByRole("button", { name: "sub", exact: true })
+      .click();
+    await expect(row(page, "inner.mp4")).toBeVisible();
   });
 
   test("le filtre survit au rafraîchissement, au retour/avant et se combine avec un autre filtre", async ({

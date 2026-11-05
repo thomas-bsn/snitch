@@ -37,6 +37,10 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	mode.Store("ok")
 	var globalName atomic.Value
 	globalName.Store("Fixture Display")
+	// The Discord handle the fixture answers: "administrator" collides with the local administrator.
+	var handle atomic.Value
+	handle.Store("administrator")
+	identity.Store("999999")
 	entered := make(chan struct{}, 2)
 	release := make(chan struct{})
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +68,7 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 			reply(w, 200, map[string]string{"id": ""})
 			return
 		}
-		reply(w, 200, map[string]string{"id": identity.Load().(string), "username": "administrator", "global_name": globalName.Load().(string)})
+		reply(w, 200, map[string]string{"id": identity.Load().(string), "username": handle.Load().(string), "global_name": globalName.Load().(string)})
 	}))
 	defer provider.Close()
 	s.Config.DiscordTokenURL = provider.URL + "/token"
@@ -329,9 +333,31 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	active := client()
 	call(active, "GET", start(active, false), "", "", 303)
 	_, body := call(active, "GET", "/api/auth/me", "", "", 200)
-	if !bytes.Contains(body, []byte(`"username":"discord_999999"`)) {
+	// A handle already taken by a local account is never an identity match: a technical name is allocated.
+	if !bytes.Contains(body, []byte(`"username":"discord_`)) {
 		t.Fatal(string(body))
 	}
+	// A free handle becomes the username, so the interface shows the person's Discord name.
+	identity.Store("888888")
+	handle.Store("lastplayergs")
+	fresh := client()
+	call(fresh, "GET", start(fresh, false), "", "", 303)
+	_, body = call(fresh, "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(body, []byte(`"username":"lastplayergs"`)) {
+		t.Fatal(string(body))
+	}
+	// An account still named "discord_…" adopts its handle at its next sign-in when it is free.
+	if _, err := pool.Exec(context.Background(), `UPDATE users SET username='discord_888888' WHERE username='lastplayergs'`); err != nil {
+		t.Fatal(err)
+	}
+	again := client()
+	call(again, "GET", start(again, false), "", "", 303)
+	_, body = call(again, "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(body, []byte(`"username":"lastplayergs"`)) {
+		t.Fatal(string(body))
+	}
+	handle.Store("administrator")
+	identity.Store("999999")
 	t.Run("session persistence failures return browser navigation to a friendly notice", func(t *testing.T) {
 		visitor := client()
 		path := start(visitor, false)

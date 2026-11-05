@@ -911,6 +911,28 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 
 // truncateDisplayName keeps at most max whole characters: a cut in bytes could split a
 // multi-byte character and produce UTF-8 that PostgreSQL refuses.
+// discordAccountName is the username of a new Discord account: the person's Discord handle, so the
+// interface shows "lastplayergs" rather than an opaque identifier. Without a usable handle it falls
+// back to the technical name built from the Discord identity.
+func discordAccountName(handle, discordID string) string {
+	handle = strings.TrimSpace(handle)
+	if handle == "" || utf8.RuneCountInString(handle) > 64 {
+		return "discord_" + discordID
+	}
+	return handle
+}
+
+// adoptDiscordHandle renames an account still carrying its technical "discord_…" name to the person's
+// Discord handle. It only applies when the handle is free (a local username is never taken over) and
+// never fails the login: the account simply keeps its technical name.
+func (s *Server) adoptDiscordHandle(ctx context.Context, userID int64, handle string) {
+	name := discordAccountName(handle, "")
+	if strings.HasPrefix(name, "discord_") {
+		return
+	}
+	_, _ = s.Pool.Exec(ctx, `UPDATE users u SET username=$2 WHERE u.id=$1 AND u.username LIKE 'discord\_%' AND NOT EXISTS (SELECT 1 FROM users o WHERE lower(o.username)=lower($2))`, userID, name)
+}
+
 func truncateDisplayName(name string, max int) string {
 	if utf8.RuneCountInString(name) <= max {
 		return name
@@ -1059,7 +1081,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		}
 		var uid int64
 		var approved, created bool
-		e = tx.QueryRow(r.Context(), `INSERT INTO users(username,role,approved,discord_id,discord_name) VALUES($1,'user',$2,$3,NULLIF($4,'')) ON CONFLICT DO NOTHING RETURNING id,approved`, "discord_"+identity.ID, !approval, identity.ID, displayName).Scan(&uid, &approved)
+		e = tx.QueryRow(r.Context(), `INSERT INTO users(username,role,approved,discord_id,discord_name) VALUES($1,'user',$2,$3,NULLIF($4,'')) ON CONFLICT DO NOTHING RETURNING id,approved`, discordAccountName(identity.Username, identity.ID), !approval, identity.ID, displayName).Scan(&uid, &approved)
 		created = e == nil
 		if errors.Is(e, pgx.ErrNoRows) {
 			e = tx.QueryRow(r.Context(), `SELECT id,approved FROM users WHERE discord_id=$1`, identity.ID).Scan(&uid, &approved)
@@ -1086,6 +1108,8 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		}
 		if created {
 			s.triggerAvatarSync(uid)
+		} else {
+			s.adoptDiscordHandle(r.Context(), uid, identity.Username)
 		}
 		if !approved {
 			http.Redirect(w, r, "/?notice=pending", http.StatusSeeOther)

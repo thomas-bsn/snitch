@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { VolumeBar } from "../components/VolumeBar";
+import { getVolume, setVolume, subscribeVolume } from "../components/volume";
 import { useI18n } from "../i18n";
 
 /** How often the moment kept in the address follows the playback. */
@@ -32,6 +34,15 @@ export function ClipPlayer({
   useEffect(() => {
     setFailed(false);
   }, [clipId]);
+
+  // The video follows the shared volume, and the volume of its own controls feeds it back.
+  useEffect(() => {
+    const apply = () => {
+      if (videoRef.current) videoRef.current.volume = getVolume();
+    };
+    apply();
+    return subscribeVolume(apply);
+  }, [videoRef, clipId]);
 
   function keep(video: HTMLVideoElement) {
     const seconds = Math.floor(video.currentTime);
@@ -70,10 +81,12 @@ export function ClipPlayer({
         onPause={(event) => keep(event.currentTarget)}
         onSeeked={(event) => keep(event.currentTarget)}
         onEnded={(event) => keep(event.currentTarget)}
+        onVolumeChange={(event) => setVolume(event.currentTarget.volume)}
         onError={() => setFailed(true)}
       >
         <track kind="captions" />
       </video>
+      <VolumeBar />
       {failed && (
         <p role="status" className="m-0 text-mute">
           {t("clip.videoFailed")}

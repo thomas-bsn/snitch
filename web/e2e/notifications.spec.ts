@@ -148,8 +148,12 @@ test.describe.serial("notifications : voix à vérifier", () => {
     // Handling the voices resolves the shared action: the second one is only a suggestion
     // once the first is named, so it no longer waits for a decision.
     await current.getByRole("button", { name: "Identify" }).click();
-    await current.getByLabel("Name of the new person").fill("Dana Synthétique");
-    await current.getByRole("button", { name: "Create and identify" }).click();
+    await current.getByLabel("Search people").fill("Dana Synthétique");
+    await current
+      .getByRole("button", {
+        name: "Create the profile “Dana Synthétique” and validate",
+      })
+      .click();
     await expect(current.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_01",
     );
