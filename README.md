@@ -59,7 +59,7 @@ Le worker autonome (absent de Compose) traite les fixtures et les tâches de tra
 ## Exploiter ou contribuer
 
 - [Déploiement Forgeyard, variables et migrations](docs/deployment.md)
-- [Développement, tests et CI](docs/development.md) · [Contribution](CONTRIBUTING.md)
+- [Développement, tests et CI](docs/development.md) · [Contribution](CONTRIBUTING.md). La [publication des images](docs/deployment.md#publication) promeut le digest validé après `check`, y compris quand les jobs de l'autre image sont volontairement ignorés ; les PR ne publient pas.
 - [Sauvegarde et restauration](docs/backups.md) · [Licences des distributions](deploy/NOTICES.md)
 - [Bilans de phases 0](docs/phase-0-report.md), [1](docs/phase-1-report.md), [2](docs/phase-2-report.md), [3](docs/phase-3-report.md), [4](docs/phase-4-report.md) et [5](docs/phase-5-report.md) · [Roadmap](ROADMAP.md) · [Specs de phases 1](docs/specs/phase-1.md), [2](docs/specs/phase-2.md), [3](docs/specs/phase-3.md), [4](docs/specs/phase-4.md) et [5](docs/specs/phase-5.md) · [Glossaire](GLOSSARY.md)
 
