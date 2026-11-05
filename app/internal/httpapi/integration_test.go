@@ -666,6 +666,7 @@ func TestFoundation(t *testing.T) {
 	t.Run("account close", func(t *testing.T) { reset(t); testAccountClose(t, pool) })
 	t.Run("clip thumbnail", func(t *testing.T) { reset(t); testClipThumbnail(t, pool) })
 	t.Run("members", func(t *testing.T) { reset(t); testMembers(t, pool) })
+	t.Run("member edit", func(t *testing.T) { reset(t); testMemberEdit(t, pool) })
 	t.Run("worker administration", func(t *testing.T) {
 		reset(t)
 		testWorkerAdministration(t, pool)
@@ -1089,6 +1090,28 @@ func TestFoundation(t *testing.T) {
 		call(user, "GET", "/api/admin/settings", nil, "", 403)
 		call(user, "GET", "/api/admin/vocabulary", nil, "", 403)
 		call(user, "GET", "/api/admin/users", nil, "", 403)
+		// Member editing: validate the new responses and permissions against OpenAPI too.
+		memberPath := fmt.Sprintf("/api/admin/members/%d", users[0].ID)
+		var playerSession struct {
+			CSRF string `json:"csrf_token"`
+		}
+		json.Unmarshal(call(user, "GET", "/api/auth/me", nil, "", 200), &playerSession)
+		for _, action := range []struct{ method, suffix string }{
+			{"POST", "/password"}, {"DELETE", "/sessions"}, {"DELETE", "/discord"},
+		} {
+			call(anon, action.method, memberPath+action.suffix, nil, "", 401)
+			call(user, action.method, memberPath+action.suffix, nil, playerSession.CSRF, 403)
+			call(client, action.method, "/api/admin/members/999999"+action.suffix, nil, me.CSRF, 404)
+		}
+		call(client, "GET", memberPath, nil, "", 200)
+		call(client, "PATCH", memberPath, map[string]any{"display_name": "Contract member", "language": "fr"}, me.CSRF, 200)
+		call(client, "DELETE", memberPath+"/discord", nil, me.CSRF, 409)
+		if _, e = pool.Exec(ctx, `UPDATE users SET discord_id='contract-member' WHERE id=$1`, users[0].ID); e != nil {
+			t.Fatal(e)
+		}
+		call(client, "DELETE", memberPath+"/discord", nil, me.CSRF, 200)
+		call(client, "DELETE", memberPath+"/sessions", nil, me.CSRF, 200)
+		call(client, "POST", memberPath+"/password", nil, me.CSRF, 200)
 		call(client, "POST", "/api/admin/users/99999/approve", nil, me.CSRF, 404)
 		call(client, "POST", "/api/auth/logout", nil, me.CSRF, 200)
 		call(client, "GET", "/api/auth/me", nil, "", 401)

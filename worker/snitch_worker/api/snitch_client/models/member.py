@@ -27,6 +27,8 @@ class Member:
         Attributes:
             id (int):
             username (str):
+            display_name (str): Nom affiché effectif : choisi, pseudo Discord ou identifiant.
+            discord_linked (bool):
             role (MemberRole):
             created_at (datetime.datetime):
             clip_count (int):
@@ -34,6 +36,8 @@ class Member:
 
     id: int
     username: str
+    display_name: str
+    discord_linked: bool
     role: MemberRole
     created_at: datetime.datetime
     clip_count: int
@@ -48,6 +52,10 @@ class Member:
 
         username = self.username
 
+        display_name = self.display_name
+
+        discord_linked = self.discord_linked
+
         role = self.role.value
 
         created_at = self.created_at.isoformat()
@@ -60,6 +68,8 @@ class Member:
         field_dict.update({
             "id": id,
             "username": username,
+            "display_name": display_name,
+            "discord_linked": discord_linked,
             "role": role,
             "created_at": created_at,
             "clip_count": clip_count,
@@ -76,6 +86,10 @@ class Member:
 
         username = d.pop("username")
 
+        display_name = d.pop("display_name")
+
+        discord_linked = d.pop("discord_linked")
+
         role = MemberRole(d.pop("role"))
 
 
@@ -91,6 +105,8 @@ class Member:
         member = cls(
             id=id,
             username=username,
+            display_name=display_name,
+            discord_linked=discord_linked,
             role=role,
             created_at=created_at,
             clip_count=clip_count,

@@ -170,6 +170,13 @@ from .master_key_export_origin import MasterKeyExportOrigin
 from .master_key_export_warning import MasterKeyExportWarning
 from .media_track import MediaTrack
 from .member import Member
+from .member_detail import MemberDetail
+from .member_detail_language import MemberDetailLanguage
+from .member_detail_role import MemberDetailRole
+from .member_patch import MemberPatch
+from .member_patch_language import MemberPatchLanguage
+from .member_patch_role import MemberPatchRole
+from .member_permissions import MemberPermissions
 from .member_role import MemberRole
 from .microphone_detected_track import MicrophoneDetectedTrack
 from .microphone_snapshot import MicrophoneSnapshot
@@ -240,6 +247,7 @@ from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
 from .reprocess_clip_metadata_response_200 import ReprocessClipMetadataResponse200
 from .request_worker_transcription_test_response_200 import RequestWorkerTranscriptionTestResponse200
+from .reset_member_password_response_200 import ResetMemberPasswordResponse200
 from .retry_clip_analysis_step_step import RetryClipAnalysisStepStep
 from .revoke_worker_body import RevokeWorkerBody
 from .scan_source_body import ScanSourceBody
@@ -640,6 +648,13 @@ __all__ = (
     "MasterKeyExportWarning",
     "MediaTrack",
     "Member",
+    "MemberDetail",
+    "MemberDetailLanguage",
+    "MemberDetailRole",
+    "MemberPatch",
+    "MemberPatchLanguage",
+    "MemberPatchRole",
+    "MemberPermissions",
     "MemberRole",
     "MicrophoneDetectedTrack",
     "MicrophoneSnapshot",
@@ -710,6 +725,7 @@ __all__ = (
     "Redirect",
     "ReprocessClipMetadataResponse200",
     "RequestWorkerTranscriptionTestResponse200",
+    "ResetMemberPasswordResponse200",
     "RetryClipAnalysisStepStep",
     "RevokeWorkerBody",
     "ScanSourceBody",
