@@ -666,6 +666,7 @@ func TestFoundation(t *testing.T) {
 	t.Run("account close", func(t *testing.T) { reset(t); testAccountClose(t, pool) })
 	t.Run("clip thumbnail", func(t *testing.T) { reset(t); testClipThumbnail(t, pool) })
 	t.Run("members", func(t *testing.T) { reset(t); testMembers(t, pool) })
+	t.Run("member edit", func(t *testing.T) { reset(t); testMemberEdit(t, pool) })
 	t.Run("worker administration", func(t *testing.T) {
 		reset(t)
 		testWorkerAdministration(t, pool)

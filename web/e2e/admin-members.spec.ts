@@ -26,13 +26,33 @@ test("un administrateur gère les membres, les inscriptions et les exports", asy
         .analyze()
     ).violations,
   ).toEqual([]);
-  const member = page.getByRole("row", { name: /member-user/ });
+  // The list stays behind the open panel, which hides it from the accessibility tree: select by markup.
+  const member = page.locator("tr", { hasText: "member-user" });
   await expect(member).toContainText("User");
-  await member.getByRole("button", { name: "Change role" }).click();
-  await expect(page.getByRole("alertdialog")).toContainText("Administrator");
-  await page.getByRole("button", { name: "Confirm" }).click();
+  await member.getByRole("button", { name: /^Edit member-user/ }).click();
+  const panel = page.getByRole("dialog");
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await panel.getByLabel("Display name").fill("Member Fixture");
+  await panel.getByLabel("Language").selectOption("fr");
+  await panel.getByLabel("Role", { exact: true }).selectOption("admin");
+  await panel.getByRole("button", { name: "Save" }).click();
+  await expect(panel.getByRole("status")).toContainText("Changes saved");
+  await expect(panel.getByRole("button", { name: "Save" })).toBeDisabled();
+  await expect(member).toContainText("Member Fixture");
   await expect(member).toContainText("Administrator");
-  await member.getByRole("button", { name: "Delete member" }).click();
+  await panel.getByRole("button", { name: "Set a temporary password" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Generate" })
+    .click();
+  await expect(panel.locator("output")).toHaveText(/^\S{20}$/);
+  await panel.getByRole("button", { name: "Delete member" }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog.getByLabel("Hide their clips")).not.toBeChecked();
   await dialog.getByLabel("Hide their clips").check();
