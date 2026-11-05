@@ -735,6 +735,19 @@ type VoiceFingerprint struct {
 	Benchmark        bool               `json:"benchmark"`
 }
 
+type VoiceFingerprintTransition struct {
+	ID                  int64              `json:"id"`
+	FromModelID         string             `json:"from_model_id"`
+	ToModelID           string             `json:"to_model_id"`
+	Phase               string             `json:"phase"`
+	AnnouncedReferences int32              `json:"announced_references"`
+	AuthorID            pgtype.Int8        `json:"author_id"`
+	AuthorName          string             `json:"author_name"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	SwitchedAt          pgtype.Timestamptz `json:"switched_at"`
+}
+
 type VoiceGroupExclusion struct {
 	LocalSpeakerID int64              `json:"local_speaker_id"`
 	ExcludedBy     pgtype.Int8        `json:"excluded_by"`

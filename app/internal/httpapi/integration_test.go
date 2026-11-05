@@ -98,6 +98,9 @@ func TestFoundation(t *testing.T) {
 		if _, e = pool.Exec(ctx, `UPDATE voice_pipeline_active SET version='voice-v1' WHERE id=true`); e != nil {
 			t.Fatal(e)
 		}
+		if _, e = pool.Exec(ctx, `DELETE FROM voice_fingerprint_transitions; UPDATE voice_active_model SET model_id='pyannote-wespeaker-resnet34' WHERE kind='fingerprint'`); e != nil {
+			t.Fatal(e)
+		}
 		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events`); e != nil {
 			t.Fatal(e)
 		}
@@ -343,6 +346,30 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice model dispatch", func(t *testing.T) {
 		reset(t)
 		testVoiceModelDispatch(t, pool)
+	})
+	t.Run("voice fingerprint transition preview", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionPreview(t, pool)
+	})
+	t.Run("voice fingerprint transition flow", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionFlow(t, pool)
+	})
+	t.Run("voice fingerprint transition resume", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionResume(t, pool)
+	})
+	t.Run("voice fingerprint transition cancel", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionCancel(t, pool)
+	})
+	t.Run("voice fingerprint transition workers", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionWorkers(t, pool)
+	})
+	t.Run("voice fingerprint stale model", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintStaleModel(t, pool)
 	})
 	t.Run("voice requested model dispatch", func(t *testing.T) {
 		reset(t)
@@ -1227,7 +1254,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trace", nil, "", 200) // behavior in the voice coverage suite
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
+				if strings.HasPrefix(path, "/api/admin/video-root") || strings.HasPrefix(path, "/api/admin/voice-models/fingerprint-transition") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
 					continue // These contract operations are covered by their upload, search, worker, member, account, embedding, transcription, job log, worker update and Hugging Face token suites.
 				}
 				if !seen[method+" "+path] {

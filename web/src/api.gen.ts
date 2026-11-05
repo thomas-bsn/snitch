@@ -2324,6 +2324,59 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-models/fingerprint-transition/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Aperçu d'impact du changement du modèle d'empreinte vers le modèle cible, sans rien modifier : références à recalculer, clips et Personnes concernés, autres empreintes à recalculer ensuite, attributions validées conservées, Workers qui ont déjà la cible prête (ADR 0044). */
+    get: operations["previewFingerprintTransition"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/fingerprint-transition": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. État de la transition d'empreinte ouverte ou, à défaut, de la dernière : phase, progression des références recalculées, tâches actives ou en échec, rattrapage restant. Lire l'état fait aussi avancer une transition interrompue. */
+    get: operations["getFingerprintTransition"];
+    put?: never;
+    /** @description Administrateurs uniquement. Confirme le changement du modèle d'empreinte vers la cible. confirm_references doit être le nombre de références vu dans l'aperçu (voice_transition_preview_stale sinon). Une seule transition à la fois (voice_transition_in_progress). */
+    post: operations["startFingerprintTransition"];
+    /** @description Administrateurs uniquement. Abandonne la transition ouverte avant la bascule ; la production n'a pas changé. Refusé une fois la bascule faite (voice_transition_switched). */
+    delete: operations["cancelFingerprintTransition"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/fingerprint-transition/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Reprend la transition : replanifie aussi les références dont la tâche s'est terminée sans empreinte, et le rattrapage après la bascule. */
+    post: operations["resumeFingerprintTransition"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/workers/{id}/voice-model-replacements/{kind}": {
     parameters: {
       query?: never;
@@ -4509,6 +4562,45 @@ export interface components {
       models: components["schemas"]["WorkerVoiceModel"][];
       remove: components["schemas"]["WorkerVoiceModel"][];
       orders: components["schemas"]["WorkerModelOrder"][];
+    };
+    FingerprintTransitionInput: {
+      to_model_id: string;
+      confirm_references: number;
+    };
+    FingerprintTransitionPreview: {
+      from_model_id: string;
+      to_model_id: string;
+      references: number;
+      clips: number;
+      persons: number;
+      other_fingerprints: number;
+      validated_attributions: number;
+      workers_ready: number;
+    };
+    FingerprintTransition: {
+      /** Format: int64 */
+      id: number;
+      from_model_id: string;
+      to_model_id: string;
+      /** @enum {string} */
+      phase: "preparing" | "recomputing" | "switched" | "cancelled";
+      announced_references: number;
+      references_total: number;
+      references_done: number;
+      references_remaining: number;
+      jobs_active: number;
+      jobs_failed: number;
+      catch_up_remaining: number;
+      workers_ready: number;
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      switched_at?: string;
+    };
+    FingerprintTransitionState: {
+      open: boolean;
+      transition?: components["schemas"]["FingerprintTransition"];
     };
     VoiceModelOrderInput: {
       model_id: string;
@@ -12608,6 +12700,164 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewFingerprintTransition: {
+    parameters: {
+      query: {
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionPreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de la transition */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FingerprintTransitionInput"];
+      };
+    };
+    responses: {
+      /** @description Transition démarrée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Transition abandonnée */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resumeFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de la transition */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionState"];
         };
       };
       /** @description Erreur */

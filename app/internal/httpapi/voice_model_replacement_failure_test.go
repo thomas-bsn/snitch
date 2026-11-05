@@ -68,15 +68,15 @@ func testVoiceModelReplacementFailure(t *testing.T, pool *pgxpool.Pool) {
 	h.replace(workerID, secondID, secondID, "replace-b-0005", http.StatusBadRequest)
 	h.replace(workerID, secondID, fingerprintID, "replace-b-0006", http.StatusBadRequest)
 
-	// The fingerprint model is never switched here: its replacement waits for the versioned transition.
+	// The fingerprint model is never switched by a replacement alone: it needs the versioned transition (ADR 0044).
 	h.reportModel(fingerprintID, "ready", "", 1, 1, http.StatusNoContent)
 	if _, err := pool.Exec(t.Context(), `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision,license,size_bytes) VALUES('test-fingerprint-b','fingerprint','pyannote','synthetic/fingerprint-b','d00000000000000000000000000000000000000d','test',1000)`); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _, _ = pool.Exec(t.Context(), `DELETE FROM voice_model_catalog WHERE id='test-fingerprint-b'`) })
 	body := h.adminCall(http.MethodPost, "/api/admin/workers/"+workerID+"/voice-model-orders", map[string]any{"model_id": "test-fingerprint-b", "idempotency_key": "replace-fp-0001", "replaces_model_id": fingerprintID}, http.StatusConflict)
-	if !bytes.Contains(body, []byte("voice_replacement_kind_unsupported")) {
-		t.Fatalf("a fingerprint replacement is refused with a clear code: %s", body)
+	if !bytes.Contains(body, []byte("voice_transition_required")) {
+		t.Fatalf("a fingerprint replacement without a confirmed transition is refused with a clear code: %s", body)
 	}
 	// Different types coexist on a Worker.
 	cells := h.cells(workerID)

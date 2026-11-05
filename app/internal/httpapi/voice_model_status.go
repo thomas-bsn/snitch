@@ -91,6 +91,7 @@ func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Reque
 		}
 		return
 	}
+	s.stepFingerprintTransition(r.Context())
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -109,6 +110,7 @@ func (s *Server) applyUnorderedVoiceModelStatus(w http.ResponseWriter, r *http.R
 		s.internal(w, err)
 		return
 	}
+	s.stepFingerprintTransition(r.Context())
 	w.WriteHeader(http.StatusNoContent)
 }
 
