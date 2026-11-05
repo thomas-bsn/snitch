@@ -70,7 +70,9 @@ def sync_detailed(
 ) -> Response[Any | Error]:
     """  Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus /
     total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou
-    supprimé. Une cause n'accompagne qu'un échec.
+    supprimé. Une cause n'accompagne qu'un échec. Avec order_id, le rapport répond à un ordre du Worker
+    (modèle et révision contrôlés) ; ready clôt l'ordre, failed l'échoue ; un ordre terminé n'est pas
+    rouvert (stale_voice_order).
 
     Args:
         body (WorkerVoiceModelStatus):
@@ -103,7 +105,9 @@ def sync(
 ) -> Any | Error | None:
     """  Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus /
     total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou
-    supprimé. Une cause n'accompagne qu'un échec.
+    supprimé. Une cause n'accompagne qu'un échec. Avec order_id, le rapport répond à un ordre du Worker
+    (modèle et révision contrôlés) ; ready clôt l'ordre, failed l'échoue ; un ordre terminé n'est pas
+    rouvert (stale_voice_order).
 
     Args:
         body (WorkerVoiceModelStatus):
@@ -131,7 +135,9 @@ async def asyncio_detailed(
 ) -> Response[Any | Error]:
     """  Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus /
     total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou
-    supprimé. Une cause n'accompagne qu'un échec.
+    supprimé. Une cause n'accompagne qu'un échec. Avec order_id, le rapport répond à un ordre du Worker
+    (modèle et révision contrôlés) ; ready clôt l'ordre, failed l'échoue ; un ordre terminé n'est pas
+    rouvert (stale_voice_order).
 
     Args:
         body (WorkerVoiceModelStatus):
@@ -164,7 +170,9 @@ async def asyncio(
 ) -> Any | Error | None:
     """  Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus /
     total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou
-    supprimé. Une cause n'accompagne qu'un échec.
+    supprimé. Une cause n'accompagne qu'un échec. Avec order_id, le rapport répond à un ordre du Worker
+    (modèle et révision contrôlés) ; ready clôt l'ordre, failed l'échoue ; un ordre terminé n'est pas
+    rouvert (stale_voice_order).
 
     Args:
         body (WorkerVoiceModelStatus):
