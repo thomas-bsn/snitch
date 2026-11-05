@@ -91,12 +91,17 @@ _Avoid_ : Modèles prêts, voix installée.
 **Token Hugging Face central** : Le jeton d'accès aux modèles vocaux saisi une fois dans Snitch par le Super-administrateur et distribué aux Workers autorisés. Un jeton déposé directement sur un Worker reste le sien et n'est jamais remplacé en silence.
 _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
-**Catalogue de modèles vocaux** : Les modèles de diarisation et d'empreinte que Snitch sait exécuter. Seul un modèle du catalogue peut devenir candidat ou actif ; un dépôt quelconque n'en fait pas partie.
+**Catalogue de modèles vocaux** : Les références de modèles locaux (diarisation, empreinte, séparation) que Snitch sait exécuter, éditées par le Super-administrateur. Seul un modèle du catalogue dont un adaptateur approuvé sait réellement le charger peut être installé ; un dépôt quelconque, ou un modèle sans adaptateur (`unsupported`), n'est jamais exécuté. Le moteur n'est pas un choix de l'utilisateur. ADR 0038.
 
-**Modèle vocal actif** : Le modèle de diarisation, ou d'empreinte, que Snitch utilise pour tous les nouveaux travaux vocaux, quel que soit le Worker. Un Worker qui ne l'a pas prêt ne traite pas ces travaux.
+**Modèle vocal actif** : Le modèle de diarisation, d'empreinte ou de séparation que Snitch utilise pour tous les nouveaux travaux vocaux de ce type, quel que soit le Worker. Un Worker qui ne l'a pas prêt ne traite pas ces travaux.
 _Avoid_ : Modèle du Worker, modèle installé.
 
-**Modèle vocal candidat** : Un modèle du catalogue choisi par l'administrateur pour être préparé sur les Workers et essayé avant d'être activé. Il ne produit aucun résultat de la bibliothèque tant qu'il n'est pas actif. _Historique_ : la fonction d'essai de diarisation sur la fiche d'un clip (ADR 0022, migrations 00057 et 00058) a été retirée à la demande de l'utilisateur ; la table des essais est supprimée par la migration 00090.
+**Modèle vocal candidat** : Un modèle du catalogue en cours de préparation sur des Workers, avant de devenir actif. Il ne produit aucun résultat de la bibliothèque tant qu'il n'est pas actif. Depuis l'ADR 0038, il n'est plus unique : chaque Worker prépare le sien par ordre de Snitch. _Historique_ : la fonction d'essai de diarisation sur la fiche d'un clip (ADR 0022, migrations 00057 et 00058) a été retirée à la demande de l'utilisateur ; la table des essais est supprimée par la migration 00090.
+
+**Modèle désiré d'un Worker** : Le modèle qu'un administrateur a ordonné à un Worker d'installer pour un type. Il peut différer du modèle actif pendant un remplacement ; un modèle prêt mais non actif n'attribue aucun travail. Snitch le possède, le Worker n'en connaît que l'état réel.
+_Avoid_ : Modèle choisi par le Worker.
+
+**Ordre de modèle** : Une instruction enregistrée dans Snitch pour un Worker et un type (installer, retirer), avec son auteur, son résultat et une clé qui évite l'exécution en double. Le Worker n'agit sur aucun modèle sans ordre.
 
 **Transcription désactivée** : Choix explicite de ne pas produire de transcription pour la bibliothèque. Il se distingue d'un réglage encore incomplet ou non testé.
 
