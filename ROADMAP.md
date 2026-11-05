@@ -101,7 +101,7 @@ Front seulement, sauf des ajouts de backend : progression du wizard, langue du c
 
 ### Évolutions des lots A à D
 
-Hors phase 7, qui garde son autorisation propre. Cinq PR, dans l'ordre : [lot A, Worker et infrastructure](docs/specs/lot-a-worker-et-infra.md) ; [lot B, chaîne d'analyse](docs/specs/lot-b-chaine-d-analyse.md) ; [fiche vidéo](docs/specs/fiche-video.md) ; [lot C, Personnes](docs/specs/lot-c-people.md) ; [lot D, Bibliothèque et import](docs/specs/lot-d-bibliotheque-et-import.md). Décisions : ADR 0027 à 0035. Référence visuelle jetable : branche `prototype/fiche-video`. Seul le parcours de l'arborescence de la Racine vidéo est autorisé sur la vraie bibliothèque ; les tests restent sur des fixtures.
+Hors phase 7, qui garde son autorisation propre. Cinq PR, dans l'ordre : [lot A, Worker et infrastructure](docs/specs/lot-a-worker-et-infra.md) ; [lot B, chaîne d'analyse](docs/specs/lot-b-chaine-d-analyse.md) ; [fiche vidéo](docs/specs/fiche-video.md) ; [lot C, Personnes](docs/specs/lot-c-people.md) ; [lot D, Bibliothèque et import](docs/specs/lot-d-bibliotheque-et-import.md). Décisions : ADR 0027 à 0035 ; indexation de toute la Racine : ADR 0038 (#275). Référence visuelle jetable : branche `prototype/fiche-video`. Seul le parcours de l'arborescence de la Racine vidéo est autorisé sur la vraie bibliothèque ; les tests restent sur des fixtures.
 
 ### Phase 7
 

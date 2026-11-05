@@ -143,11 +143,8 @@ func run() error {
 	}
 	if code != "" {
 		// One readable line to copy from: the address to open and the code to enter.
-		address := c.PublicURL
-		if address == "" {
-			_, port, _ := net.SplitHostPort(c.Address)
-			address = "http://localhost:" + port
-		}
+		_, port, _ := net.SplitHostPort(c.Address)
+		address := "http://localhost:" + port
 		logging.InstallationCode(slog.Default(), address, code)
 	}
 	// Expired transient rows do not accumulate during normal service operation.

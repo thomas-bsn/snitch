@@ -28,8 +28,7 @@ class Settings:
             client_id (str):
             secret_configured (bool): Whether a nonempty secret is stored. The secret itself is never returned.
             registration_approval (bool):
-            callback_url (str): Discord return address to register, built from the public address of the request (or the
-                configured PUBLIC_URL).
+            callback_url (str): Discord return address to register, built from the public address of the request.
             master_key_origin (SettingsMasterKeyOrigin): provided : la clé vient de la variable MASTER_KEY ; generated :
                 l'application l'a générée et la conserve dans son volume de secrets.
             unreadable_secrets (list[SettingsUnreadableSecretsItem]): Réglages chiffrés que la clé maître actuelle ne

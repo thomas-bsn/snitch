@@ -1304,6 +1304,114 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/library/index-runs/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Estimer l'indexation de toute la Racine vidéo, sans la démarrer (administrateur)
+     * @description Parcourt les dossiers de la Racine (jamais le contenu des vidéos). Ne compte ni les dossiers cachés, ni les liens symboliques, ni les fichiers non vidéo ; les Dossiers privés ne sont comptés que pour un Super-administrateur.
+     */
+    get: operations["previewLibraryIndexRun"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs/current": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Dernière indexation de la Racine vidéo et sa progression (administrateur) */
+    get: operations["getCurrentLibraryIndexRun"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Indexer toutes les vidéos de la Racine qui n'ont pas encore de fiche clip (administrateur, action explicite)
+     * @description mode cards : fiches seulement. mode full : fiches puis analyse complète de chaque nouveau clip, même si l'analyse automatique est désactivée. Une vidéo qui a déjà un clip n'est jamais retraitée. Une seule indexation en cours à la fois. Le travail est fait par le scan géré existant : il survit à un redémarrage.
+     */
+    post: operations["startLibraryIndexRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs/{id}/pause": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Mettre l'indexation en pause : les vidéos restantes ne sont plus demandées (administrateur) */
+    post: operations["pauseLibraryIndexRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs/{id}/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reprendre une indexation en pause (administrateur) */
+    post: operations["resumeLibraryIndexRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs/{id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Annuler l'indexation : les fiches déjà créées sont conservées (administrateur) */
+    post: operations["cancelLibraryIndexRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/settings/automatic-analysis": {
     parameters: {
       query?: never;
@@ -3368,7 +3476,7 @@ export interface components {
       /** @description Whether a nonempty secret is stored. The secret itself is never returned. */
       secret_configured: boolean;
       registration_approval: boolean;
-      /** @description Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL). */
+      /** @description Discord return address to register, built from the public address of the request. */
       callback_url: string;
       /**
        * @description provided : la clé vient de la variable MASTER_KEY ; generated : l'application l'a générée et la conserve dans son volume de secrets.
@@ -4188,6 +4296,45 @@ export interface components {
         id: number;
         display_name: string;
       }[];
+    };
+    IndexRunPreview: {
+      /** @description Vidéos que l'utilisateur peut voir dans la Racine. */
+      detected: number;
+      /** @description Déjà dotées d'une fiche clip : jamais retraitées. */
+      already_indexed: number;
+      /** @description Sans fiche clip : celles qu'une indexation traiterait. */
+      new: number;
+    };
+    IndexRun: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      mode: "cards" | "full";
+      /** @enum {string} */
+      status: "running" | "paused" | "cancelled" | "completed";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      total: number;
+      /** @description Vidéos dont la fiche clip existe. */
+      indexed: number;
+      /** @description Vidéos illisibles ou disparues. */
+      failed: number;
+      pending: number;
+      /** @description Clips de l'indexation dont une analyse a été mise en file (mode full). */
+      analysis_started: number;
+      /** @description Mode full : des vidéos attendent et aucun Worker n'est en ligne. */
+      waiting_for_worker: boolean;
+      /** @description Les premières vidéos en échec, avec leur code. */
+      failures: components["schemas"]["IndexRunFailure"][];
+    };
+    IndexRunFailure: {
+      path: string;
+      code: string;
+    };
+    IndexRunAnswer: {
+      run: components["schemas"]["IndexRun"] | null;
     };
     PersonInput: {
       display_name: string;
@@ -5850,7 +5997,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -5886,7 +6033,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -5951,7 +6098,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -5988,7 +6135,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6021,7 +6168,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -6057,7 +6204,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -6122,7 +6269,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6220,7 +6367,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6299,7 +6446,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6341,7 +6488,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6420,7 +6567,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6456,7 +6603,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6516,7 +6663,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6553,7 +6700,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6586,7 +6733,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -6618,7 +6765,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6770,7 +6917,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -6948,7 +7095,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -8010,7 +8157,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -8045,7 +8192,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -9032,6 +9179,304 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ExplorerIndexResult"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Volume estimé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunPreview"];
+        };
+      };
+      /** @description video_root_unconfigured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description video_selection_too_large : plus de 50 000 vidéos */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getCurrentLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description L'indexation la plus récente, ou run null si aucune n'a jamais été demandée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          mode: "cards" | "full";
+        };
+      };
+    };
+    responses: {
+      /** @description Indexation démarrée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description invalid_index_mode */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_active : une indexation est déjà en cours ou en pause ; video_root_unconfigured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description nothing_to_index : toutes les vidéos ont déjà une fiche ; video_selection_too_large */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  pauseLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Indexation mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description index_run_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_state : l'indexation n'est pas en cours */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resumeLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Indexation mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description index_run_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_state : l'indexation n'est pas en pause */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Indexation mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description index_run_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_state : l'indexation est terminée ou annulée */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */

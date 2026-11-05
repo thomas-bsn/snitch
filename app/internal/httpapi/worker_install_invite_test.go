@@ -45,7 +45,6 @@ func newInstallHarness(t *testing.T, pool *pgxpool.Pool, tls bool) *installHarne
 		ts = httptest.NewServer(server.Handler())
 	}
 	t.Cleanup(ts.Close)
-	server.Config.PublicURL = ts.URL
 	jar, _ := cookiejar.New(nil)
 	h := &installHarness{t: t, ts: ts, server: server, admin: ts.Client(), anon: &http.Client{Transport: ts.Client().Transport}}
 	h.admin.Jar = jar

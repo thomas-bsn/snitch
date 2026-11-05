@@ -139,6 +139,8 @@ export const errorsEn = {
   invalid_microphone_override: "This microphone choice is not valid.",
   invalid_microphone_rule: "This microphone rule is not valid.",
   invalid_mode: "This search mode is not valid.",
+  public_address_unknown:
+    "Snitch cannot determine its public address. Open it through its usual address or check the reverse proxy.",
   invalid_oauth_state:
     "The Discord return is invalid or expired. Start the sign-in again.",
   invalid_page: "This page number is not valid.",
@@ -274,6 +276,13 @@ export const errorsEn = {
   invalid_voice_trial_id: "Invalid trial identifier.",
   no_voice_candidate: "There is no failure to retry for the candidate.",
   voice_profile_deleted: "This voice profile was deleted.",
+  index_run_active:
+    "An indexation of the library is already running or paused.",
+  index_run_state: "This indexation can no longer take that action.",
+  index_run_not_found: "This indexation no longer exists.",
+  nothing_to_index:
+    "Every video already has a clip card: there is nothing to index.",
+  invalid_index_mode: "Choose cards only, or cards and full analysis.",
   person_exists:
     "A person with this name already exists. Pick them, or confirm it is someone else.",
   worker_not_found: "This worker does not exist.",

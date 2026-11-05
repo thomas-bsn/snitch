@@ -296,6 +296,16 @@ type JobLogLine struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type LibraryIndexRun struct {
+	ID         int64              `json:"id"`
+	SourceID   int64              `json:"source_id"`
+	Mode       string             `json:"mode"`
+	Status     string             `json:"status"`
+	CreatedBy  pgtype.Int8        `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+}
+
 type LocalSpeaker struct {
 	ID               int64              `json:"id"`
 	ClipID           int64              `json:"clip_id"`
@@ -360,6 +370,7 @@ type OauthState struct {
 	UserID      pgtype.Int8        `json:"user_id"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 	SessionHash []byte             `json:"session_hash"`
+	RedirectUri string             `json:"redirect_uri"`
 }
 
 type Person struct {
@@ -507,6 +518,7 @@ type SourceFile struct {
 	FirstSeenAt        pgtype.Timestamptz `json:"first_seen_at"`
 	PreviousClipID     pgtype.Int8        `json:"previous_clip_id"`
 	IndexOnly          bool               `json:"index_only"`
+	IndexRunID         pgtype.Int8        `json:"index_run_id"`
 }
 
 type SourceMicrophoneTrack struct {

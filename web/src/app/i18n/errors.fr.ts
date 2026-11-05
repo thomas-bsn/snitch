@@ -148,6 +148,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_microphone_override: "Ce choix de micro n’est pas valide.",
   invalid_microphone_rule: "Cette règle de micro n’est pas valide.",
   invalid_mode: "Ce mode de recherche n’est pas valide.",
+  public_address_unknown:
+    "Snitch ne peut pas déterminer son adresse publique. Ouvrez-le par son adresse habituelle ou vérifiez le mandataire.",
   invalid_oauth_state:
     "Le retour Discord est invalide ou expiré. Recommencez la connexion.",
   invalid_page: "Ce numéro de page n’est pas valide.",
@@ -288,6 +290,14 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_voice_trial_id: "Identifiant d’essai invalide.",
   no_voice_candidate: "Aucun échec à relancer pour le candidat.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
+  index_run_active:
+    "Une indexation de la bibliothèque est déjà en cours ou en pause.",
+  index_run_state: "Cette indexation ne peut plus faire cette action.",
+  index_run_not_found: "Cette indexation n’existe plus.",
+  nothing_to_index:
+    "Toutes les vidéos ont déjà une fiche clip : il n’y a rien à indexer.",
+  invalid_index_mode:
+    "Choisissez les fiches seules, ou les fiches avec l’analyse complète.",
   person_exists:
     "Une personne porte déjà ce nom. Choisissez-la, ou confirmez qu’il s’agit de quelqu’un d’autre.",
   worker_not_found: "Ce Worker n’existe pas.",

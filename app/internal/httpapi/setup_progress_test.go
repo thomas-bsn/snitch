@@ -31,7 +31,6 @@ func testSetupProgress(t *testing.T, pool *pgxpool.Pool) {
 	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
-	server.Config.PublicURL = ts.URL
 	newClient := func() *http.Client {
 		jar, err := cookiejar.New(nil)
 		if err != nil {

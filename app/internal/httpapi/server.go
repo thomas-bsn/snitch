@@ -115,8 +115,7 @@ func (s *Server) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		s.startAutomaticAnalysis(ctx, id)
-		return nil
+		return s.startAnalysisAfterManagedScan(ctx, id)
 	}
 	if err := s.Library.Start(ctx); err != nil {
 		s.Uploads.Close()
@@ -184,6 +183,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/library/explorer/index", s.protected(false, http.HandlerFunc(s.explorerIndex)))
 	mux.Handle("POST /api/admin/video-root/folders", s.protected(true, http.HandlerFunc(s.videoFolder)))
 	mux.Handle("POST /api/admin/video-root/scan", s.protected(true, http.HandlerFunc(s.videoScan)))
+	mux.Handle("GET /api/admin/library/index-runs/preview", s.protected(true, http.HandlerFunc(s.previewIndexRun)))
+	mux.Handle("GET /api/admin/library/index-runs/current", s.protected(true, http.HandlerFunc(s.currentIndexRun)))
+	mux.Handle("POST /api/admin/library/index-runs", s.protected(true, http.HandlerFunc(s.startIndexRun)))
+	mux.Handle("POST /api/admin/library/index-runs/{id}/pause", s.protected(true, http.HandlerFunc(s.pauseIndexRun)))
+	mux.Handle("POST /api/admin/library/index-runs/{id}/resume", s.protected(true, http.HandlerFunc(s.resumeIndexRun)))
+	mux.Handle("POST /api/admin/library/index-runs/{id}/cancel", s.protected(true, http.HandlerFunc(s.cancelIndexRun)))
 	// The import picker (#224): any signed-in user, with the same Dossier privé rule as the scan above.
 	mux.Handle("POST /api/library/import/scan", s.protected(false, http.HandlerFunc(s.videoScan)))
 	mux.Handle("POST /api/folder-requests", s.protected(false, http.HandlerFunc(s.createFolderRequest)))
@@ -867,14 +872,22 @@ func (s *Server) discordStart(w http.ResponseWriter, r *http.Request) {
 		c, _ := sessionCookie(r)
 		sessionHash = auth.Hash(c.Value)
 	}
+	// The return address is computed once, here, and stored with the state: the callback reuses it
+	// verbatim and never rebuilds it from its own (possibly different) proxy headers.
+	origin := s.publicOrigin(r)
+	if origin == "" {
+		fail(w, 400, "public_address_unknown")
+		return
+	}
+	redirectURI := origin + "/api/auth/discord/callback"
 	state, browser := auth.Token(), auth.Token()
-	_, err = s.Pool.Exec(r.Context(), `INSERT INTO oauth_states(state_hash,browser_hash,user_id,session_hash,expires_at) VALUES($1,$2,$3,$4,now()+interval '10 minutes')`, auth.Hash(state), auth.Hash(browser), userID, sessionHash)
+	_, err = s.Pool.Exec(r.Context(), `INSERT INTO oauth_states(state_hash,browser_hash,user_id,session_hash,redirect_uri,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval '10 minutes')`, auth.Hash(state), auth.Hash(browser), userID, sessionHash, redirectURI)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	s.cookie(w, r, "snitch_oauth", browser, 600)
-	q := url.Values{"client_id": {id}, "response_type": {"code"}, "scope": {"identify"}, "state": {state}, "redirect_uri": {s.publicOrigin(r) + "/api/auth/discord/callback"}}
+	q := url.Values{"client_id": {id}, "response_type": {"code"}, "scope": {"identify"}, "state": {state}, "redirect_uri": {redirectURI}}
 	reply(w, 200, map[string]string{"url": s.Config.DiscordAuthorizeURL + "?" + q.Encode()})
 }
 
@@ -897,7 +910,8 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	var userID *int64
 	var sessionHash []byte
-	err = s.Pool.QueryRow(r.Context(), `DELETE FROM oauth_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING user_id,session_hash`, auth.Hash(state), auth.Hash(browser.Value)).Scan(&userID, &sessionHash)
+	var redirectURI string
+	err = s.Pool.QueryRow(r.Context(), `DELETE FROM oauth_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING user_id,session_hash,redirect_uri`, auth.Hash(state), auth.Hash(browser.Value)).Scan(&userID, &sessionHash, &redirectURI)
 	if err != nil {
 		s.oauthFailure(w, r, 400, "invalid_oauth_state")
 		return
@@ -934,7 +948,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		s.oauthFailure(w, r, 503, "unavailable")
 		return
 	}
-	form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {id}, "client_secret": {secret}, "redirect_uri": {s.publicOrigin(r) + "/api/auth/discord/callback"}}
+	form := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {id}, "client_secret": {secret}, "redirect_uri": {redirectURI}}
 	req, err := http.NewRequestWithContext(r.Context(), "POST", s.Config.DiscordTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		s.discordStepFailed("token_exchange", "request_build", 0, nil, err)

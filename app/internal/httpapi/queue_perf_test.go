@@ -165,7 +165,6 @@ func testQueuePerformance(t *testing.T, pool *pgxpool.Pool) {
 	server := New(traced, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	server.Events.Poll, server.Events.Heartbeat = 50*time.Millisecond, time.Minute
 	ts := httptest.NewUnstartedServer(server.Handler())
-	server.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 

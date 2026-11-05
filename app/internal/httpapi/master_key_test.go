@@ -56,7 +56,6 @@ func testMasterKey(t *testing.T, pool *pgxpool.Pool) {
 		}
 		s := New(pool, config.Config{MasterKey: key, MasterKeyOrigin: origin}, slog.New(slog.NewJSONHandler(&logs, nil)))
 		ts := httptest.NewUnstartedServer(s.Handler())
-		s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 		ts.Start()
 		t.Cleanup(ts.Close)
 		call := func(t *testing.T, method, path, data, csrf string, want int) []byte {

@@ -141,6 +141,7 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPublicAddress(t, pool)
 	})
+	t.Run("Discord redirect address is stable", func(t *testing.T) { reset(t); testDiscordRedirectStability(t, pool) })
 	t.Run("registration and approval", func(t *testing.T) {
 		reset(t)
 		testRegistration(t, pool)
@@ -441,6 +442,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonDuplicates(t, pool)
 	})
+	t.Run("library index", func(t *testing.T) {
+		reset(t)
+		testLibraryIndex(t, pool)
+	})
 	t.Run("person filter", func(t *testing.T) {
 		reset(t)
 		testPersonFilter(t, pool)
@@ -667,7 +672,6 @@ func TestFoundation(t *testing.T) {
 		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ClipRoots: []string{clipRoot}, ProbePath: "ffprobe", StabilityWindow: time.Hour}, logger)
 		// High test allowance isolates security tests from test-suite request volume.
 		ts := httptest.NewUnstartedServer(s.Handler())
-		s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 		ts.Start()
 		defer ts.Close()
 		jar, _ := cookiejar.New(nil)
@@ -1030,6 +1034,13 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/library/explorer/index", map[string]string{"path": "contract.mp4"}, me.CSRF, 409)
 		call(client, "GET", "/api/admin/settings/automatic-analysis", nil, "", 200)
 		call(client, "PUT", "/api/admin/settings/automatic-analysis", map[string]bool{"enabled": true}, me.CSRF, 200)
+		// Indexation of the whole video root (#275): conformity here, behavior in the library index suite.
+		call(client, "GET", "/api/admin/library/index-runs/preview", nil, "", 409)
+		call(client, "GET", "/api/admin/library/index-runs/current", nil, "", 200)
+		call(client, "POST", "/api/admin/library/index-runs", map[string]string{"mode": "cards"}, me.CSRF, 409)
+		call(client, "POST", "/api/admin/library/index-runs/999999/pause", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/library/index-runs/999999/resume", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/library/index-runs/999999/cancel", nil, me.CSRF, 404)
 		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": false}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
 		call(client, "GET", sourcePath+"/microphone-track", nil, "", 200)
@@ -1389,6 +1400,13 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_SEGMENT_RETRANSCRIPTION") == "1" {
 			suites = []string{"clip-corrections.spec.ts", "segment-replace-corrections.spec.ts"}
 		}
+		// CI splits the browser suites over parallel jobs, each with its own PostgreSQL: "i/n" runs shard i of n.
+		if spec := os.Getenv("SNITCH_E2E_SHARD"); spec != "" {
+			var e error
+			if suites, e = shardSuites(suites, spec); e != nil {
+				t.Fatal(e)
+			}
+		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
 				reset(t)
@@ -1501,7 +1519,6 @@ func TestFoundation(t *testing.T) {
 					browserDiscord(t, s)
 				}
 				ts := httptest.NewUnstartedServer(s.Handler())
-				s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 				ts.Start()
 				defer ts.Close()
 				args := []string{"run", "test:e2e", "--", suite}

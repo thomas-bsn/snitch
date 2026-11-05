@@ -31,7 +31,6 @@ func testJobControls(t *testing.T, pool *pgxpool.Pool) {
 	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	ts := httptest.NewTLSServer(server.Handler())
 	t.Cleanup(ts.Close)
-	server.Config.PublicURL = ts.URL
 	admin, err := cookiejar.New(nil)
 	if err != nil {
 		t.Fatal(err)
