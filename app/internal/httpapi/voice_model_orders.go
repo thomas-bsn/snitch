@@ -39,7 +39,7 @@ type voiceModelOrderView struct {
 	Revision       string `json:"revision"`
 	IdempotencyKey string `json:"idempotency_key"`
 	Status         string `json:"status"`
-	// HFToken is set only on the first delivery of an order that downloads a gated model (ADR 0027).
+	// HFToken is set on each delivery of an unfinished order that installs a gated model (ADR 0027).
 	HFToken   string    `json:"hf_token,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	// SizeBytes is the size the catalogue announces: the Worker checks its free disk against it before downloading.
@@ -178,8 +178,9 @@ func (s *Server) createVoiceModelOrder(w http.ResponseWriter, r *http.Request) {
 	reply(w, status, order)
 }
 
-// pendingOrders are the orders a Worker still has to run. The central Hugging Face token travels once, with
-// the first delivery of an order that downloads a gated model, and with no other order.
+// pendingOrders are the orders a Worker still has to run. The central Hugging Face token travels with each
+// delivery of an unfinished order that installs a gated model, and with no other order: a Worker that crashed
+// before writing its secret file gets it again, and nothing is sent once the order is over (ADR 0027).
 func (s *Server) pendingOrders(ctx context.Context, workerID string) ([]voiceModelOrderView, error) {
 	rows, err := s.Pool.Query(ctx, `SELECT `+orderColumns+`,c.gated FROM worker_model_orders o JOIN voice_model_catalog c ON c.id=o.model_id WHERE o.worker_id=$1 AND o.status IN ('pending','acknowledged') ORDER BY o.created_at,o.id`, workerID)
 	if err != nil {
@@ -202,7 +203,7 @@ func (s *Server) pendingOrders(ctx context.Context, workerID string) ([]voiceMod
 	}
 	var token string
 	for i, o := range out {
-		if o.Status == "pending" && gated[i] {
+		if o.Action == "install" && gated[i] {
 			if token == "" {
 				state, _, err := s.hfRead(ctx)
 				if err != nil {

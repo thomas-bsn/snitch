@@ -158,9 +158,11 @@ class OrderExecutor:
                 self._post_ack(http, order_id, False)
             return
         outcome = state["orders"].get(order_id)
+        # Snitch redelivers the token with an unfinished gated order: one that arrives after a crash restores the
+        # file, but a file already there is not rewritten at each pull.
+        if isinstance(token, str) and token and (order.get("status", "pending") == "pending" or not os.path.exists(self._token_file)):
+            self._keep_token(token)
         if order.get("status", "pending") == "pending":
-            if isinstance(token, str) and token:
-                self._keep_token(token)
             self._post_ack(http, order_id, True)
         if seen is None:
             state["keys"][key] = {"order_id": order_id, "content": content}

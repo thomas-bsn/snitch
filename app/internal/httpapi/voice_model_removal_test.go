@@ -70,6 +70,9 @@ func testVoiceModelExplicitRemoval(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("removing expected: %+v", c)
 	}
 	orders := h.workerOrders()
+	if len(orders) == 1 && orders[0].HFToken != "" {
+		t.Fatalf("a removal never carries the token: %+v", orders)
+	}
 	if len(orders) != 1 || orders[0].Action != "remove" {
 		t.Fatalf("the Worker receives the order: %+v", orders)
 	}

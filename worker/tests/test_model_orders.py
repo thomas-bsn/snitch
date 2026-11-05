@@ -279,6 +279,12 @@ class TokenTests(unittest.TestCase):
             self.assertNotIn(voice_download.TOKEN_FILE_ENV, env)
         self.assertNotIn(SECRET, json.dumps(dict(os.environ)))
 
+    def test_a_redelivered_acknowledged_order_restores_a_token_lost_in_a_crash(self):
+        h = Harness(self)
+        h.sync(FakeSnitch([order(hf_token=SECRET, status="acknowledged")]))
+        with open(h.token_file, encoding="utf-8") as handle:
+            self.assertEqual(handle.read().strip(), SECRET)
+
     def test_a_local_token_is_never_replaced_by_an_order(self):
         h = Harness(self)
         voice_download.persist_token(h.token_file, "hf_LocalTokenOnly0123456789")
