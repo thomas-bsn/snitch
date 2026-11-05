@@ -202,7 +202,7 @@ test.describe.serial("assistant d'installation", () => {
     const env = await page
       .getByRole("textbox", { name: "Content of .env" })
       .inputValue();
-    expect(env).toContain("HF_TOKEN=A_RENSEIGNER");
+    expect(env).not.toContain("HF_TOKEN");
     expect(env).not.toContain(HF_TOKEN);
     expect(env).toMatch(/^SNITCH_WORKER_TOKEN=rw_\S+$/m);
     await expectNoViolations(page);

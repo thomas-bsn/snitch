@@ -238,8 +238,8 @@ test.describe.serial("administration et Workers", () => {
     await page.getByText("Advanced: deployment files").click();
     const env = page.getByRole("textbox", { name: "Content of .env" });
     const text = await env.inputValue();
-    // The Hugging Face token is never typed in Snitch: the file only carries a placeholder to fill by hand.
-    expect(text).toContain("HF_TOKEN=A_RENSEIGNER");
+    // A new Worker downloads no voice model: the file carries no Hugging Face variable at all.
+    expect(text).not.toContain("HF_TOKEN");
     expect(text).not.toContain(HF_TOKEN);
     expect(text).toContain(
       "TRANSCRIPTION_API_URL=http://host.docker.internal:8000",
