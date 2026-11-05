@@ -26,6 +26,7 @@ func (s *Server) registerVoiceModelRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/admin/workers/{id}/voice-models/retry", s.protected(true, http.HandlerFunc(s.retryWorkerVoiceModel)))
 	mux.Handle("GET /api/admin/voice-models/workers", s.protected(true, http.HandlerFunc(s.listModelsByWorker)))
 	mux.Handle("POST /api/admin/workers/{id}/voice-model-orders", s.protected(true, http.HandlerFunc(s.createVoiceModelOrder)))
+	mux.Handle("DELETE /api/admin/workers/{id}/voice-model-replacements/{kind}", s.protected(true, http.HandlerFunc(s.cancelVoiceModelReplacement)))
 	mux.Handle("POST /api/worker/voice-model-orders/{id}/ack", s.workerOnly(http.HandlerFunc(s.ackWorkerModelOrder)))
 	mux.Handle("GET /api/worker/voice-models", s.workerOnly(http.HandlerFunc(s.getWorkerVoiceModels)))
 	mux.Handle("POST /api/worker/voice-models/status", s.workerOnly(http.HandlerFunc(s.postWorkerVoiceModelStatus)))
@@ -291,33 +292,40 @@ func (s *Server) switchVoicePipeline(ctx context.Context, entry *voiceCatalogEnt
 	var version string
 	var config voicePipeline
 	err := s.withVoiceModelLock(ctx, func(tx pgx.Tx) error {
-		if entry != nil {
-			ready, err := voiceModelReadyIn(ctx, tx, entry.ID)
-			if err != nil {
-				return err
-			}
-			if !ready {
-				return errVoiceModelNotReady
-			}
-		}
-		var raw []byte
-		if err := tx.QueryRow(ctx, `SELECT v.config FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&raw); err != nil {
-			return err
-		}
-		var current voicePipeline
-		if err := json.Unmarshal(raw, &current); err != nil {
-			return err
-		}
-		config = build(current)
 		var err error
-		if version, err = saveVoicePipelineIn(ctx, tx, config); err != nil {
-			return err
-		}
-		if entry != nil {
-			_, err = tx.Exec(ctx, `DELETE FROM voice_model_candidate WHERE model_id=$1`, entry.ID)
-		}
+		version, config, err = switchVoicePipelineIn(ctx, tx, entry, build)
 		return err
 	})
+	return version, config, err
+}
+
+// switchVoicePipelineIn is the same switch inside a transaction that already holds the voice model lock.
+func switchVoicePipelineIn(ctx context.Context, tx pgx.Tx, entry *voiceCatalogEntry, build func(current voicePipeline) voicePipeline) (string, voicePipeline, error) {
+	if entry != nil {
+		ready, err := voiceModelReadyIn(ctx, tx, entry.ID)
+		if err != nil {
+			return "", voicePipeline{}, err
+		}
+		if !ready {
+			return "", voicePipeline{}, errVoiceModelNotReady
+		}
+	}
+	var raw []byte
+	if err := tx.QueryRow(ctx, `SELECT v.config FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&raw); err != nil {
+		return "", voicePipeline{}, err
+	}
+	var current voicePipeline
+	if err := json.Unmarshal(raw, &current); err != nil {
+		return "", voicePipeline{}, err
+	}
+	config := build(current)
+	version, err := saveVoicePipelineIn(ctx, tx, config)
+	if err != nil {
+		return "", voicePipeline{}, err
+	}
+	if entry != nil {
+		_, err = tx.Exec(ctx, `DELETE FROM voice_model_candidate WHERE model_id=$1`, entry.ID)
+	}
 	return version, config, err
 }
 
@@ -440,6 +448,11 @@ type workerVoiceModel struct {
 
 func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 	worker := currentWorker(r)
+	// A job that has ended may let a replacement go on: the removal order is decided here, on the pull.
+	if err := s.advanceWorkerReplacements(r.Context(), worker.ID); err != nil {
+		s.internal(w, err)
+		return
+	}
 	active, err := s.activeVoiceModelID(r)
 	if err != nil {
 		s.internal(w, err)

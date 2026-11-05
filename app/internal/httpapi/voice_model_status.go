@@ -43,26 +43,28 @@ func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Reque
 	// A report that answers an order: the order must be this Worker's, for this model and revision, and still
 	// open. A report that repeats the outcome already recorded is accepted without effect.
 	err = s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
-		var status, modelID, revision string
-		err := tx.QueryRow(r.Context(), `SELECT status,model_id,revision FROM worker_model_orders WHERE id=$1 AND worker_id=$2`, input.OrderID, worker.ID).Scan(&status, &modelID, &revision)
+		var status, modelID, revision, action string
+		err := tx.QueryRow(r.Context(), `SELECT status,model_id,revision,action FROM worker_model_orders WHERE id=$1 AND worker_id=$2`, input.OrderID, worker.ID).Scan(&status, &modelID, &revision, &action)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return orderFailure{http.StatusNotFound, "voice_order_not_found"}
 		}
 		if err != nil {
 			return err
 		}
-		if modelID != input.ModelID || input.State == "removed" || (input.Revision != "" && input.Revision != revision) {
+		// An install order reports the progress of the model; a remove order reports the removal and nothing else.
+		removal := action == "remove"
+		if modelID != input.ModelID || (input.Revision != "" && input.Revision != revision) || removal != (input.State == "removed" || (removal && failed)) {
 			return orderFailure{http.StatusBadRequest, "invalid_voice_model_status"}
 		}
-		if status == "done" || status == "failed" || status == "refused" {
-			if (status == "done" && input.State == "ready") || (status == "failed" && failed) {
+		if status == "done" || status == "failed" || status == "refused" || status == "cancelled" {
+			if (status == "done" && (input.State == "ready" || input.State == "removed")) || (status == "failed" && failed) {
 				return nil
 			}
 			return orderFailure{http.StatusConflict, "stale_voice_order"}
 		}
 		next := "acknowledged"
 		switch input.State {
-		case "ready":
+		case "ready", "removed":
 			next = "done"
 		case "failed":
 			next = "failed"
@@ -70,10 +72,18 @@ func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Reque
 		if _, err = tx.Exec(r.Context(), `UPDATE worker_model_orders SET status=$2,cause_code=$3,acked_at=COALESCE(acked_at,now()),finished_at=CASE WHEN $2 IN ('done','failed') THEN now() END WHERE id=$1`, input.OrderID, next, input.CauseCode); err != nil {
 			return err
 		}
-		_, err = tx.Exec(r.Context(), `INSERT INTO worker_voice_models(worker_id,model_id,state,cause_code,bytes_received,bytes_total,occupied_bytes,revision,order_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		if removal {
+			if input.State == "removed" {
+				return removalDone(r.Context(), tx, worker.ID, modelID)
+			}
+			return removalFailed(r.Context(), tx, worker.ID, modelID, input.CauseCode)
+		}
+		if _, err = tx.Exec(r.Context(), `INSERT INTO worker_voice_models(worker_id,model_id,state,cause_code,bytes_received,bytes_total,occupied_bytes,revision,order_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
 			ON CONFLICT(worker_id,model_id) DO UPDATE SET state=EXCLUDED.state,cause_code=EXCLUDED.cause_code,bytes_received=EXCLUDED.bytes_received,bytes_total=EXCLUDED.bytes_total,occupied_bytes=EXCLUDED.occupied_bytes,revision=EXCLUDED.revision,order_id=EXCLUDED.order_id,retry_requested=false,updated_at=now()`,
-			worker.ID, input.ModelID, input.State, input.CauseCode, input.BytesReceived, input.BytesTotal, input.OccupiedBytes, revision, input.OrderID)
-		return err
+			worker.ID, input.ModelID, input.State, input.CauseCode, input.BytesReceived, input.BytesTotal, input.OccupiedBytes, revision, input.OrderID); err != nil {
+			return err
+		}
+		return s.advanceReplacementsIn(r.Context(), tx, worker.ID)
 	})
 	if err != nil {
 		if !s.writeOrderFailure(w, err) {
@@ -112,6 +122,14 @@ func (s *Server) retryVoiceModelOrder(w http.ResponseWriter, r *http.Request, wo
 	if !decode(w, r, &input) {
 		return
 	}
+	// A replacement whose removal of the old model failed: Retry orders the removal again.
+	if retried, err := s.retryReplacementRemoval(r.Context(), workerID, input.ModelID); err != nil {
+		s.internal(w, err)
+		return
+	} else if retried {
+		reply(w, http.StatusOK, map[string]bool{"retry_requested": true})
+		return
+	}
 	var state string
 	err := s.Pool.QueryRow(r.Context(), `SELECT state FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2`, workerID, input.ModelID).Scan(&state)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -123,7 +141,7 @@ func (s *Server) retryVoiceModelOrder(w http.ResponseWriter, r *http.Request, wo
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	order, created, err := s.installOrder(r.Context(), ss, workerID, input.ModelID, input.IdempotencyKey)
+	order, created, err := s.installOrder(r.Context(), ss, workerID, input.ModelID, input.IdempotencyKey, "")
 	if err != nil {
 		if !s.writeOrderFailure(w, err) {
 			s.internal(w, err)

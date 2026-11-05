@@ -42,11 +42,13 @@ type voiceModelOrderView struct {
 	// HFToken is set only on the first delivery of an order that downloads a gated model (ADR 0027).
 	HFToken   string    `json:"hf_token,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
+	// SizeBytes is the size the catalogue announces: the Worker checks its free disk against it before downloading.
+	SizeBytes int64 `json:"size_bytes"`
 }
 
 // installOrder records an order to install modelID on a Worker, or returns the one already recorded under the
 // same key. It runs under the voice model lock so that what it read is still true when it writes.
-func (s *Server) installOrder(ctx context.Context, author session, workerID, modelID, key string) (voiceModelOrderView, bool, error) {
+func (s *Server) installOrder(ctx context.Context, author session, workerID, modelID, key, replaces string) (voiceModelOrderView, bool, error) {
 	if !idempotencyKeyFormat.MatchString(key) {
 		return voiceModelOrderView{}, false, orderFailure{http.StatusBadRequest, "invalid_idempotency_key"}
 	}
@@ -81,6 +83,10 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 		if !ok || !entry.Enabled || !entry.Supported {
 			return orderFailure{http.StatusBadRequest, "invalid_voice_model"}
 		}
+		replacing, err := checkReplacement(ctx, tx, workerID, entry, replaces)
+		if err != nil {
+			return err
+		}
 		var state string
 		switch err = tx.QueryRow(ctx, `SELECT state FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2`, workerID, modelID).Scan(&state); {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -91,9 +97,10 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 		case state != "failed":
 			return orderFailure{http.StatusConflict, "voice_model_order_in_progress"}
 		}
-		// At most one model per type and Worker: replacing one is a separate decision.
+		// At most one model per type and Worker, except while a replacement installs its successor next to the
+		// model it replaces: that pair is the only one allowed.
 		var occupied bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_voice_models m JOIN voice_model_catalog c ON c.id=m.model_id WHERE m.worker_id=$1 AND c.kind=$2 AND m.model_id<>$3 AND m.state<>'failed')`, workerID, entry.Kind, modelID).Scan(&occupied); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_voice_models m JOIN voice_model_catalog c ON c.id=m.model_id WHERE m.worker_id=$1 AND c.kind=$2 AND m.model_id NOT IN ($3,$4) AND m.state<>'failed')`, workerID, entry.Kind, modelID, replacing).Scan(&occupied); err != nil {
 			return err
 		}
 		if occupied {
@@ -109,6 +116,13 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 			workerID, entry.ID, entry.Revision, id); err != nil {
 			return err
 		}
+		if replacing != "" {
+			if _, err = tx.Exec(ctx, `INSERT INTO worker_model_replacements(worker_id,kind,old_model_id,new_model_id,phase,author_id,author_name) VALUES($1,$2,$3,$4,'preparing',$5,$6)
+				ON CONFLICT(worker_id,kind) DO UPDATE SET new_model_id=EXCLUDED.new_model_id,phase='preparing',cause_code='',updated_at=now()`,
+				workerID, entry.Kind, replacing, entry.ID, author.User.ID, author.User.Username); err != nil {
+				return err
+			}
+		}
 		created = true
 		out, err = orderByID(ctx, tx, id)
 		return err
@@ -119,11 +133,11 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 	return out, created, err
 }
 
-const orderColumns = `o.id,o.worker_id,o.kind,o.action,o.model_id,c.engine,c.repo,o.revision,o.idempotency_key,o.status,o.created_at`
+const orderColumns = `o.id,o.worker_id,o.kind,o.action,o.model_id,c.engine,c.repo,o.revision,o.idempotency_key,o.status,o.created_at,c.size_bytes`
 
 func scanOrder(row pgx.Row) (voiceModelOrderView, error) {
 	var o voiceModelOrderView
-	err := row.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt)
+	err := row.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes)
 	return o, err
 }
 
@@ -144,12 +158,13 @@ func (s *Server) createVoiceModelOrder(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		ModelID        string `json:"model_id"`
 		IdempotencyKey string `json:"idempotency_key"`
+		ReplacesModel  string `json:"replaces_model_id"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	order, created, err := s.installOrder(r.Context(), ss, r.PathValue("id"), input.ModelID, input.IdempotencyKey)
+	order, created, err := s.installOrder(r.Context(), ss, r.PathValue("id"), input.ModelID, input.IdempotencyKey, input.ReplacesModel)
 	if err != nil {
 		if !s.writeOrderFailure(w, err) {
 			s.internal(w, err)
@@ -176,7 +191,7 @@ func (s *Server) pendingOrders(ctx context.Context, workerID string) ([]voiceMod
 	for rows.Next() {
 		var o voiceModelOrderView
 		var g bool
-		if err = rows.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &g); err != nil {
+		if err = rows.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes, &g); err != nil {
 			return nil, err
 		}
 		out = append(out, o)
@@ -216,8 +231,8 @@ func (s *Server) ackWorkerModelOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	worker := currentWorker(r)
 	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
-		var status, modelID, orderID string
-		err := tx.QueryRow(r.Context(), `SELECT id,status,model_id FROM worker_model_orders WHERE id=$1 AND worker_id=$2`, r.PathValue("id"), worker.ID).Scan(&orderID, &status, &modelID)
+		var status, modelID, orderID, action string
+		err := tx.QueryRow(r.Context(), `SELECT id,status,model_id,action FROM worker_model_orders WHERE id=$1 AND worker_id=$2`, r.PathValue("id"), worker.ID).Scan(&orderID, &status, &modelID, &action)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return orderFailure{http.StatusNotFound, "voice_order_not_found"}
 		}
@@ -233,6 +248,9 @@ func (s *Server) ackWorkerModelOrder(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, err = tx.Exec(r.Context(), `UPDATE worker_model_orders SET status='refused',cause_code='invalid_order',acked_at=now(),finished_at=now() WHERE id=$1`, orderID); err != nil {
 			return err
+		}
+		if action == "remove" {
+			return removalFailed(r.Context(), tx, worker.ID, modelID, "invalid_order")
 		}
 		_, err = tx.Exec(r.Context(), `UPDATE worker_voice_models SET state='failed',cause_code='invalid_order',updated_at=now() WHERE worker_id=$1 AND model_id=$2 AND order_id=$3`, worker.ID, modelID, orderID)
 		return err
@@ -259,6 +277,10 @@ type workerModelCell struct {
 	BytesTotal    int64  `json:"bytes_total"`
 	OccupiedBytes int64  `json:"occupied_bytes"`
 	OrderID       string `json:"order_id"`
+	// ReplacesModelID is the model this one is replacing on the Worker; WaitingForJobs says the removal of that
+	// old model waits for a running job.
+	ReplacesModelID string `json:"replaces_model_id"`
+	WaitingForJobs  bool   `json:"waiting_for_jobs"`
 }
 
 type workerModelsRow struct {
@@ -284,25 +306,8 @@ func (s *Server) listModelsByWorker(w http.ResponseWriter, r *http.Request) {
 	for _, e := range catalog {
 		supported[e.Kind] = supported[e.Kind] || (e.Enabled && e.Supported)
 	}
-	// One cell per Worker and type: a model that is not failed wins over a failed attempt, then the latest.
-	rows, err := s.Pool.Query(r.Context(), `SELECT DISTINCT ON (m.worker_id, c.kind) m.worker_id,c.kind,m.model_id,c.label,c.repo,m.revision,m.state,m.cause_code,m.bytes_received,m.bytes_total,m.occupied_bytes,COALESCE(m.order_id,'')
-		FROM worker_voice_models m JOIN voice_model_catalog c ON c.id=m.model_id ORDER BY m.worker_id, c.kind, (m.state='failed'), m.updated_at DESC`)
+	held, err := s.heldModelCells(r.Context())
 	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	defer rows.Close()
-	held := map[[2]string]workerModelCell{}
-	for rows.Next() {
-		var workerID string
-		var c workerModelCell
-		if err = rows.Scan(&workerID, &c.Kind, &c.ModelID, &c.Label, &c.Repo, &c.Revision, &c.State, &c.CauseCode, &c.BytesReceived, &c.BytesTotal, &c.OccupiedBytes, &c.OrderID); err != nil {
-			s.internal(w, err)
-			return
-		}
-		held[[2]string{workerID, c.Kind}] = c
-	}
-	if err = rows.Err(); err != nil {
 		s.internal(w, err)
 		return
 	}
