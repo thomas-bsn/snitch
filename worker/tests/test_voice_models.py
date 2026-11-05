@@ -50,8 +50,10 @@ class Harness:
         )
 
     def sync(self, models=(), remove=()):
-        self.manager.apply({"models": list(models), "remove": list(remove)})
-        self.manager.wait()
+        # What an order does: the manager only prepares a model it is explicitly handed.
+        for item in models:
+            self.manager.prepare(item, self.reports.append)
+        self.manager.remove(list(remove), self.reports.append)
 
     def states(self, model_id="test-b"):
         return [r["state"] for r in self.reports if r["model_id"] == model_id]
@@ -74,15 +76,16 @@ class PreparationTests(unittest.TestCase):
         reports = len(h.reports)
         h.sync([MODEL])
         self.assertEqual(len(h.downloads), 1)
-        self.assertEqual(len(h.reports), reports)
+        # An explicit order for a model already held answers "ready" once, without a download or a verification.
+        self.assertEqual([r["state"] for r in h.reports[reports:]], ["ready"])
+        self.assertEqual(len(h.verified), 1)
 
     def test_a_restart_keeps_the_proof_without_downloading_again(self):
         h = Harness(self)
         h.sync([MODEL])
         restarted: list[dict] = []
         second = voice_models.ModelManager(h.env, h.manager._download, h.manager._verify, restarted.append)
-        second.apply({"models": [MODEL], "remove": []})
-        second.wait()
+        second.prepare(MODEL, restarted.append)
         self.assertEqual(len(h.downloads), 1)
         self.assertEqual([r["state"] for r in restarted], ["ready"])
 
@@ -95,7 +98,7 @@ class PreparationTests(unittest.TestCase):
         self.assertEqual(h.downloads[0][2], target)
         self.assertEqual(h.states()[-1], "ready")
 
-    def test_failures_carry_a_stable_cause_and_are_not_retried_alone(self):
+    def test_failures_carry_a_stable_cause(self):
         for error, cause in (
             (voice_models.DownloadFailed("hf_token_missing"), "hf_token_missing"),
             (voice_models.DownloadFailed("hf_access_denied"), "hf_access_denied"),
@@ -109,10 +112,8 @@ class PreparationTests(unittest.TestCase):
             h.sync([MODEL])
             self.assertEqual(h.reports[-1], {"model_id": "test-b", "state": "failed", "cause_code": cause, "bytes_received": 0, "bytes_total": 0})
             self.assertNotIn(SECRET, repr(h.reports))
-            h.sync([MODEL])
-            self.assertEqual(sum(1 for r in h.reports if r["state"] == "failed"), 1)
 
-    def test_retry_prepares_again_after_a_failure(self):
+    def test_a_new_order_prepares_again_after_a_failure(self):
         calls = {"n": 0}
 
         def flaky(repo, revision, target, progress):
@@ -125,7 +126,7 @@ class PreparationTests(unittest.TestCase):
         h = Harness(self, download=flaky)
         h.sync([MODEL])
         self.assertEqual(h.states()[-1], "failed")
-        h.sync([{**MODEL, "retry": True}])
+        h.sync([MODEL])
         self.assertEqual(h.states()[-1], "ready")
 
     def test_verification_failures_map_to_runtime_or_inference_causes(self):
@@ -375,16 +376,32 @@ class SyncTests(unittest.TestCase):
         http.get.return_value = response
         return client, http
 
-    def test_sync_pulls_the_desired_state_and_posts_each_report(self):
+    def test_sync_never_prepares_a_model_snitch_merely_lists(self):
         h = Harness(self)
-        client, http = self.client(200, {"models": [MODEL], "remove": []})
+        client, http = self.client(200, {"models": [MODEL, {**MODEL, "role": "active", "model_id": "test-a"}], "remove": [], "orders": []})
+        voice_models.sync_voice_models(client, h.manager)
+        http.get.assert_called_with("/api/worker/voice-models")
+        self.assertEqual(h.downloads, [])
+        self.assertEqual(h.verified, [])
+        http.post.assert_not_called()
+        self.assertFalse(os.path.exists(voice_models.models_root(h.env)))
+
+    def test_a_pull_after_a_restart_downloads_nothing_even_for_a_failed_or_missing_model(self):
+        for _ in range(2):  # a fresh manager each time: nothing is remembered in the process
+            h = Harness(self)
+            client, http = self.client(200, {"models": [MODEL], "remove": []})
+            voice_models.sync_voice_models(client, h.manager)
+            self.assertEqual(h.downloads, [])
+
+    def test_sync_still_removes_what_snitch_asks_to_remove(self):
+        h = Harness(self)
+        h.sync([MODEL])
+        path = voice_models.model_path(h.env, REPO, REVISION)
+        client, http = self.client(200, {"models": [], "remove": [MODEL]})
         http.post.return_value = Mock(status_code=204)
         voice_models.sync_voice_models(client, h.manager)
-        h.manager.wait()
-        http.get.assert_called_with("/api/worker/voice-models")
-        posted = [call.kwargs["json"]["state"] for call in http.post.call_args_list]
-        self.assertEqual(posted[-2:], ["verifying", "ready"])
-        self.assertEqual(voice_models.active_repo(), "")
+        self.assertFalse(os.path.exists(path))
+        self.assertEqual(http.post.call_args.kwargs["json"]["state"], "removed")
 
     def test_a_server_without_the_contract_is_tolerated(self):
         h = Harness(self)

@@ -1659,9 +1659,6 @@ export const en = {
       libraryModel: "Library model",
       libraryModelHint:
         "Shared by every Worker. Change it in Administration, Transcription.",
-      hf: "Hugging Face token",
-      hfHint:
-        "Accept the pyannote conditions on Hugging Face first, then paste a read-only token. It only serves to download the voice models on the first start. Snitch never receives it and does not keep it: it is written into the .env file below, in your browser.",
       submit: "Create the Worker",
       submitting: "Creating…",
       cancel: "Cancel",
@@ -1673,9 +1670,7 @@ export const en = {
       shownOnce:
         "Copy the installation command now. Its invitation expires; the Worker token is never put in your shell history.",
       secret:
-        "The .env file holds the Worker token and your Hugging Face token: never share it, never commit it.",
-      hfMissing:
-        "No Hugging Face token was given: fill in HF_TOKEN by hand in the .env file.",
+        "The .env file holds the Worker token: never share it, never commit it.",
       whisperMissing:
         "No Whisper address was given: fill in TRANSCRIPTION_API_URL by hand in the .env file.",
       publicAddressLink: "Where to change Snitch’s public address",

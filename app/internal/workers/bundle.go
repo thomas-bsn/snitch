@@ -50,12 +50,8 @@ services:
       SNITCH_VOICE_EMBEDDING_MODEL_VERSION: ${SNITCH_VOICE_EMBEDDING_MODEL_VERSION:-}
       SNITCH_VOICE_EMBEDDING_MODEL_NAME: ${SNITCH_VOICE_EMBEDDING_MODEL_NAME:-pyannote/wespeaker-voxceleb-resnet34-LM}
       SNITCH_VOICE_DEVICE: ${SNITCH_VOICE_DEVICE:-cuda}
-      # Téléchargement des modèles au premier démarrage (HF_TOKEN ne sert qu'à ce téléchargement).
-      SNITCH_VOICE_DOWNLOAD_ON_START: ${SNITCH_VOICE_DOWNLOAD_ON_START:-1}
-      SNITCH_VOICE_CONFIRM_TERMS: ${SNITCH_VOICE_CONFIRM_TERMS:-1}
-      HF_TOKEN: ${HF_TOKEN:-}
     volumes:
-      # Volume nommé : les modèles téléchargés survivent aux mises à jour de l'image.
+      # Volume nommé : les modèles installés sur ordre de Snitch survivent aux mises à jour de l'image.
       - snitch-models:/models
     # Joindre un Whisper ou un Ollama qui tourne directement sur le PC (hors Docker) :
     # TRANSCRIPTION_API_URL=http://host.docker.internal:8000
@@ -99,12 +95,9 @@ TRANSCRIPTION_API_URL={{v .Whisper}}
 # TRANSCRIPTION_API_KEY=
 
 # --- Modèles vocaux ---
-# Jeton Hugging Face, à renseigner : il sert uniquement au premier téléchargement des modèles
-# et n'est jamais lu par le worker.
-HF_TOKEN={{v .Placeholder}}
-SNITCH_VOICE_DOWNLOAD_ON_START=1
-SNITCH_VOICE_CONFIRM_TERMS=1
-# Révision des modèles, si le démarrage ne la renseigne pas lui-même.
+# Un worker neuf n'a aucun modèle vocal et n'en télécharge aucun : on les installe depuis Snitch
+# (administration, Voix), ils vont dans le volume snitch-models.
+# Révision du modèle d'empreinte, seulement si le modèle est préparé à la main.
 # SNITCH_VOICE_EMBEDDING_MODEL_VERSION=
 
 # --- Facultatif ---

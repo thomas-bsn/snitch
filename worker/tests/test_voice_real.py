@@ -790,36 +790,5 @@ def _with_text(exc, text):
     return exc
 
 
-class DownloadScriptTests(unittest.TestCase):
-    def load(self):
-        import importlib.util
-
-        path = os.path.join(os.path.dirname(__file__), "..", "scripts", "download_models.py")
-        spec = importlib.util.spec_from_file_location("download_models", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-
-    def test_refuses_without_explicit_confirmation_or_token_and_never_downloads(self):
-        script = self.load()
-        calls = []
-        args = ["--diarization-dir", "/d", "--embedding-dir", "/e"]
-        self.assertEqual(script.main(args, {"HF_TOKEN": "t"}, downloader=lambda **k: calls.append(k)), 2)
-        self.assertEqual(script.main(args + ["--confirm-terms"], {}, downloader=lambda **k: calls.append(k)), 2)
-        self.assertEqual(calls, [])
-
-    def test_downloads_both_models_and_hides_errors(self):
-        script = self.load()
-        calls = []
-        args = ["--diarization-dir", "/d", "--embedding-dir", "/e", "--confirm-terms"]
-        self.assertEqual(script.main(args, {"HF_TOKEN": "t"}, downloader=lambda **k: calls.append(k["repo_id"])), 0)
-        self.assertEqual(calls, [script.DIARIZATION_REPO, script.EMBEDDING_REPO])
-
-        def boom(**k):
-            raise OSError("401 hf_SECRET")
-
-        self.assertEqual(script.main(args, {"HF_TOKEN": "hf_SECRET"}, downloader=boom), 1)
-
-
 if __name__ == "__main__":
     unittest.main()

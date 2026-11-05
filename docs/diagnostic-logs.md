@@ -121,7 +121,7 @@ Les Administrateurs voient, sur le clip et dans la Task Queue, l'étape, l'heure
 
 - L'attente d'un Worker capable (aucun Worker ne peut prendre une tâche en attente) n'est pas journalisée avec sa durée ; elle se lit dans l'interface (travaux en attente) et par l'absence de `job_claimed`.
 - Pas de panneau de logs dans l'interface ni d'export expurgé (hors périmètre de #122).
-- Deux vocabulaires de causes coexistent pour Hugging Face. Les échecs de tâches et d'état des modèles vocaux emploient le catalogue ci-dessus (`hf_auth_required`, `hf_not_found`, `hf_network`…). L'installation du Worker (`bootstrap`) garde ses propres codes (`hf_access_denied`, `network_unreachable`, `volume_not_writable`…), qui passent par le contrat des événements d'installation et fusionnent 401, 403 et 404 en `hf_access_denied`. Ils ne sont pas unifiés : ce serait une évolution de ce contrat, hors de #122.
+- Deux vocabulaires de causes coexistent pour Hugging Face. Les échecs de tâches et d'état des modèles vocaux emploient le catalogue ci-dessus (`hf_auth_required`, `hf_not_found`, `hf_network`…). L'ancien parcours d'installation du Worker (le bootstrap, retiré par #307) gardait ses propres codes (`hf_access_denied`, `network_unreachable`, `volume_not_writable`…), qui passent par le contrat des événements d'installation et fusionnent 401, 403 et 404 en `hf_access_denied`. Ils ne sont pas unifiés : ce serait une évolution de ce contrat, hors de #122.
 
 ## Vérification automatisée
 

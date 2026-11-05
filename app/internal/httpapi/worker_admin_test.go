@@ -145,10 +145,13 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	env := "\n" + first.Bundle.Env + "\n"
-	for _, line := range []string{"TRANSCRIPTION_API_URL=http://host.docker.internal:8000", "SNITCH_WORKER_TOKEN=" + first.Token, "HF_TOKEN=A_RENSEIGNER"} {
+	for _, line := range []string{"TRANSCRIPTION_API_URL=http://host.docker.internal:8000", "SNITCH_WORKER_TOKEN=" + first.Token} {
 		if !strings.Contains(env, "\n"+line+"\n") {
 			t.Fatalf("generated .env lacks %q:\n%s", line, first.Bundle.Env)
 		}
+	}
+	if strings.Contains(env, "HF_TOKEN") {
+		t.Fatalf("a new Worker downloads no voice model, its .env carries no token:\n%s", first.Bundle.Env)
 	}
 	// The deployment files never require a model name (it is the library's).
 	if strings.Contains(env, "\nTRANSCRIPTION_MODEL=") || strings.Contains(first.Bundle.Compose, "TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:?") {

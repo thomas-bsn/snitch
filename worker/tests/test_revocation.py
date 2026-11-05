@@ -157,10 +157,7 @@ class RevokedMarkerAtStartupTests(unittest.TestCase):
                     "SNITCH_VOICE_CONFIRM_TERMS": "1",
                     "HF_TOKEN": "hf_synthetic",
                 },
-                downloader=lambda **_kwargs: self.fail("a revoked worker downloaded models"),
-                resolve_revision=lambda *_args: self.fail("a revoked worker contacted Hugging Face"),
                 exec_worker=launched.append,
-                log=lambda _line: None,
             )
             self.assertEqual(len(launched), 1, "the runner still starts, to stay inert under the restart policy")
             self.assertEqual(os.listdir(root), [revocation.MARKER_NAME])

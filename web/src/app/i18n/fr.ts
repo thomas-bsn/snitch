@@ -1690,9 +1690,6 @@ export const fr: Messages = {
       libraryModel: "Modèle de la bibliothèque",
       libraryModelHint:
         "Partagé par tous les Workers. À changer dans Administration, Transcription.",
-      hf: "Jeton Hugging Face",
-      hfHint:
-        "Acceptez d’abord les conditions de pyannote sur Hugging Face, puis collez un jeton en lecture seule. Il ne sert qu’à télécharger les modèles de voix au premier démarrage. Snitch ne le reçoit jamais et ne le conserve pas : il est écrit dans le fichier .env ci-dessous, dans votre navigateur.",
       submit: "Créer le Worker",
       submitting: "Création…",
       cancel: "Annuler",
@@ -1704,9 +1701,7 @@ export const fr: Messages = {
       shownOnce:
         "Copiez maintenant la commande d’installation. Son invitation expire ; le jeton du Worker n’apparaît jamais dans l’historique du terminal.",
       secret:
-        "Le fichier .env contient le jeton du Worker et votre jeton Hugging Face : ne le partagez ni ne le versionnez jamais.",
-      hfMissing:
-        "Aucun jeton Hugging Face n’a été donné : renseignez HF_TOKEN à la main dans le fichier .env.",
+        "Le fichier .env contient le jeton du Worker : ne le partagez ni ne le versionnez jamais.",
       whisperMissing:
         "Aucune adresse Whisper n’a été donnée : renseignez TRANSCRIPTION_API_URL à la main dans le fichier .env.",
       publicAddressLink: "Où modifier l’adresse publique de Snitch",

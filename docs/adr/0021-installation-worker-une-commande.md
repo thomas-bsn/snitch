@@ -1,6 +1,6 @@
 # Installation d'un Worker en une commande
 
-Statut : accepté.
+Statut : accepté. Révisé en partie par l'ADR 0038 (#307) : l'installation ne propose plus de télécharger les modèles vocaux, ne demande plus de jeton Hugging Face ni de conditions, n'exécute plus de bootstrap de téléchargement ni d'auto-test vocal ; les événements `voice-models` et `voice-test` ne sont plus émis. Les modèles s'installent sur ordre de Snitch. Le reste de cette décision (invitation à usage unique, phases, WSL2, révocation) est inchangé, et ce qui suit décrit l'état d'origine.
 
 ## Contexte
 

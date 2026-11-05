@@ -10,7 +10,7 @@ Le lanceur d'installation détecte WSL2 (`uname -r` ou `/proc/version` contenant
 | `transcription-reachability` | image | `network_unreachable` | le point d'accès de transcription répond depuis Docker | remplacer `localhost` par `host.docker.internal` ou l'adresse de la machine |
 | `docker-cuda` | gpu | `gpu_unavailable` | `libcuda.so.1` chargeable dans un conteneur `--gpus all` | pilote NVIDIA Windows à jour, pas de pilote Linux dans WSL, `wsl --shutdown` |
 
-Le volume du modèle reste un volume Docker nommé (système de fichiers Linux de WSL2), donc compatible UID 10001. Une réponse HTTP, même 4xx/5xx, prouve la joignabilité. Sans GPU visible, la voix est indisponible et la transcription continue (comportement P0).
+Le volume du modèle reste un volume Docker nommé (système de fichiers Linux de WSL2), donc compatible UID 10001. Une réponse HTTP, même 4xx/5xx, prouve la joignabilité. Aucun modèle vocal n'est téléchargé à l'installation (ADR 0038). Sans GPU visible, la voix est indisponible et la transcription continue (comportement P0).
 
 ## Preuves automatisées
 
@@ -22,7 +22,7 @@ Non exécutée dans ce ticket : aucun hôte Windows/WSL2 n'était disponible. À
 
 1. Dans Snitch (Admin > Workers), générer la commande d'installation (HTTPS, adresse joignable depuis Docker).
 2. Dans le terminal WSL2, depuis `~`, coller la commande. Attendu : « WSL2 detected », phases réussies, Worker connecté dans l'interface.
-3. Nominal : un job de transcription synthétique est traité ; avec GPU, « voix prête » après l'auto-test.
+3. Nominal : un job de transcription synthétique est traité. Aucun modèle vocal n'est téléchargé ni testé par l'installation, même avec GPU (aucune question, aucun jeton) ; la voix devient prête quand un modèle est installé par ordre depuis Snitch (Admin > Voix).
 4. Stockage : `cd /mnt/c/Users/<vous>` avec `HOME` pointant ici (`HOME=$PWD bash …`) doit échouer avec `wsl-storage`; le message de reprise est suivi.
 5. Docker : arrêter Docker Desktop, relancer : `wsl-docker` / `docker_unavailable`; redémarrer, relancer : reprise idempotente.
 6. Réseau : configurer un point d'accès `http://localhost:…` : `transcription-reachability` / `network_unreachable`; corriger avec `host.docker.internal`, relancer.

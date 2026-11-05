@@ -56,10 +56,13 @@ func testVoiceClaimPinnedVersion(t *testing.T, pool *pgxpool.Pool) {
 	// Another model becomes active while the job (pinned to the previous one) is still waiting.
 	h.reportModel(secondID, "ready", "", 1, 1, http.StatusNoContent)
 	h.adminCall(http.MethodPost, "/api/admin/voice-models/"+secondID+"/activate", nil, http.StatusOK)
+	// The Worker no longer holds the pinned model (only the new active one is ready): the job waits.
+	h.reportModel(communityID, "removed", "", 0, 0, http.StatusNoContent)
 	if _, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(secondRepo, "b00000000000")}); ok {
 		t.Fatal("a Worker holding only the new active model claimed a job pinned to the previous one")
 	}
-	if _, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36")}); !ok {
+	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent)
+	if _, ok := h.claimDeclaring(nil); !ok {
 		t.Fatal("the Worker holding the pinned model must claim the job")
 	}
 }

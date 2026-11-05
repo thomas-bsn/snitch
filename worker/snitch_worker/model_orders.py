@@ -217,7 +217,6 @@ class OrderExecutor:
             last.update(body)
 
         log.emit(logging.INFO, "voice_order_started", order_id=order_id, model_id=model_id, revision=revision)
-        self._manager.forget(model_id)
         self._manager.prepare({"model_id": model_id, "repo": order["repo"], "revision": revision, "role": "ordered", "retry": False}, post)
         if last.get("state") in ("ready", "failed"):
             state = self._load()

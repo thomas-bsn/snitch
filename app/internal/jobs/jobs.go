@@ -358,6 +358,30 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 	return nil
 }
 
+// localVoiceModelReadyGuard is the dispatch rule of a local voice job, a clause of the claim query (parameters:
+// $3 the active provider, $4 the claiming Worker, $5 the diarization model the job is pinned to or, failing a pin,
+// the active one). Only the local steps are guarded (diarization, fingerprint, separation): never transcription,
+// which goes to Speaches, nor the fake provider. A local step goes only to a Worker whose model of the type is
+// ready in worker_voice_models, the state the Worker reported after a synthetic inference (ADR 0022, ADR 0038); a job with a requested model
+// (benchmark) is governed by requestedModelClaimGuard instead of the active model;
+// what the pulse declares and what lies on the volume never open it. A model being removed is not ready.
+const localVoiceModelReadyGuard = `(
+		      j.step NOT LIKE 'voice.%'
+		      OR j.requested_model_id IS NOT NULL
+		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%' AND j.step NOT LIKE 'voice.separation.%')
+		      OR COALESCE(pin.config->>'provider',$3::text) NOT IN ('pyannote','nemo')
+		      OR (j.step LIKE 'voice.diarization.%' AND EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_model_catalog m ON m.id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false
+		            AND m.kind='diarization' AND m.repo=COALESCE(pin.config->>'model',$5::text)))
+		      OR (j.step LIKE 'voice.fingerprint.%' AND EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='fingerprint'))
+		      OR (j.step LIKE 'voice.separation.%' AND EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='separation'))
+		  )`
+
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
 // For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
@@ -431,8 +455,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 	var maximum, reported int
 	var supportedSteps []string
 	var activeVersion string
-	var declaredModels []byte
-	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,''),COALESCE(w.models,'{}'::jsonb) FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE OF w`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion, &declaredModels)
+	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE OF w`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -451,8 +474,8 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 	if capacity < 1 || active >= capacity || globalActive >= globalCapacity {
 		return nil, tx.Commit(ctx)
 	}
-	// The real voice provider only runs on a Worker that holds the active models: a declaration
-	// naming another model, or none, never receives a voice job. The fake provider has no model.
+	// The real voice provider only runs on a Worker whose active model of the type is ready (see
+	// localVoiceModelReadyGuard). The fake provider has no model.
 	var voiceProvider, diarizationModel string
 	// A missing pipeline row must never stop transcription claims: no provider means no voice rule.
 	if err = tx.QueryRow(ctx, `SELECT COALESCE(v.config->>'provider',''),COALESCE(v.config->>'model','') FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&voiceProvider, &diarizationModel); err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -478,18 +501,11 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		      j.step NOT LIKE 'transcription.%'
 		      OR $2::text = '' OR $2::text = (SELECT ts.version FROM transcription_settings ts WHERE ts.id=true)
 		  )
-		  AND (
-		      j.step NOT LIKE 'voice.%'
-		      OR j.requested_model_id IS NOT NULL
-		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%')
-		      OR COALESCE(pin.config->>'provider',$3::text) NOT IN ('pyannote','nemo')
-		      OR (j.step LIKE 'voice.diarization.%' AND $4::jsonb->'diarization'->>'model' = COALESCE(pin.config->>'model',$5::text))
-		      OR (j.step LIKE 'voice.fingerprint.%' AND $4::jsonb->'fingerprint'->>'model' = (SELECT m.repo FROM voice_active_model am JOIN voice_model_catalog m ON m.id=am.model_id WHERE am.kind='fingerprint'))
-		  )
+		  AND `+localVoiceModelReadyGuard+`
 		  AND `+requestedModelClaimGuard+`
 		ORDER BY j.priority DESC,j.created_at,j.id
 		FOR UPDATE OF j SKIP LOCKED LIMIT 1
-	`, supportedSteps, activeVersion, voiceProvider, string(declaredModels), diarizationModel, workerID))
+	`, supportedSteps, activeVersion, voiceProvider, workerID, diarizationModel))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
