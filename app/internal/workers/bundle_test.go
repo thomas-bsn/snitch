@@ -15,9 +15,6 @@ func TestBundleEnvCarriesTheTokenAndPublicURL(t *testing.T) {
 		"SNITCH_WORKER_TOKEN=rw_abc-DEF_123",
 		"SNITCH_WORKER_IMAGE=ghcr.io/thomas-bsn/snitch-worker:latest",
 		"TRANSCRIPTION_API_URL=\"\"",
-		"HF_TOKEN=A_RENSEIGNER",
-		"SNITCH_VOICE_DOWNLOAD_ON_START=1",
-		"SNITCH_VOICE_CONFIRM_TERMS=1",
 	} {
 		if !strings.Contains("\n"+bundle.Env, "\n"+line+"\n") {
 			t.Errorf("env lacks line %q:\n%s", line, bundle.Env)
@@ -25,6 +22,12 @@ func TestBundleEnvCarriesTheTokenAndPublicURL(t *testing.T) {
 	}
 	if bundle.InsecureAPIURL {
 		t.Error("an https URL must not be flagged insecure")
+	}
+	// A new Worker holds no voice model and downloads none: nothing in the files asks for a download or a token (ADR 0038).
+	for _, banned := range []string{"HF_TOKEN", "DOWNLOAD_ON_START", "CONFIRM_TERMS"} {
+		if strings.Contains(bundle.Env, banned) || strings.Contains(bundle.Compose, banned) {
+			t.Errorf("the deployment files still mention %s", banned)
+		}
 	}
 	// The model name is the library's: the deployment files never require one.
 	if strings.Contains("\n"+bundle.Env, "\nTRANSCRIPTION_MODEL=") || strings.Contains(bundle.Compose, "TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:?") {
