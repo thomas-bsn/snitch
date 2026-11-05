@@ -1,4 +1,4 @@
-# 0040 — Synchronisation des photos de profil Discord
+# 0041 — Synchronisation des photos de profil Discord
 
 Statut : accepté. S'appuie sur le stockage `account_avatars` et sur les secrets chiffrés des réglages (ADR de la clé maître) ; ne change pas la connexion OAuth Discord.
 
