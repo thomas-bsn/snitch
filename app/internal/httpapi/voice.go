@@ -87,8 +87,12 @@ func (s *Server) putVoicePipeline(w http.ResponseWriter, r *http.Request) {
 		valid = p.Fake.Speakers >= 1 && p.Fake.Speakers <= 8 && p.Fake.Dimensions >= 2 && p.Fake.Dimensions <= 512
 	} else if valid {
 		// A real model is chosen from the catalogue, never typed: its pinned revision is the version.
-		found, known := voiceCatalogByRepo("diarization", p.Model)
-		valid = p.Fake == nil && known && p.ModelVersion == found.Revision && p.Provider == found.Engine
+		found, known, lookupErr := voiceCatalogByRepo(r.Context(), s.Pool, "diarization", p.Model)
+		if lookupErr != nil {
+			s.internal(w, lookupErr)
+			return
+		}
+		valid = p.Fake == nil && known && found.choosable() && p.ModelVersion == found.Revision && p.Provider == found.Engine
 		entry = &found
 	}
 	if !valid {

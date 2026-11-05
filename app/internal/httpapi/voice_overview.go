@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 
-	"snitch/internal/jobs"
 	"snitch/internal/workers"
 )
 
@@ -59,7 +58,12 @@ func (s *Server) getVoiceOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	out := voiceInventory{Provider: pipeline.Provider, Workers: []voiceInventoryWorker{}}
 	out.ActiveModels.Diarization = pipeline.Model
-	out.ActiveModels.Fingerprint = jobs.ActiveEmbeddingModel
+	activeFingerprint, err := voiceActiveFingerprintRepo(r.Context(), s.Pool)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	out.ActiveModels.Fingerprint = activeFingerprint
 	// The fake provider runs no model: nothing to hold.
 	real := voiceRealProvider(pipeline.Provider)
 	for _, item := range live {
@@ -67,7 +71,7 @@ func (s *Server) getVoiceOverview(w http.ResponseWriter, r *http.Request) {
 			ID: item.ID, Name: item.Name, Connected: item.Connected,
 			Diarization: item.Models.Diarization, Fingerprint: item.Models.Fingerprint,
 			HoldsActiveDiarization: !real || (item.Models.Diarization != nil && item.Models.Diarization.Model == pipeline.Model),
-			HoldsActiveFingerprint: !real || (item.Models.Fingerprint != nil && item.Models.Fingerprint.Model == jobs.ActiveEmbeddingModel),
+			HoldsActiveFingerprint: !real || (item.Models.Fingerprint != nil && item.Models.Fingerprint.Model == activeFingerprint),
 		}
 		voice := workers.InstallVoice{State: "pending"}
 		if item.Install != nil {

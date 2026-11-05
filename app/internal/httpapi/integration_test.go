@@ -339,6 +339,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelDispatch(t, pool)
 	})
+	t.Run("voice catalog in database", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogInDatabase(t, pool)
+	})
+	t.Run("voice catalog edition", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogEdition(t, pool)
+	})
 	t.Run("voice model candidate", func(t *testing.T) {
 		reset(t)
 		testVoiceModelCandidate(t, pool)
@@ -820,6 +828,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/voice-models", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-models/candidate", map[string]any{"model_id": "pyannote-community-1"}, me.CSRF, 409)
 		call(client, "DELETE", "/api/admin/voice-models/candidate", nil, me.CSRF, 204)
+		call(client, "PATCH", "/api/admin/voice-models/pyannote-wespeaker-resnet34", map[string]any{"label": ""}, me.CSRF, 200) // edition rules in the voice catalog edition suite
 		call(client, "POST", "/api/admin/voice-models/pyannote-community-1/activate", nil, me.CSRF, 409)
 		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation", nil, me.CSRF, 409)
 		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)

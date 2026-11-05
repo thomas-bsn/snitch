@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -20,14 +21,14 @@ const (
 )
 
 // withSecondCatalogModel adds a synthetic diarization model to the catalogue for one test.
-func withSecondCatalogModel(t *testing.T) {
+func withSecondCatalogModel(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	saved := voiceCatalog
-	voiceCatalog = append(append([]voiceCatalogEntry{}, saved...), voiceCatalogEntry{
-		ID: secondID, Kind: "diarization", Engine: "pyannote", Repo: secondRepo, Revision: secondRevision,
-		License: "test", SizeBytes: 30_000_000, SupportsNumSpeakers: true,
+	if _, err := pool.Exec(context.Background(), `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision,license,size_bytes,supports_num_speakers) VALUES($1,'diarization','pyannote',$2,$3,'test',30000000,true)`, secondID, secondRepo, secondRevision); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM voice_model_catalog WHERE id=$1`, secondID)
 	})
-	t.Cleanup(func() { voiceCatalog = saved })
 }
 
 type catalogWorker struct {
@@ -53,6 +54,11 @@ type catalogModel struct {
 	Active              bool            `json:"active"`
 	Candidate           bool            `json:"candidate"`
 	Installed           bool            `json:"installed"`
+	Label               string          `json:"label"`
+	VRAMBytes           int64           `json:"vram_bytes"`
+	Enabled             bool            `json:"enabled"`
+	Supported           bool            `json:"supported"`
+	UnsupportedReason   string          `json:"unsupported_reason"`
 	Workers             []catalogWorker `json:"workers"`
 }
 
@@ -119,7 +125,7 @@ func (h *voiceHarness) pipelineVersion() string {
 
 func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
-	withSecondCatalogModel(t)
+	withSecondCatalogModel(t, pool)
 	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent) // a real model is only activated once a connected Worker holds it
 	h.putPipeline(map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": communityRevision, "min_fingerprint_seconds": 1.0, "min_quality": 0.5})
 	h.transcribe()

@@ -63,9 +63,10 @@ def sync_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[Error | VoiceModels]:
-    """  Administrateurs uniquement. Catalogue des modèles vocaux (données figées dans le code : moteur,
-    dépôt, révision épinglée, licence, accès gated, limites) avec, pour chacun, l'état réel rapporté par
-    chaque Worker. Un modèle est installé si au moins un Worker l'a prêt.
+    """  Administrateurs uniquement. Catalogue des modèles vocaux (références en base : type, adaptateur
+    autorisé, dépôt, révision épinglée, licence, accès gated, besoins matériels, activée ou non, prise
+    en charge ou non) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé
+    si au moins un Worker l'a prêt.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -91,9 +92,10 @@ def sync(
     client: AuthenticatedClient,
 
 ) -> Error | VoiceModels | None:
-    """  Administrateurs uniquement. Catalogue des modèles vocaux (données figées dans le code : moteur,
-    dépôt, révision épinglée, licence, accès gated, limites) avec, pour chacun, l'état réel rapporté par
-    chaque Worker. Un modèle est installé si au moins un Worker l'a prêt.
+    """  Administrateurs uniquement. Catalogue des modèles vocaux (références en base : type, adaptateur
+    autorisé, dépôt, révision épinglée, licence, accès gated, besoins matériels, activée ou non, prise
+    en charge ou non) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé
+    si au moins un Worker l'a prêt.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -114,9 +116,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[Error | VoiceModels]:
-    """  Administrateurs uniquement. Catalogue des modèles vocaux (données figées dans le code : moteur,
-    dépôt, révision épinglée, licence, accès gated, limites) avec, pour chacun, l'état réel rapporté par
-    chaque Worker. Un modèle est installé si au moins un Worker l'a prêt.
+    """  Administrateurs uniquement. Catalogue des modèles vocaux (références en base : type, adaptateur
+    autorisé, dépôt, révision épinglée, licence, accès gated, besoins matériels, activée ou non, prise
+    en charge ou non) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé
+    si au moins un Worker l'a prêt.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -142,9 +145,10 @@ async def asyncio(
     client: AuthenticatedClient,
 
 ) -> Error | VoiceModels | None:
-    """  Administrateurs uniquement. Catalogue des modèles vocaux (données figées dans le code : moteur,
-    dépôt, révision épinglée, licence, accès gated, limites) avec, pour chacun, l'état réel rapporté par
-    chaque Worker. Un modèle est installé si au moins un Worker l'a prêt.
+    """  Administrateurs uniquement. Catalogue des modèles vocaux (références en base : type, adaptateur
+    autorisé, dépôt, révision épinglée, licence, accès gated, besoins matériels, activée ou non, prise
+    en charge ou non) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé
+    si au moins un Worker l'a prêt.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

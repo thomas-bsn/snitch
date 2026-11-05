@@ -20,7 +20,7 @@ func realPipeline(model, revision string) map[string]any {
 // The typed pipeline and "activate" share one rule: a real model needs a Worker that is connected and ready.
 func testVoicePipelineActivationRule(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
-	withSecondCatalogModel(t)
+	withSecondCatalogModel(t, pool)
 	real := realPipeline(secondRepo, secondRevision)
 
 	h.adminCall(http.MethodPut, "/api/admin/voice-pipeline", real, http.StatusConflict)
@@ -47,7 +47,7 @@ func testVoicePipelineActivationRule(t *testing.T, pool *pgxpool.Pool) {
 // version, not the pipeline that is active now.
 func testVoiceClaimPinnedVersion(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
-	withSecondCatalogModel(t)
+	withSecondCatalogModel(t, pool)
 	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent)
 	h.putPipeline(realPipeline(activeDiarization, communityRevision))
 	h.transcribe()
@@ -68,7 +68,7 @@ func testVoiceClaimPinnedVersion(t *testing.T, pool *pgxpool.Pool) {
 // installation is marked for removal.
 func testVoiceModelConcurrency(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
-	withSecondCatalogModel(t)
+	withSecondCatalogModel(t, pool)
 	h.reportModel(secondID, "ready", "", 1, 1, http.StatusNoContent)
 	for i := 0; i < 15; i++ {
 		var wg sync.WaitGroup
