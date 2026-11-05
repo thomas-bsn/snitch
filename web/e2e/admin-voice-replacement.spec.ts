@@ -108,6 +108,7 @@ test("un administrateur remplace le modèle de diarisation d'un Worker, de l'éc
   // Second attempt: ready, then the removal of the old model is an order of its own.
   await cell.getByRole("button", { name: "Replace" }).click();
   await dialog.getByRole("button", { name: "Order the installation" }).click();
+  await expect(cell).toContainText("Requested");
   const [again] = await pulled();
   await ack(again.order_id);
   await report(again, { state: "verifying" });
