@@ -64,6 +64,7 @@ type Server struct {
 	incidents             incidentSync
 	passwordSlots         chan struct{}
 	dummyPassword         string
+	hf                    *hfInspector // nil in production (the Hugging Face host); a test injects a fake server
 }
 type session struct {
 	User             database.GetUserRow

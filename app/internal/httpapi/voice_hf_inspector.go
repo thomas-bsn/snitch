@@ -62,6 +62,9 @@ func parseHFSource(input, host, scheme string) (repo, revision string, err error
 		return "", "", errHFSource
 	}
 	repo = parts[0] + "/" + parts[1]
+	if len(repo) > 100 {
+		return "", "", errHFSource
+	}
 	switch {
 	case len(parts) == 2:
 		return repo, "", nil

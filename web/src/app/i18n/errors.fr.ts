@@ -277,6 +277,18 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   voice_model_in_use:
     "Ce modèle est actif ou candidat : il ne peut pas être supprimé.",
   voice_model_not_found: "Ce modèle n’existe pas dans le catalogue.",
+  invalid_hf_source:
+    "Collez un dépôt Hugging Face sous la forme propriétaire/nom ou une adresse huggingface.co.",
+  voice_model_hf_not_found:
+    "Hugging Face ne connaît pas ce dépôt. Vérifiez son nom.",
+  voice_model_hf_denied:
+    "Hugging Face refuse l’accès à ce dépôt : il est privé ou ses conditions d’accès ne sont pas remplies.",
+  voice_model_hf_unavailable:
+    "Hugging Face n’a pas répondu correctement. Réessayez dans un instant.",
+  voice_model_kind_mismatch:
+    "Le dépôt déclare un autre type que celui choisi.",
+  voice_model_exists:
+    "Ce dépôt est déjà dans le catalogue pour ce type.",
   voice_model_not_ready:
     "Aucun Worker n’a ce modèle prêt : attendez la fin de sa préparation.",
   invalid_voice_model: "Ce modèle ne peut pas être choisi.",

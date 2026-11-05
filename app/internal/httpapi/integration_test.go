@@ -347,6 +347,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceCatalogEdition(t, pool)
 	})
+	t.Run("voice model addition from Hugging Face", func(t *testing.T) {
+		reset(t)
+		testVoiceModelAddFromHF(t, pool)
+	})
 	t.Run("voice model candidate", func(t *testing.T) {
 		reset(t)
 		testVoiceModelCandidate(t, pool)
