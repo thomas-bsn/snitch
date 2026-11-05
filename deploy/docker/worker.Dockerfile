@@ -34,10 +34,8 @@ RUN ffmpeg -hide_banner -loglevel error -f lavfi -i sine=frequency=440:duration=
 COPY deploy/licenses/voice/extra /licenses-extra
 COPY scripts/collect_python_notices.py /collect_python_notices.py
 RUN python /collect_python_notices.py
-COPY worker/pyproject.toml /worker/pyproject.toml
-COPY worker/snitch_worker /worker/snitch_worker
-COPY worker/scripts/download_models.py /worker/scripts/download_models.py
-COPY LICENSE /usr/share/licenses/snitch/LICENSE
+# Utilisateur d'exécution et contrôle NeMo AVANT la copie du code du Worker : ils ne dépendent pas de
+# snitch_worker, et ainsi une modification du code ne réexécute pas l'import de NeMo (long) en CI.
 # NeMo importe torch._inductor, qui appelle getpass.getuser() : l'utilisateur 10001 a besoin d'une
 # entrée passwd. HOME reste « / », comme avant.
 RUN groupadd --gid 10001 snitch \
@@ -46,4 +44,9 @@ USER 10001:10001
 # NeMo (moteur Sortformer du catalogue vocal) : import sans GPU ni modèle, avec l'utilisateur
 # d'exécution (en root, ce contrôle ne voyait pas l'erreur getpwuid).
 RUN python -c "import nemo.collections.asr.models"
+# Code du Worker en dernier : c'est ce qui change le plus souvent, les couches lourdes ci-dessus restent en cache.
+COPY worker/pyproject.toml /worker/pyproject.toml
+COPY worker/snitch_worker /worker/snitch_worker
+COPY worker/scripts/download_models.py /worker/scripts/download_models.py
+COPY LICENSE /usr/share/licenses/snitch/LICENSE
 CMD ["python", "-m", "snitch_worker.bootstrap"]

@@ -1401,6 +1401,13 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_SEGMENT_RETRANSCRIPTION") == "1" {
 			suites = []string{"clip-corrections.spec.ts", "segment-replace-corrections.spec.ts"}
 		}
+		// CI splits the browser suites over parallel jobs, each with its own PostgreSQL: "i/n" runs shard i of n.
+		if spec := os.Getenv("SNITCH_E2E_SHARD"); spec != "" {
+			var e error
+			if suites, e = shardSuites(suites, spec); e != nil {
+				t.Fatal(e)
+			}
+		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
 				reset(t)

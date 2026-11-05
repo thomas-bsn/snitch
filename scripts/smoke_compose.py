@@ -70,7 +70,7 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
     def api(project, path, payload=None):
         base = 'http://'+compose(project, 'port', 'app', '8080').stdout.strip()
         data = None if payload is None else json.dumps(payload).encode()
-        req = urllib.request.Request(base+path, data=data, headers={'Content-Type':'application/json', 'Origin':'http://127.0.0.1:8080'})
+        req = urllib.request.Request(base+path, data=data, headers={'Content-Type':'application/json', 'Origin':base})
         return urllib.request.urlopen(req, timeout=15)
     def stored_key(project):
         return compose(project, 'exec', '-T', 'app', 'cat', '/data/secrets/master_key').stdout
@@ -82,7 +82,7 @@ with tempfile.TemporaryDirectory(prefix='snitch-compose-') as temp:
         opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
         base = 'http://'+compose(project, 'port', 'app', '8080').stdout.strip()
         def call(method, path, payload=None):
-            headers = {'Content-Type':'application/json', 'Origin':'http://127.0.0.1:8080'}
+            headers = {'Content-Type':'application/json', 'Origin':base}
             if method != 'GET':
                 headers['X-CSRF-Token'] = csrf[0]
             data = None if payload is None else json.dumps(payload).encode()
