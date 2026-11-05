@@ -93,6 +93,10 @@ func newTransitionLibrary(t *testing.T, pool *pgxpool.Pool) *transitionLibrary {
 		fp.model, fp.version = activeEmbedding, "837717ddb9ff"
 		return fp
 	}
+	// The group indexes of these models are not left behind for the tests that count them.
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DO $$ DECLARE r record; BEGIN FOR r IN SELECT indexname FROM pg_indexes WHERE indexname LIKE 'voice_fingerprints_hnsw_%' AND (indexdef LIKE '%fixture/bench-embedding%' OR indexdef LIKE '%wespeaker%') LOOP EXECUTE 'DROP INDEX ' || quote_ident(r.indexname); END LOOP; END $$`)
+	})
 	lib := &transitionLibrary{h: h}
 	lib.reference = h.fixtureSpeaker(h.clipIDs[0], "REF", inActive(0))
 	lib.other = h.fixtureSpeaker(h.clipIDs[1], "OTHER", inActive(10))
