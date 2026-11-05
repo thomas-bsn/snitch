@@ -489,7 +489,8 @@ test.describe.serial("administration et Workers", () => {
     expect(await pulse(firstToken)).toBe(401);
     await page.getByRole("link", { name: "Open the new Worker" }).click();
     await expect(page).toHaveURL(/\/admin\/workers\/wk_/);
-    expect(page.url().split("/").pop()).not.toBe(firstId);
+    const replacementId = page.url().split("/").pop()!;
+    expect(replacementId).not.toBe(firstId);
     await expect(
       page.getByRole("heading", { name: "gaming-pc" }),
     ).toBeVisible();
@@ -522,7 +523,11 @@ test.describe.serial("administration et Workers", () => {
     await page.getByRole("button", { name: "Remove from the list" }).click();
     await page.getByRole("button", { name: "Remove", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/workers$/);
-    await expect(page.getByRole("link", { name: /gaming-pc/ })).toHaveCount(0);
+    // The replaced identity keeps its revoked entry until it is forgotten too: target the
+    // replacement by its address rather than by the shared "gaming-pc" name.
+    await expect(
+      page.locator(`a[href="/admin/workers/${replacementId}"]`),
+    ).toHaveCount(0);
     await context.close();
   });
 
