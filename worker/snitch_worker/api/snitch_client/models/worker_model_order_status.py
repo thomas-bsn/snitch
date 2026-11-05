@@ -2,6 +2,7 @@ from enum import StrEnum
 
 class WorkerModelOrderStatus(StrEnum):
     ACKNOWLEDGED = "acknowledged"
+    CANCELLED = "cancelled"
     DONE = "done"
     FAILED = "failed"
     PENDING = "pending"

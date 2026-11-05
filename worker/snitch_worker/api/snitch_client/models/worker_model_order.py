@@ -38,6 +38,8 @@ class WorkerModelOrder:
             revision (str):
             idempotency_key (str):
             status (WorkerModelOrderStatus):
+            size_bytes (int): Taille annoncée par le catalogue : le Worker vérifie son espace libre avant de télécharger
+                (disk_full sinon).
             created_at (datetime.datetime):
             hf_token (str | Unset): Jeton Hugging Face central, seulement à la première livraison d'un ordre qui télécharge
                 un modèle sous accès restreint.
@@ -53,6 +55,7 @@ class WorkerModelOrder:
     revision: str
     idempotency_key: str
     status: WorkerModelOrderStatus
+    size_bytes: int
     created_at: datetime.datetime
     hf_token: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -82,6 +85,8 @@ class WorkerModelOrder:
 
         status = self.status.value
 
+        size_bytes = self.size_bytes
+
         created_at = self.created_at.isoformat()
 
         hf_token = self.hf_token
@@ -100,6 +105,7 @@ class WorkerModelOrder:
             "revision": revision,
             "idempotency_key": idempotency_key,
             "status": status,
+            "size_bytes": size_bytes,
             "created_at": created_at,
         })
         if hf_token is not UNSET:
@@ -141,6 +147,8 @@ class WorkerModelOrder:
 
 
 
+        size_bytes = d.pop("size_bytes")
+
         created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
 
 
@@ -159,6 +167,7 @@ class WorkerModelOrder:
             revision=revision,
             idempotency_key=idempotency_key,
             status=status,
+            size_bytes=size_bytes,
             created_at=created_at,
             hf_token=hf_token,
         )

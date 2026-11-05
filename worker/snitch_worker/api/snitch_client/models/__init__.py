@@ -36,6 +36,7 @@ from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexRespons
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
+from .cancel_voice_model_replacement_kind import CancelVoiceModelReplacementKind
 from .clip import Clip
 from .clip_analysis_conflict import ClipAnalysisConflict
 from .clip_analysis_deletion_stake import ClipAnalysisDeletionStake
@@ -525,6 +526,7 @@ __all__ = (
     "Bootstrap",
     "BrowseVideoRootResponse200",
     "BrowseVideoRootResponse200ItemsItem",
+    "CancelVoiceModelReplacementKind",
     "Clip",
     "ClipAnalysisConflict",
     "ClipAnalysisDeletionStake",

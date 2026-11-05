@@ -300,6 +300,15 @@ export const errorsEn = {
     "An installation of this model is already under way on this Worker.",
   voice_model_type_occupied:
     "This Worker already holds another model of this type: replacing it is a separate operation.",
+  voice_replacement_kind_unsupported:
+    "Only the diarization model can be replaced here: changing the fingerprint model needs a versioned transition of the stored fingerprints.",
+  voice_replaced_model_not_ready:
+    "The model to replace must be installed and ready on this Worker.",
+  voice_replacement_in_progress:
+    "A replacement is already under way for this type on this Worker, or a download or test is still running.",
+  voice_replacement_switched:
+    "The switch is already decided: the replacement can no longer be cancelled.",
+  voice_replacement_not_found: "No replacement is under way for this type.",
   voice_model_not_failed: "The last attempt of this model did not fail.",
   voice_order_not_found: "This order does not exist for this Worker.",
   invalid_voice_order_ack: "This acknowledgement of an order is not valid.",

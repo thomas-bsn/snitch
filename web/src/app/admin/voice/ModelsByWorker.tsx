@@ -22,6 +22,8 @@ const tones: Record<Cell["state"], PillTone> = {
   downloading: "idle",
   verifying: "idle",
   ready: "ok",
+  switching: "idle",
+  removing: "idle",
   failed: "bad",
 };
 
@@ -37,7 +39,14 @@ async function load() {
   }
 }
 
-type Pending = { worker: Row; kind: Kind; modelId: string };
+type Pending = {
+  worker: Row;
+  kind: Kind;
+  modelId: string;
+  /** The model this one replaces on the Worker: a replacement, not a plain installation. */
+  replaces?: string;
+  retry?: boolean;
+};
 
 /**
  * The minimal "Models per Worker" view (#306): for each Worker, the model of each type with its real
@@ -56,7 +65,13 @@ export function ModelsByWorker({ catalogue }: { catalogue: Catalogue }) {
     state.status === "ready" &&
     state.value.workers.some((w) =>
       w.models.some((m) =>
-        ["requested", "downloading", "verifying"].includes(m.state),
+        [
+          "requested",
+          "downloading",
+          "verifying",
+          "switching",
+          "removing",
+        ].includes(m.state),
       ),
     );
   useEffect(() => {
@@ -69,17 +84,24 @@ export function ModelsByWorker({ catalogue }: { catalogue: Catalogue }) {
   if (state.status === "failed")
     return <ErrorAlert>{error(state.code)}</ErrorAlert>;
 
-  async function order(worker: Row, modelId: string) {
+  async function order(item: Pending) {
+    const { worker, modelId, replaces, retry } = item;
     setBusy(true);
     setFailure(undefined);
     try {
-      const result = await api.POST(
-        "/api/admin/workers/{id}/voice-model-orders",
-        {
-          params: { path: { id: worker.worker_id }, header: headers },
-          body: { model_id: modelId, idempotency_key: crypto.randomUUID() },
-        },
-      );
+      const body = {
+        model_id: modelId,
+        idempotency_key: crypto.randomUUID(),
+      };
+      const result = retry
+        ? await api.POST("/api/admin/workers/{id}/voice-models/retry", {
+            params: { path: { id: worker.worker_id }, header: headers },
+            body,
+          })
+        : await api.POST("/api/admin/workers/{id}/voice-model-orders", {
+            params: { path: { id: worker.worker_id }, header: headers },
+            body: replaces ? { ...body, replaces_model_id: replaces } : body,
+          });
       if (result.error) setFailure(errorCode(result.error) ?? "unknown");
       else reload();
     } catch {
@@ -89,6 +111,31 @@ export function ModelsByWorker({ catalogue }: { catalogue: Catalogue }) {
       setPending(undefined);
     }
   }
+  async function cancelReplacement(worker: Row, kind: Kind) {
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const result = await api.DELETE(
+        "/api/admin/workers/{id}/voice-model-replacements/{kind}",
+        {
+          params: {
+            path: { id: worker.worker_id, kind },
+            header: headers,
+          },
+        },
+      );
+      if (result.error) setFailure(errorCode(result.error) ?? "unknown");
+      else reload();
+    } catch {
+      setFailure("unavailable");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const labelOf = (id: string) => {
+    const model = catalogue.models.find((m) => m.id === id);
+    return model?.label || model?.repo || id;
+  };
   const options = (kind: Kind) =>
     catalogue.models.filter((m) => m.kind === kind && m.enabled && m.supported);
   const selected = pending
@@ -238,6 +285,7 @@ export function ModelsByWorker({ catalogue }: { catalogue: Catalogue }) {
                                         worker,
                                         kind,
                                         modelId: cell.model_id,
+                                        retry: true,
                                       })
                                     }
                                     className={buttonClass("secondary")}
@@ -246,6 +294,94 @@ export function ModelsByWorker({ catalogue }: { catalogue: Catalogue }) {
                                   </button>
                                 </>
                               )}
+                              {cell.replaces_model_id !== "" && (
+                                <span className="text-mute">
+                                  {t("voiceModels.byWorker.replacing", {
+                                    model: labelOf(cell.replaces_model_id),
+                                  })}
+                                </span>
+                              )}
+                              {cell.state === "switching" &&
+                                cell.waiting_for_jobs && (
+                                  <span className="text-mute">
+                                    {t("voiceModels.byWorker.waitingJobs")}
+                                  </span>
+                                )}
+                              {cell.replaces_model_id !== "" &&
+                                (cell.state === "requested" ||
+                                  cell.state === "failed") && (
+                                  <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      void cancelReplacement(worker, kind)
+                                    }
+                                    className={buttonClass("secondary")}
+                                  >
+                                    {t(
+                                      "voiceModels.byWorker.cancelReplacement",
+                                    )}
+                                  </button>
+                                )}
+                              {kind === "diarization" &&
+                                cell.state === "ready" &&
+                                cell.replaces_model_id === "" &&
+                                candidates.some(
+                                  (m) => m.id !== cell.model_id,
+                                ) && (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <select
+                                      aria-label={t(
+                                        "voiceModels.byWorker.replaceWith",
+                                        { worker: worker.name },
+                                      )}
+                                      value={
+                                        choice[key] &&
+                                        choice[key] !== cell.model_id
+                                          ? choice[key]
+                                          : (candidates.find(
+                                              (m) => m.id !== cell.model_id,
+                                            )?.id ?? "")
+                                      }
+                                      onChange={(e) =>
+                                        setChoice({
+                                          ...choice,
+                                          [key]: e.target.value,
+                                        })
+                                      }
+                                      className="rounded-md border border-line bg-surface px-2 py-1"
+                                    >
+                                      {candidates
+                                        .filter((m) => m.id !== cell.model_id)
+                                        .map((m) => (
+                                          <option key={m.id} value={m.id}>
+                                            {m.label || m.repo}
+                                          </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      disabled={busy}
+                                      onClick={() =>
+                                        setPending({
+                                          worker,
+                                          kind,
+                                          replaces: cell.model_id,
+                                          modelId:
+                                            choice[key] &&
+                                            choice[key] !== cell.model_id
+                                              ? choice[key]
+                                              : (candidates.find(
+                                                  (m) => m.id !== cell.model_id,
+                                                )?.id ?? ""),
+                                        })
+                                      }
+                                      className={buttonClass("secondary")}
+                                    >
+                                      {t("voiceModels.byWorker.replace")}
+                                    </button>
+                                  </div>
+                                )}
                             </>
                           )}
                         </div>
@@ -268,13 +404,19 @@ export function ModelsByWorker({ catalogue }: { catalogue: Catalogue }) {
         cancelLabel={t("voiceModels.byWorker.cancelDialog")}
         confirmLabel={t("voiceModels.byWorker.confirmAction")}
         busy={busy}
-        onConfirm={() => pending && void order(pending.worker, pending.modelId)}
+        onConfirm={() => pending && void order(pending)}
       >
         <p>
-          {t("voiceModels.byWorker.confirmText", {
-            model: selected?.label || selected?.repo || "",
-            worker: pending?.worker.name ?? "",
-          })}
+          {t(
+            pending?.replaces
+              ? "voiceModels.byWorker.confirmReplaceText"
+              : "voiceModels.byWorker.confirmText",
+            {
+              model: selected?.label || selected?.repo || "",
+              worker: pending?.worker.name ?? "",
+              old: pending?.replaces ? labelOf(pending.replaces) : "",
+            },
+          )}
         </p>
         {selected?.gated && <p>{t("voiceModels.byWorker.confirmGated")}</p>}
       </ConfirmDialog>

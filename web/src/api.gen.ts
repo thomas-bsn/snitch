@@ -2282,7 +2282,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps). Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id, idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a échoué sur ce Worker (201, voice_model_not_failed sinon). */
+    /** @description Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps). Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id, idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a échoué sur ce Worker (201, voice_model_not_failed sinon) ; pour un remplacement dont le retrait de l'ancien a échoué, relance ce retrait (200). */
     post: operations["retryWorkerVoiceModel"];
     delete?: never;
     options?: never;
@@ -2316,9 +2316,26 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateurs uniquement. Ordonne à un Worker d'installer un modèle du catalogue. Rejouer la même clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est occupé par un autre modèle. */
+    /** @description Administrateurs uniquement. Ordonne à un Worker d'installer un modèle du catalogue. Rejouer la même clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est occupé par un autre modèle (voice_model_type_occupied), sauf avec replaces_model_id : c'est alors un remplacement (le nouveau est installé et testé pendant que l'ancien reste actif ; Snitch décide la bascule, puis ordonne le retrait de l'ancien, différé tant qu'un travail en cours l'utilise). */
     post: operations["createVoiceModelOrder"];
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-replacements/{kind}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Annule le remplacement d'un modèle de ce type sur ce Worker tant que le nouveau n'est pas en service : l'essai en échec ou pas encore reçu est oublié, l'ancien reste actif et installé. Refusé pendant un téléchargement ou un test (voice_replacement_in_progress) et une fois la bascule décidée (voice_replacement_switched). */
+    delete: operations["cancelVoiceModelReplacement"];
     options?: never;
     head?: never;
     patch?: never;
@@ -4393,6 +4410,8 @@ export interface components {
         | "downloading"
         | "verifying"
         | "ready"
+        | "switching"
+        | "removing"
         | "failed";
       /** @enum {string} */
       cause_code:
@@ -4494,6 +4513,8 @@ export interface components {
     VoiceModelOrderInput: {
       model_id: string;
       idempotency_key: string;
+      /** @description Modèle prêt du même type que ce Worker remplace : le nouveau est installé à côté sans bascule, puis Snitch décide la bascule et ordonne le retrait de l'ancien. Diarisation seulement (voice_replacement_kind_unsupported pour l'empreinte). */
+      replaces_model_id?: string;
     };
     WorkerModelOrder: {
       order_id: string;
@@ -4501,14 +4522,25 @@ export interface components {
       /** @enum {string} */
       kind: "diarization" | "fingerprint" | "separation";
       /** @enum {string} */
-      action: "install";
+      action: "install" | "remove";
       model_id: string;
       engine: string;
       repo: string;
       revision: string;
       idempotency_key: string;
       /** @enum {string} */
-      status: "pending" | "acknowledged" | "done" | "failed" | "refused";
+      status:
+        | "pending"
+        | "acknowledged"
+        | "done"
+        | "failed"
+        | "refused"
+        | "cancelled";
+      /**
+       * Format: int64
+       * @description Taille annoncée par le catalogue : le Worker vérifie son espace libre avant de télécharger (disk_full sinon).
+       */
+      size_bytes: number;
       /** @description Jeton Hugging Face central, seulement à la première livraison d'un ordre qui télécharge un modèle sous accès restreint. */
       hf_token?: string;
       /** Format: date-time */
@@ -4527,13 +4559,18 @@ export interface components {
       label: string;
       repo: string;
       revision: string;
-      /** @enum {string} */
+      /**
+       * @description Pendant un remplacement la cellule montre le nouveau modèle : switching (prêt, bascule décidée, retrait de l'ancien en attente), removing (ordre remove de l'ancien envoyé).
+       * @enum {string}
+       */
       state:
         | "not_installed"
         | "requested"
         | "downloading"
         | "verifying"
         | "ready"
+        | "switching"
+        | "removing"
         | "failed";
       /** @enum {string} */
       cause_code:
@@ -4559,6 +4596,10 @@ export interface components {
       /** Format: int64 */
       occupied_bytes: number;
       order_id: string;
+      /** @description Modèle que celui-ci remplace sur ce Worker ; vide hors remplacement. L'ancien reste actif et installé jusqu'à son retrait. */
+      replaces_model_id: string;
+      /** @description Le retrait de l'ancien modèle est différé parce qu'un travail en cours l'utilise. */
+      waiting_for_jobs: boolean;
     };
     WorkerModelsRow: {
       worker_id: string;
@@ -12568,6 +12609,39 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["WorkerModelOrder"];
         };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelVoiceModelReplacement: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+        kind: "diarization" | "fingerprint" | "separation";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Remplacement annulé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Erreur */
       default: {

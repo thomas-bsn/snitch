@@ -18,6 +18,8 @@ const workerTones: Record<WorkerState["state"], PillTone> = {
   downloading: "idle",
   verifying: "idle",
   ready: "ok",
+  switching: "idle",
+  removing: "idle",
   failed: "bad",
 };
 

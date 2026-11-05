@@ -96,7 +96,8 @@ def sync_detailed(
     """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps).
     Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id,
     idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a
-    échoué sur ce Worker (201, voice_model_not_failed sinon).
+    échoué sur ce Worker (201, voice_model_not_failed sinon) ; pour un remplacement dont le retrait de
+    l'ancien a échoué, relance ce retrait (200).
 
     Args:
         id (str):
@@ -139,7 +140,8 @@ def sync(
     """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps).
     Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id,
     idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a
-    échoué sur ce Worker (201, voice_model_not_failed sinon).
+    échoué sur ce Worker (201, voice_model_not_failed sinon) ; pour un remplacement dont le retrait de
+    l'ancien a échoué, relance ce retrait (200).
 
     Args:
         id (str):
@@ -177,7 +179,8 @@ async def asyncio_detailed(
     """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps).
     Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id,
     idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a
-    échoué sur ce Worker (201, voice_model_not_failed sinon).
+    échoué sur ce Worker (201, voice_model_not_failed sinon) ; pour un remplacement dont le retrait de
+    l'ancien a échoué, relance ce retrait (200).
 
     Args:
         id (str):
@@ -220,7 +223,8 @@ async def asyncio(
     """  Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps).
     Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id,
     idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a
-    échoué sur ce Worker (201, voice_model_not_failed sinon).
+    échoué sur ce Worker (201, voice_model_not_failed sinon) ; pour un remplacement dont le retrait de
+    l'ancien a échoué, relance ce retrait (200).
 
     Args:
         id (str):

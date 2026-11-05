@@ -541,6 +541,14 @@ export const fr: Messages = {
         "Ce modèle est à accès restreint : le jeton Hugging Face central est envoyé à ce Worker avec cet ordre seulement.",
       confirmAction: "Ordonner l’installation",
       cancelDialog: "Annuler",
+      replace: "Remplacer",
+      replaceWith: "Modèle qui remplace l’actuel sur {worker}",
+      replacing: "Remplace {model} : il reste actif jusqu’à la bascule.",
+      waitingJobs:
+        "Bascule faite. L’ancien modèle sera retiré à la fin de ses travaux en cours.",
+      cancelReplacement: "Annuler le remplacement",
+      confirmReplaceText:
+        "{worker} va télécharger {model} et le tester pendant que {old} reste actif. Snitch bascule ensuite le modèle actif et ordonne le retrait de {old}, quand plus aucun travail en cours ne l’utilise. En cas d’échec, {old} est conservé.",
     },
     state: {
       not_installed: "Non installé",
@@ -548,6 +556,8 @@ export const fr: Messages = {
       downloading: "Téléchargement",
       verifying: "Vérification",
       ready: "Prêt",
+      switching: "Bascule",
+      removing: "Retrait",
       failed: "Échec",
     },
     cause: {
