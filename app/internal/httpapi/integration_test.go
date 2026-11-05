@@ -348,6 +348,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceFingerprintTransitionPreview(t, pool)
 	})
+	t.Run("voice fingerprint transition flow", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionFlow(t, pool)
+	})
 	t.Run("voice requested model dispatch", func(t *testing.T) {
 		reset(t)
 		testVoiceRequestedModelDispatch(t, pool)

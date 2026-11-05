@@ -187,6 +187,9 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 			// New fingerprints are matched against the existing references, in the
 			// database only. A failure never undoes the stored result.
 			s.matchingChanged(r.Context(), job.ClipID)
+		} else if strings.HasPrefix(step, "voice.fingerprint.") {
+			// A recomputed reference may complete the essential migration of a fingerprint model change.
+			s.stepFingerprintTransition(r.Context())
 		}
 		s.reconcileAnalysis(r.Context(), job.ClipID)
 		reply(w, http.StatusOK, job)

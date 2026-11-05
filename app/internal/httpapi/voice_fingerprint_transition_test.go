@@ -40,6 +40,7 @@ type transitionState struct {
 		ReferencesRemaining int    `json:"references_remaining"`
 		JobsActive          int    `json:"jobs_active"`
 		JobsFailed          int    `json:"jobs_failed"`
+		CatchUpRemaining    int    `json:"catch_up_remaining"`
 		WorkersReady        int    `json:"workers_ready"`
 	} `json:"transition"`
 }

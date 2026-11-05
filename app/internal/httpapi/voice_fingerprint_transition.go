@@ -539,3 +539,11 @@ func (s *Server) scheduleCatchUp(ctx context.Context, t fingerprintTransition) e
 	}
 	return nil
 }
+
+// stepFingerprintTransition advances the open transition after an event; a failure is logged and never
+// undoes the event that triggered it, the next event or a reading of the state runs the step again.
+func (s *Server) stepFingerprintTransition(ctx context.Context) {
+	if err := s.advanceFingerprintTransition(ctx, false); err != nil {
+		s.Log.Error("fingerprint transition step failed", "error", err.Error())
+	}
+}

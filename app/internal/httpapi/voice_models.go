@@ -383,6 +383,13 @@ func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
 		if entry.ID == active || entry.ID == candidate {
 			return errInUse
 		}
+		// The source and the target of a fingerprint model change stay until the essential migration is done.
+		if blocked, err := transitionBlocks(r.Context(), tx, entry.ID); err != nil || blocked {
+			if err != nil {
+				return err
+			}
+			return errInUse
+		}
 		// A job that still uses the model keeps it; the administrator removes it once the job has ended.
 		if busy, err := voiceModelInUseIn(r.Context(), tx, entry); err != nil || busy {
 			if err != nil {
@@ -461,6 +468,7 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	s.stepFingerprintTransition(r.Context())
 	active, err := s.activeVoiceModelID(r)
 	if err != nil {
 		s.internal(w, err)
@@ -571,7 +579,11 @@ func (s *Server) patchVoiceModel(w http.ResponseWriter, r *http.Request) {
 			if err = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM voice_active_model WHERE model_id=$1)`, id).Scan(&activeOfType); err != nil {
 				return err
 			}
-			if id == active || id == candidate || activeOfType {
+			blocked, err := transitionBlocks(r.Context(), tx, id)
+			if err != nil {
+				return err
+			}
+			if id == active || id == candidate || activeOfType || blocked {
 				return errInUse
 			}
 		}
