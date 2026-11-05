@@ -308,6 +308,16 @@ export const errorsEn = {
     "A replacement is already under way for this type on this Worker, or a download or test is still running.",
   voice_replacement_switched:
     "The switch is already decided: the replacement can no longer be cancelled.",
+  voice_transition_preview_stale:
+    "The number of references changed since the preview: check the impact again before confirming.",
+  voice_transition_in_progress:
+    "A fingerprint model change is already under way: finish or cancel it first.",
+  voice_transition_not_found: "No fingerprint model change exists.",
+  voice_transition_switched:
+    "The fingerprint model is already switched: the change can no longer be cancelled.",
+  voice_transition_required:
+    "Replacing the fingerprint model starts with a confirmed change that shows its impact.",
+  invalid_voice_transition: "The request to change the fingerprint model is incomplete.",
   voice_replacement_not_found: "No replacement is under way for this type.",
   voice_model_not_failed: "The last attempt of this model did not fail.",
   voice_order_not_found: "This order does not exist for this Worker.",

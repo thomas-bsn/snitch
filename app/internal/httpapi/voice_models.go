@@ -17,6 +17,7 @@ import (
 
 func (s *Server) registerVoiceModelRoutes(mux *http.ServeMux) {
 	s.registerVoiceModelAddRoutes(mux)
+	s.registerFingerprintTransitionRoutes(mux)
 	mux.Handle("GET /api/admin/voice-models", s.protected(true, http.HandlerFunc(s.listVoiceModels)))
 	mux.Handle("PATCH /api/admin/voice-models/{id}", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.patchVoiceModel)))
 	mux.Handle("PUT /api/admin/voice-models/candidate", s.protected(true, http.HandlerFunc(s.chooseVoiceModelCandidate)))

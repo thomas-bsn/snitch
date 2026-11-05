@@ -103,6 +103,11 @@ from .explorer_index_result_state import ExplorerIndexResultState
 from .explorer_listing import ExplorerListing
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
+from .fingerprint_transition import FingerprintTransition
+from .fingerprint_transition_input import FingerprintTransitionInput
+from .fingerprint_transition_phase import FingerprintTransitionPhase
+from .fingerprint_transition_preview import FingerprintTransitionPreview
+from .fingerprint_transition_state import FingerprintTransitionState
 from .folder_privacy import FolderPrivacy
 from .get_clip_analysis_deletion_preview_response_200 import GetClipAnalysisDeletionPreviewResponse200
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
@@ -593,6 +598,11 @@ __all__ = (
     "ExplorerListing",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
+    "FingerprintTransition",
+    "FingerprintTransitionInput",
+    "FingerprintTransitionPhase",
+    "FingerprintTransitionPreview",
+    "FingerprintTransitionState",
     "FolderPrivacy",
     "GetClipAnalysisDeletionPreviewResponse200",
     "GetEmbeddingIndexStatusResponse200",
