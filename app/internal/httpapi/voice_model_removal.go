@@ -75,7 +75,7 @@ func (s *Server) removalOrder(ctx context.Context, author session, workerID, mod
 			return orderFailure{http.StatusConflict, "voice_model_not_removable"}
 		}
 		// A job that still uses the model keeps it; the Administrator removes it once the job has ended.
-		busy, err := voiceModelInUseIn(ctx, tx, entry)
+		busy, err := voiceModelInUseIn(ctx, tx, entry, workerID)
 		if err != nil {
 			return err
 		}

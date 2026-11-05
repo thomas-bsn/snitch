@@ -505,7 +505,7 @@ export const en = {
       "These Workers do not have the model ready and will stop taking voice jobs: {names}.",
     removeTitle: "Delete {model}?",
     removeText:
-      "Each Worker deletes this model from its volume. You will have to choose it again to download it again.",
+      "{worker} deletes this model from its volume. You will have to choose it again to download it again.",
     byWorker: {
       title: "Models per Worker",
       hint: "The model each Worker holds for each type. Snitch orders the installation; the Worker only reports what it really has.",

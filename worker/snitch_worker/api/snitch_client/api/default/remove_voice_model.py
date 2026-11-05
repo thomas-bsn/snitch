@@ -16,6 +16,7 @@ from typing import cast
 def _get_kwargs(
     id: str,
     *,
+    worker_id: str,
     origin: str,
     x_csrf_token: str,
 
@@ -29,11 +30,18 @@ def _get_kwargs(
 
 
 
+    params: dict[str, Any] = {}
+
+    params["worker_id"] = worker_id
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
         "url": "/api/admin/voice-models/{id}/installation".format(id=quote(str(id), safe=""),),
+        "params": params,
     }
 
 
@@ -68,15 +76,18 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
+    worker_id: str,
     origin: str,
     x_csrf_token: str,
 
 ) -> Response[Any | Error]:
-    """  Administrateurs uniquement. Demande aux Workers de supprimer un modèle installé. Refusé
-    (voice_model_in_use) s'il est actif ou candidat.
+    """  Administrateurs uniquement. Ordonne à UN Worker, désigné par worker_id (400 worker_required sinon),
+    de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat, ou utilisé
+    par un job de ce Worker ; 409 voice_model_not_removable si ce Worker ne le détient pas.
 
     Args:
         id (str):
+        worker_id (str):
         origin (str):
         x_csrf_token (str):
 
@@ -91,6 +102,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+worker_id=worker_id,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -106,15 +118,18 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient,
+    worker_id: str,
     origin: str,
     x_csrf_token: str,
 
 ) -> Any | Error | None:
-    """  Administrateurs uniquement. Demande aux Workers de supprimer un modèle installé. Refusé
-    (voice_model_in_use) s'il est actif ou candidat.
+    """  Administrateurs uniquement. Ordonne à UN Worker, désigné par worker_id (400 worker_required sinon),
+    de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat, ou utilisé
+    par un job de ce Worker ; 409 voice_model_not_removable si ce Worker ne le détient pas.
 
     Args:
         id (str):
+        worker_id (str):
         origin (str):
         x_csrf_token (str):
 
@@ -130,6 +145,7 @@ def sync(
     return sync_detailed(
         id=id,
 client=client,
+worker_id=worker_id,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -139,15 +155,18 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient,
+    worker_id: str,
     origin: str,
     x_csrf_token: str,
 
 ) -> Response[Any | Error]:
-    """  Administrateurs uniquement. Demande aux Workers de supprimer un modèle installé. Refusé
-    (voice_model_in_use) s'il est actif ou candidat.
+    """  Administrateurs uniquement. Ordonne à UN Worker, désigné par worker_id (400 worker_required sinon),
+    de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat, ou utilisé
+    par un job de ce Worker ; 409 voice_model_not_removable si ce Worker ne le détient pas.
 
     Args:
         id (str):
+        worker_id (str):
         origin (str):
         x_csrf_token (str):
 
@@ -162,6 +181,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+worker_id=worker_id,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -177,15 +197,18 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient,
+    worker_id: str,
     origin: str,
     x_csrf_token: str,
 
 ) -> Any | Error | None:
-    """  Administrateurs uniquement. Demande aux Workers de supprimer un modèle installé. Refusé
-    (voice_model_in_use) s'il est actif ou candidat.
+    """  Administrateurs uniquement. Ordonne à UN Worker, désigné par worker_id (400 worker_required sinon),
+    de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat, ou utilisé
+    par un job de ce Worker ; 409 voice_model_not_removable si ce Worker ne le détient pas.
 
     Args:
         id (str):
+        worker_id (str):
         origin (str):
         x_csrf_token (str):
 
@@ -201,6 +224,7 @@ async def asyncio(
     return (await asyncio_detailed(
         id=id,
 client=client,
+worker_id=worker_id,
 origin=origin,
 x_csrf_token=x_csrf_token,
 

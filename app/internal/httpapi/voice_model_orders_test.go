@@ -218,7 +218,7 @@ func (h *voiceHarness) retry(workerID, modelID, key string, want int) modelOrder
 const fingerprintID = "pyannote-wespeaker-resnet34"
 
 // The Worker acknowledges, downloads, verifies and reports; it is ready only on its own report, a failure
-// carries an actionable cause and Retry orders again. The central token travels once, with a gated download.
+// carries an actionable cause and Retry orders again. The central token travels with every delivery of an unfinished gated download.
 func testVoiceModelOrderExecution(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
 	withSecondCatalogModel(t, pool)
@@ -226,7 +226,7 @@ func testVoiceModelOrderExecution(t *testing.T, pool *pgxpool.Pool) {
 	const token = "hf_synthetic0123456789abcdef"
 	h.adminCall(http.MethodPut, "/api/admin/hf-token", map[string]any{"token": token}, http.StatusNoContent)
 
-	// A gated model downloads with the token, delivered once, with that order only.
+	// A gated model downloads with the token, delivered with that order only.
 	gated := h.order(workerID, communityID, "install-gated-01", http.StatusCreated)
 	first := h.workerOrders()
 	if len(first) != 1 || first[0].HFToken != token {
@@ -234,8 +234,11 @@ func testVoiceModelOrderExecution(t *testing.T, pool *pgxpool.Pool) {
 	}
 	h.ack(gated.OrderID, true, "", http.StatusNoContent)
 	h.ack(gated.OrderID, true, "", http.StatusNoContent) // a replayed acknowledgement has no second effect
-	if again := h.workerOrders(); len(again) != 1 || again[0].HFToken != "" {
-		t.Fatalf("the token must not be sent again: %+v", again)
+	// The Worker may have crashed before writing its secret file: until the order ends, every delivery carries it.
+	for i := 0; i < 2; i++ {
+		if again := h.workerOrders(); len(again) != 1 || again[0].HFToken != token {
+			t.Fatalf("an unfinished gated order is redelivered with the token (delivery %d): %+v", i, again)
+		}
 	}
 	// A report for an order that is not this Worker's, or for another model, is refused.
 	h.workerCall(http.MethodPost, "/api/worker/voice-models/status", map[string]any{"order_id": "ord_unknown_unknown_unknown", "model_id": communityID, "state": "downloading"}, "", http.StatusNotFound)

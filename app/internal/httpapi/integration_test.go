@@ -419,6 +419,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelExplicitRemoval(t, pool)
 	})
+	t.Run("voice model in use per worker", func(t *testing.T) {
+		reset(t)
+		testVoiceModelInUsePerWorker(t, pool)
+	})
+	t.Run("voice model uninstall one worker", func(t *testing.T) {
+		reset(t)
+		testVoiceModelUninstallOneWorker(t, pool)
+	})
 	t.Run("voice model removal for space", func(t *testing.T) {
 		reset(t)
 		testVoiceModelRemovalForSpace(t, pool)
@@ -914,7 +922,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/admin/voice-models/inspection", map[string]any{"source": "https://evil.example/a/b"}, me.CSRF, 400) // behavior in the voice model addition suite
 		call(client, "POST", "/api/admin/voice-models", map[string]any{"source": "https://evil.example/a/b", "revision": "0123456789abcdef0123456789abcdef01234567", "kind": "diarization"}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-models/pyannote-community-1/activate", nil, me.CSRF, 409)
-		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation", nil, me.CSRF, 409)
+		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation?worker_id=wk_any", nil, me.CSRF, 409)
 		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/voice", nil, "", 200)

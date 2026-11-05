@@ -41,7 +41,10 @@ export function VoiceModelCards({
   const [failure, setFailure] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [activating, setActivating] = useState<VoiceModel>();
-  const [removing, setRemoving] = useState<VoiceModel>();
+  const [removing, setRemoving] = useState<{
+    model: VoiceModel;
+    worker: WorkerState;
+  }>();
   const headers = mutation(session?.csrf_token);
   async function run(action: () => Promise<{ error?: unknown }>) {
     setBusy(true);
@@ -130,6 +133,19 @@ export function VoiceModelCards({
                         )}
                       </>
                     )}
+                    {!model.active &&
+                      !model.candidate &&
+                      (worker.state === "ready" ||
+                        worker.state === "failed") && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setRemoving({ model, worker })}
+                          className={buttonClass("secondary")}
+                        >
+                          {t("voiceModels.remove")}
+                        </button>
+                      )}
                   </li>
                 ))}
               </ul>
@@ -179,14 +195,6 @@ export function VoiceModelCards({
                       className={buttonClass("primary")}
                     >
                       {t("voiceModels.revert")}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setRemoving(model)}
-                      className={buttonClass("secondary")}
-                    >
-                      {t("voiceModels.remove")}
                     </button>
                   </>
                 )}
@@ -264,7 +272,9 @@ export function VoiceModelCards({
       <ConfirmDialog
         open={removing !== undefined}
         onOpenChange={(open) => !open && setRemoving(undefined)}
-        title={t("voiceModels.removeTitle", { model: removing?.repo ?? "" })}
+        title={t("voiceModels.removeTitle", {
+          model: removing?.model.repo ?? "",
+        })}
         cancelLabel={t("voiceModels.cancelDialog")}
         confirmLabel={t("voiceModels.remove")}
         danger
@@ -273,12 +283,18 @@ export function VoiceModelCards({
           removing &&
           void run(() =>
             api.DELETE("/api/admin/voice-models/{id}/installation", {
-              params: { path: { id: removing.id }, header: headers },
+              params: {
+                path: { id: removing.model.id },
+                query: { worker_id: removing.worker.worker_id },
+                header: headers,
+              },
             }),
           )
         }
       >
-        <p>{t("voiceModels.removeText")}</p>
+        <p>
+          {t("voiceModels.removeText", { worker: removing?.worker.name ?? "" })}
+        </p>
       </ConfirmDialog>
     </>
   );

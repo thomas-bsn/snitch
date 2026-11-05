@@ -82,7 +82,7 @@ func testVoiceModelConcurrency(t *testing.T, pool *pgxpool.Pool) {
 		}()
 		go func() {
 			defer wg.Done()
-			h.adminCallStatus(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil)
+			h.adminCallStatus(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation?worker_id="+h.fixtureWorkerID(), nil)
 		}()
 		wg.Wait()
 		if n := h.count(`SELECT count(*) FROM voice_model_candidate c JOIN worker_voice_models m ON m.model_id=c.model_id WHERE m.removal_requested`); n != 0 {

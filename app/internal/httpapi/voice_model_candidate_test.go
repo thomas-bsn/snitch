@@ -237,18 +237,19 @@ func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 
 	// Cancelling a candidate leaves the active model alone; delete only targets a model that is neither active nor candidate.
 	h.adminCall(http.MethodPut, "/api/admin/voice-models/candidate", map[string]any{"model_id": secondID}, http.StatusOK)
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusConflict)
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+communityID+"/installation", nil, http.StatusConflict)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation"+"?worker_id="+h.fixtureWorkerID(), nil, http.StatusConflict)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+communityID+"/installation"+"?worker_id="+h.fixtureWorkerID(), nil, http.StatusConflict)
 	h.adminCall(http.MethodDelete, "/api/admin/voice-models/candidate", nil, http.StatusNoContent)
 	if m := h.voiceModels().model(t, secondID); m.Candidate || !m.Installed {
 		t.Fatalf("cancel must keep the installed model: %+v", m)
 	}
 	// A job that still uses the model keeps it installed.
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusConflict)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation"+"?worker_id="+h.fixtureWorkerID(), nil, http.StatusConflict)
 	if _, err := pool.Exec(t.Context(), `UPDATE jobs SET status='done',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL WHERE status IN ('pending','leased')`); err != nil {
 		t.Fatal(err)
 	}
-	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusNoContent)
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation", nil, http.StatusBadRequest) // a Worker is required
+	h.adminCall(http.MethodDelete, "/api/admin/voice-models/"+secondID+"/installation?worker_id="+h.fixtureWorkerID(), nil, http.StatusNoContent)
 	// Uninstalling is an explicit remove order, never a list the Worker acts on by itself (ADR 0038).
 	if _, remove := h.workerWants(); len(remove) != 0 {
 		t.Fatalf("no legacy removal list any more: %+v", remove)

@@ -362,7 +362,14 @@ func (s *Server) activateVoiceModel(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, map[string]any{"version": version, "config": config})
 }
 
+// removeVoiceModel orders the removal of a model on ONE Worker, named by the worker_id query parameter: the
+// Administrator decides Worker by Worker (ADR 0038).
 func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
+	workerID := r.URL.Query().Get("worker_id")
+	if workerID == "" {
+		fail(w, http.StatusBadRequest, "worker_required")
+		return
+	}
 	entry, ok, err := voiceCatalogByID(r.Context(), s.Pool, r.PathValue("id"))
 	if err != nil {
 		s.internal(w, err)
@@ -372,7 +379,7 @@ func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "voice_model_not_found")
 		return
 	}
-	errInUse := errors.New("in use")
+	errInUse, errNotHeld := errors.New("in use"), errors.New("not held")
 	err = s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
 		active, err := voiceActiveModelIDIn(r.Context(), tx)
 		if err != nil {
@@ -393,17 +400,25 @@ func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
 			return errInUse
 		}
 		// A job that still uses the model keeps it; the administrator removes it once the job has ended.
-		if busy, err := voiceModelInUseIn(r.Context(), tx, entry); err != nil || busy {
+		if busy, err := voiceModelInUseIn(r.Context(), tx, entry, workerID); err != nil || busy {
 			if err != nil {
 				return err
 			}
 			return errInUse
 		}
 		ss := r.Context().Value(sessionKey{}).(session)
-		return orderRemovalOnHolders(r.Context(), tx, entry, ss)
+		held, err := orderRemovalOn(r.Context(), tx, entry, workerID, ss)
+		if err == nil && !held {
+			return errNotHeld
+		}
+		return err
 	})
 	if errors.Is(err, errInUse) {
 		fail(w, http.StatusConflict, "voice_model_in_use")
+		return
+	}
+	if errors.Is(err, errNotHeld) {
+		fail(w, http.StatusConflict, "voice_model_not_removable")
 		return
 	}
 	if err != nil {
