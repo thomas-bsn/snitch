@@ -29,7 +29,7 @@ Le pilote NVIDIA et le NVIDIA Container Toolkit ne sont pas dans l'image : ils r
 | Modèle | Licence affichée | Accès |
 | --- | --- | --- |
 | `pyannote/speaker-diarization-community-1` | CC-BY-4.0 | Dépôt « gated » : il faut un compte Hugging Face, accepter les conditions sur la page du modèle (partage d'informations de compte, e-mails occasionnels possibles) et fournir un jeton. |
-| `pyannote/wespeaker-voxceleb-resnet34-LM` | CC-BY-4.0 ; la fiche indique que le modèle suit la licence de son jeu de données (VoxCeleb) | À la lecture de la fiche, aucun accès restreint n'est mentionné ; non confirmé de façon authentifiée. `download_models.py` exige quand même `--confirm-terms` pour les deux : vérifier la page au moment du téléchargement et accepter ce qui est demandé. |
+| `pyannote/wespeaker-voxceleb-resnet34-LM` | CC-BY-4.0 ; la fiche indique que le modèle suit la licence de son jeu de données (VoxCeleb) | À la lecture de la fiche, aucun accès restreint n'est mentionné ; non confirmé de façon authentifiée. Vérifier la page au moment de l'ordre d'installation et accepter ce qui est demandé. |
 
 | `nvidia/diar_streaming_sortformer_4spk-v2.1` | Licence « other » : NVIDIA Open Model License (fiche et API Hugging Face lues le 2026-11-02, https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/) | Dépôt public, non « gated ». Moteur NeMo, 4 locuteurs au plus. Conditions de la licence à relire avant un usage au-delà du personnel : je ne les ai pas analysées. |
 

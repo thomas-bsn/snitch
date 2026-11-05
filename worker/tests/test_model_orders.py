@@ -162,6 +162,32 @@ class ExecutionTests(unittest.TestCase):
         # the outcome Snitch may have lost is told again, never recomputed
         self.assertEqual(snitch.states(), ["ready"])
 
+    def test_a_failure_survives_a_restart_without_another_download(self):
+        calls = []
+
+        def failing(repo, revision, target, progress):
+            calls.append(target)
+            raise voice_models.DownloadFailed("hf_network")
+
+        h = Harness(self, download=failing)
+        h.sync(FakeSnitch([ORDER]))
+        restarted = Harness(self, download=failing, directory=h.directory)
+        snitch = FakeSnitch([ORDER])
+        restarted.sync(snitch)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(snitch.states(), ["failed"])
+        self.assertEqual(snitch.reports[0]["cause_code"], "hf_network")
+
+    def test_an_order_cut_short_by_a_restart_is_run_once_more_without_a_second_acknowledgement(self):
+        h = Harness(self)
+        # Snitch holds the order as acknowledged: the earlier run never wrote an outcome.
+        resumed = order(status="acknowledged")
+        snitch = FakeSnitch([resumed])
+        h.sync(snitch)
+        self.assertEqual(snitch.acks, [])
+        self.assertEqual(snitch.states()[-1], "ready")
+        self.assertEqual(len(h.downloads), 1)
+
     def test_a_new_order_after_a_failure_runs_again(self):
         attempts = []
 

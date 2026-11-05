@@ -58,6 +58,8 @@ type Job struct {
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Result         json.RawMessage `json:"result,omitempty"`
+	// RequestedModelID is set on the job returned by Schedule when it asks for a precise catalogue model.
+	RequestedModelID *string `json:"requested_model_id,omitempty"`
 }
 
 type Assignment struct {
@@ -71,6 +73,8 @@ type ScheduleInput struct {
 	InputVersion string
 	Priority     int
 	MaxAttempts  int
+	// RequestedModelID asks for one catalogue model (benchmark); empty means the active model.
+	RequestedModelID string
 }
 
 type Event struct {
@@ -166,6 +170,9 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 	if input.ClipID < 1 || !stepPattern.MatchString(input.Step) || input.InputVersion == "" || len(input.InputVersion) > 128 || strings.TrimSpace(input.InputVersion) != input.InputVersion || input.Priority < -100 || input.Priority > 100 || input.MaxAttempts < 1 || input.MaxAttempts > 20 {
 		return Job{}, false, ErrInvalidInput
 	}
+	if err := s.checkRequestedModel(ctx, input.Step, input.RequestedModelID); err != nil {
+		return Job{}, false, err
+	}
 	for attempt := 0; attempt < 5; attempt++ {
 		tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
@@ -181,22 +188,22 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("lock clip before scheduling step: %w", err)
 		}
-		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND status IN ('pending','leased','retry_wait')`, input.ClipID, input.Step, input.InputVersion); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND COALESCE(requested_model_id,'')=$4 AND status IN ('pending','leased','retry_wait')`, input.ClipID, input.Step, input.InputVersion, input.RequestedModelID); err != nil {
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("invalidate superseded step version: %w", err)
 		}
-		job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND status IN ('pending','leased','retry_wait') FOR UPDATE`, input.ClipID, input.Step, input.InputVersion))
+		job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND COALESCE(requested_model_id,'')=$4 AND status IN ('pending','leased','retry_wait') FOR UPDATE`, input.ClipID, input.Step, input.InputVersion, input.RequestedModelID))
 		if err == nil {
 			if err = tx.Commit(ctx); err != nil {
 				return Job{}, false, fmt.Errorf("commit existing job schedule: %w", err)
 			}
-			return job, false, nil
+			return withRequestedModel(job, input.RequestedModelID), false, nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("find active job: %w", err)
 		}
-		job, err = scanJob(tx.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,$4,$5) ON CONFLICT (clip_id,step,input_version) WHERE status IN ('pending','leased','retry_wait') DO NOTHING RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, input.ClipID, input.Step, input.InputVersion, input.Priority, input.MaxAttempts))
+		job, err = scanJob(tx.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts,requested_model_id) VALUES($1,$2,$3,$4,$5,NULLIF($6,'')) ON CONFLICT (clip_id,step,input_version,(COALESCE(requested_model_id,''))) WHERE status IN ('pending','leased','retry_wait') DO NOTHING RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, input.ClipID, input.Step, input.InputVersion, input.Priority, input.MaxAttempts, input.RequestedModelID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			_ = tx.Rollback(ctx)
 			continue
@@ -212,7 +219,7 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 		if err = tx.Commit(ctx); err != nil {
 			return Job{}, false, fmt.Errorf("commit new job: %w", err)
 		}
-		return job, true, nil
+		return withRequestedModel(job, input.RequestedModelID), true, nil
 	}
 	return Job{}, false, errors.New("could not resolve concurrent job schedule")
 }
@@ -351,6 +358,30 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 	return nil
 }
 
+// localVoiceModelReadyGuard is the dispatch rule of a local voice job, a clause of the claim query (parameters:
+// $3 the active provider, $4 the claiming Worker, $5 the diarization model the job is pinned to or, failing a pin,
+// the active one). Only the local steps are guarded (diarization, fingerprint, separation): never transcription,
+// which goes to Speaches, nor the fake provider. A local step goes only to a Worker whose model of the type is
+// ready in worker_voice_models, the state the Worker reported after a synthetic inference (ADR 0022, ADR 0038); a job with a requested model
+// (benchmark) is governed by requestedModelClaimGuard instead of the active model;
+// what the pulse declares and what lies on the volume never open it. A model being removed is not ready.
+const localVoiceModelReadyGuard = `(
+		      j.step NOT LIKE 'voice.%'
+		      OR j.requested_model_id IS NOT NULL
+		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%' AND j.step NOT LIKE 'voice.separation.%')
+		      OR COALESCE(pin.config->>'provider',$3::text) NOT IN ('pyannote','nemo')
+		      OR (j.step LIKE 'voice.diarization.%' AND EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_model_catalog m ON m.id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false
+		            AND m.kind='diarization' AND m.repo=COALESCE(pin.config->>'model',$5::text)))
+		      OR (j.step LIKE 'voice.fingerprint.%' AND EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='fingerprint'))
+		      OR (j.step LIKE 'voice.separation.%' AND EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='separation'))
+		  )`
+
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
 // For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
@@ -424,8 +455,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 	var maximum, reported int
 	var supportedSteps []string
 	var activeVersion string
-	var declaredModels []byte
-	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,''),COALESCE(w.models,'{}'::jsonb) FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE OF w`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion, &declaredModels)
+	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE OF w`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -444,8 +474,8 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 	if capacity < 1 || active >= capacity || globalActive >= globalCapacity {
 		return nil, tx.Commit(ctx)
 	}
-	// The real voice provider only runs on a Worker that holds the active models: a declaration
-	// naming another model, or none, never receives a voice job. The fake provider has no model.
+	// The real voice provider only runs on a Worker whose active model of the type is ready (see
+	// localVoiceModelReadyGuard). The fake provider has no model.
 	var voiceProvider, diarizationModel string
 	// A missing pipeline row must never stop transcription claims: no provider means no voice rule.
 	if err = tx.QueryRow(ctx, `SELECT COALESCE(v.config->>'provider',''),COALESCE(v.config->>'model','') FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&voiceProvider, &diarizationModel); err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -471,16 +501,11 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		      j.step NOT LIKE 'transcription.%'
 		      OR $2::text = '' OR $2::text = (SELECT ts.version FROM transcription_settings ts WHERE ts.id=true)
 		  )
-		  AND (
-		      j.step NOT LIKE 'voice.%'
-		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%')
-		      OR COALESCE(pin.config->>'provider',$3::text) NOT IN ('pyannote','nemo')
-		      OR (j.step LIKE 'voice.diarization.%' AND $4::jsonb->'diarization'->>'model' = COALESCE(pin.config->>'model',$5::text))
-		      OR (j.step LIKE 'voice.fingerprint.%' AND $4::jsonb->'fingerprint'->>'model' = (SELECT m.repo FROM voice_active_model am JOIN voice_model_catalog m ON m.id=am.model_id WHERE am.kind='fingerprint'))
-		  )
+		  AND `+localVoiceModelReadyGuard+`
+		  AND `+requestedModelClaimGuard+`
 		ORDER BY j.priority DESC,j.created_at,j.id
 		FOR UPDATE OF j SKIP LOCKED LIMIT 1
-	`, supportedSteps, activeVersion, voiceProvider, string(declaredModels), diarizationModel))
+	`, supportedSteps, activeVersion, voiceProvider, workerID, diarizationModel))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}

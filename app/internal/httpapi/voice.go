@@ -380,7 +380,7 @@ func voiceStatus(jobStatus string) string {
 
 func (s *Server) latestVoiceStep(ctx context.Context, clipID int64, pattern string) (*voiceStep, error) {
 	var step voiceStep
-	err := s.Pool.QueryRow(ctx, `SELECT id,step,status,input_version,attempts,max_attempts,last_error FROM jobs WHERE clip_id=$1 AND step LIKE $2 ORDER BY id DESC LIMIT 1`, clipID, pattern).Scan(&step.JobID, &step.Step, &step.Status, &step.InputVersion, &step.Attempts, &step.MaxAttempts, &step.LastError)
+	err := s.Pool.QueryRow(ctx, `SELECT id,step,status,input_version,attempts,max_attempts,last_error FROM jobs WHERE clip_id=$1 AND step LIKE $2 AND requested_model_id IS NULL ORDER BY id DESC LIMIT 1`, clipID, pattern).Scan(&step.JobID, &step.Step, &step.Status, &step.InputVersion, &step.Attempts, &step.MaxAttempts, &step.LastError)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -477,7 +477,7 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	for i, sp := range speakers {
 		byID[sp.ID] = i
 	}
-	fpRows, err := s.Pool.Query(r.Context(), `SELECT local_speaker_id,id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions FROM voice_fingerprints WHERE clip_id=$1 ORDER BY id`, clip.ID)
+	fpRows, err := s.Pool.Query(r.Context(), `SELECT local_speaker_id,id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions FROM voice_fingerprints WHERE clip_id=$1 AND NOT benchmark ORDER BY id`, clip.ID)
 	if err != nil {
 		s.internal(w, err)
 		return

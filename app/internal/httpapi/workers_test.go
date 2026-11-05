@@ -108,10 +108,13 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	if err = json.Unmarshal(created, &generated); err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range []string{"SNITCH_API_URL=" + ts.URL, "SNITCH_WORKER_TOKEN=" + registration.Token, "SNITCH_WORKER_IMAGE=" + config.DefaultWorkerImage, "SNITCH_VOICE_DOWNLOAD_ON_START=1", "SNITCH_VOICE_CONFIRM_TERMS=1"} {
+	for _, line := range []string{"SNITCH_API_URL=" + ts.URL, "SNITCH_WORKER_TOKEN=" + registration.Token, "SNITCH_WORKER_IMAGE=" + config.DefaultWorkerImage} {
 		if !strings.Contains("\n"+generated.Bundle.Env+"\n", "\n"+line+"\n") {
 			t.Fatalf("generated .env lacks %q:\n%s", line, generated.Bundle.Env)
 		}
+	}
+	if strings.Contains(generated.Bundle.Env+generated.Bundle.Compose, "DOWNLOAD_ON_START") || strings.Contains(generated.Bundle.Env+generated.Bundle.Compose, "HF_TOKEN") {
+		t.Fatalf("a new Worker must not be set up to download voice models:\n%s", generated.Bundle.Env)
 	}
 	if generated.Bundle.InsecureAPIURL || strings.Contains(generated.Bundle.Compose, registration.Token) || !strings.Contains(generated.Bundle.Compose, "pull_policy: always") {
 		t.Fatalf("unexpected generated bundle: %+v", generated.Bundle)

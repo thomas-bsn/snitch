@@ -219,10 +219,12 @@ func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("an activated candidate stops being a candidate: %+v", m)
 	}
 	h.adminCall(http.MethodPost, "/api/admin/clips/"+strconv64(h.clipID)+"/voice", map[string]any{"audio_stream_index": 2}, http.StatusCreated)
-	if job, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36")}); ok {
-		t.Fatalf("a Worker holding only the previous model claimed %s", job.Step)
+	h.reportModel(secondID, "failed", "disk_full", 0, 0, http.StatusNoContent)
+	if job, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(secondRepo, "b00000000000")}); ok {
+		t.Fatalf("a Worker whose active model is not ready claimed %s", job.Step)
 	}
-	if _, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(secondRepo, "b00000000000")}); !ok {
+	h.reportModel(secondID, "ready", "", 1, 1, http.StatusNoContent)
+	if _, ok := h.claimDeclaring(nil); !ok {
 		t.Fatal("the Worker holding the new active model must claim the job")
 	}
 

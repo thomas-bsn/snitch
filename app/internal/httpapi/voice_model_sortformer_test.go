@@ -54,10 +54,13 @@ func testVoiceModelSortformer(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("activation must select the nemo provider: %s", body)
 	}
 	h.adminCall(http.MethodPost, "/api/admin/clips/"+strconv64(h.clipID)+"/voice", map[string]any{"audio_stream_index": 2}, http.StatusCreated)
-	if job, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36")}); ok {
-		t.Fatalf("a Worker holding only the previous model claimed %s", job.Step)
+	// The previous model is ready, the new active one is not (any more): the declaration changes nothing.
+	h.reportModel(sortformerID, "failed", "runtime_incompatible", 0, 0, http.StatusNoContent)
+	if job, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(sortformerRepo, "cd03eee90fbe")}); ok {
+		t.Fatalf("a Worker whose active model is not ready claimed %s", job.Step)
 	}
-	if _, ok := h.claimDeclaring(map[string]any{"diarization": voiceModel(sortformerRepo, "cd03eee90fbe")}); !ok {
+	h.reportModel(sortformerID, "ready", "", 1, 1, http.StatusNoContent)
+	if _, ok := h.claimDeclaring(nil); !ok {
 		t.Fatal("the Worker holding Sortformer must claim the job")
 	}
 	if o := h.overview(); o.Provider != "nemo" {

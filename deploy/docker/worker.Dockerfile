@@ -1,8 +1,8 @@
 # Worker avec fournisseurs vocaux réels (pyannote, NeMo Sortformer) et GPU NVIDIA. Client HTTPS autonome ;
 # aucun port entrant ni accès PostgreSQL. Aucun modèle n'est inclus : ils viennent d'un volume
-# monté (SNITCH_VOICE_*). Le démarrage passe par snitch_worker.bootstrap, qui ne télécharge
-# que sur opt-in explicite (SNITCH_VOICE_DOWNLOAD_ON_START=1, SNITCH_VOICE_CONFIRM_TERMS=1,
-# HF_TOKEN), puis lance le worker sans HF_TOKEN et hors ligne. Voir docs/real-voice-worker.md.
+# monté (SNITCH_VOICE_*). Le démarrage passe par snitch_worker.bootstrap, qui ne télécharge rien :
+# Snitch ordonne chaque modèle (ADR 0038). Il lance le worker sans HF_TOKEN et hors ligne.
+# Voir docs/real-voice-worker.md.
 # CUDA 12.8 et cuDNN 9 viennent des roues PyPI `nvidia-*` dépendantes de torch 2.8.0 : pas
 # d'image de base nvidia/cuda. Le pilote NVIDIA (>= 570 pour CUDA 12.8) et le NVIDIA
 # Container Toolkit restent ceux de l'hôte.
@@ -47,6 +47,5 @@ RUN python -c "import nemo.collections.asr.models"
 # Code du Worker en dernier : c'est ce qui change le plus souvent, les couches lourdes ci-dessus restent en cache.
 COPY worker/pyproject.toml /worker/pyproject.toml
 COPY worker/snitch_worker /worker/snitch_worker
-COPY worker/scripts/download_models.py /worker/scripts/download_models.py
 COPY LICENSE /usr/share/licenses/snitch/LICENSE
 CMD ["python", "-m", "snitch_worker.bootstrap"]

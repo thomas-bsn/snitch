@@ -299,7 +299,6 @@ def prompt_for_config(config: dict[str, str], existing_env: Optional[dict[str, s
         ("TRANSCRIPTION_API_KEY", "Bearer token for transcription API (if required)"),
         ("SNITCH_VOICE_EMBEDDING_MODEL_NAME", "Embedding model name (default: pyannote/wespeaker-voxceleb-resnet34-LM)"),
         ("SNITCH_VOICE_DEVICE", "Compute device: cuda, auto, or cpu (default: cuda)"),
-        ("SNITCH_VOICE_MODEL_REVISION", "Pin model revision for reproducibility"),
     ]
 
     for key, description in optional_fields:
@@ -317,158 +316,12 @@ def prompt_for_config(config: dict[str, str], existing_env: Optional[dict[str, s
         if value:
             result[key] = value
 
-    # Voice model download opt-in
+    # No voice model is downloaded here: a new Worker holds none, and Snitch orders each one (ADR 0038).
     print()
-    print(bold("--- Voice Model Download (opt-in) ---"))
-    print("Enable automatic download of pyannote models on first start.")
-    print("Requires: HF_TOKEN (read-only Hugging Face token), accepting model terms on HF.")
-    print("The token is ONLY used during bootstrap, then removed from worker env.")
-
-    download_on_start = input("\nEnable automatic model download on first start? [y/N]: ").strip().lower()
-    if download_on_start in ("y", "yes", "1", "true"):
-        result["SNITCH_VOICE_DOWNLOAD_ON_START"] = "1"
-        confirm_terms = input("I have accepted the model terms on Hugging Face (pyannote/speaker-diarization-community-1)? [y/N]: ").strip().lower()
-        if confirm_terms in ("y", "yes", "1", "true"):
-            result["SNITCH_VOICE_CONFIRM_TERMS"] = "1"
-        else:
-            warn("Terms not confirmed — automatic download will not work")
-            result["SNITCH_VOICE_DOWNLOAD_ON_START"] = "0"
-
-        hf_token = getpass.getpass("HF_TOKEN (read-only, will be hidden): ").strip()
-        if hf_token:
-            result["HF_TOKEN"] = hf_token
-        else:
-            warn("No HF_TOKEN provided — automatic download will fail")
-            result["SNITCH_VOICE_DOWNLOAD_ON_START"] = "0"
-    else:
-        result["SNITCH_VOICE_DOWNLOAD_ON_START"] = "0"
-        result["SNITCH_VOICE_CONFIRM_TERMS"] = "0"
-
-    return result
-
-def load_existing_env() -> Optional[dict[str, str]]:
-    """Load existing .env file if present."""
-    if not ENV_FILE.exists():
-        return None
-    config = {}
-    with open(ENV_FILE, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" in line:
-                key, value = line.split("=", 1)
-                config[key.strip()] = value.strip()
-    return config
-
-def write_env_file(config: dict[str, str]) -> None:
-    """Write the .env file with comments preserved from .env.example."""
-    # Read the example to preserve comments and structure
-    with open(ENV_EXAMPLE, "r") as f:
-        lines = f.readlines()
-
-    output_lines = []
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            output_lines.append(line)
-            continue
-        if "=" in stripped:
-            key = stripped.split("=", 1)[0].strip()
-            if key in config:
-                output_lines.append(f"{key}={config[key]}\n")
-            else:
-                output_lines.append(line)
-        else:
-            output_lines.append(line)
-
-    # Add any new keys not in example
-    example_keys = set()
-    for line in lines:
-        stripped = line.strip()
-        if "=" in stripped and not stripped.startswith("#"):
-            example_keys.add(stripped.split("=", 1)[0].strip())
-
-    for key, value in config.items():
-        if key not in example_keys:
-            output_lines.append(f"{key}={value}\n")
-
-    with open(ENV_FILE, "w") as f:
-        f.writelines(output_lines)
-
-    # Secure the file (owner read/write only)
-    os.chmod(ENV_FILE, 0o600)
-    success(f"Configuration written to {ENV_FILE} (permissions 600)")
-
-# --- Models directory ---
-
-def setup_models_dir(models_dir: str, platform_key: str, details: dict) -> bool:
-    """Create and set up the models directory with correct permissions."""
-    path = Path(models_dir).expanduser().resolve()
-
-    info(f"Setting up models directory: {path}")
-    path.mkdir(parents=True, exist_ok=True)
-
-    if platform_key == "linux" and not details["is_wsl2"]:
-        # On native Linux, chown to container user (10001:10001)
-        try:
-            import pwd
-            import grp
-            # Check if we can chown (need root)
-            if os.geteuid() == 0:
-                shutil.chown(path, user="10001", group="10001")
-                success(f"Models directory owned by 10001:10001")
-            else:
-                # Try with sudo
-                code, out, err = run_command(["sudo", "chown", "10001:10001", str(path)])
-                if code == 0:
-                    success(f"Models directory owned by 10001:10001 (via sudo)")
-                else:
-                    warn(f"Could not chown to 10001:10001 (run manually: sudo chown 10001:10001 {path})")
-        except Exception as e:
-            warn(f"Could not set ownership: {e}")
-    elif platform_key == "windows" or details["is_wsl2"]:
-        # On WSL2, avoid /mnt/c paths for models dir if possible
-        if str(path).startswith("/mnt/"):
-            warn(f"Models directory on Windows drive ({path}) may have permission issues")
-            warn("Recommended: use a path under /home/... instead")
+    print("Voice models are installed from Snitch (Admin > Voice) once the Worker is connected; nothing is downloaded now.")
 
     return True
 
-# --- Model download ---
-
-def download_models(models_dir: str, hf_token: str, confirm_terms: bool) -> bool:
-    """Download voice models using the download_models.py script."""
-    if not confirm_terms:
-        error("Model download requires --confirm-terms (accept terms on Hugging Face)")
-        return False
-    if not hf_token:
-        error("Model download requires HF_TOKEN")
-        return False
-
-    info("Downloading voice models (this may take several minutes)...")
-
-    diarization_dir = Path(models_dir) / "diarization"
-    embedding_dir = Path(models_dir) / "embedding"
-
-    env = os.environ.copy()
-    env["HF_TOKEN"] = hf_token
-
-    script = REPO_ROOT / "worker" / "scripts" / "download_models.py"
-    code, out, err = run_command([
-        sys.executable, str(script),
-        "--confirm-terms",
-        "--diarization-dir", str(diarization_dir),
-        "--embedding-dir", str(embedding_dir),
-    ], capture=True, timeout=600, env=env)
-
-    if code != 0:
-        error(f"Model download failed: {err or out}")
-        return False
-
-    print(out)
-    success("Voice models downloaded successfully")
-    return True
 
 # --- Docker Compose operations ---
 
@@ -587,9 +440,8 @@ def run_diagnostics(platform_key: str, details: dict) -> None:
     print(bold("--- Common Issues & Fixes ---"))
     issues = [
         ("Worker token not shown", "Create a worker in Snitch Admin → Workers → New Worker. Token is shown ONCE — save it immediately."),
-        ("provider_unavailable errors", "Check: models downloaded, SNITCH_VOICE_EMBEDDING_MODEL_VERSION matches manifest, GPU accessible."),
+        ("provider_unavailable errors", "Check: the voice models were installed from Snitch (Admin > Voice), GPU accessible."),
         ("models directory not writable", "On Linux: sudo chown 10001:10001 /path/to/models. On WSL2: use /home/... path, not /mnt/c/..."),
-        ("HF_TOKEN not working", "Token must be read-only, and model terms accepted on Hugging Face for the token's account."),
         ("Docker GPU not working", "Install NVIDIA Container Toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html"),
         ("WSL2 permission issues", "Use a models directory under /home/, not /mnt/c/. Run: sudo chown 10001:10001 /home/user/snitch-models"),
     ]
@@ -656,17 +508,6 @@ def cmd_install(args: argparse.Namespace) -> int:
     # Set up models directory
     models_dir = config.get("SNITCH_MODELS_DIR", str(MODELS_DIR_DEFAULT))
     setup_models_dir(models_dir, platform_key, details)
-
-    # Download models if opted in
-    if config.get("SNITCH_VOICE_DOWNLOAD_ON_START") == "1":
-        hf_token = config.get("HF_TOKEN", "")
-        confirm_terms = config.get("SNITCH_VOICE_CONFIRM_TERMS") == "1"
-        if hf_token and confirm_terms:
-            # Download now (before starting worker) to avoid bootstrap delay
-            if not download_models(models_dir, hf_token, confirm_terms):
-                warn("Model download failed — worker will start but voice features will be unavailable")
-        else:
-            warn("Skipping model download (missing HF_TOKEN or terms not confirmed)")
 
     # Pull latest image
     if not args.no_pull:

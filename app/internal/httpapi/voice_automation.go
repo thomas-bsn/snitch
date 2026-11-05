@@ -162,7 +162,7 @@ func splitSamples(samples []accuracySample) (references, tests []accuracySample,
 func (s *Server) measureAccuracy(ctx context.Context, settings matchingSettings) (accuracyEvaluation, []accuracyPerson, error) {
 	var eval accuracyEvaluation
 	rows, err := s.Pool.Query(ctx, `SELECT vs.id,vs.person_id,vs.clip_id FROM voice_samples vs
-WHERE vs.retired_at IS NULL AND EXISTS (SELECT 1 FROM voice_fingerprints f WHERE f.local_speaker_id=vs.local_speaker_id AND f.usable AND f.scope='speaker')
+WHERE vs.retired_at IS NULL AND EXISTS (SELECT 1 FROM voice_fingerprints f WHERE f.local_speaker_id=vs.local_speaker_id AND f.usable AND NOT f.benchmark AND f.scope='speaker')
 ORDER BY vs.person_id,vs.clip_id,vs.id`)
 	if err != nil {
 		return eval, nil, err
@@ -276,7 +276,7 @@ func (s *Server) testScores(ctx context.Context, references, tests []accuracySam
 	for i, sample := range tests {
 		testIDs[i] = sample.id
 	}
-	groupRows, err := s.Pool.Query(ctx, `SELECT DISTINCT f.model,f.model_version,f.dimensions FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id WHERE vs.id=ANY($1) AND f.usable AND f.scope='speaker'`, testIDs)
+	groupRows, err := s.Pool.Query(ctx, `SELECT DISTINCT f.model,f.model_version,f.dimensions FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id WHERE vs.id=ANY($1) AND f.usable AND NOT f.benchmark AND f.scope='speaker'`, testIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -296,10 +296,10 @@ func (s *Server) testScores(ctx context.Context, references, tests []accuracySam
 	for _, g := range groups {
 		query := fmt.Sprintf(`WITH refs AS (
   SELECT vs.person_id,f.embedding::vector(%[1]d) AS e FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.id=ANY($3) AND f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
+  WHERE vs.id=ANY($3) AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
 ), tests AS (
   SELECT vs.id AS sid,f.embedding::vector(%[1]d) AS e FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.id=ANY($4) AND f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
+  WHERE vs.id=ANY($4) AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
 )
 SELECT t.sid,r.person_id,max(1-(t.e <=> r.e)) AS score FROM tests t CROSS JOIN refs r GROUP BY t.sid,r.person_id HAVING max(1-(t.e <=> r.e)) >= $5
 ORDER BY t.sid,score DESC,r.person_id`, g.dimensions)
