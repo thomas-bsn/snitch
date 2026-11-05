@@ -17,14 +17,17 @@ export async function fetchWorkerUpdates(): Promise<Result<WorkerUpdates>> {
   return data ? { ok: true, value: data } : failure(error);
 }
 
-/** Chooses the target version; null turns automatic updates off. */
+/** Chooses the strategy: disabled, pinned to a version, or latest (the version is then ignored). */
 export function useWorkerUpdateActions() {
   const csrf = useSession().session?.csrf_token;
   return {
-    async setTarget(version: string | null): Promise<Result<null>> {
+    async setTarget(
+      mode: "disabled" | "pinned" | "latest",
+      version: string | null,
+    ): Promise<Result<null>> {
       const { error } = await api.PUT("/api/admin/worker-updates", {
         params: { header: mutation(csrf) },
-        body: { version },
+        body: { mode, version },
       });
       return error ? failure(error) : { ok: true, value: null };
     },

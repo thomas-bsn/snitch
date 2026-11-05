@@ -147,6 +147,7 @@ func TestFoundation(t *testing.T) {
 		testRegistration(t, pool)
 	})
 	t.Run("Discord OAuth", func(t *testing.T) { reset(t); testDiscordOAuth(t, pool) })
+	t.Run("Discord avatars", func(t *testing.T) { reset(t); testDiscordAvatars(t, pool) })
 	t.Run("Discord settings", func(t *testing.T) {
 		reset(t)
 		testDiscordSettings(t, pool)
@@ -174,6 +175,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("private folders", func(t *testing.T) {
 		reset(t)
 		testPrivateFolders(t, pool)
+	})
+	t.Run("system directories", func(t *testing.T) {
+		reset(t)
+		testSystemDirectories(t, pool)
 	})
 	t.Run("video root browse", func(t *testing.T) {
 		reset(t)
@@ -642,6 +647,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerUpdates(t, pool)
 	})
+	t.Run("worker latest update", func(t *testing.T) {
+		reset(t)
+		testWorkerLatestUpdates(t, pool)
+	})
 	t.Run("worker install progress", func(t *testing.T) {
 		reset(t)
 		testWorkerInstallProgress(t, pool)
@@ -779,6 +788,11 @@ func TestFoundation(t *testing.T) {
 			CSRF string `json:"csrf_token"`
 		}
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
+		// Account profile/password changes preserve this session; the behavioral suite covers revocation.
+		call(client, "PUT", "/api/account/profile", map[string]string{"username": "administrator", "display_name": "Administrator"}, me.CSRF, 200)
+		call(client, "PUT", "/api/account/password", map[string]string{"current_password": "synthetic-password", "new_password": "synthetic-password"}, me.CSRF, 200)
+		call(anon, "GET", "/api/persons/999999/avatar", nil, "", 401)
+		call(client, "GET", "/api/persons/999999/avatar", nil, "", 404)
 		// Account language (behavior in the account preferences suite).
 		call(client, "GET", "/api/account/preferences", nil, "", 200)
 		call(client, "PUT", "/api/account/preferences", map[string]any{"language": "fr"}, me.CSRF, 200)
@@ -1008,6 +1022,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
 		// A revoked Worker leaves the list only once its machine confirmed the revocation.
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record", nil, me.CSRF, 409)
+		// An explicit force=false keeps the protection; only force=true skips the confirmation.
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record?force=false", nil, me.CSRF, 409)
 		if _, e = pool.Exec(ctx, `UPDATE workers SET revocation_acknowledged_at=now() WHERE id=$1`, contractWorker.ID); e != nil {
 			t.Fatal(e)
 		}
@@ -1167,7 +1183,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trace", nil, "", 200) // behavior in the voice coverage suite
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
+				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
 					continue // These contract operations are covered by their upload, search, worker, member, account, embedding, transcription, job log, worker update and Hugging Face token suites.
 				}
 				if !seen[method+" "+path] {

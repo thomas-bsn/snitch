@@ -156,7 +156,11 @@ export function PersonRecord({
     <section aria-labelledby={headingId} className="flex flex-col gap-4">
       {back}
       <div className="flex flex-wrap items-center gap-3">
-        <Avatar name={person.display_name} size="record" />
+        <Avatar
+          personId={person.user_id !== null ? person.id : undefined}
+          name={person.display_name}
+          size="record"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id={headingId} className="m-0 text-lg font-semibold">

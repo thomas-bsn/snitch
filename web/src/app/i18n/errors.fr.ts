@@ -4,7 +4,23 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  invalid_profile:
+    "Choisissez un pseudo affiché de 1 à 100 caractères et un identifiant de 3 à 64 caractères, sans espaces au début ni à la fin.",
+  invalid_password_format: "Choisissez un mot de passe de 12 à 256 caractères.",
+  current_password_incorrect: "Le mot de passe actuel est incorrect.",
+
   avatar_too_large: "La photo doit faire moins de 5 Mo.",
+  invalid_discord_bot_token: "Discord a refusé ce token de bot.",
+  discord_bot_not_configured: "Le bot Discord n’est pas connecté.",
+  discord_sync_running: "Une synchronisation est déjà en cours.",
+  discord_rate_limited:
+    "Discord limite les requêtes. Réessayez dans un instant.",
+  avatar_sync_too_soon:
+    "La photo vient d’être actualisée. Réessayez dans un instant.",
+  invalid_avatar_source: "Cette source de photo n’existe pas.",
+  no_custom_avatar: "Importez d’abord votre propre photo.",
+  discord_bot_rejected: "Discord a refusé le token du bot. Reconnectez le bot.",
+  discord_account_not_found: "Discord ne connaît plus ce compte.",
   invalid_avatar: "Choisissez une image JPEG ou PNG de 16 mégapixels maximum.",
   video_root_unavailable:
     "Cette racine ne peut pas être utilisée. Vérifiez qu’elle est montée et accessible en écriture.",
@@ -189,6 +205,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
   invalid_worker_update_status:
     "Ce compte rendu de mise à jour n’est pas valide.",
+  invalid_worker_update_mode:
+    "Cette stratégie de mise à jour n’est pas valide.",
   invalid_worker_version:
     "Cette version de Worker n’est pas une version publiée (vX.Y.Z).",
   invalid_revoke_reason:

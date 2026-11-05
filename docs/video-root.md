@@ -63,6 +63,12 @@ La **Bibliothèque** parcourt la racine comme un explorateur (ADR 0032) : un arb
 - Le menu d'un dossier propose **Analyser les vidéos non analysées** (administrateurs) et **Rendre privé / partagé** (Super-administrateur, voir ci-dessous).
 - Les clips sans fichier dans la racine (envois non publiés dans la racine, anciennes sources) restent visibles dans « Tous les clips ».
 
+## Dossiers système du NAS
+
+Les dossiers nommés exactement `#recycle` (corbeille UGREEN) et `@eaDir` (métadonnées NAS) sont exclus automatiquement, à tous les niveaux de l'arborescence. Snitch ne les ouvre pas, même s'ils sont inaccessibles au conteneur. La même règle s'applique à l'estimation et au lancement de l'Indexation de la Racine, au scan manuel et au sélecteur d'import, à l'explorateur (avec ou sans filtres) et à la découverte des vidéos des sources historiques. Une sélection directe de ces dossiers ou de leur contenu est refusée.
+
+Il n'est pas nécessaire de changer les permissions de ces dossiers système. Les refus de permission sur les dossiers ordinaires restent signalés : un scan manuel ou une estimation incomplète échoue ; la réconciliation historique affiche un avertissement et conserve les états précédents. Les Dossiers privés accessibles au Super-administrateur restent parcourus et indexés pour lui.
+
 ## Dossiers privés
 
 Le Super-administrateur peut rendre privé un dossier de premier niveau de la racine (ADR 0026). Le dossier reste visible avec un cadenas pour les autres utilisateurs, mais son contenu n'est ni listé, ni prévisualisé, ni ajouté à la file, ni créé dessous, y compris pour les administrateurs. Dans la Bibliothèque, son nom reste dans l'arbre avec un cadenas, et ses vidéos n'apparaissent ni dans la liste, ni dans les résultats filtrés, ni dans la recherche. Un clip présent aussi dans un autre dossier reste accessible par ce dossier-là.

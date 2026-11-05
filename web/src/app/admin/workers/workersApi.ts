@@ -66,9 +66,13 @@ export function useWorkerActions() {
       });
       return data ? { ok: true, value: data } : failure(error);
     },
-    async forget(id: string): Promise<Result<null>> {
+    async forget(id: string, force = false): Promise<Result<null>> {
       const { error } = await api.DELETE("/api/admin/workers/{id}/record", {
-        params: { path: { id }, header: mutation(csrf) },
+        params: {
+          path: { id },
+          header: mutation(csrf),
+          query: force ? { force: true } : undefined,
+        },
       });
       return error ? failure(error) : { ok: true, value: null };
     },

@@ -23,10 +23,12 @@ T = TypeVar("T", bound="GetWorkerUpdateResponse200")
 class GetWorkerUpdateResponse200:
     """
         Attributes:
+            idle (bool):
             target_version (None | str):
             target_image (None | str):
      """
 
+    idle: bool
     target_version: None | str
     target_image: None | str
 
@@ -35,6 +37,8 @@ class GetWorkerUpdateResponse200:
 
 
     def to_dict(self) -> dict[str, Any]:
+        idle = self.idle
+
         target_version: None | str
         target_version = self.target_version
 
@@ -45,6 +49,7 @@ class GetWorkerUpdateResponse200:
         field_dict: dict[str, Any] = {}
 
         field_dict.update({
+            "idle": idle,
             "target_version": target_version,
             "target_image": target_image,
         })
@@ -56,6 +61,8 @@ class GetWorkerUpdateResponse200:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        idle = d.pop("idle")
+
         def _parse_target_version(data: object) -> None | str:
             if data is None:
                 return data
@@ -73,6 +80,7 @@ class GetWorkerUpdateResponse200:
 
 
         get_worker_update_response_200 = cls(
+            idle=idle,
             target_version=target_version,
             target_image=target_image,
         )

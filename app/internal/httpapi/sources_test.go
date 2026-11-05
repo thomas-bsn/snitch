@@ -300,6 +300,20 @@ func testSourceReconciliation(t *testing.T, pool *pgxpool.Pool) {
 	if err := os.MkdirAll(secondRoot, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	// System folders must neither be discovered nor prevent reconciliation of ordinary videos.
+	for _, rel := range []string{"#recycle", "@eaDir", "nested/#recycle", "nested/@eaDir"} {
+		dir := filepath.Join(firstRoot, rel)
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "ignored.mp4"), []byte("synthetic-system-video"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(dir, 0); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(dir, 0700) })
+	}
 	firstMedia := filepath.Join(firstRoot, "same.mp4")
 	if err := os.WriteFile(firstMedia, []byte("same-synthetic-content"), 0o400); err != nil {
 		t.Fatal(err)

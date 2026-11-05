@@ -9,6 +9,7 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error import Error
+from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -16,6 +17,7 @@ from typing import cast
 def _get_kwargs(
     id: str,
     *,
+    force: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -29,11 +31,18 @@ def _get_kwargs(
 
 
 
+    params: dict[str, Any] = {}
+
+    params["force"] = force
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
         "url": "/api/admin/workers/{id}/record".format(id=quote(str(id), safe=""),),
+        "params": params,
     }
 
 
@@ -68,16 +77,20 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    force: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
 ) -> Response[Any | Error]:
-    """  Retire de la liste un Worker révoqué dont la machine a confirmé la révocation ; les jobs et
-    événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué,
-    worker_cleanup_pending tant que la machine n'a pas confirmé.
+    """  Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409
+    worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas
+    confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local
+    n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent
+    subsister sur la machine).
 
     Args:
         id (str):
+        force (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
 
@@ -92,6 +105,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+force=force,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -107,16 +121,20 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    force: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
 ) -> Any | Error | None:
-    """  Retire de la liste un Worker révoqué dont la machine a confirmé la révocation ; les jobs et
-    événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué,
-    worker_cleanup_pending tant que la machine n'a pas confirmé.
+    """  Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409
+    worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas
+    confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local
+    n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent
+    subsister sur la machine).
 
     Args:
         id (str):
+        force (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
 
@@ -132,6 +150,7 @@ def sync(
     return sync_detailed(
         id=id,
 client=client,
+force=force,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -141,16 +160,20 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    force: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
 ) -> Response[Any | Error]:
-    """  Retire de la liste un Worker révoqué dont la machine a confirmé la révocation ; les jobs et
-    événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué,
-    worker_cleanup_pending tant que la machine n'a pas confirmé.
+    """  Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409
+    worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas
+    confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local
+    n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent
+    subsister sur la machine).
 
     Args:
         id (str):
+        force (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
 
@@ -165,6 +188,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+force=force,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -180,16 +204,20 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    force: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
 ) -> Any | Error | None:
-    """  Retire de la liste un Worker révoqué dont la machine a confirmé la révocation ; les jobs et
-    événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué,
-    worker_cleanup_pending tant que la machine n'a pas confirmé.
+    """  Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409
+    worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas
+    confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local
+    n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent
+    subsister sur la machine).
 
     Args:
         id (str):
+        force (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
 
@@ -205,6 +233,7 @@ async def asyncio(
     return (await asyncio_detailed(
         id=id,
 client=client,
+force=force,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
