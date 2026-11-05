@@ -54,7 +54,7 @@ export function AvatarEditor() {
   }, []);
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, session?.discord_linked]);
 
   /** Runs one change, then tells the rest of the page (menu, profile) that the photo may have changed. */
   async function run(work: () => Promise<string | undefined>, done: string) {

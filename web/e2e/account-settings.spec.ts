@@ -1,3 +1,4 @@
+import { adminApi } from "./library-fixture";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, request, type Page } from "@playwright/test";
 import {
@@ -268,6 +269,9 @@ test.describe.serial("paramètres du compte", () => {
       "Discord was unlinked.",
     );
     await expect(
+      page.getByRole("group", { name: "Photo source", exact: true }),
+    ).toHaveCount(0);
+    await expect(
       page.getByRole("button", { name: "Link Discord", exact: true }),
     ).toBeVisible();
     await context.close();
@@ -373,6 +377,63 @@ test.describe.serial("paramètres du compte", () => {
     await expect(
       page.getByRole("button", { name: "Unlink Discord", exact: true }),
     ).toBeEnabled();
+    await context.close();
+  });
+
+  test("la photo suit la liaison approuvée dans l’annuaire et la fiche", async ({
+    browser,
+  }) => {
+    const admin = await adminApi();
+    const person = (await admin.post("/api/persons", {
+      display_name: "Photo Fixture",
+    })) as { id: number };
+    const context = await browser.newContext({
+      storageState: await sessionFor(MEMBER),
+    });
+    const page = await context.newPage();
+    await page.goto("/account");
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    );
+    await page.getByLabel("Choose a photo (JPEG or PNG)").setInputFiles({
+      name: "fixture.png",
+      mimeType: "image/png",
+      buffer: png,
+    });
+    await expect(page.getByText("Profile photo updated.")).toBeVisible();
+    const me = await (await page.request.get("/api/auth/me")).json();
+    const pending = await page.request.post("/api/me/person/request", {
+      data: { person_id: person.id },
+      headers: {
+        Origin: process.env.SNITCH_TEST_URL!,
+        "X-CSRF-Token": me.csrf_token,
+      },
+    });
+    expect(pending.status()).toBe(201);
+    expect(
+      (await page.request.get(`/api/persons/${person.id}/avatar`)).status(),
+    ).toBe(404);
+    await admin.post(
+      `/api/admin/person-link-requests/${(await pending.json()).id}/approve`,
+    );
+    await page.goto("/people");
+    const photo = page.locator(`img[src="/api/persons/${person.id}/avatar"]`);
+    await expect(photo).toBeVisible();
+    await expect
+      .poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBe(256);
+    await page.goto(`/people/${person.id}`);
+    await expect(photo).toBeVisible();
+    await page.request.delete("/api/me/person", {
+      headers: {
+        Origin: process.env.SNITCH_TEST_URL!,
+        "X-CSRF-Token": me.csrf_token,
+      },
+    });
+    await page.reload();
+    await expect(photo).toHaveCount(0);
+    await admin.api.dispose();
     await context.close();
   });
 

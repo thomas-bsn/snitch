@@ -495,7 +495,7 @@ func (s *Server) findSession(r *http.Request) (session, error) {
 	if err != nil {
 		return ss, err
 	}
-	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf,u.discord_id IS NOT NULL,u.password_hash IS NOT NULL,u.discord_name,u.discord_username,COALESCE(u.display_name,CASE WHEN starts_with(u.username,'discord_') THEN u.discord_name END,u.username) FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF, &ss.DiscordLinked, &ss.CanUnlinkDiscord, &ss.DiscordName, &ss.DiscordUsername, &ss.User.DisplayName)
+	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf,u.discord_id IS NOT NULL,u.password_hash IS NOT NULL,u.discord_name,u.discord_username,COALESCE(u.display_name,CASE WHEN u.password_hash IS NULL AND starts_with(u.username,'discord_') THEN u.discord_name END,u.username) FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF, &ss.DiscordLinked, &ss.CanUnlinkDiscord, &ss.DiscordName, &ss.DiscordUsername, &ss.User.DisplayName)
 	return ss, err
 }
 func (s *Server) protected(admin bool, next http.Handler) http.Handler {

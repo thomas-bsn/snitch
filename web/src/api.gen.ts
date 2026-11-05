@@ -7176,6 +7176,13 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description Aucune photo ou aucun lien actif */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description Erreur ou absence de photo (400, 401, 404) */
       default: {
         headers: {

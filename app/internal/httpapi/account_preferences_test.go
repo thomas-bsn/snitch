@@ -265,6 +265,19 @@ func testAccountPreferences(t *testing.T, pool *pgxpool.Pool) {
 		call(admin, "", "GET", "/api/account/avatar", "", 404)
 	})
 
+	t.Run("a local username with a Discord prefix remains the displayed local name", func(t *testing.T) {
+		if _, err := pool.Exec(ctx, `UPDATE users SET username='discord_local',discord_id='987654',discord_name='External display name' WHERE username='administrator'`); err != nil {
+			t.Fatal(err)
+		}
+		me := call(admin, "", "GET", "/api/auth/me", "", 200)
+		if !bytes.Contains(me, []byte(`"display_name":"discord_local"`)) {
+			t.Fatalf("local name replaced by Discord: %s", me)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE users SET username='administrator',discord_id=NULL,discord_name=NULL WHERE username='discord_local'`); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("identity and password can be edited without losing the account", func(t *testing.T) {
 		call(newClient(), "", "PUT", "/api/account/profile", `{"display_name":"New name","username":"new-login"}`, 401)
 		call(admin, "", "PUT", "/api/account/profile", `{"display_name":"New name","username":"new-login"}`, 403)

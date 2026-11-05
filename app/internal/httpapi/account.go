@@ -165,7 +165,7 @@ func (s *Server) putAccountPassword(w http.ResponseWriter, r *http.Request) {
 		fail(w, 403, "current_password_incorrect")
 		return
 	}
-	if _, err = tx.Exec(r.Context(), `UPDATE users SET password_hash=$2,display_name=COALESCE(display_name,CASE WHEN starts_with(username,'discord_') THEN left(discord_name,100) END) WHERE id=$1`, ss.User.ID, auth.Password(in.NewPassword)); err != nil {
+	if _, err = tx.Exec(r.Context(), `UPDATE users SET password_hash=$2,display_name=COALESCE(display_name,CASE WHEN password_hash IS NULL AND starts_with(username,'discord_') THEN left(discord_name,100) END) WHERE id=$1`, ss.User.ID, auth.Password(in.NewPassword)); err != nil {
 		s.internal(w, err)
 		return
 	}

@@ -24,7 +24,7 @@ func (q *Queries) ApproveUser(ctx context.Context, id int64) (int64, error) {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, role, approved, language, COALESCE(display_name, CASE WHEN starts_with(username,'discord_') THEN discord_name END, username)::text AS display_name FROM users WHERE id = $1
+SELECT id, username, role, approved, language, COALESCE(display_name, CASE WHEN password_hash IS NULL AND starts_with(username,'discord_') THEN discord_name END, username)::text AS display_name FROM users WHERE id = $1
 `
 
 type GetUserRow struct {

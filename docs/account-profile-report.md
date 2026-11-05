@@ -15,7 +15,7 @@
 ## Vérifications
 
 - Tests PostgreSQL/pgvector avec détecteur de courses : préférences/identité/mot de passe, liaison approuvée et photo, OAuth Discord et synchronisation d’avatars.
-- 22 parcours Playwright : paramètres du compte (10), fermeture (1), annuaire/fiche (6), coque/accessibilité (5). Axe-core en clair et sombre ; mobile à 390 px.
+- 36 parcours Playwright : paramètres du compte (11), fermeture (1), annuaire/fiche (6), coque/accessibilité (5), import/photo (8), voix de clip (5). Axe-core en clair et sombre ; mobile à 390 px.
 - Worker : 264 tests passent, 9 ignorés (fournisseurs réels facultatifs), dont les trois régressions de reconnexion et de délai.
 - Construction et formatage frontend, génération Go/TypeScript/Python du contrat, vérification des messages d’erreur et `go vet`.
 
