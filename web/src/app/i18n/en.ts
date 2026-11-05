@@ -556,7 +556,7 @@ export const en = {
         "No active model will remain on {worker}: it cannot take this type of job until {model} is installed. {old} cannot be recovered without downloading it again.",
       removeOldAction: "Remove {old}",
       history: "Order history",
-      historyOf: "History of {worker}",
+      historyOf: "Order history of {worker}",
       historyTitle: "Order history",
       historyWorker: "Worker",
       historyEmpty: "No order for this Worker yet.",

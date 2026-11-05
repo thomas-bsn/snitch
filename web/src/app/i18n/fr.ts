@@ -567,7 +567,7 @@ export const fr: Messages = {
         "Aucun modèle actif ne restera sur {worker} : il ne pourra pas prendre ce type de travail tant que {model} n’est pas installé. {old} ne se récupère qu’en le téléchargeant de nouveau.",
       removeOldAction: "Retirer {old}",
       history: "Historique des ordres",
-      historyOf: "Historique de {worker}",
+      historyOf: "Historique des ordres de {worker}",
       historyTitle: "Historique des ordres",
       historyWorker: "Worker",
       historyEmpty: "Aucun ordre pour ce Worker pour l’instant.",

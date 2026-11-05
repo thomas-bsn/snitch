@@ -399,7 +399,9 @@ test("un administrateur ordonne l'installation d'un modèle à un Worker et suit
   await expect(dialog).toContainText("No active model will remain");
   await dialog.getByRole("button", { name: "Order the removal" }).click();
   await expect(fingerprint).toContainText("Removing");
-  await row.getByRole("button", { name: /History of worker-ordres/ }).click();
+  await row
+    .getByRole("button", { name: /Order history of worker-ordres/ })
+    .click();
   const history = page.getByRole("dialog", { name: "Order history" });
   await expect(history).toContainText("Removal");
   await expect(history).toContainText("Installation");
