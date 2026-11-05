@@ -380,6 +380,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelReplacement(t, pool)
 	})
+	t.Run("voice model replacement failure", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacementFailure(t, pool)
+	})
+	t.Run("voice model replacement removal failure", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacementRemovalFailure(t, pool)
+	})
 	t.Run("voice model sortformer", func(t *testing.T) {
 		reset(t)
 		testVoiceModelSortformer(t, pool)
