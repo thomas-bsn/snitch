@@ -46,6 +46,7 @@ class AnalysisQueueTask:
             cycle (int):
             clip_name (str):
             result (JobResultType0 | None | Unset):
+            requested_model_id (str | Unset): Renvoyé à la planification d'un travail à modèle demandé (benchmark).
             failure_code (FailureCode | Unset): Catalogue fermé des Causes d'échec d'un job. Un code hors catalogue envoyé
                 par un ancien Worker est enregistré comme worker_failed.
             recommended_action (str | Unset): Action de reprise conseillée pour cette cause.
@@ -68,6 +69,7 @@ class AnalysisQueueTask:
     cycle: int
     clip_name: str
     result: JobResultType0 | None | Unset = UNSET
+    requested_model_id: str | Unset = UNSET
     failure_code: FailureCode | Unset = UNSET
     recommended_action: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -123,6 +125,8 @@ class AnalysisQueueTask:
         else:
             result = self.result
 
+        requested_model_id = self.requested_model_id
+
         failure_code: str | Unset = UNSET
         if not isinstance(self.failure_code, Unset):
             failure_code = self.failure_code.value
@@ -153,6 +157,8 @@ class AnalysisQueueTask:
         })
         if result is not UNSET:
             field_dict["result"] = result
+        if requested_model_id is not UNSET:
+            field_dict["requested_model_id"] = requested_model_id
         if failure_code is not UNSET:
             field_dict["failure_code"] = failure_code
         if recommended_action is not UNSET:
@@ -252,6 +258,8 @@ class AnalysisQueueTask:
         result = _parse_result(d.pop("result", UNSET))
 
 
+        requested_model_id = d.pop("requested_model_id", UNSET)
+
         _failure_code = d.pop("failure_code", UNSET)
         failure_code: FailureCode | Unset
         if isinstance(_failure_code,  Unset):
@@ -282,6 +290,7 @@ class AnalysisQueueTask:
             cycle=cycle,
             clip_name=clip_name,
             result=result,
+            requested_model_id=requested_model_id,
             failure_code=failure_code,
             recommended_action=recommended_action,
         )

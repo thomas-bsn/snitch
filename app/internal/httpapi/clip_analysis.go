@@ -181,7 +181,7 @@ func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time,
 	}
 	fpStep, fpVersion := fmt.Sprintf("voice.fingerprint.%d", index), fmt.Sprintf("f5-a%d-p%s-d%d", index, pipeline, diar.ID)
 	var fpID int64
-	err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND NOT (status IN ('dead','failed','cancelled') AND created_at<$4 AND $4>(SELECT created_at FROM clip_analysis_runs WHERE clip_id=$1 AND status='active' ORDER BY id DESC LIMIT 1)) ORDER BY id DESC LIMIT 1`, clipID, fpStep, fpVersion, since).Scan(&fpID)
+	err = s.Pool.QueryRow(ctx, `SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND requested_model_id IS NULL AND NOT (status IN ('dead','failed','cancelled') AND created_at<$4 AND $4>(SELECT created_at FROM clip_analysis_runs WHERE clip_id=$1 AND status='active' ORDER BY id DESC LIMIT 1)) ORDER BY id DESC LIMIT 1`, clipID, fpStep, fpVersion, since).Scan(&fpID)
 	var fp jobs.Job
 	switch {
 	case err == nil:

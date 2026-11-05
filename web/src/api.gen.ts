@@ -3815,6 +3815,8 @@ export interface components {
         [key: string]: unknown;
       } | null;
       cycle: number;
+      /** @description Renvoyé à la planification d'un travail à modèle demandé (benchmark). */
+      requested_model_id?: string;
     };
     JobInput: {
       /** Format: int64 */
@@ -3825,6 +3827,8 @@ export interface components {
       priority: number;
       /** @default 3 */
       max_attempts: number;
+      /** @description Modèle d'empreinte du catalogue demandé explicitement (benchmark), uniquement pour une étape voice.fingerprint.*. Sans lui, le modèle actif s'applique. Le travail n'est attribué qu'à un Worker qui a CE modèle prêt ; ses empreintes restent dans un groupe de benchmark, jamais comparé à la production. */
+      requested_model_id?: string;
     };
     JobPage: {
       items: components["schemas"]["Job"][];
