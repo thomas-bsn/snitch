@@ -121,30 +121,7 @@ func (s *Server) accountAvatar(w http.ResponseWriter, r *http.Request) {
 	id := r.Context().Value(sessionKey{}).(session).User.ID
 	switch r.Method {
 	case http.MethodGet:
-		var data []byte
-		var source string
-		var version int64
-		err := s.Pool.QueryRow(r.Context(), `SELECT a.png,p.source,p.version FROM avatar_preferences p JOIN account_avatars a ON a.user_id=p.user_id AND a.source=p.source WHERE p.user_id=$1`, id).Scan(&data, &source, &version)
-		if errors.Is(err, pgx.ErrNoRows) {
-			w.Header().Set("Cache-Control", "private, no-store")
-			w.WriteHeader(404)
-			return
-		}
-		if err != nil {
-			s.internal(w, err)
-			return
-		}
-		// The browser revalidates at every use, so a refreshed photo shows up everywhere (other tabs and
-		// devices included) without clearing the cache, and an unchanged one costs a 304.
-		etag := `"` + source + "-" + strconv.FormatInt(version, 10) + `"`
-		w.Header().Set("Cache-Control", "private, no-cache")
-		w.Header().Set("ETag", etag)
-		if r.Header.Get("If-None-Match") == etag {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-		w.Header().Set("Content-Type", "image/png")
-		_, _ = w.Write(data)
+		s.serveAccountAvatar(w, r, id)
 	case http.MethodDelete:
 		// Removing the personal photo: the account goes back to Discord when it is linked and has an image
 		// from there, to initials otherwise.
@@ -213,4 +190,52 @@ func (s *Server) avatarTx(ctx context.Context, id int64, work func(pgx.Tx) error
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (s *Server) serveAccountAvatar(w http.ResponseWriter, r *http.Request, id int64) {
+	var data []byte
+	var source string
+	var version int64
+	err := s.Pool.QueryRow(r.Context(), `SELECT a.png,p.source,p.version FROM avatar_preferences p JOIN account_avatars a ON a.user_id=p.user_id AND a.source=p.source WHERE p.user_id=$1`, id).Scan(&data, &source, &version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.WriteHeader(404)
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	// The browser revalidates at every use, so a refreshed photo shows up everywhere (other tabs and
+	// devices included) without clearing the cache, and an unchanged one costs a 304.
+	etag := `"` + strconv.FormatInt(id, 10) + "-" + source + "-" + strconv.FormatInt(version, 10) + `"`
+	w.Header().Set("Cache-Control", "private, no-cache")
+	w.Header().Set("ETag", etag)
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	_, _ = w.Write(data)
+}
+
+// The validated account link is resolved on every read. No photo is copied onto the Personne.
+func (s *Server) personAvatar(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		fail(w, 400, "invalid_request")
+		return
+	}
+	var userID int64
+	err = s.Pool.QueryRow(r.Context(), `SELECT u.id FROM persons p JOIN users u ON u.id=p.user_id WHERE p.id=$1 AND u.approved AND u.deleted_at IS NULL`, id).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.WriteHeader(404)
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	s.serveAccountAvatar(w, r, userID)
 }

@@ -1077,6 +1077,9 @@
     "/api/admin/discord-bot/sync": {
       "post": {"operationId": "syncDiscordBot", "description": "Administrateurs : lance une synchronisation globale en arrière-plan. 409 discord_sync_running si une passe est déjà en cours, quelle que soit l'instance.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"202": {"description": "Synchronisation lancée"}, "default": {"description": "Erreur (409 discord_bot_not_configured ou discord_sync_running, 403)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
     },
+    "/api/account/profile": {"put": {"operationId": "updateAccountProfile", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host)"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountProfileInput"}}}}, "responses": {"200": {"description": "Compte mis à jour", "content": {"application/json": {"schema": {"type": "object", "required": ["status"], "properties": {"status": {"type": "string"}}}}}}, "default": {"description": "Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/api/account/password": {"put": {"operationId": "updateAccountPassword", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host)"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountPasswordInput"}}}}, "responses": {"200": {"description": "Compte mis à jour", "content": {"application/json": {"schema": {"type": "object", "required": ["status"], "properties": {"status": {"type": "string"}}}}}}, "default": {"description": "Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/api/persons/{id}/avatar": {"get": {"operationId": "getPersonAvatar", "description": "Photo actuelle du compte dont la liaison à cette Personne est validée. Suit la source choisie ; 404 sans lien, photo ou compte actif. Session requise.", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64"}}], "responses": {"200": {"description": "PNG 256×256", "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}}}, "304": {"description": "Photo inchangée"}, "default": {"description": "Erreur ou absence de photo (400, 401, 404)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "404": {"description": "Aucune photo ou aucun lien actif"}}}},
     "/api/account/preferences": {
       "get": {
         "operationId": "getAccountPreferences",
@@ -6663,9 +6666,15 @@
               "fr"
             ],
             "description": "Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas choisi."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Pseudo choisi dans Snitch, sinon nom Discord pour les comptes générés, sinon identifiant local."
           }
         }
       },
+      "AccountProfileInput": {"type": "object", "additionalProperties": false, "required": ["display_name", "username"], "properties": {"display_name": {"type": "string", "minLength": 1, "maxLength": 100}, "username": {"type": "string", "minLength": 3, "maxLength": 64}}},
+      "AccountPasswordInput": {"type": "object", "additionalProperties": false, "required": ["new_password"], "properties": {"current_password": {"type": "string", "maxLength": 256}, "new_password": {"type": "string", "minLength": 12, "maxLength": 256}}},
       "AccountPreferences": {
         "type": "object",
         "additionalProperties": false,
@@ -6706,7 +6715,8 @@
           "user",
           "csrf_token",
           "discord_linked",
-          "can_unlink_discord"
+          "can_unlink_discord",
+          "has_password"
         ],
         "properties": {
           "user": {
@@ -6727,6 +6737,14 @@
             "type": "string",
             "nullable": true,
             "description": "Display name of the linked Discord identity (global name, else username); null when unlinked or linked before it was kept. Read-only."
+          },
+          "has_password": {
+            "type": "boolean"
+          },
+          "discord_username": {
+            "type": "string",
+            "nullable": true,
+            "description": "Vrai username Discord, distinct du global_name ; actualisé à la connexion et par le bot."
           }
         }
       },

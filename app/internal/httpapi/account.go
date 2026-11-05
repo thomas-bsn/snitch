@@ -1,8 +1,15 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"slices"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5/pgconn"
+	"snitch/internal/auth"
 )
 
 // supportedLanguages lists the interface languages an account can choose.
@@ -53,7 +60,7 @@ func (s *Server) unlinkDiscord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
-	tag, err := tx.Exec(r.Context(), `UPDATE users SET discord_id=NULL,discord_name=NULL WHERE id=$1 AND discord_id IS NOT NULL AND password_hash IS NOT NULL`, ss.User.ID)
+	tag, err := tx.Exec(r.Context(), `UPDATE users SET discord_id=NULL,discord_name=NULL,discord_username=NULL WHERE id=$1 AND discord_id IS NOT NULL AND password_hash IS NOT NULL`, ss.User.ID)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -86,4 +93,94 @@ func (s *Server) unlinkDiscord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fail(w, 409, "discord_unlink_unavailable")
+}
+
+// putAccountProfile changes only this account's chosen display name and local login.
+func (s *Server) putAccountProfile(w http.ResponseWriter, r *http.Request) {
+	ss := r.Context().Value(sessionKey{}).(session)
+	var in struct {
+		DisplayName string `json:"display_name"`
+		Username    string `json:"username"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	in.DisplayName = strings.TrimSpace(in.DisplayName)
+	if !validAccountUsername(in.Username) || utf8.RuneCountInString(in.DisplayName) < 1 || utf8.RuneCountInString(in.DisplayName) > 100 || strings.ContainsFunc(in.DisplayName, unicode.IsControl) {
+		fail(w, 400, "invalid_profile")
+		return
+	}
+	_, err := s.Pool.Exec(r.Context(), `UPDATE users SET username=$2,display_name=$3 WHERE id=$1 AND approved AND deleted_at IS NULL`, ss.User.ID, in.Username, in.DisplayName)
+	var pgerr *pgconn.PgError
+	if errors.As(err, &pgerr) && pgerr.Code == "23505" {
+		fail(w, 409, "username_unavailable")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, 200, map[string]string{"status": "ok"})
+}
+
+// Password changes are serialized with account closure, Discord unlink and each other.
+// Existing local credentials must be proved; a Discord-only session can establish its first password.
+func (s *Server) putAccountPassword(w http.ResponseWriter, r *http.Request) {
+	ss := r.Context().Value(sessionKey{}).(session)
+	var in struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	n := utf8.RuneCountInString(in.NewPassword)
+	if n < 12 || n > 256 || utf8.RuneCountInString(in.CurrentPassword) > 256 {
+		fail(w, 400, "invalid_password_format")
+		return
+	}
+	tx, err := s.Pool.Begin(r.Context())
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	var hash *string
+	var approved bool
+	if err = tx.QueryRow(r.Context(), `SELECT password_hash,approved FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, ss.User.ID).Scan(&hash, &approved); err != nil {
+		s.internal(w, err)
+		return
+	}
+	cookie, _ := sessionCookie(r)
+	var live bool
+	if err = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND expires_at>now())`, auth.Hash(cookie.Value), ss.User.ID).Scan(&live); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !approved || !live {
+		fail(w, 401, "unauthorized")
+		return
+	}
+	if hash != nil && !auth.Verify(*hash, in.CurrentPassword) {
+		fail(w, 403, "current_password_incorrect")
+		return
+	}
+	if _, err = tx.Exec(r.Context(), `UPDATE users SET password_hash=$2,display_name=COALESCE(display_name,CASE WHEN password_hash IS NULL AND starts_with(username,'discord_') THEN left(discord_name,100) END) WHERE id=$1`, ss.User.ID, auth.Password(in.NewPassword)); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if _, err = tx.Exec(r.Context(), `DELETE FROM sessions WHERE user_id=$1 AND token_hash<>$2`, ss.User.ID, auth.Hash(cookie.Value)); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, 200, map[string]string{"status": "ok"})
+}
+
+func validAccountUsername(name string) bool {
+	n := utf8.RuneCountInString(name)
+	return n >= 3 && n <= 64 && strings.TrimSpace(name) == name && !strings.ContainsFunc(name, unicode.IsControl)
 }

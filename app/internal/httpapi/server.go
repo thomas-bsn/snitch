@@ -74,6 +74,7 @@ type session struct {
 	DiscordLinked    bool
 	CanUnlinkDiscord bool
 	DiscordName      *string
+	DiscordUsername  *string
 }
 
 // discordName is the linked identity's display name, null when unlinked or linked before it was kept.
@@ -229,6 +230,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/account", s.protected(false, http.HandlerFunc(s.closeAccount)))
 	mux.Handle("GET /api/account/preferences", s.protected(false, http.HandlerFunc(s.getAccountPreferences)))
 	mux.Handle("PUT /api/account/preferences", s.protected(false, http.HandlerFunc(s.putAccountPreferences)))
+	mux.Handle("PUT /api/account/profile", s.protected(false, http.HandlerFunc(s.putAccountProfile)))
+	mux.Handle("PUT /api/account/password", s.protected(false, s.limited(http.HandlerFunc(s.putAccountPassword))))
+	mux.Handle("GET /api/persons/{id}/avatar", s.protected(false, http.HandlerFunc(s.personAvatar)))
 	mux.Handle("DELETE /api/account/discord", s.protected(false, http.HandlerFunc(s.unlinkDiscord)))
 	mux.Handle("POST /api/auth/discord/start", s.rateLimited("discord", http.HandlerFunc(s.discordStart)))
 	mux.Handle("POST /api/auth/discord/link", s.protected(false, http.HandlerFunc(s.discordStart)))
@@ -491,7 +495,7 @@ func (s *Server) findSession(r *http.Request) (session, error) {
 	if err != nil {
 		return ss, err
 	}
-	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf,u.discord_id IS NOT NULL,u.password_hash IS NOT NULL,u.discord_name FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF, &ss.DiscordLinked, &ss.CanUnlinkDiscord, &ss.DiscordName)
+	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf,u.discord_id IS NOT NULL,u.password_hash IS NOT NULL,u.discord_name,u.discord_username,COALESCE(u.display_name,CASE WHEN u.password_hash IS NULL AND starts_with(u.username,'discord_') THEN u.discord_name END,u.username) FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF, &ss.DiscordLinked, &ss.CanUnlinkDiscord, &ss.DiscordName, &ss.DiscordUsername, &ss.User.DisplayName)
 	return ss, err
 }
 func (s *Server) protected(admin bool, next http.Handler) http.Handler {
@@ -724,7 +728,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	reply(w, 200, map[string]any{"user": ss.User, "csrf_token": ss.CSRF, "discord_linked": ss.DiscordLinked, "can_unlink_discord": ss.DiscordLinked && ss.CanUnlinkDiscord, "discord_name": ss.discordName()})
+	reply(w, 200, map[string]any{"user": ss.User, "csrf_token": ss.CSRF, "discord_linked": ss.DiscordLinked, "can_unlink_discord": ss.DiscordLinked && ss.CanUnlinkDiscord, "discord_name": ss.discordName(), "discord_username": ss.DiscordUsername, "has_password": ss.CanUnlinkDiscord})
 }
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	c, _ := sessionCookie(r)
@@ -1029,7 +1033,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	displayName = truncateDisplayName(displayName, 128)
 	if userID != nil {
 		// Unique identity constraint rejects linking an identity already owned by another account.
-		tag, e := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=$1,discord_name=NULLIF($4,'') WHERE id=$2 AND (discord_id IS NULL OR discord_id=$1) AND EXISTS (SELECT 1 FROM sessions WHERE token_hash=$3 AND user_id=$2 AND expires_at>now())`, identity.ID, *userID, sessionHash, displayName)
+		tag, e := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=$1,discord_name=NULLIF($4,''),discord_username=NULLIF($5,'') WHERE id=$2 AND (discord_id IS NULL OR discord_id=$1) AND EXISTS (SELECT 1 FROM sessions WHERE token_hash=$3 AND user_id=$2 AND expires_at>now())`, identity.ID, *userID, sessionHash, displayName, identity.Username)
 		if e == nil && tag.RowsAffected() == 0 {
 			if _, err := s.findSession(r); err != nil {
 				s.oauthFailure(w, r, 403, "link_session_required")
@@ -1064,6 +1068,9 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 			// A local username collision is never an identity match. Allocate a distinct name.
 			e = tx.QueryRow(r.Context(), `INSERT INTO users(username,role,approved,discord_id) VALUES($1,'user',$2,$3) ON CONFLICT (discord_id) DO UPDATE SET discord_id=EXCLUDED.discord_id RETURNING id,approved`, "discord_"+auth.Token(), !approval, identity.ID).Scan(&uid, &approved)
 			created = e == nil
+		}
+		if e == nil {
+			_, e = tx.Exec(r.Context(), `UPDATE users SET discord_name=NULLIF($2,''),discord_username=NULLIF($3,'') WHERE id=$1`, uid, displayName, identity.Username)
 		}
 		if e == nil && created {
 			// A new Discord account displays its Discord photo (nothing personal exists yet).

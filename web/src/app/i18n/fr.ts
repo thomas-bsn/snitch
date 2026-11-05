@@ -1051,6 +1051,29 @@ export const fr: Messages = {
     tabsLabel: "Paramètres du compte",
     tabs: { profile: "Profil", voice: "Ma voix" },
     profile: {
+      displayName: "Pseudo affiché",
+      displayNameHint: "Le nom affiché dans votre profil et le menu du compte.",
+      loginHint:
+        "Cet identifiant permet de vous connecter avec un mot de passe. 3 à 64 caractères.",
+      identitySaved: "Profil enregistré.",
+      saveIdentity: "Enregistrer le profil",
+      saving: "Enregistrement…",
+      securityTitle: "Mot de passe et connexion",
+      passwordHint:
+        "Saisissez votre mot de passe actuel pour en choisir un nouveau. Les autres sessions seront fermées.",
+      firstPasswordHint:
+        "Ajoutez un mot de passe pour vous connecter sans Discord. Vous pourrez ensuite délier Discord si vous le souhaitez.",
+      currentPassword: "Mot de passe actuel",
+      newPassword: "Nouveau mot de passe",
+      confirmPassword: "Confirmer le nouveau mot de passe",
+      passwordLength:
+        "12 à 256 caractères. Vous pouvez coller un mot de passe ou utiliser votre gestionnaire.",
+      passwordMismatch: "Les mots de passe ne correspondent pas.",
+      passwordSaved:
+        "Mot de passe enregistré. Les autres sessions ont été fermées.",
+      changePassword: "Changer le mot de passe",
+      setPassword: "Créer un mot de passe",
+
       identityTitle: "Compte",
       username: "Nom d’utilisateur",
       role: "Rôle",

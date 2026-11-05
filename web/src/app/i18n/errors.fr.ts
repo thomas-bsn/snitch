@@ -4,6 +4,11 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  invalid_profile:
+    "Choisissez un pseudo affiché de 1 à 100 caractères et un identifiant de 3 à 64 caractères, sans espaces au début ni à la fin.",
+  invalid_password_format: "Choisissez un mot de passe de 12 à 256 caractères.",
+  current_password_incorrect: "Le mot de passe actuel est incorrect.",
+
   avatar_too_large: "La photo doit faire moins de 5 Mo.",
   invalid_discord_bot_token: "Discord a refusé ce token de bot.",
   discord_bot_not_configured: "Le bot Discord n’est pas connecté.",

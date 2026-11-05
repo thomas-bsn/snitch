@@ -264,6 +264,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!result.data)
         return { ok: false, code: errorCode(result.error) ?? "unavailable" };
       await reload();
+      window.dispatchEvent(new Event("snitch-avatar"));
       return { ok: true };
     } catch {
       return { ok: false, code: "unavailable" };

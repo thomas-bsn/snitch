@@ -14,11 +14,11 @@ export function Section({
   return (
     <section
       aria-labelledby={id}
-      className={`flex max-w-2xl flex-col gap-3 rounded-xl border p-4 md:p-5 ${danger ? "border-bad-fg bg-bad-bg/40" : "border-line bg-surface"}`}
+      className={`flex min-w-0 flex-col gap-5 rounded-2xl border p-5 sm:p-6 ${danger ? "border-line bg-surface" : "border-line bg-surface"}`}
     >
       <h2
         id={id}
-        className={`text-base font-semibold ${danger ? "text-bad-fg" : ""}`}
+        className={`text-sm font-semibold ${danger ? "text-bad-fg" : ""}`}
       >
         {title}
       </h2>

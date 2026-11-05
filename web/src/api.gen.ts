@@ -409,6 +409,55 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["updateAccountProfile"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["updateAccountPassword"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Photo actuelle du compte dont la liaison à cette Personne est validée. Suit la source choisie ; 404 sans lien, photo ou compte actif. Session requise. */
+    get: operations["getPersonAvatar"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/preferences": {
     parameters: {
       query?: never;
@@ -3498,6 +3547,16 @@ export interface components {
        * @enum {string|null}
        */
       language?: "en" | "fr" | null;
+      /** @description Pseudo choisi dans Snitch, sinon nom Discord pour les comptes générés, sinon identifiant local. */
+      display_name?: string;
+    };
+    AccountProfileInput: {
+      display_name: string;
+      username: string;
+    };
+    AccountPasswordInput: {
+      current_password?: string;
+      new_password: string;
     };
     AccountPreferences: {
       /**
@@ -3519,6 +3578,9 @@ export interface components {
       can_unlink_discord: boolean;
       /** @description Display name of the linked Discord identity (global name, else username); null when unlinked or linked before it was kept. Read-only. */
       discord_name?: string | null;
+      has_password: boolean;
+      /** @description Vrai username Discord, distinct du global_name ; actualisé à la connexion et par le bot. */
+      discord_username?: string | null;
     };
     Setup: {
       initialized: boolean;
@@ -6999,6 +7061,129 @@ export interface operations {
         content?: never;
       };
       /** @description Erreur (409 discord_bot_not_configured ou discord_sync_running, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateAccountProfile: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountProfileInput"];
+      };
+    };
+    responses: {
+      /** @description Compte mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
+        };
+      };
+      /** @description Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateAccountPassword: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountPasswordInput"];
+      };
+    };
+    responses: {
+      /** @description Compte mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
+        };
+      };
+      /** @description Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getPersonAvatar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description PNG 256×256 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+        };
+      };
+      /** @description Photo inchangée */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Aucune photo ou aucun lien actif */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur ou absence de photo (400, 401, 404) */
       default: {
         headers: {
           [name: string]: unknown;

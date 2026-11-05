@@ -780,6 +780,11 @@ func TestFoundation(t *testing.T) {
 			CSRF string `json:"csrf_token"`
 		}
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
+		// Account profile/password changes preserve this session; the behavioral suite covers revocation.
+		call(client, "PUT", "/api/account/profile", map[string]string{"username": "administrator", "display_name": "Administrator"}, me.CSRF, 200)
+		call(client, "PUT", "/api/account/password", map[string]string{"current_password": "synthetic-password", "new_password": "synthetic-password"}, me.CSRF, 200)
+		call(anon, "GET", "/api/persons/999999/avatar", nil, "", 401)
+		call(client, "GET", "/api/persons/999999/avatar", nil, "", 404)
 		// Account language (behavior in the account preferences suite).
 		call(client, "GET", "/api/account/preferences", nil, "", 200)
 		call(client, "PUT", "/api/account/preferences", map[string]any{"language": "fr"}, me.CSRF, 200)

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
 
 /**
@@ -22,11 +23,15 @@ export function initials(name: string): string {
 
 export function Avatar({
   name,
+  personId,
   size = "md",
 }: {
   name: string;
+  personId?: number;
   size?: "md" | "lg" | "record";
 }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [personId]);
   return (
     <span
       aria-hidden="true"
@@ -38,7 +43,16 @@ export function Avatar({
             : "size-10 text-xs"
       }`}
     >
-      {initials(name)}
+      {personId && !failed ? (
+        <img
+          src={`/api/persons/${personId}/avatar`}
+          alt=""
+          className="size-full rounded-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        initials(name)
+      )}
     </span>
   );
 }

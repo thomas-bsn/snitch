@@ -127,7 +127,11 @@ export function PersonDirectory() {
                     to={`/people/${person.id}`}
                     className="flex h-full min-h-11 w-full flex-col items-center gap-2 rounded-xl border border-line p-4 text-center hover:border-accent"
                   >
-                    <Avatar name={person.display_name} size="lg" />
+                    <Avatar
+                      personId={person.user_id !== null ? person.id : undefined}
+                      name={person.display_name}
+                      size="lg"
+                    />
                     <span className="font-semibold break-words">
                       {person.display_name}
                     </span>
