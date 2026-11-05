@@ -4256,6 +4256,7 @@ export interface components {
       retry: boolean;
     };
     WorkerVoiceModels: {
+      worker_id: string;
       models: components["schemas"]["WorkerVoiceModel"][];
       remove: components["schemas"]["WorkerVoiceModel"][];
       orders: components["schemas"]["WorkerModelOrder"][];

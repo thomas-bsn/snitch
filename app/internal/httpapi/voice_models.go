@@ -481,7 +481,9 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		Models []workerVoiceModel    `json:"models"`
 		Remove []workerVoiceModel    `json:"remove"`
 		Orders []voiceModelOrderView `json:"orders"`
-	}{Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders}
+		// WorkerID is the identity Snitch gives this Worker: it pins it on its volume and checks every order against it.
+		WorkerID string `json:"worker_id"`
+	}{WorkerID: worker.ID, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders}
 	add := func(list *[]workerVoiceModel, id, role string) {
 		if entry, ok, lookupErr := voiceCatalogByID(r.Context(), s.Pool, id); lookupErr != nil {
 			err = lookupErr

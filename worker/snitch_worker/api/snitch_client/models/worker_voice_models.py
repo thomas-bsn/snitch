@@ -26,11 +26,13 @@ T = TypeVar("T", bound="WorkerVoiceModels")
 class WorkerVoiceModels:
     """
         Attributes:
+            worker_id (str):
             models (list[WorkerVoiceModel]):
             remove (list[WorkerVoiceModel]):
             orders (list[WorkerModelOrder]):
      """
 
+    worker_id: str
     models: list[WorkerVoiceModel]
     remove: list[WorkerVoiceModel]
     orders: list[WorkerModelOrder]
@@ -43,6 +45,8 @@ class WorkerVoiceModels:
     def to_dict(self) -> dict[str, Any]:
         from ..models.worker_model_order import WorkerModelOrder # noqa: PLC0415
         from ..models.worker_voice_model import WorkerVoiceModel # noqa: PLC0415
+        worker_id = self.worker_id
+
         models = []
         for models_item_data in self.models:
             models_item = models_item_data.to_dict()
@@ -68,6 +72,7 @@ class WorkerVoiceModels:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "worker_id": worker_id,
             "models": models,
             "remove": remove,
             "orders": orders,
@@ -82,6 +87,8 @@ class WorkerVoiceModels:
         from ..models.worker_model_order import WorkerModelOrder # noqa: PLC0415
         from ..models.worker_voice_model import WorkerVoiceModel # noqa: PLC0415
         d = dict(src_dict)
+        worker_id = d.pop("worker_id")
+
         models = []
         _models = d.pop("models")
         for models_item_data in (_models):
@@ -113,6 +120,7 @@ class WorkerVoiceModels:
 
 
         worker_voice_models = cls(
+            worker_id=worker_id,
             models=models,
             remove=remove,
             orders=orders,

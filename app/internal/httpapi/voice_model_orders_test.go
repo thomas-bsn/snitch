@@ -29,10 +29,14 @@ type modelOrder struct {
 func (h *voiceHarness) workerOrders() []modelOrder {
 	h.t.Helper()
 	var out struct {
-		Orders []modelOrder `json:"orders"`
+		WorkerID string       `json:"worker_id"`
+		Orders   []modelOrder `json:"orders"`
 	}
 	if err := json.Unmarshal(h.workerCall(http.MethodGet, "/api/worker/voice-models", nil, "", http.StatusOK), &out); err != nil {
 		h.t.Fatal(err)
+	}
+	if out.WorkerID != h.fixtureWorkerID() {
+		h.t.Fatalf("the Worker is told its own identity, got %q", out.WorkerID)
 	}
 	return out.Orders
 }

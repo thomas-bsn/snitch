@@ -35,7 +35,7 @@ from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
 from snitch_worker import cancellation, log, revocation
-from snitch_worker import hf_token_sync, voice_download, voice_models
+from snitch_worker import hf_token_sync, model_orders, voice_download, voice_models
 from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
@@ -501,6 +501,10 @@ def run_once(
             voice_models.sync_voice_models(client, voice_models.default_manager())
         except Exception:  # noqa: BLE001 - the model manager must never stop claiming
             log.emit(logging.WARNING, "voice_model_sync_failed")
+        try:
+            model_orders.sync_orders(client, model_orders.default_executor())
+        except Exception:  # noqa: BLE001 - the orders must never stop claiming
+            log.emit(logging.WARNING, "voice_order_sync_failed")
     claim = _require_response(claim_job(client=client), "claim")
     if claim is None or claim.job is None:
         log.emit(logging.DEBUG, "claim_empty")
