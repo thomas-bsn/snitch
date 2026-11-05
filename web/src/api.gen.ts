@@ -2042,7 +2042,25 @@ export interface paths {
     /** @description Administrateurs uniquement. Catalogue des modèles vocaux (références en base : type, adaptateur autorisé, dépôt, révision épinglée, licence, accès gated, besoins matériels, activée ou non, prise en charge ou non) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé si au moins un Worker l'a prêt. */
     get: operations["listVoiceModels"];
     put?: never;
-    post?: never;
+    /** @description Super-administrateur uniquement. Ajoute au catalogue le dépôt Hugging Face inspecté, à la révision (commit) montrée par l'inspection : Snitch relit ce commit exact, vérifie le type confirmé contre les métadonnées et déduit lui-même le moteur. Le moteur n'est pas une entrée. Un dépôt sans adaptateur approuvé, ou dont le moteur ne sait pas exécuter le type choisi, est enregistré non pris en charge avec sa raison et ne peut pas être installé. Refusé : voice_model_kind_mismatch (le dépôt déclare un autre type), voice_model_exists, voice_model_hf_not_found, voice_model_hf_denied, voice_model_hf_unavailable. */
+    post: operations["addVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/inspection": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Super-administrateur uniquement. Lit les métadonnées publiques d'un dépôt Hugging Face collé (owner/nom ou adresse huggingface.co ; aucun autre hôte) sans rien télécharger ni exécuter, avec délai et taille de réponse bornés. Propose un type seulement si les métadonnées le déclarent sans ambiguïté, déduit le moteur depuis la matrice d'adaptateurs approuvés et épingle le commit lu. */
+    post: operations["inspectVoiceModel"];
     delete?: never;
     options?: never;
     head?: never;
@@ -4184,6 +4202,33 @@ export interface components {
       /** @description Au moins un Worker a le modèle prêt. */
       installed: boolean;
       workers: components["schemas"]["VoiceModelWorkerState"][];
+    };
+    VoiceModelInspectionRequest: {
+      /** @description Dépôt Hugging Face : owner/nom ou adresse huggingface.co. */
+      source: string;
+    };
+    VoiceModelAdd: {
+      source: string;
+      /** @description Commit montré par l'inspection. */
+      revision: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+    };
+    VoiceModelInspection: {
+      repo: string;
+      /** @description Commit lu, épinglé à l'ajout. */
+      revision: string;
+      license: string;
+      gated: boolean;
+      /** @description Moteur déduit de la matrice ; vide si aucun adaptateur approuvé. */
+      engine: string;
+      /** @description Null quand les métadonnées ne tranchent pas : la personne choisit parmi les trois types. */
+      proposed_kind: string | null;
+      compatible_kinds: ("diarization" | "fingerprint" | "separation")[];
+      supported: boolean;
+      unsupported_reason: string;
+      /** @description Références du catalogue déjà créées pour ce dépôt. */
+      existing_ids: string[];
     };
     VoiceModels: {
       models: components["schemas"]["VoiceModel"][];
@@ -11424,6 +11469,78 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceModels"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  addVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelAdd"];
+      };
+    };
+    responses: {
+      /** @description Référence ajoutée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModel"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  inspectVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelInspectionRequest"];
+      };
+    };
+    responses: {
+      /** @description Inspection */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelInspection"];
         };
       };
       /** @description Erreur */

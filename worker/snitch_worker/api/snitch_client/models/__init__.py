@@ -359,8 +359,13 @@ from .voice_matching_input import VoiceMatchingInput
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_summary import VoiceMatchingSummary
 from .voice_model import VoiceModel
+from .voice_model_add import VoiceModelAdd
+from .voice_model_add_kind import VoiceModelAddKind
 from .voice_model_candidate import VoiceModelCandidate
 from .voice_model_choice import VoiceModelChoice
+from .voice_model_inspection import VoiceModelInspection
+from .voice_model_inspection_compatible_kinds_item import VoiceModelInspectionCompatibleKindsItem
+from .voice_model_inspection_request import VoiceModelInspectionRequest
 from .voice_model_kind import VoiceModelKind
 from .voice_model_patch import VoiceModelPatch
 from .voice_model_retry import VoiceModelRetry
@@ -816,8 +821,13 @@ __all__ = (
     "VoiceMatchingSettings",
     "VoiceMatchingSummary",
     "VoiceModel",
+    "VoiceModelAdd",
+    "VoiceModelAddKind",
     "VoiceModelCandidate",
     "VoiceModelChoice",
+    "VoiceModelInspection",
+    "VoiceModelInspectionCompatibleKindsItem",
+    "VoiceModelInspectionRequest",
     "VoiceModelKind",
     "VoiceModelPatch",
     "VoiceModelRetry",
