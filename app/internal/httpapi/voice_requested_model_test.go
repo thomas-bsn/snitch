@@ -93,7 +93,9 @@ func testVoiceRequestedModelDispatch(t *testing.T, pool *pgxpool.Pool) {
 	if job, ok := h.claimDeclaring(holdsBench); ok {
 		t.Fatalf("a ready but inactive model took production work: %+v", job)
 	}
-	// Without a requested model the active model applies, as in production.
+	// Without a requested model the active model applies, as in production: the Worker must have reported it
+	// ready (what it declares never opens a local job, ADR 0038).
+	h.reportModel("pyannote-wespeaker-resnet34", "ready", "", 1, 1, http.StatusNoContent)
 	prod, ok := h.claimDeclaring(holdsActive)
 	if !ok || prod.Step != "voice.fingerprint.3" {
 		t.Fatalf("the Worker holding the active model must take the production job, got %+v", prod)
