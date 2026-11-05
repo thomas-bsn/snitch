@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import tempfile
 import threading
 from collections.abc import Mapping
@@ -33,6 +34,8 @@ _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 # Engines an approved adapter exists for, by type (separation has none yet).
 ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote"}}
 STATE_NAME = "orders.json"
+# A download needs room for the whole model; this margin covers what the archive and the cache add on top.
+DISK_MARGIN = 1.1
 
 
 def state_path(environ: Mapping[str, str]) -> str:
@@ -50,7 +53,20 @@ def _directory_size(path: str) -> int:
     return total
 
 
+def free_bytes(path: str) -> int:
+    """Free space of the volume that holds (or will hold) path."""
+    probe = path
+    while probe and not os.path.exists(probe):
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            break
+        probe = parent
+    return shutil.disk_usage(probe or os.sep).free
+
+
 class OrderExecutor:
+    _free_bytes = staticmethod(free_bytes)
+
     def __init__(self, manager: voice_models.ModelManager, environ: Mapping[str, str], token_file: str) -> None:
         self._manager = manager
         self._env = environ
@@ -91,7 +107,7 @@ class OrderExecutor:
         kind, engine = order.get("kind"), order.get("engine")
         repo, revision = order.get("repo"), order.get("revision")
         return (
-            order.get("action") == "install"
+            order.get("action") in ("install", "remove")
             and isinstance(kind, str)
             and kind in ENGINES
             and isinstance(engine, str)
@@ -127,7 +143,7 @@ class OrderExecutor:
         if not isinstance(order_id, str) or not _ORDER_ID.match(order_id):
             log.emit(logging.WARNING, "voice_order_ignored", reason="identity")
             return
-        token = order.get("hf_token")
+        token = order.get("hf_token") if order.get("action") == "install" else None
         key = order.get("idempotency_key")
         seen = state["keys"].get(key) if isinstance(key, str) else None
         content = {"model_id": order.get("model_id"), "repo": order.get("repo"), "revision": order.get("revision")}
@@ -216,12 +232,34 @@ class OrderExecutor:
             http.post("/api/worker/voice-models/status", json=body).raise_for_status()
             last.update(body)
 
-        log.emit(logging.INFO, "voice_order_started", order_id=order_id, model_id=model_id, revision=revision)
-        self._manager.prepare({"model_id": model_id, "repo": order["repo"], "revision": revision, "role": "ordered", "retry": False}, post)
-        if last.get("state") in ("ready", "failed"):
+        log.emit(logging.INFO, "voice_order_started", order_id=order_id, model_id=model_id, revision=revision, action=order["action"])
+        if order["action"] == "remove":
+            # Only an order from Snitch removes a model, after it decided the switch and that no job uses it.
+            self._manager.remove([{"model_id": model_id, "repo": order["repo"], "revision": revision}], post)
+        elif not self._fits(order, post):
+            pass
+        else:
+            self._install(order, post)
+        if last.get("state") in ("ready", "failed", "removed"):
             state = self._load()
             state["orders"][order_id] = {"state": last["state"], "cause_code": last["cause_code"], "occupied_bytes": last["occupied_bytes"]}
             self._save(state)
+
+    def _fits(self, order: dict[str, Any], post: Any) -> bool:
+        """Refuse before downloading what the disk cannot hold: the old model is kept, nothing is erased."""
+        size = order.get("size_bytes")
+        if not isinstance(size, int) or size <= 0:
+            return True
+        already = _directory_size(voice_models.model_path(self._env, order["repo"], order["revision"]))
+        if self._free_bytes(voice_models.models_root(self._env)) >= (size - already) * DISK_MARGIN:
+            return True
+        log.emit(logging.INFO, "voice_order_disk_too_small", order_id=order["order_id"], model_id=order["model_id"])
+        post({"state": "failed", "cause_code": "disk_full"})
+        return False
+
+    def _install(self, order: dict[str, Any], post: Any) -> None:
+        model_id, revision = order["model_id"], order["revision"]
+        self._manager.prepare({"model_id": model_id, "repo": order["repo"], "revision": revision, "role": "ordered", "retry": False}, post)
 
     @staticmethod
     def _repeat_outcome(http: Any, order_id: str, content: Mapping[str, Any], outcome: Mapping[str, Any]) -> None:

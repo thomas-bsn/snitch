@@ -193,7 +193,13 @@ class ModelManager:
         repo, revision, model_id = item.get("repo"), item.get("revision"), item.get("model_id")
         if not (isinstance(repo, str) and isinstance(revision, str) and isinstance(model_id, str) and valid_model(repo, revision)):
             return
-        shutil.rmtree(model_path(self._env, repo, revision), ignore_errors=True)
+        path = model_path(self._env, repo, revision)
+        shutil.rmtree(path, ignore_errors=True)
+        if os.path.exists(path):
+            # Never claim a removal that did not happen: Snitch keeps the model and offers Retry.
+            log.emit(logging.INFO, "voice_model_removal_failed", model_id=model_id, revision=revision)
+            post({"model_id": model_id, "state": "failed", "cause_code": "models_volume_unwritable", "bytes_received": 0, "bytes_total": 0})
+            return
         post({"model_id": model_id, "state": "removed", "cause_code": "", "bytes_received": 0, "bytes_total": 0})
 
     def _prepare(self, item: dict[str, Any], post: Report) -> None:
@@ -260,7 +266,9 @@ class ModelManager:
 
 
 def sync_voice_models(client: Any, manager: ModelManager) -> None:
-    """Pull what Snitch holds for this Worker: removals it asked for are done, nothing is ever downloaded."""
+    """Pull what Snitch holds for this Worker: only the active model is noted (it labels the declaration).
+
+    Nothing is downloaded and nothing is removed here: models are removed only on a remove order (``model_orders``)."""
     http = client.get_httpx_client()
     response = http.get("/api/worker/voice-models")
     if response.status_code == 404:
@@ -270,11 +278,7 @@ def sync_voice_models(client: Any, manager: ModelManager) -> None:
     if not isinstance(desired, dict):
         raise ValueError("invalid voice models from server")
 
-    def post(payload: dict[str, Any]) -> None:
-        http.post("/api/worker/voice-models/status", json=payload).raise_for_status()
-
     manager.note_active(desired)
-    manager.remove([m for m in desired.get("remove") or [] if isinstance(m, dict)], post)
 
 
 def download_environment(token_file: str) -> dict[str, str]:
