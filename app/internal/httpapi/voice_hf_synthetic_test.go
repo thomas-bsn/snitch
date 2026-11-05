@@ -22,7 +22,8 @@ func syntheticHuggingFace(t *testing.T) *hfInspector {
 		"acme/transformers-only":      `{"id":"acme/transformers-only","sha":"` + commit + `","library_name":"transformers","tags":["transformers","speaker-diarization"]}`,
 	}
 	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, ok := repos[strings.TrimPrefix(r.URL.Path, "/api/models/")]
+		repo, _, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/api/models/"), "/revision/")
+		body, ok := repos[repo]
 		if !ok {
 			http.NotFound(w, r)
 			return

@@ -4,8 +4,11 @@ import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 
 // Le serveur de test pointe l'inspection sur un faux Hugging Face de trois dépôts synthétiques.
 
-async function open(browser: import("@playwright/test").Browser) {
+test.beforeAll(async () => {
   await installAdministrator();
+});
+
+async function open(browser: import("@playwright/test").Browser) {
   const context = await browser.newContext({
     storageState: await sessionFor(ADMIN),
   });
@@ -33,8 +36,7 @@ test("un dépôt connu : type proposé, moteur déduit, ajout au catalogue", asy
   await expect(
     dialog.getByRole("button", { name: "Diarization" }),
   ).toHaveAttribute("aria-pressed", "true");
-  const recap = dialog.getByRole("definition");
-  await expect(recap.filter({ hasText: "NVIDIA NeMo" })).toBeVisible();
+  await expect(dialog.getByText("NVIDIA NeMo")).toBeVisible();
   await expect(dialog).toContainText("Compatible engine");
   await expect(dialog).toContainText("cd03eee…");
   await expect(dialog).toContainText("apache-2.0");
