@@ -34,7 +34,9 @@ export function AvatarMenu() {
   const { user, logout, chooseLanguage } = useSession();
   const { theme, setTheme } = useTheme();
   if (!user) return null;
-  const initials = user.username.slice(0, 2).toUpperCase();
+  const initials = (user.display_name ?? user.username)
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <Menu.Root>
@@ -50,8 +52,8 @@ export function AvatarMenu() {
         <Menu.Positioner align="end" sideOffset={8} className="z-50">
           <Menu.Popup className="w-64 rounded-xl border border-line bg-surface p-1.5 text-ink shadow-pop outline-none">
             <div className="px-2.5 pb-2.5 pt-2">
-              <span className="block text-sm font-semibold">
-                {user.username}
+              <span className="block break-words text-sm font-semibold">
+                {user.display_name ?? user.username}
               </span>
               <span className="block text-xs text-mute">
                 {t(roleLabelKey(user))}

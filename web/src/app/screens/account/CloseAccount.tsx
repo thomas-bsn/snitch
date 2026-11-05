@@ -44,7 +44,9 @@ export function CloseAccount() {
   return (
     <Section title={t("closeAccount.zone")} danger>
       <h3 className="font-semibold">{t("closeAccount.title")}</h3>
-      <p>{t("closeAccount.explanation")}</p>
+      <p className="text-sm leading-relaxed text-mute">
+        {t("closeAccount.explanation")}
+      </p>
       {isSuperAdministrator(user) ? (
         <p>{t("closeAccount.protected")}</p>
       ) : (

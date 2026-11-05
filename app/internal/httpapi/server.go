@@ -63,8 +63,11 @@ type Server struct {
 	backgroundWG          sync.WaitGroup
 	incidents             incidentSync
 	passwordSlots         chan struct{}
-	dummyPassword         string
-	hf                    *hfInspector // nil in production (the Hugging Face host); a test injects a fake server
+	// Discord avatar synchronization; the durations are zero in production (defaults) and shortened by tests.
+	avatarWG                                                 sync.WaitGroup
+	avatarRetryBase, avatarPause, avatarTick, avatarCooldown time.Duration
+	dummyPassword                                            string
+	hf                                                       *hfInspector // nil in production (the Hugging Face host); a test injects a fake server
 }
 type session struct {
 	User             database.GetUserRow
@@ -72,6 +75,7 @@ type session struct {
 	DiscordLinked    bool
 	CanUnlinkDiscord bool
 	DiscordName      *string
+	DiscordUsername  *string
 }
 
 // discordName is the linked identity's display name, null when unlinked or linked before it was kept.
@@ -132,6 +136,8 @@ func (s *Server) Start(ctx context.Context) error {
 	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.serveIncidents(s.backgroundContext, analysisInterval) }()
 	s.backgroundWG.Add(1)
+	go func() { defer s.backgroundWG.Done(); s.serveDiscordAvatars(s.backgroundContext) }()
+	s.backgroundWG.Add(1)
 	go func() {
 		defer s.backgroundWG.Done()
 		ticker := time.NewTicker(30 * time.Second)
@@ -172,6 +178,7 @@ func (s *Server) Close() {
 		s.backgroundCancel()
 	}
 	s.backgroundWG.Wait()
+	s.avatarWG.Wait()
 	s.Library.Close()
 	s.Uploads.Close()
 }
@@ -201,6 +208,14 @@ func (s *Server) Handler() http.Handler {
 	for _, method := range []string{"GET", "PUT", "DELETE"} {
 		mux.Handle(method+" /api/account/avatar", s.protected(false, http.HandlerFunc(s.accountAvatar)))
 	}
+	mux.Handle("GET /api/account/avatar-settings", s.protected(false, http.HandlerFunc(s.getAvatarSettings)))
+	mux.Handle("PUT /api/account/avatar-settings", s.protected(false, http.HandlerFunc(s.putAvatarSettings)))
+	mux.Handle("POST /api/account/avatar/discord-refresh", s.protected(false, http.HandlerFunc(s.refreshDiscordAvatar)))
+	mux.Handle("GET /api/admin/discord-bot", s.protected(true, http.HandlerFunc(s.getDiscordBot)))
+	mux.Handle("PUT /api/admin/discord-bot", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.putDiscordBot)))
+	mux.Handle("DELETE /api/admin/discord-bot", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.deleteDiscordBot)))
+	mux.Handle("POST /api/admin/discord-bot/test", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.testDiscordBot)))
+	mux.Handle("POST /api/admin/discord-bot/sync", s.protected(true, http.HandlerFunc(s.syncDiscordBot)))
 	mux.HandleFunc("GET /api/health/live", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("GET /api/health/ready", s.ready)
 	mux.HandleFunc("GET /api/setup", s.setupStatus)
@@ -216,6 +231,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/account", s.protected(false, http.HandlerFunc(s.closeAccount)))
 	mux.Handle("GET /api/account/preferences", s.protected(false, http.HandlerFunc(s.getAccountPreferences)))
 	mux.Handle("PUT /api/account/preferences", s.protected(false, http.HandlerFunc(s.putAccountPreferences)))
+	mux.Handle("PUT /api/account/profile", s.protected(false, http.HandlerFunc(s.putAccountProfile)))
+	mux.Handle("PUT /api/account/password", s.protected(false, s.limited(http.HandlerFunc(s.putAccountPassword))))
+	mux.Handle("GET /api/persons/{id}/avatar", s.protected(false, http.HandlerFunc(s.personAvatar)))
 	mux.Handle("DELETE /api/account/discord", s.protected(false, http.HandlerFunc(s.unlinkDiscord)))
 	mux.Handle("POST /api/auth/discord/start", s.rateLimited("discord", http.HandlerFunc(s.discordStart)))
 	mux.Handle("POST /api/auth/discord/link", s.protected(false, http.HandlerFunc(s.discordStart)))
@@ -478,7 +496,7 @@ func (s *Server) findSession(r *http.Request) (session, error) {
 	if err != nil {
 		return ss, err
 	}
-	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf,u.discord_id IS NOT NULL,u.password_hash IS NOT NULL,u.discord_name FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF, &ss.DiscordLinked, &ss.CanUnlinkDiscord, &ss.DiscordName)
+	err = s.Pool.QueryRow(r.Context(), `SELECT u.id,u.username,u.role,u.approved,u.language,s.csrf,u.discord_id IS NOT NULL,u.password_hash IS NOT NULL,u.discord_name,u.discord_username,COALESCE(u.display_name,CASE WHEN u.password_hash IS NULL AND starts_with(u.username,'discord_') THEN u.discord_name END,u.username) FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.approved`, auth.Hash(c.Value)).Scan(&ss.User.ID, &ss.User.Username, &ss.User.Role, &ss.User.Approved, &ss.User.Language, &ss.CSRF, &ss.DiscordLinked, &ss.CanUnlinkDiscord, &ss.DiscordName, &ss.DiscordUsername, &ss.User.DisplayName)
 	return ss, err
 }
 func (s *Server) protected(admin bool, next http.Handler) http.Handler {
@@ -711,7 +729,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	ss := r.Context().Value(sessionKey{}).(session)
-	reply(w, 200, map[string]any{"user": ss.User, "csrf_token": ss.CSRF, "discord_linked": ss.DiscordLinked, "can_unlink_discord": ss.DiscordLinked && ss.CanUnlinkDiscord, "discord_name": ss.discordName()})
+	reply(w, 200, map[string]any{"user": ss.User, "csrf_token": ss.CSRF, "discord_linked": ss.DiscordLinked, "can_unlink_discord": ss.DiscordLinked && ss.CanUnlinkDiscord, "discord_name": ss.discordName(), "discord_username": ss.DiscordUsername, "has_password": ss.CanUnlinkDiscord})
 }
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	c, _ := sessionCookie(r)
@@ -1016,7 +1034,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 	displayName = truncateDisplayName(displayName, 128)
 	if userID != nil {
 		// Unique identity constraint rejects linking an identity already owned by another account.
-		tag, e := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=$1,discord_name=NULLIF($4,'') WHERE id=$2 AND (discord_id IS NULL OR discord_id=$1) AND EXISTS (SELECT 1 FROM sessions WHERE token_hash=$3 AND user_id=$2 AND expires_at>now())`, identity.ID, *userID, sessionHash, displayName)
+		tag, e := s.Pool.Exec(r.Context(), `UPDATE users SET discord_id=$1,discord_name=NULLIF($4,''),discord_username=NULLIF($5,'') WHERE id=$2 AND (discord_id IS NULL OR discord_id=$1) AND EXISTS (SELECT 1 FROM sessions WHERE token_hash=$3 AND user_id=$2 AND expires_at>now())`, identity.ID, *userID, sessionHash, displayName, identity.Username)
 		if e == nil && tag.RowsAffected() == 0 {
 			if _, err := s.findSession(r); err != nil {
 				s.oauthFailure(w, r, 403, "link_session_required")
@@ -1027,6 +1045,7 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 			s.oauthFailure(w, r, 409, "discord_already_linked")
 			return
 		}
+		s.adoptAndSyncAvatar(r.Context(), *userID)
 	} else {
 		tx, e := s.Pool.Begin(r.Context())
 		if e != nil {
@@ -1040,14 +1059,23 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var uid int64
-		var approved bool
+		var approved, created bool
 		e = tx.QueryRow(r.Context(), `INSERT INTO users(username,role,approved,discord_id,discord_name) VALUES($1,'user',$2,$3,NULLIF($4,'')) ON CONFLICT DO NOTHING RETURNING id,approved`, "discord_"+identity.ID, !approval, identity.ID, displayName).Scan(&uid, &approved)
+		created = e == nil
 		if errors.Is(e, pgx.ErrNoRows) {
 			e = tx.QueryRow(r.Context(), `SELECT id,approved FROM users WHERE discord_id=$1`, identity.ID).Scan(&uid, &approved)
 		}
 		if errors.Is(e, pgx.ErrNoRows) {
 			// A local username collision is never an identity match. Allocate a distinct name.
 			e = tx.QueryRow(r.Context(), `INSERT INTO users(username,role,approved,discord_id) VALUES($1,'user',$2,$3) ON CONFLICT (discord_id) DO UPDATE SET discord_id=EXCLUDED.discord_id RETURNING id,approved`, "discord_"+auth.Token(), !approval, identity.ID).Scan(&uid, &approved)
+			created = e == nil
+		}
+		if e == nil {
+			_, e = tx.Exec(r.Context(), `UPDATE users SET discord_name=NULLIF($2,''),discord_username=NULLIF($3,'') WHERE id=$1`, uid, displayName, identity.Username)
+		}
+		if e == nil && created {
+			// A new Discord account displays its Discord photo (nothing personal exists yet).
+			e = adoptDiscordAvatar(r.Context(), tx, uid)
 		}
 		if e != nil {
 			s.oauthInternal(w, r, e)
@@ -1056,6 +1084,9 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		if e = tx.Commit(r.Context()); e != nil {
 			s.oauthInternal(w, r, e)
 			return
+		}
+		if created {
+			s.triggerAvatarSync(uid)
 		}
 		if !approved {
 			http.Redirect(w, r, "/?notice=pending", http.StatusSeeOther)
@@ -1135,4 +1166,19 @@ func (s *Server) discordStepFailed(step, reason string, status int, body []byte,
 func (s *Server) oauthInternal(w http.ResponseWriter, r *http.Request, err error) {
 	s.Log.Error("database operation failed", "kind", fmtError(err))
 	s.oauthFailure(w, r, 503, "unavailable")
+}
+
+// adoptAndSyncAvatar runs after a successful link. The link is already committed: an avatar problem is only logged.
+func (s *Server) adoptAndSyncAvatar(ctx context.Context, id int64) {
+	tx, err := s.Pool.Begin(ctx)
+	if err == nil {
+		defer tx.Rollback(ctx)
+		if err = adoptDiscordAvatar(ctx, tx, id); err == nil {
+			err = tx.Commit(ctx)
+		}
+	}
+	if err != nil {
+		s.Log.Error("avatar source not set after link", "kind", fmtError(err))
+	}
+	s.triggerAvatarSync(id)
 }

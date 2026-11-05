@@ -522,7 +522,7 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 	// A filtered view needs every descendant: folders are kept only when one of them matches (#282).
 	tree := !recursive && filters.active()
 	if recursive || tree {
-		err = filepath.WalkDir(base, func(path string, entry fs.DirEntry, err error) error {
+		err = library.WalkMediaDir(base, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -587,7 +587,7 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, entry := range entries {
-			if strings.HasPrefix(entry.Name(), ".") || entry.Type()&os.ModeSymlink != 0 {
+			if entry.IsDir() && library.IsSystemDirectory(entry.Name()) || strings.HasPrefix(entry.Name(), ".") || entry.Type()&os.ModeSymlink != 0 {
 				continue
 			}
 			if !entry.IsDir() && !videoExtension(entry.Name()) {

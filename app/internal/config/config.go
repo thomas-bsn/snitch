@@ -35,6 +35,8 @@ type Config struct {
 	// TrustedProxies lists the peers whose X-Forwarded-Proto and X-Forwarded-Host are honored.
 	TrustedProxies                                       []netip.Prefix
 	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL string
+	// Bot API and image CDN used by the avatar synchronization.
+	DiscordAPIURL, DiscordCDNURL string
 }
 
 // DefaultSecretsDir is where the deployment mounts the volume that keeps the generated secrets.
@@ -56,6 +58,7 @@ func Load() (Config, error) {
 		ClipExcludePatterns: splitPatterns(env("CLIP_EXCLUDE_PATTERNS", ".*,*.tmp,*.part,*.partial,*.crdownload,*.download")),
 		UploadRoot:          env("UPLOAD_ROOT", "/data/media"),
 		DiscordAuthorizeURL: "https://discord.com/oauth2/authorize", DiscordTokenURL: "https://discord.com/api/oauth2/token", DiscordUserURL: "https://discord.com/api/users/@me",
+		DiscordAPIURL: "https://discord.com/api", DiscordCDNURL: "https://cdn.discordapp.com",
 	}
 	// Preserve installations that selected a model while relying on the bundled service URL.
 	if c.EmbeddingsURL == "" && c.EmbeddingsModel != "" {

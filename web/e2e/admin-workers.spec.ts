@@ -489,7 +489,8 @@ test.describe.serial("administration et Workers", () => {
     expect(await pulse(firstToken)).toBe(401);
     await page.getByRole("link", { name: "Open the new Worker" }).click();
     await expect(page).toHaveURL(/\/admin\/workers\/wk_/);
-    expect(page.url().split("/").pop()).not.toBe(firstId);
+    const replacementId = page.url().split("/").pop()!;
+    expect(replacementId).not.toBe(firstId);
     await expect(
       page.getByRole("heading", { name: "gaming-pc" }),
     ).toBeVisible();
@@ -510,13 +511,34 @@ test.describe.serial("administration et Workers", () => {
       page.getByRole("button", { name: "Diagnose / Reconnect" }),
     ).toHaveCount(0);
     expect(await pulse(firstToken)).toBe(401);
+
+    // #261: the machine never confirmed, yet the Administrator can drop the entry after an
+    // explicit warning that local cleanup is unconfirmed.
+    await page.getByRole("button", { name: "Remove from the list" }).click();
+    await expect(page.getByRole("alertdialog")).toContainText(
+      "Local cleanup was not confirmed",
+    );
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await page.getByRole("button", { name: "Remove from the list" }).click();
+    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/workers$/);
+    // The replaced identity keeps its revoked entry until it is forgotten too: target the
+    // replacement by its address rather than by the shared "gaming-pc" name.
+    await expect(
+      page.locator(`a[href="/admin/workers/${replacementId}"]`),
+    ).toHaveCount(0);
     await context.close();
   });
 
   test.describe("onglet Mises à jour", () => {
     const listing = {
-      target_version: null,
-      target_image: null,
+      mode: "pinned",
+      target_version: "v1.0.0",
+      target_image: "ghcr.io/thomas-bsn/snitch-worker:v1.0.0",
+      latest_version: "v1.1.0",
+      checked_at: null,
+      check_failed: false,
       image_repository: "ghcr.io/thomas-bsn/snitch-worker",
       catalog: ["v1.1.0", "v1.0.0"],
       catalog_available: true,
@@ -560,6 +582,32 @@ test.describe.serial("administration et Workers", () => {
       ).toBeVisible();
       await expect(page.getByRole("table")).toBeVisible();
       await expect(page.getByRole("cell", { name: "gaming-pc" })).toBeVisible();
+      await context.close();
+    });
+
+    test("en mode Latest, la version manuelle est grisée et l'état du suivi est affiché", async ({
+      browser,
+    }) => {
+      const { context, page } = await open(browser, () => ({
+        ...listing,
+        mode: "latest",
+        target_version: "v1.1.0",
+        checked_at: "2026-11-05T10:00:00Z",
+        check_failed: true,
+      }));
+      await expect(page.getByLabel("Update strategy")).toHaveValue("latest");
+      const version = page.getByLabel("Version applied to Workers");
+      await expect(version).toBeDisabled();
+      await expect(version).toHaveValue("v1.1.0");
+      await expect(
+        page.getByText("Latest stable version detected"),
+      ).toBeVisible();
+      await expect(
+        page.getByText("The last registry check failed"),
+      ).toBeVisible();
+      // Back to a pinned version: the manual choice is editable again.
+      await page.getByLabel("Update strategy").selectOption("pinned");
+      await expect(page.getByLabel("Target version")).toBeEnabled();
       await context.close();
     });
 

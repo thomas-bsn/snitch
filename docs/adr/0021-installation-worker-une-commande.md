@@ -62,3 +62,13 @@ Alternatives écartées :
 - Effacer sur un simple 401 : un jeton transitoirement refusé ou un serveur mal configuré effacerait des modèles valides.
 
 Conséquences : `revocation_acknowledged_at` ne distingue pas le Worker du lanceur. L'interface dit donc qu'un Worker en marche efface lui-même ses modèles et caches, que si seul le lanceur a confirmé le volume garde son contenu, et que le volume Docker, le conteneur inactif et le dossier du lanceur restent sur la machine. Le conteneur inactif consomme un processus Python endormi jusqu'à sa suppression. L'image `:latest` publiée depuis `main` n'embarque ce comportement qu'après sa prochaine publication. Preuves : `worker/tests/test_revocation.py` (révocation confirmée : volume effacé sauf le marqueur, client fermé, plus d'appel ; 401 non confirmé, réponse `revoked: false` ou panne : rien d'effacé ; marqueur au démarrage : aucun client réseau, état inactif ; bootstrap révoqué : aucun téléchargement), `TestInstallerStopsServiceOnRevocationConfirmationWithoutErasingLocalData`.
+
+## Révision : retrait forcé d'un Worker révoqué (#261)
+
+Contexte : le retrait de la liste (#116) attendait `revocation_acknowledged_at`. Une machine hors ligne, réinstallée ou jetée ne confirme jamais : la ligne restait indéfiniment et l'administrateur n'avait aucun moyen de la retirer.
+
+Décision : `DELETE /api/admin/workers/{id}/record` accepte `force=true`. Sans lui, rien ne change : `409 worker_cleanup_pending` tant que la machine n'a pas confirmé (le lanceur a encore besoin de la ligne pour apprendre qu'il doit nettoyer). Avec lui, un Worker révoqué est retiré sans confirmation ; un Worker actif reste refusé (`409 worker_not_revoked`) même forcé. Une valeur autre que `true`/`false` donne `400 invalid_request`. L'historique des jobs et des événements est conservé, comme pour un retrait confirmé.
+
+Interface : « Retirer de la liste » apparaît dès que le Worker est révoqué. Sans confirmation de la machine, le texte et la boîte de confirmation disent que le nettoyage local n'a pas été confirmé (volume de modèles, conteneur et dossier du lanceur peuvent subsister) ; l'interface envoie alors `force=true`.
+
+Conséquence assumée : un Worker retiré de force dont la machine revient plus tard reçoit un 401 `worker_token_invalid` sans pouvoir apprendre sa révocation (la ligne n'existe plus) ; son conteneur reste alors à retirer à la main. C'est le prix du retrait forcé, d'où l'avertissement et la confirmation explicite.

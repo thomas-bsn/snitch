@@ -80,8 +80,10 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | PutWorkerUpdateTargetResponse200]:
-    """  Choisit la version cible. Null ou chaîne vide : aucune mise à jour automatique. Le format est
-    vérifié ; l'image est construite par Snitch à partir du dépôt configuré.
+    """  Choisit la stratégie : disabled (aucune mise à jour), pinned (version fixe, obligatoire) ou latest
+    (suivi de la dernière version publiée, la version envoyée est ignorée). Sans mode, il est déduit de
+    la version (vide : disabled). Le format est vérifié ; l'image est construite par Snitch à partir du
+    dépôt configuré.
 
     Args:
         origin (str):
@@ -118,8 +120,10 @@ def sync(
     x_csrf_token: str,
 
 ) -> Error | PutWorkerUpdateTargetResponse200 | None:
-    """  Choisit la version cible. Null ou chaîne vide : aucune mise à jour automatique. Le format est
-    vérifié ; l'image est construite par Snitch à partir du dépôt configuré.
+    """  Choisit la stratégie : disabled (aucune mise à jour), pinned (version fixe, obligatoire) ou latest
+    (suivi de la dernière version publiée, la version envoyée est ignorée). Sans mode, il est déduit de
+    la version (vide : disabled). Le format est vérifié ; l'image est construite par Snitch à partir du
+    dépôt configuré.
 
     Args:
         origin (str):
@@ -151,8 +155,10 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | PutWorkerUpdateTargetResponse200]:
-    """  Choisit la version cible. Null ou chaîne vide : aucune mise à jour automatique. Le format est
-    vérifié ; l'image est construite par Snitch à partir du dépôt configuré.
+    """  Choisit la stratégie : disabled (aucune mise à jour), pinned (version fixe, obligatoire) ou latest
+    (suivi de la dernière version publiée, la version envoyée est ignorée). Sans mode, il est déduit de
+    la version (vide : disabled). Le format est vérifié ; l'image est construite par Snitch à partir du
+    dépôt configuré.
 
     Args:
         origin (str):
@@ -189,8 +195,10 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> Error | PutWorkerUpdateTargetResponse200 | None:
-    """  Choisit la version cible. Null ou chaîne vide : aucune mise à jour automatique. Le format est
-    vérifié ; l'image est construite par Snitch à partir du dépôt configuré.
+    """  Choisit la stratégie : disabled (aucune mise à jour), pinned (version fixe, obligatoire) ou latest
+    (suivi de la dernière version publiée, la version envoyée est ignorée). Sans mode, il est déduit de
+    la version (vide : disabled). Le format est vérifié ; l'image est construite par Snitch à partir du
+    dépôt configuré.
 
     Args:
         origin (str):

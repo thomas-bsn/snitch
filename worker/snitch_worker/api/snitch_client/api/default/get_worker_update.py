@@ -63,8 +63,10 @@ def sync_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[Error | GetWorkerUpdateResponse200]:
-    """  Image que l'agent local du Worker doit faire tourner. Ne modifie rien ; sans cible, les champs sont
-    nuls.
+    """  Image que l'agent local du Worker doit faire tourner, et si ce Worker est au repos (aucun job sous
+    bail) pour que l'agent attende un moment calme. En mode latest, résout la cible depuis le catalogue
+    en cache (écriture seulement si une version plus haute apparaît). Sans cible, les champs version et
+    image sont nuls.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -90,8 +92,10 @@ def sync(
     client: AuthenticatedClient,
 
 ) -> Error | GetWorkerUpdateResponse200 | None:
-    """  Image que l'agent local du Worker doit faire tourner. Ne modifie rien ; sans cible, les champs sont
-    nuls.
+    """  Image que l'agent local du Worker doit faire tourner, et si ce Worker est au repos (aucun job sous
+    bail) pour que l'agent attende un moment calme. En mode latest, résout la cible depuis le catalogue
+    en cache (écriture seulement si une version plus haute apparaît). Sans cible, les champs version et
+    image sont nuls.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,8 +116,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[Error | GetWorkerUpdateResponse200]:
-    """  Image que l'agent local du Worker doit faire tourner. Ne modifie rien ; sans cible, les champs sont
-    nuls.
+    """  Image que l'agent local du Worker doit faire tourner, et si ce Worker est au repos (aucun job sous
+    bail) pour que l'agent attende un moment calme. En mode latest, résout la cible depuis le catalogue
+    en cache (écriture seulement si une version plus haute apparaît). Sans cible, les champs version et
+    image sont nuls.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,8 +145,10 @@ async def asyncio(
     client: AuthenticatedClient,
 
 ) -> Error | GetWorkerUpdateResponse200 | None:
-    """  Image que l'agent local du Worker doit faire tourner. Ne modifie rien ; sans cible, les champs sont
-    nuls.
+    """  Image que l'agent local du Worker doit faire tourner, et si ce Worker est au repos (aucun job sous
+    bail) pour que l'agent attende un moment calme. En mode latest, résout la cible depuis le catalogue
+    en cache (écriture seulement si une version plus haute apparaît). Sans cible, les champs version et
+    image sont nuls.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
