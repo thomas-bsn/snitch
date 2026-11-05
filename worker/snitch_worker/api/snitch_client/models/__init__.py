@@ -381,6 +381,7 @@ from .voice_model_inspection import VoiceModelInspection
 from .voice_model_inspection_compatible_kinds_item import VoiceModelInspectionCompatibleKindsItem
 from .voice_model_inspection_request import VoiceModelInspectionRequest
 from .voice_model_kind import VoiceModelKind
+from .voice_model_order_input import VoiceModelOrderInput
 from .voice_model_patch import VoiceModelPatch
 from .voice_model_retry import VoiceModelRetry
 from .voice_model_worker_state import VoiceModelWorkerState
@@ -440,7 +441,19 @@ from .worker_job_input_tracks_item import WorkerJobInputTracksItem
 from .worker_job_logs_input import WorkerJobLogsInput
 from .worker_machine import WorkerMachine
 from .worker_model import WorkerModel
+from .worker_model_cell import WorkerModelCell
+from .worker_model_cell_cause_code import WorkerModelCellCauseCode
+from .worker_model_cell_kind import WorkerModelCellKind
+from .worker_model_cell_state import WorkerModelCellState
+from .worker_model_order import WorkerModelOrder
+from .worker_model_order_ack import WorkerModelOrderAck
+from .worker_model_order_ack_cause_code import WorkerModelOrderAckCauseCode
+from .worker_model_order_action import WorkerModelOrderAction
+from .worker_model_order_kind import WorkerModelOrderKind
+from .worker_model_order_status import WorkerModelOrderStatus
 from .worker_models import WorkerModels
+from .worker_models_row import WorkerModelsRow
+from .worker_models_view import WorkerModelsView
 from .worker_page import WorkerPage
 from .worker_page_transcription import WorkerPageTranscription
 from .worker_page_transcription_mode import WorkerPageTranscriptionMode
@@ -857,6 +870,7 @@ __all__ = (
     "VoiceModelInspectionCompatibleKindsItem",
     "VoiceModelInspectionRequest",
     "VoiceModelKind",
+    "VoiceModelOrderInput",
     "VoiceModelPatch",
     "VoiceModelRetry",
     "VoiceModels",
@@ -916,7 +930,19 @@ __all__ = (
     "WorkerJobLogsInput",
     "WorkerMachine",
     "WorkerModel",
+    "WorkerModelCell",
+    "WorkerModelCellCauseCode",
+    "WorkerModelCellKind",
+    "WorkerModelCellState",
+    "WorkerModelOrder",
+    "WorkerModelOrderAck",
+    "WorkerModelOrderAckCauseCode",
+    "WorkerModelOrderAction",
+    "WorkerModelOrderKind",
+    "WorkerModelOrderStatus",
     "WorkerModels",
+    "WorkerModelsRow",
+    "WorkerModelsView",
     "WorkerPage",
     "WorkerPageTranscription",
     "WorkerPageTranscriptionMode",

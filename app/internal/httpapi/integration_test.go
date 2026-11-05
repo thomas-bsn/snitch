@@ -360,6 +360,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelCandidate(t, pool)
 	})
+	t.Run("voice model order creation", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOrderCreation(t, pool)
+	})
+	t.Run("voice model order execution", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOrderExecution(t, pool)
+	})
 	t.Run("voice model sortformer", func(t *testing.T) {
 		reset(t)
 		testVoiceModelSortformer(t, pool)
@@ -846,7 +854,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/voice-models", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-models/candidate", map[string]any{"model_id": "pyannote-community-1"}, me.CSRF, 409)
 		call(client, "DELETE", "/api/admin/voice-models/candidate", nil, me.CSRF, 204)
-		call(client, "PATCH", "/api/admin/voice-models/pyannote-wespeaker-resnet34", map[string]any{"label": ""}, me.CSRF, 200) // edition rules in the voice catalog edition suite
+		call(client, "PATCH", "/api/admin/voice-models/pyannote-wespeaker-resnet34", map[string]any{"label": ""}, me.CSRF, 200)        // edition rules in the voice catalog edition suite
 		call(client, "POST", "/api/admin/voice-models/inspection", map[string]any{"source": "https://evil.example/a/b"}, me.CSRF, 400) // behavior in the voice model addition suite
 		call(client, "POST", "/api/admin/voice-models", map[string]any{"source": "https://evil.example/a/b", "revision": "0123456789abcdef0123456789abcdef01234567", "kind": "diarization"}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-models/pyannote-community-1/activate", nil, me.CSRF, 409)
@@ -983,6 +991,15 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.synthetic"}}, "", 200)
 		call(client, "GET", "/api/worker/voice-models", nil, "", 200)
 		call(client, "POST", "/api/worker/voice-models/status", map[string]any{"model_id": "pyannote-community-1", "state": "removed"}, "", 204)
+		call(client, "GET", "/api/admin/voice-models/workers", nil, "", 200)
+		orderBody := call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/voice-model-orders", map[string]any{"model_id": "pyannote-wespeaker-resnet34", "idempotency_key": "contract-order-0001"}, me.CSRF, 201)
+		var contractOrder struct {
+			OrderID string `json:"order_id"`
+		}
+		if e = json.Unmarshal(orderBody, &contractOrder); e != nil || contractOrder.OrderID == "" {
+			t.Fatalf("contract order: %s %v", orderBody, e)
+		}
+		call(client, "POST", "/api/worker/voice-model-orders/"+contractOrder.OrderID+"/ack", map[string]any{"accepted": true}, "", 204)
 		call(client, "POST", "/api/worker/install-events", map[string]any{"events": []map[string]any{{"phase": "service", "status": "succeeded", "occurred_at": time.Now().UTC().Format(time.RFC3339)}}}, "", 204)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {

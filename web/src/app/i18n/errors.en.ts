@@ -291,6 +291,19 @@ export const errorsEn = {
     "The repository declares another type than the one chosen.",
   voice_model_exists:
     "This repository is already in the catalogue for this type.",
+  idempotency_key_reused:
+    "This order key was already used for another Worker or model.",
+  invalid_idempotency_key: "The order key is not valid.",
+  voice_model_already_installed:
+    "This model is already installed on this Worker.",
+  voice_model_order_in_progress:
+    "An installation of this model is already under way on this Worker.",
+  voice_model_type_occupied:
+    "This Worker already holds another model of this type: replacing it is a separate operation.",
+  voice_model_not_failed: "The last attempt of this model did not fail.",
+  voice_order_not_found: "This order does not exist for this Worker.",
+  invalid_voice_order_ack: "This acknowledgement of an order is not valid.",
+  stale_voice_order: "This order is already finished.",
   voice_model_not_ready:
     "No Worker has this model ready: wait for its preparation to finish.",
   invalid_voice_model: "This model cannot be chosen.",

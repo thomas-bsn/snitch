@@ -12,6 +12,7 @@ class WorkerVoiceModelStatusCauseCode(StrEnum):
     HF_TOKEN_INVALID = "hf_token_invalid"
     HF_TOKEN_MISSING = "hf_token_missing"
     INFERENCE_FAILED = "inference_failed"
+    INVALID_ORDER = "invalid_order"
     MODELS_VOLUME_UNWRITABLE = "models_volume_unwritable"
     RUNTIME_INCOMPATIBLE = "runtime_incompatible"
     VALUE_0 = ""

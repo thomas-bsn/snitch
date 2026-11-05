@@ -187,6 +187,14 @@ class ModelManager:
             self._thread = threading.Thread(target=self._work, args=(models, remove, report or self._report), daemon=True)
             self._thread.start()
 
+    def forget(self, model_id: str) -> None:
+        """Drop the in-process memory of a model, so an order runs it again after an earlier failure."""
+        self._memory.pop(model_id, None)
+
+    def prepare(self, item: dict[str, Any], report: Report) -> None:
+        """Prepare one model now, in the calling thread (an order runs on its own thread)."""
+        self._prepare(item, report)
+
     def wait(self) -> None:
         thread = self._thread
         if thread is not None:

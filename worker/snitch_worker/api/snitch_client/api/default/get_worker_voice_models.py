@@ -63,8 +63,10 @@ def sync_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[Error | WorkerVoiceModels]:
-    """  État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, et
-    les modèles à supprimer. Jamais de jeton ni de chemin.
+    """  État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, les
+    modèles à supprimer et les ordres d'installation en cours. Le jeton Hugging Face central
+    n'accompagne que la première livraison d'un ordre qui télécharge un modèle sous accès restreint (ADR
+    0027) ; jamais de chemin.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -90,8 +92,10 @@ def sync(
     client: AuthenticatedClient,
 
 ) -> Error | WorkerVoiceModels | None:
-    """  État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, et
-    les modèles à supprimer. Jamais de jeton ni de chemin.
+    """  État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, les
+    modèles à supprimer et les ordres d'installation en cours. Le jeton Hugging Face central
+    n'accompagne que la première livraison d'un ordre qui télécharge un modèle sous accès restreint (ADR
+    0027) ; jamais de chemin.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,8 +116,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 
 ) -> Response[Error | WorkerVoiceModels]:
-    """  État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, et
-    les modèles à supprimer. Jamais de jeton ni de chemin.
+    """  État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, les
+    modèles à supprimer et les ordres d'installation en cours. Le jeton Hugging Face central
+    n'accompagne que la première livraison d'un ordre qui télécharge un modèle sous accès restreint (ADR
+    0027) ; jamais de chemin.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,8 +145,10 @@ async def asyncio(
     client: AuthenticatedClient,
 
 ) -> Error | WorkerVoiceModels | None:
-    """  État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, et
-    les modèles à supprimer. Jamais de jeton ni de chemin.
+    """  État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, les
+    modèles à supprimer et les ordres d'installation en cours. Le jeton Hugging Face central
+    n'accompagne que la première livraison d'un ordre qui télécharge un modèle sous accès restreint (ADR
+    0027) ; jamais de chemin.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

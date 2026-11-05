@@ -305,6 +305,18 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Hugging Face n’a pas répondu correctement. Réessayez dans un instant.",
   voice_model_kind_mismatch: "Le dépôt déclare un autre type que celui choisi.",
   voice_model_exists: "Ce dépôt est déjà dans le catalogue pour ce type.",
+  idempotency_key_reused:
+    "Cette clé d’ordre a déjà servi pour un autre Worker ou un autre modèle.",
+  invalid_idempotency_key: "La clé d’ordre n’est pas valide.",
+  voice_model_already_installed: "Ce modèle est déjà installé sur ce Worker.",
+  voice_model_order_in_progress:
+    "Une installation de ce modèle est déjà en cours sur ce Worker.",
+  voice_model_type_occupied:
+    "Ce Worker porte déjà un autre modèle de ce type : le remplacer est une opération distincte.",
+  voice_model_not_failed: "La dernière tentative de ce modèle n’a pas échoué.",
+  voice_order_not_found: "Cet ordre n’existe pas pour ce Worker.",
+  invalid_voice_order_ack: "Cet accusé de réception d’ordre n’est pas valide.",
+  stale_voice_order: "Cet ordre est déjà terminé.",
   voice_model_not_ready:
     "Aucun Worker n’a ce modèle prêt : attendez la fin de sa préparation.",
   invalid_voice_model: "Ce modèle ne peut pas être choisi.",

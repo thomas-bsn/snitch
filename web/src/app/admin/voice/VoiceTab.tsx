@@ -10,6 +10,7 @@ import { VoiceInventory } from "./VoiceInventory";
 import { isSuperAdministrator } from "../../roles";
 import { useSession } from "../../session";
 import { VoiceModelAdd } from "./VoiceModelAdd";
+import { ModelsByWorker } from "./ModelsByWorker";
 import { VoiceModelCards } from "./VoiceModelCards";
 
 async function load() {
@@ -89,6 +90,7 @@ export function VoiceTab() {
         <VoiceModelAdd onChanged={reload} />
       )}
       <VoiceModelCards catalogue={models} onChanged={reload} />
+      <ModelsByWorker catalogue={models} />
       <VoiceHuggingFace />
       <VoiceInventory overview={overview} />
       <VoiceAdvanced
