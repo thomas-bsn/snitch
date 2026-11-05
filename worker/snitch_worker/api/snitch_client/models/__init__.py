@@ -110,6 +110,7 @@ from .get_worker_transcription_config_response_200 import GetWorkerTranscription
 from .get_worker_transcription_config_response_200_mode import GetWorkerTranscriptionConfigResponse200Mode
 from .get_worker_update_response_200 import GetWorkerUpdateResponse200
 from .get_worker_updates_response_200 import GetWorkerUpdatesResponse200
+from .get_worker_updates_response_200_mode import GetWorkerUpdatesResponse200Mode
 from .get_worker_updates_response_200_workers_item import GetWorkerUpdatesResponse200WorkersItem
 from .get_worker_updates_response_200_workers_item_state import GetWorkerUpdatesResponse200WorkersItemState
 from .heartbeat_worker_job_response_200 import HeartbeatWorkerJobResponse200
@@ -229,7 +230,9 @@ from .put_metadata_location_response_200 import PutMetadataLocationResponse200
 from .put_worker_transcription_override_body import PutWorkerTranscriptionOverrideBody
 from .put_worker_transcription_override_response_200 import PutWorkerTranscriptionOverrideResponse200
 from .put_worker_update_target_body import PutWorkerUpdateTargetBody
+from .put_worker_update_target_body_mode import PutWorkerUpdateTargetBodyMode
 from .put_worker_update_target_response_200 import PutWorkerUpdateTargetResponse200
+from .put_worker_update_target_response_200_mode import PutWorkerUpdateTargetResponse200Mode
 from .read_all_notifications_response_200 import ReadAllNotificationsResponse200
 from .rebuild_embedding_index_body import RebuildEmbeddingIndexBody
 from .redirect import Redirect
@@ -573,6 +576,7 @@ __all__ = (
     "GetWorkerTranscriptionConfigResponse200Mode",
     "GetWorkerUpdateResponse200",
     "GetWorkerUpdatesResponse200",
+    "GetWorkerUpdatesResponse200Mode",
     "GetWorkerUpdatesResponse200WorkersItem",
     "GetWorkerUpdatesResponse200WorkersItemState",
     "HeartbeatWorkerJobResponse200",
@@ -692,7 +696,9 @@ __all__ = (
     "PutWorkerTranscriptionOverrideBody",
     "PutWorkerTranscriptionOverrideResponse200",
     "PutWorkerUpdateTargetBody",
+    "PutWorkerUpdateTargetBodyMode",
     "PutWorkerUpdateTargetResponse200",
+    "PutWorkerUpdateTargetResponse200Mode",
     "ReadAllNotificationsResponse200",
     "RebuildEmbeddingIndexBody",
     "Redirect",

@@ -13,6 +13,9 @@ container="snitch-worker-$worker_id"
 volume="snitch-models-$worker_id"
 lock="$dir/update.lock"
 resp="$dir/update.json"
+# Version that failed its health check, and when a busy Worker was first made to wait (mtime of each file).
+failed_file="$dir/update.failed"
+deferred_file="$dir/update.deferred"
 # Seconds the new container must run before it counts as up. Tests shorten it.
 settle="${SNITCH_UPDATE_SETTLE:-45}"
 
@@ -47,7 +50,23 @@ version=$(sed -n 's/.*"target_version":"\([^"]*\)".*/\1/p' "$resp" | head -n1)
 # Only a released version of the same repository as the installed image is accepted.
 if ! [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then exit 0; fi
 if [ "$target" != "${current%:*}:$version" ]; then report failed "$version" "" target_mismatch; exit 0; fi
-[ "$target" != "$current" ] || exit 0
+[ "$target" != "$current" ] || { rm -f "$deferred_file"; exit 0; }
+
+# A version that failed is not retried at once: under a latest target the same bad version would be pulled and
+# restarted every 10 minutes. Skipped for 24 hours, forgotten as soon as the target is another version.
+if [ -f "$failed_file" ]; then
+ if [ -n "$(find "$failed_file" -maxdepth 0 -mmin +1440 2>/dev/null)" ] || [ "$(cat "$failed_file" 2>/dev/null)" != "$version" ]; then rm -f "$failed_file"; else exit 0; fi
+fi
+
+# Drain: do not replace a container that is running a job. The server says whether a job is leased to this Worker;
+# wait for a quiet moment, but never more than 2 hours (a job killed by the restart is leased again by Snitch).
+# A server that does not say (older version) counts as idle.
+idle=$(grep -o '"idle":[a-z]*' "$resp" | head -n1 | cut -d: -f2 || true)
+if [ "$idle" = false ]; then
+ if [ ! -f "$deferred_file" ]; then : > "$deferred_file"; exit 0; fi
+ if [ -z "$(find "$deferred_file" -maxdepth 0 -mmin +120 2>/dev/null)" ]; then exit 0; fi
+fi
+rm -f "$deferred_file"
 
 previous_id=$(docker inspect -f '{{.Image}}' "$container" 2>/dev/null || true)
 previous_version=${current##*:}
@@ -58,7 +77,7 @@ if ! [[ "$previous_digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then previous_id=''; fi
 report pulling "$version" "" ""
 if ! docker pull "$target" >/dev/null 2>&1; then report failed "$version" "" image_pull_failed; exit 0; fi
 digest=$(docker image inspect -f '{{index .RepoDigests 0}}' "$target" 2>/dev/null | sed 's/^[^@]*@//' || true)
-if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then report failed "$version" "" digest_unknown; exit 0; fi
+if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then printf '%s' "$version" > "$failed_file"; report failed "$version" "" digest_unknown; exit 0; fi
 
 gpu=()
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then gpu=(--gpus all); fi
@@ -77,7 +96,8 @@ if start "${target%:*}@$digest"; then
  fi
 fi
 
-# The new image did not stay up: restore the previous container image, which is still local.
+# The new image did not stay up: remember it so that it is not retried in a loop, then restore the previous container image, which is still local.
+printf '%s' "$version" > "$failed_file"
 docker rm -f "$container" >/dev/null 2>&1 || true
 if [ -n "$previous_id" ] && start "$previous_id"; then
  report rolled_back "$previous_version" "" unhealthy

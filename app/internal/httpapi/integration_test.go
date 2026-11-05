@@ -635,6 +635,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerUpdates(t, pool)
 	})
+	t.Run("worker latest update", func(t *testing.T) {
+		reset(t)
+		testWorkerLatestUpdates(t, pool)
+	})
 	t.Run("worker install progress", func(t *testing.T) {
 		reset(t)
 		testWorkerInstallProgress(t, pool)

@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.put_worker_update_target_response_200_mode import PutWorkerUpdateTargetResponse200Mode
 from typing import cast
 
 
@@ -23,9 +24,11 @@ T = TypeVar("T", bound="PutWorkerUpdateTargetResponse200")
 class PutWorkerUpdateTargetResponse200:
     """
         Attributes:
+            mode (PutWorkerUpdateTargetResponse200Mode):
             target_version (None | str):
      """
 
+    mode: PutWorkerUpdateTargetResponse200Mode
     target_version: None | str
 
 
@@ -33,6 +36,8 @@ class PutWorkerUpdateTargetResponse200:
 
 
     def to_dict(self) -> dict[str, Any]:
+        mode = self.mode.value
+
         target_version: None | str
         target_version = self.target_version
 
@@ -40,6 +45,7 @@ class PutWorkerUpdateTargetResponse200:
         field_dict: dict[str, Any] = {}
 
         field_dict.update({
+            "mode": mode,
             "target_version": target_version,
         })
 
@@ -50,6 +56,11 @@ class PutWorkerUpdateTargetResponse200:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        mode = PutWorkerUpdateTargetResponse200Mode(d.pop("mode"))
+
+
+
+
         def _parse_target_version(data: object) -> None | str:
             if data is None:
                 return data
@@ -59,6 +70,7 @@ class PutWorkerUpdateTargetResponse200:
 
 
         put_worker_update_target_response_200 = cls(
+            mode=mode,
             target_version=target_version,
         )
 
