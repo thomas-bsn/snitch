@@ -577,6 +577,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/members/{id}/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs : photo actuellement choisie par un membre actif (personnelle ou Discord). Cache privé revalidé ; aucune photo pour un compte supprimé. */
+    get: operations["getMemberAvatar"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Génère un mot de passe temporaire, affiché une seule fois, et ferme les sessions du compte. Interdit sur son propre compte. */
+    post: operations["resetMemberPassword"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}/sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Ferme toutes les sessions du compte. */
+    delete: operations["revokeMemberSessions"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}/discord": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Délie le compte Discord ; le compte doit avoir un mot de passe local pour pouvoir se reconnecter. */
+    delete: operations["unlinkMemberDiscord"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/members/{id}/role": {
     parameters: {
       query?: never;
@@ -601,14 +669,16 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** @description Administrateurs : fiche complète d'un membre actif, avec ce que l'administrateur connecté peut en faire. */
+    get: operations["getMember"];
     put?: never;
     post?: never;
     /** @description Désactive un compte et conserve ses clips ; le masquage les rend privés. */
     delete: operations["deleteMember"];
     options?: never;
     head?: never;
-    patch?: never;
+    /** @description Modifie les champs envoyés ; null efface le nom affiché et la langue. Le rôle, l'approbation et les comptes administrateurs suivent les mêmes règles que les routes dédiées ; on ne change pas son propre rôle ni son approbation. */
+    patch: operations["updateMember"];
     trace?: never;
   };
   "/api/admin/users": {
@@ -3978,10 +4048,48 @@ export interface components {
     JobHistory: {
       items: components["schemas"]["JobEvent"][];
     };
+    MemberPermissions: {
+      edit: boolean;
+      manage: boolean;
+      set_role: boolean;
+    };
+    MemberDetail: {
+      /** Format: int64 */
+      id: number;
+      username: string;
+      display_name: string | null;
+      /** @enum {string|null} */
+      language: "en" | "fr" | null;
+      /** @enum {string} */
+      role: "user" | "admin" | "super_admin";
+      approved: boolean;
+      discord_linked: boolean;
+      discord_username: string | null;
+      has_password: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: int64 */
+      clip_count: number;
+      /** Format: int64 */
+      session_count: number;
+      permissions: components["schemas"]["MemberPermissions"];
+    };
+    MemberPatch: {
+      username?: string;
+      display_name?: string | null;
+      /** @enum {string|null} */
+      language?: "en" | "fr" | null;
+      /** @enum {string} */
+      role?: "user" | "admin";
+      approved?: boolean;
+    };
     Member: {
       /** Format: int64 */
       id: number;
       username: string;
+      /** @description Nom affiché effectif : choisi, pseudo Discord ou identifiant. */
+      display_name: string;
+      discord_linked: boolean;
       /** @enum {string} */
       role: "user" | "admin" | "super_admin";
       /** Format: date-time */
@@ -7957,6 +8065,155 @@ export interface operations {
       };
     };
   };
+  getMemberAvatar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Photo PNG */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+        };
+      };
+      /** @description Photo inchangée */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Compte absent ou sans photo */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 identifiant invalide, 401 session requise, 403 administrateur requis) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resetMemberPassword: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Mot de passe temporaire */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            temporary_password: string;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  revokeMemberSessions: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sessions fermées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  unlinkMemberDiscord: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Discord délié */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   updateMemberRole: {
     parameters: {
       query?: never;
@@ -7998,6 +8255,37 @@ export interface operations {
       };
     };
   };
+  getMember: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fiche */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberDetail"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   deleteMember: {
     parameters: {
       query?: never;
@@ -8019,6 +8307,44 @@ export interface operations {
     };
     responses: {
       /** @description Compte supprimé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MemberPatch"];
+      };
+    };
+    responses: {
+      /** @description Membre modifié */
       200: {
         headers: {
           [name: string]: unknown;

@@ -195,6 +195,7 @@ test.describe.serial("accessibilité de la nouvelle interface", () => {
         await page.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
+        path,
       ).toBe(true);
     }
 

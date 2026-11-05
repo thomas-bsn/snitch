@@ -196,7 +196,7 @@ func (s *Server) serveAccountAvatar(w http.ResponseWriter, r *http.Request, id i
 	var data []byte
 	var source string
 	var version int64
-	err := s.Pool.QueryRow(r.Context(), `SELECT a.png,p.source,p.version FROM avatar_preferences p JOIN account_avatars a ON a.user_id=p.user_id AND a.source=p.source WHERE p.user_id=$1`, id).Scan(&data, &source, &version)
+	err := s.Pool.QueryRow(r.Context(), `SELECT a.png,p.source,p.version FROM avatar_preferences p JOIN account_avatars a ON a.user_id=p.user_id AND a.source=p.source JOIN users u ON u.id=p.user_id WHERE p.user_id=$1 AND u.deleted_at IS NULL`, id).Scan(&data, &source, &version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		w.Header().Set("Cache-Control", "private, no-store")
 		w.WriteHeader(404)
@@ -217,6 +217,15 @@ func (s *Server) serveAccountAvatar(w http.ResponseWriter, r *http.Request, id i
 	}
 	w.Header().Set("Content-Type", "image/png")
 	_, _ = w.Write(data)
+}
+
+// Administrators see the account's selected photo, just as on its profile.
+func (s *Server) memberAvatar(w http.ResponseWriter, r *http.Request) {
+	id, ok := memberID(w, r)
+	if !ok {
+		return
+	}
+	s.serveAccountAvatar(w, r, id)
 }
 
 // The validated account link is resolved on every read. No photo is copied onto the Personne.

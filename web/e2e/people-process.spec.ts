@@ -119,8 +119,12 @@ test.describe.serial("personnes : écran de traitement d'un clip", () => {
     expect((await voicesOf(clipId)).every((v) => !v.disposition)).toBe(true);
 
     // A new Person settles the voice, and the next one comes by itself.
-    await card.getByLabel("Name of the new person").fill("Claire Synthétique");
-    await card.getByRole("button", { name: "Create and identify" }).click();
+    await card.getByLabel("Search people").fill("Claire Synthétique");
+    await card
+      .getByRole("button", {
+        name: "Create the profile “Claire Synthétique” and validate",
+      })
+      .click();
     await expect(card.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_01",
     );

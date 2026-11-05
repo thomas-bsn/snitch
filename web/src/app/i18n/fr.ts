@@ -785,19 +785,64 @@ export const fr: Messages = {
       clips: "Clips",
       actions: "Actions",
     },
-    changeRole: "Changer le rôle",
     delete: "Supprimer le membre",
-    roleTitle: "Changer le rôle ?",
     deleteTitle: "Supprimer ce membre ?",
     cancel: "Annuler",
-    confirm: "Confirmer",
     deleteConfirm: "Supprimer",
-    promote:
-      "Nommer {name} Administrateur ? Il pourra gérer les Workers, dossiers, traitements et inscriptions.",
-    demote: "Rendre {name} Utilisateur ? Il perdra l’accès à l’administration.",
     deleteBody:
       "Supprimer {name} ? Son compte et ses sessions sont désactivés. Ses clips et l’historique des corrections sont conservés.",
     hide: "Masquer ses clips",
+    edit: {
+      action: "Modifier",
+      title: "Modifier {name}",
+      close: "Fermer",
+      joined: "Inscrit le {date}",
+      identity: "Identité",
+      access: "Accès",
+      security: "Connexion et sécurité",
+      username: "Identifiant",
+      usernameHint:
+        "Sert à se connecter. Unique, sans distinction de casse, de 3 à 64 caractères.",
+      displayName: "Nom affiché",
+      displayNameHint:
+        "Laisser vide pour utiliser le nom Discord ou l'identifiant.",
+      language: "Langue",
+      languageDefault: "Celle du navigateur",
+      role: "Rôle",
+      approved: "Compte approuvé",
+      approvedHint:
+        "Désactiver déconnecte le membre et remet le compte dans les inscriptions.",
+      discordLinked: "Lié à Discord{name}",
+      discordNone: "Aucun compte Discord lié.",
+      unlinkDiscord: "Délier Discord",
+      unlinkTitle: "Délier Discord ?",
+      unlinkBody:
+        "{name} ne se connectera plus avec Discord et devra utiliser son identifiant et son mot de passe.",
+      noPassword:
+        "Ce compte n'a pas encore de mot de passe : définissez-en un avant de délier Discord.",
+      resetPassword: "Définir un mot de passe temporaire",
+      resetTitle: "Définir un mot de passe temporaire ?",
+      resetBody:
+        "Un nouveau mot de passe est généré pour {name} et affiché une seule fois. Son mot de passe actuel cesse de fonctionner et ses sessions sont fermées.",
+      resetConfirm: "Générer",
+      temporaryPassword: "Mot de passe temporaire de {name}",
+      temporaryHint:
+        "Affiché une seule fois. Transmettez-le au membre, qui devrait le changer depuis son compte.",
+      copy: "Copier",
+      copied: "Copié",
+      revokeSessions: "Déconnecter partout ({count})",
+      sessionsClosed: "Sessions fermées.",
+      dangerTitle: "Supprimer le compte",
+      dangerBody:
+        "Désactive le compte et conserve ses clips et l'historique des corrections.",
+      saved: "Modifications enregistrées.",
+      save: "Enregistrer",
+      noChanges: "Aucune modification à enregistrer.",
+      readOnly: "Vous ne pouvez pas modifier ce compte.",
+      selfNote:
+        "C'est votre compte : votre rôle et votre approbation ne se changent pas ici.",
+      subtitle: "{count} clips",
+    },
     signups: "Inscriptions",
     saved: "Modifications enregistrées.",
     approve: "Approuver {name}",
@@ -2015,8 +2060,6 @@ export const fr: Messages = {
       voicesToProcess: "{count} voix à traiter",
       matchCount: "{count} correspondante(s)",
       searchIn: "Rechercher dans {folder}",
-      flatHint:
-        "Résultats de {folder} et de ses sous-dossiers, avec leur dossier.",
       indexing: "Indexation de {name}…",
       indexFailed: "Cette vidéo n’a pas pu être indexée.",
       emptyFolder: "Ce dossier est vide",
@@ -2547,6 +2590,10 @@ export const fr: Messages = {
         "Cette opération remplacera {texts} correction(s) de texte et {speakers} de locuteur par {authors}. Elles resteront obsolètes dans l’historique.",
     },
   },
+  volume: {
+    label: "Volume",
+    mute: "Couper le son",
+  },
   voiceDecision: {
     listenLabel: "Écouter un extrait de {label}",
     candidates: "Personnes les plus proches",
@@ -2575,8 +2622,7 @@ export const fr: Messages = {
     searchLabel: "Rechercher une Personne",
     noMatch: "Aucune Personne trouvée.",
     asPerson: "Identifier comme {person}",
-    createName: "Nom de la nouvelle Personne",
-    create: "Créer et identifier",
+    createAndValidate: "Créer le profil « {name} » et valider",
     validatedHint:
       "Validée par une personne : seule une nouvelle identification la change.",
     status: {

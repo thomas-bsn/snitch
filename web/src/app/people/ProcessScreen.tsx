@@ -13,7 +13,10 @@ import { Link, useNavigate } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
+import { VolumeBar } from "../components/VolumeBar";
+import { getVolume, subscribeVolume } from "../components/volume";
 import { useI18n } from "../i18n";
+import { SegmentActions } from "../library/SegmentActions";
 import { clipTitle, fetchClip, fetchClipVoice } from "../library/libraryApi";
 import type { LocalSpeaker, TranscriptSegment } from "../library/libraryApi";
 import { VoiceDecision } from "../voices/VoiceDecision";
@@ -70,7 +73,8 @@ export function ProcessScreen({
   const failureText = useFailureText();
   const navigate = useNavigate();
 
-  const clip = useLoaded(useCallback(() => fetchClip(clipId), [clipId])).state;
+  const clipLoad = useLoaded(useCallback(() => fetchClip(clipId), [clipId]));
+  const clip = clipLoad.state;
   const voiceLoad = useLoaded(
     useCallback(() => fetchClipVoice(clipId), [clipId]),
   );
@@ -149,6 +153,13 @@ export function ProcessScreen({
   // One media element plays the excerpts and the clicks in the waveform.
   const media = useRef<HTMLAudioElement>(null);
   const stopAt = useRef(Infinity);
+  useEffect(() => {
+    const apply = () => {
+      if (media.current) media.current.volume = getVolume();
+    };
+    apply();
+    return subscribeVolume(apply);
+  }, [clipData]);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState<string>();
   function playFrom(key: string, start: number, end: number) {
@@ -276,6 +287,8 @@ export function ProcessScreen({
           <ExternalLink className="size-3.5" aria-hidden="true" />
         </Link>
       </div>
+
+      <VolumeBar />
 
       <ProcessWaveform
         speakers={speakers}
@@ -421,7 +434,7 @@ export function ProcessScreen({
                   return (
                     <li
                       key={key}
-                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
+                      className={`group relative flex items-center gap-3 rounded-xl border px-3 py-2 pr-14 ${
                         on ? "border-accent bg-accent-soft" : "border-line"
                       }`}
                     >
@@ -458,9 +471,16 @@ export function ProcessScreen({
                           height={28}
                         />
                       </div>
-                      <p className="m-0 min-w-0 flex-1 text-sm">
-                        « {segment.text} »
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <p className="m-0 text-sm">« {segment.text} »</p>
+                        <SegmentActions
+                          clipId={clipId}
+                          jobId={clipData.transcription?.transcription_job_id}
+                          segment={segment}
+                          speakers={[]}
+                          onChanged={clipLoad.reload}
+                        />
+                      </div>
                       <span className="text-xs text-mute tabular-nums">
                         {moment(segment.start)}
                       </span>
