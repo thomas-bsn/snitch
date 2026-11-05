@@ -286,6 +286,7 @@ type Job struct {
 	CompletedLeaseTokenHash []byte             `json:"completed_lease_token_hash"`
 	Cycle                   int32              `json:"cycle"`
 	ResultDigest            pgtype.Text        `json:"result_digest"`
+	RequestedModelID        pgtype.Text        `json:"requested_model_id"`
 }
 
 type JobControl struct {
@@ -731,6 +732,7 @@ type VoiceFingerprint struct {
 	Dimensions       int32              `json:"dimensions"`
 	Embedding        pgvector.Vector    `json:"embedding"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	Benchmark        bool               `json:"benchmark"`
 }
 
 type VoiceGroupExclusion struct {

@@ -58,6 +58,8 @@ type Job struct {
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Result         json.RawMessage `json:"result,omitempty"`
+	// RequestedModelID is set on the job returned by Schedule when it asks for a precise catalogue model.
+	RequestedModelID *string `json:"requested_model_id,omitempty"`
 }
 
 type Assignment struct {
@@ -71,6 +73,8 @@ type ScheduleInput struct {
 	InputVersion string
 	Priority     int
 	MaxAttempts  int
+	// RequestedModelID asks for one catalogue model (benchmark); empty means the active model.
+	RequestedModelID string
 }
 
 type Event struct {
@@ -166,6 +170,9 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 	if input.ClipID < 1 || !stepPattern.MatchString(input.Step) || input.InputVersion == "" || len(input.InputVersion) > 128 || strings.TrimSpace(input.InputVersion) != input.InputVersion || input.Priority < -100 || input.Priority > 100 || input.MaxAttempts < 1 || input.MaxAttempts > 20 {
 		return Job{}, false, ErrInvalidInput
 	}
+	if err := s.checkRequestedModel(ctx, input.Step, input.RequestedModelID); err != nil {
+		return Job{}, false, err
+	}
 	for attempt := 0; attempt < 5; attempt++ {
 		tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
@@ -181,22 +188,22 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("lock clip before scheduling step: %w", err)
 		}
-		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND status IN ('pending','leased','retry_wait')`, input.ClipID, input.Step, input.InputVersion); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND COALESCE(requested_model_id,'')=$4 AND status IN ('pending','leased','retry_wait')`, input.ClipID, input.Step, input.InputVersion, input.RequestedModelID); err != nil {
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("invalidate superseded step version: %w", err)
 		}
-		job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND status IN ('pending','leased','retry_wait') FOR UPDATE`, input.ClipID, input.Step, input.InputVersion))
+		job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND COALESCE(requested_model_id,'')=$4 AND status IN ('pending','leased','retry_wait') FOR UPDATE`, input.ClipID, input.Step, input.InputVersion, input.RequestedModelID))
 		if err == nil {
 			if err = tx.Commit(ctx); err != nil {
 				return Job{}, false, fmt.Errorf("commit existing job schedule: %w", err)
 			}
-			return job, false, nil
+			return withRequestedModel(job, input.RequestedModelID), false, nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("find active job: %w", err)
 		}
-		job, err = scanJob(tx.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,$4,$5) ON CONFLICT (clip_id,step,input_version) WHERE status IN ('pending','leased','retry_wait') DO NOTHING RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, input.ClipID, input.Step, input.InputVersion, input.Priority, input.MaxAttempts))
+		job, err = scanJob(tx.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts,requested_model_id) VALUES($1,$2,$3,$4,$5,NULLIF($6,'')) ON CONFLICT (clip_id,step,input_version,(COALESCE(requested_model_id,''))) WHERE status IN ('pending','leased','retry_wait') DO NOTHING RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, input.ClipID, input.Step, input.InputVersion, input.Priority, input.MaxAttempts, input.RequestedModelID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			_ = tx.Rollback(ctx)
 			continue
@@ -212,7 +219,7 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 		if err = tx.Commit(ctx); err != nil {
 			return Job{}, false, fmt.Errorf("commit new job: %w", err)
 		}
-		return job, true, nil
+		return withRequestedModel(job, input.RequestedModelID), true, nil
 	}
 	return Job{}, false, errors.New("could not resolve concurrent job schedule")
 }
@@ -473,14 +480,16 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		  )
 		  AND (
 		      j.step NOT LIKE 'voice.%'
+		      OR j.requested_model_id IS NOT NULL
 		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%')
 		      OR COALESCE(pin.config->>'provider',$3::text) NOT IN ('pyannote','nemo')
 		      OR (j.step LIKE 'voice.diarization.%' AND $4::jsonb->'diarization'->>'model' = COALESCE(pin.config->>'model',$5::text))
 		      OR (j.step LIKE 'voice.fingerprint.%' AND $4::jsonb->'fingerprint'->>'model' = (SELECT m.repo FROM voice_active_model am JOIN voice_model_catalog m ON m.id=am.model_id WHERE am.kind='fingerprint'))
 		  )
+		  AND `+requestedModelClaimGuard+`
 		ORDER BY j.priority DESC,j.created_at,j.id
 		FOR UPDATE OF j SKIP LOCKED LIMIT 1
-	`, supportedSteps, activeVersion, voiceProvider, string(declaredModels), diarizationModel))
+	`, supportedSteps, activeVersion, voiceProvider, string(declaredModels), diarizationModel, workerID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
