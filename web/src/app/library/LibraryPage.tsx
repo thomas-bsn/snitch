@@ -44,6 +44,23 @@ import { fetchFilterOptions } from "./libraryApi";
 
 type View = "list" | "icons";
 
+// The view chosen last is kept in this browser and used when the address names none.
+const VIEW_KEY = "snitch.library.view";
+function storedView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "icons" ? "icons" : "list";
+  } catch {
+    return "list";
+  }
+}
+function rememberView(view: View) {
+  try {
+    localStorage.setItem(VIEW_KEY, view);
+  } catch {
+    // The choice then lasts for the page only.
+  }
+}
+
 // The Library filter lives in `filter`; `q` belongs to the transcript search.
 const FILTER_KEYS = [
   "filter",
@@ -117,7 +134,9 @@ export function LibraryPage() {
   const superAdmin = user ? isSuperAdministrator(user) : false;
 
   const folder = (params.get("folder") ?? "").replace(/^\/+|\/+$/g, "");
-  const view: View = params.get("view") === "icons" ? "icons" : "list";
+  const asked = params.get("view");
+  const view: View =
+    asked === "icons" || asked === "list" ? asked : storedView();
   const filters = useMemo(() => readFilters(params), [params]);
   // The address key `filter` is held in `filters.q`; the others share their name.
   const filtered = FILTER_KEYS.some((key) => {
@@ -515,7 +534,10 @@ export function LibraryPage() {
               type="button"
               aria-pressed={view === mode}
               className={`${toggle} ${view === mode ? "bg-accent-soft text-accent-ink" : "text-mute"}`}
-              onClick={() => change({ view: mode === "list" ? "" : mode })}
+              onClick={() => {
+                rememberView(mode);
+                change({ view: mode });
+              }}
             >
               {t(
                 mode === "list"
