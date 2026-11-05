@@ -140,8 +140,6 @@ export function LibraryPage() {
       () =>
         fetchExplorer({
           path: folder,
-          // A processing stage answers with the tree of what matches; other filters list flat.
-          recursive: filtered && !filters.stage,
           q: filters.q,
           state: filters.state,
           stage: filters.stage,
@@ -428,7 +426,6 @@ export function LibraryPage() {
 
   const crumbs = folder ? folder.split("/") : [];
   const parentPath = crumbs.slice(0, -1).join("/");
-  const flat = filtered && !filters.stage;
 
   const rootLabel = t("library.explorer.root");
   const toggle =
@@ -564,15 +561,10 @@ export function LibraryPage() {
         <div className="flex min-w-0 flex-col gap-3 p-4 md:px-6">
           {listing.state.status === "ready" && (
             <p className="m-0 text-sm text-mute" aria-live="polite">
-              {flat
-                ? t("library.explorer.flatHint", {
-                    folder: crumbs.at(-1) ?? rootLabel,
-                  })
-                : t("library.explorer.counts", {
-                    folders: items.filter((item) => item.directory).length,
-                    videos:
-                      total - items.filter((item) => item.directory).length,
-                  })}
+              {t("library.explorer.counts", {
+                folders: items.filter((item) => item.directory).length,
+                videos: total - items.filter((item) => item.directory).length,
+              })}
             </p>
           )}
           {listing.state.status === "ready" && rootConfigured && (
@@ -682,14 +674,6 @@ export function LibraryPage() {
                       >
                         {t("library.explorer.columns.name")}
                       </th>
-                      {flat && (
-                        <th
-                          scope="col"
-                          className="border-b border-line px-2 py-2 font-medium"
-                        >
-                          {t("library.explorer.columns.folder")}
-                        </th>
-                      )}
                       <th
                         scope="col"
                         className="border-b border-line px-2 py-2 font-medium"
@@ -735,7 +719,6 @@ export function LibraryPage() {
                       <ExplorerRow
                         key={entry.path}
                         entry={entry}
-                        flat={flat}
                         language={language}
                         admin={admin}
                         superAdmin={superAdmin}
@@ -764,7 +747,6 @@ export function LibraryPage() {
                   <li key={entry.path}>
                     <ExplorerIcon
                       entry={entry}
-                      flat={flat}
                       onOpenFolder={openFolder}
                       onOpenVideo={openVideo}
                     />
@@ -882,7 +864,6 @@ export function LibraryPage() {
 
 type RowProps = {
   entry: ExplorerEntry;
-  flat: boolean;
   language: string;
   admin: boolean;
   superAdmin: boolean;
@@ -898,7 +879,6 @@ type RowProps = {
 /** One row of the list view: a folder opens, a video opens its clip (indexing it first when needed). */
 function ExplorerRow({
   entry,
-  flat,
   language,
   admin,
   superAdmin,
@@ -912,7 +892,6 @@ function ExplorerRow({
 }: RowProps) {
   const { t } = useI18n();
   const clipOrigin = useClipOrigin();
-  const folderFlat = flat ? entry.folder : "";
   const name = (
     <span className="flex min-w-0 items-center gap-2">
       {entry.directory ? (
@@ -983,11 +962,6 @@ function ExplorerRow({
           )}
         </div>
       </td>
-      {flat && (
-        <td className="px-2 py-2 text-mute">
-          {folderFlat || t("library.explorer.root")}
-        </td>
-      )}
       <td className="px-2 py-2">
         {entry.directory ? null : (
           <ExplorerStatePill state={busy ? "in_progress" : entry.state} />
@@ -1039,7 +1013,7 @@ function ExplorerRow({
                     {t("library.explorer.analyseUnanalysed")}
                   </button>
                 )}
-                {superAdmin && !flat && !entry.path.includes("/") && (
+                {superAdmin && !entry.path.includes("/") && (
                   <button
                     role="menuitem"
                     type="button"
@@ -1070,12 +1044,10 @@ function ExplorerRow({
 /** One tile of the icons view: the same name and state as the list. */
 function ExplorerIcon({
   entry,
-  flat,
   onOpenFolder,
   onOpenVideo,
 }: {
   entry: ExplorerEntry;
-  flat: boolean;
   onOpenFolder: (path: string) => void;
   onOpenVideo: (entry: ExplorerEntry) => void;
 }) {
@@ -1129,11 +1101,6 @@ function ExplorerIcon({
         </span>
       )}
       <span className="w-full truncate text-sm font-medium">{entry.name}</span>
-      {flat && entry.folder && (
-        <span className="w-full truncate text-xs text-mute">
-          {entry.folder}
-        </span>
-      )}
       {!entry.directory && <ExplorerStatePill state={entry.state} />}
       {entry.private && (
         <span className="text-xs text-mute">

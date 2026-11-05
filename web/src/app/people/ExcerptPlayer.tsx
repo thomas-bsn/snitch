@@ -1,5 +1,6 @@
 import { Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { getVolume, subscribeVolume } from "../components/volume";
 import { useI18n } from "../i18n";
 import { excerptUrl } from "./peopleApi";
 
@@ -37,6 +38,15 @@ export function ExcerptPlayer({
   const { t } = useI18n();
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
+
+  // The excerpt follows the shared volume.
+  useEffect(() => {
+    const apply = () => {
+      if (audio.current) audio.current.volume = getVolume();
+    };
+    apply();
+    return subscribeVolume(apply);
+  }, []);
 
   // A player leaving the screen does not keep playing.
   useEffect(() => {

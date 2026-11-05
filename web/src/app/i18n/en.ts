@@ -1844,7 +1844,6 @@ export const en = {
       voicesToProcess: "{count} voice(s) to process",
       matchCount: "{count} matching",
       searchIn: "Search in {folder}",
-      flatHint: "Results from {folder} and its subfolders, with their folder.",
       indexing: "Indexing {name}…",
       indexFailed: "This video could not be indexed.",
       emptyFolder: "This folder is empty",
@@ -2366,6 +2365,10 @@ export const en = {
         "This will replace {texts} text and {speakers} speaker correction(s) by {authors}. They remain in history as obsolete.",
     },
   },
+  volume: {
+    label: "Volume",
+    mute: "Mute",
+  },
   voiceDecision: {
     listenLabel: "Listen to an excerpt of {label}",
     candidates: "Closest people",
@@ -2394,8 +2397,7 @@ export const en = {
     searchLabel: "Search people",
     noMatch: "No match.",
     asPerson: "Identify as {person}",
-    createName: "Name of the new person",
-    create: "Create and identify",
+    createAndValidate: "Create the profile “{name}” and validate",
     validatedHint:
       "Validated by a person: only a new identification changes it.",
     status: {

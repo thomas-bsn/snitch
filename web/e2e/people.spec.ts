@@ -111,10 +111,12 @@ test.describe.serial("personnes et vérification", () => {
 
     // Identifying with a new Person settles the voice and lowers the counter of the tab.
     await current.getByRole("button", { name: "Identify" }).click();
+    await current.getByLabel("Search people").fill("Claire Synthétique");
     await current
-      .getByLabel("Name of the new person")
-      .fill("Claire Synthétique");
-    await current.getByRole("button", { name: "Create and identify" }).click();
+      .getByRole("button", {
+        name: "Create the profile “Claire Synthétique” and validate",
+      })
+      .click();
     await expect(current.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_01",
     );

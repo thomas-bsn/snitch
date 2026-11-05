@@ -1880,8 +1880,6 @@ export const fr: Messages = {
       voicesToProcess: "{count} voix à traiter",
       matchCount: "{count} correspondante(s)",
       searchIn: "Rechercher dans {folder}",
-      flatHint:
-        "Résultats de {folder} et de ses sous-dossiers, avec leur dossier.",
       indexing: "Indexation de {name}…",
       indexFailed: "Cette vidéo n’a pas pu être indexée.",
       emptyFolder: "Ce dossier est vide",
@@ -2412,6 +2410,10 @@ export const fr: Messages = {
         "Cette opération remplacera {texts} correction(s) de texte et {speakers} de locuteur par {authors}. Elles resteront obsolètes dans l’historique.",
     },
   },
+  volume: {
+    label: "Volume",
+    mute: "Couper le son",
+  },
   voiceDecision: {
     listenLabel: "Écouter un extrait de {label}",
     candidates: "Personnes les plus proches",
@@ -2440,8 +2442,7 @@ export const fr: Messages = {
     searchLabel: "Rechercher une Personne",
     noMatch: "Aucune Personne trouvée.",
     asPerson: "Identifier comme {person}",
-    createName: "Nom de la nouvelle Personne",
-    create: "Créer et identifier",
+    createAndValidate: "Créer le profil « {name} » et valider",
     validatedHint:
       "Validée par une personne : seule une nouvelle identification la change.",
     status: {

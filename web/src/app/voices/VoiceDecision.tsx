@@ -99,7 +99,8 @@ export function VoiceDecision({
   const [identifying, setIdentifying] = useState(false);
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<Person[]>([]);
-  const [newName, setNewName] = useState("");
+  // The search the shown results answer: "no match" is only said once the server has answered it.
+  const [searched, setSearched] = useState<string>();
   const [group, setGroup] = useState<VoiceGroup | null>(null);
   const root = useRef<HTMLDivElement>(null);
 
@@ -151,8 +152,11 @@ export function VoiceDecision({
     if (!identifying) return;
     let current = true;
     const timer = setTimeout(() => {
-      void fetchPersonPage(query.trim(), 1, SEARCH_SIZE).then((result) => {
-        if (current && result.ok) setFound(result.value.items);
+      const asked = query.trim();
+      void fetchPersonPage(asked, 1, SEARCH_SIZE).then((result) => {
+        if (!current || !result.ok) return;
+        setFound(result.value.items);
+        setSearched(asked);
       });
     }, SEARCH_DELAY_MS);
     return () => {
@@ -192,7 +196,7 @@ export function VoiceDecision({
       } else {
         setIdentifying(false);
         setQuery("");
-        setNewName("");
+        setSearched(undefined);
         onChanged();
       }
     } catch {
@@ -239,7 +243,8 @@ export function VoiceDecision({
   }
 
   const shownPeople = found.filter((candidate) => candidate.id !== person?.id);
-  const name = newName.trim();
+  const name = query.trim();
+  const noMatch = name !== "" && searched === name && shownPeople.length === 0;
   const groupId = `${fieldId}-group`;
 
   const proposed = showCandidates
@@ -502,29 +507,20 @@ export function VoiceDecision({
                 })}
               </button>
             ))}
-            {query.trim() !== "" && shownPeople.length === 0 && (
+          </div>
+          {noMatch && (
+            <div className="flex flex-wrap items-center gap-2">
               <p className="m-0 text-mute">{t("voiceDecision.noMatch")}</p>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              value={newName}
-              maxLength={100}
-              onChange={(event) => setNewName(event.target.value)}
-              aria-label={t("voiceDecision.createName")}
-              autoComplete="off"
-              className={`${fieldClass} min-w-0 flex-1`}
-            />
-            <button
-              type="button"
-              disabled={busy || name === ""}
-              onClick={() => identify({ newName: name })}
-              className={buttonClass()}
-            >
-              {t("voiceDecision.create")}
-            </button>
-          </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => identify({ newName: name })}
+                className={buttonClass("primary")}
+              >
+                {t("voiceDecision.createAndValidate", { name })}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
