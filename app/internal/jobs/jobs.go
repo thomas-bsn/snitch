@@ -351,10 +351,6 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 	return nil
 }
 
-// ActiveEmbeddingModel is the speaker embedding model every fingerprint job runs with. It is a
-// constant until the catalogue of voice models makes the embedder selectable.
-const ActiveEmbeddingModel = "pyannote/wespeaker-voxceleb-resnet34-LM"
-
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
 // For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
@@ -480,11 +476,11 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%')
 		      OR COALESCE(pin.config->>'provider',$3::text) NOT IN ('pyannote','nemo')
 		      OR (j.step LIKE 'voice.diarization.%' AND $4::jsonb->'diarization'->>'model' = COALESCE(pin.config->>'model',$5::text))
-		      OR (j.step LIKE 'voice.fingerprint.%' AND $4::jsonb->'fingerprint'->>'model' = $6::text)
+		      OR (j.step LIKE 'voice.fingerprint.%' AND $4::jsonb->'fingerprint'->>'model' = (SELECT m.repo FROM voice_active_model am JOIN voice_model_catalog m ON m.id=am.model_id WHERE am.kind='fingerprint'))
 		  )
 		ORDER BY j.priority DESC,j.created_at,j.id
 		FOR UPDATE OF j SKIP LOCKED LIMIT 1
-	`, supportedSteps, activeVersion, voiceProvider, string(declaredModels), diarizationModel, ActiveEmbeddingModel))
+	`, supportedSteps, activeVersion, voiceProvider, string(declaredModels), diarizationModel))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}

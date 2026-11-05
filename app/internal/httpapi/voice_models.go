@@ -36,8 +36,8 @@ func (s *Server) activeVoiceModelID(r *http.Request) (string, error) {
 	if !voiceRealProvider(pipeline.Provider) {
 		return "", nil
 	}
-	entry, _ := voiceCatalogByRepo("diarization", pipeline.Model)
-	return entry.ID, nil
+	entry, _, err := voiceCatalogByRepo(r.Context(), s.Pool, "diarization", pipeline.Model)
+	return entry.ID, err
 }
 
 func (s *Server) candidateVoiceModelID(r *http.Request) (string, error) {
@@ -73,6 +73,11 @@ type voiceModelView struct {
 	Active              bool                    `json:"active"`
 	Candidate           bool                    `json:"candidate"`
 	Installed           bool                    `json:"installed"`
+	Label               string                  `json:"label"`
+	VRAMBytes           int64                   `json:"vram_bytes"`
+	Enabled             bool                    `json:"enabled"`
+	Supported           bool                    `json:"supported"`
+	UnsupportedReason   string                  `json:"unsupported_reason"`
 	Workers             []voiceModelWorkerState `json:"workers"`
 }
 
@@ -119,11 +124,17 @@ func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {
 	out := struct {
 		Models []voiceModelView `json:"models"`
 	}{Models: []voiceModelView{}}
-	for _, entry := range voiceCatalog {
+	catalog, err := voiceCatalogList(r.Context(), s.Pool)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	for _, entry := range catalog {
 		view := voiceModelView{
 			ID: entry.ID, Kind: entry.Kind, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, License: entry.License,
 			Gated: entry.Gated, SizeBytes: entry.SizeBytes, SupportsNumSpeakers: entry.SupportsNumSpeakers,
-			Active: entry.ID == active, Candidate: entry.ID == candidate, Workers: []voiceModelWorkerState{},
+			Active: entry.ID == active, Candidate: entry.ID == candidate, Label: entry.Label, VRAMBytes: entry.VRAMBytes,
+			Enabled: entry.Enabled, Supported: entry.Supported, UnsupportedReason: entry.UnsupportedReason, Workers: []voiceModelWorkerState{},
 		}
 		if entry.MaxSpeakers > 0 {
 			limit := entry.MaxSpeakers
@@ -147,6 +158,7 @@ func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {
 
 // pgQuerier is what a query helper needs: the pool or a transaction.
 type pgQuerier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
@@ -184,8 +196,8 @@ func voiceActiveModelIDIn(ctx context.Context, db pgQuerier) (string, error) {
 	if !voiceRealProvider(pipeline.Provider) {
 		return "", nil
 	}
-	entry, _ := voiceCatalogByRepo("diarization", pipeline.Model)
-	return entry.ID, nil
+	entry, _, err := voiceCatalogByRepo(ctx, db, "diarization", pipeline.Model)
+	return entry.ID, err
 }
 
 func voiceCandidateIDIn(ctx context.Context, db pgQuerier) (string, error) {
@@ -212,13 +224,17 @@ func (s *Server) chooseVoiceModelCandidate(w http.ResponseWriter, r *http.Reques
 	if !decode(w, r, &input) {
 		return
 	}
-	entry, ok := voiceCatalogByID(input.ModelID)
-	if !ok || entry.Kind != "diarization" {
+	entry, ok, err := voiceCatalogByID(r.Context(), s.Pool, input.ModelID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !ok || !entry.choosable() {
 		fail(w, http.StatusBadRequest, "invalid_voice_model")
 		return
 	}
 	errActive := errors.New("already active")
-	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+	err = s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
 		active, err := voiceActiveModelIDIn(r.Context(), tx)
 		if err != nil {
 			return err
@@ -295,12 +311,16 @@ func (s *Server) switchVoicePipeline(ctx context.Context, entry *voiceCatalogEnt
 }
 
 func (s *Server) activateVoiceModel(w http.ResponseWriter, r *http.Request) {
-	entry, ok := voiceCatalogByID(r.PathValue("id"))
+	entry, ok, err := voiceCatalogByID(r.Context(), s.Pool, r.PathValue("id"))
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	if !ok {
 		fail(w, http.StatusNotFound, "voice_model_not_found")
 		return
 	}
-	if entry.Kind != "diarization" {
+	if !entry.choosable() {
 		fail(w, http.StatusBadRequest, "invalid_voice_model")
 		return
 	}
@@ -321,13 +341,17 @@ func (s *Server) activateVoiceModel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
-	entry, ok := voiceCatalogByID(r.PathValue("id"))
+	entry, ok, err := voiceCatalogByID(r.Context(), s.Pool, r.PathValue("id"))
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	if !ok {
 		fail(w, http.StatusNotFound, "voice_model_not_found")
 		return
 	}
 	errInUse := errors.New("in use")
-	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
+	err = s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
 		active, err := voiceActiveModelIDIn(r.Context(), tx)
 		if err != nil {
 			return err
@@ -439,7 +463,9 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		Remove []workerVoiceModel `json:"remove"`
 	}{Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}}
 	add := func(list *[]workerVoiceModel, id, role string) {
-		if entry, ok := voiceCatalogByID(id); ok {
+		if entry, ok, lookupErr := voiceCatalogByID(r.Context(), s.Pool, id); lookupErr != nil {
+			err = lookupErr
+		} else if ok {
 			*list = append(*list, workerVoiceModel{ModelID: id, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, Role: role, Retry: retry[id]})
 		}
 	}
@@ -451,6 +477,10 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, id := range removal {
 		add(&out.Remove, id, "removal")
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
 	}
 	reply(w, http.StatusOK, out)
 }
@@ -466,7 +496,11 @@ func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Reque
 	if !decode(w, r, &input) {
 		return
 	}
-	_, known := voiceCatalogByID(input.ModelID)
+	_, known, err := voiceCatalogByID(r.Context(), s.Pool, input.ModelID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	failed := input.State == "failed"
 	validState := input.State == "downloading" || input.State == "verifying" || input.State == "ready" || input.State == "removed" || failed
 	validCause := (failed && voiceFailureCauses[input.CauseCode]) || (!failed && input.CauseCode == "")
@@ -475,7 +509,6 @@ func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	worker := currentWorker(r)
-	var err error
 	if input.State == "removed" {
 		_, err = s.Pool.Exec(r.Context(), `DELETE FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2`, worker.ID, input.ModelID)
 	} else {

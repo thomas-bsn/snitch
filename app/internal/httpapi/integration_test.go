@@ -339,6 +339,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelDispatch(t, pool)
 	})
+	t.Run("voice catalog in database", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogInDatabase(t, pool)
+	})
 	t.Run("voice model candidate", func(t *testing.T) {
 		reset(t)
 		testVoiceModelCandidate(t, pool)
