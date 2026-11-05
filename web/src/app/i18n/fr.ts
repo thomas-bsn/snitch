@@ -1255,6 +1255,20 @@ export const fr: Messages = {
   workerUpdates: {
     title: "Mises à jour des Workers",
     lead: "Choisissez la version que chaque Worker doit faire tourner. Chaque Worker vérifie environ toutes les 10 minutes et se met à jour lui-même. Ne choisir aucune version désactive les mises à jour automatiques ; revenir à une version plus ancienne est un retour arrière.",
+    strategyLegend: "Stratégie de mise à jour",
+    strategy: {
+      pinned: "Version fixe (pinned)",
+      latest: "Dernière version — mises à jour automatiques",
+    },
+    latestHelp:
+      "Snitch suit la dernière version stable publiée du Worker et l’applique seule dès qu’une nouvelle apparaît. Jamais de retour en arrière automatique ; un Worker occupé attend la fin de ses jobs, et une version qui échoue est restaurée puis ignorée pendant 24 h.",
+    latestDetected: "Dernière version stable détectée",
+    effectiveVersion: "Version appliquée aux Workers",
+    lastCheck: "Dernière vérification",
+    neverChecked: "pas encore",
+    checkFailed:
+      "La dernière vérification du registre a échoué ; la dernière version valide est conservée.",
+    disabledHelp: "Aucune mise à jour automatique.",
     targetLabel: "Version cible",
     none: "Aucune version (mises à jour automatiques désactivées)",
     save: "Enregistrer la version cible",
@@ -1611,6 +1625,8 @@ export const fr: Messages = {
       forget: "Retirer de la liste",
       forgetBody:
         "La machine a confirmé la révocation. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
+      forgetUnconfirmedBody:
+        "Le nettoyage local n’a pas été confirmé : la machine n’a jamais confirmé la révocation. Le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur cette machine. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
       forgetTitle: "Retirer {name} de la liste ?",
       forgetConfirm: "Retirer",
       cleanupPending:

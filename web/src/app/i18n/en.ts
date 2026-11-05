@@ -1229,6 +1229,20 @@ export const en = {
   workerUpdates: {
     title: "Worker updates",
     lead: "Choose the version every Worker must run. Each Worker checks about every 10 minutes and updates itself. Choosing no version turns automatic updates off; going back to an older version is a rollback.",
+    strategyLegend: "Update strategy",
+    strategy: {
+      pinned: "Pinned version",
+      latest: "Latest — automatic updates",
+    },
+    latestHelp:
+      "Snitch follows the newest stable Worker release and applies it by itself as soon as a new one appears. No automatic downgrade; a busy Worker waits for its jobs to finish, and a version that fails is rolled back then skipped for 24 h.",
+    latestDetected: "Latest stable version detected",
+    effectiveVersion: "Version applied to Workers",
+    lastCheck: "Last check",
+    neverChecked: "not yet",
+    checkFailed:
+      "The last registry check failed; the last valid version is kept.",
+    disabledHelp: "No automatic update.",
     targetLabel: "Target version",
     none: "No version (automatic updates off)",
     save: "Save target version",
@@ -1581,6 +1595,8 @@ export const en = {
       forget: "Remove from the list",
       forgetBody:
         "The machine confirmed the revocation. Removing this entry deletes it from the list for good; the history of the tasks it ran is kept, without the Worker's name.",
+      forgetUnconfirmedBody:
+        "Local cleanup was not confirmed: the machine never confirmed the revocation. The model volume, the container and the launcher folder may remain on that machine. Removing this entry deletes it from the list for good; the history of the tasks it ran is kept, without the Worker's name.",
       forgetTitle: "Remove {name} from the list?",
       forgetConfirm: "Remove",
       cleanupPending:

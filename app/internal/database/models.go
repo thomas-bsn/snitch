@@ -903,6 +903,7 @@ type WorkerUpdateTarget struct {
 	ID        bool               `json:"id"`
 	Version   pgtype.Text        `json:"version"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Mode      string             `json:"mode"`
 }
 
 type WorkerVoiceModel struct {

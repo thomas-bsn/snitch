@@ -190,6 +190,7 @@ export const errorsEn = {
   invalid_worker_capabilities: "These worker capabilities are not valid.",
   invalid_worker_capacity: "This worker capacity is not valid.",
   invalid_worker_update_status: "This update report is not valid.",
+  invalid_worker_update_mode: "This update strategy is not valid.",
   invalid_worker_version:
     "This worker version is not a released version (vX.Y.Z).",
   invalid_revoke_reason:

@@ -176,6 +176,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPrivateFolders(t, pool)
 	})
+	t.Run("system directories", func(t *testing.T) {
+		reset(t)
+		testSystemDirectories(t, pool)
+	})
 	t.Run("video root browse", func(t *testing.T) {
 		reset(t)
 		testVideoRootBrowse(t, pool)
@@ -635,6 +639,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testWorkerUpdates(t, pool)
 	})
+	t.Run("worker latest update", func(t *testing.T) {
+		reset(t)
+		testWorkerLatestUpdates(t, pool)
+	})
 	t.Run("worker install progress", func(t *testing.T) {
 		reset(t)
 		testWorkerInstallProgress(t, pool)
@@ -1000,6 +1008,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
 		// A revoked Worker leaves the list only once its machine confirmed the revocation.
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record", nil, me.CSRF, 409)
+		// An explicit force=false keeps the protection; only force=true skips the confirmation.
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record?force=false", nil, me.CSRF, 409)
 		if _, e = pool.Exec(ctx, `UPDATE workers SET revocation_acknowledged_at=now() WHERE id=$1`, contractWorker.ID); e != nil {
 			t.Fatal(e)
 		}

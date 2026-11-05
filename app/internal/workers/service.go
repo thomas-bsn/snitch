@@ -362,10 +362,13 @@ func (s *Service) Revoke(ctx context.Context, id, reason string) error {
 	return nil
 }
 
-// Forget deletes the row of a revoked Worker so it leaves the list. Only a revoked identity whose
-// machine confirmed the revocation can go: until then the launcher still needs the row to learn
-// it must clean up. Jobs and events keep their history; the Worker's name is no longer resolved.
-func (s *Service) Forget(ctx context.Context, id string) error {
+// Forget deletes the row of a revoked Worker so it leaves the list. By default only a revoked
+// identity whose machine confirmed the revocation can go: until then the launcher still needs the
+// row to learn it must clean up. force is the Administrator's explicit choice to give up on a
+// machine that will never confirm (offline, reinstalled, discarded); local cleanup is then
+// unconfirmed. An active Worker is never removed. Jobs and events keep their history; the
+// Worker's name is no longer resolved.
+func (s *Service) Forget(ctx context.Context, id string, force bool) error {
 	if !validID(id) {
 		return ErrNotFound
 	}
@@ -383,7 +386,7 @@ func (s *Service) Forget(ctx context.Context, id string) error {
 	if !revoked {
 		return ErrNotRevoked
 	}
-	if !acknowledged {
+	if !acknowledged && !force {
 		return ErrCleanupPending
 	}
 	if _, err = tx.Exec(ctx, `UPDATE jobs SET lease_owner=NULL WHERE lease_owner=$1`, id); err != nil {

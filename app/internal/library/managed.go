@@ -133,7 +133,7 @@ func (s *Service) scanManaged(ctx context.Context, source Source) error {
 	return nil
 }
 
-// ManagedPath rejects absolute/traversing paths and every symlink component.
+// ManagedPath rejects absolute/traversing paths, system directories and every symlink component.
 // All callers work under an administrator-selected, already mounted root.
 func ManagedPath(root, relative string) (string, error) {
 	if relative == "" {
@@ -153,7 +153,7 @@ func ManagedPath(root, relative string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if st.Mode()&os.ModeSymlink != 0 {
+		if st.Mode()&os.ModeSymlink != 0 || st.IsDir() && IsSystemDirectory(part) {
 			return "", ErrInvalidSource
 		}
 	}

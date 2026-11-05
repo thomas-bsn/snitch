@@ -875,7 +875,7 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** @description Retire de la liste un Worker révoqué dont la machine a confirmé la révocation ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé. */
+    /** @description Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur la machine). */
     delete: operations["forgetWorker"];
     options?: never;
     head?: never;
@@ -925,7 +925,7 @@ export interface paths {
     };
     /** @description Version cible de mise à jour automatique des Workers, catalogue des versions publiées et dernier statut de chaque Worker (ADR 0036). */
     get: operations["getWorkerUpdates"];
-    /** @description Choisit la version cible. Null ou chaîne vide : aucune mise à jour automatique. Le format est vérifié ; l'image est construite par Snitch à partir du dépôt configuré. */
+    /** @description Choisit la stratégie : disabled (aucune mise à jour), pinned (version fixe, obligatoire) ou latest (suivi de la dernière version publiée, la version envoyée est ignorée). Sans mode, il est déduit de la version (vide : disabled). Le format est vérifié ; l'image est construite par Snitch à partir du dépôt configuré. */
     put: operations["putWorkerUpdateTarget"];
     post?: never;
     delete?: never;
@@ -1113,7 +1113,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Image que l'agent local du Worker doit faire tourner. Ne modifie rien ; sans cible, les champs sont nuls. */
+    /** @description Image que l'agent local du Worker doit faire tourner, et si ce Worker est au repos (aucun job sous bail) pour que l'agent attende un moment calme. En mode latest, résout la cible depuis le catalogue en cache (écriture seulement si une version plus haute apparaît). Sans cible, les champs version et image sont nuls. */
     get: operations["getWorkerUpdate"];
     put?: never;
     post?: never;
@@ -8307,7 +8307,10 @@ export interface operations {
   };
   forgetWorker: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Retire le Worker révoqué même si sa machine n'a pas confirmé la révocation. */
+        force?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -8326,7 +8329,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Worker introuvable, non révoqué ou nettoyage local non confirmé */
+      /** @description Worker introuvable, non révoqué ou nettoyage local non confirmé sans force */
       default: {
         headers: {
           [name: string]: unknown;
@@ -8435,6 +8438,20 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /**
+             * @description Stratégie choisie. La version effective (target_version) est celle de l'administrateur en pinned, la plus haute version publiée déjà vue en latest.
+             * @enum {string}
+             */
+            mode: "disabled" | "pinned" | "latest";
+            /** @description Version stable la plus récente du catalogue, indépendamment du mode. */
+            latest_version: string | null;
+            /**
+             * Format: date-time
+             * @description Dernière interrogation du registre par ce serveur (mémoire du processus), nulle tant qu'aucune n'a eu lieu.
+             */
+            checked_at: string | null;
+            /** @description Vrai si la dernière interrogation du registre a échoué ; la dernière cible valide est conservée. */
+            check_failed: boolean;
             target_version: string | null;
             target_image: string | null;
             image_repository: string;
@@ -8485,6 +8502,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @enum {string} */
+          mode?: "disabled" | "pinned" | "latest";
           version: string | null;
         };
       };
@@ -8497,6 +8516,8 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /** @enum {string} */
+            mode: "disabled" | "pinned" | "latest";
             target_version: string | null;
           };
         };
@@ -8985,6 +9006,7 @@ export interface operations {
         };
         content: {
           "application/json": {
+            idle: boolean;
             target_version: string | null;
             target_image: string | null;
           };

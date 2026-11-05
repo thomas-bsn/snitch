@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // updaterRun runs the installed local updater (worker_updater.sh) against a fake docker and a fake
@@ -201,4 +202,53 @@ func restartedWith(log, image string) bool {
 		}
 	}
 	return false
+}
+
+func TestUpdaterWaitsForBusyWorkerThenGivesUp(t *testing.T) {
+	busy := `{"target_version":"v1.2.0","target_image":"ghcr.io/thomas-bsn/snitch-worker:v1.2.0","idle":false}`
+	r := newUpdaterRun(t, repoFixture+":v1.1.0", busy, "")
+	// First run only notes the wait; a job is running, nothing is touched.
+	if log := r.run(t); strings.Contains(log, "pull ") || strings.Contains(log, "rm ") {
+		t.Fatalf("a busy Worker must not be restarted:\n%s", log)
+	}
+	if log := r.run(t); strings.Contains(log, "pull ") {
+		t.Fatalf("still inside the waiting window:\n%s", log)
+	}
+	// After 2 hours of waiting the update goes ahead anyway: a leased job is retried by Snitch.
+	old := time.Now().Add(-3 * time.Hour)
+	if err := os.Chtimes(filepath.Join(r.dir, "update.deferred"), old, old); err != nil {
+		t.Fatal(err)
+	}
+	if log := r.run(t); !strings.Contains(log, "pull "+repoFixture+":v1.2.0") {
+		t.Fatalf("waiting must end after 2 hours:\n%s", log)
+	}
+}
+
+func TestUpdaterDoesNotRetryAFailedVersionInALoop(t *testing.T) {
+	r := newUpdaterRun(t, repoFixture+":v1.1.0", newerTarget, "true 3")
+	r.run(t)
+	if !strings.Contains(r.reported(), `"state":"rolled_back"`) {
+		t.Fatalf("first attempt must roll back:\n%s", r.reported())
+	}
+	// The next cron tick sees the same target, still on the old image: it must stay silent and untouched.
+	before := r.calls()
+	if delta := strings.TrimPrefix(r.run(t), before); strings.Contains(delta, "pull ") || strings.Contains(delta, "run ") || strings.Contains(delta, "rm ") {
+		t.Fatalf("a failed version was retried:\n%s", delta)
+	}
+	// A newer version is a new chance, even inside the 24 hours.
+	r.env = append(r.env, `FAKE_UPDATE_BODY={"target_version":"v1.3.0","target_image":"ghcr.io/thomas-bsn/snitch-worker:v1.3.0","idle":true}`)
+	if log := r.run(t); !strings.Contains(strings.TrimPrefix(log, before), "pull "+repoFixture+":v1.3.0") {
+		t.Fatalf("a newer target must be tried:\n%s", log)
+	}
+	// The same version is retried after 24 hours.
+	r.env = append(r.env, "FAKE_UPDATE_BODY="+newerTarget)
+	if err := os.WriteFile(filepath.Join(r.dir, "update.failed"), []byte("v1.2.0"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-25 * time.Hour)
+	_ = os.Chtimes(filepath.Join(r.dir, "update.failed"), old, old)
+	mark := r.calls()
+	if log := r.run(t); !strings.Contains(strings.TrimPrefix(log, mark), "pull "+repoFixture+":v1.2.0") {
+		t.Fatalf("a version failed more than 24h ago must be retried:\n%s", log)
+	}
 }
