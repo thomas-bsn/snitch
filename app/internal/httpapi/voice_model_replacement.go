@@ -331,3 +331,38 @@ func (s *Server) heldModelCells(ctx context.Context) (map[[2]string]workerModelC
 	}
 	return held, nil
 }
+
+// orderRemovalOnHolders is the administrator's explicit uninstall: one remove order for each Worker that holds
+// the model (ready or failed), which the Worker runs and reports. Nothing is deleted on Snitch's side before.
+func orderRemovalOnHolders(ctx context.Context, tx pgx.Tx, entry voiceCatalogEntry, author session) error {
+	rows, err := tx.Query(ctx, `SELECT m.worker_id,COALESCE(NULLIF(m.revision,''),$2) FROM worker_voice_models m JOIN workers w ON w.id=m.worker_id
+		WHERE m.model_id=$1 AND m.state IN ('ready','failed') AND w.revoked_at IS NULL`, entry.ID, entry.Revision)
+	if err != nil {
+		return err
+	}
+	type holder struct{ worker, revision string }
+	holders := []holder{}
+	for rows.Next() {
+		var h holder
+		if err = rows.Scan(&h.worker, &h.revision); err != nil {
+			rows.Close()
+			return err
+		}
+		holders = append(holders, h)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	for _, h := range holders {
+		id := "ord_" + auth.Token()[:32]
+		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name) VALUES($1,$2,$3,'remove',$4,$5,$6,$7,$8)`,
+			id, h.worker, entry.Kind, entry.ID, h.revision, "remove-"+id, author.User.ID, author.User.Username); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE worker_voice_models SET state='removing',order_id=$3,updated_at=now() WHERE worker_id=$1 AND model_id=$2`, h.worker, entry.ID, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}

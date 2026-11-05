@@ -382,8 +382,15 @@ func (s *Server) removeVoiceModel(w http.ResponseWriter, r *http.Request) {
 		if entry.ID == active || entry.ID == candidate {
 			return errInUse
 		}
-		_, err = tx.Exec(r.Context(), `UPDATE worker_voice_models SET removal_requested=true WHERE model_id=$1`, entry.ID)
-		return err
+		// A job that still uses the model keeps it; the administrator removes it once the job has ended.
+		if busy, err := voiceModelInUseIn(r.Context(), tx, entry); err != nil || busy {
+			if err != nil {
+				return err
+			}
+			return errInUse
+		}
+		ss := r.Context().Value(sessionKey{}).(session)
+		return orderRemovalOnHolders(r.Context(), tx, entry, ss)
 	})
 	if errors.Is(err, errInUse) {
 		fail(w, http.StatusConflict, "voice_model_in_use")
@@ -463,7 +470,7 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT model_id,retry_requested,removal_requested FROM worker_voice_models WHERE worker_id=$1`, worker.ID)
+	rows, err := s.Pool.Query(r.Context(), `SELECT model_id,retry_requested,false FROM worker_voice_models WHERE worker_id=$1`, worker.ID)
 	if err != nil {
 		s.internal(w, err)
 		return
