@@ -23,6 +23,9 @@ func (s *Server) registerVoiceModelRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/admin/voice-models/{id}/activate", s.protected(true, http.HandlerFunc(s.activateVoiceModel)))
 	mux.Handle("DELETE /api/admin/voice-models/{id}/installation", s.protected(true, http.HandlerFunc(s.removeVoiceModel)))
 	mux.Handle("POST /api/admin/workers/{id}/voice-models/retry", s.protected(true, http.HandlerFunc(s.retryWorkerVoiceModel)))
+	mux.Handle("GET /api/admin/voice-models/workers", s.protected(true, http.HandlerFunc(s.listModelsByWorker)))
+	mux.Handle("POST /api/admin/workers/{id}/voice-model-orders", s.protected(true, http.HandlerFunc(s.createVoiceModelOrder)))
+	mux.Handle("POST /api/worker/voice-model-orders/{id}/ack", s.workerOnly(http.HandlerFunc(s.ackWorkerModelOrder)))
 	mux.Handle("GET /api/worker/voice-models", s.workerOnly(http.HandlerFunc(s.getWorkerVoiceModels)))
 	mux.Handle("POST /api/worker/voice-models/status", s.workerOnly(http.HandlerFunc(s.postWorkerVoiceModelStatus)))
 }
@@ -465,10 +468,16 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	orders, err := s.pendingOrders(r.Context(), worker.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	out := struct {
-		Models []workerVoiceModel `json:"models"`
-		Remove []workerVoiceModel `json:"remove"`
-	}{Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}}
+		Models []workerVoiceModel    `json:"models"`
+		Remove []workerVoiceModel    `json:"remove"`
+		Orders []voiceModelOrderView `json:"orders"`
+	}{Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders}
 	add := func(list *[]workerVoiceModel, id, role string) {
 		if entry, ok, lookupErr := voiceCatalogByID(r.Context(), s.Pool, id); lookupErr != nil {
 			err = lookupErr
