@@ -4,6 +4,106 @@ import type { Messages } from "./messages";
 import { errorsFr } from "./errors.fr";
 
 export const fr: Messages = {
+  voiceWorkspace: {
+    online: "En ligne",
+    offline: "Hors ligne",
+    volumeUnit: "Mo",
+    title: "Modèles vocaux",
+    lead: "Le catalogue des références. Leur installation, leur remplacement et leur retrait sur vos Workers.",
+    workers: "Workers",
+    catalogue: "Catalogue",
+    history: "Historique",
+    production: "Production",
+    unavailable: "Pas encore disponible",
+    desiredHint:
+      "Un modèle désiré par type et par Worker. Les ordres sont explicites.",
+    separationHint:
+      "La séparation est cataloguée ; son exécution attend un adaptateur approuvé (#268). La transcription Speaches reste indépendante.",
+    adapterPending: "Pas d’adaptateur disponible",
+    coming: "À venir · #268",
+    noStartup: "Aucun téléchargement au démarrage.",
+    reserve: "En réserve",
+    productionNote:
+      "Un modèle actif par type pour la production. Les Workers exécutent les ordres validés par Snitch.",
+    settings: "Identification et seuils",
+    access: "Accès Hugging Face",
+    all: "Tous",
+    search: "Rechercher une référence",
+    searchPlaceholder: "Chercher un modèle…",
+    noMatch: "Aucune référence ne correspond à ce filtre.",
+    noWorkers:
+      "Aucun Worker pour le moment. Ajoutez-en un dans Administration → Workers pour installer un modèle.",
+    selectWorker: "Sélectionner {worker}",
+    details: "Détails",
+    detailsOf: "Détails de {model}",
+    deploy: "Déployer",
+    install: "Installer",
+    unsupported: "Non pris en charge",
+    disabled: "Désactivé",
+    supported: "Compatible",
+    restricted: "Accès HF restreint",
+    openAccess: "Accès libre",
+    notPresent: "Aucun Worker ne détient ce modèle.",
+    workerCount:
+      "{count} Worker(s) · prêt ne signifie pas actif en production.",
+    licence: "Licence",
+    engine: "Moteur compatible",
+    revision: "Révision épinglée",
+    size: "Taille (Mo)",
+    vram: "VRAM nécessaire (Mo)",
+    label: "Nom affiché",
+    enabled: "Disponible à l’installation",
+    edit: "Modifier la référence",
+    save: "Enregistrer la référence",
+    editHint:
+      "Le dépôt, la révision, le type et le moteur proviennent de l’inspection. Pour les changer, ajoutez une autre référence.",
+    unknown: "Inconnu",
+    references: "{count} références",
+    selected: "{count} Worker(s) sélectionné(s)",
+    noOrders:
+      "Aucun ordre pour le moment. Un Worker neuf n’installe rien de lui-même.",
+    allWorkers: "Tous les Workers",
+    orderId: "Ordre {id}",
+    acknowledge:
+      "Je confirme l’envoi d’un ordre à chacun des Workers affichés.",
+    alreadyReady: "Déjà installé et vérifié : aucun nouvel ordre.",
+    occupied: "Ce type est occupé. Utilisez Changer sur le Worker.",
+    busyWorker: "Une opération est déjà en cours.",
+    replacementLine:
+      "Remplacer {old} par {model} sur {worker} ; conserver l’ancien jusqu’à la bascule.",
+    transition: "Changer le modèle d’empreinte",
+    transitionHint:
+      "Les empreintes de deux modèles ne sont pas comparables. La production continue sur l’ancien modèle pendant le recalcul des références.",
+    referencesImpact: "Références à recalculer",
+    clipsImpact: "Clips concernés",
+    personsImpact: "Personnes concernées",
+    othersImpact: "Autres empreintes ensuite",
+    validatedImpact: "Validations humaines conservées",
+    readyImpact: "{count} Worker(s) avec la cible prête",
+    transitionConfirm:
+      "Je confirme le recalcul des {count} références affichées.",
+    startTransition: "Démarrer la transition",
+    prepareWorkers: "Préparer sur des Workers",
+    transitionPreparing:
+      "Préparation des Workers. L’ancien modèle reste actif.",
+    transitionRecomputing:
+      "{done} / {total} références recalculées hors production.",
+    transitionSwitched:
+      "Bascule effectuée. {count} empreintes restent à rattraper.",
+    transitionCancelled: "Transition annulée.",
+    viewTransition: "Voir la transition",
+    resume: "Reprendre la transition",
+    cancelTransition: "Annuler la transition",
+    waitingTarget:
+      "Sans Worker prêt, la transition attend. Aucun téléchargement ne démarre sans ordre d’installation.",
+    selectTarget: "Nouveau modèle d’empreinte",
+    transitionFailed: "{count} tâches en échec",
+    refresh: "Actualiser",
+    pendingRemoval:
+      "Le retrait attend la fin des travaux utilisant l’ancien modèle.",
+    catalogueHint:
+      "Une référence de modèle n’est pas une installation sur un Worker.",
+  },
   app: {
     name: "Snitch",
     skipToContent: "Aller au contenu",

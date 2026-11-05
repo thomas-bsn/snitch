@@ -110,6 +110,11 @@ func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	fingerprint, err := activeFingerprintModelID(r.Context(), s.Pool)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	candidate, err := s.candidateVoiceModelID(r)
 	if err != nil {
 		s.internal(w, err)
@@ -154,7 +159,7 @@ func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, entry := range catalog {
 		view := voiceModelViewOf(entry)
-		view.Active, view.Candidate = entry.ID == active, entry.ID == candidate
+		view.Active, view.Candidate = entry.ID == active || entry.ID == fingerprint, entry.ID == candidate
 		for _, item := range items {
 			if item.RevokedAt != nil {
 				continue

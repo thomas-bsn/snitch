@@ -21,10 +21,13 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
   const page = await context.newPage();
   await page.goto("/admin/voice");
   await expect(
-    page.getByRole("heading", { name: "Voice processing" }),
+    page.getByRole("heading", { name: "Voice models" }),
   ).toBeVisible();
 
-  // The summary comes first; the automatic attribution is off and never turns itself on.
+  // Settings remain reachable from the footer; automation never enables itself.
+  await page
+    .getByRole("button", { name: "Identification and thresholds" })
+    .click();
   const summary = page.getByRole("region", { name: "State" });
   await expect(summary).toContainText("Active diarization model");
   await expect(summary).toContainText("Active fingerprint model (read only)");
@@ -93,12 +96,37 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
 test("l'écran vocal reste utilisable sur téléphone, au clavier", async ({
   browser,
 }) => {
+  const session = await sessionFor(ADMIN);
+  const origin = process.env.SNITCH_TEST_URL!;
+  const admin = await request.newContext({
+    baseURL: origin,
+    storageState: session,
+    extraHTTPHeaders: { Origin: origin },
+  });
+  const me = await (await admin.get("/api/auth/me")).json();
+  const csrf = { "X-CSRF-Token": me.csrf_token };
+  const { id } = await (
+    await admin.post("/api/admin/workers", {
+      headers: csrf,
+      data: { name: "mobile-matrix", max_concurrency: 1 },
+    })
+  ).json();
   const context = await browser.newContext({
-    storageState: await sessionFor(ADMIN),
-    viewport: { width: 400, height: 800 },
+    storageState: session,
+    viewport: { width: 375, height: 812 },
   });
   const page = await context.newPage();
   await page.goto("/admin/voice");
+  await expect(page.getByRole("table")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - innerWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
+  await expectNoViolations(page);
+  await page
+    .getByRole("button", { name: "Identification and thresholds" })
+    .click();
   await expect(page.getByRole("region", { name: "State" })).toBeVisible();
   await page.locator("summary").focus();
   await page.keyboard.press("Enter");
@@ -112,7 +140,9 @@ test("l'écran vocal reste utilisable sur téléphone, au clavier", async ({
   );
   expect(overflow).toBeLessThanOrEqual(0);
   await expectNoViolations(page);
+  await admin.delete(`/api/admin/workers/${id}`, { headers: csrf });
   await context.close();
+  await admin.dispose();
 });
 
 test("l'inventaire vocal montre ce que chaque Worker détient réellement", async ({
@@ -185,6 +215,9 @@ test("l'inventaire vocal montre ce que chaque Worker détient réellement", asyn
   const context = await browser.newContext({ storageState: session });
   const page = await context.newPage();
   await page.goto("/admin/voice");
+  await page
+    .getByRole("button", { name: "Identification and thresholds" })
+    .click();
   const inventory = page.getByRole("region", { name: "Worker voice models" });
   await expect(inventory).toBeVisible();
 
@@ -262,35 +295,48 @@ test("un administrateur choisit, suit puis active un modèle vocal candidat", as
   const context = await browser.newContext({ storageState: session });
   const page = await context.newPage();
   await page.goto("/admin/voice");
-  const models = page.getByRole("region", { name: "Diarization model" });
-  const card = models.getByRole("listitem", {
+  await page.getByRole("tab", { name: /Catalogue/ }).click();
+  const card = page.getByRole("article", {
     name: "pyannote/speaker-diarization-community-1",
+    exact: true,
   });
-  await expect(card).toContainText("cc-by-4.0");
-  await expect(card).toContainText("Restricted access on Hugging Face.");
-  await card.getByRole("button", { name: "Choose as candidate" }).click();
-  await expect(card.getByText("Candidate", { exact: true })).toBeVisible();
-  await expect(card.getByRole("button", { name: "Activate" })).toBeDisabled();
-
+  await card.getByRole("button", { name: "Details", exact: true }).click();
+  let details = page.getByRole("dialog");
+  await expect(details).toContainText("cc-by-4.0");
+  await details.getByRole("button", { name: "Choose as candidate" }).click();
+  await expect(details.getByText("Candidate", { exact: true })).toBeVisible();
+  await expect(
+    details.getByRole("button", { name: "Activate", exact: true }),
+  ).toBeDisabled();
+  await details.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("tab", { name: /Workers/ }).click();
+  const cell = page
+    .getByRole("row", { name: /worker-prepare/ })
+    .locator("td")
+    .nth(1);
   await preparing({
     state: "downloading",
     bytes_received: 12_000_000,
     bytes_total: 34_000_000,
   });
   await page.reload();
-  await expect(card).toContainText("12 / 34 MB");
-
+  await expect(cell).toContainText("12 / 34 MB");
   await preparing({ state: "failed", cause_code: "hf_token_missing" });
   await page.reload();
-  await expect(card).toContainText("Hugging Face token missing");
-  await card.getByRole("button", { name: "Retry" }).click();
-  // The retry is consumed by the Worker's next report.
+  await expect(cell).toContainText("Hugging Face token missing");
+  await cell.getByRole("button", { name: "Retry", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Order the installation" })
+    .click();
   await preparing({ state: "verifying" });
   await preparing({ state: "ready" });
   await page.reload();
-  await expect(card).toContainText("Ready");
-
-  await card.getByRole("button", { name: "Activate" }).click();
+  await expect(cell).toContainText("Ready");
+  await page.getByRole("tab", { name: /Catalogue/ }).click();
+  await card.getByRole("button", { name: "Details", exact: true }).click();
+  details = page.getByRole("dialog");
+  await details.getByRole("button", { name: "Activate", exact: true }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toContainText("new voice pipeline version");
   await expect(dialog).toContainText("worker-sans-modele");
@@ -298,8 +344,8 @@ test("un administrateur choisit, suit puis active un modèle vocal candidat", as
   await dialog
     .getByRole("button", { name: "Activate for every Worker" })
     .click();
-  await expect(card.getByText("Active", { exact: true })).toBeVisible();
-  await expect(card.getByText("Candidate", { exact: true })).toHaveCount(0);
+  await expect(details.getByText("Active", { exact: true })).toBeVisible();
+  await expect(details.getByText("Candidate", { exact: true })).toHaveCount(0);
 
   await context.close();
   await admin.dispose();
@@ -344,8 +390,8 @@ test("un administrateur ordonne l'installation d'un modèle à un Worker et suit
   await page.goto("/admin/voice");
   const section = page.getByRole("region", { name: "Models per Worker" });
   const row = section.getByRole("row", { name: /worker-ordres/ });
-  const fingerprint = row.locator("td").nth(1);
-  await expect(section).toContainText("#268 is not delivered");
+  const fingerprint = row.locator("td").nth(2);
+  await expect(section).toContainText("Coming · #268");
   await expect(fingerprint).toContainText("Not installed");
 
   // Ordering needs an explicit confirmation.
@@ -406,7 +452,7 @@ test("un administrateur ordonne l'installation d'un modèle à un Worker et suit
   await expect(history).toContainText("Removal");
   await expect(history).toContainText("Installation");
   await expect(history).toContainText("Waiting for the Worker");
-  await history.getByRole("button", { name: "Close" }).click();
+  await history.getByRole("button", { name: "Close", exact: true }).click();
 
   await admin.delete(`/api/admin/workers/${id}`, { headers: csrf });
   await context.close();
@@ -447,7 +493,10 @@ test("« Appliquer à plusieurs Workers » crée un ordre par Worker coché et l
   const context = await browser.newContext({ storageState: session });
   const page = await context.newPage();
   await page.goto("/admin/voice");
-  await page.getByRole("button", { name: "Apply to several Workers" }).click();
+  await page
+    .getByRole("button", { name: "Apply to several Workers", exact: true })
+    .first()
+    .click();
   const dialog = page.getByRole("dialog", {
     name: "Apply a model to several Workers",
   });
@@ -461,6 +510,12 @@ test("« Appliquer à plusieurs Workers » crée un ordre par Worker coché et l
   await expect(dialog).not.toContainText("on lot-b");
   // Listed, not sent yet.
   expect(await pulled(made[0].token)).toHaveLength(0);
+  await expect(
+    dialog.getByRole("button", { name: "Send 2 orders" }),
+  ).toBeDisabled();
+  await dialog
+    .getByLabel("I confirm sending one order to each listed Worker.")
+    .check();
   await dialog.getByRole("button", { name: "Send 2 orders" }).click();
   await expect(dialog.getByText("Order sent")).toHaveCount(2);
   expect(await pulled(made[0].token)).toHaveLength(1);
@@ -469,6 +524,99 @@ test("« Appliquer à plusieurs Workers » crée un ordre par Worker coché et l
 
   for (const w of made)
     await admin.delete(`/api/admin/workers/${w.id}`, { headers: csrf });
+  await context.close();
+  await admin.dispose();
+});
+
+test("la matrice B conserve la sélection, le catalogue est éditable et les onglets sont accessibles au clavier", async ({
+  browser,
+}) => {
+  const session = await sessionFor(ADMIN);
+  const origin = process.env.SNITCH_TEST_URL!;
+  const admin = await request.newContext({
+    baseURL: origin,
+    storageState: session,
+    extraHTTPHeaders: { Origin: origin },
+  });
+  const me = await (await admin.get("/api/auth/me")).json();
+  const csrf = { "X-CSRF-Token": me.csrf_token };
+  const { id } = await (
+    await admin.post("/api/admin/workers", {
+      headers: csrf,
+      data: { name: "selection-B", max_concurrency: 1 },
+    })
+  ).json();
+  const context = await browser.newContext({ storageState: session });
+  const page = await context.newPage();
+  await page.goto("/admin/voice");
+  await page
+    .getByRole("checkbox", { name: "Select selection-B", exact: true })
+    .check();
+  const workersTab = page.getByRole("tab", { name: /Workers/ });
+  await workersTab.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: /Catalogue/ })).toBeFocused();
+  await expect(page).toHaveURL(/view=catalogue/);
+  await expect(page.getByRole("tabpanel")).toContainText("pyannote");
+  const card = page.getByRole("article", {
+    name: "pyannote/wespeaker-voxceleb-resnet34-LM",
+    exact: true,
+  });
+  await card.getByRole("button", { name: "Details", exact: true }).click();
+  const details = page.getByRole("dialog");
+  await details
+    .getByRole("button", { name: "Edit reference", exact: true })
+    .click();
+  await details
+    .getByLabel("Display name", { exact: true })
+    .fill("Fingerprint catalogue B");
+  await details.getByLabel("Required VRAM (MB)").fill("123.456789");
+  await details
+    .getByRole("button", { name: "Save reference", exact: true })
+    .click();
+  await expect(
+    details.getByRole("button", { name: "Edit reference", exact: true }),
+  ).toBeVisible();
+  await details.getByRole("button", { name: "Close", exact: true }).click();
+  await page.reload();
+  await expect(card).toContainText("Fingerprint catalogue B");
+  const catalogue = await (await admin.get("/api/admin/voice-models")).json();
+  expect(
+    catalogue.models.find(
+      (m: { id: string }) => m.id === "pyannote-wespeaker-resnet34",
+    ).vram_bytes,
+  ).toBe(123456789);
+  await page.getByRole("tab", { name: /Workers/ }).click();
+  await page
+    .getByRole("checkbox", { name: "Select selection-B", exact: true })
+    .check();
+  await page.getByRole("tab", { name: /Catalogue/ }).click();
+  await card.getByRole("button", { name: "Install", exact: true }).click();
+  const plan = page.getByRole("dialog");
+  await expect(
+    plan.getByRole("combobox", { name: "Model", exact: true }),
+  ).toHaveValue("pyannote-wespeaker-resnet34");
+  await expect(plan.getByLabel("selection-B", { exact: true })).toBeChecked();
+  await plan.getByRole("button", { name: "Prepare the orders" }).click();
+  await expect(plan).toContainText("on selection-B");
+  await expect(
+    plan.getByRole("button", { name: "Send 1 orders" }),
+  ).toBeDisabled();
+  await plan.getByRole("button", { name: "Close", exact: true }).click();
+  // Search and category filters operate on references, without ordering downloads.
+  await page
+    .getByRole("searchbox", { name: "Search references", exact: true })
+    .fill("not-a-model");
+  await expect(
+    page.getByText("No reference matches this filter."),
+  ).toBeVisible();
+  await page
+    .getByRole("searchbox", { name: "Search references", exact: true })
+    .fill("");
+  await page.getByRole("button", { name: /^Separation/ }).click();
+  await expect(page.getByRole("article")).toHaveCount(0);
+  await expectNoViolations(page);
+  await admin.delete(`/api/admin/workers/${id}`, { headers: csrf });
   await context.close();
   await admin.dispose();
 });
