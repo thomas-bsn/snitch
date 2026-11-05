@@ -56,7 +56,9 @@ func TestHFFetchFailures(t *testing.T) {
 			_, _ = w.Write([]byte(`{"id":"` + strings.Repeat("a", 5000) + `"}`))
 		}, errHFTooLarge},
 		{"too slow", func(w http.ResponseWriter, r *http.Request) { time.Sleep(600 * time.Millisecond) }, errHFUnavailable},
-		{"no commit", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"id":"acme/voice","sha":"main"}`)) }, errHFUnavailable},
+		{"no commit", func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"id":"acme/voice","sha":"main"}`))
+		}, errHFUnavailable},
 	}
 	for _, c := range cases {
 		in, _ := fakeHF(t, c.handler)

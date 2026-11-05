@@ -440,6 +440,49 @@ export const fr: Messages = {
     },
   },
   voiceModels: {
+    add: {
+      open: "Ajouter un modèle",
+      title: "Ajouter un modèle au catalogue",
+      source: "Dépôt Hugging Face",
+      sourceHint:
+        "Collez propriétaire/nom ou une adresse huggingface.co. Snitch lit uniquement les métadonnées publiques : rien n’est téléchargé ni exécuté.",
+      inspect: "Inspecter",
+      inspecting: "Inspection…",
+      proposed: "Type proposé : {kind}. Confirmez-le ci-dessous.",
+      uncertain:
+        "Le dépôt n’indique pas son type de façon fiable. Choisissez l’un des trois types.",
+      unsupported:
+        "Non pris en charge : {reason}. Il ne peut pas être installé.",
+      kindUnsupported:
+        "Le moteur de ce dépôt ne sait pas exécuter un modèle de type {kind}. Il ne peut pas être installé.",
+      existing: "Déjà dans le catalogue : {ids}.",
+      typeLabel: "Type",
+      recap: "Récapitulatif",
+      model: "Modèle",
+      type: "Type",
+      typeToChoose: "À choisir",
+      engine: "Moteur compatible",
+      engineNone: "Aucun",
+      revision: "Révision",
+      license: "Licence",
+      licenseNone: "Non indiquée",
+      gated: "Gated",
+      gatedYes: "Oui, jeton requis",
+      gatedNo: "Non",
+      submit: "Ajouter au catalogue",
+      cancel: "Annuler",
+      close: "Fermer",
+      added: "{model} a été ajouté au catalogue.",
+      kind: {
+        diarization: "Diarisation",
+        fingerprint: "Fingerprint",
+        separation: "Séparation",
+      },
+      engines: {
+        nemo: "NVIDIA NeMo",
+        pyannote: "pyannote",
+      },
+    },
     fingerprintTitle: "Modèle d’empreinte",
     fingerprintHint:
       "Fixé par le catalogue : les empreintes vocales utilisent ce modèle, rien à choisir.",
@@ -1580,6 +1623,7 @@ export const fr: Messages = {
       submit: "Créer le Worker",
       submitting: "Création…",
       cancel: "Annuler",
+      close: "Fermer",
       confirmTitle: "Utiliser ce modèle pour toute la bibliothèque ?",
       confirmBody:
         "Ce modèle et cette langue serviront à tous les futurs Workers, même avec un serveur Whisper différent. Vous pourrez les changer plus tard dans Administration, Transcription.",
@@ -1636,6 +1680,7 @@ export const fr: Messages = {
     },
     dialog: {
       cancel: "Annuler",
+      close: "Fermer",
     },
   },
   import: {
@@ -1689,6 +1734,7 @@ export const fr: Messages = {
         "Demande envoyée. Un administrateur décidera ; vous ne pouvez pas téléverser dans ce dossier d’ici là.",
       pending: "Demande en attente",
       cancel: "Annuler",
+      close: "Fermer",
     },
     visibility: {
       label: "Qui peut voir ces vidéos",
@@ -2489,6 +2535,7 @@ export const fr: Messages = {
       choose: "Choisissez au moins une voix.",
       submit: "Séparer",
       cancel: "Annuler",
+      close: "Fermer",
       done: "{count} voix ont été séparées de {name} : elles sont de nouveau inconnues.",
       doneOne: "1 voix a été séparée de {name} : elle est de nouveau inconnue.",
     },
@@ -2498,6 +2545,7 @@ export const fr: Messages = {
       nameHint: "De 1 à 100 caractères.",
       submit: "Créer",
       cancel: "Annuler",
+      close: "Fermer",
     },
     merge: {
       title: "Fusionner {name}",
@@ -2506,6 +2554,7 @@ export const fr: Messages = {
       choose: "Choisir une Personne…",
       submit: "Fusionner",
       cancel: "Annuler",
+      close: "Fermer",
       done: "{name} a été fusionnée dans {target} : {summary}",
       voices:
         "{count} voix confirmée(s) de {name} sont désormais confirmées comme {target}.",
@@ -2525,6 +2574,7 @@ export const fr: Messages = {
         "Les clips, les empreintes vocales et les autres Personnes sont intacts. Les voix sont rapprochées de nouveau. Cette action ne peut pas être annulée.",
       submit: "Supprimer",
       cancel: "Annuler",
+      close: "Fermer",
       done: "{name} a été supprimée : {summary}",
     },
     summary:

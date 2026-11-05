@@ -431,6 +431,48 @@ export const en = {
     },
   },
   voiceModels: {
+    add: {
+      open: "Add a model",
+      title: "Add a model to the catalogue",
+      source: "Hugging Face repository",
+      sourceHint:
+        "Paste owner/name or a huggingface.co address. Snitch reads the public metadata only: nothing is downloaded or run.",
+      inspect: "Inspect",
+      inspecting: "Inspecting...",
+      proposed: "Proposed type: {kind}. Confirm it below.",
+      uncertain:
+        "The repository does not state its type reliably. Choose one of the three types.",
+      unsupported: "Not supported: {reason}. It cannot be installed.",
+      kindUnsupported:
+        "The engine for this repository cannot run a {kind} model. It cannot be installed.",
+      existing: "Already in the catalogue: {ids}.",
+      typeLabel: "Type",
+      recap: "Summary",
+      model: "Model",
+      type: "Type",
+      typeToChoose: "To choose",
+      engine: "Compatible engine",
+      engineNone: "None",
+      revision: "Revision",
+      license: "Licence",
+      licenseNone: "Not stated",
+      gated: "Gated",
+      gatedYes: "Yes, token required",
+      gatedNo: "No",
+      submit: "Add to the catalogue",
+      cancel: "Cancel",
+      close: "Close",
+      added: "{model} was added to the catalogue.",
+      kind: {
+        diarization: "Diarization",
+        fingerprint: "Fingerprint",
+        separation: "Separation",
+      },
+      engines: {
+        nemo: "NVIDIA NeMo",
+        pyannote: "pyannote",
+      },
+    },
     fingerprintTitle: "Fingerprint model",
     fingerprintHint:
       "Fixed by the catalogue: voice fingerprints use this model, nothing to choose.",
@@ -1551,6 +1593,7 @@ export const en = {
       submit: "Create the Worker",
       submitting: "Creating…",
       cancel: "Cancel",
+      close: "Close",
       confirmTitle: "Use this model for the whole library?",
       confirmBody:
         "This model and this language will be used by every future Worker, even with a different Whisper server. You can change them later in Administration, Transcription.",
@@ -1605,6 +1648,7 @@ export const en = {
     },
     dialog: {
       cancel: "Cancel",
+      close: "Close",
     },
   },
   import: {
@@ -1657,6 +1701,7 @@ export const en = {
         "Request sent. An administrator will decide; you cannot upload into this folder until then.",
       pending: "Request pending",
       cancel: "Cancel",
+      close: "Close",
     },
     visibility: {
       label: "Who can see these videos",
@@ -2443,6 +2488,7 @@ export const en = {
       choose: "Choose at least one voice.",
       submit: "Separate",
       cancel: "Cancel",
+      close: "Close",
       done: "{count} voices were separated from {name}: they are unknown again.",
       doneOne: "1 voice was separated from {name}: it is unknown again.",
     },
@@ -2452,6 +2498,7 @@ export const en = {
       nameHint: "1 to 100 characters.",
       submit: "Create",
       cancel: "Cancel",
+      close: "Close",
     },
     merge: {
       title: "Merge {name}",
@@ -2460,6 +2507,7 @@ export const en = {
       choose: "Choose a person…",
       submit: "Merge",
       cancel: "Cancel",
+      close: "Close",
       done: "{name} was merged into {target}: {summary}",
       voices:
         "{count} confirmed voice(s) of {name} are now confirmed as {target}.",
@@ -2479,6 +2527,7 @@ export const en = {
         "The clips, the voice fingerprints and the other people are untouched. Voices are matched again. This cannot be undone.",
       submit: "Delete",
       cancel: "Cancel",
+      close: "Close",
       done: "{name} was deleted: {summary}",
     },
     summary:

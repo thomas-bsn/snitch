@@ -7,6 +7,9 @@ import { VoiceAdvanced } from "./VoiceAdvanced";
 import { VoiceHeader } from "./VoiceHeader";
 import { VoiceHuggingFace } from "./VoiceHuggingFace";
 import { VoiceInventory } from "./VoiceInventory";
+import { isSuperAdministrator } from "../../roles";
+import { useSession } from "../../session";
+import { VoiceModelAdd } from "./VoiceModelAdd";
 import { VoiceModelCards } from "./VoiceModelCards";
 
 async function load() {
@@ -54,6 +57,7 @@ async function load() {
 /** Administration, voice processing: state and models first, thresholds folded under "Advanced". */
 export function VoiceTab() {
   const { t, error } = useI18n();
+  const { user } = useSession();
   const { state, reload } = useLoaded(load);
   const preparing =
     state.status === "ready" &&
@@ -81,6 +85,9 @@ export function VoiceTab() {
         catalogue={models}
         onChanged={reload}
       />
+      {user !== null && isSuperAdministrator(user) && (
+        <VoiceModelAdd onChanged={reload} />
+      )}
       <VoiceModelCards catalogue={models} onChanged={reload} />
       <VoiceHuggingFace />
       <VoiceInventory overview={overview} />

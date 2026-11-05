@@ -285,10 +285,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Hugging Face refuse l’accès à ce dépôt : il est privé ou ses conditions d’accès ne sont pas remplies.",
   voice_model_hf_unavailable:
     "Hugging Face n’a pas répondu correctement. Réessayez dans un instant.",
-  voice_model_kind_mismatch:
-    "Le dépôt déclare un autre type que celui choisi.",
-  voice_model_exists:
-    "Ce dépôt est déjà dans le catalogue pour ce type.",
+  voice_model_kind_mismatch: "Le dépôt déclare un autre type que celui choisi.",
+  voice_model_exists: "Ce dépôt est déjà dans le catalogue pour ce type.",
   voice_model_not_ready:
     "Aucun Worker n’a ce modèle prêt : attendez la fin de sa préparation.",
   invalid_voice_model: "Ce modèle ne peut pas être choisi.",
