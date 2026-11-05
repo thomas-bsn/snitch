@@ -36,3 +36,10 @@ Le Worker prépare aujourd'hui lui-même les modèles vocaux : l'installation pr
 - La suppression d'un modèle libère de l'espace mais retire le retour arrière local : revenir à l'ancien impose un nouvel ordre d'installation, donc un nouveau téléchargement.
 - L'inspection d'un dépôt Hugging Face fait un appel sortant depuis Snitch vers une adresse fournie par un utilisateur : l'hôte doit être restreint à Hugging Face, avec délai et taille de réponse bornés.
 - Le glossaire gagne les termes d'ordre de modèle et de modèle désiré, et redéfinit catalogue, modèle actif et modèle candidat.
+
+### Mise en oeuvre de l'inspection (#309)
+
+- Hôte exact `huggingface.co` en HTTPS, sans identifiant ni port ; aucune redirection hors hôte, au plus deux dedans ; adresses internes, privées et loopback refusées à la connexion (après résolution DNS) ; délai de 8 s, réponse limitée à 1 Mio ; aucun jeton envoyé (métadonnées publiques seulement).
+- Matrice d'adaptateurs, par ordre de priorité quand plusieurs conviennent (le premier gagne, jamais l'utilisateur) : 1. NeMo (diarisation ; bibliothèque ou étiquette `nemo`, ou fichier `.nemo`), 2. pyannote (diarisation et empreinte ; bibliothèque ou étiquette `pyannote-audio`). Transformers est dans la matrice cible mais sans adaptateur Worker : un dépôt qui ne convient qu'à lui reste `unsupported` ; la séparation aussi (avant #268). Un dépôt avec code distant (`custom_code`, `auto_map`) n'est jamais pris en charge.
+- Le type n'est proposé que si les étiquettes en déclarent un seul (`speaker-diarization`, `speaker-embedding`, `audio-source-separation`) ; le nom du dépôt et le `pipeline_tag` ne prouvent rien. Un type déclaré de façon fiable ne peut pas être contredit à l'ajout.
+- La révision épinglée est le commit lu à l'inspection ; l'ajout relit ce commit exact et refuse toute réponse qui en porte un autre.
