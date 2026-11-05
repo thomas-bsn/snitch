@@ -6,7 +6,8 @@ Go 1.27.3, Node 24.21.0/npm, Python 3.12.15 et Docker Compose v2. Installer `npm
 npm --prefix web run lint
 npm --prefix web run build
 (cd app && go vet ./...)
-SNITCH_E2E=1 bash scripts/test.sh
+SNITCH_E2E=1 bash scripts/test.sh                      # tout, parcours navigateur compris
+SNITCH_E2E=1 SNITCH_E2E_SHARD=2/5 bash scripts/test.sh ./internal/httpapi -run 'TestFoundation/browser'   # une part des parcours (la CI en lance 5 en parallèle)
 .venv/bin/python scripts/check_generated.py
 .venv/bin/python scripts/check_compose.py
 .venv/bin/python scripts/check_error_codes.py   # chaque code d'erreur du serveur a son texte en anglais et en français
