@@ -205,7 +205,7 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	if clipID > 0 {
 		scope = &clipID
 	}
-	groupRows, err := tx.Query(ctx, `SELECT DISTINCT model,model_version,dimensions FROM voice_fingerprints WHERE usable AND scope='speaker' AND ($1::bigint IS NULL OR clip_id=$1)`, scope)
+	groupRows, err := tx.Query(ctx, `SELECT DISTINCT model,model_version,dimensions FROM voice_fingerprints WHERE usable AND NOT benchmark AND scope='speaker' AND ($1::bigint IS NULL OR clip_id=$1)`, scope)
 	if err != nil {
 		return stats, err
 	}
@@ -318,11 +318,11 @@ func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, 
 	query := fmt.Sprintf(`WITH refs AS (
   SELECT vs.person_id,f.embedding::vector(%[1]d) AS e
   FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons op WHERE op.id=vs.person_id AND op.voice_profile_deleted_at IS NOT NULL) AND f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
+  WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons op WHERE op.id=vs.person_id AND op.voice_profile_deleted_at IS NOT NULL) AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
 ), targets AS (
   SELECT f.local_speaker_id AS sid,f.clip_id,f.embedding::vector(%[1]d) AS e
   FROM voice_fingerprints f
-  WHERE f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND ($3::bigint IS NULL OR f.clip_id=$3)
+  WHERE f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND ($3::bigint IS NULL OR f.clip_id=$3)
     AND EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.id=f.local_speaker_id AND ls.kind<>'microphone' AND `+analysis.NoDispositionVoice+`)
     AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=f.local_speaker_id AND (a.validation_state='validated' OR a.origin<>'%[2]s'))
 ), scored AS (

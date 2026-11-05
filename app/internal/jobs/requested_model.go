@@ -37,6 +37,19 @@ func (s *Service) checkRequestedModel(ctx context.Context, step, modelID string)
 	return nil
 }
 
+// RequestedModelRepo is the repository of the model a job asked for, or "" when it asked for none. A request
+// whose catalogue entry has disappeared yields the raw id, which no result can match.
+func RequestedModelRepo(ctx context.Context, q interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}, jobID int64) (string, error) {
+	var repo string
+	err := q.QueryRow(ctx, `SELECT COALESCE(c.repo,j.requested_model_id,'') FROM jobs j LEFT JOIN voice_model_catalog c ON c.id=j.requested_model_id WHERE j.id=$1`, jobID).Scan(&repo)
+	if err != nil {
+		return "", fmt.Errorf("read requested model of job: %w", err)
+	}
+	return repo, nil
+}
+
 func withRequestedModel(job Job, modelID string) Job {
 	if modelID != "" {
 		job.RequestedModelID = &modelID

@@ -475,7 +475,7 @@ func (s *Server) refreshVoiceGroupLinks(ctx context.Context) error {
 	if _, err = tx.Exec(ctx, `SET LOCAL hnsw.iterative_scan = relaxed_order`); err != nil {
 		return err
 	}
-	rows, err := tx.Query(ctx, `SELECT DISTINCT f.model,f.model_version,f.dimensions FROM voice_fingerprints f JOIN local_speakers ls ON ls.id=f.local_speaker_id WHERE f.usable AND f.scope='speaker' AND `+unknownSpeakerPredicate)
+	rows, err := tx.Query(ctx, `SELECT DISTINCT f.model,f.model_version,f.dimensions FROM voice_fingerprints f JOIN local_speakers ls ON ls.id=f.local_speaker_id WHERE f.usable AND NOT f.benchmark AND f.scope='speaker' AND `+unknownSpeakerPredicate)
 	if err != nil {
 		return err
 	}
@@ -499,11 +499,11 @@ func (s *Server) refreshVoiceGroupLinks(ctx context.Context) error {
 		query := fmt.Sprintf(`INSERT INTO voice_group_links(speaker_a_id,speaker_b_id,similarity,model,model_version,dimensions)
 SELECT least(t.sid,n.sid),greatest(t.sid,n.sid),max(n.sim),$1::text,$2::text,%[1]d
 FROM (SELECT f.local_speaker_id AS sid,f.embedding::vector(%[1]d) AS e FROM voice_fingerprints f JOIN local_speakers ls ON ls.id=f.local_speaker_id
-      WHERE f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND `+unknownSpeakerPredicate+`) t
+      WHERE f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND `+unknownSpeakerPredicate+`) t
 CROSS JOIN LATERAL (
   SELECT f2.local_speaker_id AS sid,1-(f2.embedding::vector(%[1]d) <=> t.e) AS sim
   FROM voice_fingerprints f2 JOIN local_speakers ls ON ls.id=f2.local_speaker_id
-  WHERE f2.usable AND f2.scope='speaker' AND f2.model=$1 AND f2.model_version=$2 AND f2.dimensions=%[1]d AND f2.local_speaker_id<>t.sid AND `+unknownSpeakerPredicate+`
+  WHERE f2.usable AND NOT f2.benchmark AND f2.scope='speaker' AND f2.model=$1 AND f2.model_version=$2 AND f2.dimensions=%[1]d AND f2.local_speaker_id<>t.sid AND `+unknownSpeakerPredicate+`
   ORDER BY f2.embedding::vector(%[1]d) <=> t.e LIMIT 20) n
 WHERE n.sim>=$3
 GROUP BY 1,2`, g.dimensions)

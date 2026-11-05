@@ -64,6 +64,16 @@ func testVoiceRequestedModelDispatch(t *testing.T, pool *pgxpool.Pool) {
 	// Asking again for the same job is idempotent.
 	h.scheduleRequested(h.clipID, "voice.fingerprint.1", "bench-1", benchModelID, http.StatusOK)
 
+	// A production job of the same identity is another work: it neither replaces nor is replaced by the benchmark.
+	h.scheduleRequested(h.clipID, "voice.fingerprint.1", "bench-1", "", http.StatusCreated)
+	h.scheduleRequested(h.clipID, "voice.fingerprint.1", "bench-1b", "", http.StatusCreated)
+	if n := h.count(`SELECT count(*) FROM jobs WHERE step='voice.fingerprint.1' AND requested_model_id IS NOT NULL AND status='pending'`); n != 1 {
+		t.Fatalf("scheduling production work must not supersede a requested job, got %d pending", n)
+	}
+	if _, err := pool.Exec(context.Background(), `UPDATE jobs SET status='cancelled' WHERE step='voice.fingerprint.1' AND requested_model_id IS NULL`); err != nil {
+		t.Fatal(err)
+	}
+
 	// No Worker has the requested model ready: the job waits, whatever the Worker declares.
 	if job, ok := h.claimDeclaring(holdsBench); ok {
 		t.Fatalf("a requested job was claimed without a ready model: %+v", job)
