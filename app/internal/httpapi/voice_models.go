@@ -26,6 +26,8 @@ func (s *Server) registerVoiceModelRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/admin/workers/{id}/voice-models/retry", s.protected(true, http.HandlerFunc(s.retryWorkerVoiceModel)))
 	mux.Handle("GET /api/admin/voice-models/workers", s.protected(true, http.HandlerFunc(s.listModelsByWorker)))
 	mux.Handle("POST /api/admin/workers/{id}/voice-model-orders", s.protected(true, http.HandlerFunc(s.createVoiceModelOrder)))
+	mux.Handle("POST /api/admin/workers/{id}/voice-model-removals", s.protected(true, http.HandlerFunc(s.createVoiceModelRemoval)))
+	mux.Handle("GET /api/admin/workers/{id}/voice-model-orders", s.protected(true, http.HandlerFunc(s.listVoiceModelOrders)))
 	mux.Handle("DELETE /api/admin/workers/{id}/voice-model-replacements/{kind}", s.protected(true, http.HandlerFunc(s.cancelVoiceModelReplacement)))
 	mux.Handle("POST /api/worker/voice-model-orders/{id}/ack", s.workerOnly(http.HandlerFunc(s.ackWorkerModelOrder)))
 	mux.Handle("GET /api/worker/voice-models", s.workerOnly(http.HandlerFunc(s.getWorkerVoiceModels)))

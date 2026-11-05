@@ -382,8 +382,14 @@ from .voice_model_inspection import VoiceModelInspection
 from .voice_model_inspection_compatible_kinds_item import VoiceModelInspectionCompatibleKindsItem
 from .voice_model_inspection_request import VoiceModelInspectionRequest
 from .voice_model_kind import VoiceModelKind
+from .voice_model_order_history import VoiceModelOrderHistory
+from .voice_model_order_history_item import VoiceModelOrderHistoryItem
+from .voice_model_order_history_item_action import VoiceModelOrderHistoryItemAction
+from .voice_model_order_history_item_kind import VoiceModelOrderHistoryItemKind
+from .voice_model_order_history_item_status import VoiceModelOrderHistoryItemStatus
 from .voice_model_order_input import VoiceModelOrderInput
 from .voice_model_patch import VoiceModelPatch
+from .voice_model_removal_input import VoiceModelRemovalInput
 from .voice_model_retry import VoiceModelRetry
 from .voice_model_worker_state import VoiceModelWorkerState
 from .voice_model_worker_state_cause_code import VoiceModelWorkerStateCauseCode
@@ -872,8 +878,14 @@ __all__ = (
     "VoiceModelInspectionCompatibleKindsItem",
     "VoiceModelInspectionRequest",
     "VoiceModelKind",
+    "VoiceModelOrderHistory",
+    "VoiceModelOrderHistoryItem",
+    "VoiceModelOrderHistoryItemAction",
+    "VoiceModelOrderHistoryItemKind",
+    "VoiceModelOrderHistoryItemStatus",
     "VoiceModelOrderInput",
     "VoiceModelPatch",
+    "VoiceModelRemovalInput",
     "VoiceModelRetry",
     "VoiceModels",
     "VoiceModelWorkerState",
