@@ -176,6 +176,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPrivateFolders(t, pool)
 	})
+	t.Run("system directories", func(t *testing.T) {
+		reset(t)
+		testSystemDirectories(t, pool)
+	})
 	t.Run("video root browse", func(t *testing.T) {
 		reset(t)
 		testVideoRootBrowse(t, pool)

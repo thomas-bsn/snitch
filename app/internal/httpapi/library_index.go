@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"snitch/internal/library"
 )
 
 // Indexation of the whole Racine vidéo (#275, ADR 0038). An Administrator asks once, explicitly,
@@ -61,10 +62,10 @@ type indexRunView struct {
 }
 
 // walkRootVideos lists the video files under the Racine an Administrator may see: no symlink, no
-// hidden entry, and no Dossier privé unless the viewer is a Super-administrator (ADR 0026).
+// hidden entry or NAS system directory, and no Dossier privé unless the viewer is a Super-administrator (ADR 0026).
 func walkRootVideos(ctx context.Context, root string, private map[string]bool, superAdmin bool) ([]rootVideo, error) {
 	var out []rootVideo
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+	err := library.WalkMediaDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

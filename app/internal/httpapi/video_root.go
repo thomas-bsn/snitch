@@ -130,7 +130,7 @@ func (s *Server) videoBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []videoEntry{}
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".") || entry.Type()&os.ModeSymlink != 0 {
+		if entry.IsDir() && library.IsSystemDirectory(entry.Name()) || strings.HasPrefix(entry.Name(), ".") || entry.Type()&os.ModeSymlink != 0 {
 			continue
 		}
 		if !entry.IsDir() && !videoExtension(entry.Name()) {
@@ -234,7 +234,7 @@ func (s *Server) videoScan(w http.ResponseWriter, r *http.Request) {
 			fail(w, 403, "forbidden")
 			return
 		}
-		e = filepath.WalkDir(absolute, func(path string, entry fs.DirEntry, err error) error {
+		e = library.WalkMediaDir(absolute, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}

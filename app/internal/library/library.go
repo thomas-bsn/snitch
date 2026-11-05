@@ -390,7 +390,7 @@ func (s *Service) WatchSource(source Source) {
 	if watcher == nil || !source.Enabled {
 		return
 	}
-	err := filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, err error) error {
+	err := WalkMediaDir(source.Path, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -466,7 +466,7 @@ func (s *Service) WatchSubtree(source Source, path string) {
 	if watcher == nil {
 		return
 	}
-	_ = filepath.WalkDir(path, func(dir string, entry os.DirEntry, err error) error {
+	_ = WalkMediaDir(path, func(dir string, entry os.DirEntry, err error) error {
 		if err != nil || !entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
 			return err
 		}
@@ -563,7 +563,7 @@ func (s *Service) ScanSource(ctx context.Context, sourceID int64) error {
 	pending := false
 	var unreadable bool
 	var incomplete bool
-	err = filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
+	err = WalkMediaDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			incomplete = true
 			return nil
