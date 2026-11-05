@@ -689,6 +689,37 @@ export const en = {
     discordSecret: "Discord application secret",
     secretKept: "Leave empty to keep the current secret.",
     callback: "Discord return address",
+    bot: {
+      title: "Discord Bot — Profile Pictures",
+      explain:
+        "A bot lets Snitch read members' Discord profile pictures and keep them up to date every 24 hours. It only reads public profiles. A picture a member imported themselves is never replaced. The token is independent of the sign-in credentials above.",
+      state: "State",
+      statusConnected: "Connected",
+      statusNotConfigured: "Not configured",
+      statusError: "Error",
+      name: "Bot",
+      lastSync: "Last synchronization",
+      lastSyncResult: "{date}: {refreshed} updated, {failed} failed",
+      running: "Running…",
+      never: "Never",
+      token: "Bot Token",
+      tokenKept:
+        "Leave empty to keep the current token. The token is never shown again.",
+      connect: "Connect Bot",
+      replace: "Save new token",
+      test: "Test Connection",
+      disconnect: "Disconnect",
+      cancel: "Cancel",
+      disconnectTitle: "Disconnect the bot?",
+      disconnectBody:
+        "Automatic synchronization stops. Pictures already downloaded are kept.",
+      sync: "Sync Now",
+      syncStarted: "Synchronization started.",
+      connected: "Bot connected.",
+      disconnected: "Bot disconnected.",
+      testOk: "The connection works.",
+      ownerOnly: "Only the Super-administrator can configure the bot.",
+    },
     unreadable: "Secrets to enter again: {names}",
     saveSettings: "Save settings",
     exports: "Exports",
@@ -1026,6 +1057,28 @@ export const en = {
     tabsLabel: "Account settings",
     tabs: { profile: "Profile", voice: "My voice" },
     profile: {
+      displayName: "Display name",
+      displayNameHint: "The name shown in your profile and account menu.",
+      loginHint:
+        "Use this username to sign in with a password. 3–64 characters.",
+      identitySaved: "Profile saved.",
+      saveIdentity: "Save profile",
+      saving: "Saving…",
+      securityTitle: "Password & sign-in",
+      passwordHint:
+        "Enter your current password to choose a new one. Other sessions will be signed out.",
+      firstPasswordHint:
+        "Add a password to sign in without Discord. You can then unlink Discord if you wish.",
+      currentPassword: "Current password",
+      newPassword: "New password",
+      confirmPassword: "Confirm new password",
+      passwordLength:
+        "12–256 characters. Password managers and paste are welcome.",
+      passwordMismatch: "The passwords do not match.",
+      passwordSaved: "Password saved. Other sessions have been signed out.",
+      changePassword: "Change password",
+      setPassword: "Set a password",
+
       identityTitle: "Account",
       username: "Username",
       role: "Role",
@@ -1066,6 +1119,23 @@ export const en = {
         hint: "The image will be cropped to a centred square.",
         remove: "Remove photo",
         updated: "Profile photo updated.",
+        refreshed: "Discord picture refreshed.",
+        working: "Working…",
+        current: "Showing: {source}.",
+        sourceLegend: "Photo source",
+        sourceDiscord: "your Discord picture",
+        sourceCustom: "your own picture",
+        sourceNone: "your initials",
+        optionDiscord: "Discord",
+        optionCustom: "My Picture",
+        autoOn: "Automatic synchronization with Discord is on.",
+        autoOff: "Automatic synchronization is off.",
+        refresh: "Refresh Discord Picture",
+        noBot:
+          "An administrator has not connected the Discord bot yet, so the Discord picture cannot be fetched.",
+        noDiscordPicture: "No Discord picture yet: your initials are shown.",
+        customWins:
+          "A picture you import always takes priority: Discord never replaces it. Choose Discord to go back.",
         tooLarge: "The limit is 5 MB.",
         failed:
           "Could not update the photo. Choose a JPEG or PNG image (up to 5 MB and 16 megapixels).",
@@ -1187,6 +1257,20 @@ export const en = {
   workerUpdates: {
     title: "Worker updates",
     lead: "Choose the version every Worker must run. Each Worker checks about every 10 minutes and updates itself. Choosing no version turns automatic updates off; going back to an older version is a rollback.",
+    strategyLegend: "Update strategy",
+    strategy: {
+      pinned: "Pinned version",
+      latest: "Latest — automatic updates",
+    },
+    latestHelp:
+      "Snitch follows the newest stable Worker release and applies it by itself as soon as a new one appears. No automatic downgrade; a busy Worker waits for its jobs to finish, and a version that fails is rolled back then skipped for 24 h.",
+    latestDetected: "Latest stable version detected",
+    effectiveVersion: "Version applied to Workers",
+    lastCheck: "Last check",
+    neverChecked: "not yet",
+    checkFailed:
+      "The last registry check failed; the last valid version is kept.",
+    disabledHelp: "No automatic update.",
     targetLabel: "Target version",
     none: "No version (automatic updates off)",
     save: "Save target version",
@@ -1539,6 +1623,8 @@ export const en = {
       forget: "Remove from the list",
       forgetBody:
         "The machine confirmed the revocation. Removing this entry deletes it from the list for good; the history of the tasks it ran is kept, without the Worker's name.",
+      forgetUnconfirmedBody:
+        "Local cleanup was not confirmed: the machine never confirmed the revocation. The model volume, the container and the launcher folder may remain on that machine. Removing this entry deletes it from the list for good; the history of the tasks it ran is kept, without the Worker's name.",
       forgetTitle: "Remove {name} from the list?",
       forgetConfirm: "Remove",
       cleanupPending:

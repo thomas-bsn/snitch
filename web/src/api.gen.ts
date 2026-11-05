@@ -321,6 +321,143 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/avatar-settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Source de la photo du compte connecté (discord, custom ou none), présence de chaque image, état de la synchronisation Discord. */
+    get: operations["getAvatarSettings"];
+    /** @description Choix explicite de la source affichée. custom exige une photo personnelle, discord une identité Discord liée (la photo est alors récupérée si le bot est configuré). Les deux images sont conservées. */
+    put: operations["putAvatarSettings"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/avatar/discord-refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Actualise la photo Discord du compte connecté. Ne touche jamais la photo personnelle. Une fois toutes les 30 secondes au plus par compte. */
+    post: operations["refreshDiscordAvatar"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/discord-bot": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs : état du bot Discord (photos de profil), sans jamais renvoyer le token. */
+    get: operations["getDiscordBot"];
+    /** @description Réservé au Super-administrateur : vérifie le token auprès de Discord puis l'enregistre chiffré. Un token refusé n'est pas enregistré (invalid_discord_bot_token) et n'est jamais renvoyé. */
+    put: operations["putDiscordBot"];
+    post?: never;
+    /** @description Réservé au Super-administrateur : déconnecte le bot. La synchronisation s'arrête, les photos existantes restent. */
+    delete: operations["deleteDiscordBot"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/discord-bot/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Réservé au Super-administrateur : teste le token enregistré auprès de Discord. */
+    post: operations["testDiscordBot"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/discord-bot/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs : lance une synchronisation globale en arrière-plan. 409 discord_sync_running si une passe est déjà en cours, quelle que soit l'instance. */
+    post: operations["syncDiscordBot"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["updateAccountProfile"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["updateAccountPassword"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Photo actuelle du compte dont la liaison à cette Personne est validée. Suit la source choisie ; 404 sans lien, photo ou compte actif. Session requise. */
+    get: operations["getPersonAvatar"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/preferences": {
     parameters: {
       query?: never;
@@ -738,7 +875,7 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** @description Retire de la liste un Worker révoqué dont la machine a confirmé la révocation ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé. */
+    /** @description Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur la machine). */
     delete: operations["forgetWorker"];
     options?: never;
     head?: never;
@@ -788,7 +925,7 @@ export interface paths {
     };
     /** @description Version cible de mise à jour automatique des Workers, catalogue des versions publiées et dernier statut de chaque Worker (ADR 0036). */
     get: operations["getWorkerUpdates"];
-    /** @description Choisit la version cible. Null ou chaîne vide : aucune mise à jour automatique. Le format est vérifié ; l'image est construite par Snitch à partir du dépôt configuré. */
+    /** @description Choisit la stratégie : disabled (aucune mise à jour), pinned (version fixe, obligatoire) ou latest (suivi de la dernière version publiée, la version envoyée est ignorée). Sans mode, il est déduit de la version (vide : disabled). Le format est vérifié ; l'image est construite par Snitch à partir du dépôt configuré. */
     put: operations["putWorkerUpdateTarget"];
     post?: never;
     delete?: never;
@@ -976,7 +1113,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Image que l'agent local du Worker doit faire tourner. Ne modifie rien ; sans cible, les champs sont nuls. */
+    /** @description Image que l'agent local du Worker doit faire tourner, et si ce Worker est au repos (aucun job sous bail) pour que l'agent attende un moment calme. En mode latest, résout la cible depuis le catalogue en cache (écriture seulement si une version plus haute apparaît). Sans cible, les champs version et image sont nuls. */
     get: operations["getWorkerUpdate"];
     put?: never;
     post?: never;
@@ -3478,6 +3615,16 @@ export interface components {
        * @enum {string|null}
        */
       language?: "en" | "fr" | null;
+      /** @description Pseudo choisi dans Snitch, sinon nom Discord pour les comptes générés, sinon identifiant local. */
+      display_name?: string;
+    };
+    AccountProfileInput: {
+      display_name: string;
+      username: string;
+    };
+    AccountPasswordInput: {
+      current_password?: string;
+      new_password: string;
     };
     AccountPreferences: {
       /**
@@ -3499,6 +3646,9 @@ export interface components {
       can_unlink_discord: boolean;
       /** @description Display name of the linked Discord identity (global name, else username); null when unlinked or linked before it was kept. Read-only. */
       discord_name?: string | null;
+      has_password: boolean;
+      /** @description Vrai username Discord, distinct du global_name ; actualisé à la connexion et par le bot. */
+      discord_username?: string | null;
     };
     Setup: {
       initialized: boolean;
@@ -4014,6 +4164,37 @@ export interface components {
         version: string;
       };
       items: components["schemas"]["Worker"][];
+    };
+    AvatarSettingsInput: {
+      /** @enum {string} */
+      source: "discord" | "custom" | "none";
+    };
+    AvatarSettings: {
+      /** @enum {string} */
+      source: "discord" | "custom" | "none";
+      discord_linked: boolean;
+      has_custom: boolean;
+      has_discord: boolean;
+      bot_configured: boolean;
+      /** @description Vrai quand la photo affichée suit Discord et que le bot est configuré. */
+      auto_sync: boolean;
+      /** Format: date-time */
+      last_synced_at: string | null;
+      last_error: string | null;
+    };
+    DiscordBotInput: {
+      token: string;
+    };
+    DiscordBotStatus: {
+      /** @enum {string} */
+      status: "connected" | "not_configured" | "error";
+      bot_name: string | null;
+      last_error: string | null;
+      /** Format: date-time */
+      last_sync_at: string | null;
+      last_refreshed: number;
+      last_failed: number;
+      running: boolean;
     };
     HFTokenInput: {
       /** @description Token Hugging Face : écrit une fois, jamais renvoyé */
@@ -6810,6 +6991,389 @@ export interface operations {
       };
     };
   };
+  getAvatarSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglages de photo */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvatarSettings"];
+        };
+      };
+      /** @description Erreur (401) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putAvatarSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AvatarSettingsInput"];
+      };
+    };
+    responses: {
+      /** @description Réglages mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvatarSettings"];
+        };
+      };
+      /** @description Erreur (400 invalid_avatar_source, 409 no_custom_avatar ou discord_not_linked, 401, 403 CSRF) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  refreshDiscordAvatar: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglages mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvatarSettings"];
+        };
+      };
+      /** @description Erreur (409 discord_not_linked ou discord_bot_not_configured, 429 avatar_sync_too_soon ou discord_rate_limited, 502 discord_unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getDiscordBot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du bot */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscordBotStatus"];
+        };
+      };
+      /** @description Erreur (401, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DiscordBotInput"];
+      };
+    };
+    responses: {
+      /** @description Bot connecté */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscordBotStatus"];
+        };
+      };
+      /** @description Erreur (400 invalid_discord_bot_token, 429, 502 discord_unavailable, 403 super_administrator_required) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bot déconnecté */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (401, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  testDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du bot après test */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscordBotStatus"];
+        };
+      };
+      /** @description Erreur (400 invalid_discord_bot_token, 409 discord_bot_not_configured, 502, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  syncDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Synchronisation lancée */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (409 discord_bot_not_configured ou discord_sync_running, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateAccountProfile: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountProfileInput"];
+      };
+    };
+    responses: {
+      /** @description Compte mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
+        };
+      };
+      /** @description Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateAccountPassword: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountPasswordInput"];
+      };
+    };
+    responses: {
+      /** @description Compte mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
+        };
+      };
+      /** @description Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getPersonAvatar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description PNG 256×256 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+        };
+      };
+      /** @description Photo inchangée */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Aucune photo ou aucun lien actif */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur ou absence de photo (400, 401, 404) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getAccountPreferences: {
     parameters: {
       query?: never;
@@ -7930,7 +8494,10 @@ export interface operations {
   };
   forgetWorker: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Retire le Worker révoqué même si sa machine n'a pas confirmé la révocation. */
+        force?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -7949,7 +8516,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Worker introuvable, non révoqué ou nettoyage local non confirmé */
+      /** @description Worker introuvable, non révoqué ou nettoyage local non confirmé sans force */
       default: {
         headers: {
           [name: string]: unknown;
@@ -8058,6 +8625,20 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /**
+             * @description Stratégie choisie. La version effective (target_version) est celle de l'administrateur en pinned, la plus haute version publiée déjà vue en latest.
+             * @enum {string}
+             */
+            mode: "disabled" | "pinned" | "latest";
+            /** @description Version stable la plus récente du catalogue, indépendamment du mode. */
+            latest_version: string | null;
+            /**
+             * Format: date-time
+             * @description Dernière interrogation du registre par ce serveur (mémoire du processus), nulle tant qu'aucune n'a eu lieu.
+             */
+            checked_at: string | null;
+            /** @description Vrai si la dernière interrogation du registre a échoué ; la dernière cible valide est conservée. */
+            check_failed: boolean;
             target_version: string | null;
             target_image: string | null;
             image_repository: string;
@@ -8108,6 +8689,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @enum {string} */
+          mode?: "disabled" | "pinned" | "latest";
           version: string | null;
         };
       };
@@ -8120,6 +8703,8 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /** @enum {string} */
+            mode: "disabled" | "pinned" | "latest";
             target_version: string | null;
           };
         };
@@ -8608,6 +9193,7 @@ export interface operations {
         };
         content: {
           "application/json": {
+            idle: boolean;
             target_version: string | null;
             target_image: string | null;
           };

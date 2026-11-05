@@ -10,8 +10,10 @@ import (
 )
 
 type AccountAvatar struct {
-	UserID int64  `json:"user_id"`
-	Png    []byte `json:"png"`
+	UserID      int64       `json:"user_id"`
+	Png         []byte      `json:"png"`
+	Source      string      `json:"source"`
+	DiscordHash pgtype.Text `json:"discord_hash"`
 }
 
 type AttributionEvent struct {
@@ -30,6 +32,16 @@ type AttributionEvent struct {
 	AuthorID         pgtype.Int8        `json:"author_id"`
 	AuthorUsername   string             `json:"author_username"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type AvatarPreference struct {
+	UserID               int64              `json:"user_id"`
+	Source               string             `json:"source"`
+	Version              int64              `json:"version"`
+	DiscordCheckedAt     pgtype.Timestamptz `json:"discord_checked_at"`
+	DiscordNextAttemptAt pgtype.Timestamptz `json:"discord_next_attempt_at"`
+	DiscordFailures      int32              `json:"discord_failures"`
+	DiscordLastError     pgtype.Text        `json:"discord_last_error"`
 }
 
 type Clip struct {
@@ -161,6 +173,18 @@ type ClipWaveform struct {
 	JobID            int64              `json:"job_id"`
 	Peaks            []byte             `json:"peaks"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type DiscordBotState struct {
+	ID                int16              `json:"id"`
+	BotName           pgtype.Text        `json:"bot_name"`
+	Status            string             `json:"status"`
+	LastError         pgtype.Text        `json:"last_error"`
+	LastSyncStartedAt pgtype.Timestamptz `json:"last_sync_started_at"`
+	LastSyncAt        pgtype.Timestamptz `json:"last_sync_at"`
+	LastRefreshed     int32              `json:"last_refreshed"`
+	LastFailed        int32              `json:"last_failed"`
+	LockedUntil       pgtype.Timestamptz `json:"locked_until"`
 }
 
 type EmbeddingIndexState struct {
@@ -644,16 +668,18 @@ type UploadedMedium struct {
 }
 
 type User struct {
-	ID           int64              `json:"id"`
-	Username     string             `json:"username"`
-	PasswordHash pgtype.Text        `json:"password_hash"`
-	Role         string             `json:"role"`
-	Approved     bool               `json:"approved"`
-	DiscordID    pgtype.Text        `json:"discord_id"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	Language     pgtype.Text        `json:"language"`
-	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
-	DiscordName  pgtype.Text        `json:"discord_name"`
+	ID              int64              `json:"id"`
+	Username        string             `json:"username"`
+	PasswordHash    pgtype.Text        `json:"password_hash"`
+	Role            string             `json:"role"`
+	Approved        bool               `json:"approved"`
+	DiscordID       pgtype.Text        `json:"discord_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Language        pgtype.Text        `json:"language"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DiscordName     pgtype.Text        `json:"discord_name"`
+	DisplayName     pgtype.Text        `json:"display_name"`
+	DiscordUsername pgtype.Text        `json:"discord_username"`
 }
 
 type VoiceActiveModel struct {
@@ -919,6 +945,7 @@ type WorkerUpdateTarget struct {
 	ID        bool               `json:"id"`
 	Version   pgtype.Text        `json:"version"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Mode      string             `json:"mode"`
 }
 
 type WorkerVoiceModel struct {

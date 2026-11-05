@@ -111,6 +111,11 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const worker = state.value;
   const { tone, label } = workerStatus(worker);
   const revoked = worker.revoked_at !== null;
+  // Removing a Worker whose machine never confirmed is forced, and the warning says so (#261).
+  const cleanupUnconfirmed = !worker.revocation_acknowledged_at;
+  const forgetBody = cleanupUnconfirmed
+    ? t("workers.detail.forgetUnconfirmedBody")
+    : t("workers.detail.forgetBody");
   // The local launcher exists only once the installation reached its first pulse.
   const installed =
     worker.install?.state === "connected" ||
@@ -131,7 +136,7 @@ export function WorkerDetailPage({ id }: { id: string }) {
   async function forget() {
     setBusy(true);
     setFailure(undefined);
-    const result = await actions.forget(id);
+    const result = await actions.forget(id, cleanupUnconfirmed);
     setBusy(false);
     setConfirm(null);
     if (result.ok) navigate("/admin/workers");
@@ -388,9 +393,9 @@ export function WorkerDetailPage({ id }: { id: string }) {
         </Section>
       )}
 
-      {revoked && worker.revocation_acknowledged_at && (
+      {revoked && (
         <Section title={t("workers.detail.forget")}>
-          <p className="text-mute">{t("workers.detail.forgetBody")}</p>
+          <p className="text-mute">{forgetBody}</p>
           <div>
             <button
               type="button"
@@ -460,7 +465,7 @@ export function WorkerDetailPage({ id }: { id: string }) {
         danger
         busy={busy}
       >
-        <p>{t("workers.detail.forgetBody")}</p>
+        <p>{forgetBody}</p>
       </ConfirmDialog>
       <ConfirmDialog
         open={confirm === "revoke"}

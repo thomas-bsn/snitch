@@ -84,3 +84,17 @@ L’exemple [.env.example](../.env.example) prépare les variables du déploieme
 
 Les logs de l'application sont du JSON avec erreurs génériques, sans URL PostgreSQL, clé maître ni corps de requête. Le pool est limité à six connexions. SIGTERM laisse jusqu'à dix secondes aux requêtes en cours avant la fermeture du pool.
 
+
+## Photos de profil Discord
+
+Une photo de profil vient de l'une de ces sources, choisie dans Compte › Profil : **Discord** (synchronisée), **Ma photo** (importée) ou les initiales. Un compte créé par Discord affiche sa photo Discord ; un compte local qui lie Discord l'adopte s'il n'a pas de photo personnelle. Une photo importée est toujours prioritaire : la synchronisation ne la remplace jamais, et « Discord » permet d'y revenir sans perdre l'autre photo. Délier Discord arrête la synchronisation et supprime la photo Discord téléchargée ; la photo personnelle reste.
+
+La synchronisation demande un **bot Discord** (Administration › Inscriptions › « Discord Bot — Profile Pictures »). Créez un bot dans le portail développeur de Discord (aucune permission ni intention privilégiée n'est nécessaire : il ne lit que les profils publics), copiez son jeton, puis « Connect Bot ». Le jeton est vérifié auprès de Discord avant d'être enregistré chiffré ; il n'est jamais réaffiché. Seul le Super-administrateur le configure, le teste (« Test Connection ») ou le supprime (« Disconnect », qui garde les photos). Les profils sont actualisés toutes les 24 heures, même hors connexion, juste après une création ou une liaison, à la demande de l'utilisateur (« Refresh Discord Picture », au plus une fois toutes les 30 secondes) et par « Sync Now » pour tous les comptes. Voir l'[ADR 0041](adr/0041-synchronisation-des-avatars-discord.md).
+
+## Modifier son profil et ses moyens de connexion
+
+Menu du compte → Paramètres du compte → Profil : modifier le pseudo affiché et, si nécessaire, le nom d’utilisateur utilisé pour se connecter. Le pseudo n’a pas à être unique ; le nom d’utilisateur reste unique sans distinction de casse. Le nom et le vrai `@username` Discord sont affichés séparément et se mettent à jour à la prochaine connexion ou synchronisation du bot ; un pseudo choisi dans Snitch reste prioritaire.
+
+La section « Mot de passe et connexion » permet de changer son mot de passe en saisissant l’actuel, ou d’en créer un si le compte vient de Discord. Minimum 12 caractères, maximum 256. Les autres sessions sont fermées après enregistrement ; la session courante reste ouverte. Un compte avec mot de passe peut ensuite délier Discord. Les comptes existants gardent leurs identifiants.
+
+Après validation de la liaison compte–Personne par un Administrateur, la Personne affiche la photo sélectionnée dans le profil du compte, dans l’annuaire, sa fiche et le panneau de décision vocale. Changer ou supprimer cette photo se reflète à la prochaine lecture ; retirer le lien ou fermer le compte fait revenir aux initiales. Une demande en attente n’affiche aucune photo. Le nom de la Personne reste indépendant du pseudo du compte.

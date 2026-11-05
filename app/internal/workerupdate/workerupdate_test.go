@@ -132,3 +132,82 @@ func TestCatalogRefusesPlainHTTPRegistry(t *testing.T) {
 		t.Fatalf("plain HTTP registry must be refused, got %v", err)
 	}
 }
+
+func TestNewestIgnoresRegistryOrderAndNonReleases(t *testing.T) {
+	if got := Newest([]string{"v1.9.0", "v1.10.0", "v1.2.0", "latest", "sha-abc", "v2.0.0-rc1"}); got != "v1.10.0" {
+		t.Fatalf("got %q", got)
+	}
+	if got := Newest(nil); got != "" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestCatalogFollowsPaginationOnTheSameHostOnly(t *testing.T) {
+	var host string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"token": "anon"})
+	})
+	mux.HandleFunc("/v2/thomas-bsn/snitch-worker/tags/list", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("last") == "" {
+			w.Header().Set("Link", `</v2/thomas-bsn/snitch-worker/tags/list?n=1000&last=sha-1>; rel="next"`)
+			_ = json.NewEncoder(w).Encode(map[string]any{"tags": []string{"v1.0.0", "sha-1"}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"tags": []string{"v1.1.0"}})
+	})
+	ts := httptest.NewTLSServer(mux)
+	defer ts.Close()
+	host = ts.URL
+	c := &Catalog{Client: ts.Client(), Registry: host, Repo: "thomas-bsn/snitch-worker"}
+	got, err := c.Versions(context.Background())
+	if err != nil || !reflect.DeepEqual(got, []string{"v1.1.0", "v1.0.0"}) {
+		t.Fatalf("second page lost: %v, %v", got, err)
+	}
+
+	// A link towards another host would leak the bearer token: the whole list is refused.
+	evil := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			_ = json.NewEncoder(w).Encode(map[string]string{"token": "anon"})
+			return
+		}
+		w.Header().Set("Link", `<https://evil.example/steal>; rel="next"`)
+		_ = json.NewEncoder(w).Encode(map[string]any{"tags": []string{"v9.9.9"}})
+	}))
+	defer evil.Close()
+	c = &Catalog{Client: evil.Client(), Registry: evil.URL, Repo: "thomas-bsn/snitch-worker"}
+	if got, err = c.Versions(context.Background()); !errors.Is(err, ErrCatalog) || len(got) != 0 {
+		t.Fatalf("foreign pagination link must fail: %v, %v", got, err)
+	}
+}
+
+func TestCatalogBacksOffAfterFailureAndReportsStatus(t *testing.T) {
+	var calls atomic.Int32
+	ts := fakeRegistry(t, []string{"v1.0.0"}, &calls)
+	now := time.Now()
+	c := &Catalog{Client: ts.Client(), Registry: ts.URL, Repo: "thomas-bsn/snitch-worker", TTL: time.Minute, Now: func() time.Time { return now }}
+	if at, failed := c.Status(); !at.IsZero() || failed {
+		t.Fatal("no attempt yet")
+	}
+	if _, err := c.Versions(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if at, failed := c.Status(); at.IsZero() || failed {
+		t.Fatalf("successful check expected, failed=%v", failed)
+	}
+	now = now.Add(2 * time.Minute)
+	ts.Close()
+	if got, err := c.Versions(context.Background()); err != nil || len(got) != 1 {
+		t.Fatalf("last good list expected: %v, %v", got, err)
+	}
+	if _, failed := c.Status(); !failed {
+		t.Fatal("the failure must be visible")
+	}
+	// While backing off, no new registry attempt is made even though the TTL has long expired.
+	tried, _ := c.Status()
+	now = now.Add(10 * time.Second)
+	_, _ = c.Versions(context.Background())
+	if again, _ := c.Status(); !again.Equal(tried) {
+		t.Fatal("a Worker poll must not hammer an unreachable registry")
+	}
+}

@@ -11,6 +11,7 @@ SNITCH_E2E=1 SNITCH_E2E_SHARD=2/5 bash scripts/test.sh ./internal/httpapi -run '
 .venv/bin/python scripts/check_generated.py
 .venv/bin/python scripts/check_compose.py
 .venv/bin/python scripts/check_error_codes.py   # chaque code d'erreur du serveur a son texte en anglais et en français
+(cd scripts && ../.venv/bin/python -m unittest test_reserve_worker_version test_ci_metrics test_verify_workflow)
 docker build -f deploy/docker/app.Dockerfile -t snitch-smoke:local .
 docker build -f deploy/docker/worker.Dockerfile -t snitch-worker:local .
 docker run --rm snitch-worker:local python -m pip check   # image unique du worker, sans GPU requis pour la construire (~9 Go)
@@ -28,3 +29,5 @@ Le contrat source `contracts/openapi.yaml` génère Go/TypeScript/Python et sqlc
 Le smoke Compose crée trois projets et volumes uniques puis les supprime, même en échec. Il démarre sans `POSTGRES_PASSWORD` ni `MASTER_KEY` (le fichier `.env` local est ignoré) et vérifie que la clé maître est générée, conservée après un second démarrage, illisible par le service de base, exportable, absente d’un dump de la base et des journaux, puis que sa suppression laisse l’application démarrer en listant les secrets à ressaisir (et que les ressaisir fonctionne) ; il vérifie aussi que le mot de passe est produit, imposé par la base, conservé après un second démarrage et jamais publié ni journalisé, puis qu’un mot de passe explicite contenant des caractères réservés est respecté, redémarre sans perte et survit au retrait de la variable. Il teste aussi l’installation via HTTP, SPA embarquée, absence de modèles, disponibilité sans embed, persistance après redémarrage, SIGTERM et blocage de l’API si migrate échoue. Les logs et identifiants temporaires ne sont jamais imprimés. Un troisième argument écrit les mesures locales sans secrets : `python3 scripts/smoke_compose.py snitch-smoke:local /tmp/footprint.json`.
 
 La CI ajoute aux contrôles de source les builds app/worker avant de permettre la publication. Les dépendances sont verrouillées, les notices complètes sont embarquées ; voir `deploy/NOTICES.md`. La reproductibilité des artefacts générés est distincte de celle des octets d’images, non garantie.
+
+`test_verify_workflow` lit le YAML réel : régression application seule / Worker seul, états des dépendances, annulation du run, digest absent, interdiction des publications PR et événements autorisés. Il exécute le code Python réel de `check` pour les 16 384 combinaisons succès/ignoré/échec/annulé de ses sept dépendances, ainsi que le script bash de `changes` pour chaque type d'événement. Son interpréteur limité des conditions modélise le `success()` implicite et les ancêtres ignorés ; la validation sur GitHub Actions reste nécessaire pour l'ordonnancement réel.

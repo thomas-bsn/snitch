@@ -154,6 +154,9 @@ func retireMember(ctx context.Context, tx pgx.Tx, id int64, hide bool) error {
 	if _, err := tx.Exec(ctx, `UPDATE users SET username='Utilisateur supprimé',password_hash=NULL,discord_id=NULL,discord_name=NULL,approved=false,role='user',deleted_at=now() WHERE id=$1`, id); err != nil {
 		return err
 	}
+	if err := dropDiscordAvatar(ctx, tx, id); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1`, id); err != nil {
 		return err
 	}

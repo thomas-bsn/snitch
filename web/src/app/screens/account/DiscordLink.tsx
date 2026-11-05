@@ -79,7 +79,7 @@ export function DiscordLink() {
             </span>
           </div>
           {linked ? (
-            <p className="text-sm text-mute">
+            <p className="break-words text-sm text-mute">
               {session?.discord_name
                 ? t("account.profile.discordIdentity", {
                     name: session.discord_name,
@@ -89,6 +89,11 @@ export function DiscordLink() {
           ) : (
             <p className="text-sm text-mute">
               {t("account.profile.discordBody")}
+            </p>
+          )}
+          {linked && session?.discord_username && (
+            <p className="break-all text-sm text-mute">
+              @{session.discord_username}
             </p>
           )}
         </div>

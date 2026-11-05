@@ -16,7 +16,7 @@ import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
 import { ExcerptPlayer } from "../people/ExcerptPlayer";
 import { useFailureText } from "../people/failureText";
-import { initials } from "../people/PersonParts";
+import { Avatar } from "../people/PersonParts";
 import {
   fetchPersonPage,
   fetchVoiceGroupOf,
@@ -393,12 +393,11 @@ export function VoiceDecision({
     <div ref={root} className={`flex flex-col ${triage ? "gap-5" : "gap-2"}`}>
       {triage && person && !validated && (
         <div className="flex flex-wrap items-center gap-4 rounded-xl bg-accent-soft p-4">
-          <span
-            aria-hidden="true"
-            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-avatar-bg text-base font-semibold text-accent-ink"
-          >
-            {initials(person.display_name)}
-          </span>
+          <Avatar
+            personId={person.id}
+            name={person.display_name}
+            size="record"
+          />
           <div className="min-w-0 flex-1">
             <p className="m-0 text-xs text-accent-ink">
               {t("voiceDecision.looksLike")}

@@ -1059,6 +1059,27 @@
         "description": "Photo personnelle du compte connecté. JPEG/PNG, 5 Mo et 16 mégapixels maximum ; recadrage carré et stockage PNG 256×256 sans métadonnées."
       }
     },
+    "/api/account/avatar-settings": {
+      "get": {"operationId": "getAvatarSettings", "description": "Source de la photo du compte connecté (discord, custom ou none), présence de chaque image, état de la synchronisation Discord.", "responses": {"200": {"description": "Réglages de photo", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AvatarSettings"}}}}, "default": {"description": "Erreur (401)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}},
+      "put": {"operationId": "putAvatarSettings", "description": "Choix explicite de la source affichée. custom exige une photo personnelle, discord une identité Discord liée (la photo est alors récupérée si le bot est configuré). Les deux images sont conservées.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AvatarSettingsInput"}}}}, "responses": {"200": {"description": "Réglages mis à jour", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AvatarSettings"}}}}, "default": {"description": "Erreur (400 invalid_avatar_source, 409 no_custom_avatar ou discord_not_linked, 401, 403 CSRF)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
+    "/api/account/avatar/discord-refresh": {
+      "post": {"operationId": "refreshDiscordAvatar", "description": "Actualise la photo Discord du compte connecté. Ne touche jamais la photo personnelle. Une fois toutes les 30 secondes au plus par compte.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Réglages mis à jour", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AvatarSettings"}}}}, "default": {"description": "Erreur (409 discord_not_linked ou discord_bot_not_configured, 429 avatar_sync_too_soon ou discord_rate_limited, 502 discord_unavailable)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
+    "/api/admin/discord-bot": {
+      "get": {"operationId": "getDiscordBot", "description": "Administrateurs : état du bot Discord (photos de profil), sans jamais renvoyer le token.", "responses": {"200": {"description": "État du bot", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DiscordBotStatus"}}}}, "default": {"description": "Erreur (401, 403)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}},
+      "put": {"operationId": "putDiscordBot", "description": "Réservé au Super-administrateur : vérifie le token auprès de Discord puis l'enregistre chiffré. Un token refusé n'est pas enregistré (invalid_discord_bot_token) et n'est jamais renvoyé.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DiscordBotInput"}}}}, "responses": {"200": {"description": "Bot connecté", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DiscordBotStatus"}}}}, "default": {"description": "Erreur (400 invalid_discord_bot_token, 429, 502 discord_unavailable, 403 super_administrator_required)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}},
+      "delete": {"operationId": "deleteDiscordBot", "description": "Réservé au Super-administrateur : déconnecte le bot. La synchronisation s'arrête, les photos existantes restent.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"204": {"description": "Bot déconnecté"}, "default": {"description": "Erreur (401, 403)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
+    "/api/admin/discord-bot/test": {
+      "post": {"operationId": "testDiscordBot", "description": "Réservé au Super-administrateur : teste le token enregistré auprès de Discord.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "État du bot après test", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DiscordBotStatus"}}}}, "default": {"description": "Erreur (400 invalid_discord_bot_token, 409 discord_bot_not_configured, 502, 403)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
+    "/api/admin/discord-bot/sync": {
+      "post": {"operationId": "syncDiscordBot", "description": "Administrateurs : lance une synchronisation globale en arrière-plan. 409 discord_sync_running si une passe est déjà en cours, quelle que soit l'instance.", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "responses": {"202": {"description": "Synchronisation lancée"}, "default": {"description": "Erreur (409 discord_bot_not_configured ou discord_sync_running, 403)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}
+    },
+    "/api/account/profile": {"put": {"operationId": "updateAccountProfile", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host)"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountProfileInput"}}}}, "responses": {"200": {"description": "Compte mis à jour", "content": {"application/json": {"schema": {"type": "object", "required": ["status"], "properties": {"status": {"type": "string"}}}}}}, "default": {"description": "Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/api/account/password": {"put": {"operationId": "updateAccountPassword", "parameters": [{"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}, "description": "Must equal the address of the request itself (scheme and host)"}, {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AccountPasswordInput"}}}}, "responses": {"200": {"description": "Compte mis à jour", "content": {"application/json": {"schema": {"type": "object", "required": ["status"], "properties": {"status": {"type": "string"}}}}}}, "default": {"description": "Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/api/persons/{id}/avatar": {"get": {"operationId": "getPersonAvatar", "description": "Photo actuelle du compte dont la liaison à cette Personne est validée. Suit la source choisie ; 404 sans lien, photo ou compte actif. Session requise.", "parameters": [{"in": "path", "name": "id", "required": true, "schema": {"type": "integer", "format": "int64"}}], "responses": {"200": {"description": "PNG 256×256", "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}}}, "304": {"description": "Photo inchangée"}, "default": {"description": "Erreur ou absence de photo (400, 401, 404)", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "404": {"description": "Aucune photo ou aucun lien actif"}}}},
     "/api/account/preferences": {
       "get": {
         "operationId": "getAccountPreferences",
@@ -2379,15 +2400,16 @@
     "/api/admin/workers/{id}/record": {
       "delete": {
         "operationId": "forgetWorker",
-        "description": "Retire de la liste un Worker révoqué dont la machine a confirmé la révocation ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé.",
+        "description": "Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur la machine).",
         "parameters": [
           {"in": "path", "name": "id", "required": true, "schema": {"type": "string"}},
+          {"in": "query", "name": "force", "required": false, "description": "Retire le Worker révoqué même si sa machine n'a pas confirmé la révocation.", "schema": {"type": "boolean", "default": false}},
           {"in": "header", "name": "Origin", "required": true, "schema": {"type": "string"}},
           {"in": "header", "name": "X-CSRF-Token", "required": true, "schema": {"type": "string"}}
         ],
         "responses": {
           "204": {"description": "Worker retiré de la liste"},
-          "default": {"description": "Worker introuvable, non révoqué ou nettoyage local non confirmé", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "default": {"description": "Worker introuvable, non révoqué ou nettoyage local non confirmé sans force", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
         }
       }
     },
@@ -2521,14 +2543,35 @@
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
+                    "mode",
                     "target_version",
                     "target_image",
+                    "latest_version",
+                    "checked_at",
+                    "check_failed",
                     "image_repository",
                     "catalog",
                     "catalog_available",
                     "workers"
                   ],
                   "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": ["disabled", "pinned", "latest"],
+                      "description": "Stratégie choisie. La version effective (target_version) est celle de l'administrateur en pinned, la plus haute version publiée déjà vue en latest."
+                    },
+                    "latest_version": {
+                      "type": "string", "nullable": true,
+                      "description": "Version stable la plus récente du catalogue, indépendamment du mode."
+                    },
+                    "checked_at": {
+                      "type": "string", "nullable": true, "format": "date-time",
+                      "description": "Dernière interrogation du registre par ce serveur (mémoire du processus), nulle tant qu'aucune n'a eu lieu."
+                    },
+                    "check_failed": {
+                      "type": "boolean",
+                      "description": "Vrai si la dernière interrogation du registre a échoué ; la dernière cible valide est conservée."
+                    },
                     "target_version": {
                       "type": "string", "nullable": true,
                       "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
@@ -2633,7 +2676,7 @@
             }
           }
         ],
-        "description": "Choisit la version cible. Null ou chaîne vide : aucune mise à jour automatique. Le format est vérifié ; l'image est construite par Snitch à partir du dépôt configuré.",
+        "description": "Choisit la stratégie : disabled (aucune mise à jour), pinned (version fixe, obligatoire) ou latest (suivi de la dernière version publiée, la version envoyée est ignorée). Sans mode, il est déduit de la version (vide : disabled). Le format est vérifié ; l'image est construite par Snitch à partir du dépôt configuré.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2645,6 +2688,10 @@
                   "version"
                 ],
                 "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": ["disabled", "pinned", "latest"]
+                  },
                   "version": {
                     "type": "string", "nullable": true,
                     "maxLength": 40
@@ -2663,9 +2710,14 @@
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
+                    "mode",
                     "target_version"
                   ],
                   "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": ["disabled", "pinned", "latest"]
+                    },
                     "target_version": {
                       "type": "string", "nullable": true
                     }
@@ -2964,7 +3016,7 @@
             "workerBearer": []
           }
         ],
-        "description": "Image que l'agent local du Worker doit faire tourner. Ne modifie rien ; sans cible, les champs sont nuls.",
+        "description": "Image que l'agent local du Worker doit faire tourner, et si ce Worker est au repos (aucun job sous bail) pour que l'agent attende un moment calme. En mode latest, résout la cible depuis le catalogue en cache (écriture seulement si une version plus haute apparaît). Sans cible, les champs version et image sont nuls.",
         "responses": {
           "200": {
             "description": "Cible de mise à jour",
@@ -2975,9 +3027,13 @@
                   "additionalProperties": false,
                   "required": [
                     "target_version",
-                    "target_image"
+                    "target_image",
+                    "idle"
                   ],
                   "properties": {
+                    "idle": {
+                      "type": "boolean"
+                    },
                     "target_version": {
                       "type": "string", "nullable": true
                     },
@@ -6614,9 +6670,15 @@
               "fr"
             ],
             "description": "Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas choisi."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Pseudo choisi dans Snitch, sinon nom Discord pour les comptes générés, sinon identifiant local."
           }
         }
       },
+      "AccountProfileInput": {"type": "object", "additionalProperties": false, "required": ["display_name", "username"], "properties": {"display_name": {"type": "string", "minLength": 1, "maxLength": 100}, "username": {"type": "string", "minLength": 3, "maxLength": 64}}},
+      "AccountPasswordInput": {"type": "object", "additionalProperties": false, "required": ["new_password"], "properties": {"current_password": {"type": "string", "maxLength": 256}, "new_password": {"type": "string", "minLength": 12, "maxLength": 256}}},
       "AccountPreferences": {
         "type": "object",
         "additionalProperties": false,
@@ -6657,7 +6719,8 @@
           "user",
           "csrf_token",
           "discord_linked",
-          "can_unlink_discord"
+          "can_unlink_discord",
+          "has_password"
         ],
         "properties": {
           "user": {
@@ -6678,6 +6741,14 @@
             "type": "string",
             "nullable": true,
             "description": "Display name of the linked Discord identity (global name, else username); null when unlinked or linked before it was kept. Read-only."
+          },
+          "has_password": {
+            "type": "boolean"
+          },
+          "discord_username": {
+            "type": "string",
+            "nullable": true,
+            "description": "Vrai username Discord, distinct du global_name ; actualisé à la connexion et par le bot."
           }
         }
       },
@@ -7682,6 +7753,10 @@
           }
         }
       },
+      "AvatarSettingsInput": {"type": "object", "required": ["source"], "properties": {"source": {"type": "string", "enum": ["discord", "custom", "none"]}}},
+      "AvatarSettings": {"type": "object", "required": ["source", "discord_linked", "has_custom", "has_discord", "bot_configured", "auto_sync", "last_synced_at", "last_error"], "properties": {"source": {"type": "string", "enum": ["discord", "custom", "none"]}, "discord_linked": {"type": "boolean"}, "has_custom": {"type": "boolean"}, "has_discord": {"type": "boolean"}, "bot_configured": {"type": "boolean"}, "auto_sync": {"type": "boolean", "description": "Vrai quand la photo affichée suit Discord et que le bot est configuré."}, "last_synced_at": {"type": "string", "nullable": true, "format": "date-time"}, "last_error": {"type": "string", "nullable": true}}},
+      "DiscordBotInput": {"type": "object", "required": ["token"], "properties": {"token": {"type": "string", "maxLength": 128, "writeOnly": true}}},
+      "DiscordBotStatus": {"type": "object", "required": ["status", "bot_name", "last_error", "last_sync_at", "last_refreshed", "last_failed", "running"], "properties": {"status": {"type": "string", "enum": ["connected", "not_configured", "error"]}, "bot_name": {"type": "string", "nullable": true}, "last_error": {"type": "string", "nullable": true}, "last_sync_at": {"type": "string", "nullable": true, "format": "date-time"}, "last_refreshed": {"type": "integer"}, "last_failed": {"type": "integer"}, "running": {"type": "boolean"}}},
       "HFTokenInput": {
         "type": "object",
         "additionalProperties": false,

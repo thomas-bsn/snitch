@@ -427,7 +427,7 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	}
 	// Only the display name is kept, read-only: global_name, else the username. No token is ever stored.
 	_, body = call(locals[winner], "GET", "/api/auth/me", "", "", 200)
-	if !bytes.Contains(body, []byte(`"discord_name":"Fixture Display"`)) || bytes.Contains(body, []byte("fixture-token")) {
+	if !bytes.Contains(body, []byte(`"discord_username":"administrator"`)) || !bytes.Contains(body, []byte(`"discord_name":"Fixture Display"`)) || bytes.Contains(body, []byte("fixture-token")) {
 		t.Fatalf("linked Discord name: %s", body)
 	}
 	globalName.Store("")
@@ -435,6 +435,12 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	_, body = call(locals[winner], "GET", "/api/auth/me", "", "", 200)
 	if !bytes.Contains(body, []byte(`"discord_name":"administrator"`)) {
 		t.Fatalf("username fallback: %s", body)
+	}
+	globalName.Store("Changed display")
+	call(reconnect, "GET", start(reconnect, false), "", "", 303)
+	_, refreshed := call(reconnect, "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(refreshed, []byte(`"discord_name":"Changed display"`)) {
+		t.Fatalf("sign-in kept a stale Discord name: %s", refreshed)
 	}
 	globalName.Store("Fixture Display")
 	call(reconnect, "GET", start(reconnect, false), "", "", 303)

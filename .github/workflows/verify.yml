@@ -123,7 +123,7 @@ jobs:
           .venv/bin/python scripts/check_generated.py
           .venv/bin/python scripts/check_compose.py
           .venv/bin/python scripts/check_error_codes.py
-          (cd scripts && python3 -m unittest test_reserve_worker_version test_ci_metrics)
+          (cd scripts && ../.venv/bin/python -m unittest test_reserve_worker_version test_ci_metrics test_verify_workflow)
 
   go-test:
     # Every Go package with the race detector and the integration tag (PostgreSQL through Testcontainers), except the
@@ -334,8 +334,14 @@ jobs:
   promote-app:
     # Gives the verified image its tags (latest + sha-<commit> on main, the version on a tag) by copying the manifest of the
     # digest built above: no rebuild, no layer transfer, and the digest is checked afterwards.
+    # Override implicit success(): check has intentionally skipped ancestors on app-only/worker-only changes.
+    # !cancelled() allows those skips, while the explicit results still require the gate AND the tested image.
     needs: [changes, check, image-app]
-    if: needs.changes.outputs.publish == 'true' && needs.changes.outputs.app == 'true' && needs.check.result == 'success'
+    if: >-
+      ${{ !cancelled() && github.event_name != 'pull_request' &&
+          needs.changes.result == 'success' && needs.changes.outputs.publish == 'true' &&
+          needs.changes.outputs.app == 'true' && needs.check.result == 'success' &&
+          needs.image-app.result == 'success' && needs.image-app.outputs.digest != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -370,7 +376,12 @@ jobs:
     # "worker/*" does not match the "v*" trigger, and tags created with GITHUB_TOKEN start no workflow: no loop.
     # On a manual release tag it only checks that the version was not already taken by an automatic publication.
     needs: [changes, check, image-worker]
-    if: needs.changes.outputs.publish == 'true' && needs.changes.outputs.worker == 'true' && needs.check.result == 'success'
+    # Same explicit status policy as promote-app: skips elsewhere must not prevent a validated publication.
+    if: >-
+      ${{ !cancelled() && github.event_name != 'pull_request' &&
+          needs.changes.result == 'success' && needs.changes.outputs.publish == 'true' &&
+          needs.changes.outputs.worker == 'true' && needs.check.result == 'success' &&
+          needs.image-worker.result == 'success' && needs.image-worker.outputs.digest != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

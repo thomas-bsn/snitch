@@ -705,6 +705,37 @@ export const fr: Messages = {
     discordSecret: "Secret de l’application Discord",
     secretKept: "Laissez vide pour conserver le secret actuel.",
     callback: "Adresse de retour Discord",
+    bot: {
+      title: "Bot Discord — Photos de profil",
+      explain:
+        "Un bot permet à Snitch de lire les photos de profil Discord des membres et de les actualiser toutes les 24 heures. Il ne lit que les profils publics. Une photo importée par un membre n’est jamais remplacée. Le token est indépendant des identifiants de connexion ci-dessus.",
+      state: "État",
+      statusConnected: "Connecté",
+      statusNotConfigured: "Non configuré",
+      statusError: "Erreur",
+      name: "Bot",
+      lastSync: "Dernière synchronisation",
+      lastSyncResult: "{date} : {refreshed} actualisés, {failed} en échec",
+      running: "En cours…",
+      never: "Jamais",
+      token: "Token du bot",
+      tokenKept:
+        "Laissez vide pour conserver le token actuel. Il n’est jamais réaffiché.",
+      connect: "Connecter le bot",
+      replace: "Enregistrer le nouveau token",
+      test: "Tester la connexion",
+      disconnect: "Déconnecter",
+      cancel: "Annuler",
+      disconnectTitle: "Déconnecter le bot ?",
+      disconnectBody:
+        "La synchronisation automatique s’arrête. Les photos déjà téléchargées sont conservées.",
+      sync: "Synchroniser maintenant",
+      syncStarted: "Synchronisation lancée.",
+      connected: "Bot connecté.",
+      disconnected: "Bot déconnecté.",
+      testOk: "La connexion fonctionne.",
+      ownerOnly: "Seul le Super-administrateur peut configurer le bot.",
+    },
     unreadable: "Secrets à ressaisir : {names}",
     saveSettings: "Enregistrer les réglages",
     exports: "Exports",
@@ -1048,6 +1079,29 @@ export const fr: Messages = {
     tabsLabel: "Paramètres du compte",
     tabs: { profile: "Profil", voice: "Ma voix" },
     profile: {
+      displayName: "Pseudo affiché",
+      displayNameHint: "Le nom affiché dans votre profil et le menu du compte.",
+      loginHint:
+        "Cet identifiant permet de vous connecter avec un mot de passe. 3 à 64 caractères.",
+      identitySaved: "Profil enregistré.",
+      saveIdentity: "Enregistrer le profil",
+      saving: "Enregistrement…",
+      securityTitle: "Mot de passe et connexion",
+      passwordHint:
+        "Saisissez votre mot de passe actuel pour en choisir un nouveau. Les autres sessions seront fermées.",
+      firstPasswordHint:
+        "Ajoutez un mot de passe pour vous connecter sans Discord. Vous pourrez ensuite délier Discord si vous le souhaitez.",
+      currentPassword: "Mot de passe actuel",
+      newPassword: "Nouveau mot de passe",
+      confirmPassword: "Confirmer le nouveau mot de passe",
+      passwordLength:
+        "12 à 256 caractères. Vous pouvez coller un mot de passe ou utiliser votre gestionnaire.",
+      passwordMismatch: "Les mots de passe ne correspondent pas.",
+      passwordSaved:
+        "Mot de passe enregistré. Les autres sessions ont été fermées.",
+      changePassword: "Changer le mot de passe",
+      setPassword: "Créer un mot de passe",
+
       identityTitle: "Compte",
       username: "Nom d’utilisateur",
       role: "Rôle",
@@ -1088,6 +1142,24 @@ export const fr: Messages = {
         hint: "L’image sera recadrée au centre en carré.",
         remove: "Retirer la photo",
         updated: "Photo de profil mise à jour.",
+        refreshed: "Photo Discord actualisée.",
+        working: "En cours…",
+        current: "Affichée : {source}.",
+        sourceLegend: "Source de la photo",
+        sourceDiscord: "votre photo Discord",
+        sourceCustom: "votre propre photo",
+        sourceNone: "vos initiales",
+        optionDiscord: "Discord",
+        optionCustom: "Ma photo",
+        autoOn: "La synchronisation automatique avec Discord est activée.",
+        autoOff: "La synchronisation automatique est désactivée.",
+        refresh: "Actualiser la photo Discord",
+        noBot:
+          "Un administrateur n’a pas encore connecté le bot Discord : la photo Discord ne peut pas être récupérée.",
+        noDiscordPicture:
+          "Pas encore de photo Discord : vos initiales s’affichent.",
+        customWins:
+          "Une photo importée est toujours prioritaire : Discord ne la remplace jamais. Choisissez Discord pour y revenir.",
         tooLarge: "La limite est de 5 Mo.",
         failed:
           "Impossible de modifier la photo. Choisissez une image JPEG ou PNG (5 Mo et 16 mégapixels maximum).",
@@ -1211,6 +1283,20 @@ export const fr: Messages = {
   workerUpdates: {
     title: "Mises à jour des Workers",
     lead: "Choisissez la version que chaque Worker doit faire tourner. Chaque Worker vérifie environ toutes les 10 minutes et se met à jour lui-même. Ne choisir aucune version désactive les mises à jour automatiques ; revenir à une version plus ancienne est un retour arrière.",
+    strategyLegend: "Stratégie de mise à jour",
+    strategy: {
+      pinned: "Version fixe (pinned)",
+      latest: "Dernière version — mises à jour automatiques",
+    },
+    latestHelp:
+      "Snitch suit la dernière version stable publiée du Worker et l’applique seule dès qu’une nouvelle apparaît. Jamais de retour en arrière automatique ; un Worker occupé attend la fin de ses jobs, et une version qui échoue est restaurée puis ignorée pendant 24 h.",
+    latestDetected: "Dernière version stable détectée",
+    effectiveVersion: "Version appliquée aux Workers",
+    lastCheck: "Dernière vérification",
+    neverChecked: "pas encore",
+    checkFailed:
+      "La dernière vérification du registre a échoué ; la dernière version valide est conservée.",
+    disabledHelp: "Aucune mise à jour automatique.",
     targetLabel: "Version cible",
     none: "Aucune version (mises à jour automatiques désactivées)",
     save: "Enregistrer la version cible",
@@ -1567,6 +1653,8 @@ export const fr: Messages = {
       forget: "Retirer de la liste",
       forgetBody:
         "La machine a confirmé la révocation. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
+      forgetUnconfirmedBody:
+        "Le nettoyage local n’a pas été confirmé : la machine n’a jamais confirmé la révocation. Le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur cette machine. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
       forgetTitle: "Retirer {name} de la liste ?",
       forgetConfirm: "Retirer",
       cleanupPending:

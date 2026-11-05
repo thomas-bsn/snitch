@@ -366,7 +366,7 @@ LEASE_REFUSALS = frozenset({"lease_not_owned", "worker_token_invalid"})
 
 def presence_retry_delay(attempt: int) -> float:
     """Delay before retry number `attempt` (1-based): 1, 2, 4, 8 seconds, then the cap."""
-    return min(PRESENCE_RETRY_CAP, 2.0 ** (attempt - 1))
+    return min(PRESENCE_RETRY_CAP, 2.0 ** min(max(attempt - 1, 0), 4))
 
 
 class LeaseWatch:
@@ -455,7 +455,9 @@ def _heartbeat_loop(
                 id=job_id,
                 x_worker_lease_token=lease_token,
             )
-        except httpx.HTTPError:
+        except (httpx.HTTPError, KeyError, TypeError, ValueError, AttributeError):
+            # A proxy may answer HTML or a different JSON shape while Snitch restarts.
+            # Treat an unreadable API response like a network outage, not a lost thread.
             value = None
         if isinstance(value, Error) and value.error in LEASE_REFUSALS:
             log.emit(logging.WARNING, "job_lease_refused", error_code=value.error, **(context or {}))
@@ -727,7 +729,7 @@ def _run_claimed(
                 ),
                 "fail",
             )
-        except (httpx.HTTPError, RuntimeError):
+        except (httpx.HTTPError, RuntimeError, KeyError, TypeError, ValueError, AttributeError):
             # The lease may have expired or moved while the provider was busy.
             # In that case the old attempt must not mutate the recovered task.
             log.emit(logging.WARNING, "job_failure_not_recorded", **context)
@@ -752,7 +754,8 @@ def _worker_loop(
                 stop.set()
                 return
             completed = False
-        except (httpx.HTTPError, RuntimeError):
+        except (httpx.HTTPError, RuntimeError, KeyError, TypeError, ValueError, AttributeError):
+            # Malformed proxy responses must not silently kill this claiming thread.
             # Network outages are retried on the next poll. Do not log exception
             # details because HTTP client errors can include sensitive URLs.
             completed = False

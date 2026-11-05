@@ -7,6 +7,7 @@ import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
 import { isSuperAdministrator } from "../../roles";
 import { useSession } from "../../session";
+import { DiscordBotCard } from "./DiscordBotCard";
 import { FolderRequests } from "./FolderRequests";
 async function load() {
   try {
@@ -169,6 +170,7 @@ export function SignupsTab() {
               </div>
             )}
           </form>
+          <DiscordBotCard />
         </>
       )}
     </section>
