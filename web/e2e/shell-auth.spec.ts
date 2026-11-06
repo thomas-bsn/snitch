@@ -189,10 +189,9 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
     ).toBeVisible();
 
     // The header search opens the search screen with the query in the address.
-    await page
-      .getByRole("searchbox", { name: "Search the transcripts" })
-      .fill("hello world");
-    await page.keyboard.press("Enter");
+    await query.fill("hello world");
+    await expect(query).toHaveValue("hello world");
+    await query.press("Enter");
     await expect(page).toHaveURL(/\/search\?q=hello%20world$/);
     await page.reload();
     await expect(
