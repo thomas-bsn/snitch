@@ -237,6 +237,7 @@ type FolderLogo struct {
 	ContentType string             `json:"content_type"`
 	Image       []byte             `json:"image"`
 	CheckedAt   pgtype.Timestamptz `json:"checked_at"`
+	AppID       int64              `json:"app_id"`
 }
 
 type FolderRequest struct {
