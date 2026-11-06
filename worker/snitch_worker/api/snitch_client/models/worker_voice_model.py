@@ -8,7 +8,9 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.worker_voice_model_kind import WorkerVoiceModelKind
 from ..models.worker_voice_model_role import WorkerVoiceModelRole
+from ..types import UNSET, Unset
 
 
 
@@ -29,6 +31,7 @@ class WorkerVoiceModel:
             revision (str):
             role (WorkerVoiceModelRole):
             retry (bool):
+            kind (WorkerVoiceModelKind | Unset):
      """
 
     model_id: str
@@ -37,6 +40,7 @@ class WorkerVoiceModel:
     revision: str
     role: WorkerVoiceModelRole
     retry: bool
+    kind: WorkerVoiceModelKind | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -56,6 +60,11 @@ class WorkerVoiceModel:
 
         retry = self.retry
 
+        kind: str | Unset = UNSET
+        if not isinstance(self.kind, Unset):
+            kind = self.kind.value
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -67,6 +76,8 @@ class WorkerVoiceModel:
             "role": role,
             "retry": retry,
         })
+        if kind is not UNSET:
+            field_dict["kind"] = kind
 
         return field_dict
 
@@ -90,6 +101,16 @@ class WorkerVoiceModel:
 
         retry = d.pop("retry")
 
+        _kind = d.pop("kind", UNSET)
+        kind: WorkerVoiceModelKind | Unset
+        if isinstance(_kind,  Unset):
+            kind = UNSET
+        else:
+            kind = WorkerVoiceModelKind(_kind)
+
+
+
+
         worker_voice_model = cls(
             model_id=model_id,
             engine=engine,
@@ -97,6 +118,7 @@ class WorkerVoiceModel:
             revision=revision,
             role=role,
             retry=retry,
+            kind=kind,
         )
 
 

@@ -703,6 +703,12 @@ export const en = {
       removing: "Removing",
       failed: "Failed",
     },
+    blocked: {
+      worker_offline:
+        "The order is waiting: this Worker is not connected. It runs the order as soon as it reconnects, or use Retry to order again.",
+      order_stalled:
+        "The order is not moving although the Worker is connected: check its logs, then use Retry to order again.",
+    },
     cause: {
       invalid_order:
         "The Worker refused the order after its checks: retry, and report it if it happens again.",

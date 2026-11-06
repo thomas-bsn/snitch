@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -30,12 +31,15 @@ class WorkerVoiceModels:
             models (list[WorkerVoiceModel]):
             remove (list[WorkerVoiceModel]):
             orders (list[WorkerModelOrder]):
+            held (list[str] | Unset): Modèles que Snitch connaît comme prêts sur ce Worker : un modèle présent sur son
+                volume et absent de cette liste (installé avant les ordres) est rapporté une fois éprouvé.
      """
 
     worker_id: str
     models: list[WorkerVoiceModel]
     remove: list[WorkerVoiceModel]
     orders: list[WorkerModelOrder]
+    held: list[str] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -68,6 +72,12 @@ class WorkerVoiceModels:
 
 
 
+        held: list[str] | Unset = UNSET
+        if not isinstance(self.held, Unset):
+            held = self.held
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -77,6 +87,8 @@ class WorkerVoiceModels:
             "remove": remove,
             "orders": orders,
         })
+        if held is not UNSET:
+            field_dict["held"] = held
 
         return field_dict
 
@@ -119,11 +131,15 @@ class WorkerVoiceModels:
             orders.append(orders_item)
 
 
+        held = cast(list[str], d.pop("held", UNSET))
+
+
         worker_voice_models = cls(
             worker_id=worker_id,
             models=models,
             remove=remove,
             orders=orders,
+            held=held,
         )
 
 

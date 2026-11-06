@@ -493,10 +493,13 @@ test("« Appliquer à plusieurs Workers » crée un ordre par Worker coché et l
   const context = await browser.newContext({ storageState: session });
   const page = await context.newPage();
   await page.goto("/admin/voice");
-  await page
-    .getByRole("button", { name: "Apply to several Workers", exact: true })
-    .first()
-    .click();
+  // Only the global bar offers it: the Workers tab has no second button (#327).
+  const applyMany = page.getByRole("button", {
+    name: "Apply to several Workers",
+    exact: true,
+  });
+  await expect(applyMany).toHaveCount(1);
+  await applyMany.click();
   const dialog = page.getByRole("dialog", {
     name: "Apply a model to several Workers",
   });

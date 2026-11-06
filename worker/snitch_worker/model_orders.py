@@ -261,7 +261,7 @@ class OrderExecutor:
 
     def _install(self, order: dict[str, Any], post: Any) -> None:
         model_id, revision = order["model_id"], order["revision"]
-        self._manager.prepare({"model_id": model_id, "repo": order["repo"], "revision": revision, "role": "ordered", "retry": False}, post)
+        self._manager.prepare({"model_id": model_id, "kind": order["kind"], "repo": order["repo"], "revision": revision, "role": "ordered", "retry": False}, post)
 
     @staticmethod
     def _repeat_outcome(http: Any, order_id: str, content: Mapping[str, Any], outcome: Mapping[str, Any]) -> None:

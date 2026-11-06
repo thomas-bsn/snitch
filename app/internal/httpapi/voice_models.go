@@ -481,6 +481,7 @@ type workerVoiceModel struct {
 	Revision string `json:"revision"`
 	Role     string `json:"role"`
 	Retry    bool   `json:"retry"`
+	Kind     string `json:"kind"`
 }
 
 func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
@@ -501,21 +502,24 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT model_id,retry_requested,false FROM worker_voice_models WHERE worker_id=$1`, worker.ID)
+	rows, err := s.Pool.Query(r.Context(), `SELECT model_id,retry_requested,false,state='ready' FROM worker_voice_models WHERE worker_id=$1`, worker.ID)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	defer rows.Close()
-	retry, removal := map[string]bool{}, []string{}
+	retry, removal, held := map[string]bool{}, []string{}, []string{}
 	for rows.Next() {
 		var id string
-		var wantRetry, wantRemoval bool
-		if err = rows.Scan(&id, &wantRetry, &wantRemoval); err != nil {
+		var wantRetry, wantRemoval, ready bool
+		if err = rows.Scan(&id, &wantRetry, &wantRemoval, &ready); err != nil {
 			s.internal(w, err)
 			return
 		}
 		retry[id] = wantRetry
+		if ready {
+			held = append(held, id)
+		}
 		if wantRemoval {
 			removal = append(removal, id)
 		}
@@ -535,12 +539,15 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		Orders []voiceModelOrderView `json:"orders"`
 		// WorkerID is the identity Snitch gives this Worker: it pins it on its volume and checks every order against it.
 		WorkerID string `json:"worker_id"`
-	}{WorkerID: worker.ID, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders}
+		// Held are the models Snitch already knows as ready on this Worker: a model the Worker holds on its volume
+		// and that is not listed here (installed before orders existed) is reported by the Worker once proven.
+		Held []string `json:"held"`
+	}{WorkerID: worker.ID, Held: held, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders}
 	add := func(list *[]workerVoiceModel, id, role string) {
 		if entry, ok, lookupErr := voiceCatalogByID(r.Context(), s.Pool, id); lookupErr != nil {
 			err = lookupErr
 		} else if ok {
-			*list = append(*list, workerVoiceModel{ModelID: id, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, Role: role, Retry: retry[id]})
+			*list = append(*list, workerVoiceModel{ModelID: id, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, Role: role, Retry: retry[id], Kind: entry.Kind})
 		}
 	}
 	if candidate != "" {
@@ -548,6 +555,15 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 	}
 	if active != "" && active != candidate {
 		add(&out.Models, active, "active")
+	}
+	// The active fingerprint model is listed too: the Worker reports it when its volume already holds it (#327).
+	var fingerprint string
+	switch fpErr := s.Pool.QueryRow(r.Context(), `SELECT model_id FROM voice_active_model WHERE kind='fingerprint'`).Scan(&fingerprint); {
+	case errors.Is(fpErr, pgx.ErrNoRows):
+	case fpErr != nil:
+		err = fpErr
+	default:
+		add(&out.Models, fingerprint, "active")
 	}
 	for _, id := range removal {
 		add(&out.Remove, id, "removal")

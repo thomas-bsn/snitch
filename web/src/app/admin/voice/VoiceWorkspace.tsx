@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Download,
   History,
   ChevronRight,
   Fingerprint,
@@ -253,14 +252,6 @@ export function VoiceWorkspace({
                   ? t("voiceWorkspace.selected", { count: selected.length })
                   : t("voiceWorkspace.desiredHint")}
               </p>
-              <button
-                type="button"
-                className="voice-btn primary"
-                onClick={() => setApplying({})}
-              >
-                <Download size={15} aria-hidden />
-                {t("voiceModels.byWorker.applyMany")}
-              </button>
             </div>
             <ModelsByWorker
               catalogue={catalogue}

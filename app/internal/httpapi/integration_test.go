@@ -403,6 +403,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelOrderCreation(t, pool)
 	})
+	t.Run("voice model order stalled", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOrderStalled(t, pool)
+	})
+	t.Run("voice model pull held and kind", func(t *testing.T) {
+		reset(t)
+		testVoiceModelPullHeldAndKind(t, pool)
+	})
 	t.Run("voice model order execution", func(t *testing.T) {
 		reset(t)
 		testVoiceModelOrderExecution(t, pool)

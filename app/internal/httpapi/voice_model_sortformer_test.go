@@ -35,7 +35,7 @@ func testVoiceModelSortformer(t *testing.T, pool *pgxpool.Pool) {
 
 	h.adminCall(http.MethodPut, "/api/admin/voice-models/candidate", map[string]any{"model_id": sortformerID}, http.StatusOK)
 	wanted, _ := h.workerWants()
-	if len(wanted) != 2 || wanted[0].Role != "candidate" || wanted[0].Repo != sortformerRepo || wanted[0].Revision != sortformerRevision || wanted[0].Engine != "nemo" {
+	if len(wanted) != 3 || wanted[0].Role != "candidate" || wanted[0].Repo != sortformerRepo || wanted[0].Revision != sortformerRevision || wanted[0].Engine != "nemo" {
 		t.Fatalf("unexpected desired state %+v", wanted)
 	}
 	h.adminCall(http.MethodPost, "/api/admin/voice-models/"+sortformerID+"/activate", nil, http.StatusConflict)

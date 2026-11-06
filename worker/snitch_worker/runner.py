@@ -537,6 +537,30 @@ def _presence_loop(
         delay = interval
 
 
+def sync_models_once(client: AuthenticatedClient) -> None:
+    """Pull what Snitch holds for this Worker and run its orders: each step fails on its own, none stops the other."""
+    try:
+        voice_models.sync_voice_models(client, voice_models.default_manager())
+    except Exception as error:  # noqa: BLE001 - the model manager must never stop the orders
+        log.emit(logging.WARNING, "voice_model_sync_failed", error_type=type(error).__name__)
+    try:
+        model_orders.sync_orders(client, model_orders.default_executor())
+    except Exception as error:  # noqa: BLE001 - one refused pull must not stop the next
+        log.emit(logging.WARNING, "voice_order_sync_failed", error_type=type(error).__name__)
+
+
+def _models_loop(client: AuthenticatedClient, stop: threading.Event, interval: float, guard: revocation.RevocationGuard | None = None) -> None:
+    """Orders are pulled on their own thread: a job that runs for hours never leaves an order pending (#327).
+
+    The loop outlives every recoverable error, like the claiming loops (#321)."""
+    while not stop.is_set():
+        if guard is not None and guard.revoked.is_set():
+            return
+        if isinstance(client, AuthenticatedClient):
+            sync_models_once(client)
+        stop.wait(interval)
+
+
 def _heartbeat_loop(
     client: AuthenticatedClient,
     job_id: int,
@@ -614,14 +638,6 @@ def run_once(
             hf_token_sync.sync(client, voice_download.default_token_file(os.environ))
         except Exception:  # noqa: BLE001 - the token sync must never stop claiming, and its error text may carry the value
             log.emit(logging.WARNING, "hf_token_sync_unavailable")
-        try:
-            voice_models.sync_voice_models(client, voice_models.default_manager())
-        except Exception:  # noqa: BLE001 - the model manager must never stop claiming
-            log.emit(logging.WARNING, "voice_model_sync_failed")
-        try:
-            model_orders.sync_orders(client, model_orders.default_executor())
-        except Exception:  # noqa: BLE001 - the orders must never stop claiming
-            log.emit(logging.WARNING, "voice_order_sync_failed")
     cycle.operation = "claim"
     claim = _require_response(claim_job(client=client), "claim")
     if claim.job is not None and not hasattr(claim.job, "id"):
@@ -923,8 +939,10 @@ def run_until_stopped(
         name="snitch-presence",
     )
     probe = threading.Thread(target=monitor.run, args=(stop,), daemon=True, name="snitch-reachability")
+    orders = threading.Thread(target=_models_loop, args=(client, stop, poll_interval, guard), daemon=True, name="snitch-model-orders")
     presence.start()
     probe.start()
+    orders.start()
     with ThreadPoolExecutor(max_workers=capacity) as executor:
 
         def launch() -> Future[None]:
@@ -956,6 +974,7 @@ def run_until_stopped(
         wait(workers)
     presence.join()
     probe.join()
+    orders.join()
     return guard.revoked.is_set()
 
 
