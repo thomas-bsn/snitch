@@ -173,8 +173,10 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		matches = "SELECT DISTINCT ON (clip_id,context,segment_start) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,context,segment_start,CASE match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,similarity(wn,$1) DESC,timestamp"
 	}
 	if mode == "exact" {
-		// The passage matches on every word row of its segment: keep one row per passage.
-		matches = "SELECT DISTINCT ON (clip_id,context,segment_start) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,context,segment_start"
+		// The passage matches on every word row of its segment: keep one row per passage,
+		// preferring the word row that is the query itself (its timestamp and spelling),
+		// then the earliest, so the pick is deterministic.
+		matches = "SELECT DISTINCT ON (clip_id,context,segment_start) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,context,segment_start,CASE WHEN wn=" + phraseNorm + " THEN 0 ELSE 1 END,timestamp"
 	}
 	enrich := " FROM matches m" + segmentSpeakerJoin("spk", "m.clip_id", "m.stream", "m.segment_start", "m.segment_end", "m.job_id", "m.idx") + " WHERE " + segmentPersonPredicate("spk", "$10", "$11")
 	withMatches := baseQuery + ", matches AS (" + matches + ") "
