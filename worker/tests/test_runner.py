@@ -702,3 +702,40 @@ class WhisperFailureTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModelsLoopTests(unittest.TestCase):
+    """Orders are pulled on their own thread, so a long job never leaves one pending (#327)."""
+
+    def test_orders_are_pulled_while_no_claiming_loop_is_free(self):
+        from unittest.mock import patch
+
+        stop = threading.Event()
+        pulls = []
+
+        def pull(client):
+            pulls.append(client)
+            if len(pulls) >= 2:
+                stop.set()
+
+        with patch.object(runner, "sync_models_once", pull), patch.object(runner, "AuthenticatedClient", object):
+            runner._models_loop(object(), stop, 0.01)
+        self.assertGreaterEqual(len(pulls), 2)
+
+    def test_a_failed_pull_does_not_stop_the_loop(self):
+        from unittest.mock import patch
+
+        calls = {"n": 0}
+
+        def failing(*_args, **_kwargs):
+            calls["n"] += 1
+            raise RuntimeError("down")
+
+        with patch.object(runner.voice_models, "sync_voice_models", failing), patch.object(runner.model_orders, "sync_orders", failing):
+            runner.sync_models_once(object())
+        self.assertEqual(calls["n"], 2)  # each step runs on its own
+
+    def test_run_once_no_longer_pulls_orders(self):
+        import inspect
+
+        self.assertNotIn("sync_orders", inspect.getsource(runner.run_once))

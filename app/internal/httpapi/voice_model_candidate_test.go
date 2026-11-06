@@ -148,7 +148,8 @@ func testVoiceModelCandidate(t *testing.T, pool *pgxpool.Pool) {
 
 	// The Worker pulls the desired state (candidate and active), never a repository it chose.
 	wanted, _ := h.workerWants()
-	if len(wanted) != 2 || wanted[0].Role != "candidate" || wanted[0].Repo != secondRepo || wanted[0].Revision != secondRevision || wanted[1].Role != "active" || wanted[1].ModelID != communityID {
+	// The active fingerprint model follows, so a Worker that already holds it can report it (#327).
+	if len(wanted) != 3 || wanted[0].Role != "candidate" || wanted[0].Repo != secondRepo || wanted[0].Revision != secondRevision || wanted[1].Role != "active" || wanted[1].ModelID != communityID || wanted[2].ModelID != "pyannote-wespeaker-resnet34" {
 		t.Fatalf("unexpected desired state %+v", wanted)
 	}
 

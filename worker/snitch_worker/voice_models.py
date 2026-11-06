@@ -96,11 +96,24 @@ def inference_environment(environ: Mapping[str, str]) -> dict[str, str]:
     return env
 
 
-def _legacy_path(environ: Mapping[str, str], repo: str, revision: str) -> str:
-    entry = (voice_manifest.read_manifest(environ) or {}).get("diarization")
+# Where the bootstrap wrote each type before models lived side by side: manifest key, path variable, default path.
+_LEGACY = {
+    "diarization": ("diarization", voice_manifest.DIARIZATION_PATH_ENV, voice_manifest.DEFAULT_DIARIZATION_PATH),
+    "fingerprint": ("embedding", voice_manifest.EMBEDDING_PATH_ENV, voice_manifest.DEFAULT_EMBEDDING_PATH),
+}
+
+
+def kind_of(item: Mapping[str, Any]) -> str:
+    """The type of an item; the diarization model when the server does not say."""
+    return item["kind"] if item.get("kind") in _LEGACY else "diarization"
+
+
+def _legacy_path(environ: Mapping[str, str], repo: str, revision: str, kind: str = "diarization") -> str:
+    key, variable, default = _LEGACY.get(kind, _LEGACY["diarization"])
+    entry = (voice_manifest.read_manifest(environ) or {}).get(key)
     if not isinstance(entry, dict) or entry.get("repo") != repo or entry.get("revision") != revision:
         return ""
-    path = environ.get(voice_manifest.DIARIZATION_PATH_ENV, "").strip() or voice_manifest.DEFAULT_DIARIZATION_PATH
+    path = environ.get(variable, "").strip() or default
     try:
         return path if os.path.isdir(path) and os.listdir(path) else ""
     except OSError:
@@ -166,22 +179,38 @@ class ModelManager:
         verify: Verify,
         report: Report | None = None,
         min_progress_interval: float = 1.0,
+        verify_fingerprint: Verify | None = None,
     ) -> None:
         self._env = environ
         self._download = download
         self._verify = verify
+        # A fingerprint model proves itself with an embedding, never with a diarization.
+        self._verify_fingerprint = verify_fingerprint or verify
+        # Held models whose proof failed once in this process: not run again at each pull.
+        self.failed_proofs: set[tuple[str, str]] = set()
         self._report = report
         self._interval = min_progress_interval
 
     def note_active(self, desired: Mapping[str, Any]) -> None:
         """Remember which repository Snitch holds as active: it only labels the declaration, nothing is fetched."""
         global _active_repo
-        models = [m for m in desired.get("models") or [] if isinstance(m, dict)]
+        # Only the diarization model labels the declaration (the fingerprint model is listed too, with its kind).
+        models = [m for m in desired.get("models") or [] if isinstance(m, dict) and m.get("kind", "diarization") == "diarization"]
         _active_repo = next((m["repo"] for m in models if m.get("role") == "active" and isinstance(m.get("repo"), str)), "")
 
     def prepare(self, item: dict[str, Any], report: Report) -> None:
         """Prepare one model now, in the calling thread (an order runs on its own thread)."""
         self._prepare(item, report)
+
+    def holds(self, item: Mapping[str, Any]) -> bool:
+        """Whether this volume holds the model: a verified copy, or the bootstrap's copy of the pinned revision.
+
+        A model that is not on the volume is never fetched here: only an order downloads."""
+        repo, revision = item.get("repo"), item.get("revision")
+        if not (isinstance(repo, str) and isinstance(revision, str) and valid_model(repo, revision)):
+            return False
+        kind = kind_of(item)
+        return is_ready(self._env, repo, revision) or bool(_legacy_path(self._env, repo, revision, kind))
 
     def remove(self, items: list[dict[str, Any]], report: Report | None = None) -> None:
         post = report or self._report or (lambda _payload: None)
@@ -215,7 +244,9 @@ class ModelManager:
         if is_ready(self._env, repo, revision):
             say("ready")
             return
-        legacy = _legacy_path(self._env, repo, revision)
+        kind = kind_of(item)
+        verify = self._verify_fingerprint if kind == "fingerprint" else self._verify
+        legacy = _legacy_path(self._env, repo, revision, kind)
         location = legacy or target
         if not legacy:
             say("downloading")
@@ -249,7 +280,8 @@ class ModelManager:
                 return
         say("verifying")
         try:
-            self._verify(location, inference_environment(self._env))
+            verify(location, inference_environment(self._env))
+            os.makedirs(target, exist_ok=True)
             with open(os.path.join(target, READY_MARKER), "w", encoding="utf-8") as handle:
                 handle.write(revision)
         except BaseException as error:  # noqa: BLE001
@@ -279,6 +311,35 @@ def sync_voice_models(client: Any, manager: ModelManager) -> None:
         raise ValueError("invalid voice models from server")
 
     manager.note_active(desired)
+    _reconcile_held(desired, manager, http)
+
+
+def _reconcile_held(desired: Mapping[str, Any], manager: ModelManager, http: Any) -> None:
+    """Report the models this volume already holds and Snitch does not know as ready.
+
+    A model installed before orders existed (the bootstrap's copy) was never reported, so Snitch showed it as
+    not installed and dispatched nothing to this Worker. It is proven once like any model (loaded and run on
+    synthetic input, the proof is the marker on the volume), then reported. Nothing is downloaded and nothing is
+    removed; a model with an order in flight is left to that order."""
+    known = desired.get("held")
+    if not isinstance(known, list):
+        return  # a server that does not say what it knows: nothing to compare with
+    ordered = {o.get("model_id") for o in desired.get("orders") or [] if isinstance(o, dict)}
+    for item in desired.get("models") or []:
+        if not isinstance(item, dict) or item.get("model_id") in known or item.get("model_id") in ordered:
+            continue
+        proof = (str(item.get("model_id")), str(item.get("revision")))
+        if proof in manager.failed_proofs or not manager.holds(item):
+            continue
+        reports: list[dict[str, Any]] = []
+        manager.prepare(item, reports.append)
+        final = reports[-1] if reports else None
+        if final is None or final["state"] not in ("ready", "failed"):
+            continue
+        if final["state"] == "failed":
+            manager.failed_proofs.add(proof)
+        body = {**final, "revision": item["revision"], "occupied_bytes": 0}
+        http.post("/api/worker/voice-models/status", json=body).raise_for_status()
 
 
 def download_environment(token_file: str) -> dict[str, str]:
@@ -316,6 +377,15 @@ def _inference_verify(path: str, environ: Mapping[str, str]) -> None:  # pragma:
     voice_selftest.diarize_synthetic(provider, engine)
 
 
+def _fingerprint_verify(path: str, environ: Mapping[str, str]) -> None:  # pragma: no cover - needs models
+    """Load the embedding model held at ``path`` and compute a valid fingerprint of a synthetic tone."""
+    from snitch_worker import voice_selftest
+    from snitch_worker.voice_pyannote import PyannoteProvider
+
+    provider = PyannoteProvider(environ=dict(environ) | {voice_manifest.EMBEDDING_PATH_ENV: path})
+    voice_selftest.embed_synthetic(provider)
+
+
 _manager: ModelManager | None = None
 
 
@@ -330,5 +400,5 @@ def default_manager() -> ModelManager:  # pragma: no cover - wires the real down
         def download(repo: str, revision: str, target: str, progress: Progress) -> None:
             _subprocess_download(repo, revision, target, progress, token_file)
 
-        _manager = ModelManager(os.environ, download, _inference_verify)
+        _manager = ModelManager(os.environ, download, _inference_verify, verify_fingerprint=_fingerprint_verify)
     return _manager

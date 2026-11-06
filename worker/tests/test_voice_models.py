@@ -436,3 +436,127 @@ class UsageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+FP_REPO = "synthetic/embedding-a"
+FP_REVISION = "a" * 40
+FP_MODEL = {"model_id": "fp-a", "kind": "fingerprint", "engine": "pyannote", "repo": FP_REPO, "revision": FP_REVISION, "role": "active", "retry": False}
+
+
+class FingerprintTests(unittest.TestCase):
+    def harness(self, **kwargs):
+        h = Harness(self, **kwargs)
+        h.fingerprint_verified = []
+        h.manager._verify_fingerprint = lambda path, environ: h.fingerprint_verified.append(path)
+        return h
+
+    def bootstrap_embedding(self, h):
+        """What the bootstrap left before orders existed: the embedding directory and its marker."""
+        path = h.env["SNITCH_VOICE_EMBEDDING_MODEL_PATH"]
+        os.makedirs(path)
+        open(os.path.join(path, "weights.bin"), "w").close()
+        voice_manifest_path = os.path.join(os.path.dirname(path), ".snitch-voice-models.json")
+        with open(voice_manifest_path, "w") as handle:
+            json.dump({"schema": 1, "embedding": {"repo": FP_REPO, "revision": FP_REVISION}}, handle)
+        return path
+
+    def test_a_fingerprint_model_is_proved_by_an_embedding_never_by_a_diarization(self):
+        h = self.harness()
+        h.sync([FP_MODEL])
+        self.assertEqual(h.states("fp-a")[-1], "ready")
+        self.assertEqual(len(h.fingerprint_verified), 1)
+        self.assertEqual(h.verified, [])
+
+    def test_a_diarization_model_still_uses_the_diarization_proof(self):
+        h = self.harness()
+        h.sync([{**MODEL, "kind": "diarization"}])
+        self.assertEqual(len(h.verified), 1)
+        self.assertEqual(h.fingerprint_verified, [])
+
+    def test_a_failed_embedding_proof_is_a_stable_failure(self):
+        def broken(path, environ):
+            raise VoiceProviderUnavailable("inference_failed")
+
+        h = self.harness()
+        h.manager._verify_fingerprint = broken
+        h.sync([FP_MODEL])
+        self.assertEqual(h.reports[-1]["state"], "failed")
+        self.assertEqual(h.reports[-1]["cause_code"], "inference_failed")
+        self.assertFalse(voice_models.is_ready(h.env, FP_REPO, FP_REVISION))
+
+    def test_the_bootstrap_copy_of_the_fingerprint_is_held_without_any_download(self):
+        h = self.harness()
+        self.bootstrap_embedding(h)
+        self.assertTrue(h.manager.holds(FP_MODEL))
+        h.sync([FP_MODEL])
+        self.assertEqual(h.downloads, [])
+        self.assertEqual(h.states("fp-a"), ["verifying", "ready"])
+
+    def client(self, body):
+        client = Mock()
+        http = Mock()
+        client.get_httpx_client.return_value = http
+        response = Mock(status_code=200)
+        response.json.return_value = body
+        http.get.return_value = response
+        return client, http
+
+    def test_a_held_model_snitch_does_not_know_is_reported_ready_once_proved(self):
+        h = self.harness()
+        self.bootstrap_embedding(h)
+        client, http = self.client({"models": [FP_MODEL], "remove": [], "orders": [], "held": []})
+        voice_models.sync_voice_models(client, h.manager)
+        http.post.assert_called_once()
+        path, kwargs = http.post.call_args.args[0], http.post.call_args.kwargs
+        self.assertEqual(path, "/api/worker/voice-models/status")
+        self.assertEqual(kwargs["json"]["model_id"], "fp-a")
+        self.assertEqual(kwargs["json"]["state"], "ready")
+        self.assertEqual(kwargs["json"]["revision"], FP_REVISION)
+        self.assertNotIn("order_id", kwargs["json"])
+        self.assertEqual(len(h.fingerprint_verified), 1)
+
+    def test_a_model_snitch_already_holds_is_not_reported_again(self):
+        h = self.harness()
+        self.bootstrap_embedding(h)
+        client, http = self.client({"models": [FP_MODEL], "remove": [], "orders": [], "held": ["fp-a"]})
+        voice_models.sync_voice_models(client, h.manager)
+        http.post.assert_not_called()
+        self.assertEqual(h.fingerprint_verified, [])
+
+    def test_a_model_the_volume_lacks_is_never_downloaded_nor_reported(self):
+        h = self.harness()
+        client, http = self.client({"models": [FP_MODEL], "remove": [], "orders": [], "held": []})
+        voice_models.sync_voice_models(client, h.manager)
+        http.post.assert_not_called()
+        self.assertEqual(h.downloads, [])
+
+    def test_a_model_with_an_order_in_flight_is_left_to_that_order(self):
+        h = self.harness()
+        self.bootstrap_embedding(h)
+        client, http = self.client({"models": [FP_MODEL], "remove": [], "orders": [{"model_id": "fp-a"}], "held": []})
+        voice_models.sync_voice_models(client, h.manager)
+        http.post.assert_not_called()
+
+    def test_a_server_that_does_not_say_what_it_holds_is_not_second_guessed(self):
+        h = self.harness()
+        self.bootstrap_embedding(h)
+        client, http = self.client({"models": [FP_MODEL], "remove": []})
+        voice_models.sync_voice_models(client, h.manager)
+        http.post.assert_not_called()
+
+    def test_a_failed_proof_is_not_run_again_at_each_pull(self):
+        calls = []
+
+        def broken(path, environ):
+            calls.append(path)
+            raise VoiceProviderUnavailable("inference_failed")
+
+        h = self.harness()
+        h.manager._verify_fingerprint = broken
+        self.bootstrap_embedding(h)
+        client, http = self.client({"models": [FP_MODEL], "remove": [], "orders": [], "held": []})
+        voice_models.sync_voice_models(client, h.manager)
+        voice_models.sync_voice_models(client, h.manager)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(http.post.call_count, 1)
+        self.assertEqual(http.post.call_args.kwargs["json"]["state"], "failed")

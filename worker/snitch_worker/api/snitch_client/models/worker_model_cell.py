@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.worker_model_cell_blocked import WorkerModelCellBlocked
 from ..models.worker_model_cell_cause_code import WorkerModelCellCauseCode
 from ..models.worker_model_cell_kind import WorkerModelCellKind
 from ..models.worker_model_cell_state import WorkerModelCellState
@@ -38,6 +39,8 @@ class WorkerModelCell:
             bytes_total (int):
             occupied_bytes (int):
             order_id (str):
+            blocked (WorkerModelCellBlocked): Ordre d'installation en attente depuis plus de deux minutes : Worker
+                déconnecté (worker_offline) ou connecté mais qui ne l'a pas tiré (order_stalled). Vide sinon.
             replaces_model_id (str): Modèle que celui-ci remplace sur ce Worker ; vide hors remplacement. L'ancien reste
                 actif et installé jusqu'à son retrait.
             waiting_for_jobs (bool): Le retrait de l'ancien modèle est différé parce qu'un travail en cours l'utilise.
@@ -55,6 +58,7 @@ class WorkerModelCell:
     bytes_total: int
     occupied_bytes: int
     order_id: str
+    blocked: WorkerModelCellBlocked
     replaces_model_id: str
     waiting_for_jobs: bool
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -88,6 +92,8 @@ class WorkerModelCell:
 
         order_id = self.order_id
 
+        blocked = self.blocked.value
+
         replaces_model_id = self.replaces_model_id
 
         waiting_for_jobs = self.waiting_for_jobs
@@ -108,6 +114,7 @@ class WorkerModelCell:
             "bytes_total": bytes_total,
             "occupied_bytes": occupied_bytes,
             "order_id": order_id,
+            "blocked": blocked,
             "replaces_model_id": replaces_model_id,
             "waiting_for_jobs": waiting_for_jobs,
         })
@@ -152,6 +159,11 @@ class WorkerModelCell:
 
         order_id = d.pop("order_id")
 
+        blocked = WorkerModelCellBlocked(d.pop("blocked"))
+
+
+
+
         replaces_model_id = d.pop("replaces_model_id")
 
         waiting_for_jobs = d.pop("waiting_for_jobs")
@@ -169,6 +181,7 @@ class WorkerModelCell:
             bytes_total=bytes_total,
             occupied_bytes=occupied_bytes,
             order_id=order_id,
+            blocked=blocked,
             replaces_model_id=replaces_model_id,
             waiting_for_jobs=waiting_for_jobs,
         )

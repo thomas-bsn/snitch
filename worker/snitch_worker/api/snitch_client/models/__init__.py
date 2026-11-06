@@ -462,6 +462,7 @@ from .worker_job_logs_input import WorkerJobLogsInput
 from .worker_machine import WorkerMachine
 from .worker_model import WorkerModel
 from .worker_model_cell import WorkerModelCell
+from .worker_model_cell_blocked import WorkerModelCellBlocked
 from .worker_model_cell_cause_code import WorkerModelCellCauseCode
 from .worker_model_cell_kind import WorkerModelCellKind
 from .worker_model_cell_state import WorkerModelCellState
@@ -502,6 +503,7 @@ from .worker_voice_input_diarization import WorkerVoiceInputDiarization
 from .worker_voice_input_diarization_speakers_item import WorkerVoiceInputDiarizationSpeakersItem
 from .worker_voice_input_diarization_speakers_item_turns_item import WorkerVoiceInputDiarizationSpeakersItemTurnsItem
 from .worker_voice_model import WorkerVoiceModel
+from .worker_voice_model_kind import WorkerVoiceModelKind
 from .worker_voice_model_role import WorkerVoiceModelRole
 from .worker_voice_model_status import WorkerVoiceModelStatus
 from .worker_voice_model_status_cause_code import WorkerVoiceModelStatusCauseCode
@@ -971,6 +973,7 @@ __all__ = (
     "WorkerMachine",
     "WorkerModel",
     "WorkerModelCell",
+    "WorkerModelCellBlocked",
     "WorkerModelCellCauseCode",
     "WorkerModelCellKind",
     "WorkerModelCellState",
@@ -1011,6 +1014,7 @@ __all__ = (
     "WorkerVoiceInputDiarizationSpeakersItem",
     "WorkerVoiceInputDiarizationSpeakersItemTurnsItem",
     "WorkerVoiceModel",
+    "WorkerVoiceModelKind",
     "WorkerVoiceModelRole",
     "WorkerVoiceModels",
     "WorkerVoiceModelStatus",

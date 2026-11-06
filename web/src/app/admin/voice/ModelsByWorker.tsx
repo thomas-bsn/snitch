@@ -481,13 +481,18 @@ export function ModelsByWorker({
                               {cell.waiting_for_jobs && (
                                 <p>{t("voiceModels.byWorker.waitingJobs")}</p>
                               )}
+                              {cell.blocked && (
+                                <p role="status" className="voice-error">
+                                  {t(`voiceModels.blocked.${cell.blocked}`)}
+                                </p>
+                              )}
                               {cell.state === "failed" && cell.cause_code && (
                                 <p role="alert" className="voice-error">
                                   {t(`voiceModels.cause.${cell.cause_code}`)}
                                 </p>
                               )}
                               <div className="voice-cell-actions">
-                                {cell.state === "failed" && (
+                                {(cell.state === "failed" || cell.blocked) && (
                                   <button
                                     type="button"
                                     className="voice-btn"

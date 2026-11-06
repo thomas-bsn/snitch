@@ -77,6 +77,7 @@ type viewCell struct {
 	Supported       bool   `json:"supported"`
 	ReplacesModelID string `json:"replaces_model_id"`
 	WaitingForJobs  bool   `json:"waiting_for_jobs"`
+	Blocked         string `json:"blocked"`
 }
 
 func (h *voiceHarness) cells(workerID string) map[string]viewCell {
@@ -300,4 +301,105 @@ func testVoiceModelOrderExecution(t *testing.T, pool *pgxpool.Pool) {
 	}
 	// Without a body, Retry keeps its former meaning (a failed candidate).
 	h.adminCall(http.MethodPost, "/api/admin/workers/"+workerID+"/voice-models/retry", nil, http.StatusConflict)
+}
+
+// The Worker's pull names the kind of each model it lists and the models Snitch already knows as ready on it:
+// a model held on its volume and absent from "held" (installed before orders existed) is reported by the Worker
+// once proven, and is then shown in the view and eligible for dispatch (#327).
+func testVoiceModelPullHeldAndKind(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	workerID := h.fixtureWorkerID()
+	pull := func() (models []struct {
+		ModelID string `json:"model_id"`
+		Kind    string `json:"kind"`
+	}, held []string) {
+		var out struct {
+			Models []struct {
+				ModelID string `json:"model_id"`
+				Kind    string `json:"kind"`
+			} `json:"models"`
+			Held []string `json:"held"`
+		}
+		if err := json.Unmarshal(h.workerCall(http.MethodGet, "/api/worker/voice-models", nil, "", http.StatusOK), &out); err != nil {
+			t.Fatal(err)
+		}
+		return out.Models, out.Held
+	}
+	if _, err := pool.Exec(t.Context(), `DELETE FROM worker_voice_models WHERE worker_id=$1`, workerID); err != nil {
+		t.Fatal(err)
+	}
+	models, held := pull()
+	kinds := map[string]string{}
+	for _, m := range models {
+		kinds[m.ModelID] = m.Kind
+	}
+	if kinds["pyannote-wespeaker-resnet34"] != "fingerprint" || len(held) != 0 || held == nil {
+		t.Fatalf("the active fingerprint is listed with its kind and nothing is held yet: %+v %+v", models, held)
+	}
+	if cell := h.cells(workerID)["fingerprint"]; cell.State != "not_installed" {
+		t.Fatalf("before the report the view shows nothing: %+v", cell)
+	}
+
+	// The Worker proves the model it already holds and reports it without any order.
+	h.workerCall(http.MethodPost, "/api/worker/voice-models/status", map[string]any{"model_id": "pyannote-wespeaker-resnet34", "revision": "837717ddb9ff5507820346191109dc79c958d614", "state": "ready", "cause_code": "", "bytes_received": 0, "bytes_total": 0, "occupied_bytes": 0}, "", http.StatusNoContent)
+	if _, held = pull(); len(held) != 1 || held[0] != "pyannote-wespeaker-resnet34" {
+		t.Fatalf("a reported ready model is held: %+v", held)
+	}
+	if cell := h.cells(workerID)["fingerprint"]; cell.State != "ready" || cell.ModelID != "pyannote-wespeaker-resnet34" || cell.Revision != "837717ddb9ff5507820346191109dc79c958d614" {
+		t.Fatalf("the Workers view shows the fingerprint with model, version and state: %+v", cell)
+	}
+}
+
+// An install order that nobody answers is never silent: after two minutes the view says why (#327).
+func testVoiceModelOrderStalled(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	withSecondCatalogModel(t, pool)
+	workerID := h.fixtureWorkerID()
+	o := h.order(workerID, secondID, "install-stalled-0001", http.StatusCreated)
+	if cell := h.cells(workerID)["diarization"]; cell.State != "requested" || cell.Blocked != "" {
+		t.Fatalf("a fresh order is simply requested: %+v", cell)
+	}
+	if _, err := pool.Exec(t.Context(), `UPDATE worker_model_orders SET created_at=now()-interval '3 minutes' WHERE id=$1`, o.OrderID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(t.Context(), `UPDATE worker_voice_models SET updated_at=now()-interval '3 minutes' WHERE order_id=$1`, o.OrderID); err != nil {
+		t.Fatal(err)
+	}
+	if cell := h.cells(workerID)["diarization"]; cell.Blocked != "worker_offline" && cell.Blocked != "order_stalled" {
+		t.Fatalf("an order unanswered for three minutes says why: %+v", cell)
+	}
+	// Retry abandons the stalled order and orders again; the late report of the old order is stale.
+	retried := h.adminCall(http.MethodPost, "/api/admin/workers/"+workerID+"/voice-models/retry", map[string]any{"model_id": secondID, "idempotency_key": "retry-stalled-0001"}, http.StatusCreated)
+	var next modelOrder
+	if err := json.Unmarshal(retried, &next); err != nil || next.OrderID == "" || next.OrderID == o.OrderID {
+		t.Fatalf("a new order replaces the stalled one: %s %v", retried, err)
+	}
+	var status string
+	if err := pool.QueryRow(t.Context(), `SELECT status FROM worker_model_orders WHERE id=$1`, o.OrderID).Scan(&status); err != nil || status != "cancelled" {
+		t.Fatalf("the stalled order is cancelled: %q %v", status, err)
+	}
+	h.reportOrder(o.OrderID, secondID, "ready", "", 0, 0, 0, http.StatusConflict)
+	if cell := h.cells(workerID)["diarization"]; cell.Blocked != "" || cell.OrderID != next.OrderID {
+		t.Fatalf("the new order is not blocked: %+v", cell)
+	}
+
+	// A download that stopped reporting is stalled too, after ten minutes.
+	h.ack(next.OrderID, true, "", http.StatusNoContent)
+	h.reportOrder(next.OrderID, secondID, "downloading", "", 10, 100, 10, http.StatusNoContent)
+	if _, err := pool.Exec(t.Context(), `UPDATE worker_voice_models SET updated_at=now()-interval '5 minutes' WHERE order_id=$1`, next.OrderID); err != nil {
+		t.Fatal(err)
+	}
+	if cell := h.cells(workerID)["diarization"]; cell.Blocked != "" {
+		t.Fatalf("five silent minutes of download are not a stall: %+v", cell)
+	}
+	if _, err := pool.Exec(t.Context(), `UPDATE worker_voice_models SET updated_at=now()-interval '11 minutes' WHERE order_id=$1`, next.OrderID); err != nil {
+		t.Fatal(err)
+	}
+	if cell := h.cells(workerID)["diarization"]; cell.State != "downloading" || cell.Blocked == "" {
+		t.Fatalf("a download silent for eleven minutes says why: %+v", cell)
+	}
+	h.reportOrder(next.OrderID, secondID, "failed", "disk_full", 0, 0, 0, http.StatusNoContent)
+	if cell := h.cells(workerID)["diarization"]; cell.Blocked != "" {
+		t.Fatalf("an answered order is not blocked: %+v", cell)
+	}
 }

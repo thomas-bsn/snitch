@@ -4686,9 +4686,13 @@ export interface components {
       /** @enum {string} */
       role: "candidate" | "active" | "removal";
       retry: boolean;
+      /** @enum {string} */
+      kind?: "diarization" | "fingerprint" | "separation";
     };
     WorkerVoiceModels: {
       worker_id: string;
+      /** @description Modèles que Snitch connaît comme prêts sur ce Worker : un modèle présent sur son volume et absent de cette liste (installé avant les ordres) est rapporté une fois éprouvé. */
+      held?: string[];
       models: components["schemas"]["WorkerVoiceModel"][];
       remove: components["schemas"]["WorkerVoiceModel"][];
       orders: components["schemas"]["WorkerModelOrder"][];
@@ -4850,6 +4854,11 @@ export interface components {
       /** Format: int64 */
       occupied_bytes: number;
       order_id: string;
+      /**
+       * @description Ordre d'installation en attente depuis plus de deux minutes : Worker déconnecté (worker_offline) ou connecté mais qui ne l'a pas tiré (order_stalled). Vide sinon.
+       * @enum {string}
+       */
+      blocked: "" | "worker_offline" | "order_stalled";
       /** @description Modèle que celui-ci remplace sur ce Worker ; vide hors remplacement. L'ancien reste actif et installé jusqu'à son retrait. */
       replaces_model_id: string;
       /** @description Le retrait de l'ancien modèle est différé parce qu'un travail en cours l'utilise. */
