@@ -40,7 +40,6 @@ import {
   type ExplorerState,
 } from "./explorerApi";
 import { LibraryFilters, type ExplorerFilters } from "./LibraryFilters";
-import { LibrarySearchTabs } from "./LibrarySearchTabs";
 import { fetchFilterOptions } from "./libraryApi";
 
 type View = "list" | "icons";
@@ -464,10 +463,6 @@ export function LibraryPage() {
   return (
     <section className="flex min-h-[85vh] flex-col">
       <h1 className="sr-only">{t("pages.library.title")}</h1>
-      <div className="px-4 pt-3 md:px-6">
-        <LibrarySearchTabs />
-      </div>
-
       <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 md:px-6">
         <button
           type="button"
