@@ -370,10 +370,12 @@ test.describe.serial("explorateur de la bibliothèque", () => {
       });
     });
     await page.goto("/library");
-    await expect(
-      page.locator('img[src*="folder-logo?name=league"]').first(),
-    ).toBeVisible();
-    expect(asked).toContain("league");
+    const cover = page.locator('img[src*="folder-logo?name=league"]').first();
+    await expect(cover).toBeVisible();
+    // The glyph loads lazily: it can be on screen before the browser has asked for its cover,
+    // so wait until the server has been asked instead of asserting on the spot.
+    await cover.scrollIntoViewIfNeeded();
+    await expect.poll(() => asked).toContain("league");
   });
 
   test("la pastille d'une vidéo en cours d'indexation s'anime puis se met à jour seule", async ({
