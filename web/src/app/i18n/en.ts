@@ -705,9 +705,9 @@ export const en = {
     },
     blocked: {
       worker_offline:
-        "The order is waiting: this Worker is not connected. It runs the order as soon as it reconnects.",
-      order_not_pulled:
-        "The order has been waiting for more than two minutes although the Worker is connected: check its logs, or restart it if this lasts.",
+        "The order is waiting: this Worker is not connected. It runs the order as soon as it reconnects, or use Retry to order again.",
+      order_stalled:
+        "The order is not moving although the Worker is connected: check its logs, then use Retry to order again.",
     },
     cause: {
       invalid_order:

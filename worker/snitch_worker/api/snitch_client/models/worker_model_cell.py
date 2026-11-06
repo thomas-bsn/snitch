@@ -40,7 +40,7 @@ class WorkerModelCell:
             occupied_bytes (int):
             order_id (str):
             blocked (WorkerModelCellBlocked): Ordre d'installation en attente depuis plus de deux minutes : Worker
-                déconnecté (worker_offline) ou connecté mais qui ne l'a pas tiré (order_not_pulled). Vide sinon.
+                déconnecté (worker_offline) ou connecté mais qui ne l'a pas tiré (order_stalled). Vide sinon.
             replaces_model_id (str): Modèle que celui-ci remplace sur ce Worker ; vide hors remplacement. L'ancien reste
                 actif et installé jusqu'à son retrait.
             waiting_for_jobs (bool): Le retrait de l'ancien modèle est différé parce qu'un travail en cours l'utilise.

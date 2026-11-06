@@ -278,7 +278,7 @@ type workerModelCell struct {
 	BytesTotal    int64  `json:"bytes_total"`
 	OccupiedBytes int64  `json:"occupied_bytes"`
 	OrderID       string `json:"order_id"`
-	// Blocked says why an install order stays unanswered: "worker_offline" or "order_not_pulled" (see orderStallAfter).
+	// Blocked says why an install order stays unanswered: "worker_offline" or "order_stalled" (see orderStalled).
 	Blocked string `json:"blocked"`
 	// ReplacesModelID is the model this one is replacing on the Worker; WaitingForJobs says the removal of that
 	// old model waits for a running job.
@@ -293,24 +293,37 @@ type workerModelsRow struct {
 	Models    []workerModelCell `json:"models"`
 }
 
-// orderStallAfter is how long an install order may wait for its Worker before the view says why it is stuck.
-const orderStallAfter = 2 * time.Minute
+// An install order that nobody answers is never silent. It is stalled when it is still open and its model row has
+// not moved for orderStallAfter (it has not been pulled yet) or, once the Worker is downloading or verifying,
+// for orderProgressStallAfter (a download reports every second; a verification is one long silent inference).
+const (
+	orderStallAfter         = 2 * time.Minute
+	orderProgressStallAfter = 10 * time.Minute
+)
 
-// blockedOrder explains an install order that stays unanswered: its Worker is not connected, or it is connected
-// and did not pull the order. An order that is not old enough, or already over, has no such cause.
-func (s *Server) blockedOrder(ctx context.Context, orderID string, connected bool) (string, error) {
+// orderStalled tells whether an open install order has stopped moving.
+func orderStalled(ctx context.Context, db pgQuerier, orderID string) (bool, error) {
 	var stalled bool
-	err := s.Pool.QueryRow(ctx, `SELECT status IN ('pending','acknowledged') AND created_at < now()-make_interval(secs => $2) FROM worker_model_orders WHERE id=$1`, orderID, orderStallAfter.Seconds()).Scan(&stalled)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !stalled) {
-		return "", nil
+	err := db.QueryRow(ctx, `SELECT o.status IN ('pending','acknowledged') AND m.state IN ('requested','downloading','verifying')
+		AND m.updated_at < now()-make_interval(secs => CASE WHEN m.state='requested' THEN $2::float8 ELSE $3::float8 END)
+		FROM worker_model_orders o JOIN worker_voice_models m ON m.order_id=o.id WHERE o.id=$1`, orderID, orderStallAfter.Seconds(), orderProgressStallAfter.Seconds()).Scan(&stalled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
 	}
-	if err != nil {
+	return stalled, err
+}
+
+// blockedOrder explains a stalled install order: its Worker is not connected, or it is connected and the order
+// does not move.
+func (s *Server) blockedOrder(ctx context.Context, orderID string, connected bool) (string, error) {
+	stalled, err := orderStalled(ctx, s.Pool, orderID)
+	if err != nil || !stalled {
 		return "", err
 	}
 	if !connected {
 		return "worker_offline", nil
 	}
-	return "order_not_pulled", nil
+	return "order_stalled", nil
 }
 
 // listModelsByWorker is the minimal "Models per Worker" view: for each Worker, the model of each type.
@@ -348,7 +361,7 @@ func (s *Server) listModelsByWorker(w http.ResponseWriter, r *http.Request) {
 				c = workerModelCell{Kind: kind, State: "not_installed"}
 			}
 			c.Supported = supported[kind]
-			if c.State == "requested" && c.OrderID != "" {
+			if (c.State == "requested" || c.State == "downloading" || c.State == "verifying") && c.OrderID != "" {
 				if c.Blocked, err = s.blockedOrder(r.Context(), c.OrderID, item.Connected); err != nil {
 					s.internal(w, err)
 					return

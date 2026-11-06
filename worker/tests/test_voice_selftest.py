@@ -68,3 +68,14 @@ class EmbeddingProofTests(unittest.TestCase):
         provider = PyannoteProvider(environ={"SNITCH_VOICE_EMBEDDING_MODEL_PATH": "/", "SNITCH_VOICE_DEVICE": "cpu"}, load_embedder=loader)
         voice_selftest.embed_synthetic(provider)
         self.assertEqual(len(seen), 1)
+
+    def test_an_embedding_whose_dimension_changes_with_the_window_fails(self):
+        from snitch_worker.voice_pyannote import DecodedAudio, PyannoteProvider
+
+        def loader(path, device):
+            return lambda audio_path: DecodedAudio(lambda start, end: [0.5] * (2 if start == 0.0 else 3), 16000, 1, 48000)
+
+        provider = PyannoteProvider(environ={"SNITCH_VOICE_EMBEDDING_MODEL_PATH": "/", "SNITCH_VOICE_DEVICE": "cpu"}, load_embedder=loader)
+        with self.assertRaises(VoiceProviderUnavailable) as caught:
+            voice_selftest.embed_synthetic(provider)
+        self.assertEqual(caught.exception.reason, "inference_failed")

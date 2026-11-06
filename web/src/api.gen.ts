@@ -4855,10 +4855,10 @@ export interface components {
       occupied_bytes: number;
       order_id: string;
       /**
-       * @description Ordre d'installation en attente depuis plus de deux minutes : Worker déconnecté (worker_offline) ou connecté mais qui ne l'a pas tiré (order_not_pulled). Vide sinon.
+       * @description Ordre d'installation en attente depuis plus de deux minutes : Worker déconnecté (worker_offline) ou connecté mais qui ne l'a pas tiré (order_stalled). Vide sinon.
        * @enum {string}
        */
-      blocked: "" | "worker_offline" | "order_not_pulled";
+      blocked: "" | "worker_offline" | "order_stalled";
       /** @description Modèle que celui-ci remplace sur ce Worker ; vide hors remplacement. L'ancien reste actif et installé jusqu'à son retrait. */
       replaces_model_id: string;
       /** @description Le retrait de l'ancien modèle est différé parce qu'un travail en cours l'utilise. */

@@ -492,7 +492,7 @@ export function ModelsByWorker({
                                 </p>
                               )}
                               <div className="voice-cell-actions">
-                                {cell.state === "failed" && (
+                                {(cell.state === "failed" || cell.blocked) && (
                                   <button
                                     type="button"
                                     className="voice-btn"

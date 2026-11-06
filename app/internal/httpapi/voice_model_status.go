@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -139,8 +140,16 @@ func (s *Server) retryVoiceModelOrder(w http.ResponseWriter, r *http.Request, wo
 		return
 	}
 	if state != "failed" {
-		fail(w, http.StatusConflict, "voice_model_not_failed")
-		return
+		// A stalled order (Worker gone, restarted or silent) is abandoned and ordered again, with its own key.
+		abandoned, err := s.abandonStalledOrder(r.Context(), workerID, input.ModelID)
+		if err != nil {
+			s.internal(w, err)
+			return
+		}
+		if !abandoned {
+			fail(w, http.StatusConflict, "voice_model_not_failed")
+			return
+		}
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
 	order, created, err := s.installOrder(r.Context(), ss, workerID, input.ModelID, input.IdempotencyKey, "")
@@ -155,4 +164,31 @@ func (s *Server) retryVoiceModelOrder(w http.ResponseWriter, r *http.Request, wo
 		status = http.StatusCreated
 	}
 	reply(w, status, order)
+}
+
+// abandonStalledOrder cancels the open install order of a model that stopped moving, and forgets its row, so that a
+// new order can replace it. A late report of the old order is then refused as stale. It reports whether it did.
+func (s *Server) abandonStalledOrder(ctx context.Context, workerID, modelID string) (bool, error) {
+	abandoned := false
+	err := s.withVoiceModelLock(ctx, func(tx pgx.Tx) error {
+		var orderID string
+		err := tx.QueryRow(ctx, `SELECT order_id FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2 AND order_id IS NOT NULL`, workerID, modelID).Scan(&orderID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		stalled, err := orderStalled(ctx, tx, orderID)
+		if err != nil || !stalled {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE worker_model_orders SET status='cancelled',finished_at=now() WHERE id=$1 AND status IN ('pending','acknowledged')`, orderID); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `DELETE FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2`, workerID, modelID)
+		abandoned = err == nil
+		return err
+	})
+	return abandoned, err
 }

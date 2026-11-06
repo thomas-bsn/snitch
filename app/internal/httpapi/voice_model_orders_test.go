@@ -362,11 +362,43 @@ func testVoiceModelOrderStalled(t *testing.T, pool *pgxpool.Pool) {
 	if _, err := pool.Exec(t.Context(), `UPDATE worker_model_orders SET created_at=now()-interval '3 minutes' WHERE id=$1`, o.OrderID); err != nil {
 		t.Fatal(err)
 	}
-	if cell := h.cells(workerID)["diarization"]; cell.Blocked != "worker_offline" && cell.Blocked != "order_not_pulled" {
+	if _, err := pool.Exec(t.Context(), `UPDATE worker_voice_models SET updated_at=now()-interval '3 minutes' WHERE order_id=$1`, o.OrderID); err != nil {
+		t.Fatal(err)
+	}
+	if cell := h.cells(workerID)["diarization"]; cell.Blocked != "worker_offline" && cell.Blocked != "order_stalled" {
 		t.Fatalf("an order unanswered for three minutes says why: %+v", cell)
 	}
-	h.ack(o.OrderID, true, "", http.StatusNoContent)
-	h.reportOrder(o.OrderID, secondID, "failed", "disk_full", 0, 0, 0, http.StatusNoContent)
+	// Retry abandons the stalled order and orders again; the late report of the old order is stale.
+	retried := h.adminCall(http.MethodPost, "/api/admin/workers/"+workerID+"/voice-models/retry", map[string]any{"model_id": secondID, "idempotency_key": "retry-stalled-0001"}, http.StatusCreated)
+	var next modelOrder
+	if err := json.Unmarshal(retried, &next); err != nil || next.OrderID == "" || next.OrderID == o.OrderID {
+		t.Fatalf("a new order replaces the stalled one: %s %v", retried, err)
+	}
+	var status string
+	if err := pool.QueryRow(t.Context(), `SELECT status FROM worker_model_orders WHERE id=$1`, o.OrderID).Scan(&status); err != nil || status != "cancelled" {
+		t.Fatalf("the stalled order is cancelled: %q %v", status, err)
+	}
+	h.reportOrder(o.OrderID, secondID, "ready", "", 0, 0, 0, http.StatusConflict)
+	if cell := h.cells(workerID)["diarization"]; cell.Blocked != "" || cell.OrderID != next.OrderID {
+		t.Fatalf("the new order is not blocked: %+v", cell)
+	}
+
+	// A download that stopped reporting is stalled too, after ten minutes.
+	h.ack(next.OrderID, true, "", http.StatusNoContent)
+	h.reportOrder(next.OrderID, secondID, "downloading", "", 10, 100, 10, http.StatusNoContent)
+	if _, err := pool.Exec(t.Context(), `UPDATE worker_voice_models SET updated_at=now()-interval '5 minutes' WHERE order_id=$1`, next.OrderID); err != nil {
+		t.Fatal(err)
+	}
+	if cell := h.cells(workerID)["diarization"]; cell.Blocked != "" {
+		t.Fatalf("five silent minutes of download are not a stall: %+v", cell)
+	}
+	if _, err := pool.Exec(t.Context(), `UPDATE worker_voice_models SET updated_at=now()-interval '11 minutes' WHERE order_id=$1`, next.OrderID); err != nil {
+		t.Fatal(err)
+	}
+	if cell := h.cells(workerID)["diarization"]; cell.State != "downloading" || cell.Blocked == "" {
+		t.Fatalf("a download silent for eleven minutes says why: %+v", cell)
+	}
+	h.reportOrder(next.OrderID, secondID, "failed", "disk_full", 0, 0, 0, http.StatusNoContent)
 	if cell := h.cells(workerID)["diarization"]; cell.Blocked != "" {
 		t.Fatalf("an answered order is not blocked: %+v", cell)
 	}

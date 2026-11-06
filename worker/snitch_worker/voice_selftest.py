@@ -61,12 +61,18 @@ def embed_synthetic(provider: Any) -> None:
         write_synthetic_audio(path)
         try:
             audio = provider._audio_opener()(path)
-            vector = audio(0.0, min(2.0, audio.num_samples / audio.sample_rate))
+            seconds = audio.num_samples / audio.sample_rate
+            vector = audio(0.0, min(2.0, seconds))
+            other = audio(seconds / 3, seconds)
         except VoiceProviderUnavailable:
             raise
         except Exception:  # noqa: BLE001 - a library message never travels
             raise VoiceProviderUnavailable("inference_failed") from None
     check_embedding(vector)
+    check_embedding(other)
+    # The dimension of a fingerprint is the model's own: it must not depend on the audio window.
+    if len(list(vector)) != len(list(other)):
+        raise VoiceProviderUnavailable("inference_failed")
 
 
 def run_selftest(providers: Mapping[str, Any] | None = None, report: list[str] | None = None) -> bool:

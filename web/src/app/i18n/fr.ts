@@ -721,9 +721,9 @@ export const fr: Messages = {
     },
     blocked: {
       worker_offline:
-        "L’ordre attend : ce Worker n’est pas connecté. Il l’exécutera dès sa reconnexion.",
-      order_not_pulled:
-        "L’ordre attend depuis plus de deux minutes alors que le Worker est connecté : consultez ses journaux, ou redémarrez-le si cela dure.",
+        "L’ordre attend : ce Worker n’est pas connecté. Il l’exécutera dès sa reconnexion, ou utilisez Réessayer pour recommander.",
+      order_stalled:
+        "L’ordre n’avance plus alors que le Worker est connecté : consultez ses journaux, puis utilisez Réessayer pour recommander.",
     },
     cause: {
       invalid_order:
