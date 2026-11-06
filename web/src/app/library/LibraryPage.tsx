@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { takeScroll, useClipOrigin } from "./clipOrigin";
+import { takeLastSeen } from "./clipNeighbours";
 import {
   ChevronLeft,
   ChevronRight,
@@ -194,8 +195,19 @@ export function LibraryPage() {
   const listingReady = listing.state.status === "ready";
   useEffect(() => {
     if (!listingReady) return;
-    const top = takeScroll(`${location.pathname}${location.search}`);
+    const address = `${location.pathname}${location.search}`;
+    const top = takeScroll(address);
     if (top !== null) window.scrollTo(0, top);
+    // After browsing from clip to clip, the list lands on the last one seen.
+    const seen = takeLastSeen(address);
+    const link =
+      seen === null
+        ? null
+        : document.querySelector<HTMLElement>(`[data-clip-id="${seen}"]`);
+    if (link) {
+      link.scrollIntoView({ block: "center" });
+      link.focus({ preventScroll: true });
+    }
   }, [listingReady, location.pathname, location.search]);
 
   const items: ExplorerEntry[] =
@@ -955,6 +967,7 @@ function ExplorerRow({
               to={`/clips/${entry.clip_id}`}
               state={clipOrigin.state}
               onClick={clipOrigin.remember}
+              data-clip-id={entry.clip_id}
               aria-label={t("library.card.open", { name: entry.name })}
               className="inline-flex min-h-11 max-w-full items-center font-medium text-ink hover:underline md:min-h-0"
             >
@@ -1151,6 +1164,7 @@ function ExplorerIcon({
         to={`/clips/${entry.clip_id}`}
         state={clipOrigin.state}
         onClick={clipOrigin.remember}
+        data-clip-id={entry.clip_id}
         className={tile}
       >
         {body}

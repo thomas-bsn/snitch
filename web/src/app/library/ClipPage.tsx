@@ -1,5 +1,5 @@
 import { Tabs } from "@base-ui/react/tabs";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   useLocation,
@@ -32,24 +32,59 @@ import { AnalyzeClip, type Run } from "./AnalyzeClip";
 import { ReanalyzeClip } from "./ReanalyzeClip";
 import { buttonClass } from "../components/buttons";
 import { backAddress, hasOrigin } from "./clipOrigin";
+import {
+  rememberLastSeen,
+  useSequence,
+  type Neighbour,
+} from "./clipNeighbours";
+import { ClipPager, ClipStrip, NextCountdown, useStripOpen } from "./ClipStrip";
+
+// The clip opened by an arrow or by the chain starts by itself. Kept outside the
+// history so that a reload or the back button never plays on its own.
+let autoplayClip: number | null = null;
+
+const AUTO_NEXT_KEY = "snitch.clip.autoNext";
+function storedAutoNext() {
+  try {
+    return window.localStorage.getItem(AUTO_NEXT_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
 
 const tabClass =
   "-mb-px inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 border-b-2 border-transparent px-3 font-medium whitespace-nowrap text-mute outline-none hover:text-ink data-[active]:border-accent data-[active]:text-ink md:h-10";
 
 type TabName = "transcript" | "voices" | "history";
 
-function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
+function ClipView({
+  clip,
+  onChanged,
+  next,
+  onNext,
+}: {
+  clip: Clip;
+  onChanged: () => void;
+  next?: Neighbour;
+  onNext: () => void;
+}) {
   const { t } = useI18n();
   const { user } = useSession();
   const admin = !!user && isAdministrator(user);
   const formatDate = useFormatDate();
   const location = useLocation();
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [startAt] = useState(() => parseMoment(params.get("t")));
   const [playhead, setPlayhead] = useState(startAt);
   const [tab, setTab] = useState<TabName>("transcript");
+  const [autoPlay] = useState(() => {
+    const yes = autoplayClip === clip.id;
+    autoplayClip = null;
+    return yes;
+  });
+  const [autoNext, setAutoNext] = useState(storedAutoNext);
+  const [countdown, setCountdown] = useState(false);
   const voice = useLoaded(
     useCallback(() => fetchClipVoice(clip.id), [clip.id]),
   );
@@ -75,8 +110,6 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
       : null;
   useDocumentTitle(clipTitle(clip));
 
-  const back = backAddress(location.state);
-  const openedFromHere = hasOrigin(location.state);
   // The drawing follows the track the transcript and the voices come from; without peaks
   // (an analysis made before they existed) nothing is drawn.
   const waveform = useMemo(
@@ -168,23 +201,6 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3 text-sm text-mute md:px-7">
-        <Link
-          to={back}
-          // Coming from the list or the search, "back" is the history's back: the
-          // entries stay [list, clip] and the native button behaves the same.
-          onClick={(event) => {
-            if (!openedFromHere || event.metaKey || event.ctrlKey) return;
-            event.preventDefault();
-            navigate(-1);
-          }}
-          className="inline-flex min-h-11 items-center gap-1 hover:text-ink md:min-h-8"
-        >
-          <span aria-hidden="true">‹</span>
-          {t(back.startsWith("/search") ? "clip.backToSearch" : "clip.back")}
-        </Link>
-        {clip.status !== "ready" && <ClipStatePill status={clip.status} />}
-      </div>
       <section className="flex flex-col gap-4 px-4 py-4 md:px-7 md:py-5">
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-start gap-3">
@@ -232,7 +248,46 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
               startAt={startAt}
               onMoment={keepMoment}
               onPlayhead={setPlayhead}
+              autoPlay={autoPlay}
+              onEnded={() => {
+                if (autoNext && next) setCountdown(true);
+              }}
+              overlay={
+                countdown &&
+                next && (
+                  <NextCountdown
+                    next={next}
+                    onGo={() => {
+                      setCountdown(false);
+                      onNext();
+                    }}
+                    onCancel={() => setCountdown(false)}
+                  />
+                )
+              }
             />
+            {next && (
+              <label className="-mt-1 inline-flex min-h-11 cursor-pointer items-center gap-2 self-end text-sm text-mute md:min-h-8">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={autoNext}
+                  onChange={(event) => {
+                    setAutoNext(event.target.checked);
+                    try {
+                      window.localStorage.setItem(
+                        AUTO_NEXT_KEY,
+                        event.target.checked ? "on" : "off",
+                      );
+                    } catch {
+                      // Without storage the choice lasts for this clip only.
+                    }
+                  }}
+                  className="size-4 accent-[var(--accent-solid)]"
+                />
+                {t("clip.nav.autoNext")}
+              </label>
+            )}
             <MetadataDisclosure clip={clip} />
             <ProgressBanner
               clip={clip}
@@ -370,6 +425,8 @@ function ClipView({ clip, onChanged }: { clip: Clip; onChanged: () => void }) {
 export function ClipPage() {
   const { t, error } = useI18n();
   const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const clipId = /^[1-9]\d*$/.test(id ?? "") ? Number(id) : 0;
   const clip = useLoaded(
     useCallback(
@@ -382,31 +439,145 @@ export function ClipPage() {
   );
   useDocumentTitle(t("clip.back"));
 
+  // The list the clip was opened from, to go to its neighbours without it.
+  const back = backAddress(location.state);
+  const openedFromHere = hasOrigin(location.state);
+  const sequence = useSequence(openedFromHere ? back : null);
+  const [stripOpen, toggleStrip] = useStripOpen();
+  // Search lists passages: one clip can come twice, so the arrow's choice is kept.
+  const chosen = useRef<number | null>(null);
+  const index = useMemo(() => {
+    if (!sequence) return -1;
+    const kept = chosen.current;
+    if (kept !== null && sequence.items[kept]?.clipId === clipId) return kept;
+    return sequence.items.findIndex((item) => item.clipId === clipId);
+  }, [sequence, clipId]);
+  const go = useCallback(
+    (target: number) => {
+      const item = sequence?.items[target];
+      if (!item) return;
+      chosen.current = target;
+      autoplayClip = item.clipId;
+      // Only a clip reached by the arrows is remembered: a clip opened from the list and
+      // closed keeps the scroll position the list restores.
+      rememberLastSeen(back, item.clipId);
+      // The history keeps one entry for the fiche: Back returns to the list in one step.
+      navigate(
+        `/clips/${item.clipId}${item.at !== undefined ? `?t=${item.at}` : ""}`,
+        { replace: true, state: location.state },
+      );
+    },
+    [sequence, navigate, location.state, back],
+  );
+  useEffect(() => {
+    if (index < 0) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("input, textarea, select, [contenteditable]")) return;
+      if (!event.shiftKey || event.metaKey || event.ctrlKey || event.altKey)
+        return;
+      const key = event.key.toLowerCase();
+      if (key === "n" || key === "p") {
+        event.preventDefault();
+        go(key === "n" ? index + 1 : index - 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [go, index]);
+
+  const shown = clip.state.status === "ready" ? clip.state.value : null;
+  const stale = !!shown && shown.id !== clipId;
+  const current = sequence && index >= 0 ? sequence.items[index] : null;
+  const topBar = (
+    <>
+      <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-2 text-sm text-mute md:px-7">
+        <Link
+          to={back}
+          // Coming from the list or the search, "back" is the history's back: the
+          // entries stay [list, clip] and the native button behaves the same.
+          onClick={(event) => {
+            if (!openedFromHere || event.metaKey || event.ctrlKey) return;
+            event.preventDefault();
+            navigate(-1);
+          }}
+          className="inline-flex min-h-11 items-center gap-1 hover:text-ink md:min-h-8"
+        >
+          <span aria-hidden="true">‹</span>
+          {t(back.startsWith("/search") ? "clip.backToSearch" : "clip.back")}
+        </Link>
+        {shown && shown.status !== "ready" && (
+          <ClipStatePill status={shown.status} />
+        )}
+        {sequence && index >= 0 && sequence.items.length > 1 && (
+          <ClipPager
+            sequence={sequence}
+            index={index}
+            open={stripOpen}
+            onToggle={toggleStrip}
+            onGo={go}
+          />
+        )}
+      </div>
+      {sequence && index >= 0 && sequence.items.length > 1 && stripOpen && (
+        <ClipStrip sequence={sequence} index={index} onGo={go} />
+      )}
+      {current && sequence && (
+        <p className="sr-only" aria-live="polite">
+          {t("clip.nav.announce", {
+            index: index + 1,
+            total: sequence.items.length,
+            name: current.title,
+          })}
+        </p>
+      )}
+    </>
+  );
+
   if (clip.state.status === "loading") {
     return (
-      <p className="p-6 text-mute" role="status">
-        {t("clip.loading")}
-      </p>
+      <>
+        {topBar}
+        <p className="p-6 text-mute" role="status">
+          {t("clip.loading")}
+        </p>
+      </>
     );
   }
   if (clip.state.status === "failed") {
     return (
-      <section className="flex flex-col gap-4 px-4 py-6 md:px-7">
-        <h1 className="text-[22px] font-semibold">{t("clip.back")}</h1>
-        <ErrorAlert>{error(clip.state.code)}</ErrorAlert>
-        <div>
-          <Link to="/library" className="text-accent-ink underline">
-            {t("clip.back")}
-          </Link>
-        </div>
-      </section>
+      <>
+        {topBar}
+        <section className="flex flex-col gap-4 px-4 py-6 md:px-7">
+          <h1 className="text-[22px] font-semibold">{t("clip.back")}</h1>
+          <ErrorAlert>{error(clip.state.code)}</ErrorAlert>
+          <div>
+            <Link to="/library" className="text-accent-ink underline">
+              {t("clip.back")}
+            </Link>
+          </div>
+        </section>
+      </>
     );
   }
   return (
-    <ClipView
-      key={clip.state.value.id}
-      clip={clip.state.value}
-      onChanged={clip.reload}
-    />
+    <>
+      {topBar}
+      {/* While the next clip loads, the one still shown is dimmed and out of reach: the strip
+          already names the new one, and the old fiche must not pass for it. */}
+      <div
+        aria-busy={stale || undefined}
+        inert={stale}
+        className={`transition-opacity motion-reduce:transition-none ${stale ? "opacity-40" : ""}`}
+      >
+        <ClipView
+          key={clip.state.value.id}
+          clip={clip.state.value}
+          onChanged={clip.reload}
+          next={sequence && index >= 0 ? sequence.items[index + 1] : undefined}
+          onNext={() => go(index + 1)}
+        />
+      </div>
+    </>
   );
 }
