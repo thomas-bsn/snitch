@@ -28,16 +28,55 @@ async function expectNoViolations(page: Page) {
 
 test.describe.serial("recherche par citation", () => {
   let sharedId = 0;
+  let privateId = 0;
 
   test.beforeAll(async () => {
     await installAdministrator();
     sharedId = await uploadClip("synthetic-shared.mp4", "shared");
-    await uploadClip("synthetic-private.mp4", "private");
+    privateId = await uploadClip("synthetic-private.mp4", "private");
     const [first] = await transcribeAndDiarize(sharedId);
     await nameVoice(first, "Alice");
     await correctText(sharedId, 0, "Bien joué, Alice !", "nom");
     await correctSpeaker(sharedId, 1, first);
   });
+
+  const passage = (clip_id: number, clip_name: string, timestamp: number) => ({
+    clip_id,
+    clip_name,
+    visibility: "shared",
+    recorded_at: new Date().toISOString(),
+    status: "ready",
+    sources: [],
+    match_type: "full_text",
+    context: "Il lance une grenade.",
+    matched_text: "grenade",
+    timestamp,
+    corrected: false,
+    person: null,
+    decision_level: "unknown",
+  });
+
+  /** Five passages found, four of them in the same clip. */
+  async function stubPassages(page: Page) {
+    await page.route("**/api/search?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            passage(sharedId, "synthetic-shared.mp4", 13),
+            passage(sharedId, "synthetic-shared.mp4", 9),
+            passage(privateId, "synthetic-private.mp4", 2),
+            passage(sharedId, "synthetic-shared.mp4", 5),
+            passage(sharedId, "synthetic-shared.mp4", 1),
+          ],
+          page: 1,
+          page_size: 20,
+          total: 5,
+        }),
+      });
+    });
+  }
 
   test("le champ de l'en-tête mène à la recherche et un résultat ouvre le clip au bon moment", async ({
     browser,
@@ -84,6 +123,103 @@ test.describe.serial("recherche par citation", () => {
     await page.getByRole("link", { name: "Search results" }).click();
     await expect(page).toHaveURL(/\/search\?q=JOUE$/);
     await expect(item).toHaveCount(1);
+    await context.close();
+  });
+
+  test("la bande des clips suit les clips, pas les passages trouvés", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      storageState: await sessionFor(ADMIN),
+    });
+    const page = await context.newPage();
+    await stubPassages(page);
+
+    await page.goto("/search?q=grenade");
+    const items = page
+      .getByRole("list", { name: "Passages found" })
+      .getByRole("listitem");
+    await expect(items).toHaveCount(5);
+
+    // Opening any passage opens its clip; the strip counts the clip once, at its first
+    // passage, and says how many were found.
+    await items
+      .first()
+      .getByRole("link", { name: "Open synthetic-shared.mp4 at 0:13" })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/clips/${sharedId}\\?t=13$`));
+    const tiles = page.locator("[data-strip-clip]");
+    await expect(tiles).toHaveCount(2);
+    const shared = page.locator(`[data-strip-clip="${sharedId}"]`);
+    await expect(shared).toContainText("×4");
+    await expect(shared).toContainText("at 0:01");
+    await expect(shared.getByText("4 passages found")).toBeAttached();
+
+    // The arrow goes to the other clip, at its own first passage, not to the next
+    // passage of the same one.
+    await page
+      .getByRole("button", { name: "Next clip: synthetic-private.mp4" })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/clips/${privateId}\\?t=2$`));
+    await expect(
+      page.getByRole("heading", { level: 1, name: "synthetic-private.mp4" }),
+    ).toBeVisible();
+    await expect(tiles).toHaveCount(2);
+    await expect(shared).toContainText("×4");
+    await context.close();
+  });
+
+  test("la bande passe d'un clip à l'autre, se replie et ramène à la recherche", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      storageState: await sessionFor(ADMIN),
+    });
+    const page = await context.newPage();
+    await stubPassages(page);
+    await page.goto("/search?q=grenade");
+    await page
+      .getByRole("list", { name: "Passages found" })
+      .getByRole("listitem")
+      .first()
+      .getByRole("link", { name: "Open synthetic-shared.mp4 at 0:13" })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/clips/${sharedId}\\?t=13$`));
+    await expectNoViolations(page);
+
+    // The strip folds, and the choice stays on the device.
+    await page.getByRole("button", { name: "Hide clips" }).click();
+    await expect(page.locator("#clip-strip")).toHaveCount(0);
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Show clips" }),
+    ).toBeVisible();
+    await expect(page.locator("#clip-strip")).toHaveCount(0);
+    await page.getByRole("button", { name: "Show clips" }).click();
+    await expect(page.locator("#clip-strip")).toBeVisible();
+
+    // The arrow goes to the other clip, at its own first passage.
+    await page
+      .getByRole("button", { name: "Next clip: synthetic-private.mp4" })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/clips/${privateId}\\?t=2$`));
+    await expect(
+      page.getByRole("heading", { level: 1, name: "synthetic-private.mp4" }),
+    ).toBeVisible();
+
+    // Maj+P comes back, still clip by clip.
+    await page.keyboard.press("Shift+P");
+    await expect(page).toHaveURL(new RegExp(`/clips/${sharedId}\\?t=1$`));
+    await expect(
+      page.getByRole("heading", { level: 1, name: "synthetic-shared.mp4" }),
+    ).toBeVisible();
+
+    // The arrows replaced the fiche's entry: one step returns to the search.
+    await page.getByRole("link", { name: "Search results" }).click();
+    await expect(page).toHaveURL(/\/search\?q=grenade$/);
+    await expect(
+      page.getByRole("list", { name: "Passages found" }),
+    ).toBeVisible();
     await context.close();
   });
 

@@ -27,6 +27,9 @@ Chaque état existe en 4 fichiers (2 thèmes x 2 largeurs).
 | `bibliotheque` | `liste` | `/prototype/library?variant=D` |
 | `bibliotheque` | `icones` (clic sur « Icônes ») | `/prototype/library?variant=D` |
 | `import` | `import` | `/prototype/import?variant=A` |
+| `clip-navigation` | `strip` (bande des clips voisins, après Maj+N) | application, `/clips/<id>` ouvert depuis `/library?folder=…` (branche `prototype/fiche-navigation`, données synthétiques) |
+| `clip-navigation` | `strip-folded` (bande repliée, flèches conservées) | idem |
+| `clip-navigation` | `next-countdown` (« Enchaîner à la fin ») | idem |
 
 ## Regénérer les références
 
