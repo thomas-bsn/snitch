@@ -30,7 +30,6 @@ export function HeaderSearch() {
       "owner",
       "person",
       "state",
-      "mode",
       // The Library filter rides along so it is still there on return.
       "filter",
     ]) {

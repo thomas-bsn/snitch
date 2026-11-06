@@ -1,19 +1,21 @@
-import { Search } from "lucide-react";
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { ChevronDown } from "lucide-react";
+import { useId, useState } from "react";
 import { buttonClass } from "../components/buttons";
 import { DateField, Select } from "../components/FilterFields";
 import { useI18n } from "../i18n";
-import { CLIP_STATES, type ClipFilterOptions } from "../library/libraryApi";
-import type { Person } from "../library/libraryApi";
-import { SEARCH_MODES, type SearchFilters } from "./searchApi";
+import {
+  CLIP_STATES,
+  type ClipFilterOptions,
+  type Person,
+} from "../library/libraryApi";
+import type { SearchFilters } from "./searchApi";
 
-/** The query, the way of searching and the filters of the search screen. */
+/** The filters of the search screen: a rail on desktop, a collapsed panel on a phone. */
 export function SearchForm({
   filters,
   options,
   persons,
   active,
-  onSearch,
   onChange,
   onClear,
 }: {
@@ -21,87 +23,40 @@ export function SearchForm({
   options: ClipFilterOptions | null;
   persons: Person[];
   active: boolean;
-  onSearch: (query: string) => void;
   onChange: (patch: Partial<SearchFilters>) => void;
   onClear: () => void;
 }) {
   const { t } = useI18n();
-  const queryId = useId();
-  const hintId = useId();
-  const [query, setQuery] = useState(filters.q);
-
-  // The header field also searches: the box follows what the address says.
-  useEffect(() => setQuery(filters.q), [filters.q]);
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSearch(query.trim());
-  }
+  const panelId = useId();
+  const [open, setOpen] = useState(false);
 
   return (
-    <form
-      role="search"
-      aria-label={t("search.form.label")}
-      onSubmit={submit}
-      className="flex flex-col gap-4"
-    >
-      <div className="flex flex-col gap-1">
-        <label htmlFor={queryId} className="text-xs font-medium text-mute">
-          {t("search.form.query")}
-        </label>
-        <div className="flex gap-2">
-          <input
-            id={queryId}
-            type="search"
-            value={query}
-            maxLength={200}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("search.form.placeholder")}
-            aria-describedby={hintId}
-            className="h-11 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3 text-ink placeholder:text-mute md:h-9"
-          />
-          <button type="submit" className={buttonClass("primary")}>
-            <Search className="size-4" aria-hidden="true" />
-            {t("search.form.submit")}
-          </button>
-        </div>
-        <p id={hintId} className="text-xs text-mute">
-          {t(`search.modes.${filters.mode}.hint`)}
-        </p>
-      </div>
-
-      <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
-        <legend className="mb-1 p-0 text-xs font-medium text-mute">
-          {t("search.modes.label")}
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {SEARCH_MODES.map((mode) => (
-            <label
-              key={mode}
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-line-strong px-3 text-ink has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent-ink has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent md:min-h-9"
-            >
-              <input
-                type="radio"
-                name="search-mode"
-                value={mode}
-                checked={filters.mode === mode}
-                onChange={() => onChange({ mode })}
-                className="sr-only"
-              />
-              {t(`search.modes.${mode}.name`)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <div
-        role="group"
-        aria-label={t("search.filters.label")}
-        className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7"
+    <aside className="min-w-0 rounded-xl border border-line bg-surface lg:sticky lg:top-4">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((value) => !value)}
+        className="flex min-h-11 w-full items-center justify-between gap-2 px-3.5 text-sm font-semibold text-ink lg:hidden"
       >
-        <p className="col-span-full text-sm text-mute">
-          {t("metadata.dateFilterZone")}
-        </p>
+        {t("search.filters.heading")}
+        <ChevronDown
+          aria-hidden="true"
+          className={`size-4 text-mute transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      <form
+        id={panelId}
+        aria-label={t("search.filters.label")}
+        onSubmit={(event) => event.preventDefault()}
+        className={`${open ? "flex" : "hidden"} flex-col gap-2.5 p-3.5 lg:flex`}
+      >
+        <h2 className="m-0 hidden text-[10.5px] font-semibold uppercase tracking-[0.08em] text-mute lg:block">
+          {t("search.filters.heading")}
+        </h2>
+        <p className="text-xs text-mute">{t("metadata.dateFilterZone")}</p>
         <DateField
           label={t("library.filters.from")}
           value={filters.from}
@@ -158,17 +113,15 @@ export function SearchForm({
             </option>
           ))}
         </Select>
-        <div className="flex items-end">
-          <button
-            type="button"
-            onClick={onClear}
-            disabled={!active}
-            className={`${buttonClass("secondary")} w-full`}
-          >
-            {t("library.filters.clear")}
-          </button>
-        </div>
-      </div>
-    </form>
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={!active}
+          className={`${buttonClass("secondary")} mt-1 w-full`}
+        >
+          {t("library.filters.clear")}
+        </button>
+      </form>
+    </aside>
   );
 }

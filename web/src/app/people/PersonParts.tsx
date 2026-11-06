@@ -28,7 +28,7 @@ export function Avatar({
 }: {
   name: string;
   personId?: number;
-  size?: "md" | "lg" | "record";
+  size?: "xs" | "md" | "lg" | "record";
 }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [personId]);
@@ -36,11 +36,13 @@ export function Avatar({
     <span
       aria-hidden="true"
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-avatar-bg font-semibold text-accent-ink ${
-        size === "lg"
-          ? "size-14 text-xs"
-          : size === "record"
-            ? "size-12 text-xs"
-            : "size-10 text-xs"
+        size === "xs"
+          ? "size-6 text-[9px]"
+          : size === "lg"
+            ? "size-14 text-xs"
+            : size === "record"
+              ? "size-12 text-xs"
+              : "size-10 text-xs"
       }`}
     >
       {personId && !failed ? (

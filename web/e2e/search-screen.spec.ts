@@ -11,7 +11,8 @@ import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 
 // Journeys of the search screen of the new interface, on a synthetic library built through
 // the API: one shared clip transcribed and diarized (Alice speaks the first two segments,
-// the third voice is only a suggestion) and one private clip with no transcript.
+// the third voice is only a suggestion) and one private clip with no transcript. Search is
+// always exact: a word or a phrase, ignoring case, accents and the punctuation between words.
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
@@ -24,6 +25,13 @@ async function expectNoViolations(page: Page) {
       (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(" | ")}`,
     ),
   ).toEqual([]);
+}
+
+/** Types in the header field, the only way into the search screen. */
+async function search(page: Page, query: string) {
+  const box = page.getByRole("searchbox", { name: "Search the transcripts" });
+  await box.fill(query);
+  await box.press("Enter");
 }
 
 test.describe.serial("recherche par citation", () => {
@@ -47,7 +55,7 @@ test.describe.serial("recherche par citation", () => {
     recorded_at: new Date().toISOString(),
     status: "ready",
     sources: [],
-    match_type: "full_text",
+    match_type: "exact",
     context: "Il lance une grenade.",
     matched_text: "grenade",
     timestamp,
@@ -86,29 +94,39 @@ test.describe.serial("recherche par citation", () => {
     });
     const page = await context.newPage();
     await page.goto("/library");
-    await page.getByLabel("Search the transcripts").first().fill("JOUE");
-    await page.keyboard.press("Enter");
+    await search(page, "JOUE");
     await expect(page).toHaveURL(/\/search\?q=JOUE$/);
     await expect(
       page.getByRole("heading", { level: 1, name: "Search" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("searchbox", { name: "What was said" }),
+      page.getByRole("searchbox", { name: "Search the transcripts" }),
     ).toHaveValue("JOUE");
+    await expect(
+      page.getByText("Exact search · case- and accent-insensitive"),
+    ).toBeVisible();
+    await expect(page.getByText(/1 passage in 1 clip for/)).toBeVisible();
 
-    // The quote, with the passage found highlighted, its timecode, clip and speaker.
-    const results = page.getByRole("list", { name: "Passages found" });
-    const item = results.getByRole("listitem");
+    // The passages are grouped by clip: the group names the clip, the voices and the count.
+    const region = page.getByRole("region", { name: "synthetic-shared.mp4" });
+    await expect(region).toBeVisible();
+    await expect(
+      region.getByRole("heading", { name: "synthetic-shared.mp4" }),
+    ).toBeVisible();
+    await expect(region.getByText(/1 passage · 1 voice/)).toBeVisible();
+
+    // One passage: the quote with the hit highlighted, the speaker and their picture.
+    const item = region
+      .getByRole("list", { name: "Passages found in synthetic-shared.mp4" })
+      .getByRole("listitem");
     await expect(item).toHaveCount(1);
     await expect(item).toContainText("Bien joué, Alice !");
     await expect(item.locator("mark")).toHaveText("joué");
-    await expect(item).toContainText("synthetic-shared.mp4");
     await expect(item).toContainText("Alice");
     await expect(item).toContainText("Validated by a human");
-    await expect(item).toContainText("Exact match");
     await expect(item).toContainText("Corrected");
-    // The count and the mode in use are visible.
-    await expect(page.getByText("1 result · Mode: Full text")).toBeVisible();
+    // The clip identity lives in the group header, not repeated in every passage.
+    await expect(item).not.toContainText("synthetic-shared.mp4");
 
     // The timecode opens the clip at that moment.
     await item
@@ -137,7 +155,7 @@ test.describe.serial("recherche par citation", () => {
 
     await page.goto("/search?q=grenade");
     const items = page
-      .getByRole("list", { name: "Passages found" })
+      .getByRole("list", { name: /Passages found in/ })
       .getByRole("listitem");
     await expect(items).toHaveCount(5);
 
@@ -179,7 +197,7 @@ test.describe.serial("recherche par citation", () => {
     await stubPassages(page);
     await page.goto("/search?q=grenade");
     await page
-      .getByRole("list", { name: "Passages found" })
+      .getByRole("list", { name: /Passages found in/ })
       .getByRole("listitem")
       .first()
       .getByRole("link", { name: "Open synthetic-shared.mp4 at 0:13" })
@@ -218,8 +236,8 @@ test.describe.serial("recherche par citation", () => {
     await page.getByRole("link", { name: "Search results" }).click();
     await expect(page).toHaveURL(/\/search\?q=grenade$/);
     await expect(
-      page.getByRole("list", { name: "Passages found" }),
-    ).toBeVisible();
+      page.getByRole("list", { name: /Passages found in/ }),
+    ).toHaveCount(2);
     await context.close();
   });
 
@@ -230,10 +248,17 @@ test.describe.serial("recherche par citation", () => {
       storageState: await sessionFor(ADMIN),
     });
     const page = await context.newPage();
-    await page.goto(
-      "/search?q=jou%C3%A9&visibility=shared&state=ready&mode=exact",
-    );
-    await page.getByRole("link", { name: "Library" }).last().click();
+    await page.goto("/search?q=jou%C3%A9&visibility=shared&state=ready");
+    await expect(
+      page.getByRole("searchbox", { name: "Search the transcripts" }),
+    ).toHaveValue("joué");
+    await expect(
+      page.getByText("Exact search · case- and accent-insensitive"),
+    ).toBeVisible();
+    await page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("link", { name: "Library" })
+      .click();
     await expect(page).toHaveURL(/\/library\?/);
     await expect(page.getByLabel("Visibility", { exact: true })).toHaveValue(
       "shared",
@@ -243,11 +268,15 @@ test.describe.serial("recherche par citation", () => {
     const sharedAddress = page.url();
     await page.reload();
     await expect(page).toHaveURL(sharedAddress);
-    await page.getByRole("link", { name: "Search" }).last().click();
+
+    // Search is reached from the header, and there is no mode to choose.
+    await search(page, "joué");
     await expect(
-      page.getByRole("searchbox", { name: "What was said" }),
+      page.getByRole("searchbox", { name: "Search the transcripts" }),
     ).toHaveValue("joué");
-    await expect(page.getByRole("radio", { name: "Exact" })).toBeChecked();
+    await expect(
+      page.getByText("Exact search · case- and accent-insensitive"),
+    ).toBeVisible();
     await page
       .getByRole("navigation", { name: "Main navigation" })
       .getByRole("link", { name: "Library" })
@@ -268,9 +297,9 @@ test.describe.serial("recherche par citation", () => {
       .getByRole("searchbox", { name: "Search in this folder" })
       .fill("clip");
     await expect(page).toHaveURL(/filter=clip/);
-    await page.getByRole("link", { name: "Search" }).last().click();
+    await search(page, "joué");
     await expect(
-      page.getByRole("searchbox", { name: "What was said" }),
+      page.getByRole("searchbox", { name: "Search the transcripts" }),
     ).toHaveValue("joué");
     await page
       .getByRole("navigation", { name: "Main navigation" })
@@ -282,42 +311,35 @@ test.describe.serial("recherche par citation", () => {
     await context.close();
   });
 
-  test("les modes, les filtres et le filtre par Personne", async ({
-    browser,
-  }) => {
+  test("les filtres et le filtre par Personne", async ({ browser }) => {
     const context = await browser.newContext({
       storageState: await sessionFor(ADMIN),
     });
     const page = await context.newPage();
     await page.goto("/search");
-    await expect(page.getByText("Type a word or a phrase")).toBeVisible();
+    await expect(
+      page.getByText("Type a word or a phrase in the search field at the top."),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Exact search · case- and accent-insensitive"),
+    ).toBeVisible();
 
-    const query = page.getByRole("searchbox", { name: "What was said" });
+    const query = page.getByRole("searchbox", {
+      name: "Search the transcripts",
+    });
     const items = page
-      .getByRole("list", { name: "Passages found" })
+      .getByRole("list", { name: /Passages found in/ })
       .getByRole("listitem");
 
     await query.fill("merci");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await query.press("Enter");
     await expect(items).toHaveCount(1);
-    await page
-      .locator("label")
-      .filter({ hasText: /^Exact$/ })
-      .click();
-    await expect(page).toHaveURL(/mode=exact/);
-    await expect(items).toHaveCount(1);
-    await expect(items.first()).toContainText("Exact match");
-    await expect(page.getByText("Mode: Exact")).toBeVisible();
-    await page
-      .locator("label")
-      .filter({ hasText: /^Full text$/ })
-      .click();
-    await expect(page).not.toHaveURL(/mode=/);
+    await expect(items.first()).toContainText("Merci");
 
     // The Person filter: "À bientôt" is spoken by a voice nobody identified, "Merci" by Alice.
     const bientot = items.filter({ hasText: "À bientôt" });
     await query.fill("bientôt");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await query.press("Enter");
     await expect(bientot).toHaveCount(1);
     await expect(bientot).toContainText("Unknown speaker");
     await page.getByLabel("Person").selectOption({ label: "Alice" });
@@ -328,7 +350,7 @@ test.describe.serial("recherche par citation", () => {
     await expect(bientot).toHaveCount(1);
     await page.getByLabel("Person").selectOption({ label: "Alice" });
     await query.fill("merci");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await query.press("Enter");
     await expect(items).toHaveCount(1);
     await expect(items.first()).toContainText("Alice");
     await page.getByLabel("Person").selectOption({ label: "Unknown voices" });
@@ -358,72 +380,6 @@ test.describe.serial("recherche par citation", () => {
     await context.close();
   });
 
-  test("l'indisponibilité des embeddings est dite et le type de correspondance affiché", async ({
-    browser,
-  }) => {
-    const context = await browser.newContext({
-      storageState: await sessionFor(ADMIN),
-    });
-    const page = await context.newPage();
-    let calls = 0;
-    await page.route("**/api/search?**", async (route) => {
-      calls += 1;
-      const result = (match_type: string, timestamp: number) => ({
-        clip_id: sharedId,
-        clip_name: "synthetic-shared.mp4",
-        visibility: "shared",
-        recorded_at: new Date().toISOString(),
-        status: "ready",
-        sources: [],
-        match_type,
-        context: "Bien joué !",
-        matched_text: "Bien joué",
-        timestamp,
-        corrected: false,
-        person: null,
-        decision_level: "unknown",
-      });
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(
-          calls === 1
-            ? {
-                items: [result("semantic", 1.5), result("approximate", 2.5)],
-                page: 1,
-                page_size: 20,
-                total: 2,
-              }
-            : {
-                items: [result("full_text", 1.5)],
-                page: 1,
-                page_size: 20,
-                total: 1,
-                degraded: true,
-              },
-        ),
-      });
-    });
-
-    await page.goto("/search?q=intention&mode=hybrid");
-    await expect(page.getByText("Semantic match")).toBeVisible();
-    await expect(page.getByText("Approximate match")).toBeVisible();
-    await expect(page.getByText("Mode: Hybrid")).toBeVisible();
-    await expect(page.getByText("Semantic search is unavailable")).toHaveCount(
-      0,
-    );
-
-    await page.getByRole("searchbox", { name: "What was said" }).fill("autre");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
-    await expect(
-      page.getByText(
-        "Semantic search is unavailable: the results come from full-text search.",
-      ),
-    ).toBeVisible();
-    await expect(page.getByText("Mode: Full text")).toBeVisible();
-    await context.close();
-  });
-
   for (const theme of ["light", "dark"] as const) {
     test(`accessibilité de la recherche, thème ${theme}`, async ({
       browser,
@@ -436,11 +392,16 @@ test.describe.serial("recherche par citation", () => {
       }, theme);
       const page = await context.newPage();
       await page.goto("/search");
-      await expect(page.getByText("Type a word or a phrase")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Search the transcripts" }),
+      ).toBeVisible();
       await expectNoViolations(page);
       await page.goto("/search?q=joue");
       await expect(
-        page.getByRole("list", { name: "Passages found" }),
+        page.getByRole("list", { name: /Passages found in/ }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Exact search · case- and accent-insensitive"),
       ).toBeVisible();
       await expectNoViolations(page);
       await page.goto("/search?q=zzzzzz");
@@ -460,7 +421,7 @@ test.describe.serial("recherche par citation", () => {
     const page = await context.newPage();
     await page.goto("/search?q=joue");
     await expect(
-      page.getByRole("list", { name: "Passages found" }),
+      page.getByRole("list", { name: /Passages found in/ }),
     ).toBeVisible();
     expect(
       await page.evaluate(

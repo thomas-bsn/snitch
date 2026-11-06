@@ -176,19 +176,17 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
       ).toBeVisible();
     }
 
-    // Search is a view within the Library entry.
+    // The header is the only entry into search; submitting an empty field opens its prompt.
     await page.goto("/library");
-    const sidebar = page.getByRole("navigation", { name: "Main navigation" });
-    await page
-      .getByRole("navigation", { name: "Library" })
-      .getByRole("link", { name: "Search" })
-      .click();
+    const query = page.getByRole("searchbox", {
+      name: "Search the transcripts",
+    });
+    await query.fill("");
+    await query.press("Enter");
     await expect(page).toHaveURL(/\/search$/);
     await expect(
-      page
-        .getByRole("navigation", { name: "Library" })
-        .getByRole("link", { name: "Search" }),
-    ).toHaveAttribute("aria-current", "page");
+      page.getByRole("heading", { name: "Search", exact: true, level: 1 }),
+    ).toBeVisible();
 
     // The header search opens the search screen with the query in the address.
     await page
@@ -198,7 +196,7 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
     await expect(page).toHaveURL(/\/search\?q=hello%20world$/);
     await page.reload();
     await expect(
-      page.getByRole("searchbox", { name: "What was said" }),
+      page.getByRole("searchbox", { name: "Search the transcripts" }),
     ).toHaveValue("hello world");
 
     // The Import button is always there.

@@ -708,8 +708,16 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=JOUE&mode=exact&page=1&page_size=10", nil, "", http.StatusOK), &search); err != nil {
 		t.Fatal(err)
 	}
-	if search.Total != 1 || len(search.Items) != 1 || search.Items[0].ClipID != completed.ClipID || search.Items[0].Timestamp != 1.55 || search.Items[0].MatchType != "exact" || !strings.Contains(search.Items[0].Context, "joué") {
+	if search.Total != 1 || len(search.Items) != 1 || search.Items[0].ClipID != completed.ClipID || search.Items[0].Timestamp != 1.55 || search.Items[0].MatchType != "exact" || search.Items[0].MatchedText != "joué" || !strings.Contains(search.Items[0].Context, "joué") {
 		t.Fatalf("accent/case tolerant exact search returned unexpected results: %+v", search)
+	}
+	// A phrase still produces one passage, falling back to its segment timestamp
+	// when none of the individual word rows matches the whole phrase.
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/search?q=BIEN,+JOUE!&mode=exact&page=1&page_size=10", nil, "", http.StatusOK), &search); err != nil {
+		t.Fatal(err)
+	}
+	if search.Total != 1 || len(search.Items) != 1 || search.Items[0].Timestamp != 1.25 || search.Items[0].MatchedText != "bien joue" {
+		t.Fatalf("exact phrase search did not keep a single passage at its segment timestamp: %+v", search)
 	}
 	// Approximate matching is a secondary tier. It recovers a nearby French
 	// transcription typo while retaining the word-level timestamp and scope.

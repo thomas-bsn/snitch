@@ -116,7 +116,13 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	// Translate composes with lower() to match French accented and unaccented input
 	// without requiring a database extension or changing the worker result format.
 	queryNorm := normalizeSearch(q)
-	match := "wn=$1"
+	// An exact query is a word or a phrase: the words must follow each other, while the
+	// punctuation between them is ignored. The transcript is normalised the same way, so
+	// "tres bien" finds "Très bien, dit" and "bientot" finds "À bientôt".
+	phraseNorm := "btrim(regexp_replace(" + fmtNorm("$1") + ",'[^[:alnum:]]+',' ','g'))"
+	exactWord := fmtNorm("wd.w") + "=" + phraseNorm
+	exactMatch := "(" + phraseNorm + " <> '' AND (' ' || pn || ' ') LIKE ('% ' || " + phraseNorm + " || ' %'))"
+	match := exactMatch
 	fuzzy := "FALSE"
 	if mode == "full_text" {
 		match = "(wn=$1 OR sn LIKE '%' || $1 || '%')"
@@ -124,6 +130,16 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		// short/common queries would otherwise produce noisy matches.
 		fuzzy = "(char_length($1)>=4 AND char_length(wn)>=4 AND similarity(wn,$1)>=$9)"
 		match = "(" + match + " OR " + fuzzy + ")"
+	}
+	// Exact mode returns one result per passage, not one per word: the matched text is the
+	// word when it is known, the normalised query otherwise, and a phrase starts at its segment.
+	matchedText := "wd.w"
+	timestamp := "COALESCE(wd.ts,e.seg_start)"
+	matchType := "CASE WHEN wd.w IS NOT NULL AND " + exactWord + " THEN 'exact' WHEN " + fmtNorm("e.text") + " LIKE '%' || $1 || '%' THEN 'full_text' ELSE 'approximate' END"
+	if mode == "exact" {
+		matchedText = "CASE WHEN wd.w IS NOT NULL AND " + exactWord + " THEN wd.w ELSE " + phraseNorm + " END"
+		timestamp = "CASE WHEN wd.w IS NOT NULL AND " + exactWord + " THEN COALESCE(wd.ts,e.seg_start) ELSE e.seg_start END"
+		matchType = "'exact'"
 	}
 	// The text searched and displayed is the effective text of each segment (the
 	// correction when there is one). The words of a corrected segment are those of the
@@ -133,9 +149,11 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
  SELECT c.id clip_id,COALESCE(c.display_title,c.original_name) clip_name,c.visibility,c.capture_time AS recorded_at,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END status,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb) sources,
-	 e.text context, e.corrected, e.job_id, e.idx, e.seg_start segment_start, e.seg_end segment_end, e.stream, wd.w matched_text, COALESCE(wd.ts,e.seg_start) timestamp,
-	 CASE WHEN wd.w IS NOT NULL AND ` + fmtNorm("wd.w") + `=$1 THEN 'exact' WHEN ` + fmtNorm("e.text") + ` LIKE '%' || $1 || '%' THEN 'full_text' ELSE 'approximate' END match_type,
- ` + fmtNorm("e.text") + ` sn, ` + fmtNorm("wd.w") + ` wn
+	 e.text context, e.corrected, e.job_id, e.idx, e.seg_start segment_start, e.seg_end segment_end, e.stream,
+	 ` + matchedText + ` matched_text,
+	 ` + timestamp + ` timestamp,
+	 ` + matchType + ` match_type,
+ ` + fmtNorm("e.text") + ` sn, ` + fmtNorm("wd.w") + ` wn, btrim(regexp_replace(` + fmtNorm("e.text") + `,'[^[:alnum:]]+',' ','g')) pn
  FROM eff_segments e JOIN clips c ON c.id=e.clip_id
  LEFT JOIN LATERAL (
   SELECT word->>'word' w, COALESCE((word->>'start')::double precision,e.seg_start) ts FROM jsonb_array_elements(COALESCE(e.seg->'words','[]'::jsonb)) word WHERE NOT e.corrected
@@ -153,6 +171,12 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	matches := "SELECT " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0"
 	if mode == "full_text" {
 		matches = "SELECT DISTINCT ON (clip_id,context,segment_start) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,context,segment_start,CASE match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,similarity(wn,$1) DESC,timestamp"
+	}
+	if mode == "exact" {
+		// The passage matches on every word row of its segment: keep one row per passage,
+		// preferring the word row that is the query itself (its timestamp and spelling),
+		// then the earliest, so the pick is deterministic.
+		matches = "SELECT DISTINCT ON (clip_id,context,segment_start) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,context,segment_start,CASE WHEN wn=" + phraseNorm + " THEN 0 ELSE 1 END,timestamp"
 	}
 	enrich := " FROM matches m" + segmentSpeakerJoin("spk", "m.clip_id", "m.stream", "m.segment_start", "m.segment_end", "m.job_id", "m.idx") + " WHERE " + segmentPersonPredicate("spk", "$10", "$11")
 	withMatches := baseQuery + ", matches AS (" + matches + ") "

@@ -1,0 +1,1627 @@
+<!doctype html>
+<!-- Prototype jetable : recherche par clip, portraits synthétiques, aucune donnée réelle. -->
+<html lang="fr" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snitch · recherche par clip</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+      :root {
+        color-scheme: light;
+        --canvas: #ffffff;
+        --side: #f7f7f8;
+        --surface: #ffffff;
+        --line: #e8e8ec;
+        --line-strong: #dcdce2;
+        --ink: #1b1b1f;
+        --mute: #6b6b76;
+        --nav: #3c3c44;
+        --accent: #5b5bd6;
+        --accent-fg: #ffffff;
+        --accent-soft: #ececfb;
+        --accent-ink: #3a3aa8;
+        --hit: #ececfb;
+        --ok-bg: #e6f6ec;
+        --ok-fg: #1e6a3c;
+        --warn-bg: #fdf1d8;
+        --warn-fg: #80560a;
+        --avatar-bg: #e3e3f7;
+      }
+
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --canvas: #0f0f12;
+        --side: #16161a;
+        --surface: #1b1b20;
+        --line: #2a2a31;
+        --line-strong: #3a3a43;
+        --ink: #ececf0;
+        --mute: #9a9aa6;
+        --nav: #c8c8d2;
+        --accent: #8f8ff5;
+        --accent-fg: #ffffff;
+        --accent-soft: #262650;
+        --accent-ink: #c1c1ff;
+        --hit: #33336b;
+        --ok-bg: #16301f;
+        --ok-fg: #7fd69a;
+        --warn-bg: #3a2f12;
+        --warn-fg: #f0c870;
+        --avatar-bg: #2a2a5a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #edeef2;
+        color: var(--ink);
+        font-family:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      html[data-theme="dark"] body {
+        background: #08080a;
+      }
+
+      /* ---------- barre de simulation ---------- */
+      .harness {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 16px;
+        border-bottom: 1px solid #2a2a31;
+        background: #16161a;
+        color: #e8e8ee;
+        font-size: 12px;
+      }
+
+      .harness .title {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-right: 6px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .harness .title small {
+        color: #8d8d99;
+        font-weight: 500;
+      }
+
+      .harness .group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .harness .label {
+        color: #8d8d99;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .harness .seg {
+        display: flex;
+        gap: 2px;
+        padding: 3px;
+        border: 1px solid #303039;
+        border-radius: 8px;
+        background: #1f1f25;
+      }
+
+      .harness .seg button {
+        border: 0;
+        border-radius: 5px;
+        padding: 5px 9px;
+        background: transparent;
+        color: #b9b9c5;
+        font: inherit;
+        font-size: 11.5px;
+        cursor: pointer;
+      }
+
+      .harness .seg button.active {
+        background: #e8e8ee;
+        color: #16161a;
+        font-weight: 600;
+      }
+
+      .harness .note {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
+        color: #a9a9b6;
+      }
+
+      .harness .note b {
+        color: #c8c8d6;
+      }
+
+      /* ---------- coque ---------- */
+      .stage {
+        display: grid;
+        place-items: start center;
+        padding: 22px 20px 40px;
+      }
+
+      .device {
+        width: 100%;
+        max-width: 1440px;
+      }
+
+      .device.phone {
+        width: 390px;
+        max-width: 390px;
+      }
+
+      .app {
+        position: relative;
+        display: flex;
+        width: 100%;
+        height: calc(100vh - 110px);
+        min-height: 700px;
+        max-height: 900px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--canvas);
+        box-shadow: 0 18px 60px rgba(22, 22, 40, 0.12);
+      }
+
+      .device.phone .app {
+        height: 844px;
+        min-height: 0;
+        border: 7px solid #131318;
+        border-radius: 26px;
+        box-shadow: 0 18px 60px rgba(22, 22, 40, 0.28);
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        flex: none;
+        width: 220px;
+        padding: 20px 12px 14px;
+        border-right: 1px solid var(--line);
+        background: var(--side);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 0 10px 24px;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      .logo {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .nav {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        color: var(--nav);
+        font-size: 13.5px;
+        font-weight: 500;
+      }
+
+      .nav-item svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .nav-item.active {
+        background: var(--accent-soft);
+        color: var(--accent-ink);
+      }
+
+      .nav-item .count {
+        margin-left: auto;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-ink);
+        font-size: 10.5px;
+        font-weight: 600;
+      }
+
+      .side-foot {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: auto;
+        padding: 12px 8px 0;
+        border-top: 1px solid var(--line);
+        color: var(--mute);
+        font-size: 11.5px;
+      }
+
+      .avatar-me {
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--avatar-bg);
+        color: var(--accent-ink);
+        font-size: 10.5px;
+        font-weight: 700;
+      }
+
+      .shell-main {
+        display: flex;
+        flex: 1;
+        min-width: 0;
+        flex-direction: column;
+      }
+
+      .topbar {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 12px;
+        height: 60px;
+        padding: 0 26px;
+        border-bottom: 1px solid var(--line);
+        background: var(--canvas);
+      }
+
+      .searchbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: min(460px, 100%);
+        height: 36px;
+        padding: 0 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--mute);
+      }
+
+      .searchbox svg {
+        width: 15px;
+        height: 15px;
+        flex: none;
+      }
+
+      .searchbox input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+      }
+
+      .searchbox kbd {
+        padding: 2px 5px;
+        border: 1px solid var(--line-strong);
+        border-radius: 4px;
+        color: var(--mute);
+        font-family: inherit;
+        font-size: 10px;
+      }
+
+      .topbar .right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+      }
+
+      .icon-button {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--mute);
+      }
+
+      .icon-button svg {
+        width: 17px;
+        height: 17px;
+      }
+
+      .icon-button.has-dot {
+        position: relative;
+      }
+
+      .icon-button.has-dot::after {
+        content: "";
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 2px var(--canvas);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        height: 34px;
+        padding: 0 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+
+      .btn svg {
+        width: 15px;
+        height: 15px;
+      }
+
+      .btn.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--accent-fg);
+      }
+
+      .main-scroll {
+        flex: 1;
+        overflow: auto;
+      }
+
+      .page {
+        width: 100%;
+        max-width: 1100px;
+        padding: 26px 28px 40px;
+      }
+
+      .page-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+      }
+
+      .page h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: -0.035em;
+      }
+
+      .lead {
+        margin: 6px 0 0;
+        color: var(--mute);
+        font-size: 13px;
+      }
+
+      .exact-note {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex: none;
+        margin-top: 3px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-ink);
+        font-size: 11.5px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .exact-note svg {
+        width: 13px;
+        height: 13px;
+      }
+
+      /* ---------- corps : résultats + rail ---------- */
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 268px;
+        gap: 22px;
+        align-items: start;
+        margin-top: 20px;
+      }
+
+      .split-main {
+        min-width: 0;
+      }
+
+      .rail {
+        position: sticky;
+        top: 0;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+      }
+
+      .rail summary {
+        display: none;
+      }
+
+      .rail h2 {
+        margin: 0 0 12px;
+        color: var(--mute);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 11px;
+        color: var(--mute);
+        font-size: 10.5px;
+        font-weight: 600;
+      }
+
+      .ctl {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 7px;
+        height: 34px;
+        padding: 0 9px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--ink);
+        font-size: 12.5px;
+        font-weight: 400;
+      }
+
+      .ctl svg {
+        width: 13px;
+        height: 13px;
+        flex: none;
+        color: var(--mute);
+      }
+
+      .rail .apply {
+        width: 100%;
+        margin-top: 3px;
+      }
+
+      .rail .clear {
+        width: 100%;
+        margin-top: 7px;
+        border: 0;
+        background: transparent;
+        color: var(--mute);
+        font: inherit;
+        font-size: 11.5px;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .result-count {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin: 0 0 10px;
+        color: var(--mute);
+        font-size: 12px;
+      }
+
+      .result-count b {
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      /* ---------- accent du locuteur ---------- */
+      .spk-marc {
+        --spk: #5b5bd6;
+      }
+
+      .spk-julie {
+        --spk: #b8437a;
+      }
+
+      .spk-thomas {
+        --spk: #2f7f6f;
+      }
+
+      .spk-hugo {
+        --spk: #b47616;
+      }
+
+      .spk-unknown {
+        --spk: #8a8a96;
+      }
+
+      html[data-theme="dark"] .spk-marc {
+        --spk: #8f8ff5;
+      }
+
+      html[data-theme="dark"] .spk-julie {
+        --spk: #e58ab1;
+      }
+
+      html[data-theme="dark"] .spk-thomas {
+        --spk: #6cc7b4;
+      }
+
+      html[data-theme="dark"] .spk-hugo {
+        --spk: #e0ae5a;
+      }
+
+      html[data-theme="dark"] .spk-unknown {
+        --spk: #a0a0ac;
+      }
+
+      .pp {
+        display: block;
+        flex: none;
+        width: 38px;
+        height: 38px;
+        border: 2px solid var(--spk);
+        border-radius: 50%;
+        background: var(--side);
+        overflow: hidden;
+      }
+
+      /* ---------- groupes de clips ---------- */
+      .group {
+        margin-bottom: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .group-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--side);
+      }
+
+      .thumb {
+        position: relative;
+        width: 76px;
+        height: 44px;
+        flex: none;
+        border-radius: 6px;
+        background:
+          linear-gradient(0deg, rgba(9, 12, 18, 0.55), transparent 60%),
+          linear-gradient(145deg, #24303f 0 42%, #52707d 43% 70%, #16202c 71%);
+        overflow: hidden;
+      }
+
+      .thumb.warm {
+        background:
+          linear-gradient(0deg, rgba(22, 14, 10, 0.55), transparent 60%),
+          linear-gradient(145deg, #3d2b22 0 42%, #9b6b4a 43% 70%, #241a15 71%);
+      }
+
+      .thumb.green {
+        background:
+          linear-gradient(0deg, rgba(10, 20, 14, 0.55), transparent 60%),
+          linear-gradient(145deg, #1f3329 0 42%, #5b8a6b 43% 70%, #132019 71%);
+      }
+
+      .titles {
+        min-width: 0;
+      }
+
+      .group-head h2 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .group-head .sub {
+        margin: 3px 0 0;
+        color: var(--mute);
+        font-size: 11.5px;
+      }
+
+      .voices {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-left: auto;
+        min-width: 0;
+      }
+
+      .stack {
+        display: flex;
+        flex: none;
+        padding-left: 7px;
+      }
+
+      .stack .pp {
+        width: 24px;
+        height: 24px;
+        margin-left: -7px;
+        border: 2px solid var(--side);
+      }
+
+      .stack .pp:first-child {
+        margin-left: 0;
+      }
+
+      .voice-names {
+        max-width: 150px;
+        overflow: hidden;
+        color: var(--mute);
+        font-size: 11px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .open {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex: none;
+        margin-left: 8px;
+        padding: 5px 9px;
+        border: 1px solid var(--line-strong);
+        border-radius: 7px;
+        background: var(--surface);
+        color: var(--mute);
+        font-size: 11px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .open svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      /* ---------- B1 : fil de voix ---------- */
+      .passage {
+        display: flex;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .passage:last-child {
+        border-bottom: 0;
+      }
+
+      .passage:hover {
+        background: var(--side);
+      }
+
+      .pbody {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .who {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+
+      .who .name {
+        font-size: 13px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+
+      .who .name.unknown {
+        color: var(--mute);
+        font-style: italic;
+        font-weight: 500;
+      }
+
+      .time {
+        color: var(--accent-ink);
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 11.5px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .who .time {
+        margin-left: auto;
+        padding: 2px 0 2px 8px;
+      }
+
+      .badge {
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--side);
+        color: var(--mute);
+        font-size: 10.5px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .badge.ok {
+        background: var(--ok-bg);
+        color: var(--ok-fg);
+      }
+
+      .badge.soft {
+        background: var(--accent-soft);
+        color: var(--accent-ink);
+      }
+
+      .badge.warn {
+        background: var(--warn-bg);
+        color: var(--warn-fg);
+      }
+
+      .quote {
+        margin: 5px 0 0;
+        font-size: 13.5px;
+        line-height: 1.52;
+        overflow-wrap: anywhere;
+      }
+
+      mark {
+        padding: 0 2px;
+        border-radius: 3px;
+        background: var(--hit);
+        color: var(--accent-ink);
+        font-weight: 600;
+      }
+
+      /* ---------- B2 : cartes de voix ---------- */
+      [data-variant="b1"] .only-b2,
+      [data-variant="b2"] .only-b1 {
+        display: none !important;
+      }
+
+      .b2-list .group {
+        margin-bottom: 22px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        overflow: visible;
+      }
+
+      .b2-list .group-head {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+      }
+
+      .b2-list .passages {
+        padding-top: 8px;
+      }
+
+      .passage-card {
+        display: grid;
+        grid-template-columns: 174px minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+        margin-bottom: 8px;
+        padding: 15px 16px;
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--spk);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+
+      .passage-card:hover {
+        background: var(--side);
+      }
+
+      .speaker {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+        align-self: stretch;
+        padding-right: 14px;
+        border-right: 1px solid var(--line);
+      }
+
+      .speaker .pp {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 2px;
+      }
+
+      .speaker-name {
+        font-size: 13.5px;
+        font-weight: 650;
+        line-height: 1.2;
+        letter-spacing: -0.01em;
+      }
+
+      .speaker-name.unknown {
+        color: var(--mute);
+        font-style: italic;
+        font-weight: 500;
+      }
+
+      .speaker .badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .speaker .time {
+        margin-top: 3px;
+      }
+
+      .passage-card .quote {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      /* ---------- état vide ---------- */
+      .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 52px 24px;
+        border: 1px dashed var(--line-strong);
+        border-radius: 14px;
+        text-align: center;
+      }
+
+      .empty .glyph {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        margin-bottom: 4px;
+        border-radius: 12px;
+        background: var(--side);
+        color: var(--mute);
+      }
+
+      .empty .glyph svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .empty h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .empty p {
+        max-width: 420px;
+        margin: 0;
+        color: var(--mute);
+        font-size: 12.5px;
+        line-height: 1.55;
+      }
+
+      .empty .btn {
+        margin-top: 8px;
+      }
+
+      [data-state="results"] .state-empty,
+      [data-state="empty"] .state-results {
+        display: none !important;
+      }
+
+      /* ---------- téléphone ---------- */
+      .tabbar {
+        display: none;
+      }
+
+      .device.phone .sidebar {
+        display: none;
+      }
+
+      .device.phone .topbar {
+        height: 56px;
+        padding: 0 12px;
+      }
+
+      .device.phone .topbar .desktop-only {
+        display: none;
+      }
+
+      .device.phone .page {
+        max-width: none;
+        padding: 18px 16px 84px;
+      }
+
+      .device.phone .page-head {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .device.phone h1 {
+        font-size: 20px;
+      }
+
+      .device.phone .split {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .device.phone .rail {
+        position: static;
+        order: -1;
+        padding: 0;
+      }
+
+      .device.phone .rail summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 11px 13px;
+        color: var(--ink);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .device.phone .rail summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .device.phone .rail summary svg {
+        width: 14px;
+        height: 14px;
+        color: var(--mute);
+        transition: transform 0.15s;
+      }
+
+      .device.phone .rail[open] summary svg {
+        transform: rotate(180deg);
+      }
+
+      .device.phone .rail-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+        padding: 0 13px 13px;
+      }
+
+      .device.phone .rail h2 {
+        display: none;
+      }
+
+      .device.phone .rail .field {
+        margin: 0;
+      }
+
+      .device.phone .rail .apply,
+      .device.phone .rail .clear {
+        margin: 0;
+      }
+
+      .device.phone .group-head {
+        display: grid;
+        grid-template-columns: 60px minmax(0, 1fr) auto;
+        grid-template-areas:
+          "thumb titles titles"
+          "voices voices open";
+        align-items: center;
+        row-gap: 8px;
+      }
+
+      .device.phone .thumb {
+        grid-area: thumb;
+        width: 60px;
+        height: 36px;
+      }
+
+      .device.phone .titles {
+        grid-area: titles;
+        min-width: 0;
+      }
+
+      .device.phone .group-head h2 {
+        white-space: normal;
+      }
+
+      .device.phone .voices {
+        grid-area: voices;
+        min-width: 0;
+        margin-left: 0;
+      }
+
+      .device.phone .voice-names {
+        max-width: none;
+      }
+
+      .device.phone .open {
+        grid-area: open;
+        margin-left: 0;
+        justify-self: end;
+      }
+
+      .device.phone .passage {
+        gap: 10px;
+        padding: 11px 12px;
+      }
+
+      .device.phone .pp {
+        width: 34px;
+        height: 34px;
+      }
+
+      .device.phone .who .time {
+        margin-left: 0;
+        padding-left: 0;
+      }
+
+      .device.phone .passage-card {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 13px;
+      }
+
+      .device.phone .speaker {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        padding: 0 0 9px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .device.phone .speaker .pp {
+        width: 36px;
+        height: 36px;
+        margin: 0;
+      }
+
+      .device.phone .speaker .time {
+        margin: 0 0 0 auto;
+      }
+
+      .device.phone .tabbar {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 8;
+        display: flex;
+        height: 64px;
+        border-top: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .device.phone .tabbar span {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        color: var(--nav);
+        font-size: 10px;
+        font-weight: 500;
+      }
+
+      .device.phone .tabbar span.active {
+        color: var(--accent);
+      }
+
+      .device.phone .tabbar svg {
+        width: 19px;
+        height: 19px;
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m20 20-3.5-3.5"></path>
+      </symbol>
+      <symbol id="i-library" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+        <path d="M3 9h18M9 9v11"></path>
+      </symbol>
+      <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="8" r="3.2"></circle>
+        <path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M16 4.8a3.2 3.2 0 0 1 0 6.4M18 14.9c2 .7 3 2.4 3 5.1"></path>
+      </symbol>
+      <symbol id="i-import" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"></path>
+      </symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6M10.5 20a1.8 1.8 0 0 0 3 0"></path>
+      </symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m7 10 5 5 5-5"></path>
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14m0 0-5-5m5 5-5 5"></path>
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5 12.5 4.5 4.5L19 7"></path>
+      </symbol>
+      <symbol id="i-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m20 20-3.5-3.5M8.5 11h5"></path>
+      </symbol>
+
+      <!-- Portraits synthétiques : aucune photo réelle. -->
+      <symbol id="pp-marc" viewBox="0 0 64 64">
+        <rect width="64" height="64" fill="#e9e7fb"></rect>
+        <path d="M7 64c1.5-14 11-21 25-21s23.5 7 25 21z" fill="#45458a"></path>
+        <rect x="27" y="36" width="10" height="12" rx="5" fill="#d99e74"></rect>
+        <ellipse cx="32" cy="27" rx="13" ry="14.5" fill="#e9b489"></ellipse>
+        <path d="M19 26c0-10 6-15.5 13-15.5S45 16 45 26c-1.5-3.5-4-5.5-7-6-2 2-5 3-9 2.5-3 1-6 2.5-7 5.5z" fill="#3a2a20"></path>
+        <circle cx="27" cy="28" r="1.5" fill="#2b211b"></circle>
+        <circle cx="37" cy="28" r="1.5" fill="#2b211b"></circle>
+        <path d="M28 34.5c2.3 1.8 5.7 1.8 8 0" stroke="#2b211b" stroke-width="1.3" fill="none" stroke-linecap="round"></path>
+      </symbol>
+
+      <symbol id="pp-julie" viewBox="0 0 64 64">
+        <rect width="64" height="64" fill="#fbe8f1"></rect>
+        <path d="M15 31c0-13 7-20 17-20s17 7 17 20v17c0 5-3 8-7 8H22c-4 0-7-3-7-8z" fill="#3a2620"></path>
+        <path d="M8 64c1.5-13 10-20 24-20s22.5 7 24 20z" fill="#a83f6a"></path>
+        <rect x="27" y="36" width="10" height="12" rx="5" fill="#e8b48e"></rect>
+        <ellipse cx="32" cy="27" rx="12" ry="14" fill="#f0c19b"></ellipse>
+        <path d="M20 26c0-10 5-15 12-15s12 5 12 15c-2-4-5-6-8-6-1 2-4 3-8 3-3 0-6 1-8 3z" fill="#3a2620"></path>
+        <circle cx="27" cy="28" r="1.5" fill="#2b211b"></circle>
+        <circle cx="37" cy="28" r="1.5" fill="#2b211b"></circle>
+        <path d="M28 34.5c2.3 1.8 5.7 1.8 8 0" stroke="#2b211b" stroke-width="1.3" fill="none" stroke-linecap="round"></path>
+      </symbol>
+
+      <symbol id="pp-thomas" viewBox="0 0 64 64">
+        <rect width="64" height="64" fill="#e3f2ed"></rect>
+        <path d="M8 64c1.5-13 10-20 24-20s22.5 7 24 20z" fill="#2f7f6f"></path>
+        <rect x="27" y="36" width="10" height="12" rx="5" fill="#c98e60"></rect>
+        <ellipse cx="32" cy="27" rx="12.5" ry="14" fill="#d9a06f"></ellipse>
+        <path d="M19 25c1-9 6-14 13-14s12 5 13 14c-3-3-7-4-13-4s-10 1-13 4z" fill="#2a2522"></path>
+        <circle cx="26.5" cy="28.5" r="4.2" fill="none" stroke="#2a2522" stroke-width="1.5"></circle>
+        <circle cx="37.5" cy="28.5" r="4.2" fill="none" stroke="#2a2522" stroke-width="1.5"></circle>
+        <path d="M30.7 28.5h2.6" stroke="#2a2522" stroke-width="1.4"></path>
+        <path d="M28 35c2.2 1.6 5.8 1.6 8 0" stroke="#2b211b" stroke-width="1.3" fill="none" stroke-linecap="round"></path>
+      </symbol>
+
+      <symbol id="pp-hugo" viewBox="0 0 64 64">
+        <rect width="64" height="64" fill="#fdf0d8"></rect>
+        <path d="M8 64c1.5-13 10-20 24-20s22.5 7 24 20z" fill="#b47616"></path>
+        <rect x="27" y="36" width="10" height="12" rx="5" fill="#a86a42"></rect>
+        <ellipse cx="32" cy="27" rx="12.5" ry="14" fill="#b97a4e"></ellipse>
+        <circle cx="22" cy="21" r="6" fill="#2e211a"></circle>
+        <circle cx="29" cy="15" r="6" fill="#2e211a"></circle>
+        <circle cx="37" cy="15" r="6" fill="#2e211a"></circle>
+        <circle cx="43" cy="21" r="6" fill="#2e211a"></circle>
+        <circle cx="24" cy="16" r="4" fill="#2e211a"></circle>
+        <circle cx="32" cy="13" r="4" fill="#2e211a"></circle>
+        <circle cx="40" cy="16" r="4" fill="#2e211a"></circle>
+        <circle cx="27" cy="28" r="1.5" fill="#2b211b"></circle>
+        <circle cx="37" cy="28" r="1.5" fill="#2b211b"></circle>
+        <path d="M28 34.5c2.3 1.8 5.7 1.8 8 0" stroke="#2b211b" stroke-width="1.3" fill="none" stroke-linecap="round"></path>
+      </symbol>
+
+      <symbol id="pp-unknown" viewBox="0 0 64 64">
+        <rect width="64" height="64" fill="#ececf0"></rect>
+        <path d="M8 64c1.5-15 10-22 24-22s22.5 7 24 22z" fill="#b6b6c0"></path>
+        <circle cx="32" cy="25" r="12.5" fill="#b6b6c0"></circle>
+      </symbol>
+    </svg>
+
+    <header class="harness">
+      <div class="title">Snitch <small>· recherche par clip</small></div>
+
+      <div class="group">
+        <span class="label">Accent locuteur</span>
+        <div class="seg" id="variants">
+          <button data-value="b1" class="active">1 · Fil de voix</button>
+          <button data-value="b2">2 · Cartes de voix</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="label">État</span>
+        <div class="seg" id="states">
+          <button data-value="results" class="active">Résultats</button>
+          <button data-value="empty">Aucun résultat</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="label">Thème</span>
+        <div class="seg" id="themes">
+          <button data-value="light" class="active">Clair</button>
+          <button data-value="dark">Sombre</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="label">Largeur</span>
+        <div class="seg" id="widths">
+          <button data-value="desktop" class="active">Bureau</button>
+          <button data-value="phone">Téléphone</button>
+        </div>
+      </div>
+
+      <div class="note">
+        <svg width="14" height="14"><use href="#i-check"></use></svg>
+        <span><b>Mode exact uniquement</b> · plein texte et hybride retirés</span>
+      </div>
+    </header>
+
+    <div class="stage">
+      <div class="device" id="device">
+        <div class="app" data-variant="b1" data-state="results" id="app">
+          <aside class="sidebar">
+            <div class="brand"><span class="logo">S</span>Snitch</div>
+            <nav class="nav">
+              <span class="nav-item"><svg><use href="#i-library"></use></svg>Bibliothèque</span>
+              <span class="nav-item active"><svg><use href="#i-search"></use></svg>Recherche</span>
+              <span class="nav-item"><svg><use href="#i-people"></use></svg>Personnes<span class="count">12</span></span>
+              <span class="nav-item"><svg><use href="#i-import"></use></svg>Importer</span>
+            </nav>
+            <div class="side-foot"><span class="avatar-me">TB</span><span>Thomas Boisson</span></div>
+          </aside>
+
+          <div class="shell-main">
+            <header class="topbar">
+              <div class="searchbox">
+                <svg><use href="#i-search"></use></svg>
+                <input value="lag" aria-label="Rechercher dans les transcriptions" />
+                <kbd>↵</kbd>
+              </div>
+              <div class="right">
+                <button class="btn primary desktop-only"><svg><use href="#i-import"></use></svg>Importer</button>
+                <button class="icon-button has-dot" aria-label="Notifications"><svg><use href="#i-bell"></use></svg></button>
+                <span class="avatar-me">TB</span>
+              </div>
+            </header>
+
+            <div class="main-scroll">
+              <main class="page">
+                <div class="page-head">
+                  <div>
+                    <h1>Recherche</h1>
+                    <p class="lead state-results"><b id="lead-count">6 passages dans 3 clips</b> pour « lag »</p>
+                    <p class="lead state-empty">Aucun passage pour « lagg »</p>
+                  </div>
+                  <span class="exact-note"><svg><use href="#i-check"></use></svg>Recherche exacte · casse et accents ignorés</span>
+                </div>
+
+                <div class="split">
+                  <div class="split-main state-results">
+                    <div class="result-count"><b id="result-count">6 passages</b><span id="clip-count">dans 3 clips · voix mises en avant</span></div>
+
+                    <div id="groups-b1" class="only-b1"></div>
+                    <div id="groups-b2" class="only-b2 b2-list"></div>
+                  </div>
+
+                  <div class="split-main state-empty">
+                    <div class="empty">
+                      <span class="glyph"><svg><use href="#i-empty"></use></svg></span>
+                      <h2>Rien trouvé pour « lagg »</h2>
+                      <p>La recherche exacte ne corrige ni l’orthographe ni les approximations. Vérifiez le mot, ou cherchez une formulation présente dans les paroles.</p>
+                      <button class="btn">Effacer la recherche</button>
+                    </div>
+                  </div>
+
+                  <details class="rail" open>
+                    <summary class="rail-summary">Filtrer<svg><use href="#i-chevron"></use></svg></summary>
+                    <div class="rail-body">
+                      <h2>Filtrer</h2>
+                      <label class="field">Du<span class="ctl">Toutes les dates<svg><use href="#i-chevron"></use></svg></span></label>
+                      <label class="field">Source<span class="ctl">Toutes<svg><use href="#i-chevron"></use></svg></span></label>
+                      <label class="field">Visibilité<span class="ctl">Toutes<svg><use href="#i-chevron"></use></svg></span></label>
+                      <label class="field">Personne<span class="ctl">Toutes<svg><use href="#i-chevron"></use></svg></span></label>
+                      <label class="field">État<span class="ctl">Tous<svg><use href="#i-chevron"></use></svg></span></label>
+                      <button class="btn primary apply">Appliquer les filtres</button>
+                      <button class="clear">Effacer</button>
+                    </div>
+                  </details>
+                </div>
+              </main>
+            </div>
+          </div>
+
+          <nav class="tabbar" aria-label="Navigation">
+            <span><svg><use href="#i-library"></use></svg>Bibliothèque</span>
+            <span class="active"><svg><use href="#i-search"></use></svg>Recherche</span>
+            <span><svg><use href="#i-people"></use></svg>Personnes</span>
+            <span><svg><use href="#i-import"></use></svg>Importer</span>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const people = {
+        marc: { name: "Marc Lefèvre" },
+        julie: { name: "Julie Martin" },
+        thomas: { name: "Thomas Roux" },
+        hugo: { name: "Hugo Bernard" },
+        unknown: { name: "Locuteur inconnu" },
+      };
+
+      const clips = [
+        {
+          title: "Tournoi Warzone — soirée du 12",
+          date: "12 oct. 2026",
+          tone: "",
+          passages: [
+            {
+              person: "marc",
+              time: "00:14:32",
+              before: "Franchement on a perdu la partie à cause du ",
+              hit: "lag",
+              after: ", pas à cause du niveau.",
+              level: "Validée",
+              tone: "ok",
+              flags: [],
+            },
+            {
+              person: "julie",
+              time: "00:41:08",
+              before: "Attends, il y a du ",
+              hit: "lag",
+              after: " que sur mon écran ou sur le serveur ?",
+              level: "Automatique",
+              tone: "soft",
+              flags: [],
+            },
+            {
+              person: "marc",
+              time: "01:03:11",
+              before: "Le ",
+              hit: "lag",
+              after: " revient dès que quelqu’un lance un téléchargement.",
+              level: "Validée",
+              tone: "ok",
+              flags: ["Privé"],
+            },
+          ],
+        },
+        {
+          title: "Réunion de préparation — tournage S12",
+          date: "9 oct. 2026",
+          tone: "warm",
+          passages: [
+            {
+              person: "thomas",
+              time: "00:07:19",
+              before: "On coupera le ",
+              hit: "lag",
+              after: " au montage, ne t’inquiète pas.",
+              level: "Validée",
+              tone: "ok",
+              flags: ["Corrigé"],
+            },
+          ],
+        },
+        {
+          title: "Session ranked — 8 octobre",
+          date: "8 oct. 2026",
+          tone: "green",
+          passages: [
+            {
+              person: "hugo",
+              time: "00:22:54",
+              before: "Le ",
+              hit: "lag",
+              after: " a sauté d’un coup quand j’ai branché l’Ethernet.",
+              level: "Automatique",
+              tone: "soft",
+              flags: [],
+            },
+            {
+              person: "unknown",
+              time: "00:48:20",
+              before: "Ça vient du ",
+              hit: "lag",
+              after: " du serveur, c’est pas nous.",
+              level: "Inconnue",
+              tone: "warn",
+              flags: [],
+            },
+          ],
+        },
+      ];
+
+      function avatar(person, extra = "") {
+        return `<svg class="pp ${extra}" viewBox="0 0 64 64" aria-hidden="true"><use href="#pp-${person}"></use></svg>`;
+      }
+
+      function name(person) {
+        return `<span class="name${person === "unknown" ? " unknown" : ""}">${people[person].name}</span>`;
+      }
+
+      function speakerName(person) {
+        return `<span class="speaker-name${person === "unknown" ? " unknown" : ""}">${people[person].name}</span>`;
+      }
+
+      function flags(passage) {
+        return passage.flags
+          .map((flag) => `<span class="badge">${flag}</span>`)
+          .join("");
+      }
+
+      function quote(passage) {
+        return `“${passage.before}<mark>${passage.hit}</mark>${passage.after}”`;
+      }
+
+      function voices(clip) {
+        const list = [...new Set(clip.passages.map((passage) => passage.person))];
+        return {
+          list,
+          stack: list.map((person) => avatar(person)).join(""),
+          names: list
+            .map((person) =>
+              person === "unknown" ? "Inconnu" : people[person].name.split(" ")[0],
+            )
+            .join(", "),
+        };
+      }
+
+      function head(clip) {
+        const seen = voices(clip);
+        return `<header class="group-head">
+          <span class="thumb ${clip.tone}"></span>
+          <div class="titles">
+            <h2>${clip.title}</h2>
+            <p class="sub">${clip.date} · ${clip.passages.length} passage${clip.passages.length > 1 ? "s" : ""} · ${seen.list.length} voix</p>
+          </div>
+          <div class="voices">
+            <span class="stack">${seen.stack}</span>
+            <span class="voice-names">${seen.names}</span>
+          </div>
+          <span class="open">Ouvrir le clip<svg><use href="#i-arrow"></use></svg></span>
+        </header>`;
+      }
+
+      function renderB1() {
+        return clips
+          .map(
+            (clip) => `<article class="group">
+              ${head(clip)}
+              <div class="passages">
+                ${clip.passages
+                  .map(
+                    (passage) => `<div class="passage spk-${passage.person}">
+                      ${avatar(passage.person)}
+                      <div class="pbody">
+                        <div class="who">
+                          ${name(passage.person)}
+                          <span class="badge ${passage.tone}">${passage.level}</span>
+                          ${flags(passage)}
+                          <a class="time" href="#">${passage.time}</a>
+                        </div>
+                        <p class="quote">${quote(passage)}</p>
+                      </div>
+                    </div>`,
+                  )
+                  .join("")}
+              </div>
+            </article>`,
+          )
+          .join("");
+      }
+
+      function renderB2() {
+        return clips
+          .map(
+            (clip) => `<article class="group">
+              ${head(clip)}
+              <div class="passages">
+                ${clip.passages
+                  .map(
+                    (passage) => `<div class="passage-card spk-${passage.person}">
+                      <div class="speaker">
+                        ${avatar(passage.person)}
+                        ${speakerName(passage.person)}
+                        <div class="badges">
+                          <span class="badge ${passage.tone}">${passage.level}</span>
+                          ${flags(passage)}
+                        </div>
+                        <a class="time" href="#">${passage.time}</a>
+                      </div>
+                      <p class="quote">${quote(passage)}</p>
+                    </div>`,
+                  )
+                  .join("")}
+              </div>
+            </article>`,
+          )
+          .join("");
+      }
+
+      document.getElementById("groups-b1").innerHTML = renderB1();
+      document.getElementById("groups-b2").innerHTML = renderB2();
+
+      const totalPassages = clips.reduce(
+        (total, clip) => total + clip.passages.length,
+        0,
+      );
+      document.getElementById("lead-count").textContent =
+        `${totalPassages} passages dans ${clips.length} clips`;
+      document.getElementById("result-count").textContent =
+        `${totalPassages} passages`;
+      document.getElementById("clip-count").textContent =
+        `dans ${clips.length} clips · voix mises en avant`;
+
+      const app = document.getElementById("app");
+      const device = document.getElementById("device");
+
+      function bind(id, attribute, apply) {
+        const element = document.getElementById(id);
+        element.addEventListener("click", (event) => {
+          const button = event.target.closest("button");
+          if (!button) return;
+          for (const item of element.querySelectorAll("button")) {
+            item.classList.toggle("active", item === button);
+          }
+          if (apply) apply(button.dataset.value);
+          if (attribute) app.setAttribute(attribute, button.dataset.value);
+        });
+      }
+
+      bind("variants", "data-variant");
+      bind("states", "data-state", (value) => {
+        const query = value === "empty" ? "lagg" : "lag";
+        document.querySelector(".searchbox input").value = query;
+      });
+      bind("themes", null, (value) =>
+        document.documentElement.setAttribute("data-theme", value),
+      );
+      bind("widths", null, (value) => {
+        const phone = value === "phone";
+        device.classList.toggle("phone", phone);
+        document.querySelector(".rail").open = !phone;
+      });
+    </script>
+  </body>
+</html>

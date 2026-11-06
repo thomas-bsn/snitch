@@ -5,15 +5,11 @@ import type { Result } from "../api/loaded";
 export type SearchPage = components["schemas"]["SearchPage"];
 export type SearchResult = components["schemas"]["SearchResult"];
 
-export const SEARCH_MODES = ["full_text", "exact", "hybrid"] as const;
-export type SearchMode = (typeof SEARCH_MODES)[number];
-
 export const PAGE_SIZE = 20;
 
-/** What is searched and how, as it lives in the address. */
+/** What is searched, as it lives in the address. Search is always exact. */
 export type SearchFilters = {
   q: string;
-  mode: SearchMode;
   from: string;
   to: string;
   source: string;
@@ -36,7 +32,7 @@ export async function fetchSearch(
     params: {
       query: {
         q: filters.q,
-        mode: filters.mode,
+        mode: "exact",
         page: filters.page,
         page_size: PAGE_SIZE,
         from: filters.from || undefined,

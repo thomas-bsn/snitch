@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useLoaded } from "../api/loaded";
 import type { Result } from "../api/loaded";
-import { fetchSearch, SEARCH_MODES } from "../search/searchApi";
+import { fetchSearch } from "../search/searchApi";
 import {
   asExplorerStage,
   asExplorerState,
@@ -64,12 +64,10 @@ function parse(from: string) {
 async function readSequence(from: string): Promise<Result<Sequence>> {
   const { path, params } = parse(from);
   if (path === "/search") {
-    const mode = SEARCH_MODES.find((m) => m === params.get("mode"));
     const page = Number(params.get("page"));
     const q = (params.get("q") ?? "").trim().slice(0, 200);
     const found = await fetchSearch({
       q,
-      mode: mode ?? "full_text",
       from: params.get("from") ?? "",
       to: params.get("to") ?? "",
       source: params.get("source") ?? "",
